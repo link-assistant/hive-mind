@@ -358,6 +358,27 @@ else
   log_info "Bun already installed."
 fi
 
+# --- Deno ---
+if ! command -v deno &>/dev/null; then
+  log_info "Installing Deno..."
+  curl -fsSL https://deno.land/install.sh | sh
+  export DENO_INSTALL="$HOME/.deno"
+  export PATH="$DENO_INSTALL/bin:$PATH"
+  # Add Deno to shell profile for persistence
+  if ! grep -q 'DENO_INSTALL' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Deno to shell configuration..."
+    {
+      echo ''
+      echo '# Deno configuration'
+      echo 'export DENO_INSTALL="$HOME/.deno"'
+      echo 'export PATH="$DENO_INSTALL/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "Deno installed"
+else
+  log_info "Deno already installed."
+fi
+
 # --- NVM + Node ---
 if [ ! -d "$HOME/.nvm" ]; then
   log_info "Installing NVM..."
@@ -694,6 +715,7 @@ echo "System & Development Tools:"
 if command -v gh &>/dev/null; then log_success "GitHub CLI: $(gh --version | head -n1)"; else log_warning "GitHub CLI: not found"; fi
 if command -v git &>/dev/null; then log_success "Git: $(git --version)"; else log_warning "Git: not found"; fi
 if command -v bun &>/dev/null; then log_success "Bun: $(bun --version)"; else log_warning "Bun: not found"; fi
+if command -v deno &>/dev/null; then log_success "Deno: $(deno --version | head -n1)"; else log_warning "Deno: not found"; fi
 if command -v node &>/dev/null; then log_success "Node.js: $(node --version)"; else log_warning "Node.js: not found"; fi
 if command -v npm &>/dev/null; then log_success "NPM: $(npm --version)"; else log_warning "NPM: not found"; fi
 if command -v python &>/dev/null; then log_success "Python: $(python --version)"; else log_warning "Python: not found"; fi

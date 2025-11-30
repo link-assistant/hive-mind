@@ -217,9 +217,9 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 
-  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; gpt-4o, gpt-4o-mini for openai)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, gpt-4o for openai]
+  --tool                AI tool (claude, opencode, codex, openai)    [default: claude]
   --fork, -f            Fork repo if no write access         [default: false]
   --auto-fork           Automatically fork public repos without write access (fails for private)
                         [default: false]
@@ -264,6 +264,40 @@ solve <issue-url> [options]
   --help, -h            Show help
 ```
 
+### OpenAI-Compatible Setup
+
+You can run Hive Mind with any OpenAI-compatible Chat Completions endpoint.
+
+- Use `--tool openai` and set a valid model (e.g., `gpt-4o`, `gpt-4o-mini`).
+- Provide the endpoint and API key via flags or environment variables.
+
+Supported configuration:
+- Flags:
+  - `--openai-endpoint` – full URL to Chat Completions endpoint (e.g., `https://api.openai.com/v1/chat/completions` or your provider's `/api/v1/chat/completions`).
+  - `--openai-api-key` – Bearer token to use for authorization.
+- Environment variables (checked in order):
+  - Endpoint: `HIVE_MIND_OPENAI_ENDPOINT`, then `OPENAI_COMPAT_ENDPOINT`.
+  - API key: `HIVE_MIND_OPENAI_API_KEY`, then `OPENAI_API_KEY`, then `OPENAI_COMPAT_API_KEY`.
+
+Examples:
+```bash
+# Solve a single issue with OpenAI-compatible endpoint
+solve https://github.com/owner/repo/issues/123 \
+  --tool openai \
+  --model gpt-4o \
+  --openai-endpoint https://api.openai.com/v1/chat/completions \
+  --openai-api-key $OPENAI_API_KEY
+
+# Or configure via environment variables
+export HIVE_MIND_OPENAI_ENDPOINT=https://api.openai.com/v1/chat/completions
+export HIVE_MIND_OPENAI_API_KEY=$OPENAI_API_KEY
+solve https://github.com/owner/repo/issues/123 --tool openai --model gpt-4o
+```
+
+Notes:
+- `--dry-run` and `--skip-tool-check` let you exercise the flow without contacting the endpoint (useful for CI/scripts).
+- When used from `hive`, pass `--tool openai` and optionally `--model gpt-4o`; defaults apply if omitted.
+
 ## 🔧 hive Options
 ```bash
 hive <github-url> [options]
@@ -273,9 +307,9 @@ hive <github-url> [options]
   --skip-issues-with-prs, -s  Skip issues with existing PRs [default: false]
   --concurrency, -c     Parallel workers                     [default: 2]
   --pull-requests-per-issue, -p  Number of PRs per issue    [default: 1]
-  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; gpt-4o, gpt-4o-mini for openai)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, gpt-4o for openai]
+  --tool                AI tool (claude, opencode, codex, openai)    [default: claude]
   --interval, -i        Poll interval (seconds)              [default: 300]
   --max-issues          Limit processed issues               [default: 0 (unlimited)]
   --once                Single run (don't monitor)           [default: false]

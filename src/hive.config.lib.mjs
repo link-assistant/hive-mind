@@ -62,7 +62,16 @@ export const createYargsConfig = (yargsInstance) => {
       type: 'string',
       description: 'Model to use for solve (opus, sonnet, haiku, or any model ID supported by the tool)',
       alias: 'm',
-      default: 'sonnet'
+      default: (currentParsedArgs) => {
+        if (currentParsedArgs?.tool === 'opencode') {
+          return 'grok-code-fast-1';
+        } else if (currentParsedArgs?.tool === 'codex') {
+          return 'gpt-5';
+        } else if (currentParsedArgs?.tool === 'openai') {
+          return 'gpt-4o';
+        }
+        return 'sonnet';
+      }
     })
     .option('interval', {
       type: 'number',
@@ -99,7 +108,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode'],
+      choices: ['claude', 'opencode', 'openai'],
       default: 'claude'
     })
     .option('verbose', {

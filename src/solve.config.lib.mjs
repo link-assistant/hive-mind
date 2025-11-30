@@ -68,7 +68,7 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3)',
+      description: 'Model to use (for claude: opus, sonnet, haiku; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for openai: gpt-4o, gpt-4o-mini, etc.)',
       alias: 'm',
       default: (currentParsedArgs) => {
         // Dynamic default based on tool selection
@@ -76,9 +76,19 @@ export const createYargsConfig = (yargsInstance) => {
           return 'grok-code-fast-1';
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
+        } else if (currentParsedArgs?.tool === 'openai') {
+          return 'gpt-4o';
         }
         return 'sonnet';
       }
+    })
+    .option('openai-endpoint', {
+      type: 'string',
+      description: 'Full URL to OpenAI-compatible Chat Completions endpoint (e.g., https://api.openai.com/v1/chat/completions or https://host/api/v1/chat/completions)'
+    })
+    .option('openai-api-key', {
+      type: 'string',
+      description: 'API key (Bearer token) for OpenAI-compatible endpoint'
     })
     .option('auto-pull-request-creation', {
       type: 'boolean',
@@ -217,7 +227,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode', 'codex'],
+      choices: ['claude', 'opencode', 'codex', 'openai'],
       default: 'claude'
     })
     .parserConfiguration({

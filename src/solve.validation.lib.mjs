@@ -237,6 +237,14 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'openai') {
+      // Validate OpenAI-compatible endpoint
+      const openaiLib = await import('./openai.lib.mjs');
+      isToolConnected = await openaiLib.validateOpenAIConnection(model, argv);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without OpenAI-compatible endpoint configured', { level: 'error' });
+        return false;
+      }
     } else {
       // Validate Claude CLI connection (default)
       const isClaudeConnected = await validateClaudeConnection(model);

@@ -115,6 +115,9 @@ if (argv.tool === 'opencode') {
 } else if (argv.tool === 'codex') {
   const codexLib = await import('./codex.lib.mjs');
   checkForUncommittedChanges = codexLib.checkForUncommittedChanges;
+} else if (argv.tool === 'openai') {
+  const openaiLib = await import('./openai.lib.mjs');
+  checkForUncommittedChanges = openaiLib.checkForUncommittedChanges;
 } else {
   checkForUncommittedChanges = claudeLib.checkForUncommittedChanges;
 }
@@ -771,6 +774,32 @@ try {
       codexPath,
       $
     });
+  } else if (argv.tool === 'openai') {
+    const openaiLib = await import('./openai.lib.mjs');
+    const { executeOpenAI } = openaiLib;
+
+    toolResult = await executeOpenAI({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      $
+    });
   } else {
     // Default to Claude
     const claudeResult = await executeClaude({
@@ -891,7 +920,8 @@ try {
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
           toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
                     (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'openai' ? 'OpenAI' : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,

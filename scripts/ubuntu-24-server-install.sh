@@ -436,6 +436,56 @@ else
   log_info "Rust already installed."
 fi
 
+# --- Java (SDKMAN + OpenJDK) ---
+if [ ! -d "$HOME/.sdkman" ]; then
+  log_info "Installing SDKMAN (Java version manager)..."
+  curl -s "https://get.sdkman.io?rcupdate=false" | bash
+  # Add SDKMAN to shell profile for persistence
+  if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding SDKMAN to shell configuration..."
+    {
+      echo ''
+      echo '# SDKMAN configuration'
+      echo 'export SDKMAN_DIR="$HOME/.sdkman"'
+      echo '[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "SDKMAN installed and configured"
+else
+  log_info "SDKMAN already installed."
+fi
+
+# Load SDKMAN for current session and install Java
+export SDKMAN_DIR="$HOME/.sdkman"
+if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  log_success "SDKMAN loaded for current session"
+
+  # Install latest LTS Java version (Java 21)
+  log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
+    # Install Eclipse Temurin (recommended OpenJDK distribution)
+    sdk install java 21-tem < /dev/null || {
+      log_warning "Eclipse Temurin installation failed, trying default OpenJDK..."
+      sdk install java 21-open < /dev/null || {
+        log_warning "Java installation failed. You can install manually with: sdk install java"
+      }
+    }
+  else
+    log_info "Java 21 (Temurin) already installed."
+  fi
+
+  # Verify Java installation
+  if command -v java &>/dev/null; then
+    log_success "Java version manager setup complete"
+    java -version 2>&1 | head -n1
+  else
+    log_warning "Java installation may have failed. You can install manually with: sdk install java"
+  fi
+else
+  log_warning "SDKMAN installation may have failed. Skipping Java setup."
+fi
+
 # --- Homebrew ---
 if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
@@ -700,6 +750,8 @@ if command -v python &>/dev/null; then log_success "Python: $(python --version)"
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
+if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
 if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi
 if command -v php &>/dev/null; then
   log_success "PHP: $(php --version | head -n1)"

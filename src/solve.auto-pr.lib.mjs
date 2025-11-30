@@ -553,41 +553,88 @@ Issue: ${issueUrl}`;
         }
 
         if (!compareReady) {
-          await log('');
-          await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
-          await log(`     between ${targetBranchForCompare} and ${branchName}.`);
-          await log('');
-          await log('  💡 This usually means:');
-          await log('     • GitHub\'s backend systems haven\'t finished indexing the push');
-          await log('     • There\'s a temporary issue with GitHub\'s API');
-          await log('     • The commits may not have been pushed correctly');
-          await log('');
-          await log('  🔧 How to fix:');
-          await log('     1. Wait a minute and try creating the PR manually:');
-          // For fork mode, use the correct head reference format
+          // Check if this is a repository mismatch error (HTTP 404 from compare API)
+          let isRepositoryMismatch = false;
           if (argv.fork && forkedRepo) {
-            const forkUser = forkedRepo.split('/')[0];
-            await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
-          } else {
-            await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
+            // For fork mode, check the last compare API call result for 404
+            const lastCompareOutput = compareResult.stdout || compareResult.stderr || '';
+            if (lastCompareOutput.includes('HTTP 404') || lastCompareOutput.includes('Not Found')) {
+              isRepositoryMismatch = true;
+            }
           }
-          await log('     2. Check if the branch exists on GitHub:');
-          // Show the correct repository where the branch was pushed
-          const branchRepo = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
-          await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
-          await log('     3. Check the commit is on GitHub:');
-          // Use the correct head reference for the compare API check
-          if (argv.fork && forkedRepo) {
-            const forkUser = forkedRepo.split('/')[0];
-            await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+
+          if (isRepositoryMismatch) {
+            await log('');
+            await log(formatAligned('❌', 'REPOSITORY MISMATCH:', 'Fork is from different repository tree'), { level: 'error' });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     Your fork ${forkedRepo} appears to be from a different repository tree`);
+            await log(`     than the target repository ${owner}/${repo}.`);
+            await log('     GitHub\'s compare API cannot find commits between these repositories.');
+            await log('');
+            await log('  📦 Error details:');
+            await log('     • Target repository: ' + `${owner}/${repo}`);
+            await log('     • Your fork: ' + forkedRepo);
+            await log('     • Compare API returned: HTTP 404 (Not Found)');
+            await log('');
+            await log('  💡 Why this happens:');
+            await log('     This occurs when you have an existing fork from a different repository');
+            await log('     that shares the same name but is from a different source.');
+            await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
+            await log('');
+            await log('  🔧 How to fix:');
+            await log('     Option 1: Delete the conflicting fork and create a new one');
+            await log(`        gh repo delete ${forkedRepo}`);
+            await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
+            await log('');
+            await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
+            await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+            await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+            await log('');
+            await log('     Option 3: Work directly on the repository (if you have write access)');
+            await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+            await log('');
+
+            throw new Error('Repository mismatch - fork is from different repository tree');
           } else {
-            await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+            // Original timeout error for other cases
+            await log('');
+            await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), { level: 'error' });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
+            await log(`     between ${targetBranchForCompare} and ${branchName}.`);
+            await log('');
+            await log('  💡 This usually means:');
+            await log('     • GitHub\'s backend systems haven\'t finished indexing the push');
+            await log('     • There\'s a temporary issue with GitHub\'s API');
+            await log('     • The commits may not have been pushed correctly');
+            await log('');
+            await log('  🔧 How to fix:');
+            await log('     1. Wait a minute and try creating the PR manually:');
+            // For fork mode, use the correct head reference format
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+            } else {
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
+            }
+            await log('     2. Check if the branch exists on GitHub:');
+            // Show the correct repository where the branch was pushed
+            const branchRepo = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
+            await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
+            await log('     3. Check the commit is on GitHub:');
+            // Use the correct head reference for the compare API check
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+            } else {
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+            }
+            await log('');
+
+            throw new Error('GitHub compare API not ready - cannot create PR safely');
           }
-          await log('');
-          throw new Error('GitHub compare API not ready - cannot create PR safely');
         }
 
         // Verify the push actually worked by checking GitHub API

@@ -663,7 +663,9 @@ ${logContent}
           if (gistDetailsResult.code === 0) {
             const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
             const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
-            const fileName = 'solution-draft-log.txt';
+            // Get the actual filename from the gist API response (--filename flag only works with stdin)
+            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
+            const fileName = fileNames.length > 0 ? fileNames[0] : 'solution-draft-log.txt';
 
             if (commitSha) {
               gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;

@@ -220,6 +220,16 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['claude', 'opencode', 'codex'],
       default: 'claude'
     })
+    .option('live-updates', {
+      type: 'boolean',
+      description: 'Monitor for issue/PR updates during execution and restart when detected (enables real-time reaction to edits and new comments)',
+      default: false
+    })
+    .option('live-updates-interval', {
+      type: 'number',
+      description: 'Interval in seconds for checking live updates during execution (default: 30)',
+      default: 30
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

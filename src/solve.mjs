@@ -86,6 +86,10 @@ const { startWorkSession, endWorkSession } = sessionLib;
 const preparationLib = await import('./solve.preparation.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
 
+// Import live updates monitoring module for issue #723
+const liveUpdatesLib = await import('./solve.live-updates.lib.mjs');
+const { createLiveUpdatesMonitor } = liveUpdatesLib;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -713,8 +717,54 @@ try {
     $
   });
 
-  // Execute tool command with all prompts and settings
+  // Initialize live updates monitor if enabled (issue #723)
+  let liveUpdatesMonitor = null;
+  if (argv.liveUpdates) {
+    await log(`\n${formatAligned('👁️', 'Live Updates:', 'Enabled - will monitor for issue/PR changes during execution')}`);
+    liveUpdatesMonitor = await createLiveUpdatesMonitor({
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      argv,
+      checkInterval: (argv.liveUpdatesInterval || 30) * 1000,
+      onUpdateDetected: async () => {
+        // When updates are detected, log a prominent message
+        await log('');
+        await log('═══════════════════════════════════════════════════════════════');
+        await log('🔔 LIVE UPDATE: Changes detected on issue/PR!');
+        await log('   The bot will incorporate these changes after current task.');
+        await log('═══════════════════════════════════════════════════════════════');
+        await log('');
+      }
+    });
+  }
+
+  // Track execution iterations for live updates restart
+  let liveUpdatesIteration = 0;
+  const maxLiveUpdatesIterations = 3; // Limit restarts to prevent infinite loops
+
+  // Execute tool command with all prompts and settings (with live updates loop)
   let toolResult;
+  let shouldRestartForLiveUpdates = false;
+
+  do {
+    liveUpdatesIteration++;
+    shouldRestartForLiveUpdates = false;
+
+    // If this is a restart due to live updates, add the detected updates to feedbackLines
+    if (liveUpdatesIteration > 1 && liveUpdatesMonitor && liveUpdatesMonitor.hasUpdates()) {
+      await log(`\n${formatAligned('🔄', 'Live Updates Restart:', `Iteration ${liveUpdatesIteration}/${maxLiveUpdatesIterations}`)}`);
+      const updateFeedback = liveUpdatesMonitor.getUpdatesAsFeedback();
+      if (updateFeedback.length > 0) {
+        if (!feedbackLines) {
+          feedbackLines = [];
+        }
+        feedbackLines.push(...updateFeedback);
+      }
+      liveUpdatesMonitor.clearUpdates();
+    }
+
   if (argv.tool === 'opencode') {
     const opencodeLib = await import('./opencode.lib.mjs');
     const { executeOpenCode } = opencodeLib;
@@ -797,6 +847,43 @@ try {
       $
     });
     toolResult = claudeResult;
+  }
+
+  // Check if live updates were detected during execution
+  if (liveUpdatesMonitor && liveUpdatesMonitor.hasUpdates() && toolResult.success) {
+    // Only restart if:
+    // 1. We haven't exceeded max iterations
+    // 2. The tool execution was successful (no point restarting on failure)
+    // 3. No limit was reached
+    if (liveUpdatesIteration < maxLiveUpdatesIterations && !toolResult.limitReached) {
+      await log('');
+      await log(`${formatAligned('🔄', 'Live Updates:', 'Changes detected - will restart to incorporate updates')}`);
+      shouldRestartForLiveUpdates = true;
+
+      // Post a comment to PR about the restart if we have one
+      if (prNumber) {
+        try {
+          const updateSummary = liveUpdatesMonitor.getLatestUpdates().updateSummary.join(', ');
+          const restartComment = `🔄 **Live Updates Restart**\n\nDetected changes during execution: ${updateSummary}\n\nRestarting to incorporate the updates (iteration ${liveUpdatesIteration + 1}/${maxLiveUpdatesIterations}).`;
+          await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${restartComment}`;
+          await log('   Posted restart notification to PR');
+        } catch {
+          // Ignore comment posting errors
+        }
+      }
+    } else if (liveUpdatesIteration >= maxLiveUpdatesIterations) {
+      await log('');
+      await log(`${formatAligned('⚠️', 'Live Updates:', 'Max iterations reached - skipping restart')}`);
+      await log('   The bot will not restart again to prevent infinite loops.');
+      await log('   Use --watch mode if you want continued monitoring after completion.');
+    }
+  }
+
+  } while (shouldRestartForLiveUpdates);
+
+  // Stop live updates monitor after execution loop completes
+  if (liveUpdatesMonitor) {
+    await liveUpdatesMonitor.stop();
   }
 
   const { success } = toolResult;

@@ -271,6 +271,11 @@ log_info "Installing essential development tools..."
 sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
 log_success "Essential tools installed"
 
+# --- Install C/C++ Development Tools ---
+log_info "Installing C/C++ development tools (CMake, Clang/LLVM)..."
+sudo apt install -y cmake clang llvm lld
+log_success "C/C++ development tools installed"
+
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
 sudo apt install -y \
@@ -711,6 +716,17 @@ else
   log_warning "PHP: not found"
 fi
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
+
+echo ""
+echo "C/C++ Development Tools:"
+if command -v make &>/dev/null; then log_success "Make: $(make --version | head -n1)"; else log_warning "Make: not found"; fi
+if command -v cmake &>/dev/null; then log_success "CMake: $(cmake --version | head -n1)"; else log_warning "CMake: not found"; fi
+if command -v gcc &>/dev/null; then log_success "GCC: $(gcc --version | head -n1)"; else log_warning "GCC: not found"; fi
+if command -v g++ &>/dev/null; then log_success "G++: $(g++ --version | head -n1)"; else log_warning "G++: not found"; fi
+if command -v clang &>/dev/null; then log_success "Clang: $(clang --version | head -n1)"; else log_warning "Clang: not found"; fi
+if command -v clang++ &>/dev/null; then log_success "Clang++: $(clang++ --version | head -n1)"; else log_warning "Clang++: not found"; fi
+if command -v llvm-config &>/dev/null; then log_success "LLVM: $(llvm-config --version)"; else log_warning "LLVM: not found"; fi
+if command -v lld &>/dev/null; then log_success "LLD Linker: $(lld --version | head -n1)"; else log_warning "LLD Linker: not found"; fi
 
 echo ""
 echo "Swap Configuration:"

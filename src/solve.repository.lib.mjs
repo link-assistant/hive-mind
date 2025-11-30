@@ -96,10 +96,34 @@ export const checkExistingForkOfRoot = async (rootRepo) => {
   }
 };
 
+/**
+ * Build workspace directory name according to the specification:
+ * /tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number|string} issueNumber - Issue number
+ * @param {number} timestamp - Unix timestamp
+ * @returns {string} The workspace directory path
+ */
+export const buildWorkspacePath = (owner, repo, issueNumber, timestamp) => {
+  // Format: /tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}
+  const baseDir = path.join(os.tmpdir(), `hive-mind-solve-gh-${owner}`);
+  const workspaceDir = path.join(baseDir, `${repo}-issue-${issueNumber}-workspace-${timestamp}`);
+  return workspaceDir;
+};
+
 // Create or find temporary directory for cloning the repository
-export const setupTempDirectory = async (argv) => {
+// When --enable-workspaces is used with --tool opencode, creates:
+//   {workspace}/repository - for the cloned repo
+//   {workspace}/tmp - for temp files, logs, downloads
+export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   let tempDir;
+  let workspaceTmpDir = null;
   let isResuming = argv.resume;
+
+  // Check if workspace mode should be enabled
+  const useWorkspaces = argv.enableWorkspaces && argv.tool === 'opencode';
 
   if (isResuming) {
     // When resuming, try to find existing directory or create a new one
@@ -126,13 +150,34 @@ export const setupTempDirectory = async (argv) => {
       await fs.mkdir(tempDir, { recursive: true });
       await log(`Creating temporary directory for resumed session: ${tempDir}`);
     }
+  } else if (useWorkspaces && workspaceInfo) {
+    // Workspace mode: create structured workspace with repository/ and tmp/ subdirectories
+    const { owner, repo, issueNumber } = workspaceInfo;
+    const timestamp = Date.now();
+    const workspaceDir = buildWorkspacePath(owner, repo, issueNumber, timestamp);
+
+    // Create the workspace structure:
+    // {workspace}/repository - where the repo will be cloned
+    // {workspace}/tmp - for temp files, logs, command outputs
+    const repoDir = path.join(workspaceDir, 'repository');
+    workspaceTmpDir = path.join(workspaceDir, 'tmp');
+
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(workspaceTmpDir, { recursive: true });
+
+    tempDir = repoDir;
+
+    await log(`\n${formatAligned('📂', 'Workspace mode:', 'ENABLED')}`);
+    await log(formatAligned('', 'Workspace root:', workspaceDir, 2));
+    await log(formatAligned('', 'Repository dir:', repoDir, 2));
+    await log(formatAligned('', 'Temp dir:', workspaceTmpDir, 2));
   } else {
     tempDir = path.join(os.tmpdir(), `gh-issue-solver-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
     await log(`\nCreating temporary directory: ${tempDir}`);
   }
 
-  return { tempDir, isResuming };
+  return { tempDir, workspaceTmpDir, isResuming };
 };
 
 // Try to initialize an empty repository by creating a simple README.md

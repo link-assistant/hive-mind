@@ -40,6 +40,12 @@ export const createYargsConfig = (yargsInstance) => {
       default: false,
       alias: 'a'
     })
+    .option('assign-mode', {
+      type: 'boolean',
+      description: 'Monitor issues assigned to the authenticated GitHub user (trigger solving when assigned)',
+      default: false,
+      alias: 'A'
+    })
     .option('skip-issues-with-prs', {
       type: 'boolean',
       description: 'Skip issues that already have open pull requests',

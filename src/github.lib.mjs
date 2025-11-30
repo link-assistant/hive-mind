@@ -21,6 +21,19 @@ import {
 } from './github.batch.lib.mjs';
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
+
+/**
+ * Get the currently authenticated GitHub user
+ * @returns {Promise<string>} The GitHub username
+ * @throws {Error} If unable to determine the user
+ */
+export async function getCurrentGitHubUser() {
+  const userResult = await $`gh api user --jq .login`;
+  if (userResult.code !== 0) {
+    throw new Error('Failed to get current GitHub user');
+  }
+  return userResult.stdout.toString().trim();
+}
 // Helper function to get GitHub tokens from local config files
 export const getGitHubTokensFromFiles = async () => {
   const tokens = [];
@@ -1043,6 +1056,25 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     return [];
   }
 }
+
+/** Fetch issues assigned to a specific GitHub user */
+export async function fetchAssignedIssues(owner, repo, scope, assignee) {
+  await log(`   🔎 Fetching issues assigned to ${assignee}...`);
+  const searchCmd = scope === 'repository'
+    ? `gh issue list --repo ${owner}/${repo} --state open --assignee "${assignee}" --json url,title,number,createdAt`
+    : `gh search issues ${scope === 'organization' ? 'org' : 'user'}:${owner} is:open assignee:${assignee} --json url,title,number,createdAt,repository`;
+  await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
+  try {
+    const issues = await fetchAllIssuesWithPagination(searchCmd);
+    await log(`   ✅ Found ${issues.length} issues assigned to ${assignee}`);
+    return issues;
+  } catch (error) {
+    reportError(error, { context: 'github.lib.mjs - fetchAssignedIssues', owner, repo, scope, assignee });
+    await log(`   ❌ Failed to fetch assigned issues: ${cleanErrorMessage(error)}`, { level: 'error' });
+    throw error;
+  }
+}
+
 // Re-export batch operations from separate module
 export const batchCheckPullRequestsForIssues = batchCheckPRs;
 /**

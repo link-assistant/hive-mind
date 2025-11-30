@@ -109,7 +109,7 @@ const { createYargsConfig } = yargsConfigLib;
 const claudeLib = await import('./claude.lib.mjs');
 const { validateClaudeConnection } = claudeLib;
 const githubLib = await import('./github.lib.mjs');
-const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
+const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, fetchAssignedIssues, getCurrentGitHubUser, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
 // Import YouTrack-related functions
 const youTrackLib = await import('./youtrack/youtrack.lib.mjs');
 const {
@@ -440,7 +440,7 @@ if (argv.sentry) {
     message: 'Started monitoring',
     level: 'info',
     data: {
-      mode: argv.projectMode ? 'project' : (argv.allIssues ? 'all' : 'label'),
+      mode: argv.projectMode ? 'project' : (argv.assignMode ? 'assign' : (argv.allIssues ? 'all' : 'label')),
       concurrency: argv.concurrency,
       model: argv.model
     }
@@ -500,6 +500,16 @@ if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
   if (!hasValidAuth) {
     await log('\n❌ Cannot proceed without valid GitHub authentication', { level: 'error' });
     await safeExit(1, 'Error occurred');
+  }
+}
+
+// Get current GitHub user (needed for assign-mode)
+let currentGitHubUser = null;
+if (argv.assignMode) {
+  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) { currentGitHubUser = '@me'; }
+  else {
+    try { currentGitHubUser = await getCurrentGitHubUser(); await log(`   ✅ Detected GitHub user: ${currentGitHubUser}`, { verbose: true }); }
+    catch (error) { reportError(error, { context: 'get_current_github_user' }); await log(`❌ Assign mode user detection failed: ${cleanErrorMessage(error)}`, { level: 'error' }); await safeExit(1, 'Error occurred'); }
   }
 }
 
@@ -596,6 +606,8 @@ if (argv.youtrackMode) {
   if (argv.projectMode) {
     await log(`   📋 Mode: PROJECT #${argv.projectNumber} (owner: ${argv.projectOwner})`);
     await log(`   📌 Status: "${argv.projectStatus}"`);
+  } else if (argv.assignMode) {
+    await log(`   👤 Mode: ASSIGN (monitoring issues assigned to: ${currentGitHubUser})`);
   } else if (argv.allIssues) {
     await log('   🏷️  Mode: ALL ISSUES (no label filter)');
   } else {
@@ -923,6 +935,8 @@ async function fetchIssues() {
     await log(`\n🔍 Fetching issues from YouTrack project ${youTrackConfig.projectCode} (stage: "${youTrackConfig.stage}")...`);
   } else if (argv.projectMode) {
     await log(`\n🔍 Fetching issues from GitHub Project #${argv.projectNumber} (status: "${argv.projectStatus}")...`);
+  } else if (argv.assignMode) {
+    await log(`\n🔍 Fetching issues assigned to ${currentGitHubUser}...`);
   } else if (argv.allIssues) {
     await log('\n🔍 Fetching ALL open issues...');
   } else {
@@ -961,6 +975,9 @@ async function fetchIssues() {
 
       issues = await fetchProjectIssues(argv.projectNumber, argv.projectOwner, argv.projectStatus);
 
+    } else if (argv.assignMode) {
+      // Fetch issues assigned to current user
+      try { issues = await fetchAssignedIssues(owner, repo, scope, currentGitHubUser); } catch { issues = []; }
     } else if (argv.allIssues) {
       // Fetch all open issues without label filter using pagination
       let searchCmd;
@@ -1094,28 +1111,13 @@ async function fetchIssues() {
       }
     }
     
-    if (issues.length === 0) {
-      if (argv.youtrackMode) {
-        await log(`   ℹ️  No issues found in YouTrack with stage "${youTrackConfig.stage}"`);
-      } else if (argv.projectMode) {
-        await log(`   ℹ️  No issues found in project with status "${argv.projectStatus}"`);
-      } else if (argv.allIssues) {
-        await log('   ℹ️  No open issues found');
-      } else {
-        await log(`   ℹ️  No issues found with label "${argv.monitorTag}"`);
-      }
-      return [];
-    }
-
-    if (argv.youtrackMode) {
-      await log(`   📋 Found ${issues.length} YouTrack issue(s) with stage "${youTrackConfig.stage}"`);
-    } else if (argv.projectMode) {
-      await log(`   📋 Found ${issues.length} issue(s) with status "${argv.projectStatus}"`);
-    } else if (argv.allIssues) {
-      await log(`   📋 Found ${issues.length} open issue(s)`);
-    } else {
-      await log(`   📋 Found ${issues.length} issue(s) with label "${argv.monitorTag}"`);
-    }
+    // Log issue count or no-issues message
+    const modeDesc = argv.youtrackMode ? `in YouTrack with stage "${youTrackConfig.stage}"` :
+                     argv.projectMode ? `in project with status "${argv.projectStatus}"` :
+                     argv.assignMode ? `assigned to ${currentGitHubUser}` :
+                     argv.allIssues ? 'open' : `with label "${argv.monitorTag}"`;
+    if (issues.length === 0) { await log(`   ℹ️  No issues found ${modeDesc}`); return []; }
+    await log(`   📋 Found ${issues.length} issue(s) ${modeDesc}`);
 
     // Sort issues by publication date (createdAt) based on issue-order option
     if (issues.length > 0 && issues[0].createdAt) {

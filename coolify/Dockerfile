@@ -59,6 +59,16 @@ RUN curl -L https://raw.githubusercontent.com/tj/n/master/bin/n -o n \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/home/hive/.cargo/bin:${PATH}"
 
+# Install Opam and Rocq (Coq theorem prover)
+USER root
+RUN apt-get update && apt-get install -y bubblewrap && apt-get clean && rm -rf /var/lib/apt/lists/*
+USER hive
+RUN bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh) --no-backup" <<< "y" || apt-get install -y opam
+RUN opam init --disable-sandboxing --auto-setup -y
+RUN opam repo add rocq-released https://rocq-prover.org/opam/released || true
+RUN eval $(opam env) && opam install rocq-prover -y || opam install coq -y || true
+ENV PATH="/home/hive/.opam/default/bin:${PATH}"
+
 # Install global npm/bun packages
 RUN bun install -g \
     @anthropic-ai/claude-code \

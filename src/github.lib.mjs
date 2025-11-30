@@ -659,7 +659,7 @@ ${logContent}
           // We use gh api to get the gist details for owner and commit SHA
           let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
 
-          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
+          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
           if (gistDetailsResult.code === 0) {
             const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
             const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
@@ -970,7 +970,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     await log(`🔍 Fetching issues from GitHub Project #${projectNumber} (owner: ${owner}, status: ${statusFilter})`);
     // Check for project scope in GitHub CLI authentication
     try {
-      const authStatus = await $`gh auth status --show-token`.quiet();
+      const authStatus = await $`gh auth status --show-token`;
       if (!authStatus.stdout.includes('project')) {
         throw new Error('Missing project scope. Run: gh auth refresh -s project');
       }
@@ -987,7 +987,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     const startTime = Date.now();
     // Fetch all project items
     await log(`   🔎 Executing: gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, { verbose: true });
-    const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`.quiet();
+    const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
     const endTime = Date.now();
     const projectData = JSON.parse(result.stdout || '{"items": []}');
     const allItems = projectData.items || [];

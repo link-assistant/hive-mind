@@ -549,6 +549,68 @@ else
   log_warning "Homebrew not available. Skipping PHP installation."
 fi
 
+# --- Perl (via Perlbrew) ---
+if [ ! -d "$HOME/perl5/perlbrew" ]; then
+  log_info "Installing Perlbrew (Perl version manager)..."
+
+  # Install Perlbrew
+  curl -L https://install.perlbrew.pl | bash
+
+  # Add Perlbrew to shell profile for persistence
+  if ! grep -q 'perlbrew' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Perlbrew to shell configuration..."
+    {
+      echo ''
+      echo '# Perlbrew configuration'
+      echo 'export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo 'source "$PERLBREW_ROOT/etc/bashrc"'
+    } >> "$HOME/.bashrc"
+  fi
+
+  # Load Perlbrew for current session
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew installed and configured"
+
+    # Install latest stable Perl version
+    log_info "Installing latest stable Perl version (this may take several minutes)..."
+    LATEST_PERL=$(perlbrew available | grep -E '^\s*perl-5\.[0-9]+\.[0-9]+$' | head -1 | tr -d '[:space:]')
+
+    if [ -n "$LATEST_PERL" ]; then
+      log_info "Installing $LATEST_PERL..."
+      if ! perlbrew list | grep -q "$LATEST_PERL"; then
+        perlbrew install "$LATEST_PERL" --notest || {
+          log_warning "Perl installation failed. You can try manually: perlbrew install $LATEST_PERL"
+        }
+      else
+        log_info "$LATEST_PERL already installed."
+      fi
+
+      # Switch to the installed Perl version
+      if perlbrew list | grep -q "$LATEST_PERL"; then
+        log_info "Switching to $LATEST_PERL..."
+        perlbrew switch "$LATEST_PERL"
+        log_success "Perl version manager setup complete"
+        perl --version | head -n 2
+      fi
+    else
+      log_warning "Could not determine latest Perl version. Skipping Perl installation."
+      log_note "You can install Perl manually: perlbrew available && perlbrew install perl-5.x.x"
+    fi
+  else
+    log_warning "Perlbrew installation may have failed. Skipping Perl setup."
+  fi
+else
+  log_info "Perlbrew already installed."
+  # Load Perlbrew for current session if available
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew loaded for current session"
+  fi
+fi
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -710,6 +772,12 @@ elif [ -x "/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php" ]; then
 else
   log_warning "PHP: not found"
 fi
+if command -v perl &>/dev/null; then
+  log_success "Perl: $(perl --version | head -n 2 | tail -n 1 | sed 's/^[[:space:]]*//')"
+else
+  log_warning "Perl: not found"
+fi
+if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
 
 echo ""

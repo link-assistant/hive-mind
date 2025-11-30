@@ -59,6 +59,10 @@ RUN curl -L https://raw.githubusercontent.com/tj/n/master/bin/n -o n \
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/home/hive/.cargo/bin:${PATH}"
 
+# Install Lean (via elan)
+RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+ENV PATH="/home/hive/.elan/bin:${PATH}"
+
 # Install global npm/bun packages
 RUN bun install -g \
     @anthropic-ai/claude-code \
@@ -83,7 +87,7 @@ RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output \
     && chown -R hive:hive /app /home/hive/.claude /home/hive/.config
 
 # Create bash profile for hive user to set PATH
-RUN echo 'export PATH="/home/hive/.bun/bin:/home/hive/.n/bin:/home/hive/.cargo/bin:$PATH"' > /home/hive/.bashrc \
+RUN echo 'export PATH="/home/hive/.bun/bin:/home/hive/.n/bin:/home/hive/.cargo/bin:/home/hive/.elan/bin:$PATH"' > /home/hive/.bashrc \
     && echo 'export BUN_INSTALL="/home/hive/.bun"' >> /home/hive/.bashrc \
     && echo 'export N_PREFIX="/home/hive/.n"' >> /home/hive/.bashrc \
     && chown hive:hive /home/hive/.bashrc

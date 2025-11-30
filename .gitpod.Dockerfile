@@ -15,3 +15,7 @@ RUN bun install -g @deep-assistant/claude-profiles
 
 # Install OpenCode AI
 RUN bun install -g opencode-ai
+
+# Install Lean (via elan)
+RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+ENV PATH="/home/gitpod/.elan/bin:${PATH}"

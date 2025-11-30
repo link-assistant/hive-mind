@@ -17,7 +17,11 @@ const { $ } = await use('command-stream');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned } = lib;
+const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
+
+// Import GitHub library functions for log attachment
+const githubLib = await import('./github.lib.mjs');
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
@@ -142,6 +146,26 @@ export const watchForFeedback = async (params) => {
         await log(formatAligned('✅', 'CHANGES COMMITTED!', 'Exiting auto-restart mode'));
         await log(formatAligned('', 'All uncommitted changes have been resolved', '', 2));
         await log('');
+
+        // Post a comment to PR about successful completion
+        if (prNumber) {
+          try {
+            const successCommentBody = `## ✅ Auto-restart completed successfully\n\nAll uncommitted changes have been reviewed and committed after ${autoRestartCount} session${autoRestartCount !== 1 ? 's' : ''}.\n\n---\n*Working session has ended. Feel free to review the changes and add any feedback.*`;
+            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${successCommentBody}`;
+            await log(formatAligned('', '💬 Posted success notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_auto_restart_success_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr'
+            });
+            // Don't fail if comment posting fails
+            await log(formatAligned('', '⚠️  Could not post success comment to PR', '', 2));
+          }
+        }
+
         break;
       }
 
@@ -152,6 +176,40 @@ export const watchForFeedback = async (params) => {
         await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
         await log(formatAligned('', 'Please review and commit manually if needed', '', 2));
         await log('');
+
+        // Post a comment to PR about max iterations reached
+        if (prNumber) {
+          try {
+            // Get uncommitted files list for the comment
+            let uncommittedFilesList = '';
+            try {
+              const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+              if (gitStatusResult.code === 0) {
+                const statusOutput = gitStatusResult.stdout.toString().trim();
+                if (statusOutput) {
+                  uncommittedFilesList = '\n\n**Remaining uncommitted files:**\n```\n' + statusOutput + '\n```';
+                }
+              }
+            } catch {
+              // If we can't get the file list, continue without it
+            }
+
+            const maxIterationsCommentBody = `## ⚠️ Auto-restart limit reached (${autoRestartCount}/${maxAutoRestartIterations})\n\nThe maximum number of auto-restart iterations has been reached. Some uncommitted changes may still remain.${uncommittedFilesList}\n\n---\n*Please review and commit any remaining changes manually if needed.*`;
+            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${maxIterationsCommentBody}`;
+            await log(formatAligned('', '💬 Posted max iterations notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_max_iterations_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr'
+            });
+            // Don't fail if comment posting fails
+            await log(formatAligned('', '⚠️  Could not post max iterations comment to PR', '', 2));
+          }
+        }
+
         break;
       }
     }
@@ -287,6 +345,42 @@ export const watchForFeedback = async (params) => {
           });
           await log('');
           await log(formatAligned('🔄', 'Restarting:', `Re-running ${argv.tool.toUpperCase()} to handle feedback...`));
+
+          // Post a comment to PR about auto-restart for subsequent iterations (not just first)
+          if (prNumber && isTemporaryWatch) {
+            try {
+              autoRestartCount++;
+              const remainingIterations = maxAutoRestartIterations - autoRestartCount;
+
+              // Get uncommitted files list for the comment
+              let uncommittedFilesList = '';
+              try {
+                const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+                if (gitStatusResult.code === 0) {
+                  const statusOutput = gitStatusResult.stdout.toString().trim();
+                  if (statusOutput) {
+                    uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + statusOutput + '\n```';
+                  }
+                }
+              } catch {
+                // If we can't get the file list, continue without it
+              }
+
+              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nStarting new session to handle remaining uncommitted changes.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
+            } catch (commentError) {
+              reportError(commentError, {
+                context: 'post_auto_restart_comment_subsequent',
+                owner,
+                repo,
+                prNumber,
+                operation: 'comment_on_pr'
+              });
+              // Don't fail if comment posting fails
+              await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
+            }
+          }
         }
 
         // Import necessary modules for tool execution
@@ -385,6 +479,25 @@ export const watchForFeedback = async (params) => {
 
         if (!toolResult.success) {
           await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
+
+          // Post a comment about the failed session
+          if (prNumber && isTemporaryWatch) {
+            try {
+              const failedCommentBody = `## ⚠️ Auto-restart session ${autoRestartCount}/${maxAutoRestartIterations} failed\n\nThe ${argv.tool.toUpperCase()} execution did not complete successfully. Will retry in next iteration.\n\n---\n*Please wait until next working session will complete.*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failedCommentBody}`;
+              await log(formatAligned('', '💬 Posted session failure notification to PR', '', 2));
+            } catch (commentError) {
+              reportError(commentError, {
+                context: 'post_auto_restart_failure_comment',
+                owner,
+                repo,
+                prNumber,
+                operation: 'comment_on_pr'
+              });
+              // Don't fail if comment posting fails
+              await log(formatAligned('', '⚠️  Could not post failure comment to PR', '', 2));
+            }
+          }
         } else {
           // Capture latest session data from successful execution for accurate pricing
           if (toolResult.sessionId) {
@@ -403,6 +516,55 @@ export const watchForFeedback = async (params) => {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking for remaining changes...'));
           } else {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Resuming watch mode...'));
+          }
+
+          // Post a comment with session completion and logs (if --attach-logs is enabled)
+          if (prNumber && isTemporaryWatch) {
+            try {
+              // Check if log attachment is requested
+              const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+              const logFile = getLogFile();
+
+              if (shouldAttachLogs && logFile) {
+                await log(formatAligned('', '📎 Uploading auto-restart session log to PR...', '', 2));
+                const logUploadSuccess = await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  customTitle: `🔄 Auto-restart session ${autoRestartCount}/${maxAutoRestartIterations} completed`,
+                  sessionId: latestSessionId,
+                  tempDir,
+                  anthropicTotalCostUSD: latestAnthropicCost
+                });
+
+                if (logUploadSuccess) {
+                  await log(formatAligned('', '✅ Session log uploaded to PR', '', 2));
+                } else {
+                  await log(formatAligned('', '⚠️  Could not upload session log', '', 2));
+                }
+              } else {
+                // Post a simple completion comment without logs
+                const completionCommentBody = `## ✅ Auto-restart session ${autoRestartCount}/${maxAutoRestartIterations} completed\n\nThe ${argv.tool.toUpperCase()} execution has finished successfully.\n\n---\n*Checking for remaining uncommitted changes...*`;
+                await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${completionCommentBody}`;
+                await log(formatAligned('', '💬 Posted session completion notification to PR', '', 2));
+              }
+            } catch (commentError) {
+              reportError(commentError, {
+                context: 'post_auto_restart_completion_comment',
+                owner,
+                repo,
+                prNumber,
+                operation: 'comment_on_pr'
+              });
+              // Don't fail if comment posting fails
+              await log(formatAligned('', '⚠️  Could not post completion comment to PR', '', 2));
+            }
           }
         }
 

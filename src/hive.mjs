@@ -109,7 +109,7 @@ const { createYargsConfig } = yargsConfigLib;
 const claudeLib = await import('./claude.lib.mjs');
 const { validateClaudeConnection } = claudeLib;
 const githubLib = await import('./github.lib.mjs');
-const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
+const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, fetchAssignedIssues, getCurrentGitHubUser, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
 // Import YouTrack-related functions
 const youTrackLib = await import('./youtrack/youtrack.lib.mjs');
 const {
@@ -506,27 +506,10 @@ if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
 // Get current GitHub user (needed for assign-mode)
 let currentGitHubUser = null;
 if (argv.assignMode) {
-  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-    await log('⏩ Skipping GitHub user detection (dry-run mode or skip-tool-check enabled)', { verbose: true });
-    currentGitHubUser = '@me'; // Use @me placeholder for dry-run
-  } else {
-    try {
-      const userResult = await $`gh api user --jq .login`;
-      if (userResult.code === 0) {
-        currentGitHubUser = userResult.stdout.toString().trim();
-        await log(`   ✅ Detected GitHub user: ${currentGitHubUser}`, { verbose: true });
-      } else {
-        throw new Error('Failed to get current GitHub user');
-      }
-    } catch (error) {
-      reportError(error, {
-        context: 'get_current_github_user',
-        operation: 'detect_user_for_assign_mode'
-      });
-      await log('❌ Assign mode requires GitHub user detection, but it failed', { level: 'error' });
-      await log(`   Error: ${cleanErrorMessage(error)}`, { level: 'error' });
-      await safeExit(1, 'Error occurred');
-    }
+  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) { currentGitHubUser = '@me'; }
+  else {
+    try { currentGitHubUser = await getCurrentGitHubUser(); await log(`   ✅ Detected GitHub user: ${currentGitHubUser}`, { verbose: true }); }
+    catch (error) { reportError(error, { context: 'get_current_github_user' }); await log(`❌ Assign mode user detection failed: ${cleanErrorMessage(error)}`, { level: 'error' }); await safeExit(1, 'Error occurred'); }
   }
 }
 
@@ -993,48 +976,8 @@ async function fetchIssues() {
       issues = await fetchProjectIssues(argv.projectNumber, argv.projectOwner, argv.projectStatus);
 
     } else if (argv.assignMode) {
-      // Fetch issues assigned to the current GitHub user
-      let searchCmd;
-      if (scope === 'repository') {
-        // For a specific repository, use gh issue list with --assignee
-        searchCmd = `gh issue list --repo ${owner}/${repo} --state open --assignee "${currentGitHubUser}" --json url,title,number,createdAt`;
-      } else if (scope === 'organization') {
-        // For organization scope, use gh search issues
-        searchCmd = `gh search issues org:${owner} is:open assignee:${currentGitHubUser} --json url,title,number,createdAt,repository`;
-      } else {
-        // For user scope, use gh search issues
-        searchCmd = `gh search issues user:${owner} is:open assignee:${currentGitHubUser} --json url,title,number,createdAt,repository`;
-      }
-
-      await log('   🔎 Fetching assigned issues with pagination and rate limiting...');
-      await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-
-      try {
-        issues = await fetchAllIssuesWithPagination(searchCmd);
-      } catch (searchError) {
-        reportError(searchError, {
-          context: 'github_assigned_issues_search',
-          scope,
-          owner,
-          assignee: currentGitHubUser,
-          operation: 'search_assigned_issues'
-        });
-        await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
-
-        // Check if the error is due to rate limiting or search API limit and we're not in repository scope
-        const errorMsg = searchError.message || searchError.toString();
-        const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
-        if ((isRateLimitError(searchError) || isSearchLimitError) && scope !== 'repository') {
-          await log('   🔍 Search limit detected - attempting repository fallback...');
-          // Note: For assign mode fallback, we would need to check each repository individually
-          // This is a limitation; for now, we return empty on fallback failure
-          await log('   ⚠️  Repository fallback for assign-mode is not yet implemented', { verbose: true });
-          issues = [];
-        } else {
-          issues = [];
-        }
-      }
-
+      // Fetch issues assigned to current user
+      try { issues = await fetchAssignedIssues(owner, repo, scope, currentGitHubUser); } catch { issues = []; }
     } else if (argv.allIssues) {
       // Fetch all open issues without label filter using pagination
       let searchCmd;
@@ -1168,32 +1111,13 @@ async function fetchIssues() {
       }
     }
     
-    if (issues.length === 0) {
-      if (argv.youtrackMode) {
-        await log(`   ℹ️  No issues found in YouTrack with stage "${youTrackConfig.stage}"`);
-      } else if (argv.projectMode) {
-        await log(`   ℹ️  No issues found in project with status "${argv.projectStatus}"`);
-      } else if (argv.assignMode) {
-        await log(`   ℹ️  No issues found assigned to ${currentGitHubUser}`);
-      } else if (argv.allIssues) {
-        await log('   ℹ️  No open issues found');
-      } else {
-        await log(`   ℹ️  No issues found with label "${argv.monitorTag}"`);
-      }
-      return [];
-    }
-
-    if (argv.youtrackMode) {
-      await log(`   📋 Found ${issues.length} YouTrack issue(s) with stage "${youTrackConfig.stage}"`);
-    } else if (argv.projectMode) {
-      await log(`   📋 Found ${issues.length} issue(s) with status "${argv.projectStatus}"`);
-    } else if (argv.assignMode) {
-      await log(`   📋 Found ${issues.length} issue(s) assigned to ${currentGitHubUser}`);
-    } else if (argv.allIssues) {
-      await log(`   📋 Found ${issues.length} open issue(s)`);
-    } else {
-      await log(`   📋 Found ${issues.length} issue(s) with label "${argv.monitorTag}"`);
-    }
+    // Log issue count or no-issues message
+    const modeDesc = argv.youtrackMode ? `in YouTrack with stage "${youTrackConfig.stage}"` :
+                     argv.projectMode ? `in project with status "${argv.projectStatus}"` :
+                     argv.assignMode ? `assigned to ${currentGitHubUser}` :
+                     argv.allIssues ? 'open' : `with label "${argv.monitorTag}"`;
+    if (issues.length === 0) { await log(`   ℹ️  No issues found ${modeDesc}`); return []; }
+    await log(`   📋 Found ${issues.length} issue(s) ${modeDesc}`);
 
     // Sort issues by publication date (createdAt) based on issue-order option
     if (issues.length > 0 && issues[0].createdAt) {

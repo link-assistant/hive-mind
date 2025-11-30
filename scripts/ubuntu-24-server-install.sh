@@ -436,6 +436,33 @@ else
   log_info "Rust already installed."
 fi
 
+# --- Lean (via elan) ---
+if [ ! -d "$HOME/.elan" ]; then
+  log_info "Installing Lean (via elan)..."
+  curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+    log_success "Lean installed successfully"
+  else
+    log_warning "Lean installation may have failed or been cancelled. Skipping Lean environment setup."
+  fi
+  # Add elan to shell profile for persistence
+  if ! grep -q 'elan' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding elan to shell configuration..."
+    {
+      echo ''
+      echo '# Lean (elan) configuration'
+      echo 'export PATH="$HOME/.elan/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_info "Lean (elan) already installed."
+  # Ensure elan is loaded for current session
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+  fi
+fi
+
 # --- Homebrew ---
 if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
@@ -700,6 +727,9 @@ if command -v python &>/dev/null; then log_success "Python: $(python --version)"
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v elan &>/dev/null; then log_success "Elan: $(elan --version)"; else log_warning "Elan: not found"; fi
+if command -v lean &>/dev/null; then log_success "Lean: $(lean --version)"; else log_warning "Lean: not found"; fi
+if command -v lake &>/dev/null; then log_success "Lake: $(lake --version)"; else log_warning "Lake: not found"; fi
 if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi
 if command -v php &>/dev/null; then
   log_success "PHP: $(php --version | head -n1)"

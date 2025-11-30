@@ -19,6 +19,10 @@ RUN bun install -g opencode-ai
 # Install Node.js (if not already available)
 RUN brew install node
 
+# Install Lean (via elan)
+RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+ENV PATH="/home/gitpod/.elan/bin:${PATH}"
+
 # Create app directory
 WORKDIR /app
 

@@ -116,6 +116,7 @@ export const executeOpenCode = async (params) => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -142,6 +143,7 @@ export const executeOpenCode = async (params) => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -160,6 +162,7 @@ export const executeOpenCode = async (params) => {
     prNumber,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
     argv

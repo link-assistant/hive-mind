@@ -220,6 +220,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['claude', 'opencode', 'codex'],
       default: 'claude'
     })
+    .option('enable-workspaces', {
+      type: 'boolean',
+      description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Currently only works with --tool opencode. Experimental feature.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

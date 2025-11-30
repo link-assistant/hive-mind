@@ -474,7 +474,11 @@ if (isPrUrl) {
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
 // Create or find temporary directory for cloning the repository
-const { tempDir } = await setupTempDirectory(argv);
+// Pass workspace info for --enable-workspaces mode with --tool opencode
+const workspaceInfo = argv.enableWorkspaces && argv.tool === 'opencode'
+  ? { owner, repo, issueNumber }
+  : null;
+const { tempDir, workspaceTmpDir } = await setupTempDirectory(argv, workspaceInfo);
 // Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
@@ -727,6 +731,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,

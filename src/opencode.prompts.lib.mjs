@@ -16,6 +16,7 @@ export const buildUserPrompt = (params) => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
     feedbackLines,
@@ -37,6 +38,11 @@ export const buildUserPrompt = (params) => {
   // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
+
+  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
+  if (workspaceTmpDir) {
+    promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
+  }
 
   // PR info if available
   if (prUrl) {
@@ -88,7 +94,7 @@ export const buildUserPrompt = (params) => {
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = (params) => {
-  const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
   // Build thinking instruction based on --think level
   let thinkLine = '';
@@ -100,6 +106,41 @@ export const buildSystemPrompt = (params) => {
       max: 'You always ultrathink on every step.'
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
+  }
+
+  // Build workspace-specific instructions and examples
+  let workspaceInstructions = '';
+  if (workspaceTmpDir) {
+    workspaceInstructions = `
+Workspace tmp directory.
+   - Use ${workspaceTmpDir} for all temporary files, logs, and downloads.
+   - When saving command output to files, save to ${workspaceTmpDir}/command-output.log.
+   - When downloading CI logs, save to ${workspaceTmpDir}/ci-logs/.
+   - When saving diffs for review, save to ${workspaceTmpDir}/diffs/.
+   - When creating debug files, save to ${workspaceTmpDir}/debug/.
+
+`;
+  }
+
+  // Build CI command examples with workspace tmp paths
+  let ciExamples = '';
+  if (workspaceTmpDir) {
+    ciExamples = `
+CI investigation with workspace tmp directory.
+   - When downloading CI run logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log > ${workspaceTmpDir}/ci-logs/run-RUN_ID.log
+   - When downloading failed job logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log-failed > ${workspaceTmpDir}/ci-logs/run-RUN_ID-failed.log
+   - When listing CI runs with details:
+      gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha > ${workspaceTmpDir}/ci-logs/recent-runs.json
+   - When saving PR diff for review:
+      gh pr diff ${prNumber} --repo ${owner}/${repo} > ${workspaceTmpDir}/diffs/pr-${prNumber}.diff
+   - When saving command output with stderr:
+      npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
+   - When investigating issue details:
+      gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+
+`;
   }
 
   return `You are AI issue solver using OpenCode.${thinkLine}
@@ -115,7 +156,7 @@ General guidelines.
    - When testing your assumptions, use the experiment scripts, and add it to experiments folder.
    - When your experiments can show real world use case of the software, add it to examples folder.
    - When you face something extremely hard, use divide and conquer — it always helps.
-
+${workspaceInstructions}
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
@@ -184,7 +225,8 @@ GitHub CLI command patterns.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'reverse | .[0:5]'.`;
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'reverse | .[0:5]'.
+${ciExamples}`;
 };
 
 // Export all functions as default object too

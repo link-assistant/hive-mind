@@ -422,6 +422,82 @@ else
   log_warning "Pyenv installation may have failed. Skipping Python setup."
 fi
 
+# --- Golang ---
+if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
+  log_info "Installing Golang..."
+
+  # Detect architecture
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) GO_ARCH="amd64" ;;
+    aarch64) GO_ARCH="arm64" ;;
+    armv7l) GO_ARCH="armv6l" ;;
+    *)
+      log_warning "Unsupported architecture: $ARCH. Skipping Go installation."
+      GO_ARCH=""
+      ;;
+  esac
+
+  if [ -n "$GO_ARCH" ]; then
+    # Get latest stable Go version from golang.org
+    log_info "Fetching latest Go version..."
+    GO_VERSION=$(curl -sL 'https://go.dev/VERSION?m=text' | head -n1)
+
+    if [ -n "$GO_VERSION" ]; then
+      GO_TARBALL="${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      GO_URL="https://go.dev/dl/${GO_TARBALL}"
+
+      log_info "Downloading Go $GO_VERSION for $GO_ARCH..."
+      TEMP_DIR=$(mktemp -d)
+      curl -sL "$GO_URL" -o "$TEMP_DIR/$GO_TARBALL"
+
+      # Install to user's home directory
+      log_info "Installing Go to $HOME/.go..."
+      mkdir -p "$HOME/.go"
+      tar -xzf "$TEMP_DIR/$GO_TARBALL" -C "$HOME/.go" --strip-components=1
+      rm -rf "$TEMP_DIR"
+
+      # Add Go to shell profile for persistence
+      if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
+        log_info "Adding Go to shell configuration..."
+        {
+          echo ''
+          echo '# Go configuration'
+          echo 'export GOROOT="$HOME/.go"'
+          echo 'export GOPATH="$HOME/go"'
+          echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
+        } >> "$HOME/.bashrc"
+      fi
+
+      # Load Go for current session
+      export GOROOT="$HOME/.go"
+      export GOPATH="$HOME/go"
+      export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+      # Create GOPATH directory
+      mkdir -p "$GOPATH"
+
+      if command -v go &>/dev/null; then
+        log_success "Golang installed: $(go version)"
+      else
+        log_warning "Go installation completed but binary not found in PATH"
+      fi
+    else
+      log_warning "Could not determine latest Go version. Skipping Go installation."
+    fi
+  fi
+else
+  log_info "Golang already installed."
+  # Ensure Go is in PATH for current session
+  if [ -d "$HOME/.go/bin" ]; then
+    export GOROOT="$HOME/.go"
+    export GOPATH="$HOME/go"
+    export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+  elif [ -d "/usr/local/go/bin" ]; then
+    export PATH="/usr/local/go/bin:$PATH"
+  fi
+fi
+
 # --- Rust ---
 if [ ! -d "$HOME/.cargo" ]; then
   log_info "Installing Rust..."
@@ -698,6 +774,7 @@ if command -v node &>/dev/null; then log_success "Node.js: $(node --version)"; e
 if command -v npm &>/dev/null; then log_success "NPM: $(npm --version)"; else log_warning "NPM: not found"; fi
 if command -v python &>/dev/null; then log_success "Python: $(python --version)"; else log_warning "Python: not found"; fi
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
+if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
 if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi

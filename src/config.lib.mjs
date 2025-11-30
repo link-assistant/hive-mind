@@ -60,6 +60,9 @@ export const githubLimits = {
   issueBodyMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_ISSUE_BODY_MAX_SIZE', 60000),
   attachmentMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_ATTACHMENT_MAX_SIZE', 10 * 1024 * 1024),
   bufferMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_BUFFER_MAX_SIZE', 10 * 1024 * 1024),
+  // GitHub Gist web interface truncates display for files larger than ~1MB
+  // See: https://github.com/cli/cli/issues/11739
+  gistWebDisplayLimit: parseIntWithDefault('HIVE_MIND_GITHUB_GIST_WEB_DISPLAY_LIMIT', 1024 * 1024),
 };
 
 // Memory and disk configurations

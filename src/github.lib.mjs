@@ -652,6 +652,13 @@ ${logContent}
         await fs.unlink(tempLogFile).catch(() => {});
         if (gistResult.code === 0) {
           const gistUrl = gistResult.stdout.toString().trim();
+          // Extract gist ID from URL for raw download command
+          const gistId = gistUrl.split('/').pop();
+          // Generate warning for large files that may be truncated in GitHub's web viewer
+          let largeFileWarning = '';
+          if (logStats.size > githubLimits.gistWebDisplayLimit) {
+            largeFileWarning = `\n\n**Note**: This log file is large (${Math.round(logStats.size / 1024)}KB). GitHub's web viewer may truncate the display. To view the complete log, use:\n\`\`\`bash\ngh gist view ${gistId} --raw\n\`\`\``;
+          }
           // Create comment with gist link
           let gistComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
@@ -695,7 +702,7 @@ ${resumeCommand}
             gistComment += `
 
 📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${gistUrl})
+🔗 [View complete execution log](${gistUrl})${largeFileWarning}
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
@@ -707,7 +714,7 @@ The automated solution draft encountered an error:
 ${errorMessage}
 \`\`\`
 📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${gistUrl})
+🔗 [View complete failure log](${gistUrl})${largeFileWarning}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
@@ -734,7 +741,7 @@ ${errorMessage}
             gistComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${gistUrl})
+🔗 [View complete solution draft log](${gistUrl})${largeFileWarning}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }

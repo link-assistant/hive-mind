@@ -651,13 +651,31 @@ ${logContent}
         const gistResult = await $(gistCommand);
         await fs.unlink(tempLogFile).catch(() => {});
         if (gistResult.code === 0) {
-          const gistUrl = gistResult.stdout.toString().trim();
-          // Extract gist ID from URL for raw download command
-          const gistId = gistUrl.split('/').pop();
-          // Generate warning for large files that may be truncated in GitHub's web viewer
-          let largeFileWarning = '';
-          if (logStats.size > githubLimits.gistWebDisplayLimit) {
-            largeFileWarning = `\n\n**Note**: This log file is large (${Math.round(logStats.size / 1024)}KB). GitHub's web viewer may truncate the display. To view the complete log, use:\n\`\`\`bash\ngh gist view ${gistId} --raw\n\`\`\``;
+          const gistPageUrl = gistResult.stdout.toString().trim();
+          // Extract gist ID from URL
+          const gistId = gistPageUrl.split('/').pop();
+          // Get raw URL using gh gist view with --raw flag and --files to get the specific file
+          const rawUrlResult = await $`gh gist view ${gistId} --files`.quiet();
+          let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
+
+          if (rawUrlResult.code === 0) {
+            const filesOutput = rawUrlResult.stdout.toString();
+            // The output shows files in the gist. We need to construct the raw URL
+            // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
+            // We can get this by using gh api to get the gist details
+            const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
+            if (gistDetailsResult.code === 0) {
+              const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
+              const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
+              const fileName = 'solution-draft-log.txt';
+
+              if (commitSha) {
+                gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
+              } else {
+                // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
+                gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
+              }
+            }
           }
           // Create comment with gist link
           let gistComment;
@@ -702,7 +720,7 @@ ${resumeCommand}
             gistComment += `
 
 📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${gistUrl})${largeFileWarning}
+🔗 [View complete execution log](${gistUrl})
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
@@ -714,7 +732,7 @@ The automated solution draft encountered an error:
 ${errorMessage}
 \`\`\`
 📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${gistUrl})${largeFileWarning}
+🔗 [View complete failure log](${gistUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
@@ -741,7 +759,7 @@ ${errorMessage}
             gistComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${gistUrl})${largeFileWarning}
+🔗 [View complete solution draft log](${gistUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }

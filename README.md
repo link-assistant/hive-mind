@@ -270,6 +270,8 @@ hive <github-url> [options]
 
   --monitor-tag, -t     Label to monitor                     [default: "help wanted"]
   --all-issues, -a      Monitor all issues (ignore labels)   [default: false]
+  --assign-mode, -A     Monitor issues assigned to the authenticated GitHub user
+                        (trigger solving when assigned)      [default: false]
   --skip-issues-with-prs, -s  Skip issues with existing PRs [default: false]
   --concurrency, -c     Parallel workers                     [default: 2]
   --pull-requests-per-issue, -p  Number of PRs per issue    [default: 1]
@@ -513,6 +515,9 @@ hive https://github.com/org/repo --skip-issues-with-prs --verbose
 
 # Auto-cleanup temporary files and auto-fork if needed
 hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
+
+# Monitor issues assigned to you (assign-to-solve mode)
+hive https://github.com/owner/repo --assign-mode --auto-fork --once
 ```
 
 ### Session Management

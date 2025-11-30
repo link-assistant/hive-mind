@@ -654,27 +654,22 @@ ${logContent}
           const gistPageUrl = gistResult.stdout.toString().trim();
           // Extract gist ID from URL
           const gistId = gistPageUrl.split('/').pop();
-          // Get raw URL using gh gist view with --raw flag and --files to get the specific file
-          const rawUrlResult = await $`gh gist view ${gistId} --files`.quiet();
+          // Construct raw file URL
+          // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
+          // We use gh api to get the gist details for owner and commit SHA
           let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
 
-          if (rawUrlResult.code === 0) {
-            const filesOutput = rawUrlResult.stdout.toString();
-            // The output shows files in the gist. We need to construct the raw URL
-            // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
-            // We can get this by using gh api to get the gist details
-            const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
-            if (gistDetailsResult.code === 0) {
-              const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
-              const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
-              const fileName = 'solution-draft-log.txt';
+          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
+          if (gistDetailsResult.code === 0) {
+            const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
+            const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
+            const fileName = 'solution-draft-log.txt';
 
-              if (commitSha) {
-                gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
-              } else {
-                // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
-                gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
-              }
+            if (commitSha) {
+              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
+            } else {
+              // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
+              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
             }
           }
           // Create comment with gist link

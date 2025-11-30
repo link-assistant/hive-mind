@@ -436,6 +436,83 @@ else
   log_info "Rust already installed."
 fi
 
+# --- Opam + Rocq (Coq theorem prover) ---
+if ! command -v opam &>/dev/null; then
+  log_info "Installing Opam (OCaml package manager)..."
+  # Install opam dependencies
+  sudo apt install -y bubblewrap || {
+    log_warning "Failed to install bubblewrap (opam sandboxing dependency)"
+  }
+
+  # Install opam via official script
+  bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh) --no-backup" <<< "y" || {
+    log_warning "Opam installation via script failed. Trying apt..."
+    sudo apt install -y opam || {
+      log_warning "Opam installation failed."
+    }
+  }
+
+  if command -v opam &>/dev/null; then
+    log_success "Opam installed successfully"
+  fi
+else
+  log_info "Opam already installed."
+fi
+
+# Initialize opam and install Rocq
+if command -v opam &>/dev/null; then
+  if [ ! -d "$HOME/.opam" ]; then
+    log_info "Initializing Opam..."
+    # Use --disable-sandboxing for Docker/container compatibility
+    opam init --disable-sandboxing --auto-setup -y || {
+      log_warning "Opam init failed."
+    }
+    log_success "Opam initialized"
+  else
+    log_info "Opam already initialized."
+  fi
+
+  # Source opam environment
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Install Rocq (the proof assistant formerly known as Coq)
+  if ! opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+    log_info "Installing Rocq Prover (this may take several minutes)..."
+    log_note "Rocq is the new name for the Coq theorem prover"
+
+    # Add Rocq package repository
+    opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
+
+    # Install Rocq prover
+    opam install rocq-prover -y || {
+      log_warning "Rocq installation failed. Trying to install Coq as fallback..."
+      opam install coq -y || {
+        log_warning "Coq installation also failed."
+      }
+    }
+
+    if opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_success "Rocq Prover installed successfully"
+    elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+      log_success "Coq installed successfully (fallback)"
+    fi
+  else
+    log_info "Rocq Prover already installed."
+  fi
+
+  # Add opam environment to shell profile for persistence
+  if ! grep -q 'opam env' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Opam environment to shell configuration..."
+    {
+      echo ''
+      echo '# Opam (OCaml/Rocq) configuration'
+      echo 'test -r $HOME/.opam/opam-init/init.sh && . $HOME/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_warning "Opam not available. Skipping Rocq installation."
+fi
+
 # --- Homebrew ---
 if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
@@ -700,6 +777,20 @@ if command -v python &>/dev/null; then log_success "Python: $(python --version)"
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v opam &>/dev/null; then log_success "Opam: $(opam --version)"; else log_warning "Opam: not found"; fi
+if command -v rocq &>/dev/null; then
+  log_success "Rocq: $(rocq --version | head -n1)"
+elif command -v coqc &>/dev/null; then
+  log_success "Coq: $(coqc --version | head -n1)"
+elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  log_warning "Rocq: installed via opam but not in current PATH"
+  log_note "Rocq will be available after shell restart or: eval \$(opam env)"
+elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+  log_warning "Coq: installed via opam but not in current PATH"
+  log_note "Coq will be available after shell restart or: eval \$(opam env)"
+else
+  log_warning "Rocq/Coq: not found"
+fi
 if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi
 if command -v php &>/dev/null; then
   log_success "PHP: $(php --version | head -n1)"

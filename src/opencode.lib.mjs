@@ -244,6 +244,29 @@ export const executeOpenCodeCommand = async (params) => {
       }
     }
 
+    // Create OpenCode configuration file with unrestricted permissions
+    // This allows OpenCode to access files outside the working directory without prompting
+    // Fixes issue #755: "Permission required to run: Access file outside working directory"
+    const opencodeConfigPath = path.join(tempDir, 'opencode.json');
+    const opencodeConfig = {
+      '$schema': 'https://opencode.ai/config.json',
+      'permission': {
+        'edit': 'allow',
+        'bash': 'allow',
+        'webfetch': 'allow',
+        'external_directory': 'allow'
+      }
+    };
+    try {
+      await fs.writeFile(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2));
+      if (argv.verbose) {
+        await log(`   Created OpenCode config: ${opencodeConfigPath}`, { verbose: true });
+        await log('   Permissions set: edit=allow, bash=allow, webfetch=allow, external_directory=allow', { verbose: true });
+      }
+    } catch (configError) {
+      await log(`⚠️  Warning: Could not create OpenCode config file: ${configError.message}`, { level: 'warning' });
+    }
+
     // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
@@ -328,6 +351,19 @@ export const executeOpenCodeCommand = async (params) => {
         }
       }
 
+      // Clean up the opencode.json config file to avoid polluting the repository
+      try {
+        await fs.unlink(opencodeConfigPath);
+        if (argv.verbose) {
+          await log(`   Cleaned up OpenCode config: ${opencodeConfigPath}`, { verbose: true });
+        }
+      } catch (cleanupError) {
+        // Ignore cleanup errors - file may already be deleted or not exist
+        if (argv.verbose) {
+          await log(`   Note: Could not clean up OpenCode config: ${cleanupError.message}`, { verbose: true });
+        }
+      }
+
       if (exitCode !== 0) {
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
@@ -372,6 +408,13 @@ export const executeOpenCodeCommand = async (params) => {
         limitResetTime
       };
     } catch (error) {
+      // Clean up the opencode.json config file even on error
+      try {
+        await fs.unlink(opencodeConfigPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+
       reportError(error, {
         context: 'execute_opencode',
         command: params.command,

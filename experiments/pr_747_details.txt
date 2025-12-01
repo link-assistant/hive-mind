@@ -1,0 +1,85 @@
+title:	Fix infinite auto-restart loop in opencode
+state:	OPEN
+author:	konard
+labels:	
+assignees:	konard
+reviewers:	
+projects:	
+milestone:	
+number:	747
+url:	https://github.com/deep-assistant/hive-mind/pull/747
+additions:	100
+deletions:	0
+auto-merge:	disabled
+--
+## 🤖 AI-Powered Solution
+
+This pull request fixes the infinite auto-restart loop issue in opencode (#746).
+
+### 📋 Issue Reference
+Fixes #746
+
+### 🔍 Root Cause Analysis
+
+The issue occurred because:
+
+1. **OpenCode Execution**: OpenCode runs and makes changes to files in the repository
+2. **Uncommitted Changes Detection**: After execution, the system detects uncommitted changes
+3. **Auto-Restart Trigger**: This triggers temporary watch mode to handle uncommitted changes
+4. **Infinite Loop**: OpenCode runs again but doesn't commit changes, repeating the cycle
+
+The problem was in `src/solve.watch.lib.mjs` in the `watchForFeedback` function. After successful tool execution, uncommitted changes were detected but not automatically committed, causing the restart condition to remain true indefinitely.
+
+### 🛠️ Solution Implementation
+
+**Modified `src/solve.watch.lib.mjs`:**
+- Added auto-commit logic after successful tool execution
+- When uncommitted changes are detected post-execution, they are automatically staged and committed
+- This prevents the infinite restart loop by ensuring changes are committed after each successful tool run
+
+**Key Changes:**
+```javascript
+// Auto-commit any uncommitted changes after successful tool execution
+// This prevents infinite restart loops when tools make changes but don't commit them
+try {
+  const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+  if (gitStatusResult.code === 0) {
+    const statusOutput = gitStatusResult.stdout.toString().trim();
+    if (statusOutput) {
+      // Stage and commit changes automatically
+      await $({ cwd: tempDir })`git add -A`;
+      const commitResult = await $({ cwd: tempDir })`git commit -m "Auto-commit: Changes made by ${argv.tool.toUpperCase()} during problem-solving session"`;
+      // Log success/failure
+    }
+  }
+} catch (commitError) {
+  // Error handling
+}
+```
+
+### 🧪 Testing
+
+**Added test script:** `experiments/test-auto-restart-fix.mjs`
+- Simulates the scenario where tool makes changes but doesn't commit them
+- Verifies that auto-commit logic works correctly
+- Confirms working directory becomes clean after auto-commit
+
+**Test Results:**
+```
+✅ SUCCESS: Changes were auto-committed, preventing infinite loop
+```
+
+### 📊 Impact
+
+- **Fixes**: Infinite auto-restart loops when using `--auto-continue` with opencode
+- **Preserves**: All existing functionality and behavior
+- **Improves**: Reliability of automated problem-solving workflows
+- **No Breaking Changes**: Backward compatible with existing usage
+
+### 🔄 Files Changed
+
+- `src/solve.watch.lib.mjs`: Added auto-commit logic after tool execution
+- `experiments/test-auto-restart-fix.mjs`: Test script to verify the fix
+
+---
+*This solution was implemented automatically by the AI issue solver*

@@ -116,12 +116,14 @@ npm install -g @deep-assistant/hive-mind
        --attach-logs
        --verbose
        --no-tool-check
+       --prefix-fork-name-with-owner-name
      TELEGRAM_SOLVE_OVERRIDES:
        --auto-fork
        --auto-continue
        --attach-logs
        --verbose
        --no-tool-check
+       --prefix-fork-name-with-owner-name
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -143,12 +145,14 @@ npm install -g @deep-assistant/hive-mind
      --attach-logs
      --verbose
      --no-tool-check
+     --prefix-fork-name-with-owner-name
    )" --solve-overrides "(
      --auto-fork
      --auto-continue
      --attach-logs
      --verbose
      --no-tool-check
+     --prefix-fork-name-with-owner-name
    )" --verbose
 
    # Press CTRL + A + D for detach from screen

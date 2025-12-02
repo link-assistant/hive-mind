@@ -752,6 +752,7 @@ async function worker(workerId) {
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
+        const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
 
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
@@ -800,9 +801,12 @@ async function worker(workerId) {
         if (argv.watch) {
           args.push('--watch');
         }
+        if (argv.prefixForkNameWithOwnerName) {
+          args.push('--prefix-fork-name-with-owner-name');
+        }
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolCheckFlag}${skipClaudeCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolCheckFlag}${skipClaudeCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;

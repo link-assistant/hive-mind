@@ -213,6 +213,11 @@ export const createYargsConfig = (yargsInstance) => {
       default: 'asc',
       choices: ['asc', 'desc']
     })
+    .option('prefix-fork-name-with-owner-name', {
+      type: 'boolean',
+      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners. Experimental feature.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

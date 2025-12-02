@@ -580,24 +580,15 @@ ${logContent}
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
       // Success log format
-      let costInfo = '\n\n💰 **Cost estimation:**';
-      if (totalCostUSD !== null) {
-        costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-      } else {
-        costInfo += '\n- Public pricing estimate: unknown';
-      }
+      // Use Anthropic's official cost as the primary (and only) cost source
+      // This includes all sub-agent usage (Haiku, Opus, etc.) which local calculation misses
+      // See issue #787 for details on why local calculation was inaccurate
+      let costInfo = '';
       if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-        costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-        if (totalCostUSD !== null) {
-          const difference = anthropicTotalCostUSD - totalCostUSD;
-          const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
-          costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
-        } else {
-          costInfo += '\n- Difference: unknown';
-        }
-      } else {
-        costInfo += '\n- Calculated by Anthropic: unknown';
-        costInfo += '\n- Difference: unknown';
+        costInfo = `\n\n💰 **Session cost:** $${anthropicTotalCostUSD.toFixed(6)} USD`;
+      } else if (totalCostUSD !== null) {
+        // Fallback to local calculation only if Anthropic's cost is unavailable
+        costInfo = `\n\n💰 **Estimated cost:** $${totalCostUSD.toFixed(6)} USD _(local estimate, may not include sub-agent usage)_`;
       }
       logComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}

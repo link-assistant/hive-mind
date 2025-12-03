@@ -722,8 +722,12 @@ bot.command('help', async (ctx) => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
+  message += '*/limits* - Show Claude usage limits\n';
+  message += 'Usage: `/limits`\n';
+  message += 'Shows current session and weekly usage percentages\n\n';
+
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve and /hive commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive and /limits commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
   message += '• `--fork` - Fork the repository\n';
   message += '• `--auto-fork` - Automatically fork public repos without write access\n';
@@ -749,6 +753,235 @@ bot.command('help', async (ctx) => {
 
   await ctx.reply(message, { parse_mode: 'Markdown' });
 });
+
+/**
+ * Get Claude usage limits by running 'claude /usage' with expect
+ * Parses the output to extract:
+ * - Current session usage percentage and reset time
+ * - Current week (all models) usage percentage and reset date
+ * - Current week (Sonnet only) usage percentage and reset date
+ *
+ * @returns {Object} Object with success boolean, and either usage data or error message
+ */
+async function getClaudeUsageLimits() {
+  try {
+    // Use expect to run claude /usage interactively
+    // The command opens an interactive screen, we need to press Enter and wait for output
+    const expectScript = `
+expect -c '
+  log_user 0
+  set timeout 30
+  spawn claude /usage
+  sleep 5
+  send "\\r"
+  expect eof
+  exit 0
+' 2>/dev/null
+`;
+    const result = await exec(expectScript, { timeout: 60000 });
+    const output = result.stdout || '';
+
+    if (VERBOSE) {
+      console.log('[VERBOSE] /limits raw output:', output);
+    }
+
+    // Parse the output to extract usage information
+    // Format from screenshot:
+    // Current session
+    // [progress bar] XX% used
+    // Resets Xpm (UTC)
+    //
+    // Current week (all models)
+    // [progress bar] XX% used
+    // Resets [Date], Xpm (UTC)
+    //
+    // Current week (Sonnet only)
+    // [progress bar] XX% used
+    // Resets [Date], Xpm (UTC)
+
+    // Extract percentages from output
+    const percentageMatches = output.match(/(\d+)%\s*used/g);
+    const percentages = percentageMatches
+      ? percentageMatches.map(m => parseInt(m.match(/(\d+)/)[1]))
+      : [];
+
+    // Extract reset times - look for "Resets" followed by time info
+    const resetMatches = output.match(/Resets\s+([^\n]+)/g);
+    const resetTimes = resetMatches
+      ? resetMatches.map(m => m.replace(/Resets\s+/, '').trim())
+      : [];
+
+    if (percentages.length === 0) {
+      // Try alternative parsing - percentages might be on separate lines
+      const lines = output.split('\n');
+      for (const line of lines) {
+        const pctMatch = line.match(/(\d+)%/);
+        if (pctMatch) {
+          percentages.push(parseInt(pctMatch[1]));
+        }
+      }
+    }
+
+    if (percentages.length === 0) {
+      return {
+        success: false,
+        error: 'Could not parse usage information from Claude CLI. Make sure Claude is properly installed and authenticated.'
+      };
+    }
+
+    // Build the result object
+    const usage = {
+      currentSession: {
+        percentage: percentages[0] || null,
+        resetTime: resetTimes[0] || null
+      },
+      allModels: {
+        percentage: percentages[1] || null,
+        resetTime: resetTimes[1] || null
+      },
+      sonnetOnly: {
+        percentage: percentages[2] || null,
+        resetTime: resetTimes[2] || null
+      }
+    };
+
+    return {
+      success: true,
+      usage
+    };
+  } catch (error) {
+    if (VERBOSE) {
+      console.error('[VERBOSE] /limits error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get usage limits: ${error.message}`
+    };
+  }
+}
+
+bot.command('limits', async (ctx) => {
+  if (VERBOSE) {
+    console.log('[VERBOSE] /limits command received');
+  }
+
+  // Add breadcrumb for error tracking
+  await addBreadcrumb({
+    category: 'telegram.command',
+    message: '/limits command received',
+    level: 'info',
+    data: {
+      chatId: ctx.chat?.id,
+      chatType: ctx.chat?.type,
+      userId: ctx.from?.id,
+      username: ctx.from?.username,
+    },
+  });
+
+  // Ignore messages sent before bot started
+  if (isOldMessage(ctx)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /limits ignored: old message');
+    }
+    return;
+  }
+
+  // Ignore forwarded or reply messages
+  if (isForwardedOrReply(ctx)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /limits ignored: forwarded or reply');
+    }
+    return;
+  }
+
+  if (!isGroupChat(ctx)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /limits ignored: not a group chat');
+    }
+    await ctx.reply('❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  const chatId = ctx.chat.id;
+  if (!isChatAuthorized(chatId)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /limits ignored: chat not authorized');
+    }
+    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  // Send "fetching" message to indicate work is in progress
+  await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
+
+  // Get the usage limits
+  const result = await getClaudeUsageLimits();
+
+  if (!result.success) {
+    await ctx.reply(`❌ ${result.error}`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  const { usage } = result;
+
+  // Format the response message
+  let message = '📊 *Claude Usage Limits*\n\n';
+
+  // Current session
+  message += '*Current session*\n';
+  if (usage.currentSession.percentage !== null) {
+    const pct = usage.currentSession.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
+    if (usage.currentSession.resetTime) {
+      message += `Resets ${usage.currentSession.resetTime}\n`;
+    }
+  } else {
+    message += 'N/A\n';
+  }
+  message += '\n';
+
+  // Current week (all models)
+  message += '*Current week (all models)*\n';
+  if (usage.allModels.percentage !== null) {
+    const pct = usage.allModels.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
+    if (usage.allModels.resetTime) {
+      message += `Resets ${usage.allModels.resetTime}\n`;
+    }
+  } else {
+    message += 'N/A\n';
+  }
+  message += '\n';
+
+  // Current week (Sonnet only)
+  message += '*Current week (Sonnet only)*\n';
+  if (usage.sonnetOnly.percentage !== null) {
+    const pct = usage.sonnetOnly.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
+    if (usage.sonnetOnly.resetTime) {
+      message += `Resets ${usage.sonnetOnly.resetTime}\n`;
+    }
+  } else {
+    message += 'N/A\n';
+  }
+
+  await ctx.reply(message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+});
+
+/**
+ * Generate a text-based progress bar for usage percentage
+ * @param {number} percentage - Usage percentage (0-100)
+ * @returns {string} Text-based progress bar
+ */
+function getProgressBar(percentage) {
+  const totalBlocks = 10;
+  const filledBlocks = Math.round((percentage / 100) * totalBlocks);
+  const emptyBlocks = totalBlocks - filledBlocks;
+  return '▓'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
+}
 
 bot.command(/^solve$/i, async (ctx) => {
   if (VERBOSE) {

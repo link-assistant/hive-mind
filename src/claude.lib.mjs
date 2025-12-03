@@ -952,7 +952,7 @@ export const executeClaudeCommand = async (params) => {
               // Capture Anthropic's official total_cost_usd from the result
               if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                 anthropicTotalCostUSD = data.total_cost_usd;
-                await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`);
+                await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
               }
               // Capture Anthropic's per-model usage breakdown (includes sub-agent usage)
               if (data.modelUsage) {
@@ -1192,49 +1192,40 @@ export const executeClaudeCommand = async (params) => {
     }
     await log('\n\n✅ Claude command completed');
     await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
-    // Display token usage summary
-    // Priority: Use Anthropic's modelUsage (includes sub-agents) > local session JSONL calculation
-    await log('\n💰 Token Usage Summary:');
-    // If Anthropic provided per-model usage breakdown (includes sub-agent usage), use it
-    if (anthropicModelUsage && Object.keys(anthropicModelUsage).length > 0) {
-      await log('   (Using Anthropic API data - includes all sub-agent usage)');
-      const modelIds = Object.keys(anthropicModelUsage);
-      let totalTokens = 0;
-      for (const modelId of modelIds) {
-        const usage = anthropicModelUsage[modelId];
-        await log(`\n   📊 ${modelId}:`);
-        // Display usage with Anthropic's key names (cacheReadInputTokens, cacheCreationInputTokens)
-        await log(`      Input tokens: ${formatNumber(usage.inputTokens || 0)}`);
-        if (usage.cacheCreationInputTokens > 0) {
-          await log(`      Cache creation tokens: ${formatNumber(usage.cacheCreationInputTokens)}`);
+    // Calculate "Public pricing estimate" from Anthropic's modelUsage (includes all sub-agents)
+    // Fallback to local JSONL calculation only if modelUsage is not available
+    let publicPricingEstimate = null;
+    if (anthropicModelUsage) {
+      try {
+        let calculatedTotal = 0;
+        for (const [modelId, usage] of Object.entries(anthropicModelUsage)) {
+          const modelInfo = await fetchModelInfo(modelId);
+          if (modelInfo && modelInfo.cost) {
+            // Map Anthropic's key names to our expected format
+            const normalizedUsage = {
+              inputTokens: usage.inputTokens || 0,
+              outputTokens: usage.outputTokens || 0,
+              cacheCreationTokens: usage.cacheCreationInputTokens || 0,
+              cacheReadTokens: usage.cacheReadInputTokens || 0
+            };
+            const modelCost = calculateModelCost(normalizedUsage, modelInfo);
+            calculatedTotal += modelCost;
+          }
         }
-        if (usage.cacheReadInputTokens > 0) {
-          await log(`      Cache read tokens: ${formatNumber(usage.cacheReadInputTokens)}`);
+        if (calculatedTotal > 0) {
+          publicPricingEstimate = calculatedTotal;
         }
-        await log(`      Output tokens: ${formatNumber(usage.outputTokens || 0)}`);
-        if (usage.webSearchRequests > 0) {
-          await log(`      Web search requests: ${usage.webSearchRequests}`);
-        }
-        // Show cost for this model if available
-        if (usage.costUSD !== undefined && usage.costUSD !== null) {
-          await log(`      Cost: $${usage.costUSD.toFixed(6)} USD`);
-        }
-        // Accumulate tokens
-        totalTokens += (usage.inputTokens || 0) + (usage.outputTokens || 0) + (usage.cacheCreationInputTokens || 0);
+      } catch (calcError) {
+        await log(`   ⚠️ Could not calculate from modelUsage: ${calcError.message}`, { verbose: true });
       }
-      // Show total cost from Anthropic
-      await log('\n   💰 Cost Summary:');
-      if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-        await log(`      Total cost (Anthropic): $${anthropicTotalCostUSD.toFixed(6)} USD`);
-      }
-      await log(`      Total tokens: ${formatNumber(totalTokens)}`);
-    } else if (sessionId && tempDir) {
-      // Fallback to local session JSONL calculation
-      await log('   (Using local session data - may not include sub-agent usage)', { verbose: true });
+    }
+    // Calculate and display total token usage from session JSONL file
+    if (sessionId && tempDir) {
       try {
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
         if (tokenUsage) {
-          // Display per-model breakdown
+          await log('\n💰 Token Usage Summary:');
+          // Display per-model breakdown from local session
           if (tokenUsage.modelUsage) {
             const modelIds = Object.keys(tokenUsage.modelUsage);
             for (const modelId of modelIds) {
@@ -1242,14 +1233,43 @@ export const executeClaudeCommand = async (params) => {
               await log(`\n   📊 ${usage.modelName || modelId}:`);
               await displayModelUsage(usage, log);
             }
+            // Show totals if multiple models were used
+            if (modelIds.length > 1) {
+              await log('\n   📈 Total across all models:');
+            }
+          } else {
+            // Fallback to old format if modelUsage is not available
+            await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
+            if (tokenUsage.cacheCreationTokens > 0) {
+              await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
+            }
+            if (tokenUsage.cacheReadTokens > 0) {
+              await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
+            }
+            await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
           }
+          // Use publicPricingEstimate from anthropicModelUsage, fallback to local calculation
+          const estimateToUse = publicPricingEstimate !== null ? publicPricingEstimate : tokenUsage.totalCostUSD;
           // Show cost comparison
           await log('\n   💰 Cost estimation:');
-          if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-            await log(`      Local estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
+          if (estimateToUse !== null && estimateToUse !== undefined) {
+            await log(`      Public pricing estimate: $${estimateToUse.toFixed(6)} USD`);
+          } else {
+            await log('      Public pricing estimate: unknown');
           }
           if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-            await log(`      Anthropic official: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+            await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+            // Show comparison if both are available
+            if (estimateToUse !== null && estimateToUse !== undefined) {
+              const difference = anthropicTotalCostUSD - estimateToUse;
+              const percentDiff = estimateToUse > 0 ? ((difference / estimateToUse) * 100) : 0;
+              await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+            } else {
+              await log('      Difference:              unknown');
+            }
+          } else {
+            await log('      Calculated by Anthropic: unknown');
+            await log('      Difference:              unknown');
           }
           await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
         }
@@ -1260,14 +1280,7 @@ export const executeClaudeCommand = async (params) => {
           operation: 'read_session_jsonl'
         });
         await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
-        // Still show Anthropic's cost if available
-        if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-          await log(`\n   💰 Total cost (Anthropic): $${anthropicTotalCostUSD.toFixed(6)} USD`);
-        }
       }
-    } else if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-      // No session data available, just show Anthropic's total
-      await log(`\n   💰 Total cost (Anthropic): $${anthropicTotalCostUSD.toFixed(6)} USD`);
     }
     return {
       success: true,
@@ -1277,7 +1290,7 @@ export const executeClaudeCommand = async (params) => {
       messageCount,
       toolUseCount,
       anthropicTotalCostUSD, // Pass Anthropic's official total cost
-      anthropicModelUsage // Pass Anthropic's per-model breakdown (includes sub-agents)
+      anthropicModelUsage // Pass Anthropic's per-model breakdown for use in PR comments
     };
   } catch (error) {
     reportError(error, {

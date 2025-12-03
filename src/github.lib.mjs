@@ -478,7 +478,7 @@ export async function attachLogToGitHub(options) {
       await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
       return false;
     }
-    // Calculate token usage for "Public pricing estimate"
+    // Calculate "Public pricing estimate" (totalCostUSD)
     // Priority: Use anthropicModelUsage (includes all sub-agents) > fallback to local JSONL calculation
     let totalCostUSD = null;
     if (anthropicModelUsage && !errorMessage) {
@@ -498,26 +498,25 @@ export async function attachLogToGitHub(options) {
               cacheCreationTokens: usage.cacheCreationInputTokens || 0,
               cacheReadTokens: usage.cacheReadInputTokens || 0
             };
-
-            // Calculate cost for this model
-            const modelCost = calculateModelCost(normalizedUsage, modelInfo, false);
+            const modelCost = calculateModelCost(normalizedUsage, modelInfo);
             calculatedTotal += modelCost;
           }
         }
 
-        totalCostUSD = calculatedTotal;
-        if (verbose) {
-          await log(`  💰 Calculated cost from Anthropic modelUsage: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+        if (calculatedTotal > 0) {
+          totalCostUSD = calculatedTotal;
+          if (verbose) {
+            await log(`  💰 Calculated cost from Anthropic modelUsage: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+          }
         }
       } catch (modelUsageError) {
-        // Fall through to local calculation if Anthropic's data fails
+        // Don't fail if modelUsage calculation fails, try fallback
         if (verbose) {
           await log(`  ⚠️  Could not calculate from modelUsage: ${modelUsageError.message}`, { verbose: true });
         }
       }
     }
-
-    // Fallback to local JSONL calculation if anthropicModelUsage not available
+    // Fallback: Calculate from local session JSONL if anthropicModelUsage not available
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
@@ -526,7 +525,7 @@ export async function attachLogToGitHub(options) {
           if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
             totalCostUSD = tokenUsage.totalCostUSD;
             if (verbose) {
-              await log(`  💰 Calculated cost from local JSONL: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+              await log(`  💰 Calculated cost from local session: $${totalCostUSD.toFixed(6)}`, { verbose: true });
             }
           }
         }
@@ -619,15 +618,24 @@ ${logContent}
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
       // Success log format
-      // Use Anthropic's official cost as the primary (and only) cost source
-      // This includes all sub-agent usage (Haiku, Opus, etc.) which local calculation misses
-      // See issue #787 for details on why local calculation was inaccurate
-      let costInfo = '';
+      let costInfo = '\n\n💰 **Cost estimation:**';
+      if (totalCostUSD !== null) {
+        costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+      } else {
+        costInfo += '\n- Public pricing estimate: unknown';
+      }
       if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-        costInfo = `\n\n💰 **Session cost:** $${anthropicTotalCostUSD.toFixed(6)} USD`;
-      } else if (totalCostUSD !== null) {
-        // Fallback to local calculation only if Anthropic's cost is unavailable
-        costInfo = `\n\n💰 **Estimated cost:** $${totalCostUSD.toFixed(6)} USD _(local estimate, may not include sub-agent usage)_`;
+        costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+        if (totalCostUSD !== null) {
+          const difference = anthropicTotalCostUSD - totalCostUSD;
+          const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
+          costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
+        } else {
+          costInfo += '\n- Difference: unknown';
+        }
+      } else {
+        costInfo += '\n- Calculated by Anthropic: unknown';
+        costInfo += '\n- Difference: unknown';
       }
       logComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}

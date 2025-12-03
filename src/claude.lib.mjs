@@ -1192,39 +1192,129 @@ export const executeClaudeCommand = async (params) => {
     }
     await log('\n\n✅ Claude command completed');
     await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
-    // Calculate "Public pricing estimate" from Anthropic's modelUsage (includes all sub-agents)
-    // Fallback to local JSONL calculation only if modelUsage is not available
+    // Calculate "Public pricing estimate" from Anthropic's modelUsage (includes all sub-agents) and display detailed per-model breakdown in logs
     let publicPricingEstimate = null;
+    let totalTokensFromAnthropic = 0;
     if (anthropicModelUsage) {
       try {
+        await log('\n💰 Token Usage Summary:');
+        await log('   (Using Anthropic modelUsage - includes all sub-agents)');
         let calculatedTotal = 0;
-        for (const [modelId, usage] of Object.entries(anthropicModelUsage)) {
+        const modelEntries = Object.entries(anthropicModelUsage);
+        for (const [modelId, usage] of modelEntries) {
           const modelInfo = await fetchModelInfo(modelId);
+          // Map Anthropic's key names to our expected format
+          const normalizedUsage = {
+            inputTokens: usage.inputTokens || 0,
+            outputTokens: usage.outputTokens || 0,
+            cacheCreationTokens: usage.cacheCreationInputTokens || 0,
+            cacheReadTokens: usage.cacheReadInputTokens || 0,
+            webSearchRequests: usage.webSearchRequests || 0
+          };
+          // Count total tokens
+          totalTokensFromAnthropic += normalizedUsage.inputTokens + normalizedUsage.outputTokens + normalizedUsage.cacheCreationTokens + normalizedUsage.cacheReadTokens;
+          // Display model header
+          const modelName = modelInfo?.name || modelId;
+          await log(`\n   📊 ${modelName}:`);
+          // Display model info if available
+          if (modelInfo) {
+            const fields = [
+              { label: 'Model ID', value: modelInfo.id },
+              { label: 'Provider', value: modelInfo.provider || 'Unknown' },
+              { label: 'Context window', value: modelInfo.limit?.context ? `${formatNumber(modelInfo.limit.context)} tokens` : null },
+              { label: 'Max output', value: modelInfo.limit?.output ? `${formatNumber(modelInfo.limit.output)} tokens` : null },
+              { label: 'Input modalities', value: modelInfo.modalities?.input?.join(', ') || 'N/A' },
+              { label: 'Output modalities', value: modelInfo.modalities?.output?.join(', ') || 'N/A' },
+              { label: 'Knowledge cutoff', value: modelInfo.knowledge },
+              { label: 'Released', value: modelInfo.release_date },
+              { label: 'Capabilities', value: [modelInfo.attachment && 'Attachments', modelInfo.reasoning && 'Reasoning', modelInfo.temperature && 'Temperature', modelInfo.tool_call && 'Tool calls'].filter(Boolean).join(', ') || 'N/A' },
+              { label: 'Open weights', value: modelInfo.open_weights ? 'Yes' : 'No' }
+            ];
+            for (const { label, value } of fields) {
+              if (value) await log(`      ${label}: ${value}`);
+            }
+            await log('');
+          } else {
+            await log('      ⚠️  Model info not available\n');
+          }
+          // Display usage data
+          await log('      Usage:');
+          await log(`        Input tokens: ${formatNumber(normalizedUsage.inputTokens)}`);
+          if (normalizedUsage.cacheCreationTokens > 0) {
+            await log(`        Cache creation tokens: ${formatNumber(normalizedUsage.cacheCreationTokens)}`);
+          }
+          if (normalizedUsage.cacheReadTokens > 0) {
+            await log(`        Cache read tokens: ${formatNumber(normalizedUsage.cacheReadTokens)}`);
+          }
+          await log(`        Output tokens: ${formatNumber(normalizedUsage.outputTokens)}`);
+          if (normalizedUsage.webSearchRequests > 0) {
+            await log(`        Web search requests: ${normalizedUsage.webSearchRequests}`);
+          }
+          // Calculate and display detailed cost breakdown
           if (modelInfo && modelInfo.cost) {
-            // Map Anthropic's key names to our expected format
-            const normalizedUsage = {
-              inputTokens: usage.inputTokens || 0,
-              outputTokens: usage.outputTokens || 0,
-              cacheCreationTokens: usage.cacheCreationInputTokens || 0,
-              cacheReadTokens: usage.cacheReadInputTokens || 0
-            };
-            const modelCost = calculateModelCost(normalizedUsage, modelInfo);
-            calculatedTotal += modelCost;
+            const costResult = calculateModelCost(normalizedUsage, modelInfo, true);
+            calculatedTotal += costResult.total;
+            await log('');
+            await log('      Cost Calculation (USD):');
+            const breakdown = costResult.breakdown;
+            const types = [
+              { key: 'input', label: 'Input' },
+              { key: 'cacheWrite', label: 'Cache write' },
+              { key: 'cacheRead', label: 'Cache read' },
+              { key: 'output', label: 'Output' }
+            ];
+            for (const { key, label } of types) {
+              if (breakdown[key].tokens > 0) {
+                await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${breakdown[key].cost.toFixed(6)}`);
+              }
+            }
+            await log('        ─────────────────────────────────');
+            await log(`        Total: $${costResult.total.toFixed(6)}`);
+          } else {
+            await log('');
+            await log('      Cost: Not available (could not fetch pricing)');
           }
         }
         if (calculatedTotal > 0) {
           publicPricingEstimate = calculatedTotal;
         }
+        // Show totals if multiple models were used
+        if (modelEntries.length > 1) {
+          await log('\n   📈 Total across all models:');
+        }
+        // Show cost comparison
+        await log('\n   💰 Cost estimation:');
+        if (publicPricingEstimate !== null) {
+          await log(`      Public pricing estimate: $${publicPricingEstimate.toFixed(6)} USD`);
+        } else {
+          await log('      Public pricing estimate: unknown');
+        }
+        if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+          await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+          // Show comparison if both are available
+          if (publicPricingEstimate !== null) {
+            const difference = anthropicTotalCostUSD - publicPricingEstimate;
+            const percentDiff = publicPricingEstimate > 0 ? ((difference / publicPricingEstimate) * 100) : 0;
+            await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+          } else {
+            await log('      Difference:              unknown');
+          }
+        } else {
+          await log('      Calculated by Anthropic: unknown');
+          await log('      Difference:              unknown');
+        }
+        await log(`      Total tokens: ${formatNumber(totalTokensFromAnthropic)}`);
       } catch (calcError) {
         await log(`   ⚠️ Could not calculate from modelUsage: ${calcError.message}`, { verbose: true });
       }
     }
-    // Calculate and display total token usage from session JSONL file
-    if (sessionId && tempDir) {
+    // Fallback: Calculate and display total token usage from session JSONL file (when anthropicModelUsage not available)
+    if (!anthropicModelUsage && sessionId && tempDir) {
       try {
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
         if (tokenUsage) {
           await log('\n💰 Token Usage Summary:');
+          await log('   (Using local session file - may not include sub-agents)');
           // Display per-model breakdown from local session
           if (tokenUsage.modelUsage) {
             const modelIds = Object.keys(tokenUsage.modelUsage);
@@ -1248,21 +1338,19 @@ export const executeClaudeCommand = async (params) => {
             }
             await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
           }
-          // Use publicPricingEstimate from anthropicModelUsage, fallback to local calculation
-          const estimateToUse = publicPricingEstimate !== null ? publicPricingEstimate : tokenUsage.totalCostUSD;
           // Show cost comparison
           await log('\n   💰 Cost estimation:');
-          if (estimateToUse !== null && estimateToUse !== undefined) {
-            await log(`      Public pricing estimate: $${estimateToUse.toFixed(6)} USD`);
+          if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+            await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
           } else {
             await log('      Public pricing estimate: unknown');
           }
           if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
             await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
             // Show comparison if both are available
-            if (estimateToUse !== null && estimateToUse !== undefined) {
-              const difference = anthropicTotalCostUSD - estimateToUse;
-              const percentDiff = estimateToUse > 0 ? ((difference / estimateToUse) * 100) : 0;
+            if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+              const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
+              const percentDiff = tokenUsage.totalCostUSD > 0 ? ((difference / tokenUsage.totalCostUSD) * 100) : 0;
               await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
             } else {
               await log('      Difference:              unknown');

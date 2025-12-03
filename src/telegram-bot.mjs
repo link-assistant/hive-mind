@@ -41,6 +41,9 @@ const { createYargsConfig: createHiveYargsConfig } = hiveConfigLib;
 // Import GitHub URL parser for extracting URLs from messages
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 
+// Import model validation for early validation with helpful error messages
+const { validateModelName } = await import('./model-validation.lib.mjs');
+
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
@@ -471,6 +474,34 @@ function executeWithCommand(startScreenCmd, command, args) {
   });
 }
 
+/**
+ * Validates the model name in the args array and returns an error message if invalid
+ * @param {string[]} args - Array of command arguments
+ * @param {string} tool - The tool to validate against ('claude' or 'opencode')
+ * @returns {string|null} Error message if invalid, null if valid or no model specified
+ */
+function validateModelInArgs(args, tool = 'claude') {
+  // Find --model or -m flag and its value
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--model' || args[i] === '-m') {
+      if (i + 1 < args.length) {
+        const modelName = args[i + 1];
+        const validation = validateModelName(modelName, tool);
+        if (!validation.valid) {
+          return validation.message;
+        }
+      }
+    } else if (args[i].startsWith('--model=')) {
+      const modelName = args[i].substring('--model='.length);
+      const validation = validateModelName(modelName, tool);
+      if (!validation.valid) {
+        return validation.message;
+      }
+    }
+  }
+  return null;
+}
+
 function parseCommandArgs(text) {
   // Use only first line and trim it
   const firstLine = text.split('\n')[0].trim();
@@ -737,7 +768,7 @@ bot.command('help', async (ctx) => {
   message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
   message += '• `--attach-logs` - Attach logs to PR\n';
   message += '• `--verbose` - Verbose output\n';
-  message += '• `--model <model>` - Specify AI model (sonnet/opus/haiku)\n';
+  message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
 
   if (allowedChats) {
@@ -943,6 +974,23 @@ bot.command(/^solve$/i, async (ctx) => {
   // Merge user args with overrides
   const args = mergeArgsWithOverrides(userArgs, solveOverrides);
 
+  // Determine tool from args (default: claude)
+  let solveTool = 'claude';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tool' && i + 1 < args.length) {
+      solveTool = args[i + 1];
+    } else if (args[i].startsWith('--tool=')) {
+      solveTool = args[i].substring('--tool='.length);
+    }
+  }
+
+  // Validate model name with helpful error message (before yargs validation)
+  const modelError = validateModelInArgs(args, solveTool);
+  if (modelError) {
+    await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   // Validate merged arguments using solve's yargs config
   try {
     // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
@@ -1074,6 +1122,23 @@ bot.command(/^hive$/i, async (ctx) => {
 
   // Merge user args with overrides
   const args = mergeArgsWithOverrides(userArgs, hiveOverrides);
+
+  // Determine tool from args (default: claude)
+  let hiveTool = 'claude';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tool' && i + 1 < args.length) {
+      hiveTool = args[i + 1];
+    } else if (args[i].startsWith('--tool=')) {
+      hiveTool = args[i].substring('--tool='.length);
+    }
+  }
+
+  // Validate model name with helpful error message (before yargs validation)
+  const hiveModelError = validateModelInArgs(args, hiveTool);
+  if (hiveModelError) {
+    await ctx.reply(`❌ ${hiveModelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
 
   // Validate merged arguments using hive's yargs config
   try {

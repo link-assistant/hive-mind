@@ -802,6 +802,7 @@ try {
   const { success } = toolResult;
   let sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+  let anthropicModelUsage = toolResult.anthropicModelUsage;
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -926,7 +927,7 @@ try {
 
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, anthropicModelUsage);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

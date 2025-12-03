@@ -460,6 +460,7 @@ export async function attachLogToGitHub(options) {
     sessionId = null,
     tempDir = null,
     anthropicTotalCostUSD = null,
+    anthropicModelUsage = null,
     isUsageLimit = false,
     limitResetTime = null,
     toolName = 'AI tool',
@@ -477,9 +478,47 @@ export async function attachLogToGitHub(options) {
       await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
       return false;
     }
-    // Calculate token usage if sessionId and tempDir are provided
+    // Calculate token usage for "Public pricing estimate"
+    // Priority: Use anthropicModelUsage (includes all sub-agents) > fallback to local JSONL calculation
     let totalCostUSD = null;
-    if (sessionId && tempDir && !errorMessage) {
+    if (anthropicModelUsage && !errorMessage) {
+      // Calculate from Anthropic's modelUsage data (includes sub-agents)
+      try {
+        const { fetchModelInfo, calculateModelCost } = await import('./claude.lib.mjs');
+        let calculatedTotal = 0;
+
+        for (const [modelId, usage] of Object.entries(anthropicModelUsage)) {
+          // Fetch pricing info for this model
+          const modelInfo = await fetchModelInfo(modelId);
+          if (modelInfo && modelInfo.cost) {
+            // Map Anthropic's key names to our expected format
+            const normalizedUsage = {
+              inputTokens: usage.inputTokens || 0,
+              outputTokens: usage.outputTokens || 0,
+              cacheCreationTokens: usage.cacheCreationInputTokens || 0,
+              cacheReadTokens: usage.cacheReadInputTokens || 0
+            };
+
+            // Calculate cost for this model
+            const modelCost = calculateModelCost(normalizedUsage, modelInfo, false);
+            calculatedTotal += modelCost;
+          }
+        }
+
+        totalCostUSD = calculatedTotal;
+        if (verbose) {
+          await log(`  💰 Calculated cost from Anthropic modelUsage: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+        }
+      } catch (modelUsageError) {
+        // Fall through to local calculation if Anthropic's data fails
+        if (verbose) {
+          await log(`  ⚠️  Could not calculate from modelUsage: ${modelUsageError.message}`, { verbose: true });
+        }
+      }
+    }
+
+    // Fallback to local JSONL calculation if anthropicModelUsage not available
+    if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
@@ -487,7 +526,7 @@ export async function attachLogToGitHub(options) {
           if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
             totalCostUSD = tokenUsage.totalCostUSD;
             if (verbose) {
-              await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+              await log(`  💰 Calculated cost from local JSONL: $${totalCostUSD.toFixed(6)}`, { verbose: true });
             }
           }
         }

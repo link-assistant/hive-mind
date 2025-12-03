@@ -250,7 +250,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, anthropicModelUsage = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -374,7 +374,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             verbose: argv.verbose,
             sessionId,
             tempDir,
-            anthropicTotalCostUSD
+            anthropicTotalCostUSD,
+            anthropicModelUsage
           });
         }
 

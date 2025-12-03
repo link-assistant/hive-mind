@@ -1,6 +1,6 @@
 {
   "name": "@deep-assistant/hive-mind",
-  "version": "0.36.4",
+  "version": "0.36.6",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",

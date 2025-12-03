@@ -157,7 +157,7 @@ let owner = null;
 let repo = null;
 
 // Parse URL format: https://github.com/owner or https://github.com/owner/repo
-const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/);
+const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^/]+)(\/([^/]+))?$/);
 if (!urlMatch) {
   await log('Error: Invalid GitHub URL format', { level: 'error' });
   await log('Expected: https://github.com/owner or https://github.com/owner/repo', { level: 'error' });
@@ -367,7 +367,7 @@ async function hasApprovals(prUrl) {
     const { execSync } = await import('child_process');
     
     // Extract owner, repo, and PR number from URL
-    const urlMatch = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+    const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!urlMatch) return false;
     
     const [, prOwner, prRepo, prNumber] = urlMatch;

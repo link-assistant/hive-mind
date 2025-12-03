@@ -320,17 +320,9 @@ process.stderr.write = function(chunk, encoding, callback) {
     throw error;
   }
 
-  // Normalize alias flags: legacy --skip-tool-check and --skip-claude-check behave like --skip-tool-connection-check
-  if (argv) {
-    // Support deprecated flags
-    if (argv.skipToolCheck || argv.skipClaudeCheck) {
-      argv.skipToolConnectionCheck = true;
-    }
-    // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
-    if (argv.toolCheck === false) {
-      argv.toolConnectionCheck = false;
-    }
-  }
+  // Normalize deprecated flags to new names
+  if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+  if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
 }
 
 let githubUrl = argv['github-url'];

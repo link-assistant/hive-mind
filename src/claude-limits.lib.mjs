@@ -1,103 +1,169 @@
 #!/usr/bin/env node
 /**
  * Claude usage limits library
- * Provides functions to fetch and parse Claude CLI usage limits
+ * Provides functions to fetch and parse Claude usage limits via OAuth API
  */
 
-import { exec as execCallback } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const exec = promisify(execCallback);
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /**
- * Get Claude usage limits by running 'claude /usage' with expect
- * Parses the output to extract:
- * - Current session usage percentage and reset time
- * - Current week (all models) usage percentage and reset date
- * - Current week (Sonnet only) usage percentage and reset date
- *
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Object} Object with success boolean, and either usage data or error message
+ * Default path to Claude credentials file
  */
-export async function getClaudeUsageLimits(verbose = false) {
+const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
+
+/**
+ * Anthropic OAuth usage API endpoint
+ */
+const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+
+/**
+ * Read Claude credentials from the credentials file
+ *
+ * @param {string} credentialsPath - Path to credentials file (optional)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object|null} Credentials object or null if not found
+ */
+async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
   try {
-    // Use expect to run claude /usage interactively
-    // The command opens an interactive screen, we need to press Enter and wait for output
-    const expectScript = `
-expect -c '
-  log_user 0
-  set timeout 30
-  spawn claude /usage
-  sleep 5
-  send "\\r"
-  expect eof
-  exit 0
-' 2>/dev/null
-`;
-    const result = await exec(expectScript, { timeout: 60000 });
-    const output = result.stdout || '';
+    const content = await readFile(credentialsPath, 'utf-8');
+    const credentials = JSON.parse(content);
 
     if (verbose) {
-      console.log('[VERBOSE] /limits raw output:', output);
+      console.log('[VERBOSE] /limits credentials loaded from:', credentialsPath);
     }
 
-    // Parse the output to extract usage information
-    // Format from screenshot:
-    // Current session
-    // [progress bar] XX% used
-    // Resets Xpm (UTC)
-    //
-    // Current week (all models)
-    // [progress bar] XX% used
-    // Resets [Date], Xpm (UTC)
-    //
-    // Current week (Sonnet only)
-    // [progress bar] XX% used
-    // Resets [Date], Xpm (UTC)
-
-    // Extract percentages from output
-    const percentageMatches = output.match(/(\d+)%\s*used/g);
-    const percentages = percentageMatches
-      ? percentageMatches.map(m => parseInt(m.match(/(\d+)/)[1]))
-      : [];
-
-    // Extract reset times - look for "Resets" followed by time info
-    const resetMatches = output.match(/Resets\s+([^\n]+)/g);
-    const resetTimes = resetMatches
-      ? resetMatches.map(m => m.replace(/Resets\s+/, '').trim())
-      : [];
-
-    if (percentages.length === 0) {
-      // Try alternative parsing - percentages might be on separate lines
-      const lines = output.split('\n');
-      for (const line of lines) {
-        const pctMatch = line.match(/(\d+)%/);
-        if (pctMatch) {
-          percentages.push(parseInt(pctMatch[1]));
-        }
-      }
+    return credentials;
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits failed to read credentials:', error.message);
     }
+    return null;
+  }
+}
 
-    if (percentages.length === 0) {
+/**
+ * Format an ISO date string to a human-readable reset time
+ *
+ * @param {string} isoDate - ISO date string (e.g., "2025-12-03T17:59:59.626485+00:00")
+ * @returns {string} Human-readable reset time (e.g., "Dec 3, 6pm (UTC)")
+ */
+function formatResetTime(isoDate) {
+  if (!isoDate) return null;
+
+  try {
+    const date = new Date(isoDate);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getUTCMonth()];
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours();
+
+    // Convert 24h to 12h format
+    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const ampm = hours >= 12 ? 'pm' : 'am';
+
+    return `${month} ${day}, ${hour12}${ampm} (UTC)`;
+  } catch {
+    return isoDate;
+  }
+}
+
+/**
+ * Get Claude usage limits by calling the Anthropic OAuth usage API
+ * This approach is more reliable than trying to parse CLI output
+ * and doesn't require the 'expect' command.
+ *
+ * Returns usage data for:
+ * - Current session (five_hour) usage percentage and reset time
+ * - Current week (all models / seven_day) usage percentage and reset date
+ * - Current week (Sonnet only / seven_day_sonnet) usage percentage and reset date
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {string} credentialsPath - Optional path to credentials file
+ * @returns {Object} Object with success boolean, and either usage data or error message
+ */
+export async function getClaudeUsageLimits(verbose = false, credentialsPath = DEFAULT_CREDENTIALS_PATH) {
+  try {
+    // Read credentials
+    const credentials = await readCredentials(credentialsPath, verbose);
+
+    if (!credentials) {
       return {
         success: false,
-        error: 'Could not parse usage information from Claude CLI. Make sure Claude is properly installed and authenticated.'
+        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.'
       };
     }
 
-    // Build the result object
+    const accessToken = credentials?.claudeAiOauth?.accessToken;
+
+    if (!accessToken) {
+      return {
+        success: false,
+        error: 'No access token found in Claude credentials. Please re-authenticate with Claude.'
+      };
+    }
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits fetching usage from API...');
+    }
+
+    // Call the Anthropic OAuth usage API
+    const response = await fetch(USAGE_API_ENDPOINT, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': 'claude-code/2.0.55',
+        'Authorization': `Bearer ${accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (verbose) {
+        console.error('[VERBOSE] /limits API error:', response.status, errorText);
+      }
+
+      // Check for specific error conditions
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: 'Claude authentication expired. Please re-authenticate with Claude.'
+        };
+      }
+
+      return {
+        success: false,
+        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`
+      };
+    }
+
+    const data = await response.json();
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits API response:', JSON.stringify(data, null, 2));
+    }
+
+    // Parse the API response
+    // API returns:
+    // - five_hour: { utilization: number, resets_at: string }
+    // - seven_day: { utilization: number, resets_at: string }
+    // - seven_day_sonnet: { utilization: number, resets_at: string } (optional)
+
     const usage = {
       currentSession: {
-        percentage: percentages[0] || null,
-        resetTime: resetTimes[0] || null
+        percentage: data.five_hour?.utilization ?? null,
+        resetTime: formatResetTime(data.five_hour?.resets_at)
       },
       allModels: {
-        percentage: percentages[1] || null,
-        resetTime: resetTimes[1] || null
+        percentage: data.seven_day?.utilization ?? null,
+        resetTime: formatResetTime(data.seven_day?.resets_at)
       },
       sonnetOnly: {
-        percentage: percentages[2] || null,
-        resetTime: resetTimes[2] || null
+        percentage: data.seven_day_sonnet?.utilization ?? null,
+        resetTime: formatResetTime(data.seven_day_sonnet?.resets_at)
       }
     };
 
@@ -136,7 +202,7 @@ export function getProgressBar(percentage) {
 export function formatUsageMessage(usage) {
   let message = '*Claude Usage Limits*\n\n';
 
-  // Current session
+  // Current session (five_hour)
   message += '*Current session*\n';
   if (usage.currentSession.percentage !== null) {
     const pct = usage.currentSession.percentage;
@@ -150,7 +216,7 @@ export function formatUsageMessage(usage) {
   }
   message += '\n';
 
-  // Current week (all models)
+  // Current week (all models / seven_day)
   message += '*Current week (all models)*\n';
   if (usage.allModels.percentage !== null) {
     const pct = usage.allModels.percentage;
@@ -164,7 +230,7 @@ export function formatUsageMessage(usage) {
   }
   message += '\n';
 
-  // Current week (Sonnet only)
+  // Current week (Sonnet only / seven_day_sonnet)
   message += '*Current week (Sonnet only)*\n';
   if (usage.sonnetOnly.percentage !== null) {
     const pct = usage.sonnetOnly.percentage;

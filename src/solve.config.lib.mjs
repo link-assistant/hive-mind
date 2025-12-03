@@ -50,25 +50,38 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Prepare everything but do not execute Claude (alias for --only-prepare-command)',
       alias: 'n'
     })
+    .option('skip-tool-connection-check', {
+      type: 'boolean',
+      description: 'Skip tool connection check (useful in CI environments). Does NOT skip model validation.',
+      default: false
+    })
     .option('skip-tool-check', {
       type: 'boolean',
-      description: 'Skip tool connection check (useful in CI environments)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated, use --skip-tool-connection-check instead)',
+      default: false,
+      hidden: true
     })
     .option('skip-claude-check', {
       type: 'boolean',
-      description: 'Alias for --skip-tool-check (kept for backward compatibility with CI/tests)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated)',
+      default: false,
+      hidden: true
+    })
+    .option('tool-connection-check', {
+      type: 'boolean',
+      description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
+      default: true,
+      hidden: true
     })
     .option('tool-check', {
       type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-check to skip)',
+      description: 'Alias for --tool-connection-check (deprecated)',
       default: true,
       hidden: true
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3)',
       alias: 'm',
       default: (currentParsedArgs) => {
         // Dynamic default based on tool selection
@@ -290,9 +303,16 @@ export const parseArguments = async (yargs, hideBin) => {
   // so we need to handle this manually after parsing
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m');
 
-  // Normalize alias flags: --skip-claude-check behaves like --skip-tool-check
-  if (argv && argv.skipClaudeCheck) {
-    argv.skipToolCheck = true;
+  // Normalize alias flags: legacy --skip-tool-check and --skip-claude-check behave like --skip-tool-connection-check
+  if (argv) {
+    // Support deprecated flags
+    if (argv.skipToolCheck || argv.skipClaudeCheck) {
+      argv.skipToolConnectionCheck = true;
+    }
+    // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
+    if (argv.toolCheck === false) {
+      argv.toolConnectionCheck = false;
+    }
   }
 
   if (argv.tool === 'opencode' && !modelExplicitlyProvided) {

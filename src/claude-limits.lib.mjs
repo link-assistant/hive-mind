@@ -47,9 +47,10 @@ async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbo
  * Format an ISO date string to a human-readable reset time
  *
  * @param {string} isoDate - ISO date string (e.g., "2025-12-03T17:59:59.626485+00:00")
- * @returns {string} Human-readable reset time (e.g., "Dec 3, 6pm (UTC)")
+ * @param {boolean} includeTimezone - Whether to include timezone suffix (default: true)
+ * @returns {string} Human-readable reset time (e.g., "Dec 3, 6:59pm UTC")
  */
-function formatResetTime(isoDate) {
+function formatResetTime(isoDate, includeTimezone = true) {
   if (!isoDate) return null;
 
   try {
@@ -58,15 +59,62 @@ function formatResetTime(isoDate) {
     const month = months[date.getUTCMonth()];
     const day = date.getUTCDate();
     const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
 
     // Convert 24h to 12h format
     const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
     const ampm = hours >= 12 ? 'pm' : 'am';
 
-    return `${month} ${day}, ${hour12}${ampm} (UTC)`;
+    const timeStr = `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    return includeTimezone ? `${timeStr} UTC` : timeStr;
   } catch {
     return isoDate;
   }
+}
+
+/**
+ * Format relative time from now to a future date
+ *
+ * @param {string} isoDate - ISO date string
+ * @returns {string|null} Relative time string (e.g., "1h 34m") or null if date is in the past
+ */
+function formatRelativeTime(isoDate) {
+  if (!isoDate) return null;
+
+  try {
+    const now = new Date();
+    const target = new Date(isoDate);
+    const diffMs = target - now;
+
+    if (diffMs < 0) return null; // Past date
+
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    return `${hours}h ${minutes}m`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format current time in UTC
+ *
+ * @returns {string} Current time in UTC (e.g., "Dec 3, 6:45pm UTC")
+ */
+function formatCurrentTime() {
+  const now = new Date();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[now.getUTCMonth()];
+  const day = now.getUTCDate();
+  const hours = now.getUTCHours();
+  const minutes = now.getUTCMinutes();
+
+  // Convert 24h to 12h format
+  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  const ampm = hours >= 12 ? 'pm' : 'am';
+
+  return `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm} UTC`;
 }
 
 /**
@@ -155,15 +203,18 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const usage = {
       currentSession: {
         percentage: data.five_hour?.utilization ?? null,
-        resetTime: formatResetTime(data.five_hour?.resets_at)
+        resetTime: formatResetTime(data.five_hour?.resets_at),
+        resetsAt: data.five_hour?.resets_at ?? null
       },
       allModels: {
         percentage: data.seven_day?.utilization ?? null,
-        resetTime: formatResetTime(data.seven_day?.resets_at)
+        resetTime: formatResetTime(data.seven_day?.resets_at),
+        resetsAt: data.seven_day?.resets_at ?? null
       },
       sonnetOnly: {
         percentage: data.seven_day_sonnet?.utilization ?? null,
-        resetTime: formatResetTime(data.seven_day_sonnet?.resets_at)
+        resetTime: formatResetTime(data.seven_day_sonnet?.resets_at),
+        resetsAt: data.seven_day_sonnet?.resets_at ?? null
       }
     };
 
@@ -200,16 +251,25 @@ export function getProgressBar(percentage) {
  * @returns {string} Formatted message
  */
 export function formatUsageMessage(usage) {
-  let message = '*Claude Usage Limits*\n\n';
+  // Use code block for monospace font to align progress bars properly
+  let message = '```\nClaude Usage Limits\n\n';
+
+  // Show current time
+  message += `Current time: ${formatCurrentTime()}\n\n`;
 
   // Current session (five_hour)
-  message += '*Current session*\n';
+  message += 'Current session\n';
   if (usage.currentSession.percentage !== null) {
     const pct = usage.currentSession.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
     if (usage.currentSession.resetTime) {
-      message += `Resets ${usage.currentSession.resetTime}\n`;
+      const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
+      if (relativeTime) {
+        message += `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`;
+      } else {
+        message += `Resets ${usage.currentSession.resetTime}\n`;
+      }
     }
   } else {
     message += 'N/A\n';
@@ -217,13 +277,18 @@ export function formatUsageMessage(usage) {
   message += '\n';
 
   // Current week (all models / seven_day)
-  message += '*Current week (all models)*\n';
+  message += 'Current week (all models)\n';
   if (usage.allModels.percentage !== null) {
     const pct = usage.allModels.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
     if (usage.allModels.resetTime) {
-      message += `Resets ${usage.allModels.resetTime}\n`;
+      const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
+      if (relativeTime) {
+        message += `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`;
+      } else {
+        message += `Resets ${usage.allModels.resetTime}\n`;
+      }
     }
   } else {
     message += 'N/A\n';
@@ -231,18 +296,24 @@ export function formatUsageMessage(usage) {
   message += '\n';
 
   // Current week (Sonnet only / seven_day_sonnet)
-  message += '*Current week (Sonnet only)*\n';
+  message += 'Current week (Sonnet only)\n';
   if (usage.sonnetOnly.percentage !== null) {
     const pct = usage.sonnetOnly.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
     if (usage.sonnetOnly.resetTime) {
-      message += `Resets ${usage.sonnetOnly.resetTime}\n`;
+      const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
+      if (relativeTime) {
+        message += `Resets in ${relativeTime} (${usage.sonnetOnly.resetTime})\n`;
+      } else {
+        message += `Resets ${usage.sonnetOnly.resetTime}\n`;
+      }
     }
   } else {
     message += 'N/A\n';
   }
 
+  message += '```';
   return message;
 }
 

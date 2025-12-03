@@ -1,0 +1,163 @@
+{
+  "issue": {
+    "number": 787,
+    "title": "Fix cost calculation",
+    "url": "https://github.com/link-assistant/hive-mind/issues/787",
+    "created_at": "2025-12-02"
+  },
+  "evidence": {
+    "anthropic_result": {
+      "type": "result",
+      "subtype": "success",
+      "is_error": false,
+      "duration_ms": 1231846,
+      "duration_api_ms": 650885,
+      "num_turns": 82,
+      "total_cost_usd": 2.0382708499999986,
+      "usage": {
+        "input_tokens": 109,
+        "cache_creation_input_tokens": 57657,
+        "cache_read_input_tokens": 4278957,
+        "output_tokens": 14921,
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 57657
+        }
+      },
+      "modelUsage": {
+        "claude-haiku-4-5-20251001": {
+          "inputTokens": 66363,
+          "outputTokens": 5642,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.09457300000000002,
+          "contextWindow": 200000
+        },
+        "claude-sonnet-4-5-20250929": {
+          "inputTokens": 109,
+          "outputTokens": 14921,
+          "cacheReadInputTokens": 4278957,
+          "cacheCreationInputTokens": 57657,
+          "webSearchRequests": 0,
+          "costUSD": 1.7240428499999996,
+          "contextWindow": 200000
+        },
+        "claude-opus-4-5-20251101": {
+          "inputTokens": 1241,
+          "outputTokens": 8538,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "webSearchRequests": 0,
+          "costUSD": 0.219655,
+          "contextWindow": 200000
+        }
+      }
+    },
+    "local_calculation": {
+      "model": "claude-sonnet-4-5-20250929",
+      "usage": {
+        "input_tokens": 172,
+        "cache_creation_tokens": 102076,
+        "cache_read_tokens": 6382995,
+        "output_tokens": 10633
+      },
+      "cost_breakdown": {
+        "input": {
+          "tokens": 172,
+          "price_per_million": 6,
+          "cost_usd": 0.001032
+        },
+        "output": {
+          "tokens": 10633,
+          "price_per_million": 30,
+          "cost_usd": 0.31899
+        },
+        "cache_read": {
+          "tokens": 6382995,
+          "price_per_million": null,
+          "cost_usd": 0,
+          "note": "Not included in calculation"
+        },
+        "cache_write": {
+          "tokens": 102076,
+          "price_per_million": null,
+          "cost_usd": 0,
+          "note": "Not included in calculation"
+        }
+      },
+      "total_cost_usd": 0.320022
+    },
+    "cost_comparison": {
+      "public_pricing_estimate": 0.320022,
+      "anthropic_official": 2.038271,
+      "difference_usd": 1.718249,
+      "difference_percent": 536.92
+    }
+  },
+  "model_pricing": {
+    "source": "https://models.dev/api.json",
+    "models": {
+      "claude-sonnet-4-5-20250929": {
+        "input": 3,
+        "output": 15,
+        "cache_read": 0.3,
+        "cache_write": 3.75
+      },
+      "claude-haiku-4-5-20251001": {
+        "input": 1,
+        "output": 5,
+        "cache_read": 0.1,
+        "cache_write": 1.25
+      },
+      "claude-opus-4-5-20251101": {
+        "input": 15,
+        "output": 75,
+        "cache_read": 1.5,
+        "cache_write": 18.75
+      }
+    }
+  },
+  "root_cause": {
+    "summary": "Local token calculation reads only main session JSONL file, missing sub-agent (Haiku, Opus) usage",
+    "bugs_identified": [
+      {
+        "id": 1,
+        "description": "JSONL file only contains main model (Sonnet) usage, sub-agents not recorded locally",
+        "impact": "Missing ~$0.31 from Haiku and Opus usage"
+      },
+      {
+        "id": 2,
+        "description": "Cache token costs not being added to displayed total",
+        "impact": "Cache read/write costs not shown in breakdown despite being calculated"
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "timestamp": "2025-12-02T07:00:29.700Z",
+      "event": "Session completed, Anthropic returns result JSON with total_cost_usd"
+    },
+    {
+      "timestamp": "2025-12-02T07:00:29.701Z",
+      "event": "Anthropic official cost captured: $2.038271"
+    },
+    {
+      "timestamp": "2025-12-02T07:00:30.148Z",
+      "event": "Token Usage Summary calculation begins"
+    },
+    {
+      "timestamp": "2025-12-02T07:00:30.158Z",
+      "event": "Local calculation shows only $0.320022"
+    },
+    {
+      "timestamp": "2025-12-02T07:00:30.160Z",
+      "event": "Discrepancy displayed: +536.92% difference"
+    }
+  ]
+}

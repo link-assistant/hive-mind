@@ -460,6 +460,7 @@ export async function attachLogToGitHub(options) {
     sessionId = null,
     tempDir = null,
     anthropicTotalCostUSD = null,
+    anthropicModelUsage = null,
     isUsageLimit = false,
     limitResetTime = null,
     toolName = 'AI tool',
@@ -477,26 +478,32 @@ export async function attachLogToGitHub(options) {
       await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
       return false;
     }
-    // Calculate token usage if sessionId and tempDir are provided
+    // Calculate "Public pricing estimate" from anthropicModelUsage (includes all sub-agents)
+    // Falls back to local JSONL calculation only when anthropicModelUsage unavailable
     let totalCostUSD = null;
-    if (sessionId && tempDir && !errorMessage) {
+    if (anthropicModelUsage && !errorMessage) {
+      try {
+        const { fetchModelInfo, calculateModelCost } = await import('./claude.lib.mjs');
+        let calculatedTotal = 0;
+        for (const [modelId, usage] of Object.entries(anthropicModelUsage)) {
+          const modelInfo = await fetchModelInfo(modelId);
+          if (modelInfo?.cost) {
+            const normalizedUsage = {
+              inputTokens: usage.inputTokens || 0, outputTokens: usage.outputTokens || 0,
+              cacheCreationTokens: usage.cacheCreationInputTokens || 0, cacheReadTokens: usage.cacheReadInputTokens || 0
+            };
+            calculatedTotal += calculateModelCost(normalizedUsage, modelInfo);
+          }
+        }
+        if (calculatedTotal > 0) totalCostUSD = calculatedTotal;
+      } catch (e) { if (verbose) await log(`  ⚠️  Could not calculate from modelUsage: ${e.message}`, { verbose: true }); }
+    }
+    if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
-        if (tokenUsage) {
-          if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-            totalCostUSD = tokenUsage.totalCostUSD;
-            if (verbose) {
-              await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
-            }
-          }
-        }
-      } catch (tokenError) {
-        // Don't fail the entire upload if token calculation fails
-        if (verbose) {
-          await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
-        }
-      }
+        if (tokenUsage?.totalCostUSD != null) totalCostUSD = tokenUsage.totalCostUSD;
+      } catch (e) { if (verbose) await log(`  ⚠️  Could not calculate token cost: ${e.message}`, { verbose: true }); }
     }
     // Read and sanitize log content
     const rawLogContent = await fs.readFile(logFile, 'utf8');

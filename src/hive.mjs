@@ -108,6 +108,9 @@ const yargsConfigLib = await import('./hive.config.lib.mjs');
 const { createYargsConfig } = yargsConfigLib;
 const claudeLib = await import('./claude.lib.mjs');
 const { validateClaudeConnection } = claudeLib;
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
 const githubLib = await import('./github.lib.mjs');
 const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
 // Import YouTrack-related functions
@@ -317,10 +320,9 @@ process.stderr.write = function(chunk, encoding, callback) {
     throw error;
   }
 
-  // Normalize alias flags: --skip-claude-check behaves like --skip-tool-check
-  if (argv && argv.skipClaudeCheck) {
-    argv.skipToolCheck = true;
-  }
+  // Normalize deprecated flags to new names
+  if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+  if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
 }
 
 let githubUrl = argv['github-url'];
@@ -481,6 +483,11 @@ if (argv.projectMode) {
   }
 }
 
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
 // Validate conflicting options
 if (argv.skipIssuesWithPrs && argv.autoContinue) {
   await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
@@ -493,8 +500,8 @@ if (argv.skipIssuesWithPrs && argv.autoContinue) {
 // Helper function to check GitHub permissions - moved to github.lib.mjs
 
 // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const hasValidAuth = await checkGitHubPermissions();
   if (!hasValidAuth) {
@@ -562,7 +569,7 @@ if (urlMatch) {
 // Determine scope
 if (!repo) {
   // Check if it's an organization or user (skip in dry-run mode to avoid hanging)
-  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
+  if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
     // In dry-run mode, default to user to avoid GitHub API calls
     scope = 'user';
     await log('   ℹ️  Assuming user scope (dry-run mode, skipping API detection)', { verbose: true });
@@ -745,8 +752,7 @@ async function worker(workerId) {
         const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
         const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
         const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-        const skipToolCheckFlag = (argv.skipToolCheck || !argv.toolCheck) ? ' --skip-tool-check' : '';
-        const skipClaudeCheckFlag = argv.skipClaudeCheck ? ' --skip-claude-check' : '';
+        const skipToolConnectionCheckFlag = (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) ? ' --skip-tool-connection-check' : '';
         const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
         const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
@@ -783,11 +789,8 @@ async function worker(workerId) {
         if (argv.dryRun) {
           args.push('--dry-run');
         }
-        if (argv.skipToolCheck || !argv.toolCheck) {
-          args.push('--skip-tool-check');
-        }
-        if (argv.skipClaudeCheck) {
-          args.push('--skip-claude-check');
+        if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+          args.push('--skip-tool-connection-check');
         }
         if (argv.autoContinue) {
           args.push('--auto-continue');
@@ -806,7 +809,7 @@ async function worker(workerId) {
         }
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolCheckFlag}${skipClaudeCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
@@ -1440,9 +1443,9 @@ process.on('SIGINT', () => gracefulShutdown('interrupt'));
 process.on('SIGTERM', () => gracefulShutdown('termination'));
 
 // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-check enabled)', { verbose: true });
-  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const systemCheck = await checkSystem(
     {

@@ -840,19 +840,31 @@ bot.command('limits', async (ctx) => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
 
   // Get the usage limits using the library function
   const result = await getClaudeUsageLimits(VERBOSE);
 
   if (!result.success) {
-    await ctx.reply(`❌ ${result.error}`, { reply_to_message_id: ctx.message.message_id });
+    // Edit the fetching message to show the error
+    await ctx.telegram.editMessageText(
+      fetchingMessage.chat.id,
+      fetchingMessage.message_id,
+      undefined,
+      `❌ ${result.error}`
+    );
     return;
   }
 
-  // Format and send the response using the library function
+  // Format and edit the fetching message with the results
   const message = '📊 ' + formatUsageMessage(result.usage);
-  await ctx.reply(message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await ctx.telegram.editMessageText(
+    fetchingMessage.chat.id,
+    fetchingMessage.message_id,
+    undefined,
+    message,
+    { parse_mode: 'Markdown' }
+  );
 });
 
 bot.command(/^solve$/i, async (ctx) => {

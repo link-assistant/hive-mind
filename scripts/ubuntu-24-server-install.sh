@@ -99,14 +99,20 @@ else
   log_success "Sufficient disk space available: ${AVAILABLE_GB}GB"
 fi
 
-# Check internet connectivity
-if ! ping -c 1 -W 5 google.com &>/dev/null; then
-  log_warning "No internet connectivity detected"
-  log_error "Internet connection required for installation"
-  exit 1
+# Check internet connectivity (skip in Docker environments)
+# Docker builds might have network but ping may not work due to network configuration
+if [ ! -f /.dockerenv ]; then
+  if ! ping -c 1 -W 5 google.com &>/dev/null; then
+    log_warning "No internet connectivity detected"
+    log_error "Internet connection required for installation"
+    exit 1
+  fi
+  log_success "Internet connectivity confirmed"
+else
+  log_note "Running in Docker environment - skipping ping check"
+  log_note "Internet connectivity will be verified during package installation"
 fi
 
-log_success "Internet connectivity confirmed"
 log_success "Pre-flight checks passed"
 
 log_step "Starting hive environment setup"
@@ -655,12 +661,17 @@ else
   log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
 fi
 
-# --- Git setup with GitHub identity ---
-log_info "Configuring Git with GitHub identity..."
-git config --global user.name "$(gh api user --jq .login)"
-git config --global user.email "$(gh api user/emails --jq '.[] | select(.primary==true).email')"
-gh auth setup-git
-log_success "Git configured with GitHub identity"
+# --- Git setup with GitHub identity (only if authenticated) ---
+if gh auth status &>/dev/null; then
+  log_info "Configuring Git with GitHub identity..."
+  git config --global user.name "$(gh api user --jq .login)"
+  git config --global user.email "$(gh api user/emails --jq '.[] | select(.primary==true).email')"
+  gh auth setup-git
+  log_success "Git configured with GitHub identity"
+else
+  log_note "GitHub CLI not authenticated - skipping Git configuration"
+  log_note "After authentication, Git will be auto-configured with your GitHub identity"
+fi
 
 # --- Clone or update hive-mind repo (idempotent, no fatal logs) ---
 REPO_DIR="$HOME/hive-mind"

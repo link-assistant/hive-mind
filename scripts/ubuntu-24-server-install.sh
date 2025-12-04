@@ -312,9 +312,15 @@ maybe_sudo apt install -y \
   liblzma-dev
 log_success "Python build dependencies installed"
 
-# --- Setup swap file ---
-log_step "Setting up swap space"
-create_swap_file
+# --- Setup swap file (skip in Docker) ---
+# Docker containers cannot create swap files due to security restrictions
+if [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+  log_step "Skipping swap setup (running in Docker container)"
+  log_note "Swap is managed by the Docker host"
+else
+  log_step "Setting up swap space"
+  create_swap_file
+fi
 
 # --- Switch to hive user for language tools and gh setup ---
 maybe_sudo -i -u hive bash <<'EOF_HIVE'

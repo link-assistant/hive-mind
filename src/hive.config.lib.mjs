@@ -145,7 +145,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-fork', {
       type: 'boolean',
       description: 'Automatically fork public repos without write access (passed to solve command)',
-      default: false
+      default: true
     })
     .option('attach-logs', {
       type: 'boolean',
@@ -200,7 +200,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-continue', {
       type: 'boolean',
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
-      default: false
+      default: true
     })
     .option('think', {
       type: 'string',

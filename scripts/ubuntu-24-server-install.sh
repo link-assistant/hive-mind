@@ -340,7 +340,13 @@ else
 fi
 
 # --- Switch to hive user for language tools and gh setup ---
-maybe_sudo -i -u hive bash <<'EOF_HIVE'
+if [ "$EUID" -eq 0 ]; then
+  # Running as root - use su to switch to hive user
+  su - hive <<'EOF_HIVE'
+else
+  # Not root - use sudo
+  sudo -i -u hive bash <<'EOF_HIVE'
+fi
 set -euo pipefail
 
 # Define logging functions for hive user session

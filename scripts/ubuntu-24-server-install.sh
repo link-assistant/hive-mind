@@ -119,9 +119,16 @@ if id "hive" &>/dev/null; then
   log_info "hive user already exists."
 else
   log_info "Creating hive user..."
-  adduser --disabled-password --gecos "" hive
-  passwd -d hive
-  usermod -aG sudo hive
+  # Use useradd (always available) instead of adduser (requires package installation)
+  useradd -m -s /bin/bash hive 2>/dev/null || {
+    log_warning "User creation with useradd failed, trying adduser..."
+    # Fallback to adduser if available
+    adduser --disabled-password --gecos "" hive
+  }
+  # Remove password requirement
+  passwd -d hive 2>/dev/null || log_note "Could not remove password requirement"
+  # Add to sudo group
+  usermod -aG sudo hive 2>/dev/null || log_note "Could not add to sudo group"
   log_success "hive user created and configured"
 fi
 

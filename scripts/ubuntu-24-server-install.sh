@@ -254,8 +254,14 @@ create_swap_file() {
   # Format as swap
   maybe_sudo mkswap "$new_swapfile"
 
-  # Enable swap file
-  maybe_sudo swapon "$new_swapfile"
+  # Enable swap file (may fail in Docker containers)
+  if ! maybe_sudo swapon "$new_swapfile" 2>/dev/null; then
+    log_warning "Failed to enable swap file (likely running in Docker container)"
+    log_note "Swap creation will be skipped. Docker manages swap at the host level."
+    # Clean up the swap file we tried to create
+    maybe_sudo rm -f "$new_swapfile"
+    return 0
+  fi
 
   # Make it persistent by adding to /etc/fstab if not already there
   if ! grep -q "$new_swapfile" /etc/fstab; then
@@ -314,7 +320,18 @@ log_success "Python build dependencies installed"
 
 # --- Setup swap file (skip in Docker) ---
 # Docker containers cannot create swap files due to security restrictions
-if [ -f /.dockerenv ] || grep -q docker /proc/1/cgroup 2>/dev/null; then
+# Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit, or running as PID 1 without init
+is_docker=false
+if [ -f /.dockerenv ]; then
+  is_docker=true
+elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
+  is_docker=true
+elif [ "$$" = "1" ] && [ ! -d /proc/1/root/proc ]; then
+  # Running as PID 1 without a full init system (likely Docker)
+  is_docker=true
+fi
+
+if [ "$is_docker" = true ]; then
   log_step "Skipping swap setup (running in Docker container)"
   log_note "Swap is managed by the Docker host"
 else

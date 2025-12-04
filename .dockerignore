@@ -4,7 +4,7 @@
 
 # Docker files themselves (to avoid recursive copies)
 Dockerfile
-Dockerfile.production
+experiments/solve-dockerize/
 docker-compose.yml
 .dockerignore
 

@@ -27,7 +27,7 @@ solve https://github.com/owner/repo/issues/123
 
 ```bash
 # Build the production image
-docker build -f Dockerfile.production -t hive-mind:local .
+docker build -t hive-mind:local .
 
 # Run the image
 docker run -it hive-mind:local
@@ -52,7 +52,7 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile.production`) uses Ubuntu 24.04 and the official installation script. Authentication is performed **inside the container** after starting it:
+The production Docker image (`Dockerfile`) uses Ubuntu 24.04 and the official installation script. Authentication is performed **inside the container** after starting it:
 
 ### GitHub Authentication
 ```bash
@@ -81,10 +81,12 @@ This approach allows:
 
 ```
 .
-├── Dockerfile                    # Development/Gitpod image (legacy)
-├── Dockerfile.production         # Production image using Ubuntu 24.04
+├── Dockerfile                    # Production image using Ubuntu 24.04
+├── experiments/
+│   └── solve-dockerize/
+│       └── Dockerfile            # Legacy Gitpod-compatible image (archived)
 ├── scripts/
-│   └── ubuntu-24-server-install.sh  # Installation script used by Dockerfile.production
+│   └── ubuntu-24-server-install.sh  # Installation script used by Dockerfile
 └── docs/
     └── DOCKER.md                 # This file
 ```
@@ -165,7 +167,7 @@ docker info
 docker pull konard/hive-mind:latest
 
 # Rebuild from source
-docker build -f Dockerfile.production -t hive-mind:local .
+docker build -t hive-mind:local .
 ```
 
 ### Build Issues
@@ -176,7 +178,7 @@ If you encounter issues building the image locally:
 2. Check your internet connection
 3. Try building with more verbose output:
    ```bash
-   docker build -f Dockerfile.production -t hive-mind:local --progress=plain .
+   docker build -t hive-mind:local --progress=plain .
    ```
 
 ## CI/CD Configuration for Docker Hub Publishing

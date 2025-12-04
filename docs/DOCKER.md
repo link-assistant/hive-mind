@@ -8,10 +8,10 @@ This document explains how to run Hive Mind in Docker containers.
 
 ```bash
 # Pull the latest image
-docker pull deepassistant/hive-mind:latest
+docker pull konard/hive-mind:latest
 
 # Run an interactive session
-docker run -it deepassistant/hive-mind:latest
+docker run -it konard/hive-mind:latest
 
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
@@ -100,14 +100,14 @@ To persist authentication and work between container restarts:
 docker volume create hive-home
 
 # Run with the volume mounted
-docker run -it -v hive-home:/home/hive deepassistant/hive-mind:latest
+docker run -it -v hive-home:/home/hive konard/hive-mind:latest
 ```
 
 ### Running in Detached Mode
 
 ```bash
 # Start a detached container
-docker run -d --name hive-worker -v hive-home:/home/hive deepassistant/hive-mind:latest sleep infinity
+docker run -d --name hive-worker -v hive-home:/home/hive konard/hive-mind:latest sleep infinity
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
@@ -124,7 +124,7 @@ Create a `docker-compose.yml`:
 version: '3.8'
 services:
   hive-mind:
-    image: deepassistant/hive-mind:latest
+    image: konard/hive-mind:latest
     volumes:
       - hive-home:/home/hive
     stdin_open: true
@@ -162,7 +162,7 @@ claude
 docker info
 
 # Pull the latest image
-docker pull deepassistant/hive-mind:latest
+docker pull konard/hive-mind:latest
 
 # Rebuild from source
 docker build -f Dockerfile.production -t hive-mind:local .
@@ -179,6 +179,84 @@ If you encounter issues building the image locally:
    docker build -f Dockerfile.production -t hive-mind:local --progress=plain .
    ```
 
+## CI/CD Configuration for Docker Hub Publishing
+
+If you're maintaining a fork or want to publish to your own Docker Hub account, follow these steps to configure GitHub Actions:
+
+### Step 1: Create a Docker Hub Account
+
+1. Go to [hub.docker.com](https://hub.docker.com)
+2. Sign up or log in to your account
+3. Note your Docker Hub username (e.g., `konard`)
+
+### Step 2: Generate a Docker Hub Access Token
+
+1. Log in to [hub.docker.com](https://hub.docker.com)
+2. Click on your username in the top-right corner
+3. Select **Account Settings** → **Security**
+4. Click **New Access Token**
+5. Enter a description (e.g., "GitHub Actions - Hive Mind")
+6. Set permissions to **Read, Write, Delete** (required for publishing)
+7. Click **Generate**
+8. **IMPORTANT:** Copy the token immediately - you won't be able to see it again!
+   - Example format: `dckr_pat_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p`
+
+### Step 3: Add Secrets to GitHub Repository
+
+1. Go to your GitHub repository (e.g., `https://github.com/konard/hive-mind`)
+2. Click **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Add the following two secrets:
+
+   **Secret 1: DOCKERHUB_USERNAME**
+   - Name: `DOCKERHUB_USERNAME`
+   - Value: Your Docker Hub username (e.g., `konard`)
+   - Click **Add secret**
+
+   **Secret 2: DOCKERHUB_TOKEN**
+   - Name: `DOCKERHUB_TOKEN`
+   - Value: The access token you generated in Step 2
+   - Click **Add secret**
+
+### Step 4: Update Docker Image Name
+
+If using a fork, update the image name in `.github/workflows/docker-publish.yml`:
+
+```yaml
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: YOUR_DOCKERHUB_USERNAME/hive-mind  # Change this to your username
+```
+
+### Step 5: Verify the Configuration
+
+1. Push changes to the `main` branch
+2. Go to **Actions** tab in your GitHub repository
+3. Find the "Docker Build and Publish" workflow
+4. Check that it completes successfully
+5. Verify the image appears on [hub.docker.com/r/YOUR_USERNAME/hive-mind](https://hub.docker.com/r/konard/hive-mind)
+
+### How It Works
+
+- **On Pull Requests:** The workflow tests building the Docker image without publishing
+- **On Main Branch:** The workflow builds and publishes to Docker Hub with the `latest` tag
+- **On Version Tags:** The workflow publishes with semantic version tags (e.g., `v0.37.0`, `0.37`, `0`)
+
+### Troubleshooting CI/CD
+
+**Build fails with authentication error:**
+- Verify `DOCKERHUB_USERNAME` matches your Docker Hub username exactly
+- Regenerate `DOCKERHUB_TOKEN` and update the secret
+
+**Image published but can't pull:**
+- Ensure the repository on Docker Hub is public (or you're authenticated)
+- Check [hub.docker.com](https://hub.docker.com) → Your repositories → hive-mind → Settings → Make Public
+
+**Build succeeds but image doesn't appear:**
+- Check you're pushing to the `main` branch (pull requests only test, don't publish)
+- Verify the workflow ran in the Actions tab
+- Check Docker Hub rate limits haven't been exceeded
+
 ## Security Notes
 
 - Each container maintains its own isolated authentication
@@ -186,3 +264,4 @@ If you encounter issues building the image locally:
 - No credentials are stored in the Docker image itself
 - Authentication happens inside the container after it starts
 - Each GitHub/Claude account can have its own container instance
+- Docker Hub access tokens should be stored only as GitHub Secrets, never committed to the repository

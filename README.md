@@ -81,10 +81,10 @@ Run the Hive Mind using Docker - no manual setup required:
 
 ```bash
 # Pull the latest image from Docker Hub
-docker pull deepassistant/hive-mind:latest
+docker pull konard/hive-mind:latest
 
 # Run an interactive session
-docker run -it deepassistant/hive-mind:latest
+docker run -it konard/hive-mind:latest
 
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist

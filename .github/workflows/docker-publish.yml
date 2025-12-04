@@ -14,7 +14,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: deepassistant/hive-mind
+  IMAGE_NAME: konard/hive-mind
 
 jobs:
   # Test building the Docker image

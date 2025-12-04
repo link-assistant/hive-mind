@@ -205,7 +205,9 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 };
 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
-export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, model = 'sonnet', argv = {}) => {
+// Note: skipToolConnection only skips the connection check, not model validation
+// Model validation should be done separately before calling this function
+export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -218,8 +220,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
     return false;
   }
 
-  // Skip tool validation if in dry-run mode or explicitly requested
-  if (!skipTool) {
+  // Skip tool connection validation if in dry-run mode or explicitly requested
+  if (!skipToolConnection) {
     let isToolConnected = false;
     if (argv.tool === 'opencode') {
       // Validate OpenCode connection
@@ -254,8 +256,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
       return false;
     }
   } else {
-    await log('⏩ Skipping tool validation (dry-run mode)', { verbose: true });
-    await log('⏩ Skipping GitHub authentication check (dry-run mode)', { verbose: true });
+    await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+    await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
   }
 
   return true;

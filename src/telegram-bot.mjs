@@ -41,6 +41,9 @@ const { createYargsConfig: createHiveYargsConfig } = hiveConfigLib;
 // Import GitHub URL parser for extracting URLs from messages
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 
+// Import model validation for early validation with helpful error messages
+const { validateModelName } = await import('./model-validation.lib.mjs');
+
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
@@ -134,27 +137,9 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
-// Initialize Sentry for error tracking
-await initializeSentry({
-  debug: VERBOSE,
-  environment: process.env.NODE_ENV || 'production',
-});
-
-const telegrafModule = await use('telegraf');
-const { Telegraf } = telegrafModule;
-
-const bot = new Telegraf(BOT_TOKEN, {
-  // Remove the default 90-second timeout for message handlers
-  // This is important because command handlers (like /solve) spawn long-running processes
-  handlerTimeout: Infinity
-});
-
-// Track bot startup time to ignore messages sent before bot started
-// Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
-const BOT_START_TIME = Math.floor(Date.now() / 1000);
-
 // After loading configuration, resolve final values from environment or config
 // Priority: CLI option > environment variable (from .lenv or .env)
+// NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats
   ? lino.parseNumericIds(resolvedAllowedChats)
@@ -257,7 +242,9 @@ if (hiveEnabled && hiveOverrides.length > 0) {
   }
 }
 
-// Handle dry-run mode - exit after validation
+// Handle dry-run mode - exit after validation WITHOUT loading heavy dependencies
+// This significantly speeds up dry-run mode by skipping telegraf loading (~3-8 seconds)
+// See issue #801 for details
 if (config.dryRun) {
   console.log('\n✅ Dry-run mode: All validations passed successfully!');
   console.log('\nConfiguration summary:');
@@ -277,6 +264,31 @@ if (config.dryRun) {
   console.log('\n🎉 Bot configuration is valid. Exiting without starting the bot.');
   process.exit(0);
 }
+
+// === HEAVY DEPENDENCIES LOADED BELOW (skipped in dry-run mode) ===
+// These imports are placed after the dry-run check to significantly speed up
+// configuration validation. The telegraf module in particular can take 3-8 seconds
+// to load on cold start due to network fetch from unpkg.com CDN.
+// See issue #801 for details.
+
+// Initialize Sentry for error tracking
+await initializeSentry({
+  debug: VERBOSE,
+  environment: process.env.NODE_ENV || 'production',
+});
+
+const telegrafModule = await use('telegraf');
+const { Telegraf } = telegrafModule;
+
+const bot = new Telegraf(BOT_TOKEN, {
+  // Remove the default 90-second timeout for message handlers
+  // This is important because command handlers (like /solve) spawn long-running processes
+  handlerTimeout: Infinity
+});
+
+// Track bot startup time to ignore messages sent before bot started
+// Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
+const BOT_START_TIME = Math.floor(Date.now() / 1000);
 
 function isChatAuthorized(chatId) {
   if (!allowedChats) {
@@ -469,6 +481,34 @@ function executeWithCommand(startScreenCmd, command, args) {
       }
     });
   });
+}
+
+/**
+ * Validates the model name in the args array and returns an error message if invalid
+ * @param {string[]} args - Array of command arguments
+ * @param {string} tool - The tool to validate against ('claude' or 'opencode')
+ * @returns {string|null} Error message if invalid, null if valid or no model specified
+ */
+function validateModelInArgs(args, tool = 'claude') {
+  // Find --model or -m flag and its value
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--model' || args[i] === '-m') {
+      if (i + 1 < args.length) {
+        const modelName = args[i + 1];
+        const validation = validateModelName(modelName, tool);
+        if (!validation.valid) {
+          return validation.message;
+        }
+      }
+    } else if (args[i].startsWith('--model=')) {
+      const modelName = args[i].substring('--model='.length);
+      const validation = validateModelName(modelName, tool);
+      if (!validation.valid) {
+        return validation.message;
+      }
+    }
+  }
+  return null;
 }
 
 function parseCommandArgs(text) {
@@ -737,7 +777,7 @@ bot.command('help', async (ctx) => {
   message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
   message += '• `--attach-logs` - Attach logs to PR\n';
   message += '• `--verbose` - Verbose output\n';
-  message += '• `--model <model>` - Specify AI model (sonnet/opus/haiku)\n';
+  message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
 
   if (allowedChats) {
@@ -809,19 +849,31 @@ bot.command('limits', async (ctx) => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
 
   // Get the usage limits using the library function
   const result = await getClaudeUsageLimits(VERBOSE);
 
   if (!result.success) {
-    await ctx.reply(`❌ ${result.error}`, { reply_to_message_id: ctx.message.message_id });
+    // Edit the fetching message to show the error
+    await ctx.telegram.editMessageText(
+      fetchingMessage.chat.id,
+      fetchingMessage.message_id,
+      undefined,
+      `❌ ${result.error}`
+    );
     return;
   }
 
-  // Format and send the response using the library function
-  const message = '📊 ' + formatUsageMessage(result.usage);
-  await ctx.reply(message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  // Format and edit the fetching message with the results
+  const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
+  await ctx.telegram.editMessageText(
+    fetchingMessage.chat.id,
+    fetchingMessage.message_id,
+    undefined,
+    message,
+    { parse_mode: 'Markdown' }
+  );
 });
 
 bot.command(/^solve$/i, async (ctx) => {
@@ -942,6 +994,23 @@ bot.command(/^solve$/i, async (ctx) => {
 
   // Merge user args with overrides
   const args = mergeArgsWithOverrides(userArgs, solveOverrides);
+
+  // Determine tool from args (default: claude)
+  let solveTool = 'claude';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tool' && i + 1 < args.length) {
+      solveTool = args[i + 1];
+    } else if (args[i].startsWith('--tool=')) {
+      solveTool = args[i].substring('--tool='.length);
+    }
+  }
+
+  // Validate model name with helpful error message (before yargs validation)
+  const modelError = validateModelInArgs(args, solveTool);
+  if (modelError) {
+    await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
 
   // Validate merged arguments using solve's yargs config
   try {
@@ -1074,6 +1143,23 @@ bot.command(/^hive$/i, async (ctx) => {
 
   // Merge user args with overrides
   const args = mergeArgsWithOverrides(userArgs, hiveOverrides);
+
+  // Determine tool from args (default: claude)
+  let hiveTool = 'claude';
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--tool' && i + 1 < args.length) {
+      hiveTool = args[i + 1];
+    } else if (args[i].startsWith('--tool=')) {
+      hiveTool = args[i].substring('--tool='.length);
+    }
+  }
+
+  // Validate model name with helpful error message (before yargs validation)
+  const hiveModelError = validateModelInArgs(args, hiveTool);
+  if (hiveModelError) {
+    await ctx.reply(`❌ ${hiveModelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
 
   // Validate merged arguments using hive's yargs config
   try {

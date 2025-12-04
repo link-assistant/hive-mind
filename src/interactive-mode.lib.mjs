@@ -11,6 +11,13 @@
  * - assistant (tool_use): Tool invocations
  * - user (tool_result): Tool execution results
  * - result: Session completion
+ * - unrecognized: Any unknown event types
+ *
+ * Features:
+ * - Full GitHub markdown support with collapsible sections
+ * - Smart content truncation (keeps start and end, removes middle)
+ * - Collapsed raw JSON in each comment for debugging
+ * - Rate limiting and comment queue management
  *
  * Usage:
  *   const { createInteractiveHandler } = await import('./interactive-mode.lib.mjs');
@@ -20,6 +27,185 @@
  * @module interactive-mode.lib.mjs
  * @experimental
  */
+
+// Configuration constants
+const CONFIG = {
+  // Minimum time between comments to avoid rate limiting (in ms)
+  MIN_COMMENT_INTERVAL: 5000,
+  // Maximum lines to show before truncation kicks in
+  MAX_LINES_BEFORE_TRUNCATION: 50,
+  // Lines to keep at start when truncating
+  LINES_TO_KEEP_START: 20,
+  // Lines to keep at end when truncating
+  LINES_TO_KEEP_END: 20,
+  // Maximum JSON depth for raw JSON display
+  MAX_JSON_DEPTH: 10
+};
+
+/**
+ * Truncate content in the middle, keeping start and end
+ * This helps show context while reducing size for large outputs
+ *
+ * @param {string} content - Content to potentially truncate
+ * @param {Object} options - Truncation options
+ * @param {number} [options.maxLines=50] - Maximum lines before truncation
+ * @param {number} [options.keepStart=20] - Lines to keep at start
+ * @param {number} [options.keepEnd=20] - Lines to keep at end
+ * @returns {string} Truncated content with ellipsis indicator
+ */
+const truncateMiddle = (content, options = {}) => {
+  const {
+    maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION,
+    keepStart = CONFIG.LINES_TO_KEEP_START,
+    keepEnd = CONFIG.LINES_TO_KEEP_END
+  } = options;
+
+  if (!content || typeof content !== 'string') {
+    return content || '';
+  }
+
+  const lines = content.split('\n');
+  if (lines.length <= maxLines) {
+    return content;
+  }
+
+  const startLines = lines.slice(0, keepStart);
+  const endLines = lines.slice(-keepEnd);
+  const removedCount = lines.length - keepStart - keepEnd;
+
+  return [
+    ...startLines,
+    '',
+    `... [${removedCount} lines truncated] ...`,
+    '',
+    ...endLines
+  ].join('\n');
+};
+
+/**
+ * Safely stringify JSON with depth limit and circular reference handling
+ *
+ * @param {any} obj - Object to stringify
+ * @param {number} [indent=2] - Indentation spaces
+ * @returns {string} Formatted JSON string
+ */
+const safeJsonStringify = (obj, indent = 2) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  }, indent);
+};
+
+/**
+ * Create a collapsible section in GitHub markdown
+ *
+ * @param {string} summary - Summary text shown when collapsed
+ * @param {string} content - Content shown when expanded
+ * @param {boolean} [startOpen=false] - Whether to start expanded
+ * @returns {string} GitHub markdown details block
+ */
+const createCollapsible = (summary, content, startOpen = false) => {
+  const openAttr = startOpen ? ' open' : '';
+  return `<details${openAttr}>
+<summary>${summary}</summary>
+
+${content}
+
+</details>`;
+};
+
+/**
+ * Create a collapsible raw JSON section
+ *
+ * @param {Object} data - JSON data to display
+ * @returns {string} Collapsible JSON block
+ */
+const createRawJsonSection = (data) => {
+  const jsonContent = truncateMiddle(safeJsonStringify(data, 2), {
+    maxLines: 100,
+    keepStart: 40,
+    keepEnd: 40
+  });
+  return createCollapsible(
+    '📄 Raw JSON',
+    '```json\n' + jsonContent + '\n```'
+  );
+};
+
+/**
+ * Format duration from milliseconds to human-readable string
+ *
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} Formatted duration (e.g., "12m 7s")
+ */
+const formatDuration = (ms) => {
+  if (!ms || ms < 0) return 'unknown';
+
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+};
+
+/**
+ * Format cost to USD string
+ *
+ * @param {number} cost - Cost in USD
+ * @returns {string} Formatted cost (e.g., "$1.60")
+ */
+const formatCost = (cost) => {
+  if (typeof cost !== 'number' || isNaN(cost)) return 'unknown';
+  return `$${cost.toFixed(2)}`;
+};
+
+/**
+ * Escape special markdown characters in text
+ *
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+const escapeMarkdown = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  // Escape backticks that would break code blocks
+  return text.replace(/```/g, '\\`\\`\\`');
+};
+
+/**
+ * Get tool icon based on tool name
+ *
+ * @param {string} toolName - Name of the tool
+ * @returns {string} Emoji icon
+ */
+const getToolIcon = (toolName) => {
+  const icons = {
+    'Bash': '💻',
+    'Read': '📖',
+    'Write': '✏️',
+    'Edit': '📝',
+    'Glob': '🔍',
+    'Grep': '🔎',
+    'WebFetch': '🌐',
+    'WebSearch': '🔍',
+    'TodoWrite': '📋',
+    'Task': '🎯',
+    'NotebookEdit': '📓',
+    'default': '🔧'
+  };
+  return icons[toolName] || icons.default;
+};
 
 /**
  * Creates an interactive mode handler for processing Claude CLI events
@@ -41,13 +227,12 @@ export const createInteractiveHandler = (options) => {
     sessionId: null,
     messageCount: 0,
     toolUseCount: 0,
+    toolResultCount: 0,
     lastCommentTime: 0,
     commentQueue: [],
-    isProcessing: false
+    isProcessing: false,
+    startTime: Date.now()
   };
-
-  // Minimum time between comments to avoid rate limiting (in ms)
-  const MIN_COMMENT_INTERVAL = 5000;
 
   /**
    * Post a comment to the PR (with rate limiting)
@@ -65,7 +250,7 @@ export const createInteractiveHandler = (options) => {
     const now = Date.now();
     const timeSinceLastComment = now - state.lastCommentTime;
 
-    if (timeSinceLastComment < MIN_COMMENT_INTERVAL) {
+    if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
       // Queue the comment for later
       state.commentQueue.push(body);
       if (verbose) {
@@ -102,9 +287,9 @@ export const createInteractiveHandler = (options) => {
       const now = Date.now();
       const timeSinceLastComment = now - state.lastCommentTime;
 
-      if (timeSinceLastComment < MIN_COMMENT_INTERVAL) {
+      if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
         // Wait until we can post
-        await new Promise(resolve => setTimeout(resolve, MIN_COMMENT_INTERVAL - timeSinceLastComment));
+        await new Promise(resolve => setTimeout(resolve, CONFIG.MIN_COMMENT_INTERVAL - timeSinceLastComment));
       }
 
       const body = state.commentQueue.shift();
@@ -122,13 +307,26 @@ export const createInteractiveHandler = (options) => {
    */
   const handleSystemInit = async (data) => {
     state.sessionId = data.session_id;
+    state.startTime = Date.now();
 
-    // TODO: Implement comment posting for session init
-    // Example format:
-    // 🚀 **Session Started**
-    // - Session ID: `xxx`
-    // - Working directory: `/tmp/...`
-    // - Available tools: Read, Edit, ...
+    const tools = data.tools || [];
+    const toolsList = tools.length > 0
+      ? tools.map(t => `\`${t}\``).join(', ')
+      : '_No tools available_';
+
+    const comment = `## 🚀 Session Started
+
+| Property | Value |
+|----------|-------|
+| **Session ID** | \`${data.session_id || 'unknown'}\` |
+| **Working Directory** | \`${data.cwd || 'unknown'}\` |
+| **Available Tools** | ${toolsList} |
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
 
     if (verbose) {
       await log(`🔌 Interactive mode: Session initialized (${state.sessionId})`, { verbose: true });
@@ -143,11 +341,29 @@ export const createInteractiveHandler = (options) => {
   const handleAssistantText = async (data, text) => {
     state.messageCount++;
 
-    // TODO: Implement comment posting for assistant text
-    // Consider:
-    // - Batching multiple text chunks
-    // - Truncating very long texts
-    // - Formatting with markdown
+    // Truncate very long text responses
+    const displayText = truncateMiddle(text, {
+      maxLines: 80,
+      keepStart: 35,
+      keepEnd: 35
+    });
+
+    // Extract usage info if available
+    const usage = data.message?.usage;
+    let usageInfo = '';
+    if (usage) {
+      usageInfo = `\n\n---\n_Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out_`;
+    }
+
+    const comment = `## 💬 Assistant Response
+
+${displayText}${usageInfo}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
 
     if (verbose) {
       await log(`💬 Interactive mode: Assistant text (${text.length} chars)`, { verbose: true });
@@ -162,15 +378,99 @@ export const createInteractiveHandler = (options) => {
   const handleToolUse = async (data, toolUse) => {
     state.toolUseCount++;
 
-    // TODO: Implement comment posting for tool use
-    // Example format:
-    // 🔧 **Using tool: Bash**
-    // ```
-    // gh issue view ...
-    // ```
+    const toolName = toolUse.name || 'Unknown';
+    const toolIcon = getToolIcon(toolName);
+    const toolId = toolUse.id || 'unknown';
+
+    // Format tool input based on tool type
+    let inputDisplay = '';
+    const input = toolUse.input || {};
+
+    if (toolName === 'Bash' && input.command) {
+      const truncatedCommand = truncateMiddle(input.command, {
+        maxLines: 30,
+        keepStart: 12,
+        keepEnd: 12
+      });
+      inputDisplay = createCollapsible(
+        '📋 Command',
+        '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```',
+        true
+      );
+    } else if (toolName === 'Read' && input.file_path) {
+      inputDisplay = `**File:** \`${input.file_path}\``;
+      if (input.offset || input.limit) {
+        inputDisplay += `\n**Range:** offset=${input.offset || 0}, limit=${input.limit || 'all'}`;
+      }
+    } else if ((toolName === 'Write' || toolName === 'Edit') && input.file_path) {
+      inputDisplay = `**File:** \`${input.file_path}\``;
+      if (input.content) {
+        const truncatedContent = truncateMiddle(input.content, {
+          maxLines: 30,
+          keepStart: 12,
+          keepEnd: 12
+        });
+        inputDisplay += '\n\n' + createCollapsible(
+          '📄 Content',
+          '```\n' + escapeMarkdown(truncatedContent) + '\n```'
+        );
+      }
+      if (input.old_string && input.new_string) {
+        const truncatedOld = truncateMiddle(input.old_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
+        const truncatedNew = truncateMiddle(input.new_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
+        inputDisplay += '\n\n' + createCollapsible(
+          '🔄 Edit Details',
+          `**Replace:**\n\`\`\`\n${escapeMarkdown(truncatedOld)}\n\`\`\`\n\n**With:**\n\`\`\`\n${escapeMarkdown(truncatedNew)}\n\`\`\``
+        );
+      }
+    } else if ((toolName === 'Glob' || toolName === 'Grep') && input.pattern) {
+      inputDisplay = `**Pattern:** \`${input.pattern}\``;
+      if (input.path) inputDisplay += `\n**Path:** \`${input.path}\``;
+    } else if (toolName === 'WebFetch' && input.url) {
+      inputDisplay = `**URL:** ${input.url}`;
+      if (input.prompt) inputDisplay += `\n**Prompt:** ${input.prompt}`;
+    } else if (toolName === 'WebSearch' && input.query) {
+      inputDisplay = `**Query:** ${input.query}`;
+    } else if (toolName === 'TodoWrite' && input.todos) {
+      const todosPreview = input.todos.slice(0, 5).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`).join('\n');
+      inputDisplay = createCollapsible(
+        `📋 Todos (${input.todos.length} items)`,
+        todosPreview + (input.todos.length > 5 ? `\n- _...and ${input.todos.length - 5} more_` : ''),
+        true
+      );
+    } else if (toolName === 'Task') {
+      inputDisplay = `**Description:** ${input.description || 'N/A'}`;
+      if (input.prompt) {
+        const truncatedPrompt = truncateMiddle(input.prompt, { maxLines: 20, keepStart: 8, keepEnd: 8 });
+        inputDisplay += '\n\n' + createCollapsible('📝 Prompt', truncatedPrompt);
+      }
+    } else {
+      // Generic input display
+      const inputJson = truncateMiddle(safeJsonStringify(input, 2), {
+        maxLines: 30,
+        keepStart: 12,
+        keepEnd: 12
+      });
+      inputDisplay = createCollapsible(
+        '📥 Input',
+        '```json\n' + inputJson + '\n```'
+      );
+    }
+
+    const comment = `## ${toolIcon} Tool: ${toolName}
+
+**Tool ID:** \`${toolId}\`
+
+${inputDisplay}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
 
     if (verbose) {
-      await log(`🔧 Interactive mode: Tool use - ${toolUse.name}`, { verbose: true });
+      await log(`🔧 Interactive mode: Tool use - ${toolName}`, { verbose: true });
     }
   };
 
@@ -180,14 +480,50 @@ export const createInteractiveHandler = (options) => {
    * @param {Object} toolResult - Tool result details
    */
   const handleToolResult = async (data, toolResult) => {
-    // TODO: Implement comment posting for tool results
-    // Consider:
-    // - Collapsible sections for large outputs
-    // - Truncating very long results
-    // - Showing success/failure status
+    state.toolResultCount++;
+
+    const toolUseId = toolResult.tool_use_id || 'unknown';
+    const isError = toolResult.is_error || false;
+    const statusIcon = isError ? '❌' : '✅';
+    const statusText = isError ? 'Error' : 'Success';
+
+    // Get content - can be string or array
+    let content = '';
+    if (typeof toolResult.content === 'string') {
+      content = toolResult.content;
+    } else if (Array.isArray(toolResult.content)) {
+      content = toolResult.content.map(c => {
+        if (typeof c === 'string') return c;
+        if (c.type === 'text') return c.text || '';
+        return safeJsonStringify(c);
+      }).join('\n');
+    }
+
+    // Truncate large outputs
+    const truncatedContent = truncateMiddle(content, {
+      maxLines: 60,
+      keepStart: 25,
+      keepEnd: 25
+    });
+
+    const comment = `## ${statusIcon} Tool Result: ${statusText}
+
+**Tool Use ID:** \`${toolUseId}\`
+
+${createCollapsible(
+  '📤 Output',
+  '```\n' + escapeMarkdown(truncatedContent) + '\n```',
+  true
+)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
 
     if (verbose) {
-      const contentLength = toolResult.content?.length || 0;
+      const contentLength = content.length;
       await log(`📋 Interactive mode: Tool result (${contentLength} chars)`, { verbose: true });
     }
   };
@@ -197,21 +533,85 @@ export const createInteractiveHandler = (options) => {
    * @param {Object} data - Event data
    */
   const handleResult = async (data) => {
-    // TODO: Implement comment posting for session result
-    // Example format for success:
-    // ✅ **Session Complete**
-    // - Duration: 12m 7s
-    // - Turns: 68
-    // - Cost: $1.60
-    //
-    // Example format for error:
-    // ❌ **Session Failed**
-    // - Error: Session limit reached
-    // - Resets: 10am
+    const isError = data.is_error || false;
+    const statusIcon = isError ? '❌' : '✅';
+    const statusText = isError ? 'Session Failed' : 'Session Complete';
+
+    // Format result text
+    const resultText = data.result || '_No result message_';
+    const truncatedResult = truncateMiddle(resultText, {
+      maxLines: 50,
+      keepStart: 20,
+      keepEnd: 20
+    });
+
+    // Build stats table
+    let statsTable = '| Metric | Value |\n|--------|-------|\n';
+    statsTable += `| **Status** | ${statusText} |\n`;
+    statsTable += `| **Session ID** | \`${data.session_id || 'unknown'}\` |\n`;
+
+    if (data.duration_ms) {
+      statsTable += `| **Duration** | ${formatDuration(data.duration_ms)} |\n`;
+    }
+    if (data.duration_api_ms) {
+      statsTable += `| **API Time** | ${formatDuration(data.duration_api_ms)} |\n`;
+    }
+    if (data.num_turns) {
+      statsTable += `| **Turns** | ${data.num_turns} |\n`;
+    }
+    if (typeof data.total_cost_usd === 'number') {
+      statsTable += `| **Cost** | ${formatCost(data.total_cost_usd)} |\n`;
+    }
+
+    // Usage breakdown if available
+    let usageSection = '';
+    if (data.usage) {
+      const u = data.usage;
+      usageSection = '\n### 📊 Token Usage\n\n| Type | Count |\n|------|-------|\n';
+      if (u.input_tokens) usageSection += `| Input | ${u.input_tokens.toLocaleString()} |\n`;
+      if (u.output_tokens) usageSection += `| Output | ${u.output_tokens.toLocaleString()} |\n`;
+      if (u.cache_creation_input_tokens) usageSection += `| Cache Creation | ${u.cache_creation_input_tokens.toLocaleString()} |\n`;
+      if (u.cache_read_input_tokens) usageSection += `| Cache Read | ${u.cache_read_input_tokens.toLocaleString()} |\n`;
+    }
+
+    const comment = `## ${statusIcon} ${statusText}
+
+${statsTable}
+${usageSection}
+
+### 📝 Result
+
+${createCollapsible('View Result', truncatedResult, !isError)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
 
     if (verbose) {
-      const status = data.is_error ? 'error' : 'success';
-      await log(`🏁 Interactive mode: Session ${status}`, { verbose: true });
+      await log(`🏁 Interactive mode: Session ${statusText.toLowerCase()}`, { verbose: true });
+    }
+  };
+
+  /**
+   * Handle unrecognized event types
+   * @param {Object} data - Event data
+   */
+  const handleUnrecognized = async (data) => {
+    const eventType = data.type || 'unknown';
+    const subtype = data.subtype ? `.${data.subtype}` : '';
+
+    const comment = `## ❓ Unrecognized Event: \`${eventType}${subtype}\`
+
+This event type is not yet supported by interactive mode.
+
+${createRawJsonSection(data)}`;
+
+    await postComment(comment);
+
+    if (verbose) {
+      await log(`❓ Interactive mode: Unrecognized event type: ${eventType}${subtype}`, { verbose: true });
     }
   };
 
@@ -222,7 +622,13 @@ export const createInteractiveHandler = (options) => {
    * @returns {Promise<void>}
    */
   const processEvent = async (data) => {
-    if (!data || !data.type) {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+
+    // Handle events without type as unrecognized
+    if (!data.type) {
+      await handleUnrecognized(data);
       return;
     }
 
@@ -230,6 +636,9 @@ export const createInteractiveHandler = (options) => {
       case 'system':
         if (data.subtype === 'init') {
           await handleSystemInit(data);
+        } else {
+          // Unknown system subtype
+          await handleUnrecognized(data);
         }
         break;
 
@@ -268,9 +677,7 @@ export const createInteractiveHandler = (options) => {
         break;
 
       default:
-        if (verbose) {
-          await log(`❓ Interactive mode: Unknown event type: ${data.type}`, { verbose: true });
-        }
+        await handleUnrecognized(data);
     }
 
     // Process any queued comments
@@ -297,7 +704,16 @@ export const createInteractiveHandler = (options) => {
   return {
     processEvent,
     flush,
-    getState
+    getState,
+    // Expose individual handlers for testing
+    _handlers: {
+      handleSystemInit,
+      handleAssistantText,
+      handleToolUse,
+      handleToolResult,
+      handleResult,
+      handleUnrecognized
+    }
   };
 };
 
@@ -341,9 +757,23 @@ export const validateInteractiveModeConfig = async (argv, log) => {
   return true;
 };
 
+// Export utilities for testing
+export const utils = {
+  truncateMiddle,
+  safeJsonStringify,
+  createCollapsible,
+  createRawJsonSection,
+  formatDuration,
+  formatCost,
+  escapeMarkdown,
+  getToolIcon,
+  CONFIG
+};
+
 // Export all functions
 export default {
   createInteractiveHandler,
   isInteractiveModeSupported,
-  validateInteractiveModeConfig
+  validateInteractiveModeConfig,
+  utils
 };

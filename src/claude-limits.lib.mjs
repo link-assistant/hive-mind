@@ -239,7 +239,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
  * @returns {string} Text-based progress bar
  */
 export function getProgressBar(percentage) {
-  const totalBlocks = 20;
+  const totalBlocks = 30;
   const filledBlocks = Math.round((percentage / 100) * totalBlocks);
   const emptyBlocks = totalBlocks - filledBlocks;
   return '\u2593'.repeat(filledBlocks) + '\u2591'.repeat(emptyBlocks);

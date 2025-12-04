@@ -19,15 +19,16 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   // Show help and exit
   console.log('Usage: task.mjs <task-description> [options]');
   console.log('\nOptions:');
-  console.log('  --version          Show version number');
-  console.log('  --help, -h         Show help');
-  console.log('  --clarify          Enable clarification mode [default: true]');
-  console.log('  --decompose        Enable decomposition mode [default: true]');
-  console.log('  --only-clarify     Only run clarification mode');
-  console.log('  --only-decompose   Only run decomposition mode');
-  console.log('  --model, -m        Model to use (opus, sonnet, or full model ID) [default: sonnet]');
-  console.log('  --verbose, -v      Enable verbose logging');
-  console.log('  --output-format    Output format (text or json) [default: text]');
+  console.log('  --version               Show version number');
+  console.log('  --help, -h              Show help');
+  console.log('  --clarify               Enable clarification mode [default: true]');
+  console.log('  --decompose             Enable decomposition mode [default: true]');
+  console.log('  --only-clarify          Only run clarification mode');
+  console.log('  --only-decompose        Only run decomposition mode');
+  console.log('  --model, -m             Model to use (opus, sonnet, or full model ID) [default: sonnet]');
+  console.log('  --verbose, -v           Enable verbose logging');
+  console.log('  --output-format         Output format (text or json) [default: text]');
+  console.log('  --execute-tool-with-bun Execute the AI tool using bunx (experimental) [default: false]');
   process.exit(0);
 }
 
@@ -124,6 +125,11 @@ const argv = yargs()
     default: 'text',
     choices: ['text', 'json']
   })
+  .option('execute-tool-with-bun', {
+    type: 'boolean',
+    description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+    default: false
+  })
   .check((argv) => {
     if (!argv['task-description'] && !argv._[0]) {
       throw new Error('Please provide a task description');
@@ -186,7 +192,11 @@ await log(formatAligned('💡', 'Clarify mode:', argv.clarify ? 'enabled' : 'dis
 await log(formatAligned('🔍', 'Decompose mode:', argv.decompose ? 'enabled' : 'disabled'));
 await log(formatAligned('📄', 'Output format:', argv.outputFormat));
 
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+// Determine claude command path based on --execute-tool-with-bun option
+// When enabled, uses 'bunx claude' which may improve speed and memory usage
+const claudePath = argv.executeToolWithBun
+  ? 'bunx claude'
+  : (process.env.CLAUDE_PATH || 'claude');
 
 // Helper function to execute Claude command
 const executeClaude = (prompt, model) => {

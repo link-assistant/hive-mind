@@ -807,6 +807,9 @@ async function worker(workerId) {
         if (argv.prefixForkNameWithOwnerName) {
           args.push('--prefix-fork-name-with-owner-name');
         }
+        if (argv.executeToolWithBun) {
+          args.push('--execute-tool-with-bun');
+        }
 
         // Log the actual command being executed so users can investigate/reproduce
         const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}`;

@@ -1,0 +1,183 @@
+# Solve.mjs Log - 2025-11-15T08:40:25.991Z
+
+[2025-11-15T08:40:25.992Z] [INFO] 📁 Log file: /home/hive/solve-2025-11-15T08-40-25-991Z.log
+[2025-11-15T08:40:25.994Z] [INFO]    (All output will be logged here)
+[2025-11-15T08:40:26.733Z] [INFO] 
+[2025-11-15T08:40:26.733Z] [INFO] 🚀 solve v0.33.6
+[2025-11-15T08:40:26.734Z] [INFO] 🔧 Raw command executed:
+[2025-11-15T08:40:26.735Z] [INFO]    /home/hive/.nvm/versions/node/v20.19.5/bin/node /home/hive/.bun/bin/solve https://github.com/emirmensitov-afk/-/issues/1 --prefix-fork-name-with-owner-name --auto-fork --auto-continue --attach-logs --verbose --no-tool-check
+[2025-11-15T08:40:26.736Z] [INFO] 
+[2025-11-15T08:40:26.755Z] [INFO] 
+[2025-11-15T08:40:26.756Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2025-11-15T08:40:26.756Z] [INFO] 
+[2025-11-15T08:40:26.757Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2025-11-15T08:40:26.757Z] [INFO]    The log may contain sensitive information such as:
+[2025-11-15T08:40:26.758Z] [INFO]    • API keys, tokens, or secrets
+[2025-11-15T08:40:26.758Z] [INFO]    • File paths and directory structures
+[2025-11-15T08:40:26.758Z] [INFO]    • Command outputs and error messages
+[2025-11-15T08:40:26.759Z] [INFO]    • Internal system information
+[2025-11-15T08:40:26.760Z] [INFO] 
+[2025-11-15T08:40:26.760Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2025-11-15T08:40:26.761Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2025-11-15T08:40:26.761Z] [INFO] 
+[2025-11-15T08:40:26.761Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2025-11-15T08:40:26.761Z] [INFO] 
+[2025-11-15T08:40:31.769Z] [INFO] 
+[2025-11-15T08:40:31.803Z] [INFO] 💾 Disk space check: 42220MB available (500MB required) ✅
+[2025-11-15T08:40:31.805Z] [INFO] 🧠 Memory check: 5396MB available, swap: 2047MB (1773MB used), total: 5670MB (256MB required) ✅
+[2025-11-15T08:40:31.806Z] [INFO] ⏩ Skipping tool validation (dry-run mode)
+[2025-11-15T08:40:31.806Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode)
+[2025-11-15T08:40:31.806Z] [INFO] 📋 URL validation:
+[2025-11-15T08:40:31.806Z] [INFO]    Input URL: https://github.com/emirmensitov-afk/-/issues/1
+[2025-11-15T08:40:31.807Z] [INFO]    Is Issue URL: true
+[2025-11-15T08:40:31.807Z] [INFO]    Is PR URL: false
+[2025-11-15T08:40:31.807Z] [INFO] 🔍 Checking repository access for auto-fork...
+[2025-11-15T08:40:32.629Z] [INFO]    Repository visibility: public
+[2025-11-15T08:40:32.630Z] [INFO] ✅ Auto-fork: No write access detected, enabling fork mode
+[2025-11-15T08:40:32.630Z] [INFO] ✅ Repository access check: Skipped (fork mode enabled)
+[2025-11-15T08:40:33.017Z] [INFO]    Repository visibility: public
+[2025-11-15T08:40:33.017Z] [INFO]    Auto-cleanup default: false (repository is public)
+[2025-11-15T08:40:33.018Z] [INFO] 🔍 Auto-continue enabled: Checking for existing PRs for issue #1...
+[2025-11-15T08:40:34.443Z] [INFO] 📝 No existing PRs found for issue #1 - creating new PR
+[2025-11-15T08:40:34.444Z] [INFO] 📝 Issue mode: Working with issue #1
+[2025-11-15T08:40:34.445Z] [INFO] 
+Creating temporary directory: /tmp/gh-issue-solver-1763196034444
+[2025-11-15T08:40:34.447Z] [INFO] 
+🍴 Fork mode:                ENABLED
+[2025-11-15T08:40:34.448Z] [INFO]  Checking fork status...   
+
+[2025-11-15T08:40:34.831Z] [INFO] 🔍 Detecting fork conflicts... 
+[2025-11-15T08:40:35.943Z] [INFO] ✅ No fork conflict:         Safe to proceed
+[2025-11-15T08:40:36.774Z] [INFO] ✅ Fork exists:              konard/-
+[2025-11-15T08:40:36.777Z] [INFO] 
+📥 Cloning repository:       konard/-
+[2025-11-15T08:40:38.338Z] [INFO] ✅ Cloned to:                /tmp/gh-issue-solver-1763196034444
+[2025-11-15T08:40:38.376Z] [INFO] 🔗 Setting upstream:         emirmensitov-afk/-
+[2025-11-15T08:40:38.415Z] [INFO] ℹ️ Upstream exists:          Using existing upstream remote
+[2025-11-15T08:40:38.416Z] [INFO] 🔄 Fetching upstream...      
+[2025-11-15T08:40:38.790Z] [INFO] ✅ Upstream fetched:         Successfully
+[2025-11-15T08:40:38.791Z] [INFO] 🔄 Syncing default branch... 
+[2025-11-15T08:40:39.191Z] [INFO] ℹ️ Default branch:           main
+[2025-11-15T08:40:39.192Z] [INFO] 🔄 Switching to:             main branch
+[2025-11-15T08:40:39.220Z] [INFO] ⚠️ Warning:                  Failed to checkout main
+[2025-11-15T08:40:39.363Z] [INFO] 
+📌 Default branch:           master
+[2025-11-15T08:40:39.390Z] [INFO] 
+🌿 Creating branch:          issue-1-5358767cb52c from master
+[2025-11-15T08:40:39.418Z] [INFO] 🔍 Verifying:                Branch creation...
+[2025-11-15T08:40:39.449Z] [INFO] ✅ Branch created:           issue-1-5358767cb52c
+[2025-11-15T08:40:39.449Z] [INFO] ✅ Current branch:           issue-1-5358767cb52c
+[2025-11-15T08:40:39.450Z] [INFO]    Branch operation: Create new branch
+[2025-11-15T08:40:39.450Z] [INFO]    Branch verification: Matches expected
+[2025-11-15T08:40:39.455Z] [INFO] 
+🚀 Auto PR creation:         ENABLED
+[2025-11-15T08:40:39.457Z] [INFO]      Creating:               Initial commit and draft PR...
+[2025-11-15T08:40:39.457Z] [INFO] 
+[2025-11-15T08:40:39.457Z] [INFO] 📝 Creating:                 CLAUDE.md with task details
+[2025-11-15T08:40:39.458Z] [INFO]    Issue URL from argv['issue-url']: https://github.com/emirmensitov-afk/-/issues/1
+[2025-11-15T08:40:39.458Z] [INFO]    Issue URL from argv._[0]: undefined
+[2025-11-15T08:40:39.459Z] [INFO]    Final issue URL: https://github.com/emirmensitov-afk/-/issues/1
+[2025-11-15T08:40:39.459Z] [INFO] ✅ File created:             CLAUDE.md
+[2025-11-15T08:40:39.459Z] [INFO] 📦 Adding file:              To git staging
+[2025-11-15T08:40:39.531Z] [INFO]    Git status after add: A  CLAUDE.md
+[2025-11-15T08:40:39.532Z] [INFO] 📝 Creating commit:          With CLAUDE.md file
+[2025-11-15T08:40:39.576Z] [INFO] ✅ Commit created:           Successfully with CLAUDE.md
+[2025-11-15T08:40:39.577Z] [INFO]    Commit output: [issue-1-5358767cb52c 8129292] Initial commit with task details for issue #1
+ 1 file changed, 7 insertions(+)
+ create mode 100644 CLAUDE.md
+[2025-11-15T08:40:39.613Z] [INFO]    Commit hash: 8129292...
+[2025-11-15T08:40:39.647Z] [INFO]    Latest commit: 8129292 Initial commit with task details for issue #1
+[2025-11-15T08:40:39.682Z] [INFO]    Git status: clean
+[2025-11-15T08:40:39.708Z] [INFO]    Remotes: origin	https://github.com/konard/-.git (fetch)
+[2025-11-15T08:40:39.737Z] [INFO]    Branch info: * issue-1-5358767cb52c 8129292 Initial commit with task details for issue #1
+  master               10d944a [origin/master] .gitignore file added.
+[2025-11-15T08:40:39.738Z] [INFO] 📤 Pushing branch:           To remote repository...
+[2025-11-15T08:40:39.739Z] [INFO]    Command: git push -u origin issue-1-5358767cb52c
+[2025-11-15T08:40:39.740Z] [INFO]    Push command: git push -f -u origin issue-1-5358767cb52c
+[2025-11-15T08:40:40.668Z] [INFO]    Push exit code: 0
+[2025-11-15T08:40:40.669Z] [INFO]    Push output: remote: 
+remote: Create a pull request for 'issue-1-5358767cb52c' on GitHub by visiting:        
+remote:      https://github.com/konard/-/pull/new/issue-1-5358767cb52c        
+remote: 
+To https://github.com/konard/-.git
+ * [new branch]      issue-1-5358767cb52c -> issue-1-5358767cb52c
+branch 'issue-1-5358767cb52c' set up to track 'origin/issue-1-5358767cb52c'.
+[2025-11-15T08:40:40.669Z] [INFO] ✅ Branch pushed:            Successfully to remote
+[2025-11-15T08:40:40.669Z] [INFO]    Push output: remote: 
+remote: Create a pull request for 'issue-1-5358767cb52c' on GitHub by visiting:        
+remote:      https://github.com/konard/-/pull/new/issue-1-5358767cb52c        
+remote: 
+To https://github.com/konard/-.git
+ * [new branch]      issue-1-5358767cb52c -> issue-1-5358767cb52c
+branch 'issue-1-5358767cb52c' set up to track 'origin/issue-1-5358767cb52c'.
+[2025-11-15T08:40:40.670Z] [INFO]    Waiting for GitHub to sync...
+[2025-11-15T08:40:43.044Z] [INFO]    Compare API error (attempt 1/5): {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}gh: Not Found (HTTP 404)
+
+[2025-11-15T08:40:43.045Z] [INFO]    Retry 2/5: Waiting 4000ms for GitHub to index commits...
+[2025-11-15T08:40:47.428Z] [INFO]    Compare API error (attempt 2/5): {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}gh: Not Found (HTTP 404)
+
+[2025-11-15T08:40:47.429Z] [INFO]    Retry 3/5: Waiting 6000ms for GitHub to index commits...
+[2025-11-15T08:40:53.804Z] [INFO]    Compare API error (attempt 3/5): {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}gh: Not Found (HTTP 404)
+
+[2025-11-15T08:40:53.805Z] [INFO]    Retry 4/5: Waiting 8000ms for GitHub to index commits...
+[2025-11-15T08:41:02.188Z] [INFO]    Compare API error (attempt 4/5): {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}gh: Not Found (HTTP 404)
+
+[2025-11-15T08:41:02.189Z] [INFO]    Retry 5/5: Waiting 10000ms for GitHub to index commits...
+[2025-11-15T08:41:12.563Z] [INFO]    Compare API error (attempt 5/5): {"message":"Not Found","documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"404"}gh: Not Found (HTTP 404)
+
+[2025-11-15T08:41:12.563Z] [INFO] 
+[2025-11-15T08:41:12.564Z] [ERROR] ❌ GITHUB SYNC TIMEOUT:      Compare API not ready after retries
+[2025-11-15T08:41:12.564Z] [INFO] 
+[2025-11-15T08:41:12.564Z] [INFO]   🔍 What happened:
+[2025-11-15T08:41:12.565Z] [INFO]      After 5 attempts, GitHub's compare API still shows no commits
+[2025-11-15T08:41:12.565Z] [INFO]      between master and issue-1-5358767cb52c.
+[2025-11-15T08:41:12.565Z] [INFO] 
+[2025-11-15T08:41:12.565Z] [INFO]   💡 This usually means:
+[2025-11-15T08:41:12.567Z] [INFO]      • GitHub's backend systems haven't finished indexing the push
+[2025-11-15T08:41:12.568Z] [INFO]      • There's a temporary issue with GitHub's API
+[2025-11-15T08:41:12.568Z] [INFO]      • The commits may not have been pushed correctly
+[2025-11-15T08:41:12.568Z] [INFO] 
+[2025-11-15T08:41:12.569Z] [INFO]   🔧 How to fix:
+[2025-11-15T08:41:12.569Z] [INFO]      1. Wait a minute and try creating the PR manually:
+[2025-11-15T08:41:12.569Z] [INFO]         gh pr create --draft --repo emirmensitov-afk/- --base master --head konard:issue-1-5358767cb52c
+[2025-11-15T08:41:12.570Z] [INFO]      2. Check if the branch exists on GitHub:
+[2025-11-15T08:41:12.570Z] [INFO]         https://github.com/konard/-/tree/issue-1-5358767cb52c
+[2025-11-15T08:41:12.570Z] [INFO]      3. Check the commit is on GitHub:
+[2025-11-15T08:41:12.571Z] [INFO]         gh api repos/emirmensitov-afk/-/compare/master...konard:issue-1-5358767cb52c
+[2025-11-15T08:41:12.571Z] [INFO] 
+[2025-11-15T08:41:12.591Z] [INFO] 
+[2025-11-15T08:41:12.599Z] [ERROR] ❌ FATAL ERROR:              PR creation failed
+[2025-11-15T08:41:12.601Z] [INFO] 
+[2025-11-15T08:41:12.652Z] [INFO]   🔍 What this means:
+[2025-11-15T08:41:12.653Z] [INFO]      The solve command cannot continue without a pull request.
+[2025-11-15T08:41:12.653Z] [INFO]      Auto-PR creation is enabled but failed to create the PR.
+[2025-11-15T08:41:12.653Z] [INFO] 
+[2025-11-15T08:41:12.654Z] [INFO]   📦 Error details:
+[2025-11-15T08:41:12.654Z] [INFO]      GitHub compare API not ready - cannot create PR safely
+[2025-11-15T08:41:12.654Z] [INFO] 
+[2025-11-15T08:41:12.655Z] [INFO]   🔧 How to fix:
+[2025-11-15T08:41:12.655Z] [INFO] 
+[2025-11-15T08:41:12.655Z] [INFO]   Option 1: Retry without auto-PR creation
+[2025-11-15T08:41:12.656Z] [INFO]      ./solve.mjs "https://github.com/emirmensitov-afk/-/issues/1" --no-auto-pull-request-creation
+[2025-11-15T08:41:12.656Z] [INFO]      (Claude will create the PR during the session)
+[2025-11-15T08:41:12.657Z] [INFO] 
+[2025-11-15T08:41:12.657Z] [INFO]   Option 2: Create PR manually first
+[2025-11-15T08:41:12.658Z] [INFO]      cd /tmp/gh-issue-solver-1763196034444
+[2025-11-15T08:41:12.658Z] [INFO]      gh pr create --draft --title "Fix issue #1" --body "Fixes #1"
+[2025-11-15T08:41:12.659Z] [INFO]      Then use: ./solve.mjs "https://github.com/emirmensitov-afk/-/issues/1" --continue
+[2025-11-15T08:41:12.659Z] [INFO] 
+[2025-11-15T08:41:12.659Z] [INFO]   Option 3: Debug the issue
+[2025-11-15T08:41:12.660Z] [INFO]      cd /tmp/gh-issue-solver-1763196034444
+[2025-11-15T08:41:12.660Z] [INFO]      git status
+[2025-11-15T08:41:12.661Z] [INFO]      git log --oneline -5
+[2025-11-15T08:41:12.661Z] [INFO]      gh pr create --draft  # Try manually to see detailed error
+[2025-11-15T08:41:12.662Z] [INFO] 
+[2025-11-15T08:41:12.664Z] [INFO] Error executing command:
+[2025-11-15T08:41:12.667Z] [INFO] Stack trace: Error: PR creation failed: GitHub compare API not ready - cannot create PR safely
+    at handleAutoPrCreation (file:///home/hive/.bun/install/global/node_modules/@deep-assistant/hive-mind/src/solve.auto-pr.lib.mjs:1165:11)
+    at async file:///home/hive/.bun/install/global/node_modules/@deep-assistant/hive-mind/src/solve.mjs:566:24
+[2025-11-15T08:41:12.671Z] [ERROR]    📁 Full log file: /home/hive/solve-2025-11-15T08-40-25-991Z.log
+[2025-11-15T08:41:13.048Z] [WARNING] ⚠️  Could not determine GitHub user. Cannot create error report issue.
+[2025-11-15T08:41:13.057Z] [INFO] 
+[2025-11-15T08:41:13.058Z] [ERROR] ❌ Error occurred
+[2025-11-15T08:41:13.059Z] [INFO] 📁 Full log file: /home/hive/solve-2025-11-15T08-40-25-991Z.log

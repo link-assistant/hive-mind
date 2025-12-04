@@ -86,6 +86,10 @@ const { startWorkSession, endWorkSession } = sessionLib;
 const preparationLib = await import('./solve.preparation.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
 
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -194,10 +198,17 @@ if (!(await validateUrlRequirement(issueUrl))) {
 if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
   await safeExit(1, 'Feedback validation failed');
 }
+
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
 // Perform all system checks using validation module
-// Skip tool validation in dry-run mode or when --skip-tool-check or --no-tool-check is enabled
-const skipToolCheck = argv.dryRun || argv.skipToolCheck || !argv.toolCheck;
-if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.model, argv))) {
+// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
+// Note: This does NOT skip model validation which is performed above
+const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
 // URL validation debug logging
@@ -331,7 +342,7 @@ if (autoContinueResult.isContinueMode) {
       await log('   Checking if PR is from a fork...', { verbose: true });
     }
     try {
-      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,mergeStateStatus,state`;
+      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
       if (prCheckResult.code === 0) {
         const prCheckData = JSON.parse(prCheckResult.stdout.toString());
         // Extract merge status and PR state
@@ -343,7 +354,9 @@ if (autoContinueResult.isContinueMode) {
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${repo}`);
+          // Get actual fork repository name (may be prefixed)
+          const forkRepoName = (prCheckData.headRepository && prCheckData.headRepository.name) ? prCheckData.headRepository.name : repo;
+          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -399,7 +412,7 @@ if (isPrUrl) {
       prNumber,
       owner,
       repo,
-      jsonFields: 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner'
+      jsonFields: 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner,headRepository'
     });
     if (prResult.code !== 0 || !prResult.data) {
       await log('Error: Failed to get PR details', { level: 'error' });
@@ -417,7 +430,9 @@ if (isPrUrl) {
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${repo}`);
+      // Get actual fork repository name (may be prefixed)
+      const forkRepoName = (prData.headRepository && prData.headRepository.name) ? prData.headRepository.name : repo;
+      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -485,6 +500,7 @@ try {
     forkOwner,
     tempDir,
     isContinueMode,
+    issueUrl,
     log,
     formatAligned,
     $
@@ -800,11 +816,78 @@ try {
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
+  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+  if (toolResult && toolResult.limitResetTime) {
+    global.limitResetTime = toolResult.limitResetTime;
+  }
+
+  // Handle limit reached scenario
+  if (limitReached) {
+    const shouldAutoContinueOnReset = argv.autoContinueOnLimitReset;
+
+    // If limit was reached but auto-continue-on-limit-reset is NOT enabled, fail immediately
+    if (!shouldAutoContinueOnReset) {
+      await log('\n❌ USAGE LIMIT REACHED!');
+      await log('   The AI tool has reached its usage limit.');
+
+      // Post failure comment to PR if we have one
+      if (prNumber) {
+        try {
+          const resetTime = global.limitResetTime;
+          const failureComment = resetTime
+            ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo automatically wait for the limit to reset and continue, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset\n\`\`\``
+            : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo resume after the limit resets, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId}\n\`\`\``;
+
+          const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
+          if (commentResult.code === 0) {
+            await log('   Posted failure comment to PR');
+          }
+        } catch (error) {
+          await log(`   Warning: Could not post failure comment: ${cleanErrorMessage(error)}`, { verbose: true });
+        }
+      }
+
+      await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
+    } else {
+      // auto-continue-on-limit-reset is enabled - post waiting comment
+      if (prNumber && global.limitResetTime) {
+        try {
+          // Calculate wait time in d:h:m:s format
+          const validation = await import('./solve.validation.lib.mjs');
+          const { calculateWaitTime } = validation;
+          const waitMs = calculateWaitTime(global.limitResetTime);
+
+          const formatWaitTime = (ms) => {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            const s = seconds % 60;
+            const m = minutes % 60;
+            const h = hours % 24;
+            return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          };
+
+          const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
+
+          const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
+          if (commentResult.code === 0) {
+            await log('   Posted waiting comment to PR');
+          }
+        } catch (error) {
+          await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });
+        }
+      }
+    }
+  }
+
   if (!success) {
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
     if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
+        // Build resume command if we have session info
+        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',
@@ -814,7 +897,17 @@ try {
           $,
           log,
           sanitizeLogContent,
-          errorMessage: `${argv.tool.toUpperCase()} execution failed`
+          // For usage limit, use a dedicated comment format to make it clear and actionable
+          isUsageLimit: !!limitReached,
+          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+          resumeCommand,
+          // Include sessionId so the PR comment can present it
+          sessionId,
+          // If not a usage limit case, fall back to generic failure format
+          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
         });
 
         if (logUploadSuccess) {
@@ -972,10 +1065,13 @@ try {
     logsAttached
   });
 } catch (error) {
-  reportError(error, {
-    context: 'solve_main',
-    operation: 'main_execution'
-  });
+  // Don't report authentication errors to Sentry as they are user configuration issues
+  if (!error.isAuthError) {
+    reportError(error, {
+      context: 'solve_main',
+      operation: 'main_execution'
+    });
+  }
   await handleMainExecutionError({
     error,
     log,

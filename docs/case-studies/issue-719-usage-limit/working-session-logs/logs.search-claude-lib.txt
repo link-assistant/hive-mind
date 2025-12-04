@@ -1,0 +1,36 @@
+14:import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+587:      { label: 'Context window', value: info.limit?.context ? `${formatNumber(info.limit.context)} tokens` : null },
+588:      { label: 'Max output', value: info.limit?.output ? `${formatNumber(info.limit.output)} tokens` : null },
+831:    let limitReached = false;
+832:    let limitResetTime = null;
+840:  // Build claude command with optional resume flag
+846:  if (argv.resume) {
+847:    await log(`🔄 Resuming from session: ${argv.resume}`);
+848:    claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
+871:    if (argv.resume) {
+879:      })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+904:        // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+949:            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+960:                if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
+961:                  limitReached = true;
+962:                  await log('⚠️ Detected session limit in result', { verbose: true });
+1058:          limitReached: false,
+1059:          limitResetTime: null,
+1106:          limitReached: false,
+1107:          limitResetTime: null,
+1115:      // Check for usage limit errors first (more specific)
+1116:      const limitInfo = detectUsageLimit(lastMessage);
+1117:      if (limitInfo.isUsageLimit) {
+1118:        limitReached = true;
+1119:        limitResetTime = limitInfo.resetTime;
+1124:          resetTime: limitInfo.resetTime,
+1126:          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+1136:        if (sessionId && !argv.resume) {
+1138:          await log('\nTo resume this session, run:');
+1139:          await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+1181:        limitReached,
+1182:        limitResetTime,
+1276:      limitReached,
+1277:      limitResetTime,
+1323:      limitReached,
+1324:      limitResetTime: null,

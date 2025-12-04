@@ -504,13 +504,23 @@ if command -v brew &>/dev/null; then
 
       # Link PHP 8.3 as the active version
       if brew list | grep -q "shivammathur/php/php@8.3"; then
-        brew link --overwrite --force shivammathur/php/php@8.3 || {
-          log_warning "Failed to link PHP 8.3."
-        }
+        log_info "Linking PHP 8.3 as the active version..."
+        brew link --overwrite --force shivammathur/php/php@8.3 2>&1 | grep -v "Warning" || true
 
-        # Verify PHP installation
+        # Explicitly add PHP to PATH for current session
+        # This is necessary because PHP is keg-only and may not be symlinked by default
+        export PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:$PATH"
+        export PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:$PATH"
+
+        log_success "PHP paths added to current session"
+
+        # Verify PHP installation in current session
         if command -v php &>/dev/null; then
           log_success "PHP installed: $(php --version | head -n 1)"
+        else
+          log_warning "PHP installed but not immediately available in PATH"
+          log_note "PHP binary location: /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php"
+          log_note "PHP will be available in new shell sessions via .bashrc configuration"
         fi
       fi
     fi
@@ -702,7 +712,15 @@ if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; e
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
 if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi
-if command -v php &>/dev/null; then log_success "PHP: $(php --version | head -n1)"; else log_warning "PHP: not found"; fi
+if command -v php &>/dev/null; then
+  log_success "PHP: $(php --version | head -n1)"
+elif [ -x "/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php" ]; then
+  log_warning "PHP: installed but not in current PATH"
+  log_note "PHP version: $(/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1)"
+  log_note "PHP will be available after shell restart or: source ~/.bashrc"
+else
+  log_warning "PHP: not found"
+fi
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
 
 echo ""

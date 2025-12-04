@@ -1,0 +1,46 @@
+src/solve.repository.lib.mjs:832:export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.repository.lib.mjs:851:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.repository.lib.mjs:853:  } else if (limitReached) {
+src/solve.mjs:143:let cleanupContext = { tempDir: null, argv: null, limitReached: false };
+src/solve.mjs:146:    await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
+src/solve.mjs:477:// Initialize limitReached variable outside try block for finally clause
+src/solve.mjs:478:let limitReached = false;
+src/solve.mjs:800:  limitReached = toolResult.limitReached;
+src/solve.mjs:801:  cleanupContext.limitReached = limitReached;
+src/solve.mjs:825:          isUsageLimit: !!limitReached,
+src/solve.mjs:826:          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+src/solve.mjs:834:          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
+src/solve.mjs:852:  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
+src/solve.mjs:860:  await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+src/solve.mjs:1016:  await cleanupTempDirectory(tempDir, argv, limitReached);
+src/review.mjs:169:let limitReached = false;
+src/review.mjs:348:  const { success: commandSuccess, sessionId, limitReached: limitReachedResult } = result;
+src/review.mjs:349:  limitReached = limitReachedResult;
+src/review.mjs:365:    if (limitReached) {
+src/review.mjs:415:  if (!argv.resume && !limitReached) {
+src/review.mjs:430:  } else if (limitReached) {
+src/codex.lib.mjs:320:      let limitReached = false;
+src/codex.lib.mjs:399:          limitReached = true;
+src/codex.lib.mjs:425:          limitReached,
+src/codex.lib.mjs:435:        limitReached,
+src/codex.lib.mjs:459:        limitReached: false,
+src/opencode.lib.mjs:310:      let limitReached = false;
+src/opencode.lib.mjs:335:          limitReached = true;
+src/opencode.lib.mjs:361:          limitReached,
+src/opencode.lib.mjs:371:        limitReached,
+src/opencode.lib.mjs:386:        limitReached: false,
+src/claude.lib.mjs:831:    let limitReached = false;
+src/claude.lib.mjs:961:                  limitReached = true;
+src/claude.lib.mjs:1058:          limitReached: false,
+src/claude.lib.mjs:1106:          limitReached: false,
+src/claude.lib.mjs:1118:        limitReached = true;
+src/claude.lib.mjs:1181:        limitReached,
+src/claude.lib.mjs:1276:      limitReached,
+src/claude.lib.mjs:1323:      limitReached,
+src/solve.results.lib.mjs:198:export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+src/solve.results.lib.mjs:208:    if (limitReached) {
+src/solve.execution.lib.mjs:234:export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.execution.lib.mjs:251:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.execution.lib.mjs:253:  } else if (limitReached) {

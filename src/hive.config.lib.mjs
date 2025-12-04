@@ -60,7 +60,7 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use for solve (opus, sonnet, haiku, or any model ID supported by the tool)',
+      description: 'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
       alias: 'm',
       default: 'sonnet'
     })
@@ -80,14 +80,32 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'List issues that would be processed without actually processing them',
       default: false
     })
+    .option('skip-tool-connection-check', {
+      type: 'boolean',
+      description: 'Skip tool connection check (useful in CI environments). Does NOT skip model validation.',
+      default: false
+    })
     .option('skip-tool-check', {
       type: 'boolean',
-      description: 'Skip tool connection check (useful in CI environments)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated, use --skip-tool-connection-check instead)',
+      default: false,
+      hidden: true
+    })
+    .option('skip-claude-check', {
+      type: 'boolean',
+      description: 'Alias for --skip-tool-connection-check (deprecated)',
+      default: false,
+      hidden: true
+    })
+    .option('tool-connection-check', {
+      type: 'boolean',
+      description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
+      default: true,
+      hidden: true
     })
     .option('tool-check', {
       type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-check to skip)',
+      description: 'Alias for --tool-connection-check (deprecated)',
       default: true,
       hidden: true
     })
@@ -207,6 +225,11 @@ export const createYargsConfig = (yargsInstance) => {
       alias: 'o',
       default: 'asc',
       choices: ['asc', 'desc']
+    })
+    .option('prefix-fork-name-with-owner-name', {
+      type: 'boolean',
+      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners. Experimental feature.',
+      default: false
     })
     .parserConfiguration({
       'boolean-negation': true,

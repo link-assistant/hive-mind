@@ -1,0 +1,60 @@
+.github/workflows/cleanup-test-repos.yml:25:        node-version: 20.x
+.github/workflows/main.yml:19:      new-version: ${{ steps.changes.outputs.new-version }}
+.github/workflows/main.yml:20:      version: ${{ steps.changes.outputs.version }}
+.github/workflows/main.yml:27:    - name: Detect changes and check version
+.github/workflows/main.yml:79:        # Check version status
+.github/workflows/main.yml:80:        # Only check for new versions on main branch pushes
+.github/workflows/main.yml:82:          echo "Not a main branch push - skipping version check"
+.github/workflows/main.yml:83:          echo "new-version=false" >> $GITHUB_OUTPUT
+.github/workflows/main.yml:86:            echo "new-version=false" >> $GITHUB_OUTPUT
+.github/workflows/main.yml:89:            VERSION=$(node -p "require('./package.json').version")
+.github/workflows/main.yml:92:            # Check if version is already published on NPM
+.github/workflows/main.yml:93:            if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+.github/workflows/main.yml:95:              echo "new-version=false" >> $GITHUB_OUTPUT
+.github/workflows/main.yml:97:              echo "New version $VERSION detected - will publish"
+.github/workflows/main.yml:98:              echo "new-version=true" >> $GITHUB_OUTPUT
+.github/workflows/main.yml:99:              echo "version=$VERSION" >> $GITHUB_OUTPUT
+.github/workflows/main.yml:113:  verify-version-bump:
+.github/workflows/main.yml:126:        node-version: 20.x
+.github/workflows/main.yml:128:    - name: Verify version bump
+.github/workflows/main.yml:144:        # Get current version from package.json
+.github/workflows/main.yml:150:        CURRENT_VERSION=$(node -p "require('./package.json').version")
+.github/workflows/main.yml:151:        echo "Current version in PR: $CURRENT_VERSION"
+.github/workflows/main.yml:153:        # Get base version from package.json
+.github/workflows/main.yml:164:        BASE_VERSION=$(node -p "require('./package.json').version")
+.github/workflows/main.yml:165:        echo "Base version: $BASE_VERSION"
+.github/workflows/main.yml:170:        # Compare versions using semver (Node.js native comparison)
+.github/workflows/main.yml:188:        echo "Comparing versions: $CURRENT_VERSION vs $BASE_VERSION (result: $COMPARISON)"
+.github/workflows/main.yml:194:            echo "❌ Version in PR ($CURRENT_VERSION) is LOWER than base version ($BASE_VERSION)!"
+.github/workflows/main.yml:196:          echo "   Current version in PR: $CURRENT_VERSION"
+.github/workflows/main.yml:197:          echo "   Base version in main: $BASE_VERSION"
+.github/workflows/main.yml:199:          echo "💡 Please bump the version in package.json to be strictly greater than $BASE_VERSION."
+.github/workflows/main.yml:200:          echo "   You can use semantic versioning:"
+.github/workflows/main.yml:201:          echo "   - Patch (bug fixes): npm version patch"
+.github/workflows/main.yml:202:          echo "   - Minor (new features): npm version minor"
+.github/workflows/main.yml:203:          echo "   - Major (breaking changes): npm version major"
+.github/workflows/main.yml:222:        node-version: 20.x
+.github/workflows/main.yml:271:        node-version: 20.x
+.github/workflows/main.yml:341:        node-version: 20.x
+.github/workflows/main.yml:442:        node-version: 20.x
+.github/workflows/main.yml:452:        timeout 10s ./src/solve.mjs --version || true
+.github/workflows/main.yml:454:    - name: Verify log files contain version and command (Issue #517)
+.github/workflows/main.yml:456:        echo "Testing that log files contain version and command at the start..."
+.github/workflows/main.yml:482:        echo "Verifying version appears in log..."
+.github/workflows/main.yml:500:        echo "✅ Log file verification passed - version and command are present"
+.github/workflows/main.yml:507:        timeout 10s ./src/hive.mjs --version || true
+.github/workflows/main.yml:538:        timeout 10s hive --version || true
+.github/workflows/main.yml:544:        timeout 10s solve --version || true
+.github/workflows/main.yml:637:        node-version: 20.x
+.github/workflows/main.yml:703:        node-version: 20.x
+.github/workflows/main.yml:785:        node-version: 20.x
+.github/workflows/main.yml:803:        echo "Node version: $(node --version)"
+.github/workflows/main.yml:823:        node-version: 20.x
+.github/workflows/main.yml:847:        node-version: 20.x
+.github/workflows/main.yml:855:        if [ "${{ needs.detect-changes.outputs.new-version }}" != "true" ]; then
+.github/workflows/main.yml:856:          echo "⊘ Publishing skipped (no new version detected)"
+.github/workflows/main.yml:857:          echo "  new-version output: ${{ needs.detect-changes.outputs.new-version }}"
+.github/workflows/main.yml:861:        echo "✓ New version detected, proceeding with publish"
+.github/workflows/main.yml:871:        VERSION=${{ needs.detect-changes.outputs.version }}
+.github/workflows/main.yml:878:      if: needs.detect-changes.outputs.new-version == 'true'
+.github/workflows/main.yml:882:        echo "📤 Uploading source maps to Sentry for version ${{ needs.detect-changes.outputs.version }}"

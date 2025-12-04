@@ -1,0 +1,161 @@
+              reportError(parseError, {
+                context: 'parse_claude_output',
+                line,
+                operation: 'parse_json_output',
+                level: 'debug'
+              });
+            }
+            // Not JSON or parsing failed, output as-is if it's not empty
+            if (line.trim() && !line.includes('node:internal')) {
+              await log(line, { stream: 'raw' });
+              lastMessage = line;
+            }
+          }
+        }
+      }
+      if (chunk.type === 'stderr') {
+        const errorOutput = chunk.data.toString();
+        // Log stderr immediately
+        if (errorOutput) {
+          await log(errorOutput, { stream: 'stderr' });
+          // Track stderr errors for failure detection
+          const trimmed = errorOutput.trim();
+          // Exclude warnings (messages starting with ⚠️) from being treated as errors
+          // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
+          // Even though this contains the word "failed", it's a warning, not an error
+          const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+          if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+            stderrErrors.push(trimmed);
+          }
+        }
+      } else if (chunk.type === 'exit') {
+        exitCode = chunk.code;
+        if (chunk.code !== 0) {
+          commandFailed = true;
+        }
+        // Don't break here - let the loop finish naturally to process all output
+      }
+    }
+    if ((commandFailed || isOverloadError) &&
+        (isOverloadError ||
+         (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ||
+         (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')))) {
+      if (retryCount < maxRetries) {
+        // Calculate exponential backoff delay
+        const delay = baseDelay * Math.pow(2, retryCount);
+        await log(`\n⚠️ API overload error detected. Retrying in ${delay / 1000} seconds...`, { level: 'warning' });
+        await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Increment retry count and retry
+        retryCount++;
+        return await executeWithRetry();
+      } else {
+        await log(`\n\n❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
+        await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          messageCount,
+          toolUseCount
+        };
+      }
+    }
+    if ((commandFailed || is503Error) && argv.autoResumeOnErrors &&
+        (is503Error ||
+         lastMessage.includes('API Error: 503') ||
+         (lastMessage.includes('503') && lastMessage.includes('upstream connect error')) ||
+         (lastMessage.includes('503') && lastMessage.includes('remote connection failure')))) {
+      if (retryCount < retryLimits.max503Retries) {
+        // Calculate exponential backoff delay starting from 5 minutes
+        const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+        const delayMinutes = Math.round(delay / (1000 * 60));
+        await log(`\n⚠️ 503 network error detected. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
+        await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
+        await log(`   Retry ${retryCount + 1}/${retryLimits.max503Retries}`, { verbose: true });
+        // Show countdown for long waits
+        if (delay > 60000) {
+          const countdownInterval = 60000; // Every minute
+          let remainingMs = delay;
+          const countdownTimer = setInterval(async () => {
+            remainingMs -= countdownInterval;
+            if (remainingMs > 0) {
+              const remainingMinutes = Math.round(remainingMs / (1000 * 60));
+              await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
+            }
+          }, countdownInterval);
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+          clearInterval(countdownTimer);
+        } else {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        await log('\n🔄 Retrying now...');
+        // Increment retry count and retry
+        retryCount++;
+        return await executeWithRetry();
+      } else {
+        await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, { level: 'error' });
+        await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
+        await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          messageCount,
+          toolUseCount,
+          is503Error: true
+        };
+      }
+    }
+    if (commandFailed) {
+      // Check for usage limit errors first (more specific)
+      const limitInfo = detectUsageLimit(lastMessage);
+      if (limitInfo.isUsageLimit) {
+        limitReached = true;
+        limitResetTime = limitInfo.resetTime;
+
+        // Format and display user-friendly message
+        const messageLines = formatUsageLimitMessage({
+          tool: 'Claude',
+          resetTime: limitInfo.resetTime,
+          sessionId,
+          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+        });
+
+        for (const line of messageLines) {
+          await log(line, { level: 'warning' });
+        }
+      } else if (lastMessage.includes('context_length_exceeded')) {
+        await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
+      } else {
+        await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+        if (sessionId && !argv.resume) {
+          await log(`📌 Session ID for resuming: ${sessionId}`);
+          await log('\nTo resume this session, run:');
+          await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+        }
+      }
+    }
+    // Additional failure detection: if no messages were processed and there were stderr errors,
+    // or if the command produced no output at all, treat it as a failure
+    //
+    // This is critical for detecting "silent failures" where:
+    // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
+    // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
+    // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
+    //
+    // Common cause: sudo commands that timeout
+    // - Timeout triggers process.kill() in Claude CLI
+    // - If child process runs with sudo (root), parent can't kill it → EPERM error
+    // - Error logged to stderr, but command doesn't properly fail
+    //
+    // Workaround (applied in system prompt):
+    // - Instruct Claude to run sudo commands (installations) in background
+    // - Background processes avoid timeout kill mechanism
+    // - Prevents EPERM errors and false success reports
+    //

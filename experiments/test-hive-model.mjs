@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 
 console.log('Testing hive command with different models...\n');
 
-const testModels = ['glm-4.6', 'gpt-4', 'claude-opus-4-1-20250805', 'custom-model'];
+const testModels = ['glm-4.6', 'gpt-4', 'claude-opus-4-5-20251101', 'custom-model'];
 
 testModels.forEach(model => {
   console.log(`Testing model: ${model}`);

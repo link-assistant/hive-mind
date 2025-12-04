@@ -55,6 +55,24 @@ const {
   calculateWaitTime
 } = validation;
 
+/**
+ * Format time duration in days:hours:minutes:seconds
+ * @param {number} ms - Milliseconds
+ * @returns {string} - Formatted time string (e.g., "0:02:15:30")
+ */
+const formatWaitTime = (ms) => {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  const s = seconds % 60;
+  const m = minutes % 60;
+  const h = hours % 24;
+
+  return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
 // Auto-continue function that waits until limit resets
 export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
   try {
@@ -62,7 +80,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const waitMs = calculateWaitTime(resetTime);
 
     await log(`\n⏰ Waiting until ${resetTime} for limit to reset...`);
-    await log(`   Wait time: ${Math.round(waitMs / (1000 * 60))} minutes`);
+    await log(`   Wait time: ${formatWaitTime(waitMs)}`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Show countdown every 30 minutes for long waits, every minute for short waits
@@ -72,8 +90,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const countdownTimer = setInterval(async () => {
       remainingMs -= countdownInterval;
       if (remainingMs > 0) {
-        const remainingMinutes = Math.round(remainingMs / (1000 * 60));
-        await log(`⏳ ${remainingMinutes} minutes remaining until ${resetTime}`);
+        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${resetTime}`);
       }
     }, countdownInterval);
 
@@ -92,9 +109,13 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const resumeArgs = [
       process.argv[1], // solve.mjs path
       issueUrl,
-      '--resume', sessionId,
-      '--auto-continue-limit' // Keep auto-continue-limit enabled
+      '--resume', sessionId
     ];
+
+    // Preserve auto-continue flag
+    if (argv.autoContinueOnLimitReset) {
+      resumeArgs.push('--auto-continue-on-limit-reset');
+    }
 
     // Preserve other flags from original invocation
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
@@ -326,7 +347,9 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       const userResult = await $`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
-        const forkRepo = `${currentUser}/${repo}`;
+        // Determine fork name based on --prefix-fork-name-with-owner-name option
+        const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
+        const forkRepo = `${currentUser}/${forkRepoName}`;
 
         // Check if fork exists
         const forkCheckResult = await $`gh repo view ${forkRepo} --json name 2>/dev/null`;

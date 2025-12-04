@@ -1,0 +1,84 @@
+Usage: hive.mjs <github-url> [options]
+
+Positionals:
+  github-url  GitHub organization, repository, or user URL to monitor (or GitHub
+              repo URL when using --youtrack-mode)                      [string]
+
+Options:
+  -t, --monitor-tag              GitHub label to monitor for issues
+                                               [string] [default: "help wanted"]
+  -a, --all-issues               Process all open issues regardless of labels
+                                                      [boolean] [default: false]
+  -s, --skip-issues-with-prs     Skip issues that already have open pull
+                                 requests             [boolean] [default: false]
+  -c, --concurrency              Number of concurrent solve instances
+                                                           [number] [default: 2]
+  -p, --pull-requests-per-issue  Number of pull requests to generate per issue
+                                                           [number] [default: 1]
+  -m, --model                    Model to use for solve (opus, sonnet, haiku, or
+                                 any model ID supported by the tool)
+                                                    [string] [default: "sonnet"]
+  -i, --interval                 Polling interval in seconds
+                                                         [number] [default: 300]
+      --max-issues               Maximum number of issues to process (0 =
+                                 unlimited)                [number] [default: 0]
+      --dry-run                  List issues that would be processed without
+                                 actually processing them
+                                                      [boolean] [default: false]
+      --skip-tool-check          Skip tool connection check (useful in CI
+                                 environments)        [boolean] [default: false]
+      --skip-claude-check        Alias for --skip-tool-check (kept for CI/tests
+                                 compatibility)       [boolean] [default: false]
+      --tool                     AI tool to use for solving issues
+                    [string] [choices: "claude", "opencode"] [default: "claude"]
+  -v, --verbose                  Enable verbose logging
+                                                      [boolean] [default: false]
+      --once                     Run once and exit instead of continuous
+                                 monitoring           [boolean] [default: false]
+      --min-disk-space           Minimum required disk space in MB (default:
+                                 500)                    [number] [default: 500]
+      --auto-cleanup             Automatically clean temporary directories
+                                 (/tmp/* /var/tmp/*) when finished successfully
+                                                      [boolean] [default: false]
+  -f, --fork                     Fork the repository if you don't have write
+                                 access               [boolean] [default: false]
+      --auto-fork                Automatically fork public repos without write
+                                 access (passed to solve command)
+                                                      [boolean] [default: false]
+      --attach-logs              Upload the solution draft log file to the Pull
+                                 Request on completion (⚠️ WARNING: May expose
+                                 sensitive data)      [boolean] [default: false]
+      --project-number, --pn     GitHub Project number to monitor       [number]
+      --project-owner, --po      GitHub Project owner (organization or user)
+                                                                        [string]
+      --project-status, --ps     Project status column to monitor (e.g.,
+                                 "Ready", "To Do")   [string] [default: "Ready"]
+      --project-mode, --pm       Enable project-based monitoring instead of
+                                 label-based          [boolean] [default: false]
+      --youtrack-mode            Enable YouTrack mode instead of GitHub issues
+                                                      [boolean] [default: false]
+      --youtrack-stage           Override YouTrack stage to monitor (overrides
+                                 YOUTRACK_STAGE env var)                [string]
+      --youtrack-project         Override YouTrack project code (overrides
+                                 YOUTRACK_PROJECT_CODE env var)         [string]
+      --target-branch, --tb      Target branch for pull requests (defaults to
+                                 repository default branch)             [string]
+  -l, --log-dir                  Directory to save log files (defaults to
+                                 current working directory)             [string]
+      --auto-continue            Pass --auto-continue to solve for each issue
+                                 (continues with existing PRs instead of
+                                 creating new ones)   [boolean] [default: false]
+      --think                    Thinking level: low (Think.), medium (Think
+                                 hard.), high (Think harder.), max (Ultrathink.)
+                              [string] [choices: "low", "medium", "high", "max"]
+      --sentry                   Enable Sentry error tracking and monitoring
+                                 (use --no-sentry to disable)
+                                                       [boolean] [default: true]
+  -w, --watch                    Monitor continuously for feedback and
+                                 auto-restart when detected (stops when PR is
+                                 merged)              [boolean] [default: false]
+  -o, --issue-order              Order issues by publication date: "asc" (oldest
+                                 first) or "desc" (newest first)
+                              [string] [choices: "asc", "desc"] [default: "asc"]
+  -h, --help                     Show help                             [boolean]
+      ----help

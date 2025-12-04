@@ -1,0 +1,8 @@
+Installing dependencies with npm ci
+
+added 160 packages, and audited 161 packages in 4s
+
+27 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities

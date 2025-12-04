@@ -104,16 +104,26 @@ export const getGitHubTokensFromCommand = async () => {
   
   return tokens;
 };
+// Helper function to escape code blocks in log content for safe embedding in markdown
+// When log content is placed inside a markdown code block, any triple backticks (```)
+// in the content will prematurely close the outer code block, breaking the markdown.
+// This function escapes those backticks by replacing them with \`\`\` (with backslashes).
+export const escapeCodeBlocksInLog = (logContent) => {
+  // Replace all occurrences of triple backticks with escaped version
+  // We add backslashes before backticks to prevent them from being
+  // interpreted as markdown code block delimiters
+  return logContent.replace(/```/g, '\\`\\`\\`');
+};
 // Helper function to sanitize log content by masking GitHub tokens
 export const sanitizeLogContent = async (logContent) => {
   let sanitized = logContent;
-  
+
   try {
     // Get tokens from both sources
     const fileTokens = await getGitHubTokensFromFiles();
     const commandTokens = await getGitHubTokensFromCommand();
     const allTokens = [...new Set([...fileTokens, ...commandTokens])];
-    
+
     // Mask each token found
     for (const token of allTokens) {
       if (token && token.length >= 12) {
@@ -122,14 +132,14 @@ export const sanitizeLogContent = async (logContent) => {
         sanitized = sanitized.split(token).join(maskedToken);
       }
     }
-    
+
     // Also look for and mask common GitHub token patterns directly in the log
     const tokenPatterns = [
       /gh[pou]_[a-zA-Z0-9_]{20,}/g,
       /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm, // 40-char hex tokens (like personal access tokens)
       /(?:^|[\s:=])([a-zA-Z0-9_]{20,})(?=[\s\n]|$)/gm // General long tokens
     ];
-    
+
     for (const pattern of tokenPatterns) {
       sanitized = sanitized.replace(pattern, (match, token) => {
         if (token && token.length >= 20) {
@@ -138,9 +148,9 @@ export const sanitizeLogContent = async (logContent) => {
         return match;
       });
     }
-    
+
     await log(`  🔒 Sanitized ${allTokens.length} detected GitHub tokens in log content`, { verbose: true });
-    
+
   } catch (error) {
     reportError(error, {
       context: 'sanitize_log_content',
@@ -148,7 +158,7 @@ export const sanitizeLogContent = async (logContent) => {
     });
     await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
   }
-  
+
   return sanitized;
 };
 // Helper function to check if a file exists in a GitHub branch
@@ -427,6 +437,10 @@ Thank you! 🙏`;
  * @param {boolean} [options.verbose=false] - Enable verbose logging
  * @param {string} [options.errorMessage] - Error message to include in comment (for failure logs)
  * @param {string} [options.customTitle] - Custom title for the comment (defaults to "🤖 Solution Draft Log")
+ * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
+ * @param {string} [options.limitResetTime] - Time when usage limit resets
+ * @param {string} [options.toolName] - Name of the tool (claude, codex, opencode)
+ * @param {string} [options.resumeCommand] - Command to resume the session
  * @returns {Promise<boolean>} - True if upload succeeded
  */
 export async function attachLogToGitHub(options) {
@@ -445,7 +459,11 @@ export async function attachLogToGitHub(options) {
     customTitle = '🤖 Solution Draft Log',
     sessionId = null,
     tempDir = null,
-    anthropicTotalCostUSD = null
+    anthropicTotalCostUSD = null,
+    isUsageLimit = false,
+    limitResetTime = null,
+    toolName = 'AI tool',
+    resumeCommand = null
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -485,11 +503,68 @@ export async function attachLogToGitHub(options) {
     if (verbose) {
       await log('  🔍 Sanitizing log content to mask GitHub tokens...', { verbose: true });
     }
-    const logContent = await sanitizeLogContent(rawLogContent);
+    let logContent = await sanitizeLogContent(rawLogContent);
+
+    // Escape code blocks in the log content to prevent them from breaking markdown formatting
+    if (verbose) {
+      await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
+    }
+    logContent = escapeCodeBlocksInLog(logContent);
     // Create formatted comment
     let logComment;
-    if (errorMessage) {
-      // Failure log format
+    // Usage limit comments should be shown whenever isUsageLimit is true,
+    // regardless of whether a generic errorMessage is provided.
+    if (isUsageLimit) {
+      // Usage limit error format - separate from general failures
+      logComment = `## ⏳ Usage Limit Reached
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+
+      if (limitResetTime) {
+        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+      }
+
+      if (sessionId) {
+        logComment += `\n- **Session ID**: ${sessionId}`;
+      }
+
+      logComment += '\n\n### 🔄 How to Continue\n';
+
+      if (limitResetTime) {
+        logComment += `Once the limit resets at **${limitResetTime}**, `;
+      } else {
+        logComment += 'Once the limit resets, ';
+      }
+
+      if (resumeCommand) {
+        logComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+      } else if (sessionId) {
+        logComment += `you can resume this session using session ID: \`${sessionId}\``;
+      } else {
+        logComment += 'you can retry the operation.';
+      }
+
+      logComment += `
+
+<details>
+<summary>Click to expand execution log (${Math.round(logStats.size / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+</details>
+
+---
+*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+    } else if (errorMessage) {
+      // Failure log format (non-usage-limit errors)
       logComment = `## 🚨 Solution Draft Failed
 The automated solution draft encountered an error:
 \`\`\`
@@ -563,8 +638,10 @@ ${logContent}
           await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
         }
         // Create gist with appropriate visibility
+        // Note: Gists don't need escaping because they are uploaded as plain text files
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
-        await fs.writeFile(tempLogFile, logContent);
+        // Use the original sanitized content (before escaping) for gist since it's a text file
+        await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
         const gistCommand = isPublicRepo
           ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`
           : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
@@ -574,11 +651,78 @@ ${logContent}
         const gistResult = await $(gistCommand);
         await fs.unlink(tempLogFile).catch(() => {});
         if (gistResult.code === 0) {
-          const gistUrl = gistResult.stdout.toString().trim();
+          const gistPageUrl = gistResult.stdout.toString().trim();
+          // Extract gist ID from URL
+          const gistId = gistPageUrl.split('/').pop();
+          // Construct raw file URL
+          // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
+          // We use gh api to get the gist details for owner and commit SHA
+          let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
+
+          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
+          if (gistDetailsResult.code === 0) {
+            const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
+            const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
+            // Get the actual filename from the gist API response (--filename flag only works with stdin)
+            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
+            const fileName = fileNames.length > 0 ? fileNames[0] : 'solution-draft-log.txt';
+
+            if (commitSha) {
+              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
+            } else {
+              // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
+              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
+            }
+          }
           // Create comment with gist link
           let gistComment;
-          if (errorMessage) {
-            // Failure log gist format
+          // For usage limit cases, always use the dedicated format regardless of errorMessage
+          if (isUsageLimit) {
+            // Usage limit error gist format
+            gistComment = `## ⏳ Usage Limit Reached
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+
+            if (limitResetTime) {
+              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+            }
+
+            if (sessionId) {
+              gistComment += `\n- **Session ID**: ${sessionId}`;
+            }
+
+            gistComment += '\n\n### 🔄 How to Continue\n';
+
+            if (limitResetTime) {
+              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+            } else {
+              gistComment += 'Once the limit resets, ';
+            }
+
+            if (resumeCommand) {
+              gistComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+            } else if (sessionId) {
+              gistComment += `you can resume this session using session ID: \`${sessionId}\``;
+            } else {
+              gistComment += 'you can retry the operation.';
+            }
+
+            gistComment += `
+
+📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete execution log](${gistUrl})
+
+---
+*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+          } else if (errorMessage) {
+            // Failure log gist format (non-usage-limit errors)
             gistComment = `## 🚨 Solution Draft Failed
 The automated solution draft encountered an error:
 \`\`\`
@@ -660,14 +804,16 @@ This log file contains the complete execution trace of the AI ${targetType === '
 async function attachTruncatedLog(options) {
   const fs = (await use('fs')).promises;
   const { logFile, targetType, targetNumber, owner, repo, $, log, sanitizeLogContent } = options;
-  
+
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
-  
+
   const rawLogContent = await fs.readFile(logFile, 'utf8');
-  const logContent = await sanitizeLogContent(rawLogContent);
+  let logContent = await sanitizeLogContent(rawLogContent);
+  // Escape code blocks to prevent markdown breaking
+  logContent = escapeCodeBlocksInLog(logContent);
   const logStats = await fs.stat(logFile);
-  
+
   const GITHUB_COMMENT_LIMIT = 65536;
   const maxContentLength = GITHUB_COMMENT_LIMIT - 500;
   const truncatedContent = logContent.substring(0, maxContentLength) + '\n\n[... Log truncated due to length ...]';
@@ -826,7 +972,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     await log(`🔍 Fetching issues from GitHub Project #${projectNumber} (owner: ${owner}, status: ${statusFilter})`);
     // Check for project scope in GitHub CLI authentication
     try {
-      const authStatus = await $`gh auth status --show-token`.quiet();
+      const authStatus = await $`gh auth status --show-token`;
       if (!authStatus.stdout.includes('project')) {
         throw new Error('Missing project scope. Run: gh auth refresh -s project');
       }
@@ -843,7 +989,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     const startTime = Date.now();
     // Fetch all project items
     await log(`   🔎 Executing: gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, { verbose: true });
-    const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`.quiet();
+    const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
     const endTime = Date.now();
     const projectData = JSON.parse(result.stdout || '{"items": []}');
     const allItems = projectData.items || [];
@@ -1300,6 +1446,7 @@ export default {
   maskGitHubToken,
   getGitHubTokensFromFiles,
   getGitHubTokensFromCommand,
+  escapeCodeBlocksInLog,
   sanitizeLogContent,
   checkFileInBranch,
   checkGitHubPermissions,

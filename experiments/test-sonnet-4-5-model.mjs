@@ -10,9 +10,9 @@ console.log('Testing Sonnet 4.5 model mapping...\n');
 // Test cases
 const testCases = [
   { input: 'sonnet', expected: 'claude-sonnet-4-5-20250929' },
-  { input: 'opus', expected: 'claude-opus-4-1-20250805' },
+  { input: 'opus', expected: 'claude-opus-4-5-20251101' },
   { input: 'claude-sonnet-4-5-20250929', expected: 'claude-sonnet-4-5-20250929' },
-  { input: 'claude-opus-4-1-20250805', expected: 'claude-opus-4-1-20250805' },
+  { input: 'claude-opus-4-5-20251101', expected: 'claude-opus-4-5-20251101' },
   { input: 'custom-model-id', expected: 'custom-model-id' }
 ];
 

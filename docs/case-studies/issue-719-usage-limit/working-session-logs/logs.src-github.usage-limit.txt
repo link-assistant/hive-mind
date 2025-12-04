@@ -1,0 +1,302 @@
+      operation: 'post_comment_request_access'
+    });
+    await log(`⚠️  Warning: Error posting comment: ${cleanErrorMessage(error)}`, { level: 'warning' });
+    return false;
+  }
+};
+/**
+ * Attaches a log file to a GitHub PR or issue as a comment
+ * @param {Object} options - Configuration options
+ * @param {string} options.logFile - Path to the log file
+ * @param {string} options.targetType - 'pr' or 'issue'
+ * @param {number} options.targetNumber - PR or issue number
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @param {Function} options.$ - Command execution function
+ * @param {Function} options.log - Logging function
+ * @param {Function} options.sanitizeLogContent - Function to sanitize log content
+ * @param {boolean} [options.verbose=false] - Enable verbose logging
+ * @param {string} [options.errorMessage] - Error message to include in comment (for failure logs)
+ * @param {string} [options.customTitle] - Custom title for the comment (defaults to "🤖 Solution Draft Log")
+ * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
+ * @param {string} [options.limitResetTime] - Time when usage limit resets
+ * @param {string} [options.toolName] - Name of the tool (claude, codex, opencode)
+ * @param {string} [options.resumeCommand] - Command to resume the session
+ * @returns {Promise<boolean>} - True if upload succeeded
+ */
+export async function attachLogToGitHub(options) {
+  const fs = (await use('fs')).promises;
+  const {
+    logFile,
+    targetType,
+    targetNumber,
+    owner,
+    repo,
+    $,
+    log,
+    sanitizeLogContent,
+    verbose = false,
+    errorMessage,
+    customTitle = '🤖 Solution Draft Log',
+    sessionId = null,
+    tempDir = null,
+    anthropicTotalCostUSD = null,
+    isUsageLimit = false,
+    limitResetTime = null,
+    toolName = 'AI tool',
+    resumeCommand = null
+  } = options;
+  const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
+  const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
+  try {
+    // Check if log file exists and is not empty
+    const logStats = await fs.stat(logFile);
+    if (logStats.size === 0) {
+      await log('  ⚠️  Log file is empty, skipping upload');
+      return false;
+    } else if (logStats.size > githubLimits.fileMaxSize) {
+      await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
+      return false;
+    }
+    // Calculate token usage if sessionId and tempDir are provided
+    let totalCostUSD = null;
+    if (sessionId && tempDir && !errorMessage) {
+      try {
+        const { calculateSessionTokens } = await import('./claude.lib.mjs');
+        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+        if (tokenUsage) {
+          if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+            totalCostUSD = tokenUsage.totalCostUSD;
+            if (verbose) {
+              await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+            }
+          }
+        }
+      } catch (tokenError) {
+        // Don't fail the entire upload if token calculation fails
+        if (verbose) {
+          await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
+        }
+      }
+    }
+    // Read and sanitize log content
+    const rawLogContent = await fs.readFile(logFile, 'utf8');
+    if (verbose) {
+      await log('  🔍 Sanitizing log content to mask GitHub tokens...', { verbose: true });
+    }
+    let logContent = await sanitizeLogContent(rawLogContent);
+
+    // Escape code blocks in the log content to prevent them from breaking markdown formatting
+    if (verbose) {
+      await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
+    }
+    logContent = escapeCodeBlocksInLog(logContent);
+    // Create formatted comment
+    let logComment;
+    if (isUsageLimit && errorMessage) {
+      // Usage limit error format - separate from general failures
+      logComment = `## ⏳ Usage Limit Reached
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+
+      if (limitResetTime) {
+        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+      }
+
+      if (sessionId) {
+        logComment += `\n- **Session ID**: ${sessionId}`;
+      }
+
+      logComment += '\n\n### 🔄 How to Continue\n';
+
+      if (limitResetTime) {
+        logComment += `Once the limit resets at **${limitResetTime}**, `;
+      } else {
+        logComment += 'Once the limit resets, ';
+      }
+
+      if (resumeCommand) {
+        logComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+      } else if (sessionId) {
+        logComment += `you can resume this session using session ID: \`${sessionId}\``;
+      } else {
+        logComment += 'you can retry the operation.';
+      }
+
+      logComment += `
+
+<details>
+<summary>Click to expand execution log (${Math.round(logStats.size / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+</details>
+
+---
+*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+    } else if (errorMessage) {
+      // Failure log format (non-usage-limit errors)
+      logComment = `## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+\`\`\`
+${errorMessage}
+\`\`\`
+<details>
+<summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
+\`\`\`
+${logContent}
+\`\`\`
+</details>
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+    } else {
+      // Success log format
+      let costInfo = '\n\n💰 **Cost estimation:**';
+      if (totalCostUSD !== null) {
+        costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+      } else {
+        costInfo += '\n- Public pricing estimate: unknown';
+      }
+      if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+        costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+        if (totalCostUSD !== null) {
+          const difference = anthropicTotalCostUSD - totalCostUSD;
+          const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
+          costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
+        } else {
+          costInfo += '\n- Difference: unknown';
+        }
+      } else {
+        costInfo += '\n- Calculated by Anthropic: unknown';
+        costInfo += '\n- Difference: unknown';
+      }
+      logComment = `## ${customTitle}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+<details>
+<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
+\`\`\`
+${logContent}
+\`\`\`
+</details>
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+    }
+    // Check GitHub comment size limit
+    let commentResult;
+    if (logComment.length > githubLimits.commentMaxSize) {
+      await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
+      await log('  📎 Uploading log as GitHub Gist instead...');
+      try {
+        // Check if repository is public or private
+        let isPublicRepo = true;
+        try {
+          const repoVisibilityResult = await $`gh api repos/${owner}/${repo} --jq .visibility`;
+          if (repoVisibilityResult.code === 0) {
+            const visibility = repoVisibilityResult.stdout.toString().trim();
+            isPublicRepo = visibility === 'public';
+            if (verbose) {
+              await log(`  🔍 Repository visibility: ${visibility}`, { verbose: true });
+            }
+          }
+        } catch (visibilityError) {
+          reportError(visibilityError, {
+            context: 'check_repo_visibility',
+            level: 'warning',
+            owner,
+            repo
+          });
+          // Default to public if we can't determine visibility
+          await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
+        }
+        // Create gist with appropriate visibility
+        // Note: Gists don't need escaping because they are uploaded as plain text files
+        const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
+        // Use the original sanitized content (before escaping) for gist since it's a text file
+        await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
+        const gistCommand = isPublicRepo
+          ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`
+          : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
+        if (verbose) {
+          await log(`  🔐 Creating ${isPublicRepo ? 'public' : 'private'} gist...`, { verbose: true });
+        }
+        const gistResult = await $(gistCommand);
+        await fs.unlink(tempLogFile).catch(() => {});
+        if (gistResult.code === 0) {
+          const gistUrl = gistResult.stdout.toString().trim();
+          // Create comment with gist link
+          let gistComment;
+          if (isUsageLimit && errorMessage) {
+            // Usage limit error gist format
+            gistComment = `## ⏳ Usage Limit Reached
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+
+            if (limitResetTime) {
+              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+            }
+
+            if (sessionId) {
+              gistComment += `\n- **Session ID**: ${sessionId}`;
+            }
+
+            gistComment += '\n\n### 🔄 How to Continue\n';
+
+            if (limitResetTime) {
+              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+            } else {
+              gistComment += 'Once the limit resets, ';
+            }
+
+            if (resumeCommand) {
+              gistComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+            } else if (sessionId) {
+              gistComment += `you can resume this session using session ID: \`${sessionId}\``;
+            } else {
+              gistComment += 'you can retry the operation.';
+            }
+
+            gistComment += `
+
+📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete execution log](${gistUrl})
+
+---
+*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+          } else if (errorMessage) {
+            // Failure log gist format (non-usage-limit errors)
+            gistComment = `## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+\`\`\`
+${errorMessage}
+\`\`\`
+📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete failure log](${gistUrl})
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+          } else {
+            // Success log gist format
+            let costInfo = '\n\n💰 **Cost estimation:**';
+            if (totalCostUSD !== null) {
+              costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+            } else {
+              costInfo += '\n- Public pricing estimate: unknown';
+            }
+            if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+              costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+              if (totalCostUSD !== null) {

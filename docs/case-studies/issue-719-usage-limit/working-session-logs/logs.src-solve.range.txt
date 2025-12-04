@@ -1,0 +1,481 @@
+   440	        }
+   441	      }
+   442	    }
+   443	    await log(`📝 PR branch: ${prBranch}`);
+   444	    // Extract issue number from PR body using GitHub linking detection library
+   445	    // This ensures we only detect actual GitHub-recognized linking keywords
+   446	    const prBody = prData.body || '';
+   447	    const extractedIssueNumber = extractLinkedIssueNumber(prBody);
+   448	    if (extractedIssueNumber) {
+   449	      issueNumber = extractedIssueNumber;
+   450	      await log(`🔗 Found linked issue #${issueNumber}`);
+   451	    } else {
+   452	      // If no linked issue found, we can still continue but warn
+   453	      await log('⚠️  Warning: No linked issue found in PR body', { level: 'warning' });
+   454	      await log('   The PR should contain "Fixes #123" or similar to link an issue', { level: 'warning' });
+   455	      // Set issueNumber to PR number as fallback
+   456	      issueNumber = prNumber;
+   457	    }
+   458	  } catch (error) {
+   459	    reportError(error, {
+   460	      context: 'pr_processing',
+   461	      prNumber,
+   462	      operation: 'process_pull_request'
+   463	    });
+   464	    await log(`Error: Failed to process PR: ${cleanErrorMessage(error)}`, { level: 'error' });
+   465	    await safeExit(1, 'Failed to process PR');
+   466	  }
+   467	} else {
+   468	  // Traditional issue mode
+   469	  issueNumber = urlNumber;
+   470	  await log(`📝 Issue mode: Working with issue #${issueNumber}`);
+   471	}
+   472	// Create or find temporary directory for cloning the repository
+   473	const { tempDir } = await setupTempDirectory(argv);
+   474	// Populate cleanup context for signal handlers
+   475	cleanupContext.tempDir = tempDir;
+   476	cleanupContext.argv = argv;
+   477	// Initialize limitReached variable outside try block for finally clause
+   478	let limitReached = false;
+   479	try {
+   480	  // Set up repository and clone using the new module
+   481	  const { forkedRepo } = await setupRepositoryAndClone({
+   482	    argv,
+   483	    owner,
+   484	    repo,
+   485	    forkOwner,
+   486	    tempDir,
+   487	    isContinueMode,
+   488	    log,
+   489	    formatAligned,
+   490	    $
+   491	  });
+   492	
+   493	  // Verify default branch and status using the new module
+   494	  const defaultBranch = await verifyDefaultBranchAndStatus({
+   495	    tempDir,
+   496	    log,
+   497	    formatAligned,
+   498	    $
+   499	  });
+   500	  // Create or checkout branch using the new module
+   501	  const branchName = await createOrCheckoutBranch({
+   502	    isContinueMode,
+   503	    prBranch,
+   504	    issueNumber,
+   505	    tempDir,
+   506	    defaultBranch,
+   507	    argv,
+   508	    log,
+   509	    formatAligned,
+   510	    $,
+   511	    crypto
+   512	  });
+   513	
+   514	  // Auto-merge default branch to pull request branch if enabled
+   515	  let autoMergeFeedbackLines = [];
+   516	  if (isContinueMode && argv['auto-merge-default-branch-to-pull-request-branch']) {
+   517	    await log(`\n${formatAligned('🔀', 'Auto-merging:', `Merging ${defaultBranch} into ${branchName}`)}`);
+   518	    try {
+   519	      const mergeResult = await $({ cwd: tempDir })`git merge ${defaultBranch} --no-edit`;
+   520	      if (mergeResult.code === 0) {
+   521	        await log(`${formatAligned('✅', 'Merge successful:', 'Pushing merged branch...')}`);
+   522	        const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+   523	        if (pushResult.code === 0) {
+   524	          await log(`${formatAligned('✅', 'Push successful:', 'Branch updated with latest changes')}`);
+   525	        } else {
+   526	          await log(`${formatAligned('⚠️', 'Push failed:', 'Merge completed but push failed')}`, { level: 'warning' });
+   527	          await log(`  Error: ${pushResult.stderr?.toString() || 'Unknown error'}`, { level: 'warning' });
+   528	        }
+   529	      } else {
+   530	        // Merge failed - likely due to conflicts
+   531	        await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
+   532	        autoMergeFeedbackLines.push('');
+   533	        autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
+   534	        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
+   535	        autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
+   536	        autoMergeFeedbackLines.push('');
+   537	      }
+   538	    } catch (mergeError) {
+   539	      await log(`${formatAligned('❌', 'Merge error:', mergeError.message)}`, { level: 'error' });
+   540	      autoMergeFeedbackLines.push('');
+   541	      autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE ERROR:');
+   542	      autoMergeFeedbackLines.push(`git merge ${defaultBranch} failed with error: ${mergeError.message}`);
+   543	      autoMergeFeedbackLines.push('Please check the repository state and resolve any issues.');
+   544	      autoMergeFeedbackLines.push('');
+   545	    }
+   546	  }
+   547	
+   548	  // Initialize PR variables early
+   549	  let prUrl = null;
+   550	
+   551	  // In continue mode, we already have the PR details
+   552	  if (isContinueMode) {
+   553	    prUrl = issueUrl; // The input URL is the PR URL
+   554	    // prNumber is already set from earlier when we parsed the PR
+   555	  }
+   556	
+   557	  // Don't build the prompt yet - we'll build it after we have all the information
+   558	  // This includes PR URL (if created) and comment info (if in continue mode)
+   559	
+   560	  // Handle auto PR creation using the new module
+   561	  const autoPrResult = await handleAutoPrCreation({
+   562	    argv,
+   563	    tempDir,
+   564	    branchName,
+   565	    issueNumber,
+   566	    owner,
+   567	    repo,
+   568	    defaultBranch,
+   569	    forkedRepo,
+   570	    isContinueMode,
+   571	    prNumber,
+   572	    log,
+   573	    formatAligned,
+   574	    $,
+   575	    reportError,
+   576	    path,
+   577	    fs
+   578	  });
+   579	
+   580	  let claudeCommitHash = null;
+   581	  if (autoPrResult) {
+   582	    prUrl = autoPrResult.prUrl;
+   583	    if (autoPrResult.prNumber) {
+   584	      prNumber = autoPrResult.prNumber;
+   585	    }
+   586	    if (autoPrResult.claudeCommitHash) {
+   587	      claudeCommitHash = autoPrResult.claudeCommitHash;
+   588	    }
+   589	  }
+   590	
+   591	  // CRITICAL: Validate that we have a PR number when required
+   592	  // This prevents continuing without a PR when one was supposed to be created
+   593	  if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
+   594	    await log('');
+   595	    await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
+   596	    await log('');
+   597	    await log('  🔍 What happened:');
+   598	    if (isContinueMode) {
+   599	      await log('     Continue mode is active but no PR number is available.');
+   600	      await log('     This usually means PR creation failed or was skipped incorrectly.');
+   601	    } else {
+   602	      await log('     Auto-PR creation is enabled but no PR was created.');
+   603	      await log('     PR creation may have failed without throwing an error.');
+   604	    }
+   605	    await log('');
+   606	    await log('  💡 Why this is critical:');
+   607	    await log('     The solve command requires a PR for:');
+   608	    await log('     • Tracking work progress');
+   609	    await log('     • Receiving and processing feedback');
+   610	    await log('     • Managing code changes');
+   611	    await log('     • Auto-merging when complete');
+   612	    await log('');
+   613	    await log('  🔧 How to fix:');
+   614	    await log('');
+   615	    await log('  Option 1: Create PR manually and use --continue');
+   616	    await log(`     cd ${tempDir}`);
+   617	    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+   618	    await log('     # Then use the PR URL with solve.mjs');
+   619	    await log('');
+   620	    await log('  Option 2: Start fresh without continue mode');
+   621	    await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
+   622	    await log('');
+   623	    await log('  Option 3: Disable auto-PR creation (Claude will create it)');
+   624	    await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
+   625	    await log('');
+   626	    await safeExit(1, 'No PR available');
+   627	  }
+   628	
+   629	  if (isContinueMode) {
+   630	    await log(`\n${formatAligned('🔄', 'Continue mode:', 'ACTIVE')}`);
+   631	    await log(formatAligned('', 'Using existing PR:', `#${prNumber}`, 2));
+   632	    await log(formatAligned('', 'PR URL:', prUrl, 2));
+   633	  } else if (!argv.autoPullRequestCreation) {
+   634	    await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
+   635	    await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
+   636	  }
+   637	  
+   638	  // Don't build the prompt yet - we'll build it after we have all the information
+   639	  // This includes PR URL (if created) and comment info (if in continue mode)
+   640	
+   641	  // Start work session using the new module
+   642	  await startWorkSession({
+   643	    isContinueMode,
+   644	    prNumber,
+   645	    argv,
+   646	    log,
+   647	    formatAligned,
+   648	    $
+   649	  });
+   650	
+   651	  // Prepare feedback and timestamps using the new module
+   652	  const { feedbackLines: preparedFeedbackLines, referenceTime } = await prepareFeedbackAndTimestamps({
+   653	    prNumber,
+   654	    branchName,
+   655	    owner,
+   656	    repo,
+   657	    issueNumber,
+   658	    isContinueMode,
+   659	    mergeStateStatus,
+   660	    prState,
+   661	    argv,
+   662	    log,
+   663	    formatAligned,
+   664	    cleanErrorMessage,
+   665	    $
+   666	  });
+   667	
+   668	  // Initialize feedback lines
+   669	  let feedbackLines = null;
+   670	
+   671	  // Add auto-merge feedback lines if any
+   672	  if (autoMergeFeedbackLines && autoMergeFeedbackLines.length > 0) {
+   673	    if (!feedbackLines) {
+   674	      feedbackLines = [];
+   675	    }
+   676	    feedbackLines.push(...autoMergeFeedbackLines);
+   677	  }
+   678	
+   679	  // Merge feedback lines
+   680	  if (preparedFeedbackLines && preparedFeedbackLines.length > 0) {
+   681	    if (!feedbackLines) {
+   682	      feedbackLines = [];
+   683	    }
+   684	    feedbackLines.push(...preparedFeedbackLines);
+   685	  }
+   686	
+   687	  // Check for uncommitted changes and merge with feedback
+   688	  const uncommittedFeedbackLines = await checkUncommittedChanges({
+   689	    tempDir,
+   690	    argv,
+   691	    log,
+   692	    $
+   693	  });
+   694	  if (uncommittedFeedbackLines && uncommittedFeedbackLines.length > 0) {
+   695	    if (!feedbackLines) {
+   696	      feedbackLines = [];
+   697	    }
+   698	    feedbackLines.push(...uncommittedFeedbackLines);
+   699	  }
+   700	
+   701	  // Check for fork actions
+   702	  const forkActionsUrl = await checkForkActions({
+   703	    argv,
+   704	    forkedRepo,
+   705	    branchName,
+   706	    log,
+   707	    formatAligned,
+   708	    $
+   709	  });
+   710	
+   711	  // Execute tool command with all prompts and settings
+   712	  let toolResult;
+   713	  if (argv.tool === 'opencode') {
+   714	    const opencodeLib = await import('./opencode.lib.mjs');
+   715	    const { executeOpenCode } = opencodeLib;
+   716	    const opencodePath = process.env.OPENCODE_PATH || 'opencode';
+   717	
+   718	    toolResult = await executeOpenCode({
+   719	      issueUrl,
+   720	      issueNumber,
+   721	      prNumber,
+   722	      prUrl,
+   723	      branchName,
+   724	      tempDir,
+   725	      isContinueMode,
+   726	      mergeStateStatus,
+   727	      forkedRepo,
+   728	      feedbackLines,
+   729	      forkActionsUrl,
+   730	      owner,
+   731	      repo,
+   732	      argv,
+   733	      log,
+   734	      setLogFile,
+   735	      getLogFile,
+   736	      formatAligned,
+   737	      getResourceSnapshot,
+   738	      opencodePath,
+   739	      $
+   740	    });
+   741	  } else if (argv.tool === 'codex') {
+   742	    const codexLib = await import('./codex.lib.mjs');
+   743	    const { executeCodex } = codexLib;
+   744	    const codexPath = process.env.CODEX_PATH || 'codex';
+   745	
+   746	    toolResult = await executeCodex({
+   747	      issueUrl,
+   748	      issueNumber,
+   749	      prNumber,
+   750	      prUrl,
+   751	      branchName,
+   752	      tempDir,
+   753	      isContinueMode,
+   754	      mergeStateStatus,
+   755	      forkedRepo,
+   756	      feedbackLines,
+   757	      forkActionsUrl,
+   758	      owner,
+   759	      repo,
+   760	      argv,
+   761	      log,
+   762	      setLogFile,
+   763	      getLogFile,
+   764	      formatAligned,
+   765	      getResourceSnapshot,
+   766	      codexPath,
+   767	      $
+   768	    });
+   769	  } else {
+   770	    // Default to Claude
+   771	    const claudeResult = await executeClaude({
+   772	      issueUrl,
+   773	      issueNumber,
+   774	      prNumber,
+   775	      prUrl,
+   776	      branchName,
+   777	      tempDir,
+   778	      isContinueMode,
+   779	      mergeStateStatus,
+   780	      forkedRepo,
+   781	      feedbackLines,
+   782	      forkActionsUrl,
+   783	      owner,
+   784	      repo,
+   785	      argv,
+   786	      log,
+   787	      setLogFile,
+   788	      getLogFile,
+   789	      formatAligned,
+   790	      getResourceSnapshot,
+   791	      claudePath,
+   792	      $
+   793	    });
+   794	    toolResult = claudeResult;
+   795	  }
+   796	
+   797	  const { success } = toolResult;
+   798	  let sessionId = toolResult.sessionId;
+   799	  let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+   800	  limitReached = toolResult.limitReached;
+   801	  cleanupContext.limitReached = limitReached;
+   802	
+   803	  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+   804	  if (toolResult && toolResult.limitResetTime) {
+   805	    global.limitResetTime = toolResult.limitResetTime;
+   806	  }
+   807	
+   808	  if (!success) {
+   809	    // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
+   810	    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+   811	      await log('\n📄 Attaching failure logs to Pull Request...');
+   812	      try {
+   813	        // Build resume command if we have session info
+   814	        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+   815	        const logUploadSuccess = await attachLogToGitHub({
+   816	          logFile: getLogFile(),
+   817	          targetType: 'pr',
+   818	          targetNumber: global.createdPR.number,
+   819	          owner,
+   820	          repo,
+   821	          $,
+   822	          log,
+   823	          sanitizeLogContent,
+   824	          // For usage limit, use a dedicated comment format to make it clear and actionable
+   825	          isUsageLimit: !!limitReached,
+   826	          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+   827	          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+   828	                    (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+   829	                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+   830	          resumeCommand,
+   831	          // Include sessionId so the PR comment can present it
+   832	          sessionId,
+   833	          // If not a usage limit case, fall back to generic failure format
+   834	          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
+   835	        });
+   836	
+   837	        if (logUploadSuccess) {
+   838	          await log('  ✅ Failure logs uploaded successfully');
+   839	        } else {
+   840	          await log('  ⚠️  Failed to upload logs', { verbose: true });
+   841	        }
+   842	      } catch (uploadError) {
+   843	        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+   844	      }
+   845	    }
+   846	
+   847	    await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+   848	  }
+   849	
+   850	  // Check for uncommitted changes
+   851	  // When limit is reached, force auto-commit of any uncommitted changes to preserve work
+   852	  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
+   853	  const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
+   854	  const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
+   855	
+   856	  // Remove CLAUDE.md now that Claude command has finished
+   857	  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
+   858	
+   859	  // Show summary of session and log file
+   860	  await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+   861	
+   862	  // Search for newly created pull requests and comments
+   863	  // Pass shouldRestart to prevent early exit when auto-restart is needed
+   864	  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+   865	
+   866	  // Start watch mode if enabled OR if we need to handle uncommitted changes
+   867	  if (argv.verbose) {
+   868	    await log('');
+   869	    await log('🔍 Auto-restart debug:', { verbose: true });
+   870	    await log(`   argv.watch (user flag): ${argv.watch}`, { verbose: true });
+   871	    await log(`   shouldRestart (auto-detected): ${shouldRestart}`, { verbose: true });
+   872	    await log(`   temporaryWatch (will be enabled): ${shouldRestart && !argv.watch}`, { verbose: true });
+   873	    await log(`   prNumber: ${prNumber || 'null'}`, { verbose: true });
+   874	    await log(`   prBranch: ${prBranch || 'null'}`, { verbose: true });
+   875	    await log(`   branchName: ${branchName}`, { verbose: true });
+   876	    await log(`   isContinueMode: ${isContinueMode}`, { verbose: true });
+   877	  }
+   878	
+   879	  // If uncommitted changes detected and auto-commit is disabled, enter temporary watch mode
+   880	  const temporaryWatchMode = shouldRestart && !argv.watch;
+   881	  if (temporaryWatchMode) {
+   882	    await log('');
+   883	    await log('🔄 AUTO-RESTART: Uncommitted changes detected');
+   884	    await log('   Starting temporary monitoring cycle (NOT --watch mode)');
+   885	    await log('   The tool will run once more to commit the changes');
+   886	    await log('   Will exit automatically after changes are committed');
+   887	    await log('');
+   888	  }
+   889	
+   890	  const watchResult = await startWatchMode({
+   891	    issueUrl,
+   892	    owner,
+   893	    repo,
+   894	    issueNumber,
+   895	    prNumber,
+   896	    prBranch,
+   897	    branchName,
+   898	    tempDir,
+   899	    argv: {
+   900	      ...argv,
+   901	      watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
+   902	      temporaryWatch: temporaryWatchMode  // Flag to indicate temporary watch mode
+   903	    }
+   904	  });
+   905	
+   906	  // Update session data with latest from watch mode for accurate pricing
+   907	  if (watchResult && watchResult.latestSessionId) {
+   908	    sessionId = watchResult.latestSessionId;
+   909	    anthropicTotalCostUSD = watchResult.latestAnthropicCost;
+   910	    if (argv.verbose) {
+   911	      await log('');
+   912	      await log('📊 Updated session data from watch mode:', { verbose: true });
+   913	      await log(`   Session ID: ${sessionId}`, { verbose: true });
+   914	      if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+   915	        await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+   916	      }
+   917	    }
+   918	  }
+   919	
+   920	  // Track whether logs were successfully attached (used by endWorkSession)

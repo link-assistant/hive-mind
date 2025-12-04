@@ -1,0 +1,4 @@
+Make sure we handle limit reached for all tools: claude, codex, opencode
+https://github.com/deep-assistant/hive-mind/issues/719
+OPEN
+2025-11-13T04:00:00Z

@@ -1,0 +1,53 @@
+{
+  "name": "@deep-assistant/hive-mind",
+  "version": "0.33.5",
+  "description": "AI-powered issue solver and hive mind for collaborative problem solving",
+  "main": "src/hive.mjs",
+  "type": "module",
+  "bin": {
+    "hive": "./src/hive.mjs",
+    "solve": "./src/solve.mjs",
+    "task": "./src/task.mjs",
+    "review": "./src/review.mjs",
+    "start-screen": "./src/start-screen.mjs",
+    "hive-telegram-bot": "./src/telegram-bot.mjs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
+    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deep-assistant/hive-mind.git"
+  },
+  "keywords": [
+    "ai",
+    "automation",
+    "issue-solver",
+    "cli",
+    "hive-mind",
+    "collaborative"
+  ],
+  "author": "deep-assistant",
+  "license": "Unlicense",
+  "bugs": {
+    "url": "https://github.com/deep-assistant/hive-mind/issues"
+  },
+  "homepage": "https://github.com/deep-assistant/hive-mind#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "src",
+    "*.md"
+  ],
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0"
+  },
+  "dependencies": {
+    "@sentry/node": "^10.15.0",
+    "@sentry/profiling-node": "^10.15.0"
+  }
+}

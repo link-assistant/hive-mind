@@ -1,0 +1,180 @@
+      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+      await log(formatAligned('🤖', 'Model:', `OpenCode ${argv.model.toUpperCase()}`, 2));
+      if (argv.fork && forkedRepo) {
+        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+      }
+
+      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+
+      let exitCode = 0;
+      let sessionId = null;
+      let limitReached = false;
+      let limitResetTime = null;
+      let lastMessage = '';
+
+      for await (const chunk of execCommand.stream()) {
+        if (chunk.type === 'stdout') {
+          const output = chunk.data.toString();
+          await log(output);
+          lastMessage = output;
+        }
+
+        if (chunk.type === 'stderr') {
+          const errorOutput = chunk.data.toString();
+          if (errorOutput) {
+            await log(errorOutput, { stream: 'stderr' });
+          }
+        } else if (chunk.type === 'exit') {
+          exitCode = chunk.code;
+        }
+      }
+
+      if (exitCode !== 0) {
+        // Check for usage limit errors first (more specific)
+        const limitInfo = detectUsageLimit(lastMessage);
+        if (limitInfo.isUsageLimit) {
+          limitReached = true;
+          limitResetTime = limitInfo.resetTime;
+
+          // Format and display user-friendly message
+          const messageLines = formatUsageLimitMessage({
+            tool: 'OpenCode',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
+        } else {
+          await log(`\n\n❌ OpenCode command failed with exit code ${exitCode}`, { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime
+        };
+      }
+
+      await log('\n\n✅ OpenCode command completed');
+
+      return {
+        success: true,
+        sessionId,
+        limitReached,
+        limitResetTime
+      };
+    } catch (error) {
+      reportError(error, {
+        context: 'execute_opencode',
+        command: params.command,
+        opencodePath: params.opencodePath,
+        operation: 'run_opencode_command'
+      });
+
+      await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
+      return {
+        success: false,
+        sessionId: null,
+        limitReached: false,
+        limitResetTime: null
+      };
+    }
+  };
+
+  // Start the execution with retry logic
+  return await executeWithRetry();
+};
+
+export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+  // Similar to Claude version, check for uncommitted changes
+  await log('\n🔍 Checking for uncommitted changes...');
+  try {
+    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+
+    if (gitStatusResult.code === 0) {
+      const statusOutput = gitStatusResult.stdout.toString().trim();
+
+      if (statusOutput) {
+        await log('📝 Found uncommitted changes');
+        await log('Changes:');
+        for (const line of statusOutput.split('\n')) {
+          await log(`   ${line}`);
+        }
+
+        if (autoCommit) {
+          await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
+
+          const addResult = await $({ cwd: tempDir })`git add -A`;
+          if (addResult.code === 0) {
+            const commitMessage = 'Auto-commit: Changes made by OpenCode during problem-solving session';
+            const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
+
+            if (commitResult.code === 0) {
+              await log('✅ Changes committed successfully');
+
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+
+              if (pushResult.code === 0) {
+                await log('✅ Changes pushed successfully');
+              } else {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+              }
+            } else {
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+            }
+          } else {
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+          }
+          return false;
+        } else if (autoRestartEnabled) {
+          await log('');
+          await log('⚠️  IMPORTANT: Uncommitted changes detected!');
+          await log('   OpenCode made changes that were not committed.');
+          await log('');
+          await log('🔄 AUTO-RESTART: Restarting OpenCode to handle uncommitted changes...');
+          await log('   OpenCode will review the changes and decide what to commit.');
+          await log('');
+          return true;
+        } else {
+          await log('');
+          await log('⚠️  Uncommitted changes detected but auto-restart is disabled.');
+          await log('   Use --auto-restart-on-uncommitted-changes to enable or commit manually.');
+          await log('');
+          return false;
+        }
+      } else {
+        await log('✅ No uncommitted changes found');
+        return false;
+      }
+    } else {
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      return false;
+    }
+  } catch (gitError) {
+    reportError(gitError, {
+      context: 'check_uncommitted_changes_opencode',
+      tempDir,
+      operation: 'git_status_check'
+    });
+    await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
+    return false;
+  }
+};
+
+// Export all functions as default object too
+export default {
+  validateOpenCodeConnection,
+  handleOpenCodeRuntimeSwitch,
+  executeOpenCode,
+  executeOpenCodeCommand,
+  checkForUncommittedChanges
+};

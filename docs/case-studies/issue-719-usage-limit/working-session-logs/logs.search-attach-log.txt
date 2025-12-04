@@ -1,0 +1,8 @@
+src/solve.results.lib.mjs:365:          logUploadSuccess = await attachLogToGitHub({
+src/solve.results.lib.mjs:426:        await attachLogToGitHub({
+src/solve.results.lib.mjs:504:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.error-handlers.lib.mjs:60:      const logUploadSuccess = await attachLogToGitHub({
+src/solve.execution.lib.mjs:183:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.mjs:810:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.mjs:947:        const logUploadSuccess = await attachLogToGitHub({
+src/github.lib.mjs:446:export async function attachLogToGitHub(options) {

@@ -1,0 +1,8 @@
+src/usage-limit.lib.mjs:28:    'usage limit reached',
+src/usage-limit.lib.mjs:103:    '⏳ Usage Limit Reached!',
+src/solve.mjs:61:const { cleanupClaudeFile, showSessionSummary, verifyResults } = results;
+src/solve.mjs:860:  await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+src/solve.results.lib.mjs:198:export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+src/solve.results.lib.mjs:199:  await log('\n=== Session Summary ===');
+src/github.lib.mjs:519:      logComment = `## ⏳ Usage Limit Reached
+src/github.lib.mjs:659:            gistComment = `## ⏳ Usage Limit Reached

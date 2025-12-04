@@ -1,0 +1,22 @@
+total 200
+drwxrwxr-x  2 hive hive  4096 Nov 13 04:01 .
+drwxrwxr-x 14 hive hive 12288 Nov 13 04:47 ..
+-rwxrwxr-x  1 hive hive  3790 Nov 13 04:01 docs-validation.mjs
+-rwxrwxr-x  1 hive hive  7028 Nov 13 04:01 test-branch-name-validation.mjs
+-rwxrwxr-x  1 hive hive  8322 Nov 13 04:01 test-claude-revert-conflict.mjs
+-rwxrwxr-x  1 hive hive 16177 Nov 13 04:01 test-feedback-lines-integration.mjs
+-rwxrwxr-x  1 hive hive  6313 Nov 13 04:01 test-feedback-lines-simple.mjs
+-rwxrwxr-x  1 hive hive  8195 Nov 13 04:01 test-github-linking.mjs
+-rwxrwxr-x  1 hive hive  5937 Nov 13 04:01 test-hive-no-silent-failure.mjs
+-rwxrwxr-x  1 hive hive 10667 Nov 13 04:01 test-hive.mjs
+-rwxrwxr-x  1 hive hive 10098 Nov 13 04:01 test-lenv-reader.mjs
+-rwxrwxr-x  1 hive hive  7956 Nov 13 04:01 test-memory-check.mjs
+-rwxrwxr-x  1 hive hive  5776 Nov 13 04:01 test-prompt-file-location.mjs
+-rwxrwxr-x  1 hive hive  7231 Nov 13 04:01 test-sentry.mjs
+-rwxrwxr-x  1 hive hive  9571 Nov 13 04:01 test-solve.mjs
+-rwxrwxr-x  1 hive hive 10164 Nov 13 04:01 test-start-screen.mjs
+-rwxrwxr-x  1 hive hive  7495 Nov 13 04:01 test-telegram-bot-dry-run.mjs
+-rwxrwxr-x  1 hive hive  6223 Nov 13 04:01 test-telegram-bot-hero-links-notation.mjs
+-rwxrwxr-x  1 hive hive  6023 Nov 13 04:01 test-telegram-markdown-escaping.mjs
+-rw-rw-r--  1 hive hive  6347 Nov 13 04:01 test-telegram-url-extraction.mjs
+-rw-rw-r--  1 hive hive  8469 Nov 13 04:01 test-telegram-validate-url.mjs

@@ -1,0 +1,12 @@
+- detect-changes: SUCCESS
+- verify-version-bump: SUCCESS
+- test-compilation: SUCCESS
+- lint: SUCCESS
+- check-file-line-limits: SUCCESS
+- validate-docs: SUCCESS
+- test-suites: SUCCESS
+- test-execution: SUCCESS
+- memory-check-linux: SUCCESS
+- memory-check-macos: SKIPPED
+- memory-check-windows: SKIPPED
+- publish: SUCCESS

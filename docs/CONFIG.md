@@ -94,7 +94,7 @@ Available as: `externalUrls.githubBase`, `externalUrls.bunInstall`
 
 ### 11. Model Configuration (modelConfig)
 
-- `HIVE_MIND_AVAILABLE_MODELS`: Comma-separated list of available models (default: opus,sonnet,claude-sonnet-4-5-20250929,claude-opus-4-1-20250805)
+- `HIVE_MIND_AVAILABLE_MODELS`: Comma-separated list of available models (default: opus,sonnet,claude-sonnet-4-5-20250929,claude-opus-4-5-20251101)
 - `HIVE_MIND_DEFAULT_MODEL`: Default model to use (default: sonnet)
 
 Available as: `modelConfig.availableModels`, `modelConfig.defaultModel`

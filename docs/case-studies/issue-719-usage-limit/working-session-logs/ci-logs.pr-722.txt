@@ -1,0 +1,62 @@
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+## 🤖 Solution Draft Log
+This log file contains the complete execution trace of the AI solution draft process.
+
+💰 **Cost estimation:**
+- Public pricing estimate: unknown
+- Calculated by Anthropic: unknown
+- Difference: unknown
+📎 **Log file uploaded as GitHub Gist** (1426KB)
+🔗 [View complete solution draft log](https://gist.github.com/konard/4d916545732bcdc2def78bedc62fe1e1)
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+## 🔄 Auto-restart 1/3
+
+Detected uncommitted changes from previous run. Starting new session to review and commit them.
+
+**Uncommitted files:**
+```
+?? logs.git-push.txt
+```
+
+---
+*Auto-restart will stop after changes are committed or after 2 more iterations. Please wait until working session will end and give your feedback.*
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Bumped package version to 0.33.4 to satisfy the verify-version-bump check. CI has been re-triggered for commit 97aea4d.\n\nThe weekly usage limit handling (including reset time and PR comment formatting) is present in this branch via usage-limit detection in Claude/Codex/OpenCode paths and GitHub comment formatting. Once CI passes, this should be ready for review.\n\nIf any CI step still fails, I will download and analyze the logs to address it promptly.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Also fixed capturing of the usage limit reset time by assigning `global.limitResetTime` from the tool result in `src/solve.mjs`. This enables auto-continue messaging and PR comments to include the reset time as intended.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Implemented CLI flag alias support for --skip-claude-check (mapped to --skip-tool-check) in both solve and hive. Hive now also forwards and logs the flag when invoking solve. This addresses the earlier CI failure complaining about unknown arguments.\n\nPushed commit f0f83ec. Monitoring the new CI run; will download and analyze logs if any job fails.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Fixed usage-limit PR comment formatting and added sessionId to failure log uploads.\n\nChanges:\n- Treat isUsageLimit as primary condition in attachLogToGitHub (so usage-limit comments render even without a generic error message).\n- Include sessionId in failure attach to show it in the comment and resume instructions.\n\nPushed commit 7c17442. A new CI run is queued; I’ll monitor and review logs if anything fails.
+--

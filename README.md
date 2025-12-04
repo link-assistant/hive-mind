@@ -151,12 +151,14 @@ See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
        --attach-logs
        --verbose
        --no-tool-check
+       --prefix-fork-name-with-owner-name
      TELEGRAM_SOLVE_OVERRIDES:
        --auto-fork
        --auto-continue
        --attach-logs
        --verbose
        --no-tool-check
+       --prefix-fork-name-with-owner-name
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -178,12 +180,14 @@ See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
      --attach-logs
      --verbose
      --no-tool-check
+     --prefix-fork-name-with-owner-name
    )" --solve-overrides "(
      --auto-fork
      --auto-continue
      --attach-logs
      --verbose
      --no-tool-check
+     --prefix-fork-name-with-owner-name
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -281,6 +285,9 @@ solve <issue-url> [options]
   --allow-fork-divergence-resolution-using-force-push-with-lease
                         Allow force-push with --force-with-lease when fork diverges
                         (DANGEROUS: can overwrite fork history) [default: false]
+  --prefix-fork-name-with-owner-name  Prefix fork name with owner (owner-repo)
+                        Useful for forking repos with same name from different owners
+                        (Experimental feature) [default: false]
   --continue-only-on-feedback  Only continue if feedback detected
                         [default: false]
   --watch, -w           Monitor for feedback and auto-restart [default: false]
@@ -689,6 +696,14 @@ df -h
 rm -rf /tmp
 
 df -h
+```
+
+If you accedently remove the /tmp folder itself under root user, you will need to restore it like this:
+
+```bash
+sudo mkdir -p /tmp
+sudo chown root:root /tmp
+sudo chmod 1777 /tmp
 ```
 
 Reboot server.

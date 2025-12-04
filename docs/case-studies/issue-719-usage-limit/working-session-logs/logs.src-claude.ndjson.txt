@@ -1,0 +1,101 @@
+    for await (const chunk of execCommand.stream()) {
+      if (chunk.type === 'stdout') {
+        const output = chunk.data.toString();
+        // Split output into individual lines for NDJSON parsing
+        // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+        // This allows us to parse each event independently and extract structured data like session IDs,
+        // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
+        // since multiple JSON objects aren't valid JSON together.
+        const lines = output.split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            // Output formatted JSON as in v0.3.2
+            await log(JSON.stringify(data, null, 2));
+            // Capture session ID from the first message
+            if (!sessionId && data.session_id) {
+              sessionId = data.session_id;
+              await log(`📌 Session ID: ${sessionId}`);
+              // Try to rename log file to include session ID
+              let sessionLogFile;
+              try {
+                const currentLogFile = getLogFile();
+                const logDir = path.dirname(currentLogFile);
+                sessionLogFile = path.join(logDir, `${sessionId}.log`);
+                // Use fs.promises to rename the file
+                await fs.rename(currentLogFile, sessionLogFile);
+                // Update the global log file reference
+                setLogFile(sessionLogFile);
+                await log(`📁 Log renamed to: ${sessionLogFile}`);
+              } catch (renameError) {
+                reportError(renameError, {
+                  context: 'rename_session_log',
+                  sessionId,
+                  sessionLogFile,
+                  operation: 'rename_log_file'
+                });
+                // If rename fails, keep original filename
+                await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
+              }
+            }
+            // Track message and tool use counts
+            if (data.type === 'message') {
+              messageCount++;
+            } else if (data.type === 'tool_use') {
+              toolUseCount++;
+            }
+            // Handle session result type from Claude CLI
+            // This is emitted when a session completes, either successfully or with an error
+            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+            if (data.type === 'result') {
+              // Capture Anthropic's official total_cost_usd from the result
+              if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                anthropicTotalCostUSD = data.total_cost_usd;
+                await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+              }
+              if (data.is_error === true) {
+                commandFailed = true;
+                lastMessage = data.result || JSON.stringify(data);
+                await log('⚠️ Detected error result from Claude CLI', { verbose: true });
+                if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
+                  limitReached = true;
+                  await log('⚠️ Detected session limit in result', { verbose: true });
+                }
+              }
+            }
+            // Store last message for error detection
+            if (data.type === 'text' && data.text) {
+              lastMessage = data.text;
+            } else if (data.type === 'error') {
+              lastMessage = data.error || JSON.stringify(data);
+            }
+            // Check for API overload error and 503 errors
+            if (data.type === 'assistant' && data.message && data.message.content) {
+              const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+              for (const item of content) {
+                if (item.type === 'text' && item.text) {
+                  // Check for the specific 500 overload error pattern
+                  if (item.text.includes('API Error: 500') &&
+                      item.text.includes('api_error') &&
+                      item.text.includes('Overloaded')) {
+                    isOverloadError = true;
+                    lastMessage = item.text;
+                    await log('⚠️ Detected API overload error', { verbose: true });
+                  }
+                  // Check for 503 errors
+                  if (item.text.includes('API Error: 503') ||
+                      (item.text.includes('503') && item.text.includes('upstream connect error')) ||
+                      (item.text.includes('503') && item.text.includes('remote connection failure'))) {
+                    is503Error = true;
+                    lastMessage = item.text;
+                    await log('⚠️ Detected 503 network error', { verbose: true });
+                  }
+                }
+              }
+            }
+          } catch (parseError) {
+            // JSON parse errors are expected for non-JSON output
+            // Only report in verbose mode
+            if (global.verboseMode) {
+              reportError(parseError, {

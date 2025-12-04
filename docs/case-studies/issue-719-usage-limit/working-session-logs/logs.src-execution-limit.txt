@@ -1,0 +1,61 @@
+        reportError(attachError, {
+          context: 'attach_error_log',
+          prNumber: global.createdPR?.number,
+          operation: 'attach_log_to_pr'
+        });
+        await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
+      }
+    }
+  }
+
+  // If --auto-close-pull-request-on-fail is enabled, close the PR
+  if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
+    await log('\n🔒 Auto-closing pull request due to failure...');
+    try {
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      if (result.exitCode === 0) {
+        await log('✅ Pull request closed successfully');
+      } else {
+        await log(`⚠️  Could not close pull request: ${result.stderr}`, { level: 'warning' });
+      }
+    } catch (closeError) {
+      reportError(closeError, {
+        context: 'close_pr_on_error',
+        prNumber: global.createdPR?.number,
+        operation: 'close_pull_request'
+      });
+      await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
+    }
+  }
+
+  process.exit(1);
+};
+
+// Cleanup temporary directory
+export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+  // Clean up temporary directory (but not when resuming, when limit reached, or when auto-continue is active)
+  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+    try {
+      process.stdout.write('\n🧹 Cleaning up...');
+      await fs.rm(tempDir, { recursive: true, force: true });
+      await log(' ✅');
+    } catch (cleanupError) {
+      reportError(cleanupError, {
+        context: 'cleanup_temp_directory',
+        tempDir,
+        operation: 'remove_temp_dir'
+      });
+      await log(' ⚠️  (failed)');
+    }
+  } else if (argv.resume) {
+    await log(`\n📁 Keeping directory for resumed session: ${tempDir}`);
+  } else if (limitReached && argv.autoContinueLimit) {
+    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);
+  } else if (limitReached) {
+    await log(`\n📁 Keeping directory for future resume: ${tempDir}`);
+  }
+};
+
+// Execute the main solve logic with Claude
+export const executeMainSolveLogic = async (tempDir, repoToClone) => {
+  // Clone the repository (or fork) using gh tool with authentication

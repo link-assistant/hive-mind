@@ -1,0 +1,77 @@
+19:import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+268:    // The system prompt is typically not supported separately in opencode
+310:      let limitReached = false;
+311:      let limitResetTime = null;
+332:        // Check for usage limit errors first (more specific)
+333:        const limitInfo = detectUsageLimit(lastMessage);
+334:        if (limitInfo.isUsageLimit) {
+335:          limitReached = true;
+336:          limitResetTime = limitInfo.resetTime;
+341:            resetTime: limitInfo.resetTime,
+361:          limitReached,
+362:          limitResetTime
+371:        limitReached,
+372:        limitResetTime
+386:        limitReached: false,
+387:        limitResetTime: null
+      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+      await log(formatAligned('🤖', 'Model:', `OpenCode ${argv.model.toUpperCase()}`, 2));
+      if (argv.fork && forkedRepo) {
+        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+      }
+
+      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+
+      let exitCode = 0;
+      let sessionId = null;
+      let limitReached = false;
+      let limitResetTime = null;
+      let lastMessage = '';
+
+      for await (const chunk of execCommand.stream()) {
+        if (chunk.type === 'stdout') {
+          const output = chunk.data.toString();
+          await log(output);
+          lastMessage = output;
+        }
+
+        if (chunk.type === 'stderr') {
+          const errorOutput = chunk.data.toString();
+          if (errorOutput) {
+            await log(errorOutput, { stream: 'stderr' });
+          }
+        } else if (chunk.type === 'exit') {
+          exitCode = chunk.code;
+        }
+      }
+
+      if (exitCode !== 0) {
+        // Check for usage limit errors first (more specific)
+        const limitInfo = detectUsageLimit(lastMessage);
+        if (limitInfo.isUsageLimit) {
+          limitReached = true;
+          limitResetTime = limitInfo.resetTime;
+
+          // Format and display user-friendly message
+          const messageLines = formatUsageLimitMessage({
+            tool: 'OpenCode',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
+        } else {
+          await log(`\n\n❌ OpenCode command failed with exit code ${exitCode}`, { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        return {
+          success: false,
+          sessionId,

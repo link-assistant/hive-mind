@@ -205,7 +205,9 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 };
 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
-export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, model = 'sonnet', argv = {}) => {
+// Note: skipToolConnection only skips the connection check, not model validation
+// Model validation should be done separately before calling this function
+export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -218,8 +220,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
     return false;
   }
 
-  // Skip tool validation if in dry-run mode or explicitly requested
-  if (!skipTool) {
+  // Skip tool connection validation if in dry-run mode or explicitly requested
+  if (!skipToolConnection) {
     let isToolConnected = false;
     if (argv.tool === 'opencode') {
       // Validate OpenCode connection
@@ -254,8 +256,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
       return false;
     }
   } else {
-    await log('⏩ Skipping tool validation (dry-run mode)', { verbose: true });
-    await log('⏩ Skipping GitHub authentication check (dry-run mode)', { verbose: true });
+    await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+    await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
   }
 
   return true;
@@ -273,13 +275,18 @@ export const parseUrlComponents = (issueUrl) => {
 
 // Helper function to parse time string and calculate wait time
 export const parseResetTime = (timeStr) => {
-  // Parse time format like "5:30am" or "11:45pm"
-  const match = timeStr.match(/(\d{1,2}):(\d{2})([ap]m)/i);
+  // Normalize and parse time formats like:
+  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
+  const normalized = (timeStr || '').toString().trim();
+
+  // Accept both HH:MM am/pm and HH am/pm
+  let match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
   if (!match) {
     throw new Error(`Invalid time format: ${timeStr}`);
   }
 
-  const [, hourStr, minuteStr, ampm] = match;
+  const [, hourStr, minuteMaybe, ampm] = match;
+  const minuteStr = minuteMaybe || '00';
   let hour = parseInt(hourStr);
   const minute = parseInt(minuteStr);
 

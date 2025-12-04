@@ -1,0 +1,101 @@
+   300	      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+   301	      await log(formatAligned('🤖', 'Model:', `OpenCode ${argv.model.toUpperCase()}`, 2));
+   302	      if (argv.fork && forkedRepo) {
+   303	        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+   304	      }
+   305	
+   306	      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+   307	
+   308	      let exitCode = 0;
+   309	      let sessionId = null;
+   310	      let limitReached = false;
+   311	      let limitResetTime = null;
+   312	      let lastMessage = '';
+   313	
+   314	      for await (const chunk of execCommand.stream()) {
+   315	        if (chunk.type === 'stdout') {
+   316	          const output = chunk.data.toString();
+   317	          await log(output);
+   318	          lastMessage = output;
+   319	        }
+   320	
+   321	        if (chunk.type === 'stderr') {
+   322	          const errorOutput = chunk.data.toString();
+   323	          if (errorOutput) {
+   324	            await log(errorOutput, { stream: 'stderr' });
+   325	          }
+   326	        } else if (chunk.type === 'exit') {
+   327	          exitCode = chunk.code;
+   328	        }
+   329	      }
+   330	
+   331	      if (exitCode !== 0) {
+   332	        // Check for usage limit errors first (more specific)
+   333	        const limitInfo = detectUsageLimit(lastMessage);
+   334	        if (limitInfo.isUsageLimit) {
+   335	          limitReached = true;
+   336	          limitResetTime = limitInfo.resetTime;
+   337	
+   338	          // Format and display user-friendly message
+   339	          const messageLines = formatUsageLimitMessage({
+   340	            tool: 'OpenCode',
+   341	            resetTime: limitInfo.resetTime,
+   342	            sessionId,
+   343	            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+   344	          });
+   345	
+   346	          for (const line of messageLines) {
+   347	            await log(line, { level: 'warning' });
+   348	          }
+   349	        } else {
+   350	          await log(`\n\n❌ OpenCode command failed with exit code ${exitCode}`, { level: 'error' });
+   351	        }
+   352	
+   353	        const resourcesAfter = await getResourceSnapshot();
+   354	        await log('\n📈 System resources after execution:', { verbose: true });
+   355	        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+   356	        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+   357	
+   358	        return {
+   359	          success: false,
+   360	          sessionId,
+   361	          limitReached,
+   362	          limitResetTime
+   363	        };
+   364	      }
+   365	
+   366	      await log('\n\n✅ OpenCode command completed');
+   367	
+   368	      return {
+   369	        success: true,
+   370	        sessionId,
+   371	        limitReached,
+   372	        limitResetTime
+   373	      };
+   374	    } catch (error) {
+   375	      reportError(error, {
+   376	        context: 'execute_opencode',
+   377	        command: params.command,
+   378	        opencodePath: params.opencodePath,
+   379	        operation: 'run_opencode_command'
+   380	      });
+   381	
+   382	      await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
+   383	      return {
+   384	        success: false,
+   385	        sessionId: null,
+   386	        limitReached: false,
+   387	        limitResetTime: null
+   388	      };
+   389	    }
+   390	  };
+   391	
+   392	  // Start the execution with retry logic
+   393	  return await executeWithRetry();
+   394	};
+   395	
+   396	export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+   397	  // Similar to Claude version, check for uncommitted changes
+   398	  await log('\n🔍 Checking for uncommitted changes...');
+   399	  try {
+   400	    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;

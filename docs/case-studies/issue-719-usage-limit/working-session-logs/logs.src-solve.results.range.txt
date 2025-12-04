@@ -1,0 +1,81 @@
+   180	          // Non-conflict error
+   181	          await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
+   182	          await log(`   Revert output: ${revertOutput}`, { verbose: true });
+   183	        }
+   184	      }
+   185	    }
+   186	  } catch (e) {
+   187	    reportError(e, {
+   188	      context: 'cleanup_claude_file',
+   189	      tempDir,
+   190	      operation: 'revert_claude_md_commit'
+   191	    });
+   192	    // If revert fails, that's okay - the task is still complete
+   193	    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+   194	  }
+   195	};
+   196	
+   197	// Show session summary and handle limit reached scenarios
+   198	export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+   199	  await log('\n=== Session Summary ===');
+   200	
+   201	  if (sessionId) {
+   202	    await log(`✅ Session ID: ${sessionId}`);
+   203	    // Always use absolute path for log file display
+   204	    const path = (await use('path'));
+   205	    const absoluteLogPath = path.resolve(getLogFile());
+   206	    await log(`✅ Complete log file: ${absoluteLogPath}`);
+   207	
+   208	    if (limitReached) {
+   209	      await log('\n⏰ LIMIT REACHED DETECTED!');
+   210	
+   211	      if (argv.autoContinueLimit && global.limitResetTime) {
+   212	        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+   213	        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+   214	      } else {
+   215	        // Only show resume recommendation if --no-auto-cleanup was passed
+   216	        if (argv.autoCleanup === false) {
+   217	          await log('\n🔄 To resume when limit resets, use:\n');
+   218	          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+   219	
+   220	          if (global.limitResetTime) {
+   221	            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+   222	            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+   223	          }
+   224	
+   225	          await log('\n   This will continue from where it left off with full context.\n');
+   226	        } else {
+   227	          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+   228	          await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+   229	        }
+   230	      }
+   231	    } else {
+   232	      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
+   233	      if (argv.autoCleanup === false) {
+   234	        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
+   235	        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
+   236	        await log('');
+   237	      } else {
+   238	        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+   239	        await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+   240	      }
+   241	    }
+   242	
+   243	    // Don't show log preview, it's too technical
+   244	  } else {
+   245	    await log('❌ No session ID extracted');
+   246	    // Always use absolute path for log file display
+   247	    const logFilePath = path.resolve(getLogFile());
+   248	    await log(`📁 Log file available: ${logFilePath}`);
+   249	  }
+   250	};
+   251	
+   252	// Verify results by searching for new PRs and comments
+   253	export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null) => {
+   254	  await log('\n🔍 Searching for created pull requests or comments...');
+   255	
+   256	  try {
+   257	    // Get the current user's GitHub username
+   258	    const userResult = await $`gh api user --jq .login`;
+   259	
+   260	    if (userResult.code !== 0) {

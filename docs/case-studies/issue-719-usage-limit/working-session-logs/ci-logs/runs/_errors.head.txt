@@ -1,0 +1,46 @@
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1663:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6658858Z [36;1mFAILURES_FILE=$(mktemp)[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1671:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6663298Z [36;1m    echo "❌ ERROR: $file has $line_count lines, which exceeds the 1500 line limit!"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1673:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6664922Z [36;1m    echo "$file" >> "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1680:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6668356Z [36;1mif [ -s "$FAILURES_FILE" ]; then[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1683:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6670103Z [36;1m  cat "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1687:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6672807Z [36;1m  rm -f "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:1692:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:55.6675218Z [36;1m  rm -f "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:3799:test-suites	Run Telegram URL extraction test (Issue	2025-11-13T04:08:43.0117424Z Results: 13 passed, 0 failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:3975:test-suites	Run Telegram URL validation test (Issue	2025-11-13T04:08:44.6698438Z Results: 19 passed, 0 failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:5541:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:23.1409021Z ❌ CLONE FAILED              
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:5562:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:23.1417028Z ❌ Repository setup failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:5586:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:23.4378377Z [2025-11-13T04:05:23.136Z] [ERROR] ❌ CLONE FAILED              
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:5846:test-execution	Test telegram-bot.mjs execution	2025-11-13T04:05:28.5082321Z Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:6431:test-execution	Test global command installation	2025-11-13T04:05:40.8574579Z Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:6752:test-execution	Test hive dry-run with solve integration	2025-11-13T04:05:48.2427709Z Error: Unknown arguments: skip-claude-check, skipClaudeCheck
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8090:test-execution	Test --auto-fork option	2025-11-13T04:05:55.9306333Z ❌ Error:                    Failed to get current user
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8092:test-execution	Test --auto-fork option	2025-11-13T04:05:55.9306951Z ❌ Repository setup failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8720:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:31.2233554Z [36;1m  echo "ERROR: Should have failed with impossible memory requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8723:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:31.2234306Z [36;1m  echo "✅ Correctly failed with impossible memory requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8729:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:31.2236404Z [36;1m  echo "ERROR: Should have failed with impossible disk requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8732:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:31.2237166Z [36;1m  echo "✅ Correctly failed with impossible disk requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8737:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:32.9479938Z ✅ Correctly failed with impossible memory requirement
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320129982.log:8740:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:34.6638073Z ✅ Correctly failed with impossible disk requirement
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1664:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2182988Z [36;1mFAILURES_FILE=$(mktemp)[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1672:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2193207Z [36;1m    echo "❌ ERROR: $file has $line_count lines, which exceeds the 1500 line limit!"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1674:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2196968Z [36;1m    echo "$file" >> "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1681:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2204001Z [36;1mif [ -s "$FAILURES_FILE" ]; then[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1684:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2207980Z [36;1m  cat "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1688:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2213764Z [36;1m  rm -f "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:1693:check-file-line-limits	Check .mjs file line limits	2025-11-13T04:04:36.2219137Z [36;1m  rm -f "$FAILURES_FILE"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:3800:test-suites	Run Telegram URL extraction test (Issue	2025-11-13T04:08:15.0138383Z Results: 13 passed, 0 failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:3976:test-suites	Run Telegram URL validation test (Issue	2025-11-13T04:08:16.6769841Z Results: 19 passed, 0 failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:5542:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:03.2472427Z ❌ CLONE FAILED              
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:5563:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:03.2487585Z ❌ Repository setup failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:5587:test-execution	Verify log files contain version and command (Issue	2025-11-13T04:05:03.5881853Z [2025-11-13T04:05:03.243Z] [ERROR] ❌ CLONE FAILED              
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:5847:test-execution	Test telegram-bot.mjs execution	2025-11-13T04:05:09.5915895Z Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:6432:test-execution	Test global command installation	2025-11-13T04:05:23.7994966Z Error: TELEGRAM_BOT_TOKEN environment variable or --token option is not set
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:6753:test-execution	Test hive dry-run with solve integration	2025-11-13T04:05:31.6774956Z Error: Unknown arguments: skip-claude-check, skipClaudeCheck
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8091:test-execution	Test --auto-fork option	2025-11-13T04:05:39.7635328Z ❌ Error:                    Failed to get current user
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8093:test-execution	Test --auto-fork option	2025-11-13T04:05:39.7635995Z ❌ Repository setup failed
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8721:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:13.0915894Z [36;1m  echo "ERROR: Should have failed with impossible memory requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8724:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:13.0916640Z [36;1m  echo "✅ Correctly failed with impossible memory requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8730:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:13.0918738Z [36;1m  echo "ERROR: Should have failed with impossible disk requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8733:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:13.0919485Z [36;1m  echo "✅ Correctly failed with impossible disk requirement"[0m
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8738:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:15.0298034Z ✅ Correctly failed with impossible memory requirement
+ci-logs/runs/CI_CD_Pipeline_for_main_branch-19320124562.log:8741:memory-check-linux	Test memory-check failure conditions	2025-11-13T04:05:16.8920111Z ✅ Correctly failed with impossible disk requirement

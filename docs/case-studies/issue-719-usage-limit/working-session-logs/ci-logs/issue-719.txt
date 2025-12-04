@@ -1,0 +1,23 @@
+#719 Make sure we handle limit reached for all tools: claude, codex, opencode
+State: OPEN
+Author: konard
+Created: 2025-11-12T12:32:15Z
+Updated: 2025-11-13T04:00:00Z
+
+```
+[2025-11-12T11:47:04.135Z] [INFO] 📌 Session ID: 019a77e4-0716-7152-8396-b642e26c3e20
+[2025-11-12T11:47:04.163Z] [INFO] {"type":"turn.started"}
+
+[2025-11-12T11:47:04.639Z] [INFO] {"type":"error","message":"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}
+{"type":"turn.failed","error":{"message":"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}}
+```
+
+Full logs here: https://github.com/link-foundation/ideav-local-associative-js/pull/2#issuecomment-3521528245
+
+Please download all logs and data related about the issue, make sure we compile that data to `./docs/case-studies` folder, and use it to do deep case study analysis, in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.
+
+I think we should show the command as failed, not the success, and separately handle usage limit error in all tools, to make sure we notify our users the next time when the limit will reset in that case. So the form of comment markdown should separate for that, but similar to failed.
+
+And it also should contain log if we asked to --attach-logs.
+
+So the user should have easy to read and find message about limit reached. So we will save time for the user not to go to logs.

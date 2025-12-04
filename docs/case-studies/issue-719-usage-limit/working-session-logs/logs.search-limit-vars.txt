@@ -1,0 +1,41 @@
+src/usage-limit.lib.mjs:103:    '⏳ Usage Limit Reached!',
+src/solve.config.lib.mjs:115:    .option('auto-continue-limit', {
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.mjs:821:          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+src/opencode.lib.mjs:311:      let limitResetTime = null;
+src/opencode.lib.mjs:336:          limitResetTime = limitInfo.resetTime;
+src/opencode.lib.mjs:362:          limitResetTime
+src/opencode.lib.mjs:372:        limitResetTime
+src/opencode.lib.mjs:387:        limitResetTime: null
+src/solve.auto-continue.lib.mjs:61:    const resetTime = global.limitResetTime;
+src/solve.auto-continue.lib.mjs:96:      '--auto-continue-limit' // Keep auto-continue-limit enabled
+src/codex.lib.mjs:321:      let limitResetTime = null;
+src/codex.lib.mjs:400:          limitResetTime = limitInfo.resetTime;
+src/codex.lib.mjs:426:          limitResetTime
+src/codex.lib.mjs:436:        limitResetTime
+src/codex.lib.mjs:460:        limitResetTime: null
+src/github.lib.mjs:441: * @param {string} [options.limitResetTime] - Time when usage limit resets
+src/github.lib.mjs:464:    limitResetTime = null,
+src/github.lib.mjs:517:      logComment = `## ⏳ Usage Limit Reached
+src/github.lib.mjs:525:      if (limitResetTime) {
+src/github.lib.mjs:526:        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:535:      if (limitResetTime) {
+src/github.lib.mjs:536:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:657:            gistComment = `## ⏳ Usage Limit Reached
+src/github.lib.mjs:665:            if (limitResetTime) {
+src/github.lib.mjs:666:              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:675:            if (limitResetTime) {
+src/github.lib.mjs:676:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/claude.lib.mjs:832:    let limitResetTime = null;
+src/claude.lib.mjs:1059:          limitResetTime: null,
+src/claude.lib.mjs:1107:          limitResetTime: null,
+src/claude.lib.mjs:1119:        limitResetTime = limitInfo.resetTime;
+src/claude.lib.mjs:1182:        limitResetTime,
+src/claude.lib.mjs:1277:      limitResetTime,
+src/claude.lib.mjs:1324:      limitResetTime: null,
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+src/solve.results.lib.mjs:220:          if (global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+src/solve.results.lib.mjs:222:            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);

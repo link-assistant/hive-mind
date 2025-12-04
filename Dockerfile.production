@@ -1,5 +1,6 @@
 FROM ubuntu:24.04
 
+# Ubuntu 24.04 LTS base image for production deployment
 # Set non-interactive frontend for apt
 ENV DEBIAN_FRONTEND=noninteractive
 

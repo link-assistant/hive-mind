@@ -128,11 +128,10 @@ const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const sentryLib = await import('./sentry.lib.mjs');
 const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
-const graphqlLib = await import('./github.graphql.lib.mjs');
-const { tryFetchIssuesWithGraphQL } = graphqlLib;
+const { tryFetchIssuesWithGraphQL } = await import('./github.graphql.lib.mjs');
+const { recheckIssueConditions } = await import('./hive.recheck.lib.mjs');
 const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
-const isLocalScript = commandName.endsWith('.mjs');
-const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
+const isLocalScript = commandName.endsWith('.mjs'), solveCommand = isLocalScript ? './solve.mjs' : 'solve';
 
 /**
  * Fallback function to fetch issues from organization/user repositories
@@ -711,119 +710,26 @@ const issueQueue = new IssueQueue();
 
 // Global shutdown state to prevent duplicate shutdown messages
 let isShuttingDown = false;
-
-/**
- * Recheck conditions for an issue right before processing
- * This ensures the issue should still be processed even if conditions changed since queuing
- * @param {string} issueUrl - The URL of the issue to check
- * @returns {Promise<{shouldProcess: boolean, reason?: string}>}
- */
-async function recheckIssueConditions(issueUrl) {
-  try {
-    // Extract owner, repo, and issue number from URL
-    const urlMatch = issueUrl.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
-    if (!urlMatch) {
-      await log(`      ⚠️  Could not parse issue URL: ${issueUrl}`, { verbose: true });
-      return { shouldProcess: true }; // Process anyway if we can't parse
-    }
-
-    const [, owner, repo, issueNumber] = urlMatch;
-    const issueNum = parseInt(issueNumber);
-
-    await log(`      🔍 Rechecking conditions for issue #${issueNum}...`, { verbose: true });
-
-    // Check 1: Verify issue is still open
-    try {
-      const { execSync } = await import('child_process');
-      const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
-        encoding: 'utf8'
-      }).trim();
-
-      if (issueState === 'closed') {
-        return {
-          shouldProcess: false,
-          reason: 'Issue is now closed'
-        };
-      }
-      await log(`      ✅ Issue is still open`, { verbose: true });
-    } catch (error) {
-      await log(`      ⚠️  Could not check issue state: ${cleanErrorMessage(error)}`, { verbose: true });
-      // Continue checking other conditions
-    }
-
-    // Check 2: If skipIssuesWithPrs is enabled, verify issue still has no open PRs
-    if (argv.skipIssuesWithPrs) {
-      const prResults = await batchCheckPullRequestsForIssues(owner, repo, [issueNum]);
-      const prInfo = prResults[issueNum];
-
-      if (prInfo && prInfo.openPRCount > 0) {
-        return {
-          shouldProcess: false,
-          reason: `Issue now has ${prInfo.openPRCount} open PR${prInfo.openPRCount > 1 ? 's' : ''}`
-        };
-      }
-      await log(`      ✅ Issue still has no open PRs`, { verbose: true });
-    }
-
-    // Check 3: Verify repository is not archived
-    const archivedStatusMap = await batchCheckArchivedRepositories([{ owner, name: repo }]);
-    const repoKey = `${owner}/${repo}`;
-
-    if (archivedStatusMap[repoKey] === true) {
-      return {
-        shouldProcess: false,
-        reason: 'Repository is now archived'
-      };
-    }
-    await log(`      ✅ Repository is not archived`, { verbose: true });
-
-    await log(`      ✅ All conditions passed, proceeding with processing`, { verbose: true });
-    return { shouldProcess: true };
-
-  } catch (error) {
-    reportError(error, {
-      context: 'recheck_issue_conditions',
-      issueUrl,
-      operation: 'recheck_conditions'
-    });
-    await log(`      ⚠️  Error rechecking conditions: ${cleanErrorMessage(error)}`, { level: 'warning' });
-    // On error, allow processing to continue (fail open)
-    return { shouldProcess: true };
-  }
-}
-
 // Worker function to process issues from queue
 async function worker(workerId) {
   await log(`🔧 Worker ${workerId} started`, { verbose: true });
-  
   while (issueQueue.isRunning) {
     const issueUrl = issueQueue.dequeue();
-    
     if (!issueUrl) {
-      // No work available, wait a bit
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 5000)); // No work available, wait
       continue;
     }
-
     await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
-
-    // Recheck conditions before processing
-    const recheckResult = await recheckIssueConditions(issueUrl);
+    const recheckResult = await recheckIssueConditions(issueUrl, argv); // Recheck conditions
     if (!recheckResult.shouldProcess) {
       await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
-      // Mark as completed (skipped) to avoid reprocessing
-      issueQueue.markCompleted(issueUrl);
-
-      // Show queue stats
+      issueQueue.markCompleted(issueUrl); // Mark as completed (skipped)
       const stats = issueQueue.getStats();
       await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
-      continue; // Move to next issue
+      continue;
     }
-
-    // Track if this issue failed
+    // Track if this issue failed and process multiple times if needed
     let issueFailed = false;
-
-    // Process the issue multiple times if needed
     for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
       if (argv.pullRequestsPerIssue > 1) {
         await log(`   📝 Creating PR ${prNum}/${argv.pullRequestsPerIssue} for issue`);

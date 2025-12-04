@@ -552,7 +552,9 @@ jobs:
 
         echo ""
         echo "Testing hive-telegram-bot --dry-run (issue #487)..."
-        timeout 10s hive-telegram-bot \
+        # Note: 30s timeout needed for first-time module loading via unpkg.com CDN
+        # The telegraf module can take several seconds to load on cold start
+        timeout 30s hive-telegram-bot \
           --token "test_token" \
           --allowed-chats "(-1 -2)" \
           --no-hive \

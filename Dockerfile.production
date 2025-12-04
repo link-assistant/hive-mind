@@ -13,7 +13,7 @@ COPY scripts/ubuntu-24-server-install.sh /tmp/ubuntu-24-server-install.sh
 # Make the script executable and run it
 RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
     bash /tmp/ubuntu-24-server-install.sh && \
-    rm /tmp/ubuntu-24-server-install.sh
+    rm -f /tmp/ubuntu-24-server-install.sh
 
 # Switch to hive user
 USER hive

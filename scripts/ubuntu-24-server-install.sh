@@ -99,17 +99,14 @@ else
   log_success "Sufficient disk space available: ${AVAILABLE_GB}GB"
 fi
 
-# Check internet connectivity (skip in Docker environments)
-# Docker builds might have network but ping may not work due to network configuration
-if [ ! -f /.dockerenv ]; then
-  if ! ping -c 1 -W 5 google.com &>/dev/null; then
-    log_warning "No internet connectivity detected"
-    log_error "Internet connection required for installation"
-    exit 1
-  fi
+# Check internet connectivity (skip strict check in Docker environments)
+# In Docker builds, ping may not work due to network restrictions,
+# but package installation will work. We'll let apt operations fail
+# naturally if there's truly no internet connectivity.
+if ping -c 1 -W 5 google.com &>/dev/null; then
   log_success "Internet connectivity confirmed"
 else
-  log_note "Running in Docker environment - skipping ping check"
+  log_warning "Ping test failed (may be expected in Docker environments)"
   log_note "Internet connectivity will be verified during package installation"
 fi
 

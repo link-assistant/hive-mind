@@ -233,6 +233,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['claude', 'opencode', 'codex'],
       default: 'claude'
     })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

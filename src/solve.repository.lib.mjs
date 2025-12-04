@@ -38,11 +38,19 @@ const { checkRepositoryWritePermission } = githubLib;
 
 // Get the root repository of any repository
 // Returns the source (root) repository if the repo is a fork, otherwise returns the repo itself
+// Returns null if repository is not accessible (404 or other errors)
 export const getRootRepository = async (owner, repo) => {
   try {
-    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}'`;
+    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
 
     if (result.code !== 0) {
+      // Check if it's a 404 error - repository doesn't exist or no permissions
+      const errorOutput = (result.stderr || result.stdout || '').toString();
+      if (errorOutput.includes('HTTP 404') || errorOutput.includes('Not Found')) {
+        // Repository not accessible - this will be handled by fork creation logic
+        // Return null to indicate we couldn't determine root repo
+        return null;
+      }
       return null;
     }
 
@@ -362,6 +370,43 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log(`${formatAligned('ℹ️', 'Fork exists:', actualForkName)}`);
             forkExists = true;
             break;
+          }
+
+          // Check if it's a 404 error (repository doesn't exist or insufficient permissions)
+          if (forkOutput.includes('HTTP 404') || forkOutput.includes('Not Found')) {
+            // 404 error - do NOT retry, this is not a transient error
+            await log('');
+            await log(`${formatAligned('❌', 'REPOSITORY NOT ACCESSIBLE', '')}`, { level: 'error' });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     Failed to access repository: ${owner}/${repo}`);
+            await log('     GitHub returned HTTP 404 (Not Found)');
+            await log('');
+            await log('  💡 Common causes:');
+            await log('     1. Repository doesn\'t exist or was deleted');
+            await log('     2. Repository is private and you don\'t have access');
+            await log('     3. Insufficient permissions to view the repository');
+            await log('     4. Your GitHub token may lack required scopes');
+            await log('');
+            await log('  🔧 How to resolve:');
+            await log('     Step 1: Verify the repository exists');
+            await log(`            Visit: https://github.com/${owner}/${repo}`);
+            await log('');
+            await log('     Step 2: Check your GitHub permissions');
+            await log('            • Are you logged in with the correct account?');
+            await log('            • Do you have access to this repository?');
+            await log(`            • Run: gh repo view ${owner}/${repo}`);
+            await log('');
+            await log('     Step 3: Verify authentication');
+            await log('            • Check auth status: gh auth status');
+            await log('            • Login if needed: gh auth login');
+            await log('            • Ensure "repo" scope is granted');
+            await log('');
+            await log('     Step 4: Request access');
+            await log('            • If repository is private, ask owner for access');
+            await log('            • Check if you need to be added as a collaborator');
+            await log('');
+            await safeExit(1, 'Repository setup failed - repository not accessible (HTTP 404)');
           }
 
           // Check if it's an empty repository (HTTP 403) - try to auto-fix

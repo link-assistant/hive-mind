@@ -90,6 +90,7 @@ jobs:
         with:
           charts_dir: helm
           skip_packaging: true
+          skip_existing: true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

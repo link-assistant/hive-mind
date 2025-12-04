@@ -64,6 +64,20 @@ command_exists() {
   command -v "$1" &>/dev/null
 }
 
+# Run command with sudo only if not root and sudo is available
+maybe_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    # Running as root, execute directly
+    "$@"
+  elif command_exists sudo; then
+    # Not root but sudo available
+    sudo "$@"
+  else
+    # Not root and sudo not available - try directly (will fail if permissions needed)
+    "$@"
+  fi
+}
+
 # --- Pre-flight Checks ---
 log_step "Running pre-flight checks"
 
@@ -99,14 +113,17 @@ else
   log_success "Sufficient disk space available: ${AVAILABLE_GB}GB"
 fi
 
-# Check internet connectivity
-if ! ping -c 1 -W 5 google.com &>/dev/null; then
-  log_warning "No internet connectivity detected"
-  log_error "Internet connection required for installation"
-  exit 1
+# Check internet connectivity (skip strict check in Docker environments)
+# In Docker builds, ping may not work due to network restrictions,
+# but package installation will work. We'll let apt operations fail
+# naturally if there's truly no internet connectivity.
+if ping -c 1 -W 5 google.com &>/dev/null; then
+  log_success "Internet connectivity confirmed"
+else
+  log_warning "Ping test failed (may be expected in Docker environments)"
+  log_note "Internet connectivity will be verified during package installation"
 fi
 
-log_success "Internet connectivity confirmed"
 log_success "Pre-flight checks passed"
 
 log_step "Starting hive environment setup"
@@ -116,9 +133,16 @@ if id "hive" &>/dev/null; then
   log_info "hive user already exists."
 else
   log_info "Creating hive user..."
-  adduser --disabled-password --gecos "" hive
-  passwd -d hive
-  usermod -aG sudo hive
+  # Use useradd (always available) instead of adduser (requires package installation)
+  useradd -m -s /bin/bash hive 2>/dev/null || {
+    log_warning "User creation with useradd failed, trying adduser..."
+    # Fallback to adduser if available
+    adduser --disabled-password --gecos "" hive
+  }
+  # Remove password requirement
+  passwd -d hive 2>/dev/null || log_note "Could not remove password requirement"
+  # Add to sudo group
+  usermod -aG sudo hive 2>/dev/null || log_note "Could not add to sudo group"
   log_success "hive user created and configured"
 fi
 
@@ -128,19 +152,19 @@ apt_update_safe() {
   for f in /etc/apt/sources.list.d/*.list; do
     if [ -f "$f" ] && ! grep -Eq "^deb " "$f"; then
       log_warning "Removing malformed apt source: $f"
-      sudo rm -f "$f"
+      maybe_sudo rm -f "$f"
     fi
   done
-  sudo apt update -y || true
+  maybe_sudo apt update -y || true
 }
 
 # --- Function: cleanup disk ---
 apt_cleanup() {
   log_info "Cleaning up apt cache and temporary files..."
-  sudo apt-get clean
-  sudo apt-get autoclean
-  sudo apt-get autoremove -y
-  sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  maybe_sudo apt-get clean
+  maybe_sudo apt-get autoclean
+  maybe_sudo apt-get autoremove -y
+  maybe_sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
   log_success "Cleanup completed"
 }
 
@@ -174,7 +198,7 @@ create_swap_file() {
       # Activate if not already active
       if ! swapon --show | grep -q "$swapfile"; then
         log_info "Activating $swapfile..."
-        sudo swapon "$swapfile" || true
+        maybe_sudo swapon "$swapfile" || true
       fi
     fi
   done
@@ -218,29 +242,35 @@ create_swap_file() {
   # Create additional swap file
   log_info "Creating ${needed_mb}MB swap file at $new_swapfile..."
   if command -v fallocate >/dev/null 2>&1; then
-    sudo fallocate -l "${needed_mb}M" "$new_swapfile"
+    maybe_sudo fallocate -l "${needed_mb}M" "$new_swapfile"
   else
     # Fallback to dd if fallocate is not available
-    sudo dd if=/dev/zero of="$new_swapfile" bs=1M count="$needed_mb" status=progress
+    maybe_sudo dd if=/dev/zero of="$new_swapfile" bs=1M count="$needed_mb" status=progress
   fi
 
   # Set proper permissions
-  sudo chmod 600 "$new_swapfile"
+  maybe_sudo chmod 600 "$new_swapfile"
 
   # Format as swap
-  sudo mkswap "$new_swapfile"
+  maybe_sudo mkswap "$new_swapfile"
 
-  # Enable swap file
-  sudo swapon "$new_swapfile"
+  # Enable swap file (may fail in Docker containers)
+  if ! maybe_sudo swapon "$new_swapfile" 2>/dev/null; then
+    log_warning "Failed to enable swap file (likely running in Docker container)"
+    log_note "Swap creation will be skipped. Docker manages swap at the host level."
+    # Clean up the swap file we tried to create
+    maybe_sudo rm -f "$new_swapfile"
+    return 0
+  fi
 
   # Make it persistent by adding to /etc/fstab if not already there
   if ! grep -q "$new_swapfile" /etc/fstab; then
     log_info "Adding $new_swapfile to /etc/fstab for persistence..."
     # Ensure we have a backup of fstab
     if [ ! -f /etc/fstab.backup ]; then
-      sudo cp /etc/fstab /etc/fstab.backup
+      maybe_sudo cp /etc/fstab /etc/fstab.backup
     fi
-    echo "$new_swapfile none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null
+    echo "$new_swapfile none swap sw 0 0" | maybe_sudo tee -a /etc/fstab >/dev/null
   fi
 
   # Verify swap is active and show final status
@@ -253,8 +283,8 @@ create_swap_file() {
     # Optimize swappiness for development workload
     if [ "$(cat /proc/sys/vm/swappiness)" -gt 10 ]; then
       log_info "Optimizing swap usage (setting swappiness to 10 for development workload)..."
-      echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.conf >/dev/null
-      sudo sysctl -w vm.swappiness=10 >/dev/null
+      echo "vm.swappiness=10" | maybe_sudo tee -a /etc/sysctl.conf >/dev/null
+      maybe_sudo sysctl -w vm.swappiness=10 >/dev/null
       log_success "Swap settings optimized"
     fi
   else
@@ -268,12 +298,12 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
+maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
 log_success "Essential tools installed"
 
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
-sudo apt install -y \
+maybe_sudo apt install -y \
   libssl-dev \
   zlib1g-dev \
   libbz2-dev \
@@ -288,12 +318,54 @@ sudo apt install -y \
   liblzma-dev
 log_success "Python build dependencies installed"
 
-# --- Setup swap file ---
-log_step "Setting up swap space"
-create_swap_file
+# --- GitHub CLI (install system-wide before switching to hive user) ---
+log_step "Installing GitHub CLI (system-wide)"
+if ! command -v gh &>/dev/null; then
+  log_info "Installing GitHub CLI..."
+  # Use official installation method from GitHub CLI maintainers
+  maybe_sudo mkdir -p -m 755 /etc/apt/keyrings
+  out=$(mktemp)
+  wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+  cat "$out" | maybe_sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+  maybe_sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  rm -f "$out"
+
+  maybe_sudo mkdir -p -m 755 /etc/apt/sources.list.d
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | maybe_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+
+  maybe_sudo apt update -y
+  maybe_sudo apt install -y gh
+  log_success "GitHub CLI installed"
+else
+  log_success "GitHub CLI already installed"
+fi
+
+# --- Setup swap file (skip in Docker) ---
+# Docker containers cannot create swap files due to security restrictions
+# Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit, or running as PID 1 without init
+is_docker=false
+if [ -f /.dockerenv ]; then
+  is_docker=true
+elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
+  is_docker=true
+elif [ "$$" = "1" ] && [ ! -d /proc/1/root/proc ]; then
+  # Running as PID 1 without a full init system (likely Docker)
+  is_docker=true
+fi
+
+if [ "$is_docker" = true ]; then
+  log_step "Skipping swap setup (running in Docker container)"
+  log_note "Swap is managed by the Docker host"
+else
+  log_step "Setting up swap space"
+  create_swap_file
+fi
 
 # --- Switch to hive user for language tools and gh setup ---
-sudo -i -u hive bash <<'EOF_HIVE'
+# Write the hive user setup script to a temporary file
+cat > /tmp/hive-user-setup.sh <<'EOF_HIVE_SCRIPT'
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Define logging functions for hive user session
@@ -317,34 +389,13 @@ log_step() { echo -e "\n${GREEN}==>${NC} ${BLUE}$1${NC}\n"; }
 
 log_step "Installing development tools as hive user"
 
-# --- GitHub CLI ---
-if ! command -v gh &>/dev/null; then
-  log_info "Installing GitHub CLI..."
-  # Use official installation method from GitHub CLI maintainers
-  sudo mkdir -p -m 755 /etc/apt/keyrings
-  out=$(mktemp)
-  wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
-  cat "$out" | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
-  sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-  rm -f "$out"
-
-  sudo mkdir -p -m 755 /etc/apt/sources.list.d
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-
-  sudo apt update -y
-  sudo apt install -y gh
-  log_success "GitHub CLI installed"
-else
-  log_info "GitHub CLI already installed."
-fi
-
-# --- Run interactive GitHub login ---
+# --- Check GitHub authentication status (non-interactive) ---
+# Note: GitHub CLI is already installed system-wide
 if ! gh auth status &>/dev/null; then
-  log_info "Launching GitHub auth login..."
-  log_note "Follow the prompts to authenticate with GitHub"
-  gh auth login -h github.com -s repo,workflow,user,read:org,gist
-  log_success "GitHub authentication completed"
+  log_warning "GitHub CLI is not authenticated"
+  log_note "After installation, run: gh auth login -h github.com -s repo,workflow,user,read:org,gist"
+else
+  log_success "GitHub CLI is already authenticated"
 fi
 
 # --- Bun ---
@@ -442,7 +493,7 @@ if ! command -v brew &>/dev/null; then
   log_note "Homebrew will be configured for current session and persist after shell restart"
 
   # Install Homebrew prerequisites (if not already installed)
-  sudo apt install -y build-essential procps file || {
+  maybe_sudo apt install -y build-essential procps file || {
     log_warning "Some Homebrew prerequisites may have failed to install."
   }
 
@@ -581,7 +632,7 @@ else
   log_note "Using npx to install Playwright system dependencies..."
 
   # Suppress expected npm exec warning and funding notices
-  sudo env "PATH=$NODE_BIN_DIR:$PATH" "$NPX_PATH" playwright@latest install-deps 2>&1 | \
+  maybe_sudo env "PATH=$NODE_BIN_DIR:$PATH" "$NPX_PATH" playwright@latest install-deps 2>&1 | \
     grep -v "npm warn exec" | \
     grep -v "packages are looking for funding" || {
     log_warning "'npx playwright install-deps' failed. You may need to install deps manually."
@@ -665,12 +716,17 @@ else
   log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
 fi
 
-# --- Git setup with GitHub identity ---
-log_info "Configuring Git with GitHub identity..."
-git config --global user.name "$(gh api user --jq .login)"
-git config --global user.email "$(gh api user/emails --jq '.[] | select(.primary==true).email')"
-gh auth setup-git
-log_success "Git configured with GitHub identity"
+# --- Git setup with GitHub identity (only if authenticated) ---
+if gh auth status &>/dev/null; then
+  log_info "Configuring Git with GitHub identity..."
+  git config --global user.name "$(gh api user --jq .login)"
+  git config --global user.email "$(gh api user/emails --jq '.[] | select(.primary==true).email')"
+  gh auth setup-git
+  log_success "Git configured with GitHub identity"
+else
+  log_note "GitHub CLI not authenticated - skipping Git configuration"
+  log_note "After authentication, Git will be auto-configured with your GitHub identity"
+fi
 
 # --- Clone or update hive-mind repo (idempotent, no fatal logs) ---
 REPO_DIR="$HOME/hive-mind"
@@ -734,7 +790,22 @@ log_note "3. Navigate to ~/hive-mind to start working"
 
 echo ""
 
-EOF_HIVE
+EOF_HIVE_SCRIPT
+
+# Make the script executable
+chmod +x /tmp/hive-user-setup.sh
+
+# Execute as hive user (use su if root, sudo otherwise)
+if [ "$EUID" -eq 0 ]; then
+  # Running as root - use su
+  su - hive -c "bash /tmp/hive-user-setup.sh"
+else
+  # Not root - use sudo
+  sudo -i -u hive bash /tmp/hive-user-setup.sh
+fi
+
+# Clean up the temporary script
+rm -f /tmp/hive-user-setup.sh
 
 # --- Cleanup after everything (so install-deps/apt had full cache) ---
 log_step "Cleaning up"

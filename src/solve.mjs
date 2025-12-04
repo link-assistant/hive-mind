@@ -929,8 +929,8 @@ try {
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
   const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 
-  // Remove CLAUDE.md now that Claude command has finished
-  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
+  // Remove initial commit file (CLAUDE.md or .gitkeep) now that Claude command has finished
+  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);

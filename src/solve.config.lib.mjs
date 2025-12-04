@@ -98,6 +98,16 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Automatically create a draft pull request before running Claude',
       default: true
     })
+    .option('claude-file', {
+      type: 'boolean',
+      description: 'Create CLAUDE.md file for task details (default, mutually exclusive with --gitkeep-file)',
+      default: true
+    })
+    .option('gitkeep-file', {
+      type: 'boolean',
+      description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+      default: false
+    })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging for debugging',
@@ -321,6 +331,48 @@ export const parseArguments = async (yargs, hideBin) => {
   } else if (argv.tool === 'codex' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for codex
     argv.model = 'gpt-5';
+  }
+
+  // Validate mutual exclusivity of --claude-file and --gitkeep-file
+  // Check if both are explicitly enabled (user passed both --claude-file and --gitkeep-file)
+  if (argv.claudeFile && argv.gitkeepFile) {
+    // Check if both were explicitly provided by the user
+    const claudeFileExplicit = rawArgs.includes('--claude-file');
+    const gitkeepFileExplicit = rawArgs.includes('--gitkeep-file');
+
+    if (claudeFileExplicit && gitkeepFileExplicit) {
+      throw new Error('--claude-file and --gitkeep-file are mutually exclusive. Please use only one.');
+    }
+
+    // If only one was explicit, the other is the default, so disable the default
+    if (gitkeepFileExplicit && !claudeFileExplicit) {
+      argv.claudeFile = false;
+    } else if (claudeFileExplicit && !gitkeepFileExplicit) {
+      argv.gitkeepFile = false;
+    }
+  }
+
+  // Check if user explicitly disabled both
+  const noClaudeFile = rawArgs.includes('--no-claude-file');
+  const noGitkeepFile = rawArgs.includes('--no-gitkeep-file');
+
+  if (noClaudeFile && noGitkeepFile) {
+    throw new Error('Cannot disable both --claude-file and --gitkeep-file. At least one must be enabled for PR creation.');
+  }
+
+  // If user explicitly set --no-claude-file, enable gitkeep-file
+  if (noClaudeFile && !argv.gitkeepFile) {
+    argv.gitkeepFile = true;
+  }
+
+  // If user explicitly set --no-gitkeep-file, ensure claude-file is enabled (should be by default)
+  if (noGitkeepFile && !argv.claudeFile) {
+    argv.claudeFile = true;
+  }
+
+  // Final validation: ensure at least one is enabled
+  if (!argv.claudeFile && !argv.gitkeepFile) {
+    throw new Error('At least one of --claude-file or --gitkeep-file must be enabled for PR creation.');
   }
 
   return argv;

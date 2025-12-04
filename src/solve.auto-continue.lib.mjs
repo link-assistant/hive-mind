@@ -190,18 +190,20 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
                 continue;
               }
 
-              // Check if CLAUDE.md exists in this PR branch
+              // Check if CLAUDE.md or .gitkeep exists in this PR branch
+              // If neither exists, it means work was completed and files were removed
               const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
+              const gitkeepExists = await checkFileInBranch(owner, repo, '.gitkeep', pr.headRefName);
 
-              if (!claudeMdExists) {
-                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
+              if (!claudeMdExists && !gitkeepExists) {
+                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md/.gitkeep missing - work completed, branch: ${pr.headRefName})`);
 
-                // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
+                // Switch to continue mode immediately (don't wait 24 hours if both files are missing)
                 isContinueMode = true;
                 prNumber = pr.number;
                 prBranch = pr.headRefName;
                 if (argv.verbose) {
-                  await log('   Continue mode activated: Auto-continue (CLAUDE.md missing)', { verbose: true });
+                  await log('   Continue mode activated: Auto-continue (initial commit files missing)', { verbose: true });
                   await log(`   PR Number: ${prNumber}`, { verbose: true });
                   await log(`   PR Branch: ${prBranch}`, { verbose: true });
                 }

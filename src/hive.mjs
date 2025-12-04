@@ -128,11 +128,10 @@ const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const sentryLib = await import('./sentry.lib.mjs');
 const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
-const graphqlLib = await import('./github.graphql.lib.mjs');
-const { tryFetchIssuesWithGraphQL } = graphqlLib;
+const { tryFetchIssuesWithGraphQL } = await import('./github.graphql.lib.mjs');
+const { recheckIssueConditions } = await import('./hive.recheck.lib.mjs');
 const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
-const isLocalScript = commandName.endsWith('.mjs');
-const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
+const isLocalScript = commandName.endsWith('.mjs'), solveCommand = isLocalScript ? './solve.mjs' : 'solve';
 
 /**
  * Fallback function to fetch issues from organization/user repositories
@@ -711,26 +710,26 @@ const issueQueue = new IssueQueue();
 
 // Global shutdown state to prevent duplicate shutdown messages
 let isShuttingDown = false;
-
 // Worker function to process issues from queue
 async function worker(workerId) {
   await log(`🔧 Worker ${workerId} started`, { verbose: true });
-  
   while (issueQueue.isRunning) {
     const issueUrl = issueQueue.dequeue();
-    
     if (!issueUrl) {
-      // No work available, wait a bit
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(resolve => setTimeout(resolve, 5000)); // No work available, wait
       continue;
     }
-
     await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
-    
-    // Track if this issue failed
+    const recheckResult = await recheckIssueConditions(issueUrl, argv); // Recheck conditions
+    if (!recheckResult.shouldProcess) {
+      await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+      issueQueue.markCompleted(issueUrl); // Mark as completed (skipped)
+      const stats = issueQueue.getStats();
+      await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+      continue;
+    }
+    // Track if this issue failed and process multiple times if needed
     let issueFailed = false;
-    
-    // Process the issue multiple times if needed
     for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
       if (argv.pullRequestsPerIssue > 1) {
         await log(`   📝 Creating PR ${prNum}/${argv.pullRequestsPerIssue} for issue`);

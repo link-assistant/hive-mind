@@ -340,13 +340,9 @@ else
 fi
 
 # --- Switch to hive user for language tools and gh setup ---
-if [ "$EUID" -eq 0 ]; then
-  # Running as root - use su to switch to hive user
-  su - hive <<'EOF_HIVE'
-else
-  # Not root - use sudo
-  sudo -i -u hive bash <<'EOF_HIVE'
-fi
+# Write the hive user setup script to a temporary file
+cat > /tmp/hive-user-setup.sh <<'EOF_HIVE_SCRIPT'
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Define logging functions for hive user session
@@ -792,7 +788,22 @@ log_note "3. Navigate to ~/hive-mind to start working"
 
 echo ""
 
-EOF_HIVE
+EOF_HIVE_SCRIPT
+
+# Make the script executable
+chmod +x /tmp/hive-user-setup.sh
+
+# Execute as hive user (use su if root, sudo otherwise)
+if [ "$EUID" -eq 0 ]; then
+  # Running as root - use su
+  su - hive -c "bash /tmp/hive-user-setup.sh"
+else
+  # Not root - use sudo
+  sudo -i -u hive bash /tmp/hive-user-setup.sh
+fi
+
+# Clean up the temporary script
+rm -f /tmp/hive-user-setup.sh
 
 # --- Cleanup after everything (so install-deps/apt had full cache) ---
 log_step "Cleaning up"

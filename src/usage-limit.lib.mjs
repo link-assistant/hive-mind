@@ -142,6 +142,111 @@ export function detectUsageLimit(message) {
 }
 
 /**
+ * Parse time string (e.g., "11:00 PM") and convert to Date object for today
+ *
+ * @param {string} timeStr - Time string in format "HH:MM AM/PM"
+ * @returns {Date|null} - Date object or null if parsing fails
+ */
+export function parseResetTime(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') {
+    return null;
+  }
+
+  // Match pattern like "11:00 PM" or "11:00PM"
+  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) {
+    return null;
+  }
+
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const ampm = match[3].toUpperCase();
+
+  // Convert to 24-hour format
+  if (ampm === 'PM' && hour !== 12) {
+    hour += 12;
+  } else if (ampm === 'AM' && hour === 12) {
+    hour = 0;
+  }
+
+  // Create date for today with the parsed time
+  const now = new Date();
+  const resetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
+
+  // If the time is in the past today, assume it's tomorrow
+  if (resetDate <= now) {
+    resetDate.setDate(resetDate.getDate() + 1);
+  }
+
+  return resetDate;
+}
+
+/**
+ * Format relative time (e.g., "in 1h 23m")
+ *
+ * @param {Date} resetDate - Date object for reset time
+ * @returns {string} - Formatted relative time string
+ */
+export function formatRelativeTime(resetDate) {
+  if (!resetDate || !(resetDate instanceof Date)) {
+    return '';
+  }
+
+  const now = new Date();
+  const diffMs = resetDate - now;
+
+  if (diffMs <= 0) {
+    return 'now';
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const totalDays = Math.floor(totalHours / 24);
+
+  const days = totalDays;
+  const hours = totalHours % 24;
+  const minutes = totalMinutes % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+
+  return `in ${parts.join(' ')}`;
+}
+
+/**
+ * Format reset time with relative time and UTC time
+ * Example: "in 1h 23m (11:00 PM UTC)"
+ *
+ * @param {string} resetTime - Time string in format "HH:MM AM/PM"
+ * @returns {string} - Formatted string with relative and absolute time
+ */
+export function formatResetTimeWithRelative(resetTime) {
+  if (!resetTime) {
+    return resetTime;
+  }
+
+  const resetDate = parseResetTime(resetTime);
+  if (!resetDate) {
+    // If we can't parse it, return the original time
+    return resetTime;
+  }
+
+  const relativeTime = formatRelativeTime(resetDate);
+
+  // Format the UTC time
+  const utcHours = resetDate.getUTCHours();
+  const utcMinutes = resetDate.getUTCMinutes();
+  const utcAmPm = utcHours >= 12 ? 'PM' : 'AM';
+  const utcHour12 = utcHours % 12 || 12;
+  const utcTimeStr = `${utcHour12}:${String(utcMinutes).padStart(2, '0')} ${utcAmPm} UTC`;
+
+  return `${relativeTime} (${utcTimeStr})`;
+}
+
+/**
  * Format usage limit error message for console output
  *
  * @param {Object} options - Formatting options

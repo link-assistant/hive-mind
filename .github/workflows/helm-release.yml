@@ -57,6 +57,32 @@ jobs:
           mkdir -p .cr-release-packages
           helm package helm/hive-mind -d .cr-release-packages
 
+      - name: Ensure gh-pages branch exists
+        run: |
+          # Check if gh-pages branch exists on remote
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "gh-pages branch does not exist. Creating it..."
+
+            # Create an orphan branch (no history)
+            git checkout --orphan gh-pages
+
+            # Remove all files from staging
+            git reset --hard
+
+            # Create initial commit
+            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
+
+            # Push the new branch to remote
+            git push origin gh-pages
+
+            # Switch back to the original branch
+            git checkout -
+
+            echo "gh-pages branch created successfully"
+          else
+            echo "gh-pages branch already exists"
+          fi
+
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         env:

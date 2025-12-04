@@ -318,6 +318,29 @@ maybe_sudo apt install -y \
   liblzma-dev
 log_success "Python build dependencies installed"
 
+# --- GitHub CLI (install system-wide before switching to hive user) ---
+log_step "Installing GitHub CLI (system-wide)"
+if ! command -v gh &>/dev/null; then
+  log_info "Installing GitHub CLI..."
+  # Use official installation method from GitHub CLI maintainers
+  maybe_sudo mkdir -p -m 755 /etc/apt/keyrings
+  out=$(mktemp)
+  wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
+  cat "$out" | maybe_sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+  maybe_sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  rm -f "$out"
+
+  maybe_sudo mkdir -p -m 755 /etc/apt/sources.list.d
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | maybe_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+
+  maybe_sudo apt update -y
+  maybe_sudo apt install -y gh
+  log_success "GitHub CLI installed"
+else
+  log_success "GitHub CLI already installed"
+fi
+
 # --- Setup swap file (skip in Docker) ---
 # Docker containers cannot create swap files due to security restrictions
 # Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit, or running as PID 1 without init
@@ -366,29 +389,8 @@ log_step() { echo -e "\n${GREEN}==>${NC} ${BLUE}$1${NC}\n"; }
 
 log_step "Installing development tools as hive user"
 
-# --- GitHub CLI ---
-if ! command -v gh &>/dev/null; then
-  log_info "Installing GitHub CLI..."
-  # Use official installation method from GitHub CLI maintainers
-  maybe_sudo mkdir -p -m 755 /etc/apt/keyrings
-  out=$(mktemp)
-  wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
-  cat "$out" | maybe_sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
-  maybe_sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-  rm -f "$out"
-
-  maybe_sudo mkdir -p -m 755 /etc/apt/sources.list.d
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | maybe_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-
-  maybe_sudo apt update -y
-  maybe_sudo apt install -y gh
-  log_success "GitHub CLI installed"
-else
-  log_info "GitHub CLI already installed."
-fi
-
 # --- Check GitHub authentication status (non-interactive) ---
+# Note: GitHub CLI is already installed system-wide
 if ! gh auth status &>/dev/null; then
   log_warning "GitHub CLI is not authenticated"
   log_note "After installation, run: gh auth login -h github.com -s repo,workflow,user,read:org,gist"

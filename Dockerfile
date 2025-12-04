@@ -1,40 +1,34 @@
-FROM gitpod/workspace-full:latest
+FROM ubuntu:24.04
 
-# Install gh and bun
-RUN brew install gh
-RUN brew install oven-sh/bun/bun
+# Ubuntu 24.04 LTS base image for production deployment
+# Set non-interactive frontend for apt
+ENV DEBIAN_FRONTEND=noninteractive
 
-ENV BUN_INSTALL="/home/gitpod/.bun"
-ENV PATH="${BUN_INSTALL}/bin:${PATH}"
+# Set working directory
+WORKDIR /workspace
 
-# Install Claude Code
-RUN bun install -g @anthropic-ai/claude-code
+# Copy the installation script
+COPY scripts/ubuntu-24-server-install.sh /tmp/ubuntu-24-server-install.sh
 
-# Install Claude Profiles
-RUN bun install -g @deep-assistant/claude-profiles
+# Make the script executable and run it
+RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
+    bash /tmp/ubuntu-24-server-install.sh && \
+    rm -f /tmp/ubuntu-24-server-install.sh
 
-# Install OpenCode AI
-RUN bun install -g opencode-ai
+# Switch to hive user
+USER hive
 
-# Install Node.js (if not already available)
-RUN brew install node
+# Set home directory
+WORKDIR /home/hive
 
-# Create app directory
-WORKDIR /app
+# Set up environment variables for all the tools installed by the script
+ENV NVM_DIR="/home/hive/.nvm"
+ENV PYENV_ROOT="/home/hive/.pyenv"
+ENV BUN_INSTALL="/home/hive/.bun"
+ENV PATH="/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
 
-# Copy application files
-COPY . .
+# Load NVM, Pyenv, and other tools in shell sessions
+SHELL ["/bin/bash", "-c"]
 
-# Make scripts executable
-RUN chmod +x solve.mjs
-RUN chmod +x docker-restore-auth.sh
-
-# Create directories for credentials
-RUN mkdir -p /workspace/.persisted-configs/gh
-RUN mkdir -p ~/.config
-
-# Expose any needed ports (if solve.mjs uses any)
-# EXPOSE 3000
-
-# Default command
-CMD ["./solve.mjs"]
+# Set default command to bash
+CMD ["/bin/bash"]

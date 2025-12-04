@@ -137,27 +137,9 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
-// Initialize Sentry for error tracking
-await initializeSentry({
-  debug: VERBOSE,
-  environment: process.env.NODE_ENV || 'production',
-});
-
-const telegrafModule = await use('telegraf');
-const { Telegraf } = telegrafModule;
-
-const bot = new Telegraf(BOT_TOKEN, {
-  // Remove the default 90-second timeout for message handlers
-  // This is important because command handlers (like /solve) spawn long-running processes
-  handlerTimeout: Infinity
-});
-
-// Track bot startup time to ignore messages sent before bot started
-// Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
-const BOT_START_TIME = Math.floor(Date.now() / 1000);
-
 // After loading configuration, resolve final values from environment or config
 // Priority: CLI option > environment variable (from .lenv or .env)
+// NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats
   ? lino.parseNumericIds(resolvedAllowedChats)
@@ -260,7 +242,9 @@ if (hiveEnabled && hiveOverrides.length > 0) {
   }
 }
 
-// Handle dry-run mode - exit after validation
+// Handle dry-run mode - exit after validation WITHOUT loading heavy dependencies
+// This significantly speeds up dry-run mode by skipping telegraf loading (~3-8 seconds)
+// See issue #801 for details
 if (config.dryRun) {
   console.log('\n✅ Dry-run mode: All validations passed successfully!');
   console.log('\nConfiguration summary:');
@@ -280,6 +264,31 @@ if (config.dryRun) {
   console.log('\n🎉 Bot configuration is valid. Exiting without starting the bot.');
   process.exit(0);
 }
+
+// === HEAVY DEPENDENCIES LOADED BELOW (skipped in dry-run mode) ===
+// These imports are placed after the dry-run check to significantly speed up
+// configuration validation. The telegraf module in particular can take 3-8 seconds
+// to load on cold start due to network fetch from unpkg.com CDN.
+// See issue #801 for details.
+
+// Initialize Sentry for error tracking
+await initializeSentry({
+  debug: VERBOSE,
+  environment: process.env.NODE_ENV || 'production',
+});
+
+const telegrafModule = await use('telegraf');
+const { Telegraf } = telegrafModule;
+
+const bot = new Telegraf(BOT_TOKEN, {
+  // Remove the default 90-second timeout for message handlers
+  // This is important because command handlers (like /solve) spawn long-running processes
+  handlerTimeout: Infinity
+});
+
+// Track bot startup time to ignore messages sent before bot started
+// Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
+const BOT_START_TIME = Math.floor(Date.now() / 1000);
 
 function isChatAuthorized(chatId) {
   if (!allowedChats) {
@@ -840,19 +849,31 @@ bot.command('limits', async (ctx) => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
 
   // Get the usage limits using the library function
   const result = await getClaudeUsageLimits(VERBOSE);
 
   if (!result.success) {
-    await ctx.reply(`❌ ${result.error}`, { reply_to_message_id: ctx.message.message_id });
+    // Edit the fetching message to show the error
+    await ctx.telegram.editMessageText(
+      fetchingMessage.chat.id,
+      fetchingMessage.message_id,
+      undefined,
+      `❌ ${result.error}`
+    );
     return;
   }
 
-  // Format and send the response using the library function
+  // Format and edit the fetching message with the results
   const message = '📊 ' + formatUsageMessage(result.usage);
-  await ctx.reply(message, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await ctx.telegram.editMessageText(
+    fetchingMessage.chat.id,
+    fetchingMessage.message_id,
+    undefined,
+    message,
+    { parse_mode: 'Markdown' }
+  );
 });
 
 bot.command(/^solve$/i, async (ctx) => {

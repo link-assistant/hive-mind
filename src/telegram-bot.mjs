@@ -866,7 +866,7 @@ bot.command('limits', async (ctx) => {
   }
 
   // Format and edit the fetching message with the results
-  const message = '📊 ' + formatUsageMessage(result.usage);
+  const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
   await ctx.telegram.editMessageText(
     fetchingMessage.chat.id,
     fetchingMessage.message_id,

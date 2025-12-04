@@ -287,7 +287,7 @@ solve <issue-url> [options]
                         (DANGEROUS: can overwrite fork history) [default: false]
   --prefix-fork-name-with-owner-name  Prefix fork name with owner (owner-repo)
                         Useful for forking repos with same name from different owners
-                        (Experimental feature) [default: false]
+                        [default: true]
   --continue-only-on-feedback  Only continue if feedback detected
                         [default: false]
   --watch, -w           Monitor for feedback and auto-restart [default: false]

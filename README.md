@@ -75,9 +75,11 @@ bun install -g @deep-assistant/hive-mind
 npm install -g @deep-assistant/hive-mind
 ```
 
-### Docker Installation (Recommended)
+### Docker Installation
 
-Run the Hive Mind using Docker - no manual setup required:
+Run the Hive Mind using Docker for safer local installation - no manual setup required:
+
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes) section below.
 
 ```bash
 # Pull the latest image from Docker Hub
@@ -104,6 +106,33 @@ solve https://github.com/owner/repo/issues/123
 - ✅ Consistent environment across different machines
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
+
+### Helm Installation (Kubernetes)
+
+Deploy Hive Mind on Kubernetes using Helm:
+
+```bash
+# Add the Hive Mind Helm repository
+helm repo add link-assistant https://link-assistant.github.io/hive-mind
+helm repo update
+
+# Install Hive Mind
+helm install hive-mind link-assistant/hive-mind
+
+# Or install with custom values
+helm install hive-mind link-assistant/hive-mind -f values.yaml
+```
+
+**Benefits of Helm:**
+- ✅ Easy deployment to Kubernetes clusters
+- ✅ Declarative configuration management
+- ✅ Simple upgrades and rollbacks
+- ✅ Production-ready with configurable resources
+- ✅ Supports multiple replicas and scaling
+
+See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
+
+**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
 
 ### Installation on Ubuntu 24.04 server
 

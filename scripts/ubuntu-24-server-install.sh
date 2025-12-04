@@ -64,6 +64,20 @@ command_exists() {
   command -v "$1" &>/dev/null
 }
 
+# Run command with sudo only if not root and sudo is available
+maybe_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    # Running as root, execute directly
+    "$@"
+  elif command_exists sudo; then
+    # Not root but sudo available
+    sudo "$@"
+  else
+    # Not root and sudo not available - try directly (will fail if permissions needed)
+    "$@"
+  fi
+}
+
 # --- Pre-flight Checks ---
 log_step "Running pre-flight checks"
 
@@ -138,19 +152,19 @@ apt_update_safe() {
   for f in /etc/apt/sources.list.d/*.list; do
     if [ -f "$f" ] && ! grep -Eq "^deb " "$f"; then
       log_warning "Removing malformed apt source: $f"
-      sudo rm -f "$f"
+      maybe_sudo rm -f "$f"
     fi
   done
-  sudo apt update -y || true
+  maybe_sudo apt update -y || true
 }
 
 # --- Function: cleanup disk ---
 apt_cleanup() {
   log_info "Cleaning up apt cache and temporary files..."
-  sudo apt-get clean
-  sudo apt-get autoclean
-  sudo apt-get autoremove -y
-  sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  maybe_sudo apt-get clean
+  maybe_sudo apt-get autoclean
+  maybe_sudo apt-get autoremove -y
+  maybe_sudo rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
   log_success "Cleanup completed"
 }
 
@@ -184,7 +198,7 @@ create_swap_file() {
       # Activate if not already active
       if ! swapon --show | grep -q "$swapfile"; then
         log_info "Activating $swapfile..."
-        sudo swapon "$swapfile" || true
+        maybe_sudo swapon "$swapfile" || true
       fi
     fi
   done
@@ -228,29 +242,29 @@ create_swap_file() {
   # Create additional swap file
   log_info "Creating ${needed_mb}MB swap file at $new_swapfile..."
   if command -v fallocate >/dev/null 2>&1; then
-    sudo fallocate -l "${needed_mb}M" "$new_swapfile"
+    maybe_sudo fallocate -l "${needed_mb}M" "$new_swapfile"
   else
     # Fallback to dd if fallocate is not available
-    sudo dd if=/dev/zero of="$new_swapfile" bs=1M count="$needed_mb" status=progress
+    maybe_sudo dd if=/dev/zero of="$new_swapfile" bs=1M count="$needed_mb" status=progress
   fi
 
   # Set proper permissions
-  sudo chmod 600 "$new_swapfile"
+  maybe_sudo chmod 600 "$new_swapfile"
 
   # Format as swap
-  sudo mkswap "$new_swapfile"
+  maybe_sudo mkswap "$new_swapfile"
 
   # Enable swap file
-  sudo swapon "$new_swapfile"
+  maybe_sudo swapon "$new_swapfile"
 
   # Make it persistent by adding to /etc/fstab if not already there
   if ! grep -q "$new_swapfile" /etc/fstab; then
     log_info "Adding $new_swapfile to /etc/fstab for persistence..."
     # Ensure we have a backup of fstab
     if [ ! -f /etc/fstab.backup ]; then
-      sudo cp /etc/fstab /etc/fstab.backup
+      maybe_sudo cp /etc/fstab /etc/fstab.backup
     fi
-    echo "$new_swapfile none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null
+    echo "$new_swapfile none swap sw 0 0" | maybe_sudo tee -a /etc/fstab >/dev/null
   fi
 
   # Verify swap is active and show final status
@@ -263,8 +277,8 @@ create_swap_file() {
     # Optimize swappiness for development workload
     if [ "$(cat /proc/sys/vm/swappiness)" -gt 10 ]; then
       log_info "Optimizing swap usage (setting swappiness to 10 for development workload)..."
-      echo "vm.swappiness=10" | sudo tee -a /etc/sysctl.conf >/dev/null
-      sudo sysctl -w vm.swappiness=10 >/dev/null
+      echo "vm.swappiness=10" | maybe_sudo tee -a /etc/sysctl.conf >/dev/null
+      maybe_sudo sysctl -w vm.swappiness=10 >/dev/null
       log_success "Swap settings optimized"
     fi
   else
@@ -278,12 +292,12 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
+maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
 log_success "Essential tools installed"
 
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
-sudo apt install -y \
+maybe_sudo apt install -y \
   libssl-dev \
   zlib1g-dev \
   libbz2-dev \
@@ -303,7 +317,7 @@ log_step "Setting up swap space"
 create_swap_file
 
 # --- Switch to hive user for language tools and gh setup ---
-sudo -i -u hive bash <<'EOF_HIVE'
+maybe_sudo -i -u hive bash <<'EOF_HIVE'
 set -euo pipefail
 
 # Define logging functions for hive user session
@@ -331,19 +345,19 @@ log_step "Installing development tools as hive user"
 if ! command -v gh &>/dev/null; then
   log_info "Installing GitHub CLI..."
   # Use official installation method from GitHub CLI maintainers
-  sudo mkdir -p -m 755 /etc/apt/keyrings
+  maybe_sudo mkdir -p -m 755 /etc/apt/keyrings
   out=$(mktemp)
   wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg
-  cat "$out" | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
-  sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  cat "$out" | maybe_sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+  maybe_sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
   rm -f "$out"
 
-  sudo mkdir -p -m 755 /etc/apt/sources.list.d
+  maybe_sudo mkdir -p -m 755 /etc/apt/sources.list.d
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    | maybe_sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
 
-  sudo apt update -y
-  sudo apt install -y gh
+  maybe_sudo apt update -y
+  maybe_sudo apt install -y gh
   log_success "GitHub CLI installed"
 else
   log_info "GitHub CLI already installed."
@@ -452,7 +466,7 @@ if ! command -v brew &>/dev/null; then
   log_note "Homebrew will be configured for current session and persist after shell restart"
 
   # Install Homebrew prerequisites (if not already installed)
-  sudo apt install -y build-essential procps file || {
+  maybe_sudo apt install -y build-essential procps file || {
     log_warning "Some Homebrew prerequisites may have failed to install."
   }
 
@@ -591,7 +605,7 @@ else
   log_note "Using npx to install Playwright system dependencies..."
 
   # Suppress expected npm exec warning and funding notices
-  sudo env "PATH=$NODE_BIN_DIR:$PATH" "$NPX_PATH" playwright@latest install-deps 2>&1 | \
+  maybe_sudo env "PATH=$NODE_BIN_DIR:$PATH" "$NPX_PATH" playwright@latest install-deps 2>&1 | \
     grep -v "npm warn exec" | \
     grep -v "packages are looking for funding" || {
     log_warning "'npx playwright install-deps' failed. You may need to install deps manually."

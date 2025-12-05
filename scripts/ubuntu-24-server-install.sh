@@ -343,14 +343,21 @@ fi
 
 # --- Setup swap file (skip in Docker) ---
 # Docker containers cannot create swap files due to security restrictions
-# Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit, or running as PID 1 without init
+# Detection methods:
+# 1. DOCKER_BUILD=1 environment variable (most reliable, passed from Dockerfile)
+# 2. /.dockerenv file (exists in container runtime, not during build)
+# 3. /proc/1/cgroup containing docker/buildkit
+# 4. /run/systemd/container file containing "docker" (modern Docker)
 is_docker=false
-if [ -f /.dockerenv ]; then
+if [ "${DOCKER_BUILD:-}" = "1" ]; then
+  # Explicit Docker build environment indicator (passed from Dockerfile RUN)
   is_docker=true
-elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
+  log_note "Docker build environment detected via DOCKER_BUILD variable"
+elif [ -f /.dockerenv ]; then
   is_docker=true
-elif [ "$$" = "1" ] && [ ! -d /proc/1/root/proc ]; then
-  # Running as PID 1 without a full init system (likely Docker)
+elif grep -qE 'docker|buildkit|containerd' /proc/1/cgroup 2>/dev/null; then
+  is_docker=true
+elif [ -f /run/systemd/container ] && grep -qE '^docker$' /run/systemd/container 2>/dev/null; then
   is_docker=true
 fi
 
@@ -360,6 +367,32 @@ if [ "$is_docker" = true ]; then
 else
   log_step "Setting up swap space"
   create_swap_file
+fi
+
+# --- Prepare Homebrew directory in Docker environment ---
+# Homebrew's installer has strict permission checks that fail in Docker
+# Pre-create the directory with proper ownership before running the installer
+if [ "$is_docker" = true ]; then
+  log_step "Preparing Homebrew installation directory for Docker"
+
+  if [ ! -d /home/linuxbrew/.linuxbrew ]; then
+    log_info "Creating /home/linuxbrew/.linuxbrew directory"
+    maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
+
+    # Set ownership to hive user
+    if id "hive" &>/dev/null; then
+      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
+      log_success "Homebrew directory created and owned by hive user"
+    else
+      log_warning "hive user not found, directory created but ownership not set"
+    fi
+  else
+    log_info "Homebrew directory already exists"
+    # Ensure proper ownership
+    if id "hive" &>/dev/null; then
+      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
+    fi
+  fi
 fi
 
 # --- Switch to hive user for language tools and gh setup ---
@@ -490,87 +523,159 @@ if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
   log_note "Homebrew will be configured for current session and persist after shell restart"
 
-  # Install Homebrew prerequisites (if not already installed)
-  maybe_sudo apt install -y build-essential procps file || {
-    log_warning "Some Homebrew prerequisites may have failed to install."
-  }
+  # Check if directory was pre-created (happens in Docker environments)
+  if [ -d /home/linuxbrew/.linuxbrew ]; then
+    log_note "Homebrew directory already exists (pre-created for Docker compatibility)"
+  fi
 
-  # Run Homebrew installation script (suppress expected PATH warning)
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 2>&1 | \
-    grep -v "Warning.*not in your PATH" || {
-    log_warning "Homebrew installation failed. Skipping PHP setup."
-  }
+  # Run Homebrew installation script with error detection
+  log_info "Running Homebrew installer..."
 
-  # Add Homebrew to PATH
-  if [[ -d /home/linuxbrew/.linuxbrew ]]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.bashrc"
-    log_success "Homebrew installed at /home/linuxbrew/.linuxbrew"
-  elif [[ -d "$HOME/.linuxbrew" ]]; then
-    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
-    echo 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    echo 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.bashrc"
-    log_success "Homebrew installed at $HOME/.linuxbrew"
+  # Capture output and exit code separately
+  BREW_INSTALL_OUTPUT=$(NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 2>&1) || BREW_EXIT_CODE=$?
+  BREW_EXIT_CODE=${BREW_EXIT_CODE:-0}
+
+  # Check for critical errors in output
+  if echo "$BREW_INSTALL_OUTPUT" | grep -qi "insufficient permissions\|permission denied\|failed"; then
+    log_error "Homebrew installation encountered errors:"
+    echo "$BREW_INSTALL_OUTPUT" | grep -i "error\|insufficient\|permission\|failed" || true
+    log_warning "Homebrew installation may have failed. Checking if installation succeeded anyway..."
+  fi
+
+  # Verify Homebrew was actually installed by checking for the binary
+  BREW_INSTALLED=false
+  if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    BREW_INSTALLED=true
+    BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+  elif [[ -x "$HOME/.linuxbrew/bin/brew" ]]; then
+    BREW_INSTALLED=true
+    BREW_PREFIX="$HOME/.linuxbrew"
+  fi
+
+  if [ "$BREW_INSTALLED" = true ]; then
+    log_success "Homebrew successfully installed at $BREW_PREFIX"
+
+    # Evaluate shellenv for current session
+    eval "$($BREW_PREFIX/bin/brew shellenv)"
+
+    # Add to shell configuration files for persistence
+    if ! grep -q "$BREW_PREFIX/bin/brew shellenv" "$HOME/.profile" 2>/dev/null; then
+      echo "eval \"\$($BREW_PREFIX/bin/brew shellenv)\"" >> "$HOME/.profile"
+    fi
+    if ! grep -q "$BREW_PREFIX/bin/brew shellenv" "$HOME/.bashrc" 2>/dev/null; then
+      echo "eval \"\$($BREW_PREFIX/bin/brew shellenv)\"" >> "$HOME/.bashrc"
+    fi
+
+    # Verify brew command is accessible
+    if command -v brew &>/dev/null; then
+      BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version check failed")
+      log_success "Homebrew ready: $BREW_VERSION"
+    else
+      log_warning "Homebrew installed but not yet in PATH for current session"
+      log_note "Will be available after: source ~/.bashrc"
+    fi
   else
-    log_warning "Homebrew installation directory not found."
+    log_error "Homebrew installation failed - binary not found"
+    log_note "PHP installation will be skipped"
+    log_note "Check installation log above for errors"
   fi
 else
   log_info "Homebrew already installed."
+  # Ensure Homebrew is loaded in current session
   eval "$(brew shellenv 2>/dev/null)" || true
-fi
 
-# Verify Homebrew is accessible
-if command -v brew &>/dev/null; then
-  log_success "Homebrew ready for current session"
-else
-  log_warning "Homebrew not accessible in current session - PHP installation may fail"
+  # Verify it's accessible
+  if command -v brew &>/dev/null; then
+    BREW_VERSION=$(brew --version 2>/dev/null | head -n 1 || echo "version unknown")
+    log_success "Homebrew ready: $BREW_VERSION"
+  fi
 fi
 
 # --- PHP (via Homebrew + shivammathur/php tap) ---
 if command -v brew &>/dev/null; then
   # Check if PHP is already installed via Homebrew
-  if ! brew list | grep -q "shivammathur/php/php@"; then
+  if ! brew list 2>/dev/null | grep -q "shivammathur/php/php@"; then
     log_info "Installing PHP via Homebrew..."
 
     # Add shivammathur/php tap
-    brew tap shivammathur/php || {
-      log_warning "Failed to add shivammathur/php tap. Skipping PHP installation."
-    }
+    if ! brew tap | grep -q "shivammathur/php"; then
+      log_info "Adding shivammathur/php tap..."
+      brew tap shivammathur/php || {
+        log_warning "Failed to add shivammathur/php tap. Skipping PHP installation."
+      }
+    else
+      log_info "shivammathur/php tap already added."
+    fi
 
-    # Install PHP 8.3
+    # Install PHP 8.3 if tap was successfully added
     if brew tap | grep -q "shivammathur/php"; then
       log_info "Installing PHP 8.3 (this may take several minutes)..."
       brew install shivammathur/php/php@8.3 || {
         log_warning "PHP 8.3 installation failed."
       }
 
-      # Link PHP 8.3 as the active version
-      if brew list | grep -q "shivammathur/php/php@8.3"; then
+      # Link PHP 8.3 as the active version if installation succeeded
+      if brew list 2>/dev/null | grep -q "shivammathur/php/php@8.3"; then
         log_info "Linking PHP 8.3 as the active version..."
         brew link --overwrite --force shivammathur/php/php@8.3 2>&1 | grep -v "Warning" || true
 
-        # Explicitly add PHP to PATH for current session
-        # This is necessary because PHP is keg-only and may not be symlinked by default
-        export PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:$PATH"
-        export PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:$PATH"
+        # Determine the correct Homebrew prefix (system-wide or user-local)
+        BREW_PREFIX=""
+        if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+          BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+        elif [[ -d "$HOME/.linuxbrew" ]]; then
+          BREW_PREFIX="$HOME/.linuxbrew"
+        else
+          # Fallback: try to get it from brew itself
+          BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
+        fi
 
-        log_success "PHP paths added to current session"
+        # Explicitly add PHP to PATH for current session
+        # PHP is keg-only and won't be in PATH unless we add it explicitly
+        if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
+          export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
+          export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+          log_success "PHP paths added to current session"
+
+          # Add PHP to PATH in shell configuration for future sessions
+          if ! grep -q "php@8.3/bin" "$HOME/.bashrc" 2>/dev/null; then
+            cat >> "$HOME/.bashrc" << 'PHP_PATH_EOF'
+
+# PHP 8.3 PATH configuration
+export PATH="$(brew --prefix)/opt/php@8.3/bin:$PATH"
+export PATH="$(brew --prefix)/opt/php@8.3/sbin:$PATH"
+PHP_PATH_EOF
+            log_info "PHP paths added to .bashrc for future sessions"
+          fi
+        else
+          log_warning "Could not determine Homebrew prefix for PHP PATH configuration"
+        fi
 
         # Verify PHP installation in current session
         if command -v php &>/dev/null; then
-          log_success "PHP installed: $(php --version | head -n 1)"
+          PHP_VERSION=$(php --version 2>/dev/null | head -n 1 || echo "unknown version")
+          log_success "PHP installed and available: $PHP_VERSION"
         else
-          log_warning "PHP installed but not immediately available in PATH"
-          log_note "PHP binary location: /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php"
-          log_note "PHP will be available in new shell sessions via .bashrc configuration"
+          # Check if binary exists but is not in PATH
+          if [[ -n "$BREW_PREFIX" && -x "$BREW_PREFIX/opt/php@8.3/bin/php" ]]; then
+            PHP_VERSION=$("$BREW_PREFIX/opt/php@8.3/bin/php" --version 2>/dev/null | head -n 1 || echo "unknown version")
+            log_warning "PHP installed but not immediately available in PATH"
+            log_note "PHP version: $PHP_VERSION"
+            log_note "PHP binary location: $BREW_PREFIX/opt/php@8.3/bin/php"
+            log_note "PHP will be available after shell restart or: source ~/.bashrc"
+          else
+            log_warning "PHP installation could not be verified"
+          fi
         fi
+      else
+        log_warning "PHP 8.3 installation appears to have failed - not found in brew list"
       fi
     fi
 
     # Create a helper function for switching PHP versions
-    log_info "Adding switch-php helper function to bashrc..."
-    cat >> "$HOME/.bashrc" << 'PHP_SWITCH_EOF'
+    if ! grep -q "switch-php()" "$HOME/.bashrc" 2>/dev/null; then
+      log_info "Adding switch-php helper function to .bashrc..."
+      cat >> "$HOME/.bashrc" << 'PHP_SWITCH_EOF'
 
 # PHP version switcher function
 switch-php() {
@@ -590,9 +695,20 @@ switch-php() {
     echo "Switched to PHP $(php --version | head -n 1)"
 }
 PHP_SWITCH_EOF
+      log_success "switch-php helper function added to .bashrc"
+    else
+      log_info "switch-php function already exists in .bashrc"
+    fi
 
   else
     log_info "PHP already installed via Homebrew."
+    # Ensure PHP is in PATH even if already installed
+    eval "$(brew shellenv 2>/dev/null)" || true
+    BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
+    if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
+      export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
+      export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+    fi
   fi
 else
   log_warning "Homebrew not available. Skipping PHP installation."
@@ -761,15 +877,34 @@ if command -v python &>/dev/null; then log_success "Python: $(python --version)"
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
-if command -v brew &>/dev/null; then log_success "Homebrew: $(brew --version | head -n1)"; else log_warning "Homebrew: not found"; fi
-if command -v php &>/dev/null; then
-  log_success "PHP: $(php --version | head -n1)"
-elif [ -x "/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php" ]; then
-  log_warning "PHP: installed but not in current PATH"
-  log_note "PHP version: $(/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1)"
-  log_note "PHP will be available after shell restart or: source ~/.bashrc"
+if command -v brew &>/dev/null; then
+  BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")
+  log_success "Homebrew: $BREW_VERSION"
 else
-  log_warning "PHP: not found"
+  log_warning "Homebrew: not found"
+fi
+
+if command -v php &>/dev/null; then
+  PHP_VERSION=$(php --version 2>/dev/null | head -n1 || echo "unknown version")
+  log_success "PHP: $PHP_VERSION"
+else
+  # Try to find PHP in common Homebrew locations
+  PHP_FOUND=false
+  for PHP_PATH in "/home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php" "$HOME/.linuxbrew/opt/php@8.3/bin/php"; do
+    if [ -x "$PHP_PATH" ]; then
+      PHP_VERSION=$("$PHP_PATH" --version 2>/dev/null | head -n1 || echo "unknown version")
+      log_warning "PHP: installed but not in current PATH"
+      log_note "PHP version: $PHP_VERSION"
+      log_note "PHP binary location: $PHP_PATH"
+      log_note "PHP will be available after shell restart or: source ~/.bashrc"
+      PHP_FOUND=true
+      break
+    fi
+  done
+
+  if [ "$PHP_FOUND" = false ]; then
+    log_warning "PHP: not found"
+  fi
 fi
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
 

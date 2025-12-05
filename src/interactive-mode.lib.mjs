@@ -273,7 +273,8 @@ export const createInteractiveHandler = (options) => {
 
       // Extract comment ID from the result (gh outputs the comment URL)
       // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
-      const output = result.stdout || result.toString() || '';
+      // Note: command-stream returns stdout as a Buffer, so we need to call .toString()
+      const output = result.stdout?.toString() || result.toString() || '';
       const match = output.match(/issuecomment-(\d+)/);
       const commentId = match ? match[1] : null;
 

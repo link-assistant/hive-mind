@@ -707,7 +707,33 @@ procinfo 62220
 
 ## Maintenance
 
-Close all screens to free up RAM.
+### Reboot server.
+
+```
+sudo reboot
+```
+
+That will remove all dangling unused proccesses and screens, which will in turn free the RAM and reduce CPU load.
+
+### Cleanup disk space.
+
+```
+df -h
+
+rm -rf /tmp
+
+df -h
+```
+
+These commands should be executed under `hive` user. If you have accidentally removed the `/tmp` folder itself under `root` user, you will need to restore it like this:
+
+```bash
+sudo mkdir -p /tmp
+sudo chown root:root /tmp
+sudo chmod 1777 /tmp
+```
+
+### Close all screens to free up RAM
 
 ```bash
 # close all (Attached or Detached) sessions
@@ -721,29 +747,7 @@ screen -wipe
 screen -ls
 ```
 
-Cleanup disk space.
-
-```
-df -h
-
-rm -rf /tmp
-
-df -h
-```
-
-If you accedently remove the /tmp folder itself under root user, you will need to restore it like this:
-
-```bash
-sudo mkdir -p /tmp
-sudo chown root:root /tmp
-sudo chmod 1777 /tmp
-```
-
-Reboot server.
-
-```
-sudo reboot
-```
+That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License
 

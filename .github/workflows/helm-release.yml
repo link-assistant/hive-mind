@@ -42,28 +42,63 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Package version: $VERSION"
 
-      - name: Update Chart appVersion
+      - name: Update Chart versions
+        id: chart-version
         run: |
-          VERSION="${{ steps.package-version.outputs.version }}"
-          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" helm/hive-mind/Chart.yaml
-          echo "Updated Chart.yaml appVersion to $VERSION"
+          APP_VERSION="${{ steps.package-version.outputs.version }}"
+
+          # Update appVersion to match package.json version
+          sed -i "s/^appVersion: .*/appVersion: \"$APP_VERSION\"/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml appVersion to $APP_VERSION"
+
+          # Sync chart version with app version for consistency
+          # This ensures a new release is created when appVersion changes
+          sed -i "s/^version: .*/version: $APP_VERSION/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml version to $APP_VERSION"
+
+          echo "chart_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
+          # Show the updated Chart.yaml
+          echo "=== Updated Chart.yaml ==="
+          cat helm/hive-mind/Chart.yaml
 
       - name: Lint Helm chart
         run: |
           helm lint helm/hive-mind
 
-      - name: Package Helm chart
+      - name: Ensure gh-pages branch exists
         run: |
-          mkdir -p .cr-release-packages
-          helm package helm/hive-mind -d .cr-release-packages
+          # Check if gh-pages branch exists on remote
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "gh-pages branch does not exist. Creating it..."
+
+            # Create an orphan branch (no history)
+            git checkout --orphan gh-pages
+
+            # Remove all files from staging
+            git reset --hard
+
+            # Create initial commit
+            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
+
+            # Push the new branch to remote
+            git push origin gh-pages
+
+            # Switch back to the original branch
+            git checkout -
+
+            echo "gh-pages branch created successfully"
+          else
+            echo "gh-pages branch already exists"
+          fi
 
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@v1.7.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           charts_dir: helm
-          skip_packaging: true
+          skip_existing: true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

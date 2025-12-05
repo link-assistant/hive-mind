@@ -122,12 +122,15 @@ ${content}
 
 /**
  * Create a collapsible raw JSON section
+ * Always wraps data in an array for consistent merging
  *
- * @param {Object} data - JSON data to display
+ * @param {Object|Array} data - JSON data to display (will be wrapped in array if not already)
  * @returns {string} Collapsible JSON block
  */
 const createRawJsonSection = (data) => {
-  const jsonContent = truncateMiddle(safeJsonStringify(data, 2), {
+  // Ensure data is always an array at root level for easier merging
+  const dataArray = Array.isArray(data) ? data : [data];
+  const jsonContent = truncateMiddle(safeJsonStringify(dataArray, 2), {
     maxLines: 100,
     keepStart: 40,
     keepEnd: 40
@@ -231,12 +234,16 @@ export const createInteractiveHandler = (options) => {
     lastCommentTime: 0,
     commentQueue: [],
     isProcessing: false,
-    startTime: Date.now()
+    startTime: Date.now(),
+    // Track pending tool calls for merging with results
+    // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon }
+    pendingToolCalls: new Map()
   };
 
   /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
+   * @returns {Promise<string|null>} Comment ID if successful, null otherwise
    * @private
    */
   const postComment = async (body) => {
@@ -244,31 +251,70 @@ export const createInteractiveHandler = (options) => {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
       }
-      return;
+      return null;
     }
 
     const now = Date.now();
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
-      // Queue the comment for later
+      // Queue the comment for later - queued comments don't get IDs
       state.commentQueue.push(body);
       if (verbose) {
         await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)`, { verbose: true });
       }
-      return;
+      return null;
     }
 
     try {
-      await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
+      // Post comment and capture the output to get the comment URL/ID
+      const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
       state.lastCommentTime = Date.now();
+
+      // Extract comment ID from the result (gh outputs the comment URL)
+      // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
+      const output = result.stdout || result.toString() || '';
+      const match = output.match(/issuecomment-(\d+)/);
+      const commentId = match ? match[1] : null;
+
       if (verbose) {
-        await log('✅ Interactive mode: Comment posted', { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''}`, { verbose: true });
       }
+      return commentId;
     } catch (error) {
       if (verbose) {
         await log(`⚠️ Interactive mode: Failed to post comment: ${error.message}`, { verbose: true });
       }
+      return null;
+    }
+  };
+
+  /**
+   * Edit an existing comment on the PR
+   * @param {string} commentId - Comment ID to edit
+   * @param {string} body - New comment body
+   * @returns {Promise<boolean>} True if successful
+   * @private
+   */
+  const editComment = async (commentId, body) => {
+    if (!prNumber || !owner || !repo || !commentId) {
+      if (verbose) {
+        await log('⚠️ Interactive mode: Cannot edit comment - missing info', { verbose: true });
+      }
+      return false;
+    }
+
+    try {
+      await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+      if (verbose) {
+        await log(`✅ Interactive mode: Comment ${commentId} updated`, { verbose: true });
+      }
+      return true;
+    } catch (error) {
+      if (verbose) {
+        await log(`⚠️ Interactive mode: Failed to edit comment: ${error.message}`, { verbose: true });
+      }
+      return false;
     }
   };
 
@@ -314,13 +360,37 @@ export const createInteractiveHandler = (options) => {
       ? tools.map(t => `\`${t}\``).join(', ')
       : '_No tools available_';
 
-    const comment = `## 🚀 Session Started
+    // Format MCP servers
+    const mcpServers = data.mcp_servers || [];
+    const mcpServersList = mcpServers.length > 0
+      ? mcpServers.map(s => `\`${s.name}\` (${s.status || 'unknown'})`).join(', ')
+      : '_None_';
+
+    // Format slash commands
+    const slashCommands = data.slash_commands || [];
+    const slashCommandsList = slashCommands.length > 0
+      ? slashCommands.map(c => `\`/${c}\``).join(', ')
+      : '_None_';
+
+    // Format agents
+    const agents = data.agents || [];
+    const agentsList = agents.length > 0
+      ? agents.map(a => `\`${a}\``).join(', ')
+      : '_None_';
+
+    const comment = `## 🚀 Interactive session started
 
 | Property | Value |
 |----------|-------|
 | **Session ID** | \`${data.session_id || 'unknown'}\` |
+| **Model** | \`${data.model || 'unknown'}\` |
+| **Claude Code Version** | \`${data.claude_code_version || 'unknown'}\` |
+| **Permission Mode** | \`${data.permissionMode || 'unknown'}\` |
 | **Working Directory** | \`${data.cwd || 'unknown'}\` |
 | **Available Tools** | ${toolsList} |
+| **MCP Servers** | ${mcpServersList} |
+| **Slash Commands** | ${slashCommandsList} |
+| **Agents** | ${agentsList} |
 
 ---
 
@@ -348,16 +418,8 @@ ${createRawJsonSection(data)}`;
       keepEnd: 35
     });
 
-    // Extract usage info if available
-    const usage = data.message?.usage;
-    let usageInfo = '';
-    if (usage) {
-      usageInfo = `\n\n---\n_Tokens: ${usage.input_tokens || 0} in / ${usage.output_tokens || 0} out_`;
-    }
-
-    const comment = `## 💬 Assistant Response
-
-${displayText}${usageInfo}
+    // Simple format: just the message and collapsed Raw JSON
+    const comment = `${displayText}
 
 ---
 
@@ -432,10 +494,33 @@ ${createRawJsonSection(data)}`;
     } else if (toolName === 'WebSearch' && input.query) {
       inputDisplay = `**Query:** ${input.query}`;
     } else if (toolName === 'TodoWrite' && input.todos) {
-      const todosPreview = input.todos.slice(0, 5).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`).join('\n');
+      // Show up to 30 todos, skip items in the middle if more
+      const MAX_TODOS_DISPLAY = 30;
+      const todos = input.todos;
+      let todosPreview;
+
+      if (todos.length <= MAX_TODOS_DISPLAY) {
+        // Show all todos if 30 or fewer
+        todosPreview = todos.map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`).join('\n');
+      } else {
+        // Show first 15, "...and N more" in middle, then last 15
+        const KEEP_START = 15;
+        const KEEP_END = 15;
+        const skipped = todos.length - KEEP_START - KEEP_END;
+
+        const startTodos = todos.slice(0, KEEP_START).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
+        const endTodos = todos.slice(-KEEP_END).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
+
+        todosPreview = [
+          ...startTodos,
+          `- _...and ${skipped} more_`,
+          ...endTodos
+        ].join('\n');
+      }
+
       inputDisplay = createCollapsible(
-        `📋 Todos (${input.todos.length} items)`,
-        todosPreview + (input.todos.length > 5 ? `\n- _...and ${input.todos.length - 5} more_` : ''),
+        `📋 Todos (${todos.length} items)`,
+        todosPreview,
         true
       );
     } else if (toolName === 'Task') {
@@ -457,17 +542,29 @@ ${createRawJsonSection(data)}`;
       );
     }
 
-    const comment = `## ${toolIcon} Tool: ${toolName}
-
-**Tool ID:** \`${toolId}\`
+    // Post the tool use comment and store info for merging with result later
+    const comment = `## ${toolIcon} Tool use: ${toolName}
 
 ${inputDisplay}
+
+_⏳ Waiting for result..._
 
 ---
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    const commentId = await postComment(comment);
+
+    // Store pending tool call info for merging when result arrives
+    if (commentId) {
+      state.pendingToolCalls.set(toolId, {
+        commentId,
+        toolData: data,
+        inputDisplay,
+        toolName,
+        toolIcon
+      });
+    }
 
     if (verbose) {
       await log(`🔧 Interactive mode: Tool use - ${toolName}`, { verbose: true });
@@ -506,9 +603,45 @@ ${createRawJsonSection(data)}`;
       keepEnd: 25
     });
 
-    const comment = `## ${statusIcon} Tool Result: ${statusText}
+    // Check if we have a pending tool call to merge with
+    const pendingCall = state.pendingToolCalls.get(toolUseId);
 
-**Tool Use ID:** \`${toolUseId}\`
+    if (pendingCall) {
+      // Merge tool call and result into single comment
+      const { commentId, toolData, inputDisplay, toolName, toolIcon } = pendingCall;
+
+      // Create merged comment with both call and result
+      const mergedComment = `## ${toolIcon} Tool use: ${toolName} ${statusIcon}
+
+${inputDisplay}
+
+### Result: ${statusText}
+
+${createCollapsible(
+  '📤 Output',
+  '```\n' + escapeMarkdown(truncatedContent) + '\n```',
+  true
+)}
+
+---
+
+${createRawJsonSection([toolData, data])}`;
+
+      // Edit the existing comment
+      const editSuccess = await editComment(commentId, mergedComment);
+
+      if (editSuccess) {
+        state.pendingToolCalls.delete(toolUseId);
+        if (verbose) {
+          await log(`📋 Interactive mode: Tool result merged (${content.length} chars)`, { verbose: true });
+        }
+        return;
+      }
+      // If edit failed, fall through to posting new comment
+    }
+
+    // Post as new comment if no pending call or edit failed
+    const comment = `## ${statusIcon} Tool result: ${statusText}
 
 ${createCollapsible(
   '📤 Output',

@@ -694,16 +694,23 @@ fi
 if command -v claude &>/dev/null; then
   # Check if playwright MCP is already configured
   if claude mcp list 2>/dev/null | grep -q "playwright"; then
-    log_info "Playwright MCP already configured in Claude CLI"
-  else
-    # Add the playwright MCP server to Claude CLI configuration with user scope
-    # Using -s user ensures it's available for all tasks in all folders
-    log_info "Adding Playwright MCP to Claude CLI configuration (user scope)..."
-    claude mcp add playwright -s user -- npx -y @playwright/mcp@latest 2>/dev/null || {
-      log_warning "Could not add Playwright MCP to Claude CLI."
-      log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
-    }
+    log_info "Playwright MCP already configured in Claude CLI, removing old configuration..."
+    claude mcp remove playwright 2>/dev/null || log_warning "Could not remove old Playwright MCP configuration"
   fi
+
+  # Add the playwright MCP server to Claude CLI configuration with user scope
+  # Using -s user ensures it's available for all tasks in all folders
+  # Configuration flags:
+  # - @latest: Use latest version (currently 0.0.49)
+  # - --isolated: Ephemeral browser contexts (prevents memory leaks)
+  # - --headless: Reduces UI memory overhead
+  # - --no-sandbox: Required for server/container environments
+  # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
+  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 2>/dev/null || {
+    log_warning "Could not add Playwright MCP to Claude CLI."
+    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+  }
 
   # Verify the configuration
   if claude mcp get playwright 2>/dev/null | grep -q "playwright"; then
@@ -713,7 +720,7 @@ if command -v claude &>/dev/null; then
   fi
 else
   log_warning "Claude CLI is not available. Skipping MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
+  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
 fi
 
 # --- Git setup with GitHub identity (only if authenticated) ---

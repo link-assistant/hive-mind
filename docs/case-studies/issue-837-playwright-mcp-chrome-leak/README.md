@@ -46,6 +46,15 @@ The Playwright MCP server used with Claude Code tools exhibits a significant res
 - Configuration recommendations
 - Monitoring strategies
 
+### [04-CLAUDE-PLAYWRIGHT-MCP-CONFIGURATION.md](./04-CLAUDE-PLAYWRIGHT-MCP-CONFIGURATION.md)
+**Claude Code specific Playwright MCP configuration guide**
+- Installation methods (`claude mcp add`)
+- Configuration options and flags
+- Recommended configurations for memory leak prevention
+- Version management and pinning
+- Troubleshooting common issues
+- Complete configuration examples
+
 ### [screenshot-resource-usage.png](./screenshot-resource-usage.png)
 **Evidence screenshot from the issue**
 - System `top` output showing Chrome process accumulation
@@ -86,6 +95,17 @@ The Playwright MCP server used with Claude Code tools exhibits a significant res
 - [anthropics/claude-code#1383](https://github.com/anthropics/claude-code/issues/1383) - Playwright MCP frequently fails
 
 ## Proposed Solutions
+
+### 0. Configure Claude Code with Isolated Mode (HIGHEST PRIORITY)
+**For Claude Code users**, reconfigure Playwright MCP with memory-safe settings:
+```bash
+# Remove existing configuration
+claude mcp remove playwright
+
+# Add with isolated mode and pinned version
+claude mcp add playwright -- npx @playwright/mcp@0.0.49 --isolated --headless
+```
+See [04-CLAUDE-PLAYWRIGHT-MCP-CONFIGURATION.md](./04-CLAUDE-PLAYWRIGHT-MCP-CONFIGURATION.md) for detailed configuration options.
 
 ### 1. Use Isolated Mode (IMMEDIATE)
 Run Playwright MCP with `--isolated` flag to create ephemeral browser contexts:

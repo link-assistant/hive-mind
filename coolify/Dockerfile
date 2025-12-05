@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     build-essential \
     python3 \
+    expect \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

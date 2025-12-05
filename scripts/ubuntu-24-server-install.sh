@@ -389,14 +389,12 @@ log_step() { echo -e "\n${GREEN}==>${NC} ${BLUE}$1${NC}\n"; }
 
 log_step "Installing development tools as hive user"
 
-# --- Check GitHub authentication status (non-interactive) ---
-# Note: GitHub CLI is already installed system-wide
-if ! gh auth status &>/dev/null; then
-  log_warning "GitHub CLI is not authenticated"
-  log_note "After installation, run: gh auth login -h github.com -s repo,workflow,user,read:org,gist"
-else
-  log_success "GitHub CLI is already authenticated"
-fi
+# --- GitHub CLI Authentication Note ---
+# Note: GitHub CLI is already installed system-wide.
+# Authentication should be performed AFTER the Docker image is installed,
+# especially when running in Docker to avoid build timeouts.
+# To authenticate after installation, run:
+#   gh auth login -h github.com -s repo,workflow,user,read:org,gist
 
 # --- Bun ---
 if ! command -v bun &>/dev/null; then
@@ -694,16 +692,23 @@ fi
 if command -v claude &>/dev/null; then
   # Check if playwright MCP is already configured
   if claude mcp list 2>/dev/null | grep -q "playwright"; then
-    log_info "Playwright MCP already configured in Claude CLI"
-  else
-    # Add the playwright MCP server to Claude CLI configuration with user scope
-    # Using -s user ensures it's available for all tasks in all folders
-    log_info "Adding Playwright MCP to Claude CLI configuration (user scope)..."
-    claude mcp add playwright -s user -- npx -y @playwright/mcp@latest 2>/dev/null || {
-      log_warning "Could not add Playwright MCP to Claude CLI."
-      log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
-    }
+    log_info "Playwright MCP already configured in Claude CLI, removing old configuration..."
+    claude mcp remove playwright 2>/dev/null || log_warning "Could not remove old Playwright MCP configuration"
   fi
+
+  # Add the playwright MCP server to Claude CLI configuration with user scope
+  # Using -s user ensures it's available for all tasks in all folders
+  # Configuration flags:
+  # - @latest: Use latest version (currently 0.0.49)
+  # - --isolated: Ephemeral browser contexts (prevents memory leaks)
+  # - --headless: Reduces UI memory overhead
+  # - --no-sandbox: Required for server/container environments
+  # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
+  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 2>/dev/null || {
+    log_warning "Could not add Playwright MCP to Claude CLI."
+    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+  }
 
   # Verify the configuration
   if claude mcp get playwright 2>/dev/null | grep -q "playwright"; then
@@ -713,7 +718,7 @@ if command -v claude &>/dev/null; then
   fi
 else
   log_warning "Claude CLI is not available. Skipping MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest"
+  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
 fi
 
 # --- Git setup with GitHub identity (only if authenticated) ---
@@ -776,17 +781,17 @@ fi
 
 echo ""
 echo "GitHub Authentication:"
-if gh auth status &>/dev/null; then
-  log_success "GitHub CLI authenticated"
-else
-  log_warning "GitHub CLI not authenticated - run 'gh auth login'"
-fi
+log_note "GitHub CLI is installed but not authenticated during setup"
+log_note "This is intentional to support Docker builds without timeouts"
+log_note "After installation, authenticate with: gh auth login -h github.com -s repo,workflow,user,read:org,gist"
 
 echo ""
 echo "Next Steps:"
-log_note "1. Restart your shell or run: source ~/.bashrc"
-log_note "2. Verify installations with: <tool> --version"
-log_note "3. Navigate to ~/hive-mind to start working"
+log_note "1. Authenticate with GitHub: gh auth login -h github.com -s repo,workflow,user,read:org,gist"
+log_note "2. Authenticate with Claude: Run 'claude' command and follow the prompts"
+log_note "3. Restart your shell or run: source ~/.bashrc"
+log_note "4. Verify installations with: <tool> --version"
+log_note "5. Navigate to ~/hive-mind to start working"
 
 echo ""
 

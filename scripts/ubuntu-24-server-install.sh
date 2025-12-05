@@ -658,17 +658,21 @@ if command -v brew &>/dev/null; then
         # Explicitly add PHP to PATH for current session
         # PHP is keg-only and won't be in PATH unless we add it explicitly
         if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
-          export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
-          export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+          # Add to beginning of PATH to ensure it takes precedence
+          export PATH="$BREW_PREFIX/opt/php@8.3/bin:$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+
+          # Rehash the command cache to ensure bash picks up the new PHP binary
+          hash -r 2>/dev/null || true
+
           log_success "PHP paths added to current session"
+          log_note "Current PATH includes: $BREW_PREFIX/opt/php@8.3/bin"
 
           # Add PHP to PATH in shell configuration for future sessions
           if ! grep -q "php@8.3/bin" "$HOME/.bashrc" 2>/dev/null; then
             cat >> "$HOME/.bashrc" << 'PHP_PATH_EOF'
 
 # PHP 8.3 PATH configuration
-export PATH="$(brew --prefix)/opt/php@8.3/bin:$PATH"
-export PATH="$(brew --prefix)/opt/php@8.3/sbin:$PATH"
+export PATH="$(brew --prefix)/opt/php@8.3/bin:$(brew --prefix)/opt/php@8.3/sbin:$PATH"
 PHP_PATH_EOF
             log_info "PHP paths added to .bashrc for future sessions"
           fi
@@ -731,8 +735,13 @@ PHP_SWITCH_EOF
     eval "$(brew shellenv 2>/dev/null)" || true
     BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
     if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
-      export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
-      export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+      # Add to beginning of PATH to ensure it takes precedence
+      export PATH="$BREW_PREFIX/opt/php@8.3/bin:$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+
+      # Rehash the command cache to ensure bash picks up the PHP binary
+      hash -r 2>/dev/null || true
+
+      log_note "PHP paths added to current session"
     fi
   fi
 else

@@ -490,55 +490,102 @@ if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
   log_note "Homebrew will be configured for current session and persist after shell restart"
 
-  # Run Homebrew installation script (suppress expected PATH warning)
-  # NONINTERACTIVE=1 prevents prompts during installation
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 2>&1 | \
-    grep -v "Warning.*not in your PATH" || {
-    log_warning "Homebrew installation script completed with warnings (may be expected)"
-  }
+  # Detect if running in Docker environment
+  # Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit
+  is_docker_env=false
+  if [ -f /.dockerenv ]; then
+    is_docker_env=true
+  elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
+    is_docker_env=true
+  fi
 
-  # Add Homebrew to PATH for current session and future sessions
-  if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+  # In Docker environment running as root or via root-owned script, pre-create directory
+  # This is required because Homebrew's installer checks permissions before creating the directory
+  if [ "$is_docker_env" = true ]; then
+    log_note "Docker environment detected - preparing Homebrew directory structure"
+
+    # Determine which user will own Homebrew (hive user or current user)
+    BREW_OWNER="hive"
+    if [ "$EUID" -ne 0 ]; then
+      BREW_OWNER="$USER"
+    fi
+
+    # Create the directory structure with proper ownership
+    if [ ! -d /home/linuxbrew/.linuxbrew ]; then
+      log_info "Creating /home/linuxbrew/.linuxbrew directory"
+      maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
+
+      # Set ownership to hive user (or current user if not root)
+      if id "$BREW_OWNER" &>/dev/null; then
+        maybe_sudo chown -R "$BREW_OWNER:$BREW_OWNER" /home/linuxbrew/.linuxbrew
+        log_success "Homebrew directory created and owned by $BREW_OWNER"
+      else
+        log_warning "User $BREW_OWNER not found, directory created but ownership not set"
+      fi
+    fi
+  fi
+
+  # Run Homebrew installation script with error detection
+  log_info "Running Homebrew installer..."
+
+  # Capture output and exit code separately
+  BREW_INSTALL_OUTPUT=$(NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 2>&1) || BREW_EXIT_CODE=$?
+  BREW_EXIT_CODE=${BREW_EXIT_CODE:-0}
+
+  # Check for critical errors in output
+  if echo "$BREW_INSTALL_OUTPUT" | grep -qi "insufficient permissions\|permission denied\|failed"; then
+    log_error "Homebrew installation encountered errors:"
+    echo "$BREW_INSTALL_OUTPUT" | grep -i "error\|insufficient\|permission\|failed" || true
+    log_warning "Homebrew installation may have failed. Checking if installation succeeded anyway..."
+  fi
+
+  # Verify Homebrew was actually installed by checking for the binary
+  BREW_INSTALLED=false
+  if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+    BREW_INSTALLED=true
+    BREW_PREFIX="/home/linuxbrew/.linuxbrew"
+  elif [[ -x "$HOME/.linuxbrew/bin/brew" ]]; then
+    BREW_INSTALLED=true
+    BREW_PREFIX="$HOME/.linuxbrew"
+  fi
+
+  if [ "$BREW_INSTALLED" = true ]; then
+    log_success "Homebrew successfully installed at $BREW_PREFIX"
+
     # Evaluate shellenv for current session
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    eval "$($BREW_PREFIX/bin/brew shellenv)"
 
     # Add to shell configuration files for persistence
-    if ! grep -q '/home/linuxbrew/.linuxbrew/bin/brew shellenv' "$HOME/.profile" 2>/dev/null; then
-      echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
+    if ! grep -q "$BREW_PREFIX/bin/brew shellenv" "$HOME/.profile" 2>/dev/null; then
+      echo "eval \"\$($BREW_PREFIX/bin/brew shellenv)\"" >> "$HOME/.profile"
     fi
-    if ! grep -q '/home/linuxbrew/.linuxbrew/bin/brew shellenv' "$HOME/.bashrc" 2>/dev/null; then
-      echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.bashrc"
-    fi
-
-    log_success "Homebrew installed at /home/linuxbrew/.linuxbrew"
-  elif [[ -d "$HOME/.linuxbrew" ]]; then
-    # Evaluate shellenv for current session
-    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
-
-    # Add to shell configuration files for persistence
-    if ! grep -q "$HOME/.linuxbrew/bin/brew shellenv" "$HOME/.profile" 2>/dev/null; then
-      echo 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    fi
-    if ! grep -q "$HOME/.linuxbrew/bin/brew shellenv" "$HOME/.bashrc" 2>/dev/null; then
-      echo 'eval "$($HOME/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.bashrc"
+    if ! grep -q "$BREW_PREFIX/bin/brew shellenv" "$HOME/.bashrc" 2>/dev/null; then
+      echo "eval \"\$($BREW_PREFIX/bin/brew shellenv)\"" >> "$HOME/.bashrc"
     fi
 
-    log_success "Homebrew installed at $HOME/.linuxbrew"
+    # Verify brew command is accessible
+    if command -v brew &>/dev/null; then
+      BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version check failed")
+      log_success "Homebrew ready: $BREW_VERSION"
+    else
+      log_warning "Homebrew installed but not yet in PATH for current session"
+      log_note "Will be available after: source ~/.bashrc"
+    fi
   else
-    log_warning "Homebrew installation directory not found. PHP installation will be skipped."
+    log_error "Homebrew installation failed - binary not found"
+    log_note "PHP installation will be skipped"
+    log_note "Check installation log above for errors"
   fi
 else
   log_info "Homebrew already installed."
   # Ensure Homebrew is loaded in current session
   eval "$(brew shellenv 2>/dev/null)" || true
-fi
 
-# Verify Homebrew is accessible and display version
-if command -v brew &>/dev/null; then
-  BREW_VERSION=$(brew --version 2>/dev/null | head -n 1 || echo "version unknown")
-  log_success "Homebrew ready for current session: $BREW_VERSION"
-else
-  log_warning "Homebrew not accessible in current session - PHP installation will be skipped"
+  # Verify it's accessible
+  if command -v brew &>/dev/null; then
+    BREW_VERSION=$(brew --version 2>/dev/null | head -n 1 || echo "version unknown")
+    log_success "Homebrew ready: $BREW_VERSION"
+  fi
 fi
 
 # --- PHP (via Homebrew + shivammathur/php tap) ---

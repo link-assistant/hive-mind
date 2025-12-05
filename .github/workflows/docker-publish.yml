@@ -44,6 +44,74 @@ jobs:
           docker images
           echo "✅ Docker image test build completed successfully"
 
+      - name: Verify Homebrew and PHP installation in Docker image
+        run: |
+          echo "🔍 Checking for installation failures in build logs..."
+
+          # Build again with output to check logs
+          docker build -t test-verify . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "📊 Checking installation status..."
+
+          # Check for the specific "not found" errors that indicate failure
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] PHP: not found' build-output.log; then
+            echo "❌ ERROR: PHP installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Check for success indicators
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "✅ Homebrew installation verified"
+          else
+            echo "⚠️  WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] PHP:' build-output.log; then
+            echo "✅ PHP installation verified"
+          else
+            echo "⚠️  WARNING: PHP success message not found in logs"
+          fi
+
+          # Run the container and verify tools are actually available
+          echo ""
+          echo "🔍 Verifying tools are available in the container..."
+
+          docker run --rm test-verify bash -c "
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo '✅ Homebrew is accessible'
+            else
+              echo '❌ Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking PHP...'
+            if command -v php &>/dev/null; then
+              php --version | head -n1
+              echo '✅ PHP is accessible'
+            else
+              # Check if PHP binary exists but is not in PATH
+              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
+              else
+                echo '❌ PHP not found in container'
+                exit 1
+              fi
+            fi
+          "
+
+          echo ""
+          echo "✅ All verification checks passed!"
+
   # Build and push Docker image to Docker Hub
   build-and-push:
     runs-on: ubuntu-latest

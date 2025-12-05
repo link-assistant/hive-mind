@@ -232,6 +232,26 @@ runTest('createRawJsonSection basic', () => {
   }
 });
 
+// Test createRawJsonSection wraps single objects in array
+runTest('createRawJsonSection wraps single object in array', () => {
+  const data = { type: 'test', value: 123 };
+  const result = utils.createRawJsonSection(data);
+  // The output should contain an array (starting with '[')
+  if (!result.includes('[\n')) {
+    throw new Error('Expected array wrapper in JSON output');
+  }
+});
+
+// Test createRawJsonSection preserves arrays
+runTest('createRawJsonSection preserves existing arrays', () => {
+  const data = [{ type: 'first' }, { type: 'second' }];
+  const result = utils.createRawJsonSection(data);
+  // Should contain array but NOT nested array
+  if (!result.includes('"type": "first"') || !result.includes('"type": "second"')) {
+    throw new Error('Expected both array elements in output');
+  }
+});
+
 // ============================================
 // FUNCTION EXPORT TESTS
 // ============================================

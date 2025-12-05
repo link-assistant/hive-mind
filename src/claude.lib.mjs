@@ -13,6 +13,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { createBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -863,6 +864,29 @@ export const executeClaudeCommand = async (params) => {
     await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
   }
 
+  // Create bidirectional mode handler if enabled
+  // Bidirectional mode monitors PR comments for user feedback during execution
+  let bidirectionalHandler = null;
+  if (argv.bidirectionalInteractive && owner && repo && prNumber) {
+    await log('🔌 Bidirectional interactive mode: Creating handler for real-time feedback', { verbose: true });
+    bidirectionalHandler = createBidirectionalHandler({
+      owner,
+      repo,
+      prNumber,
+      $,
+      log,
+      verbose: argv.verbose,
+      pollInterval: 15000 // Check for new comments every 15 seconds
+    });
+    // Initialize with existing comments to only process NEW comments during execution
+    await bidirectionalHandler.initializeFromCurrentComments();
+    // Start monitoring
+    await bidirectionalHandler.startMonitoring();
+    await log('🔌 Bidirectional mode: Started monitoring PR comments for feedback', { verbose: true });
+  } else if (argv.bidirectionalInteractive) {
+    await log('⚠️ Bidirectional mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
+  }
+
   // Build claude command with optional resume flag
   let execCommand;
   // Map model alias to full ID
@@ -893,6 +917,8 @@ export const executeClaudeCommand = async (params) => {
     await log('---END SYSTEM PROMPT---', { verbose: true });
     await log('', { verbose: true });
   }
+  // Declare queuedFeedback outside try block so it's accessible in catch
+  let queuedFeedback = [];
   try {
     if (argv.resume) {
       // When resuming, pass prompt directly with -p flag
@@ -1080,6 +1106,28 @@ export const executeClaudeCommand = async (params) => {
       }
     }
 
+    // Stop bidirectional mode monitoring and report any queued feedback
+    if (bidirectionalHandler) {
+      try {
+        await bidirectionalHandler.stopMonitoring();
+        const state = bidirectionalHandler.getState();
+        queuedFeedback = bidirectionalHandler.getAllQueuedFeedback();
+
+        if (queuedFeedback.length > 0) {
+          await log(`\n📥 Bidirectional mode: ${queuedFeedback.length} feedback message(s) received during execution`, { level: 'info' });
+          for (const feedback of queuedFeedback) {
+            await log(`   • From @${feedback.user}: ${feedback.body.substring(0, 100)}${feedback.body.length > 100 ? '...' : ''}`, { level: 'info' });
+          }
+          await log('   💡 This feedback will be available for the next continuation of this task.', { level: 'info' });
+        } else {
+          await log('📊 Bidirectional mode: No new feedback received during execution', { verbose: true });
+        }
+        await log(`📊 Bidirectional mode stats: ${state.totalCommentsProcessed} comments processed, ${state.totalFeedbackQueued} feedback queued`, { verbose: true });
+      } catch (bidirectionalError) {
+        await log(`⚠️ Bidirectional mode cleanup error: ${bidirectionalError.message}`, { verbose: true });
+      }
+    }
+
     if ((commandFailed || isOverloadError) &&
         (isOverloadError ||
          (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ||
@@ -1103,7 +1151,8 @@ export const executeClaudeCommand = async (params) => {
           limitReached: false,
           limitResetTime: null,
           messageCount,
-          toolUseCount
+          toolUseCount,
+          queuedFeedback
         };
       }
     }
@@ -1152,7 +1201,8 @@ export const executeClaudeCommand = async (params) => {
           limitResetTime: null,
           messageCount,
           toolUseCount,
-          is503Error: true
+          is503Error: true,
+          queuedFeedback
         };
       }
     }
@@ -1226,7 +1276,8 @@ export const executeClaudeCommand = async (params) => {
         limitReached,
         limitResetTime,
         messageCount,
-        toolUseCount
+        toolUseCount,
+        queuedFeedback
       };
     }
     await log('\n\n✅ Claude command completed');
@@ -1322,7 +1373,8 @@ export const executeClaudeCommand = async (params) => {
       limitResetTime,
       messageCount,
       toolUseCount,
-      anthropicTotalCostUSD // Pass Anthropic's official total cost
+      anthropicTotalCostUSD, // Pass Anthropic's official total cost
+      queuedFeedback // Feedback collected during bidirectional mode execution
     };
   } catch (error) {
     reportError(error, {
@@ -1368,7 +1420,8 @@ export const executeClaudeCommand = async (params) => {
       limitReached,
       limitResetTime: null,
       messageCount,
-      toolUseCount
+      toolUseCount,
+      queuedFeedback // Feedback collected during bidirectional mode execution
     };
   }
   }; // End of executeWithRetry function

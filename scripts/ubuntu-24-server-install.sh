@@ -362,6 +362,32 @@ else
   create_swap_file
 fi
 
+# --- Prepare Homebrew directory in Docker environment ---
+# Homebrew's installer has strict permission checks that fail in Docker
+# Pre-create the directory with proper ownership before running the installer
+if [ "$is_docker" = true ]; then
+  log_step "Preparing Homebrew installation directory for Docker"
+
+  if [ ! -d /home/linuxbrew/.linuxbrew ]; then
+    log_info "Creating /home/linuxbrew/.linuxbrew directory"
+    maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
+
+    # Set ownership to hive user
+    if id "hive" &>/dev/null; then
+      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
+      log_success "Homebrew directory created and owned by hive user"
+    else
+      log_warning "hive user not found, directory created but ownership not set"
+    fi
+  else
+    log_info "Homebrew directory already exists"
+    # Ensure proper ownership
+    if id "hive" &>/dev/null; then
+      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
+    fi
+  fi
+fi
+
 # --- Switch to hive user for language tools and gh setup ---
 # Write the hive user setup script to a temporary file
 cat > /tmp/hive-user-setup.sh <<'EOF_HIVE_SCRIPT'
@@ -490,39 +516,9 @@ if ! command -v brew &>/dev/null; then
   log_info "Installing Homebrew..."
   log_note "Homebrew will be configured for current session and persist after shell restart"
 
-  # Detect if running in Docker environment
-  # Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit
-  is_docker_env=false
-  if [ -f /.dockerenv ]; then
-    is_docker_env=true
-  elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
-    is_docker_env=true
-  fi
-
-  # In Docker environment running as root or via root-owned script, pre-create directory
-  # This is required because Homebrew's installer checks permissions before creating the directory
-  if [ "$is_docker_env" = true ]; then
-    log_note "Docker environment detected - preparing Homebrew directory structure"
-
-    # Determine which user will own Homebrew (hive user or current user)
-    BREW_OWNER="hive"
-    if [ "$EUID" -ne 0 ]; then
-      BREW_OWNER="$USER"
-    fi
-
-    # Create the directory structure with proper ownership
-    if [ ! -d /home/linuxbrew/.linuxbrew ]; then
-      log_info "Creating /home/linuxbrew/.linuxbrew directory"
-      maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
-
-      # Set ownership to hive user (or current user if not root)
-      if id "$BREW_OWNER" &>/dev/null; then
-        maybe_sudo chown -R "$BREW_OWNER:$BREW_OWNER" /home/linuxbrew/.linuxbrew
-        log_success "Homebrew directory created and owned by $BREW_OWNER"
-      else
-        log_warning "User $BREW_OWNER not found, directory created but ownership not set"
-      fi
-    fi
+  # Check if directory was pre-created (happens in Docker environments)
+  if [ -d /home/linuxbrew/.linuxbrew ]; then
+    log_note "Homebrew directory already exists (pre-created for Docker compatibility)"
   fi
 
   # Run Homebrew installation script with error detection

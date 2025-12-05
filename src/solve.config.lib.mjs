@@ -233,6 +233,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['claude', 'opencode', 'codex'],
       default: 'claude'
     })
+    .option('interactive-mode', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

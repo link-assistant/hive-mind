@@ -637,12 +637,9 @@ await log(`   ${argv.once ? '🚀 Mode: Single run' : '♾️  Mode: Continuous 
 if (argv.maxIssues > 0) {
   await log(`   🔢 Max Issues: ${argv.maxIssues}`);
 }
-if (argv.dryRun) {
-  await log('   🧪 DRY RUN MODE - No actual processing');
-}
-if (argv.autoCleanup) {
-  await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
-}
+if (argv.dryRun) await log('   🧪 DRY RUN MODE - No actual processing');
+if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
+if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
 await log('');
 
 // Producer/Consumer Queue implementation
@@ -759,6 +756,7 @@ async function worker(workerId) {
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
         const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
+        const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
 
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
@@ -801,15 +799,12 @@ async function worker(workerId) {
         if (!argv.sentry) {
           args.push('--no-sentry');
         }
-        if (argv.watch) {
-          args.push('--watch');
-        }
-        if (argv.prefixForkNameWithOwnerName) {
-          args.push('--prefix-fork-name-with-owner-name');
-        }
+        if (argv.watch) args.push('--watch');
+        if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
+        if (argv.interactiveMode) args.push('--interactive-mode');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;

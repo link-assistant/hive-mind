@@ -94,6 +94,17 @@ docker run -it konard/hive-mind:latest
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
 
+# Setup git using account from gh tool
+USERNAME=$(gh api user --jq '.login')
+EMAIL=$(gh api user/emails --jq '.[] | select(.primary==true) | .email')
+
+git config --global user.name "$USERNAME"
+git config --global user.email "$EMAIL"
+
+echo "Git configured:"
+git config --global user.name
+git config --global user.email
+
 # Authenticate with Claude
 claude
 
@@ -155,6 +166,16 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
    ```bash
    gh auth login -h github.com -s repo,workflow,user,read:org,gist
+
+   USERNAME=$(gh api user --jq '.login')
+   EMAIL=$(gh api user/emails --jq '.[] | select(.primary==true) | .email')
+
+   git config --global user.name "$USERNAME"
+   git config --global user.email "$EMAIL"
+
+   echo "Git configured:"
+   git config --global user.name
+   git config --global user.email
    ```
    Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
 

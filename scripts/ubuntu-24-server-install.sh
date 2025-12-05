@@ -343,14 +343,21 @@ fi
 
 # --- Setup swap file (skip in Docker) ---
 # Docker containers cannot create swap files due to security restrictions
-# Check multiple indicators: /.dockerenv file, cgroup containing docker/buildkit, or running as PID 1 without init
+# Detection methods:
+# 1. DOCKER_BUILD=1 environment variable (most reliable, passed from Dockerfile)
+# 2. /.dockerenv file (exists in container runtime, not during build)
+# 3. /proc/1/cgroup containing docker/buildkit
+# 4. /run/systemd/container file containing "docker" (modern Docker)
 is_docker=false
-if [ -f /.dockerenv ]; then
+if [ "${DOCKER_BUILD:-}" = "1" ]; then
+  # Explicit Docker build environment indicator (passed from Dockerfile RUN)
   is_docker=true
-elif grep -qE 'docker|buildkit' /proc/1/cgroup 2>/dev/null; then
+  log_note "Docker build environment detected via DOCKER_BUILD variable"
+elif [ -f /.dockerenv ]; then
   is_docker=true
-elif [ "$$" = "1" ] && [ ! -d /proc/1/root/proc ]; then
-  # Running as PID 1 without a full init system (likely Docker)
+elif grep -qE 'docker|buildkit|containerd' /proc/1/cgroup 2>/dev/null; then
+  is_docker=true
+elif [ -f /run/systemd/container ] && grep -qE '^docker$' /run/systemd/container 2>/dev/null; then
   is_docker=true
 fi
 

@@ -3,7 +3,7 @@
 **Date**: 2025-12-05
 **Issue**: [#826](https://github.com/link-assistant/hive-mind/issues/826)
 **Pull Request**: [#827](https://github.com/link-assistant/hive-mind/pull/827)
-**Status**: Root cause identified, solution in progress
+**Status**: Fixed - Docker detection now uses DOCKER_BUILD environment variable
 
 ---
 
@@ -251,12 +251,40 @@ if ! command -v brew &>/dev/null; then
 ## Implementation Plan
 
 1. ✅ Create case study documentation
-2. ⏳ Modify installation script with Solution 1
-3. ⏳ Add proper error detection and logging
+2. ✅ Modify installation script with Solution 1
+3. ✅ Add proper error detection and logging
 4. ⏳ Test locally with Docker build
-5. ⏳ Add CI verification test that checks for "not found" in logs
+5. ✅ Add CI verification test that checks for "not found" in logs (already in docker-publish.yml)
 6. ⏳ Commit and verify in CI
 7. ⏳ Mark PR as ready for review
+
+### Actual Fix Applied (2025-12-05 Session 3)
+
+**Root Cause Discovery**: The Docker detection logic in the script was failing because:
+1. `/.dockerenv` doesn't exist during Docker build (only at container runtime)
+2. `/proc/1/cgroup` doesn't contain "docker" or "buildkit" in GitHub Actions BuildKit environment
+3. The PID check `$$ = 1` was wrong - `$$` is the shell's PID, not process PID 1
+
+**Solution Applied**:
+1. **Dockerfile change**: Pass `DOCKER_BUILD=1` environment variable when running the script:
+   ```dockerfile
+   RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
+       DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh && \
+       rm -f /tmp/ubuntu-24-server-install.sh
+   ```
+
+2. **Script change**: Check for `DOCKER_BUILD` variable as the primary detection method:
+   ```bash
+   is_docker=false
+   if [ "${DOCKER_BUILD:-}" = "1" ]; then
+     is_docker=true
+     log_note "Docker build environment detected via DOCKER_BUILD variable"
+   elif [ -f /.dockerenv ]; then
+     is_docker=true
+   # ... other fallback checks
+   ```
+
+This approach is more reliable than any file-based or cgroup-based detection during BuildKit builds.
 
 ---
 

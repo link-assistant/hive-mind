@@ -11,8 +11,11 @@ WORKDIR /workspace
 COPY scripts/ubuntu-24-server-install.sh /tmp/ubuntu-24-server-install.sh
 
 # Make the script executable and run it
+# Pass DOCKER_BUILD=1 environment variable to indicate Docker build environment
+# This is needed because standard Docker detection (/.dockerenv, cgroup checks)
+# doesn't work reliably during Docker build with BuildKit
 RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
-    bash /tmp/ubuntu-24-server-install.sh && \
+    DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh && \
     rm -f /tmp/ubuntu-24-server-install.sh
 
 # Switch to hive user

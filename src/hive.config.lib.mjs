@@ -231,6 +231,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
       default: true
     })
+    .option('interactive-mode', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

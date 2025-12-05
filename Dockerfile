@@ -28,7 +28,8 @@ WORKDIR /home/hive
 ENV NVM_DIR="/home/hive/.nvm"
 ENV PYENV_ROOT="/home/hive/.pyenv"
 ENV BUN_INSTALL="/home/hive/.bun"
-ENV PATH="/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
+# Include PHP paths from Homebrew (PHP is keg-only and needs explicit PATH entry)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
 
 # Load NVM, Pyenv, and other tools in shell sessions
 SHELL ["/bin/bash", "-c"]

@@ -317,7 +317,11 @@ After implementing the fix:
 ## Appendix
 
 ### A. Full CI Logs
-See: `ci-logs-19947598686.log` in this directory
+The full CI logs from the failed run are available via:
+- GitHub Actions: https://github.com/link-assistant/hive-mind/actions/runs/19947598686
+- Download command: `gh run view 19947598686 --repo link-assistant/hive-mind --log`
+
+Note: Log files are excluded from git repository per .gitignore configuration.
 
 ### B. Relevant Files
 - Workflow: `.github/workflows/helm-release.yml`

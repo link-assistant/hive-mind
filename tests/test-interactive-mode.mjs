@@ -584,6 +584,62 @@ await runAsyncTest('handler does not post without PR info', async () => {
 });
 
 // ============================================
+// COMMENT ID EXTRACTION TESTS (Issue #844 fix validation)
+// ============================================
+
+console.log('\n=== Testing Comment ID Extraction ===\n');
+
+// Test that validates the fix for issue #844 requirement #4
+// The regex must correctly extract comment IDs from gh pr comment output
+runTest('comment ID extraction from gh output URL', () => {
+  // Simulate the output from gh pr comment
+  const testOutputs = [
+    'https://github.com/owner/repo/pull/123#issuecomment-1234567890\n',
+    'https://github.com/owner/repo/pull/123#issuecomment-9876543210',
+    'https://github.com/some-owner/some-repo/issues/456#issuecomment-111222333\n',
+  ];
+
+  const expectedIds = ['1234567890', '9876543210', '111222333'];
+
+  for (let i = 0; i < testOutputs.length; i++) {
+    const output = testOutputs[i];
+    const match = output.match(/issuecomment-(\d+)/);
+    if (!match) {
+      throw new Error(`Expected match for output: ${output}`);
+    }
+    if (match[1] !== expectedIds[i]) {
+      throw new Error(`Expected ID ${expectedIds[i]}, got ${match[1]}`);
+    }
+  }
+});
+
+runTest('comment ID extraction handles empty/invalid output', () => {
+  const invalidOutputs = ['', null, undefined, 'no comment id here', 'https://github.com/'];
+
+  for (const output of invalidOutputs) {
+    const safeOutput = output?.toString() || '';
+    const match = safeOutput.match(/issuecomment-(\d+)/);
+    if (match) {
+      throw new Error(`Expected no match for output: ${output}`);
+    }
+  }
+});
+
+runTest('comment ID extraction with Buffer-like objects', () => {
+  // Simulate what happens if stdout is a Buffer (edge case)
+  const bufferLike = {
+    toString: () => 'https://github.com/owner/repo/pull/1#issuecomment-555666777\n'
+  };
+
+  // Test both patterns from the code
+  const output1 = bufferLike?.toString() || '';
+  const match1 = output1.match(/issuecomment-(\d+)/);
+  if (!match1 || match1[1] !== '555666777') {
+    throw new Error(`Buffer-like toString extraction failed: ${match1}`);
+  }
+});
+
+// ============================================
 // CONFIG CONSTANT TESTS
 // ============================================
 

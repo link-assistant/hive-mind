@@ -88,6 +88,9 @@ docker pull konard/hive-mind:latest
 # Run an interactive session
 docker run -it konard/hive-mind:latest
 
+# IMPORTANT: Authenticate AFTER the Docker image is installed
+# This avoids build timeouts and allows the installation to complete successfully
+
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
 
@@ -142,17 +145,18 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    ```bash
    curl -fsSL -o- https://github.com/deep-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
    ```
+   **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
 4. Login to `hive` user
    ```bash
    su - hive
    ```
 
-5. Authenticate with GitHub CLI
+5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
    ```bash
    gh auth login -h github.com -s repo,workflow,user,read:org,gist
    ```
-   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account.
+   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
 
 6. Claude Code CLI and OpenCode AI CLI are preinstalled with the previous script, now you need to make sure claude is authorized also. Execute claude command, and follow all steps to authorize the local claude
    ```bash

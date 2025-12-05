@@ -369,29 +369,33 @@ else
   create_swap_file
 fi
 
-# --- Prepare Homebrew directory in Docker environment ---
-# Homebrew's installer has strict permission checks that fail in Docker
-# Pre-create the directory with proper ownership before running the installer
-if [ "$is_docker" = true ]; then
-  log_step "Preparing Homebrew installation directory for Docker"
+# --- Prepare Homebrew directory ---
+# Homebrew's installer has strict permission checks that require the directory
+# to be owned by the installing user. Pre-create the directory with proper
+# ownership before running the installer.
+# This is needed in both Docker and regular Ubuntu environments when running
+# as root and then switching to the hive user.
+log_step "Preparing Homebrew installation directory"
 
-  if [ ! -d /home/linuxbrew/.linuxbrew ]; then
-    log_info "Creating /home/linuxbrew/.linuxbrew directory"
-    maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
+if [ ! -d /home/linuxbrew/.linuxbrew ]; then
+  log_info "Creating /home/linuxbrew/.linuxbrew directory"
+  # Create the parent directory first if needed
+  maybe_sudo mkdir -p /home/linuxbrew
+  maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
 
-    # Set ownership to hive user
-    if id "hive" &>/dev/null; then
-      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
-      log_success "Homebrew directory created and owned by hive user"
-    else
-      log_warning "hive user not found, directory created but ownership not set"
-    fi
+  # Set ownership to hive user so Homebrew installer can write to it
+  if id "hive" &>/dev/null; then
+    maybe_sudo chown -R hive:hive /home/linuxbrew
+    log_success "Homebrew directory created and owned by hive user"
   else
-    log_info "Homebrew directory already exists"
-    # Ensure proper ownership
-    if id "hive" &>/dev/null; then
-      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
-    fi
+    log_warning "hive user not found, directory created but ownership not set"
+  fi
+else
+  log_info "Homebrew directory already exists"
+  # Ensure proper ownership for the hive user
+  if id "hive" &>/dev/null; then
+    maybe_sudo chown -R hive:hive /home/linuxbrew
+    log_note "Ensured proper ownership for hive user"
   fi
 fi
 
@@ -419,6 +423,27 @@ log_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
 log_note() { echo -e "${CYAN}[i]${NC} $1"; }
 log_step() { echo -e "\n${GREEN}==>${NC} ${BLUE}$1${NC}\n"; }
+
+# Check if a command exists (silent)
+command_exists() {
+  command -v "$1" &>/dev/null
+}
+
+# Run command with sudo only if not root and sudo is available
+# This function is needed for operations that require elevated privileges
+# (e.g., installing Playwright OS dependencies)
+maybe_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    # Running as root, execute directly
+    "$@"
+  elif command_exists sudo; then
+    # Not root but sudo available
+    sudo "$@"
+  else
+    # Not root and sudo not available - try directly (will fail if permissions needed)
+    "$@"
+  fi
+}
 
 log_step "Installing development tools as hive user"
 

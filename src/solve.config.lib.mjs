@@ -238,6 +238,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
+    .option('bidirectional-interactive', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Enable bidirectional interactive mode: monitor PR comments and queue user feedback for Claude. Automatically enables --interactive-mode. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

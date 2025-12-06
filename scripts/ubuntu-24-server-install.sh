@@ -369,29 +369,33 @@ else
   create_swap_file
 fi
 
-# --- Prepare Homebrew directory in Docker environment ---
-# Homebrew's installer has strict permission checks that fail in Docker
-# Pre-create the directory with proper ownership before running the installer
-if [ "$is_docker" = true ]; then
-  log_step "Preparing Homebrew installation directory for Docker"
+# --- Prepare Homebrew directory ---
+# Homebrew's installer has strict permission checks that require the directory
+# to be owned by the installing user. Pre-create the directory with proper
+# ownership before running the installer.
+# This is needed in both Docker and regular Ubuntu environments when running
+# as root and then switching to the hive user.
+log_step "Preparing Homebrew installation directory"
 
-  if [ ! -d /home/linuxbrew/.linuxbrew ]; then
-    log_info "Creating /home/linuxbrew/.linuxbrew directory"
-    maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
+if [ ! -d /home/linuxbrew/.linuxbrew ]; then
+  log_info "Creating /home/linuxbrew/.linuxbrew directory"
+  # Create the parent directory first if needed
+  maybe_sudo mkdir -p /home/linuxbrew
+  maybe_sudo mkdir -p /home/linuxbrew/.linuxbrew
 
-    # Set ownership to hive user
-    if id "hive" &>/dev/null; then
-      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
-      log_success "Homebrew directory created and owned by hive user"
-    else
-      log_warning "hive user not found, directory created but ownership not set"
-    fi
+  # Set ownership to hive user so Homebrew installer can write to it
+  if id "hive" &>/dev/null; then
+    maybe_sudo chown -R hive:hive /home/linuxbrew
+    log_success "Homebrew directory created and owned by hive user"
   else
-    log_info "Homebrew directory already exists"
-    # Ensure proper ownership
-    if id "hive" &>/dev/null; then
-      maybe_sudo chown -R hive:hive /home/linuxbrew/.linuxbrew
-    fi
+    log_warning "hive user not found, directory created but ownership not set"
+  fi
+else
+  log_info "Homebrew directory already exists"
+  # Ensure proper ownership for the hive user
+  if id "hive" &>/dev/null; then
+    maybe_sudo chown -R hive:hive /home/linuxbrew
+    log_note "Ensured proper ownership for hive user"
   fi
 fi
 
@@ -419,6 +423,27 @@ log_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error() { echo -e "${RED}[✗]${NC} $1"; }
 log_note() { echo -e "${CYAN}[i]${NC} $1"; }
 log_step() { echo -e "\n${GREEN}==>${NC} ${BLUE}$1${NC}\n"; }
+
+# Check if a command exists (silent)
+command_exists() {
+  command -v "$1" &>/dev/null
+}
+
+# Run command with sudo only if not root and sudo is available
+# This function is needed for operations that require elevated privileges
+# (e.g., installing Playwright OS dependencies)
+maybe_sudo() {
+  if [ "$EUID" -eq 0 ]; then
+    # Running as root, execute directly
+    "$@"
+  elif command_exists sudo; then
+    # Not root but sudo available
+    sudo "$@"
+  else
+    # Not root and sudo not available - try directly (will fail if permissions needed)
+    "$@"
+  fi
+}
 
 log_step "Installing development tools as hive user"
 
@@ -594,7 +619,8 @@ fi
 # --- PHP (via Homebrew + shivammathur/php tap) ---
 if command -v brew &>/dev/null; then
   # Check if PHP is already installed via Homebrew
-  if ! brew list 2>/dev/null | grep -q "shivammathur/php/php@"; then
+  # Note: brew list outputs formula names without the tap prefix, e.g., "php@8.3"
+  if ! brew list --formula 2>/dev/null | grep -q "^php@"; then
     log_info "Installing PHP via Homebrew..."
 
     # Add shivammathur/php tap
@@ -615,7 +641,8 @@ if command -v brew &>/dev/null; then
       }
 
       # Link PHP 8.3 as the active version if installation succeeded
-      if brew list 2>/dev/null | grep -q "shivammathur/php/php@8.3"; then
+      # Check for php@8.3 in brew list (formula name, not tap prefix)
+      if brew list --formula 2>/dev/null | grep -q "^php@8.3$"; then
         log_info "Linking PHP 8.3 as the active version..."
         brew link --overwrite --force shivammathur/php/php@8.3 2>&1 | grep -v "Warning" || true
 
@@ -633,17 +660,21 @@ if command -v brew &>/dev/null; then
         # Explicitly add PHP to PATH for current session
         # PHP is keg-only and won't be in PATH unless we add it explicitly
         if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
-          export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
-          export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+          # Add to beginning of PATH to ensure it takes precedence
+          export PATH="$BREW_PREFIX/opt/php@8.3/bin:$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+
+          # Rehash the command cache to ensure bash picks up the new PHP binary
+          hash -r 2>/dev/null || true
+
           log_success "PHP paths added to current session"
+          log_note "Current PATH includes: $BREW_PREFIX/opt/php@8.3/bin"
 
           # Add PHP to PATH in shell configuration for future sessions
           if ! grep -q "php@8.3/bin" "$HOME/.bashrc" 2>/dev/null; then
             cat >> "$HOME/.bashrc" << 'PHP_PATH_EOF'
 
 # PHP 8.3 PATH configuration
-export PATH="$(brew --prefix)/opt/php@8.3/bin:$PATH"
-export PATH="$(brew --prefix)/opt/php@8.3/sbin:$PATH"
+export PATH="$(brew --prefix)/opt/php@8.3/bin:$(brew --prefix)/opt/php@8.3/sbin:$PATH"
 PHP_PATH_EOF
             log_info "PHP paths added to .bashrc for future sessions"
           fi
@@ -686,7 +717,7 @@ switch-php() {
   fi
 
   # Unlink all PHP versions
-  for php_ver in $(brew list 2>/dev/null | grep -E '^(shivammathur/php/)?php@'); do
+  for php_ver in $(brew list --formula 2>/dev/null | grep -E '^php@'); do
     brew unlink "$php_ver" 2>/dev/null || true
   done
 
@@ -706,8 +737,13 @@ PHP_SWITCH_EOF
     eval "$(brew shellenv 2>/dev/null)" || true
     BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
     if [[ -n "$BREW_PREFIX" && -d "$BREW_PREFIX/opt/php@8.3" ]]; then
-      export PATH="$BREW_PREFIX/opt/php@8.3/bin:$PATH"
-      export PATH="$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+      # Add to beginning of PATH to ensure it takes precedence
+      export PATH="$BREW_PREFIX/opt/php@8.3/bin:$BREW_PREFIX/opt/php@8.3/sbin:$PATH"
+
+      # Rehash the command cache to ensure bash picks up the PHP binary
+      hash -r 2>/dev/null || true
+
+      log_note "PHP paths added to current session"
     fi
   fi
 else

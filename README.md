@@ -179,12 +179,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    ```
    Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
 
-6. Claude Code CLI and OpenCode AI CLI are preinstalled with the previous script, now you need to make sure claude is authorized also. Execute claude command, and follow all steps to authorize the local claude
+6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
    ```bash
    claude
    ```
 
-   Note: opencode at the moment comes with free Grok Code Fast 1 model by default - so no authorization here is required.
+   Note: Both opencode and agent come with free Grok Code Fast 1 model by default - so no authorization is required for these tools.
 
 7. Launch the Hive Mind telegram bot:
 
@@ -310,9 +310,9 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 
-  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
+  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
   --fork, -f            Fork repo if no write access         [default: false]
   --auto-fork           Automatically fork public repos without write access (fails for private)
                         [default: false]
@@ -366,9 +366,9 @@ hive <github-url> [options]
   --skip-issues-with-prs, -s  Skip issues with existing PRs [default: false]
   --concurrency, -c     Parallel workers                     [default: 2]
   --pull-requests-per-issue, -p  Number of PRs per issue    [default: 1]
-  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
+  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
   --interval, -i        Poll interval (seconds)              [default: 300]
   --max-issues          Limit processed issues               [default: 0 (unlimited)]
   --once                Single run (don't monitor)           [default: false]

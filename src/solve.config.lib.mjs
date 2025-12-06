@@ -113,7 +113,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-fork', {
       type: 'boolean',
       description: 'Automatically fork public repositories without write access (fails for private repos)',
-      default: false
+      default: true
     })
     .option('attach-logs', {
       type: 'boolean',
@@ -128,7 +128,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-continue', {
       type: 'boolean',
       description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
-      default: false
+      default: true
     })
     .option('auto-continue-on-limit-reset', {
       type: 'boolean',
@@ -232,6 +232,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'AI tool to use for solving issues',
       choices: ['claude', 'opencode', 'codex'],
       default: 'claude'
+    })
+    .option('interactive-mode', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
     })
     .parserConfiguration({
       'boolean-negation': true

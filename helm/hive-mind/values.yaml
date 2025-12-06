@@ -1,0 +1,140 @@
+# Default values for hive-mind.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: konard/hive-mind
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration (optional - for web interfaces or APIs if needed in future)
+service:
+  enabled: false
+  type: ClusterIP
+  port: 80
+
+# Ingress configuration (optional - for web interfaces if needed in future)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Persistent volume for storing hive user data, configurations, and workspace
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 50Gi
+  # storageClass: "-"
+  # existingClaim: ""
+
+# Environment variables for the hive-mind container
+env:
+  # GitHub Authentication (configure via secrets)
+  # GITHUB_TOKEN: ""
+
+  # Claude Authentication (configure via secrets)
+  # ANTHROPIC_API_KEY: ""
+
+# Secrets for sensitive data (GitHub tokens, API keys, etc.)
+# These should be created separately and referenced here
+secrets:
+  # Name of an existing secret containing GitHub token
+  githubToken: ""
+
+  # Name of an existing secret containing Claude API key
+  claudeApiKey: ""
+
+# Node selector for pod assignment
+nodeSelector: {}
+
+# Tolerations for pod assignment
+tolerations: []
+
+# Affinity rules for pod assignment
+affinity: {}
+
+# Liveness and readiness probes (disabled by default as this is a CLI tool)
+livenessProbe:
+  enabled: false
+
+readinessProbe:
+  enabled: false
+
+# Autoscaling configuration (optional - useful for multiple bot instances)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Command to run in the container (default is bash shell)
+command: []
+# command:
+#   - /bin/bash
+#   - -c
+#   - |
+#     gh auth login -h github.com -s repo,workflow,user,read:org,gist
+#     hive-telegram-bot --configuration "..."
+
+# Arguments for the command
+args: []
+
+# Additional volumes
+volumes: []
+
+# Additional volumeMounts
+volumeMounts: []

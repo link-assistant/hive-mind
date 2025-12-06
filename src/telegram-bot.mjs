@@ -779,6 +779,7 @@ bot.command('help', async (ctx) => {
   message += '• `--verbose` - Verbose output\n';
   message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
+  message += '• `--interactive-mode` - Post Claude output as PR comments in real-time (experimental)\n';
 
   if (allowedChats) {
     message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';

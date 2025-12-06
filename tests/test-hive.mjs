@@ -231,7 +231,7 @@ runTest('hive.mjs --tool flag', () => {
 
 // Test 18: hive --dry-run with --no-sentry doesn't hang (Issue #504 regression test)
 runTest('hive --dry-run with --no-sentry doesn\'t hang', () => {
-  const output = execCommand(`${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-connection-check --once 2>&1`, 15000);
+  const output = execCommand(`${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-connection-check --once --no-auto-continue 2>&1`, 15000);
   const outputStr = normalizeOutput(output);
 
   // Check that it produces output (not silent)

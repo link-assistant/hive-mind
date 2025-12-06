@@ -1,0 +1,145 @@
+name: Release Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+      - 'package.json'
+      - '.github/workflows/helm-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Update Chart versions
+        id: chart-version
+        run: |
+          APP_VERSION="${{ steps.package-version.outputs.version }}"
+
+          # Update appVersion to match package.json version
+          sed -i "s/^appVersion: .*/appVersion: \"$APP_VERSION\"/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml appVersion to $APP_VERSION"
+
+          # Sync chart version with app version for consistency
+          # This ensures a new release is created when appVersion changes
+          sed -i "s/^version: .*/version: $APP_VERSION/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml version to $APP_VERSION"
+
+          echo "chart_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
+          # Show the updated Chart.yaml
+          echo "=== Updated Chart.yaml ==="
+          cat helm/hive-mind/Chart.yaml
+
+      - name: Lint Helm chart
+        run: |
+          helm lint helm/hive-mind
+
+      - name: Ensure gh-pages branch exists
+        run: |
+          # Check if gh-pages branch exists on remote
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "gh-pages branch does not exist. Creating it..."
+
+            # Create an orphan branch (no history)
+            git checkout --orphan gh-pages
+
+            # Remove all files from staging
+            git reset --hard
+
+            # Create initial commit
+            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
+
+            # Push the new branch to remote
+            git push origin gh-pages
+
+            # Switch back to the original branch
+            git checkout -
+
+            echo "gh-pages branch created successfully"
+          else
+            echo "gh-pages branch already exists"
+          fi
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          charts_dir: helm
+          skip_existing: true
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .cr-index
+          destination_dir: .
+          keep_files: true
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: 'Update Helm chart index'
+
+      - name: Create ArtifactHub metadata
+        run: |
+          cat > artifacthub-repo.yml <<EOF
+          repositoryID: $(uuidgen)
+          owners:
+            - name: Link Assistant Team
+              email: support@link-assistant.com
+          EOF
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: .cr-release-packages/*.tgz
+
+  update-artifacthub:
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger ArtifactHub sync
+        run: |
+          echo "Chart released to GitHub Pages"
+          echo "ArtifactHub will automatically discover it at:"
+          echo "https://link-assistant.github.io/hive-mind"
+          echo ""
+          echo "To add to ArtifactHub manually:"
+          echo "1. Go to https://artifacthub.io"
+          echo "2. Add repository: https://link-assistant.github.io/hive-mind"
+          echo "3. Set organization: link-assistant"
+          echo "4. Set name: hive-mind"

@@ -76,7 +76,7 @@ function formatResetTime(isoDate, includeTimezone = true) {
  * Format relative time from now to a future date
  *
  * @param {string} isoDate - ISO date string
- * @returns {string|null} Relative time string (e.g., "1h 34m") or null if date is in the past
+ * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
  */
 function formatRelativeTime(isoDate) {
   if (!isoDate) return null;
@@ -86,12 +86,22 @@ function formatRelativeTime(isoDate) {
     const target = new Date(isoDate);
     const diffMs = target - now;
 
+    // Check for invalid date (NaN)
+    if (isNaN(diffMs)) return null;
+
     if (diffMs < 0) return null; // Past date
 
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours}h ${minutes}m`;
+    // If hours >= 24, show days
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      const hours = totalHours % 24;
+      return `${days}d ${hours}h ${minutes}m`;
+    }
+
+    return `${totalHours}h ${minutes}m`;
   } catch {
     return null;
   }

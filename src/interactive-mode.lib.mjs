@@ -39,7 +39,9 @@ const CONFIG = {
   // Lines to keep at end when truncating
   LINES_TO_KEEP_END: 20,
   // Maximum JSON depth for raw JSON display
-  MAX_JSON_DEPTH: 10
+  MAX_JSON_DEPTH: 10,
+  // Timeout for waiting on tool use comment before posting result separately (in ms)
+  TOOL_USE_COMMENT_TIMEOUT: 30000
 };
 
 /**
@@ -240,17 +242,27 @@ export const createInteractiveHandler = (options) => {
     // Track pending tool calls for merging with results
     // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon, commentIdPromise, resolveCommentId }
     // commentId may be null initially if comment is queued; commentIdPromise resolves when comment is posted
-    pendingToolCalls: new Map()
+    pendingToolCalls: new Map(),
+    // Track ALL posted comments for debugging and recovery
+    // Map of commentId -> { postedAt, toolId, type, bodyPreview }
+    postedComments: new Map(),
+    // Counter for total comments posted (including failed ID extractions)
+    totalCommentsPosted: 0,
+    // Counter for successful ID extractions
+    successfulIdExtractions: 0,
+    // Counter for failed ID extractions
+    failedIdExtractions: 0
   };
 
   /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
    * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
+   * @param {string} [commentType='general'] - Type of comment for tracking (e.g., 'tool_use', 'tool_result', 'text')
    * @returns {Promise<string|null>} Comment ID if successful, null if queued or failed
    * @private
    */
-  const postComment = async (body, toolId = null) => {
+  const postComment = async (body, toolId = null, commentType = 'general') => {
     if (!prNumber || !owner || !repo) {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
@@ -262,10 +274,10 @@ export const createInteractiveHandler = (options) => {
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
-      // Queue the comment for later with toolId for tracking
-      state.commentQueue.push({ body, toolId });
+      // Queue the comment for later with toolId and type for tracking
+      state.commentQueue.push({ body, toolId, commentType });
       if (verbose) {
-        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
+        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''} [type: ${commentType}]`, { verbose: true });
       }
       return null;
     }
@@ -274,6 +286,7 @@ export const createInteractiveHandler = (options) => {
       // Post comment and capture the output to get the comment URL/ID
       const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
       state.lastCommentTime = Date.now();
+      state.totalCommentsPosted++;
 
       // Extract comment ID from the result (gh outputs the comment URL)
       // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
@@ -282,13 +295,35 @@ export const createInteractiveHandler = (options) => {
       const match = output.match(/issuecomment-(\d+)/);
       const commentId = match ? match[1] : null;
 
+      // Track comment posting statistics
+      if (commentId) {
+        state.successfulIdExtractions++;
+        // Store comment metadata for debugging and potential recovery
+        state.postedComments.set(commentId, {
+          postedAt: new Date().toISOString(),
+          toolId,
+          commentType,
+          bodyPreview: body.substring(0, 100) + (body.length > 100 ? '...' : '')
+        });
+      } else {
+        state.failedIdExtractions++;
+        // Log detailed information about the failed extraction for debugging
+        if (verbose) {
+          await log(`⚠️ Interactive mode: Comment posted but ID extraction failed [type: ${commentType}]${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
+          await log(`   gh output length: ${output.length} chars`, { verbose: true });
+          await log(`   gh output preview: ${output.substring(0, 200)}`, { verbose: true });
+        }
+      }
+
       if (verbose) {
-        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''}`, { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ' (ID extraction failed)'} [type: ${commentType}]${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
+        await log(`   Stats: ${state.successfulIdExtractions}/${state.totalCommentsPosted} successful ID extractions (${state.failedIdExtractions} failed)`, { verbose: true });
       }
       return commentId;
     } catch (error) {
       if (verbose) {
         await log(`⚠️ Interactive mode: Failed to post comment: ${error.message}`, { verbose: true });
+        await log(`   Error details: ${error.stack || 'no stack trace'}`, { verbose: true });
       }
       return null;
     }
@@ -347,21 +382,40 @@ export const createInteractiveHandler = (options) => {
 
       const queueItem = state.commentQueue.shift();
       if (queueItem) {
-        const { body, toolId } = queueItem;
-        // Post the comment (don't pass toolId to avoid re-queueing)
-        const commentId = await postComment(body);
+        const { body, toolId, commentType = 'queued' } = queueItem;
+        // Post the comment (don't pass toolId to avoid re-queueing, but pass commentType for tracking)
+        const commentId = await postComment(body, null, commentType);
 
         // If this was a tool use comment, update the pending call with the comment ID
-        if (toolId && commentId) {
+        if (toolId) {
           const pendingCall = state.pendingToolCalls.get(toolId);
           if (pendingCall) {
-            pendingCall.commentId = commentId;
-            // Resolve the promise so tool_result handler can proceed
-            if (pendingCall.resolveCommentId) {
-              pendingCall.resolveCommentId(commentId);
+            if (commentId) {
+              pendingCall.commentId = commentId;
+              // Update the postedComments map with the toolId
+              const commentMeta = state.postedComments.get(commentId);
+              if (commentMeta) {
+                commentMeta.toolId = toolId;
+              }
+              // Resolve the promise so tool_result handler can proceed
+              if (pendingCall.resolveCommentId) {
+                pendingCall.resolveCommentId(commentId);
+              }
+              if (verbose) {
+                await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, { verbose: true });
+              }
+            } else {
+              // Comment posted but ID extraction failed - resolve with null so we don't block forever
+              if (verbose) {
+                await log(`⚠️ Interactive mode: Queued comment for tool ${toolId} posted but ID extraction failed`, { verbose: true });
+              }
+              if (pendingCall.resolveCommentId) {
+                pendingCall.resolveCommentId(null);
+              }
             }
+          } else {
             if (verbose) {
-              await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, { verbose: true });
+              await log(`⚠️ Interactive mode: No pending call found for tool ${toolId} when processing queue`, { verbose: true });
             }
           }
         }
@@ -420,7 +474,7 @@ export const createInteractiveHandler = (options) => {
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    await postComment(comment, null, 'system_init');
 
     if (verbose) {
       await log(`🔌 Interactive mode: Session initialized (${state.sessionId})`, { verbose: true });
@@ -449,7 +503,7 @@ ${createRawJsonSection(data)}`;
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    await postComment(comment, null, 'assistant_text');
 
     if (verbose) {
       await log(`💬 Interactive mode: Assistant text (${text.length} chars)`, { verbose: true });
@@ -596,8 +650,8 @@ ${createRawJsonSection(data)}`;
       toolIcon
     });
 
-    // Post the comment, passing toolId for queue tracking
-    const commentId = await postComment(comment, toolId);
+    // Post the comment, passing toolId for queue tracking and commentType for tracking
+    const commentId = await postComment(comment, toolId, 'tool_use');
 
     // If posted immediately (not queued), update the pending call and resolve the promise
     if (commentId) {
@@ -605,12 +659,21 @@ ${createRawJsonSection(data)}`;
       if (pendingCall) {
         pendingCall.commentId = commentId;
         resolveCommentId(commentId);
+        if (verbose) {
+          await log(`📋 Interactive mode: Tool use ${toolId} comment posted immediately with ID ${commentId}`, { verbose: true });
+        }
+      }
+    } else {
+      // If queued (commentId is null), processQueue will update it later
+      // Check if it was queued (not a failed post)
+      const wasQueued = state.commentQueue.some(item => item.toolId === toolId);
+      if (verbose) {
+        await log(`📋 Interactive mode: Tool use ${toolId} ${wasQueued ? 'queued for posting' : 'post returned null (may have failed)'}`, { verbose: true });
       }
     }
-    // If queued (commentId is null), processQueue will update it later
 
     if (verbose) {
-      await log(`🔧 Interactive mode: Tool use - ${toolName}${commentId ? ` (comment: ${commentId})` : ' (queued)'}`, { verbose: true });
+      await log(`🔧 Interactive mode: Tool use - ${toolName} [toolId: ${toolId}]${commentId ? ` (comment: ${commentId})` : ' (queued)'}`, { verbose: true });
     }
   };
 
@@ -658,14 +721,25 @@ ${createRawJsonSection(data)}`;
       if (!commentId && commentIdPromise) {
         if (verbose) {
           await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, { verbose: true });
+          await log(`   Pending calls in map: ${state.pendingToolCalls.size}`, { verbose: true });
+          await log(`   Comment queue length: ${state.commentQueue.length}`, { verbose: true });
         }
-        // Wait for the comment to be posted (with 30 second timeout)
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 30000));
+        // Wait for the comment to be posted (with configurable timeout)
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), CONFIG.TOOL_USE_COMMENT_TIMEOUT));
+        const startWait = Date.now();
         commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+        const waitDuration = Date.now() - startWait;
 
         if (!commentId) {
           if (verbose) {
-            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', { verbose: true });
+            await log(`⚠️ Interactive mode: Timeout waiting for tool use comment after ${waitDuration}ms, posting result separately (tool: ${toolUseId})`, { verbose: true });
+            await log(`   Pending calls remaining: ${state.pendingToolCalls.size}`, { verbose: true });
+            await log(`   Posted comments tracked: ${state.postedComments.size}`, { verbose: true });
+            await log(`   Stats: ${state.successfulIdExtractions}/${state.totalCommentsPosted} successful ID extractions`, { verbose: true });
+          }
+        } else {
+          if (verbose) {
+            await log(`✅ Interactive mode: Tool use comment received after ${waitDuration}ms (ID: ${commentId})`, { verbose: true });
           }
         }
       }
@@ -711,6 +785,8 @@ ${createRawJsonSection([toolData, data])}`;
     // Post as new comment if no pending call or edit failed
     const comment = `## ${statusIcon} Tool result: ${statusText}
 
+**Tool use ID:** \`${toolUseId}\`
+
 ${createCollapsible(
   '📤 Output',
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
@@ -721,11 +797,11 @@ ${createCollapsible(
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    await postComment(comment, null, 'tool_result_standalone');
 
     if (verbose) {
       const contentLength = content.length;
-      await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars)`, { verbose: true });
+      await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars) [tool: ${toolUseId}]`, { verbose: true });
     }
   };
 
@@ -784,14 +860,26 @@ ${usageSection}
 
 ${createCollapsible('View Result', truncatedResult, !isError)}
 
+### 📊 Comment Tracking Stats
+
+| Metric | Value |
+|--------|-------|
+| **Total Comments Posted** | ${state.totalCommentsPosted} |
+| **Successful ID Extractions** | ${state.successfulIdExtractions} |
+| **Failed ID Extractions** | ${state.failedIdExtractions} |
+| **Tracked Comments** | ${state.postedComments.size} |
+| **Pending Tool Calls** | ${state.pendingToolCalls.size} |
+
 ---
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    await postComment(comment, null, 'session_result');
 
     if (verbose) {
       await log(`🏁 Interactive mode: Session ${statusText.toLowerCase()}`, { verbose: true });
+      await log(`   Final stats: ${state.successfulIdExtractions}/${state.totalCommentsPosted} successful ID extractions`, { verbose: true });
+      await log(`   Tracked comments: ${state.postedComments.size}, Pending tool calls: ${state.pendingToolCalls.size}`, { verbose: true });
     }
   };
 
@@ -809,7 +897,7 @@ This event type is not yet supported by interactive mode.
 
 ${createRawJsonSection(data)}`;
 
-    await postComment(comment);
+    await postComment(comment, null, 'unrecognized');
 
     if (verbose) {
       await log(`❓ Interactive mode: Unrecognized event type: ${eventType}${subtype}`, { verbose: true });
@@ -900,12 +988,65 @@ ${createRawJsonSection(data)}`;
    *
    * @returns {Object} Current state
    */
-  const getState = () => ({ ...state });
+  const getState = () => ({
+    ...state,
+    // Convert Maps to objects for easier inspection
+    pendingToolCalls: Object.fromEntries(state.pendingToolCalls),
+    postedComments: Object.fromEntries(state.postedComments)
+  });
+
+  /**
+   * Get comment tracking statistics
+   *
+   * @returns {Object} Statistics about comment tracking
+   */
+  const getStats = () => ({
+    totalCommentsPosted: state.totalCommentsPosted,
+    successfulIdExtractions: state.successfulIdExtractions,
+    failedIdExtractions: state.failedIdExtractions,
+    trackedComments: state.postedComments.size,
+    pendingToolCalls: state.pendingToolCalls.size,
+    commentQueueLength: state.commentQueue.length,
+    toolUseCount: state.toolUseCount,
+    toolResultCount: state.toolResultCount,
+    messageCount: state.messageCount,
+    sessionId: state.sessionId,
+    sessionDurationMs: Date.now() - state.startTime
+  });
+
+  /**
+   * Get list of all tracked comments (for debugging)
+   *
+   * @returns {Array} Array of tracked comment metadata
+   */
+  const getTrackedComments = () => {
+    return Array.from(state.postedComments.entries()).map(([id, meta]) => ({
+      commentId: id,
+      ...meta
+    }));
+  };
+
+  /**
+   * Get list of pending tool calls (for debugging)
+   *
+   * @returns {Array} Array of pending tool call IDs with their status
+   */
+  const getPendingToolCalls = () => {
+    return Array.from(state.pendingToolCalls.entries()).map(([toolId, data]) => ({
+      toolId,
+      commentId: data.commentId,
+      toolName: data.toolName,
+      hasCommentIdPromise: !!data.commentIdPromise
+    }));
+  };
 
   return {
     processEvent,
     flush,
     getState,
+    getStats,
+    getTrackedComments,
+    getPendingToolCalls,
     // Expose individual handlers for testing
     _handlers: {
       handleSystemInit,

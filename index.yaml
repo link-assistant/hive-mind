@@ -87,6 +87,61 @@ entries:
 
         See values.yaml for all configurable options.
     apiVersion: v2
+    appVersion: 0.37.13
+    created: "2025-12-06T18:50:50.171510025Z"
+    description: A Helm chart for deploying Hive Mind - the master AI that controls
+      a hive of AI agents
+    digest: 7bf32979ca9b7c5099c89aef14171117dc05fc5c7087400edab32bb9dcdde83f
+    home: https://github.com/link-assistant/hive-mind
+    icon: https://github.com/link-assistant/hive-mind/raw/main/docs/images/hive-mind-icon.png
+    keywords:
+    - ai
+    - automation
+    - github
+    - claude
+    - agent
+    - orchestration
+    maintainers:
+    - name: Link Assistant Team
+      url: https://github.com/link-assistant
+    name: hive-mind
+    sources:
+    - https://github.com/link-assistant/hive-mind
+    type: application
+    urls:
+    - https://github.com/link-assistant/hive-mind/releases/download/hive-mind-0.37.13/hive-mind-0.37.13.tgz
+    version: 0.37.13
+  - annotations:
+      artifacthub.io/category: integration-delivery
+      artifacthub.io/displayName: Hive Mind
+      artifacthub.io/license: Unlicense
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/link-assistant/hive-mind/blob/main/README.md
+        - name: Docker Hub
+          url: https://hub.docker.com/r/konard/hive-mind
+      artifacthub.io/readme: |
+        # Hive Mind Helm Chart
+
+        Deploy Hive Mind on Kubernetes - the master AI that controls a hive of AI agents.
+
+        ## Prerequisites
+
+        - Kubernetes 1.19+
+        - Helm 3.0+
+
+        ## Installation
+
+        ```bash
+        helm repo add link-assistant https://link-assistant.github.io/hive-mind
+        helm repo update
+        helm install hive-mind link-assistant/hive-mind
+        ```
+
+        ## Configuration
+
+        See values.yaml for all configurable options.
+    apiVersion: v2
     appVersion: 0.37.10
     created: "2025-12-05T21:32:14.156298238Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
@@ -386,4 +441,4 @@ entries:
     urls:
     - https://github.com/link-assistant/hive-mind/releases/download/hive-mind-0.37.5/hive-mind-0.37.5.tgz
     version: 0.37.5
-generated: "2025-12-05T21:32:14.156330298Z"
+generated: "2025-12-06T18:50:50.171544669Z"

@@ -119,6 +119,9 @@ if (argv.tool === 'opencode') {
 } else if (argv.tool === 'codex') {
   const codexLib = await import('./codex.lib.mjs');
   checkForUncommittedChanges = codexLib.checkForUncommittedChanges;
+} else if (argv.tool === 'agent') {
+  const agentLib = await import('./agent.lib.mjs');
+  checkForUncommittedChanges = agentLib.checkForUncommittedChanges;
 } else {
   checkForUncommittedChanges = claudeLib.checkForUncommittedChanges;
 }
@@ -782,6 +785,34 @@ try {
       codexPath,
       $
     });
+  } else if (argv.tool === 'agent') {
+    const agentLib = await import('./agent.lib.mjs');
+    const { executeAgent } = agentLib;
+    const agentPath = process.env.AGENT_PATH || 'agent';
+
+    toolResult = await executeAgent({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      agentPath,
+      $
+    });
   } else {
     // Default to Claude
     const claudeResult = await executeClaude({
@@ -902,7 +933,8 @@ try {
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
           toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
                     (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,

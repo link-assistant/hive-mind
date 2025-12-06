@@ -619,7 +619,8 @@ fi
 # --- PHP (via Homebrew + shivammathur/php tap) ---
 if command -v brew &>/dev/null; then
   # Check if PHP is already installed via Homebrew
-  if ! brew list 2>/dev/null | grep -q "shivammathur/php/php@"; then
+  # Note: brew list outputs formula names without the tap prefix, e.g., "php@8.3"
+  if ! brew list --formula 2>/dev/null | grep -q "^php@"; then
     log_info "Installing PHP via Homebrew..."
 
     # Add shivammathur/php tap
@@ -640,7 +641,8 @@ if command -v brew &>/dev/null; then
       }
 
       # Link PHP 8.3 as the active version if installation succeeded
-      if brew list 2>/dev/null | grep -q "shivammathur/php/php@8.3"; then
+      # Check for php@8.3 in brew list (formula name, not tap prefix)
+      if brew list --formula 2>/dev/null | grep -q "^php@8.3$"; then
         log_info "Linking PHP 8.3 as the active version..."
         brew link --overwrite --force shivammathur/php/php@8.3 2>&1 | grep -v "Warning" || true
 
@@ -715,7 +717,7 @@ switch-php() {
   fi
 
   # Unlink all PHP versions
-  for php_ver in $(brew list 2>/dev/null | grep -E '^(shivammathur/php/)?php@'); do
+  for php_ver in $(brew list --formula 2>/dev/null | grep -E '^php@'); do
     brew unlink "$php_ver" 2>/dev/null || true
   done
 

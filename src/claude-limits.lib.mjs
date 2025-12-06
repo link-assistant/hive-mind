@@ -76,7 +76,7 @@ function formatResetTime(isoDate, includeTimezone = true) {
  * Format relative time from now to a future date
  *
  * @param {string} isoDate - ISO date string
- * @returns {string|null} Relative time string (e.g., "1h 34m") or null if date is in the past
+ * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
  */
 function formatRelativeTime(isoDate) {
   if (!isoDate) return null;
@@ -86,12 +86,22 @@ function formatRelativeTime(isoDate) {
     const target = new Date(isoDate);
     const diffMs = target - now;
 
+    // Check for invalid date (NaN)
+    if (isNaN(diffMs)) return null;
+
     if (diffMs < 0) return null; // Past date
 
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours}h ${minutes}m`;
+    // If hours >= 24, show days
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      const hours = totalHours % 24;
+      return `${days}d ${hours}h ${minutes}m`;
+    }
+
+    return `${totalHours}h ${minutes}m`;
   } catch {
     return null;
   }
@@ -246,6 +256,33 @@ export function getProgressBar(percentage) {
 }
 
 /**
+ * Calculate the percentage of time that has passed in a period
+ * @param {string} resetsAt - ISO date string when the period resets
+ * @param {number} periodHours - Total duration of the period in hours (5 for session, 168 for week)
+ * @returns {number|null} Percentage of time passed (0-100) or null if unable to calculate
+ */
+export function calculateTimePassedPercentage(resetsAt, periodHours) {
+  if (!resetsAt) return null;
+
+  try {
+    const now = new Date();
+    const resetTime = new Date(resetsAt);
+    const periodMs = periodHours * 60 * 60 * 1000; // Convert hours to milliseconds
+
+    // Calculate when the period started
+    const startTime = new Date(resetTime.getTime() - periodMs);
+
+    // Calculate time passed and total duration
+    const timePassed = now.getTime() - startTime.getTime();
+    const percentage = Math.max(0, Math.min(100, (timePassed / periodMs) * 100));
+
+    return Math.round(percentage);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Format Claude usage data into a Telegram-friendly message
  * @param {Object} usage - The usage object from getClaudeUsageLimits
  * @returns {string} Formatted message
@@ -260,9 +297,18 @@ export function formatUsageMessage(usage) {
   // Current session (five_hour)
   message += 'Current session\n';
   if (usage.currentSession.percentage !== null) {
+    // Add time passed progress bar first
+    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.currentSession.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
       if (relativeTime) {
@@ -279,9 +325,18 @@ export function formatUsageMessage(usage) {
   // Current week (all models / seven_day)
   message += 'Current week (all models)\n';
   if (usage.allModels.percentage !== null) {
+    // Add time passed progress bar first (168 hours = 7 days)
+    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.allModels.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
       if (relativeTime) {
@@ -298,9 +353,18 @@ export function formatUsageMessage(usage) {
   // Current week (Sonnet only / seven_day_sonnet)
   message += 'Current week (Sonnet only)\n';
   if (usage.sonnetOnly.percentage !== null) {
+    // Add time passed progress bar first (168 hours = 7 days)
+    const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.sonnetOnly.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.sonnetOnly.resetTime) {
       const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
       if (relativeTime) {
@@ -320,5 +384,6 @@ export function formatUsageMessage(usage) {
 export default {
   getClaudeUsageLimits,
   getProgressBar,
+  calculateTimePassedPercentage,
   formatUsageMessage
 };

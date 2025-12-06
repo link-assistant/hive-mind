@@ -240,7 +240,10 @@ export const createInteractiveHandler = (options) => {
     // Track pending tool calls for merging with results
     // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon, commentIdPromise, resolveCommentId }
     // commentId may be null initially if comment is queued; commentIdPromise resolves when comment is posted
-    pendingToolCalls: new Map()
+    pendingToolCalls: new Map(),
+    // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
+    // This is preserved even after pendingToolCalls entry is deleted
+    toolUseRegistry: new Map()
   };
 
   /**
@@ -468,6 +471,9 @@ ${createRawJsonSection(data)}`;
     const toolIcon = getToolIcon(toolName);
     const toolId = toolUse.id || 'unknown';
 
+    // Register this tool use for potential standalone result rendering
+    state.toolUseRegistry.set(toolId, { toolName, toolIcon });
+
     // Format tool input based on tool type
     let inputDisplay = '';
     const input = toolUse.input || {};
@@ -479,7 +485,7 @@ ${createRawJsonSection(data)}`;
         keepEnd: 12
       });
       inputDisplay = createCollapsible(
-        '📋 Command',
+        '📋 Executed command',
         '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```',
         true
       );
@@ -567,7 +573,7 @@ ${createRawJsonSection(data)}`;
     }
 
     // Post the tool use comment and store info for merging with result later
-    const comment = `## ${toolIcon} Tool use: ${toolName}
+    const comment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
@@ -672,14 +678,12 @@ ${createRawJsonSection(data)}`;
 
       if (commentId) {
         // Create merged comment with both call and result
-        const mergedComment = `## ${toolIcon} Tool use: ${toolName} ${statusIcon}
+        const mergedComment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
-### Result: ${statusText}
-
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}
@@ -709,10 +713,18 @@ ${createRawJsonSection([toolData, data])}`;
     }
 
     // Post as new comment if no pending call or edit failed
-    const comment = `## ${statusIcon} Tool result: ${statusText}
+    // Look up tool name from registry for better header
+    const registryEntry = state.toolUseRegistry.get(toolUseId);
+    const standaloneToolName = registryEntry?.toolName;
+    const standaloneToolIcon = registryEntry?.toolIcon || '🔧';
+    const standaloneHeader = standaloneToolName
+      ? `${standaloneToolIcon} ${standaloneToolName} tool result`
+      : 'Tool result';
+
+    const comment = `## ${standaloneHeader}
 
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}

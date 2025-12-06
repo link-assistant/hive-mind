@@ -17,7 +17,7 @@ env:
   IMAGE_NAME: konard/hive-mind
 
 jobs:
-  # Test building the Docker image
+  # Test building the Docker image (single build with log capture and verification)
   test-build:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -26,23 +26,78 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Test build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: ${{ env.IMAGE_NAME }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Verify image was built
+      - name: Build Docker image with log capture
         run: |
-          docker images
-          echo "✅ Docker image test build completed successfully"
+          echo "🔨 Building Docker image with log capture..."
+          # Build with plain progress output to capture full logs
+          # This is the ONLY build - we use --load to make it available for docker run
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "✅ Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify Homebrew and PHP in build logs
+        run: |
+          echo "📊 Checking installation status in build logs..."
+
+          # Check for the specific "not found" errors that indicate failure
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] PHP: not found' build-output.log; then
+            echo "❌ ERROR: PHP installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Check for success indicators
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "✅ Homebrew installation verified in build logs"
+          else
+            echo "⚠️  WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] PHP:' build-output.log; then
+            echo "✅ PHP installation verified in build logs"
+          else
+            echo "⚠️  WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+          fi
+
+      - name: Verify tools in running container
+        run: |
+          echo "🔍 Verifying tools are available in the running container..."
+
+          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo '✅ Homebrew is accessible'
+            else
+              echo '❌ Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking PHP...'
+            if command -v php &>/dev/null; then
+              php --version | head -n1
+              echo '✅ PHP is accessible'
+            else
+              # Check if PHP binary exists but is not in PATH
+              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
+              else
+                echo '❌ PHP not found in container'
+                exit 1
+              fi
+            fi
+          "
+
+          echo ""
+          echo "✅ All verification checks passed!"
 
   # Build and push Docker image to Docker Hub
   build-and-push:

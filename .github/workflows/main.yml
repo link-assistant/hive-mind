@@ -422,6 +422,11 @@ jobs:
         echo "Running test suite for Telegram URL validation..."
         node tests/test-telegram-validate-url.mjs
 
+    - name: Run interactive mode test (Issue #800)
+      run: |
+        echo "Running test suite for interactive mode..."
+        node tests/test-interactive-mode.mjs
+
     - name: Run start-screen test (Issue #539)
       run: |
         echo "Running test suite for start-screen.mjs..."

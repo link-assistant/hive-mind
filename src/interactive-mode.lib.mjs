@@ -479,7 +479,7 @@ ${createRawJsonSection(data)}`;
         keepEnd: 12
       });
       inputDisplay = createCollapsible(
-        '📋 Command',
+        '📋 Executed command',
         '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```',
         true
       );
@@ -567,7 +567,7 @@ ${createRawJsonSection(data)}`;
     }
 
     // Post the tool use comment and store info for merging with result later
-    const comment = `## ${toolIcon} Tool use: ${toolName}
+    const comment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
@@ -672,14 +672,12 @@ ${createRawJsonSection(data)}`;
 
       if (commentId) {
         // Create merged comment with both call and result
-        const mergedComment = `## ${toolIcon} Tool use: ${toolName} ${statusIcon}
+        const mergedComment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
-### Result: ${statusText}
-
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}
@@ -709,10 +707,10 @@ ${createRawJsonSection([toolData, data])}`;
     }
 
     // Post as new comment if no pending call or edit failed
-    const comment = `## ${statusIcon} Tool result: ${statusText}
+    const comment = `## Tool result
 
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}

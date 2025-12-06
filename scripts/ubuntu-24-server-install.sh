@@ -298,7 +298,7 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential
+maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
 log_success "Essential tools installed"
 
 # --- Install Python build dependencies (required for pyenv) ---

@@ -72,18 +72,18 @@ console.log('Visual comparison scenarios:');
 console.log('='.repeat(60));
 
 console.log('\nScenario 1: Overusing (high usage, low time passed)');
+console.log('Time passed: ' + getProgressBar(30) + ' 30% passed');
 console.log('Usage:       ' + getProgressBar(80) + ' 80% used');
-console.log('Time passed: ' + getProgressBar(30) + ' 30% time passed');
 console.log('→ Using too fast! Slow down to avoid hitting limits.');
 
 console.log('\nScenario 2: Underusing (low usage, high time passed)');
+console.log('Time passed: ' + getProgressBar(70) + ' 70% passed');
 console.log('Usage:       ' + getProgressBar(20) + ' 20% used');
-console.log('Time passed: ' + getProgressBar(70) + ' 70% time passed');
 console.log('→ Using slowly, can increase activity.');
 
 console.log('\nScenario 3: Balanced (similar percentages)');
+console.log('Time passed: ' + getProgressBar(50) + ' 50% passed');
 console.log('Usage:       ' + getProgressBar(45) + ' 45% used');
-console.log('Time passed: ' + getProgressBar(50) + ' 50% time passed');
 console.log('→ Well balanced usage rate.');
 
 console.log('\n✅ All tests completed!');

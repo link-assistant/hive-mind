@@ -297,16 +297,17 @@ export function formatUsageMessage(usage) {
   // Current session (five_hour)
   message += 'Current session\n';
   if (usage.currentSession.percentage !== null) {
-    const pct = usage.currentSession.percentage;
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
-
-    // Add time passed progress bar
+    // Add time passed progress bar first
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% time passed\n`;
+      message += `${timeBar} ${timePassed}% passed\n`;
     }
+
+    // Add usage progress bar second
+    const pct = usage.currentSession.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
 
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
@@ -324,16 +325,17 @@ export function formatUsageMessage(usage) {
   // Current week (all models / seven_day)
   message += 'Current week (all models)\n';
   if (usage.allModels.percentage !== null) {
-    const pct = usage.allModels.percentage;
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
-
-    // Add time passed progress bar (168 hours = 7 days)
+    // Add time passed progress bar first (168 hours = 7 days)
     const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% time passed\n`;
+      message += `${timeBar} ${timePassed}% passed\n`;
     }
+
+    // Add usage progress bar second
+    const pct = usage.allModels.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
 
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
@@ -351,16 +353,17 @@ export function formatUsageMessage(usage) {
   // Current week (Sonnet only / seven_day_sonnet)
   message += 'Current week (Sonnet only)\n';
   if (usage.sonnetOnly.percentage !== null) {
-    const pct = usage.sonnetOnly.percentage;
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
-
-    // Add time passed progress bar (168 hours = 7 days)
+    // Add time passed progress bar first (168 hours = 7 days)
     const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% time passed\n`;
+      message += `${timeBar} ${timePassed}% passed\n`;
     }
+
+    // Add usage progress bar second
+    const pct = usage.sonnetOnly.percentage;
+    const bar = getProgressBar(pct);
+    message += `${bar} ${pct}% used\n`;
 
     if (usage.sonnetOnly.resetTime) {
       const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);

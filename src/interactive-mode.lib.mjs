@@ -240,7 +240,10 @@ export const createInteractiveHandler = (options) => {
     // Track pending tool calls for merging with results
     // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon, commentIdPromise, resolveCommentId }
     // commentId may be null initially if comment is queued; commentIdPromise resolves when comment is posted
-    pendingToolCalls: new Map()
+    pendingToolCalls: new Map(),
+    // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
+    // This is preserved even after pendingToolCalls entry is deleted
+    toolUseRegistry: new Map()
   };
 
   /**
@@ -467,6 +470,9 @@ ${createRawJsonSection(data)}`;
     const toolName = toolUse.name || 'Unknown';
     const toolIcon = getToolIcon(toolName);
     const toolId = toolUse.id || 'unknown';
+
+    // Register this tool use for potential standalone result rendering
+    state.toolUseRegistry.set(toolId, { toolName, toolIcon });
 
     // Format tool input based on tool type
     let inputDisplay = '';
@@ -707,7 +713,15 @@ ${createRawJsonSection([toolData, data])}`;
     }
 
     // Post as new comment if no pending call or edit failed
-    const comment = `## Tool result
+    // Look up tool name from registry for better header
+    const registryEntry = state.toolUseRegistry.get(toolUseId);
+    const standaloneToolName = registryEntry?.toolName;
+    const standaloneToolIcon = registryEntry?.toolIcon || '🔧';
+    const standaloneHeader = standaloneToolName
+      ? `${standaloneToolIcon} ${standaloneToolName} tool result`
+      : 'Tool result';
+
+    const comment = `## ${standaloneHeader}
 
 ${createCollapsible(
   `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,

@@ -198,9 +198,9 @@ Command not found
   console.log('✅ Output label: "📤 Output (❌ error)"');
   console.log('✅ No separate "Result: Error" line');
 
-  // Test 5: Standalone tool result
-  console.log('\n--- Test 5: Standalone Tool Result ---');
-  const standaloneResultComment = `## Tool result
+  // Test 5: Standalone tool result (with tool name from registry)
+  console.log('\n--- Test 5: Standalone Tool Result (with tool name) ---');
+  const standaloneResultWithNameComment = `## 💻 Bash tool result
 
 <details open>
 <summary>📤 Output (✅ success)</summary>
@@ -211,9 +211,27 @@ result content
 
 </details>`;
 
-  console.log('Expected format:');
-  console.log(standaloneResultComment);
-  console.log('\n✅ Format matches: "## Tool result" (no status icon in header)');
+  console.log('Expected format (when tool is registered):');
+  console.log(standaloneResultWithNameComment);
+  console.log('\n✅ Format matches: "## 💻 Bash tool result" (includes tool name and icon)');
+  console.log('✅ Output label: "📤 Output (✅ success)"');
+
+  // Test 6: Standalone tool result (without tool name - fallback)
+  console.log('\n--- Test 6: Standalone Tool Result (fallback when tool unknown) ---');
+  const standaloneResultFallbackComment = `## Tool result
+
+<details open>
+<summary>📤 Output (✅ success)</summary>
+
+\`\`\`
+result content
+\`\`\`
+
+</details>`;
+
+  console.log('Expected format (when tool is not registered):');
+  console.log(standaloneResultFallbackComment);
+  console.log('\n✅ Format matches: "## Tool result" (simple header as fallback)');
   console.log('✅ Output label: "📤 Output (✅ success)"');
 
   // Summary
@@ -225,8 +243,9 @@ result content
   console.log('   2. Command label: "📋 Executed command"');
   console.log('   3. Output with status: "📤 Output (✅ success)"');
   console.log('   4. Output with error: "📤 Output (❌ error)"');
-  console.log('   5. Standalone result: "## Tool result"');
-  console.log('   6. Status indicators moved to output line (single line)');
+  console.log('   5. Standalone result with tool name: "## 💻 Bash tool result"');
+  console.log('   6. Standalone result fallback: "## Tool result"');
+  console.log('   7. Status indicators moved to output line (single line)');
   console.log('\n✅ All tests passed!\n');
 };
 

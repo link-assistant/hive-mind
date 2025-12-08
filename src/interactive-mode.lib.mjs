@@ -232,21 +232,28 @@ export const createInteractiveHandler = (options) => {
     toolUseCount: 0,
     toolResultCount: 0,
     lastCommentTime: 0,
+    // Queue stores objects with body and optional toolId for tracking
+    // { body: string, toolId?: string }
     commentQueue: [],
     isProcessing: false,
     startTime: Date.now(),
     // Track pending tool calls for merging with results
-    // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon }
-    pendingToolCalls: new Map()
+    // Map of tool_use_id -> { commentId, toolData, inputDisplay, toolName, toolIcon, commentIdPromise, resolveCommentId }
+    // commentId may be null initially if comment is queued; commentIdPromise resolves when comment is posted
+    pendingToolCalls: new Map(),
+    // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
+    // This is preserved even after pendingToolCalls entry is deleted
+    toolUseRegistry: new Map()
   };
 
   /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
-   * @returns {Promise<string|null>} Comment ID if successful, null otherwise
+   * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
+   * @returns {Promise<string|null>} Comment ID if successful, null if queued or failed
    * @private
    */
-  const postComment = async (body) => {
+  const postComment = async (body, toolId = null) => {
     if (!prNumber || !owner || !repo) {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
@@ -258,10 +265,10 @@ export const createInteractiveHandler = (options) => {
     const timeSinceLastComment = now - state.lastCommentTime;
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
-      // Queue the comment for later - queued comments don't get IDs
-      state.commentQueue.push(body);
+      // Queue the comment for later with toolId for tracking
+      state.commentQueue.push({ body, toolId });
       if (verbose) {
-        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)`, { verbose: true });
+        await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}`, { verbose: true });
       }
       return null;
     }
@@ -321,6 +328,8 @@ export const createInteractiveHandler = (options) => {
 
   /**
    * Process queued comments
+   * When a queued comment is posted, if it has an associated toolId,
+   * update the pending tool call with the new comment ID
    * @private
    */
   const processQueue = async () => {
@@ -339,9 +348,26 @@ export const createInteractiveHandler = (options) => {
         await new Promise(resolve => setTimeout(resolve, CONFIG.MIN_COMMENT_INTERVAL - timeSinceLastComment));
       }
 
-      const body = state.commentQueue.shift();
-      if (body) {
-        await postComment(body);
+      const queueItem = state.commentQueue.shift();
+      if (queueItem) {
+        const { body, toolId } = queueItem;
+        // Post the comment (don't pass toolId to avoid re-queueing)
+        const commentId = await postComment(body);
+
+        // If this was a tool use comment, update the pending call with the comment ID
+        if (toolId && commentId) {
+          const pendingCall = state.pendingToolCalls.get(toolId);
+          if (pendingCall) {
+            pendingCall.commentId = commentId;
+            // Resolve the promise so tool_result handler can proceed
+            if (pendingCall.resolveCommentId) {
+              pendingCall.resolveCommentId(commentId);
+            }
+            if (verbose) {
+              await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, { verbose: true });
+            }
+          }
+        }
       }
     }
 
@@ -445,6 +471,9 @@ ${createRawJsonSection(data)}`;
     const toolIcon = getToolIcon(toolName);
     const toolId = toolUse.id || 'unknown';
 
+    // Register this tool use for potential standalone result rendering
+    state.toolUseRegistry.set(toolId, { toolName, toolIcon });
+
     // Format tool input based on tool type
     let inputDisplay = '';
     const input = toolUse.input || {};
@@ -456,7 +485,7 @@ ${createRawJsonSection(data)}`;
         keepEnd: 12
       });
       inputDisplay = createCollapsible(
-        '📋 Command',
+        '📋 Executed command',
         '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```',
         true
       );
@@ -544,7 +573,7 @@ ${createRawJsonSection(data)}`;
     }
 
     // Post the tool use comment and store info for merging with result later
-    const comment = `## ${toolIcon} Tool use: ${toolName}
+    const comment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
@@ -554,21 +583,40 @@ _⏳ Waiting for result..._
 
 ${createRawJsonSection(data)}`;
 
-    const commentId = await postComment(comment);
+    // Create a promise that will resolve with the comment ID
+    // This handles both immediate posting and queued posting
+    let resolveCommentId;
+    const commentIdPromise = new Promise((resolve) => {
+      resolveCommentId = resolve;
+    });
 
-    // Store pending tool call info for merging when result arrives
+    // Store pending tool call BEFORE posting to ensure it's tracked
+    // even if the comment gets queued
+    state.pendingToolCalls.set(toolId, {
+      commentId: null, // Will be set when comment is actually posted
+      commentIdPromise,
+      resolveCommentId,
+      toolData: data,
+      inputDisplay,
+      toolName,
+      toolIcon
+    });
+
+    // Post the comment, passing toolId for queue tracking
+    const commentId = await postComment(comment, toolId);
+
+    // If posted immediately (not queued), update the pending call and resolve the promise
     if (commentId) {
-      state.pendingToolCalls.set(toolId, {
-        commentId,
-        toolData: data,
-        inputDisplay,
-        toolName,
-        toolIcon
-      });
+      const pendingCall = state.pendingToolCalls.get(toolId);
+      if (pendingCall) {
+        pendingCall.commentId = commentId;
+        resolveCommentId(commentId);
+      }
     }
+    // If queued (commentId is null), processQueue will update it later
 
     if (verbose) {
-      await log(`🔧 Interactive mode: Tool use - ${toolName}`, { verbose: true });
+      await log(`🔧 Interactive mode: Tool use - ${toolName}${commentId ? ` (comment: ${commentId})` : ' (queued)'}`, { verbose: true });
     }
   };
 
@@ -608,18 +656,34 @@ ${createRawJsonSection(data)}`;
     const pendingCall = state.pendingToolCalls.get(toolUseId);
 
     if (pendingCall) {
-      // Merge tool call and result into single comment
-      const { commentId, toolData, inputDisplay, toolName, toolIcon } = pendingCall;
+      const { toolData, inputDisplay, toolName, toolIcon, commentIdPromise } = pendingCall;
+      let { commentId } = pendingCall;
 
-      // Create merged comment with both call and result
-      const mergedComment = `## ${toolIcon} Tool use: ${toolName} ${statusIcon}
+      // If comment ID is not yet available (comment was queued), wait for it
+      // But use a timeout to avoid blocking forever
+      if (!commentId && commentIdPromise) {
+        if (verbose) {
+          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, { verbose: true });
+        }
+        // Wait for the comment to be posted (with 30 second timeout)
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 30000));
+        commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+        if (!commentId) {
+          if (verbose) {
+            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', { verbose: true });
+          }
+        }
+      }
+
+      if (commentId) {
+        // Create merged comment with both call and result
+        const mergedComment = `## ${toolIcon} ${toolName} tool use
 
 ${inputDisplay}
 
-### Result: ${statusText}
-
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}
@@ -628,24 +692,39 @@ ${createCollapsible(
 
 ${createRawJsonSection([toolData, data])}`;
 
-      // Edit the existing comment
-      const editSuccess = await editComment(commentId, mergedComment);
+        // Edit the existing comment
+        const editSuccess = await editComment(commentId, mergedComment);
 
-      if (editSuccess) {
-        state.pendingToolCalls.delete(toolUseId);
-        if (verbose) {
-          await log(`📋 Interactive mode: Tool result merged (${content.length} chars)`, { verbose: true });
+        if (editSuccess) {
+          state.pendingToolCalls.delete(toolUseId);
+          if (verbose) {
+            await log(`📋 Interactive mode: Tool result merged into comment ${commentId} (${content.length} chars)`, { verbose: true });
+          }
+          return;
         }
-        return;
+        // If edit failed, fall through to posting new comment
+        if (verbose) {
+          await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}, posting result separately`, { verbose: true });
+        }
       }
-      // If edit failed, fall through to posting new comment
+
+      // Clean up the pending call since we're posting separately
+      state.pendingToolCalls.delete(toolUseId);
     }
 
     // Post as new comment if no pending call or edit failed
-    const comment = `## ${statusIcon} Tool result: ${statusText}
+    // Look up tool name from registry for better header
+    const registryEntry = state.toolUseRegistry.get(toolUseId);
+    const standaloneToolName = registryEntry?.toolName;
+    const standaloneToolIcon = registryEntry?.toolIcon || '🔧';
+    const standaloneHeader = standaloneToolName
+      ? `${standaloneToolIcon} ${standaloneToolName} tool result`
+      : 'Tool result';
+
+    const comment = `## ${standaloneHeader}
 
 ${createCollapsible(
-  '📤 Output',
+  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
   '```\n' + escapeMarkdown(truncatedContent) + '\n```',
   true
 )}
@@ -658,7 +737,7 @@ ${createRawJsonSection(data)}`;
 
     if (verbose) {
       const contentLength = content.length;
-      await log(`📋 Interactive mode: Tool result (${contentLength} chars)`, { verbose: true });
+      await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars)`, { verbose: true });
     }
   };
 

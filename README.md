@@ -734,7 +734,7 @@ procinfo 62220
 sudo reboot
 ```
 
-That will remove all dangling unused proccesses and screens, which will in turn free the RAM and reduce CPU load.
+That will remove all dangling unused proccesses and screens, which will in turn free the RAM and reduce CPU load. Also reboot may clear all temporary files, so next step can do nothing if reboot was done.
 
 ### Cleanup disk space.
 

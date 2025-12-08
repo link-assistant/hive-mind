@@ -793,7 +793,7 @@ fi
 
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai
+bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."

@@ -65,9 +65,31 @@ export const CODEX_MODELS = {
   'claude-3-opus': 'claude-3-opus',
 };
 
+export const AGENT_MODELS = {
+  // Free models (via OpenCode)
+  'grok': 'opencode/grok-code',
+  'grok-code': 'opencode/grok-code',
+  'grok-code-fast-1': 'opencode/grok-code',
+  'big-pickle': 'opencode/big-pickle',
+  'gpt-5-nano': 'openai/gpt-5-nano',
+  // Premium models (requires OpenCode Zen subscription)
+  'sonnet': 'anthropic/claude-3-5-sonnet',
+  'haiku': 'anthropic/claude-3-5-haiku',
+  'opus': 'anthropic/claude-3-opus',
+  'gemini-3-pro': 'google/gemini-3-pro',
+  // Full model IDs
+  'opencode/grok-code': 'opencode/grok-code',
+  'opencode/big-pickle': 'opencode/big-pickle',
+  'openai/gpt-5-nano': 'openai/gpt-5-nano',
+  'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
+  'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
+  'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
+  'google/gemini-3-pro': 'google/gemini-3-pro',
+};
+
 /**
  * Get the model map for a given tool
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
  * @returns {Object} The model mapping for the tool
  */
 export const getModelMapForTool = (tool) => {
@@ -76,6 +98,8 @@ export const getModelMapForTool = (tool) => {
       return OPENCODE_MODELS;
     case 'codex':
       return CODEX_MODELS;
+    case 'agent':
+      return AGENT_MODELS;
     case 'claude':
     default:
       return CLAUDE_MODELS;
@@ -84,7 +108,7 @@ export const getModelMapForTool = (tool) => {
 
 /**
  * Get the list of available model names for a tool (for display in help/error messages)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
  * @returns {string[]} Array of available model short names
  */
 export const getAvailableModelNames = (tool) => {

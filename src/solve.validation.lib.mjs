@@ -239,6 +239,14 @@ export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection
         await log('❌ Cannot proceed without Codex connection', { level: 'error' });
         return false;
       }
+    } else if (argv.tool === 'agent') {
+      // Validate Agent connection
+      const agentLib = await import('./agent.lib.mjs');
+      isToolConnected = await agentLib.validateAgentConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Agent connection', { level: 'error' });
+        return false;
+      }
     } else {
       // Validate Claude CLI connection (default)
       const isClaudeConnected = await validateClaudeConnection(model);

@@ -112,7 +112,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode'],
+      choices: ['claude', 'opencode', 'agent'],
       default: 'claude'
     })
     .option('verbose', {

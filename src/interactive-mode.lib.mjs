@@ -494,7 +494,7 @@ ${createRawJsonSection(data)}`;
       if (input.offset || input.limit) {
         inputDisplay += `\n**Range:** offset=${input.offset || 0}, limit=${input.limit || 'all'}`;
       }
-    } else if ((toolName === 'Write' || toolName === 'Edit') && input.file_path) {
+    } else if (toolName === 'Write' && input.file_path) {
       inputDisplay = `**File:** \`${input.file_path}\``;
       if (input.content) {
         const truncatedContent = truncateMiddle(input.content, {
@@ -502,17 +502,25 @@ ${createRawJsonSection(data)}`;
           keepStart: 12,
           keepEnd: 12
         });
+        // Format content as diff with + prefix for added lines
+        const diffContent = truncatedContent.split('\n').map(line => `+ ${line}`).join('\n');
         inputDisplay += '\n\n' + createCollapsible(
           '📄 Content',
-          '```\n' + escapeMarkdown(truncatedContent) + '\n```'
+          '```diff\n' + escapeMarkdown(diffContent) + '\n```'
         );
       }
+    } else if (toolName === 'Edit' && input.file_path) {
+      inputDisplay = `**File:** \`${input.file_path}\``;
       if (input.old_string && input.new_string) {
         const truncatedOld = truncateMiddle(input.old_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
         const truncatedNew = truncateMiddle(input.new_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
+        // Format as unified diff with - for removed lines and + for added lines
+        const diffOld = truncatedOld.split('\n').map(line => `- ${line}`).join('\n');
+        const diffNew = truncatedNew.split('\n').map(line => `+ ${line}`).join('\n');
         inputDisplay += '\n\n' + createCollapsible(
-          '🔄 Edit Details',
-          `**Replace:**\n\`\`\`\n${escapeMarkdown(truncatedOld)}\n\`\`\`\n\n**With:**\n\`\`\`\n${escapeMarkdown(truncatedNew)}\n\`\`\``
+          '🔄 Change',
+          '```diff\n' + escapeMarkdown(diffOld + '\n' + diffNew) + '\n```',
+          true
         );
       }
     } else if ((toolName === 'Glob' || toolName === 'Grep') && input.pattern) {

@@ -992,6 +992,165 @@ jobs:
           echo "  docker pull ${{ env.IMAGE_NAME }}:latest"
           echo "  docker run -it ${{ env.IMAGE_NAME }}:latest"
 
+  # === DOCKER PR CHECK ===
+  docker-pr-check:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: github.event_name == 'pull_request'
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Check if Docker check should run
+        id: should-run
+        run: |
+          CHANGED_FILES="${{ needs.detect-changes.outputs.workflow-changed }}"
+          # Check if Dockerfile or related files changed
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # For now, run on all PRs to main - could be optimized with path filters
+          echo "should_run=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Build Docker image with log capture
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "🔨 Building Docker image with log capture..."
+          # Build with plain progress output to capture full logs
+          # This is the ONLY build - we use --load to make it available for docker run
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "✅ Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify Homebrew and PHP in build logs
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "📊 Checking installation status in build logs..."
+
+          # Check for the specific "not found" errors that indicate failure
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] PHP: not found' build-output.log; then
+            echo "❌ ERROR: PHP installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Check for success indicators
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "✅ Homebrew installation verified in build logs"
+          else
+            echo "⚠️  WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] PHP:' build-output.log; then
+            echo "✅ PHP installation verified in build logs"
+          else
+            echo "⚠️  WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+          fi
+
+      - name: Verify tools in running container
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "🔍 Verifying tools are available in the running container..."
+
+          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo '✅ Homebrew is accessible'
+            else
+              echo '❌ Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking PHP...'
+            if command -v php &>/dev/null; then
+              php --version | head -n1
+              echo '✅ PHP is accessible'
+            else
+              # Check if PHP binary exists but is not in PATH
+              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
+              else
+                echo '❌ PHP not found in container'
+                exit 1
+              fi
+            fi
+          "
+
+          echo ""
+          echo "✅ All verification checks passed!"
+
+  # === HELM PR CHECK ===
+  helm-pr-check:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Lint Helm chart
+        run: |
+          echo "Linting Helm chart..."
+          helm lint helm/hive-mind
+          echo "✅ Helm chart validation passed"
+
+      - name: Verify Chart.yaml structure
+        run: |
+          echo "Verifying Chart.yaml structure..."
+          if [ ! -f "helm/hive-mind/Chart.yaml" ]; then
+            echo "❌ Chart.yaml not found"
+            exit 1
+          fi
+
+          # Check for required fields
+          if ! grep -q "^name:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart name not found"
+            exit 1
+          fi
+
+          if ! grep -q "^version:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart version not found"
+            exit 1
+          fi
+
+          if ! grep -q "^appVersion:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart appVersion not found"
+            exit 1
+          fi
+
+          echo "✅ Chart.yaml structure is valid"
+
   # === HELM CHART RELEASE ===
   helm-release:
     if: always()

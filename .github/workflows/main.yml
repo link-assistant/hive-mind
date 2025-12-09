@@ -879,7 +879,16 @@ jobs:
         PACKAGE_NAME=$(node -p "require('./package.json').name")
         gh release create "v${VERSION}" \
           --title "${VERSION}" \
-          --notes "Release ${VERSION} - NPM: https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}, Docker: https://hub.docker.com/r/konard/hive-mind/tags?name=${VERSION}, Helm chart attached as asset"
+          --notes "$(cat <<EOF
+        Release ${VERSION}
+
+        NPM: https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}
+
+        Docker: https://hub.docker.com/r/konard/hive-mind/tags?name=${VERSION}
+
+        Helm chart attached as asset
+        EOF
+        )"
 
     - name: Upload Source Maps to Sentry
       if: needs.detect-changes.outputs.new-version == 'true'
@@ -1218,6 +1227,15 @@ jobs:
         run: |
           helm lint helm/hive-mind
 
+      - name: Package Helm chart
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "Packaging Helm chart..."
+          mkdir -p .helm-packages
+          helm package helm/hive-mind -d .helm-packages
+          echo "Chart packaged successfully:"
+          ls -la .helm-packages/
+
       - name: Ensure gh-pages branch exists
         if: steps.should-run.outputs.should_run == 'true'
         run: |
@@ -1245,44 +1263,43 @@ jobs:
             echo "gh-pages branch already exists"
           fi
 
-      - name: Run chart-releaser
-        if: steps.should-run.outputs.should_run == 'true'
-        uses: helm/chart-releaser-action@v1.7.0
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        with:
-          charts_dir: helm
-          skip_existing: true
-          create_release: false
-
-      - name: Deploy to GitHub Pages
-        if: steps.should-run.outputs.should_run == 'true'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .cr-index
-          destination_dir: .
-          keep_files: true
-          user_name: github-actions[bot]
-          user_email: github-actions[bot]@users.noreply.github.com
-          commit_message: 'Update Helm chart index'
-
-      - name: Create ArtifactHub metadata
+      - name: Checkout gh-pages branch
         if: steps.should-run.outputs.should_run == 'true'
         run: |
-          cat > artifacthub-repo.yml <<EOF
-          repositoryID: $(uuidgen)
-          owners:
-            - name: Link Assistant Team
-              email: support@link-assistant.com
-          EOF
+          # Fetch gh-pages branch
+          git fetch origin gh-pages:gh-pages
+          git checkout gh-pages
+
+      - name: Update Helm repository index
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          # Copy packaged chart to gh-pages
+          cp .helm-packages/*.tgz .
+
+          # Update or create index.yaml
+          helm repo index . --url https://link-assistant.github.io/hive-mind
+
+          echo "Updated index.yaml:"
+          cat index.yaml
+
+      - name: Commit and push to gh-pages
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          git add *.tgz index.yaml
+          git commit -m "Release Helm chart version ${{ needs.detect-changes.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages
+
+      - name: Switch back to main branch
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          git checkout -
 
       - name: Upload chart to release
         if: steps.should-run.outputs.should_run == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag: v${{ needs.detect-changes.outputs.version }}
-          files: .cr-release-packages/*.tgz
+          files: .helm-packages/*.tgz
 
       - name: Summary
         if: steps.should-run.outputs.should_run == 'true'

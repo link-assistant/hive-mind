@@ -81,13 +81,11 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
       alias: 'm',
       default: (currentParsedArgs) => {
         // Dynamic default based on tool selection
-        if (currentParsedArgs?.tool === 'opencode') {
-          return 'grok-code-fast-1';
-        } else if (currentParsedArgs?.tool === 'codex') {
+        if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
           return 'grok-code';
@@ -232,7 +230,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode', 'codex', 'agent'],
+      choices: ['claude', 'codex', 'agent'],
       default: 'claude'
     })
     .option('interactive-mode', {

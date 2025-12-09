@@ -197,18 +197,34 @@ The bug occurs because the JSON lines are being added to `nonToolOutputLines` ar
 
 ---
 
-## Proposed Solutions
+## Implemented Solution: Trust Exit Code
 
-### Solution 1: Enhanced JSON Parsing (RECOMMENDED)
+### Key Insight
 
-**Problem:** The current skip logic parses JSON but the matched pattern still scans the entire line as text.
+The `@link-assistant/agent` package now properly handles errors:
+- Returns exit code 1 on errors (not exit code 0)
+- Outputs explicit JSON error messages (`type: "error"` or `type: "step_error"`)
 
-**Fix:** Ensure that when a tool output is marked as `completed`, the entire JSON line is excluded from pattern matching, not just from the `nonToolOutputLines` array check:
+This means we can **trust the exit code** and should not scan output for error patterns.
+
+### Why Pattern Matching Was Removed
+
+Pattern matching in agent output causes false positives because:
+1. AI agents execute bash commands that produce warnings like "Permission denied"
+2. AI agents read source code that contains error-related strings
+3. AI agents may encounter and report error messages as part of their normal workflow
+
+All these scenarios involve error-like text appearing in output but **do not indicate failure**.
+
+### Final Implementation
+
+The solution was simplified to only detect explicit JSON error messages:
 
 ```javascript
-const detectOutputErrors = (stdoutOutput, stderrOutput) => {
+// Simplified error detection for agent tool
+// Issue #886: Trust exit code - agent now properly returns code 1 on errors
+const detectAgentErrors = (stdoutOutput) => {
   const lines = stdoutOutput.split('\n');
-  const nonToolOutputLines = [];
 
   for (const line of lines) {
     if (!line.trim()) continue;
@@ -216,83 +232,31 @@ const detectOutputErrors = (stdoutOutput, stderrOutput) => {
     try {
       const msg = JSON.parse(line);
 
-      // Check for explicit error message types
+      // Check for explicit error message types from agent
       if (msg.type === 'error' || msg.type === 'step_error') {
-        return { detected: true, type: 'AgentError', match: line.substring(0, 100) };
+        return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
       }
-
-      // Check for failed tool execution (status = 'failed' or non-zero exit)
-      if (msg.type === 'tool_use' && msg.part?.type === 'tool') {
-        const state = msg.part?.state;
-        if (state?.status === 'failed') {
-          return { detected: true, type: 'ToolError', match: state.error || 'Tool failed' };
-        }
-        // Skip completed tools entirely - don't add to nonToolOutputLines
-        if (state?.status === 'completed') {
-          continue; // Completely exclude from scanning
-        }
-      }
-
-      // Also handle the nested structure
-      if (msg.type === 'tool' && msg.state?.status === 'completed') {
-        continue;
-      }
-
-      nonToolOutputLines.push(line);
     } catch {
-      nonToolOutputLines.push(line);
+      // Not JSON - ignore for error detection
+      continue;
     }
   }
 
-  // Only scan stderr and non-tool JSON lines
-  const filteredOutput = nonToolOutputLines.join('\n') + '\n' + stderrOutput;
-  // ... pattern matching continues
+  return { detected: false };
 };
 ```
 
-### Solution 2: Check Exit Code in Tool Metadata
+### Error Detection Now Based On
 
-**Approach:** Before flagging a pattern match from tool output, verify the tool's exit code.
+1. **Exit code** (non-zero = error) - Primary error signal
+2. **Explicit JSON error messages** (`type: "error"` or `type: "step_error"`)
+3. **Usage limit detection** (handled separately)
 
-```javascript
-// In pattern matching, if pattern found in a tool output line,
-// check if that tool had exit code 0
-const getToolExitCode = (jsonLine) => {
-  try {
-    const msg = JSON.parse(jsonLine);
-    if (msg.type === 'tool_use' || msg.type === 'tool') {
-      return msg.part?.state?.metadata?.exit ?? msg.state?.metadata?.exit;
-    }
-  } catch { }
-  return null;
-};
+### What Was Removed
 
-// If exit code is 0, don't flag as error
-```
-
-### Solution 3: Distinguish Warning vs Error Text
-
-**Approach:** Add context awareness to error patterns for shell warnings.
-
-The pattern `/permission denied/i` is too broad. A shell "Permission denied" error from trying to execute a file is different from an actual permission error on a critical operation.
-
-**Context-aware pattern:**
-```javascript
-// Only flag permission denied if it's NOT from shell command execution errors
-// Shell errors format: "/bin/sh: N: filename: Permission denied"
-{
-  pattern: /(?<!\/bin\/sh:\s*\d+:\s*)[^\n]*permission denied[^\n]*/i,
-  type: 'PermissionError'
-}
-```
-
-Or use negative lookahead to exclude shell warning patterns:
-```javascript
-{
-  pattern: /^(?!.*\/bin\/sh:).*permission denied/im,
-  type: 'PermissionError'
-}
-```
+- All error pattern matching (permission denied, ENOENT, stack traces, etc.)
+- Complex JSON parsing to filter tool outputs
+- Pattern scanning in stderr
 
 ---
 
@@ -325,30 +289,23 @@ Fixing the false positive error detection will automatically restore the log att
 
 ---
 
-## Recommended Implementation Plan
+## Implementation Summary
 
-### Phase 1: Fix False Positive Detection
-1. Update `detectOutputErrors()` in `src/agent.lib.mjs` to properly skip completed tool outputs
-2. Handle both `type: "tool_use"` and `type: "tool"` JSON structures
-3. Ensure nested `state.output` fields are not scanned
+### Files Modified
 
-### Phase 2: Add Exit Code Verification
-1. When pattern match found, verify if it came from a completed tool with exit code 0
-2. If so, do not flag as error
+| File | Change |
+|------|--------|
+| `src/agent.lib.mjs` | Replaced `detectOutputErrors()` with simplified `detectAgentErrors()` |
+| `tests/test-agent-error-detection.mjs` | Updated tests to match new simplified logic |
+| `experiments/test-agent-error-detection.mjs` | Updated experiment to demonstrate fix |
 
-### Phase 3: Add Tests
-1. Test case: bash command with warning text but exit code 0 - should NOT flag error
-2. Test case: bash command with error text and non-zero exit - SHOULD flag error
-3. Test case: agent reads file with "permission denied" string - should NOT flag error
+### Test Results
 
----
-
-## Files to Modify
-
-| File | Change Required |
-|------|----------------|
-| `src/agent.lib.mjs:473-521` | Update `detectOutputErrors()` to properly skip completed tool JSON |
-| `tests/test-agent-error-detection.mjs` | Add test cases for false positive scenarios |
+All 10 test cases pass:
+- Issue #886 scenario (bash with shell warnings) - No false positive ✅
+- Issue #873 scenario (source code with error strings) - No false positive ✅
+- Explicit JSON error messages - Detected correctly ✅
+- Clean output - No false detection ✅
 
 ---
 
@@ -361,9 +318,17 @@ Fixing the false positive error detection will automatically restore the log att
 
 ## Conclusion
 
-This issue is a variant of the phantom error detection problem documented in Issue #873. While the fix for #873 added JSON-aware parsing, it didn't fully prevent completed tool outputs from being scanned when they contain error-like text in their output fields.
+This issue highlighted that pattern matching for error detection in agent output is fundamentally flawed. The previous approach attempted to identify errors by scanning output text for patterns like "permission denied", "ENOENT", or stack traces. However, this approach causes false positives because:
 
-The key insight from this case study is that **successful tool execution (completed status + exit code 0) should never trigger false positive error detection**, regardless of what text appears in the tool's stdout/stderr output. Many tools produce warning messages or error-like text during normal operation, and these should not cause the entire agent execution to be marked as failed.
+1. AI agents execute bash commands that may produce warnings
+2. AI agents read/process source code containing error-related text
+3. AI agents report errors they encounter as part of their normal workflow
+
+**The solution**: Trust the exit code. The `@link-assistant/agent` package now properly returns:
+- Exit code 1 on actual errors
+- JSON error messages (`type: "error"`) for structured error reporting
+
+This simple approach eliminates false positives while still detecting real failures.
 
 **Artifacts:**
 - Full log file: `solve-2025-12-09T07-37-32-414Z.log`

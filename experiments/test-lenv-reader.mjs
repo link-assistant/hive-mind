@@ -151,8 +151,6 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --auto-continue
   --attach-logs
   --verbose
-  --tool
-  opencode
 )`;
 
 console.log('Configuration:');

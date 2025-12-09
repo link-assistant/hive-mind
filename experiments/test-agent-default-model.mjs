@@ -26,11 +26,6 @@ const testCases = [
     expected: { tool: 'agent', model: 'sonnet' }
   },
   {
-    name: 'OpenCode tool without model flag',
-    args: ['https://github.com/test/repo/issues/1', '--tool', 'opencode'],
-    expected: { tool: 'opencode', model: 'grok-code-fast-1' }
-  },
-  {
     name: 'Codex tool without model flag',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'codex'],
     expected: { tool: 'codex', model: 'gpt-5' }

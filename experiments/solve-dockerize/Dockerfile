@@ -13,9 +13,6 @@ RUN bun install -g @anthropic-ai/claude-code
 # Install Claude Profiles
 RUN bun install -g @deep-assistant/claude-profiles
 
-# Install OpenCode AI
-RUN bun install -g opencode-ai
-
 # Install Node.js (if not already available)
 RUN brew install node
 

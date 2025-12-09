@@ -31,8 +31,6 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --auto-continue
   --attach-logs
   --verbose
-  --tool
-  opencode
 )
 
 # Optional: Override options for /hive command in lino notation

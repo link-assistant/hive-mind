@@ -19,6 +19,48 @@ import {
   batchCheckPullRequestsForIssues as batchCheckPRs,
   batchCheckArchivedRepositories as batchCheckArchived
 } from './github.batch.lib.mjs';
+
+/**
+ * Build cost estimation string for log comments
+ * @param {number|null} totalCostUSD - Public pricing estimate
+ * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
+ * @param {Object|null} pricingInfo - Pricing info from agent tool
+ * @returns {string} Formatted cost info string for markdown
+ */
+const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
+  let costInfo = '\n\n💰 **Cost estimation:**';
+  if (pricingInfo && pricingInfo.modelName) {
+    costInfo += `\n- Model: ${pricingInfo.modelName}`;
+    if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
+  }
+  if (totalCostUSD !== null && totalCostUSD !== undefined) {
+    costInfo += pricingInfo?.isFreeModel
+      ? '\n- Public pricing estimate: $0.00 (Free model)'
+      : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+  } else {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  if (pricingInfo?.tokenUsage) {
+    const u = pricingInfo.tokenUsage;
+    let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
+    if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
+    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+    costInfo += tokenInfo;
+  }
+  if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+    if (totalCostUSD !== null) {
+      const diff = anthropicTotalCostUSD - totalCostUSD;
+      const pct = totalCostUSD > 0 ? ((diff / totalCostUSD) * 100) : 0;
+      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+    } else {
+      costInfo += '\n- Difference: unknown';
+    }
+  } else if (!pricingInfo) {
+    costInfo += '\n- Calculated by Anthropic: unknown\n- Difference: unknown';
+  }
+  return costInfo;
+};
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
 // Helper function to get GitHub tokens from local config files
@@ -583,59 +625,8 @@ ${logContent}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
-      // Success log format
-      let costInfo = '\n\n💰 **Cost estimation:**';
-
-      // Check if this is an agent tool run with pricing info
-      if (pricingInfo && pricingInfo.modelName) {
-        costInfo += `\n- Model: ${pricingInfo.modelName}`;
-        if (pricingInfo.provider) {
-          costInfo += `\n- Provider: ${pricingInfo.provider}`;
-        }
-      }
-
-      if (totalCostUSD !== null && totalCostUSD !== undefined) {
-        // Check if this is a free model
-        if (pricingInfo && pricingInfo.isFreeModel) {
-          costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
-        } else {
-          costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-        }
-      } else {
-        costInfo += '\n- Public pricing estimate: unknown';
-      }
-
-      // Add token usage if available from pricingInfo
-      if (pricingInfo && pricingInfo.tokenUsage) {
-        const usage = pricingInfo.tokenUsage;
-        let tokenInfo = '\n- Token usage:';
-        tokenInfo += ` ${usage.inputTokens?.toLocaleString() || 0} input`;
-        tokenInfo += `, ${usage.outputTokens?.toLocaleString() || 0} output`;
-        if (usage.reasoningTokens > 0) {
-          tokenInfo += `, ${usage.reasoningTokens.toLocaleString()} reasoning`;
-        }
-        if (usage.cacheReadTokens > 0 || usage.cacheWriteTokens > 0) {
-          tokenInfo += `, ${usage.cacheReadTokens?.toLocaleString() || 0} cache read`;
-          tokenInfo += `, ${usage.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-        }
-        costInfo += tokenInfo;
-      }
-
-      // Show Anthropic cost only for Claude (not for agent tool)
-      if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-        costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-        if (totalCostUSD !== null) {
-          const difference = anthropicTotalCostUSD - totalCostUSD;
-          const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
-          costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
-        } else {
-          costInfo += '\n- Difference: unknown';
-        }
-      } else if (!pricingInfo) {
-        // Only show "unknown" if there's no pricingInfo (Claude without session file)
-        costInfo += '\n- Calculated by Anthropic: unknown';
-        costInfo += '\n- Difference: unknown';
-      }
+      // Success log format - use helper function for cost info
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
       logComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 <details>
@@ -770,59 +761,8 @@ ${errorMessage}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
-            // Success log gist format
-            let costInfo = '\n\n💰 **Cost estimation:**';
-
-            // Check if this is an agent tool run with pricing info
-            if (pricingInfo && pricingInfo.modelName) {
-              costInfo += `\n- Model: ${pricingInfo.modelName}`;
-              if (pricingInfo.provider) {
-                costInfo += `\n- Provider: ${pricingInfo.provider}`;
-              }
-            }
-
-            if (totalCostUSD !== null && totalCostUSD !== undefined) {
-              // Check if this is a free model
-              if (pricingInfo && pricingInfo.isFreeModel) {
-                costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
-              } else {
-                costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-              }
-            } else {
-              costInfo += '\n- Public pricing estimate: unknown';
-            }
-
-            // Add token usage if available from pricingInfo
-            if (pricingInfo && pricingInfo.tokenUsage) {
-              const usage = pricingInfo.tokenUsage;
-              let tokenInfo = '\n- Token usage:';
-              tokenInfo += ` ${usage.inputTokens?.toLocaleString() || 0} input`;
-              tokenInfo += `, ${usage.outputTokens?.toLocaleString() || 0} output`;
-              if (usage.reasoningTokens > 0) {
-                tokenInfo += `, ${usage.reasoningTokens.toLocaleString()} reasoning`;
-              }
-              if (usage.cacheReadTokens > 0 || usage.cacheWriteTokens > 0) {
-                tokenInfo += `, ${usage.cacheReadTokens?.toLocaleString() || 0} cache read`;
-                tokenInfo += `, ${usage.cacheWriteTokens?.toLocaleString() || 0} cache write`;
-              }
-              costInfo += tokenInfo;
-            }
-
-            // Show Anthropic cost only for Claude (not for agent tool)
-            if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-              costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-              if (totalCostUSD !== null) {
-                const difference = anthropicTotalCostUSD - totalCostUSD;
-                const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
-                costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
-              } else {
-                costInfo += '\n- Difference: unknown';
-              }
-            } else if (!pricingInfo) {
-              // Only show "unknown" if there's no pricingInfo (Claude without session file)
-              costInfo += '\n- Calculated by Anthropic: unknown';
-              costInfo += '\n- Difference: unknown';
-            }
+            // Success log gist format - use helper function for cost info
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
             gistComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)

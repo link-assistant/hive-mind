@@ -17,6 +17,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { fetchModelInfo } from './claude.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
 export const mapModelToId = (model) => {
@@ -34,6 +35,176 @@ export const mapModelToId = (model) => {
 
   // Return mapped model ID if it's an alias, otherwise return as-is
   return modelMap[model] || model;
+};
+
+/**
+ * Parse token usage from OpenCode JSON output
+ * @param {string} output - The full output from OpenCode command
+ * @returns {Object} Token usage data
+ */
+export const parseOpenCodeTokenUsage = (output) => {
+  const usage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    totalCost: 0,
+    stepCount: 0
+  };
+
+  // Try to parse each line as JSON (OpenCode outputs NDJSON format)
+  const lines = output.split('\n');
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || !trimmedLine.startsWith('{')) continue;
+
+    try {
+      const parsed = JSON.parse(trimmedLine);
+
+      // Look for step_finish events which contain token usage
+      if (parsed.type === 'step_finish' && parsed.part?.tokens) {
+        const tokens = parsed.part.tokens;
+        usage.stepCount++;
+
+        // Add token counts
+        if (tokens.input) usage.inputTokens += tokens.input;
+        if (tokens.output) usage.outputTokens += tokens.output;
+        if (tokens.reasoning) usage.reasoningTokens += tokens.reasoning;
+
+        // Handle cache tokens (can be in different formats)
+        if (tokens.cache) {
+          if (tokens.cache.read) usage.cacheReadTokens += tokens.cache.read;
+          if (tokens.cache.write) usage.cacheWriteTokens += tokens.cache.write;
+        }
+
+        // Add cost from step_finish
+        if (parsed.part.cost !== undefined) {
+          usage.totalCost += parsed.part.cost;
+        }
+      }
+    } catch {
+      // Skip lines that aren't valid JSON
+      continue;
+    }
+  }
+
+  return usage;
+};
+
+/**
+ * Calculate pricing for OpenCode tool usage using models.dev API
+ * @param {string} modelId - The model ID used (e.g., 'opencode/grok-code')
+ * @param {Object} tokenUsage - Token usage data from parseOpenCodeTokenUsage
+ * @returns {Object} Pricing information with separate public estimate and provider price
+ */
+export const calculateOpenCodePricing = async (modelId, tokenUsage) => {
+  // Extract the model name from provider/model format
+  // e.g., 'opencode/grok-code' -> 'grok-code'
+  let modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+
+  try {
+    // Always calculate public estimate using grok-code-fast-1 pricing
+    // as per issue #892 - public price estimate should be based on actual cost of xai/grok-code-fast-1
+    const publicEstimateModelInfo = await fetchModelInfo('grok-code-fast-1');
+    let publicEstimate = null;
+    if (publicEstimateModelInfo && publicEstimateModelInfo.cost) {
+      const cost = publicEstimateModelInfo.cost;
+      const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
+      const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
+      const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
+      const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
+      publicEstimate = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+    }
+
+    // Calculate provider price: use actual cost from JSON output if available, otherwise calculate using model pricing
+    let providerPrice = null;
+    let providerPricing = null;
+    let providerBreakdown = null;
+    let isFreeModel = false;
+
+    // If the JSON output contains actual cost data, use that as the provider price
+    if (tokenUsage.totalCost > 0) {
+      providerPrice = tokenUsage.totalCost;
+      providerPricing = {
+        inputPerMillion: 0, // Not available from JSON
+        outputPerMillion: 0,
+        cacheReadPerMillion: 0,
+        cacheWritePerMillion: 0
+      };
+      providerBreakdown = {
+        input: 0, // Breakdown not available from JSON
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0
+      };
+    } else {
+      // Fallback: calculate using model pricing from API
+      const providerModelInfo = await fetchModelInfo(modelName);
+      if (providerModelInfo && providerModelInfo.cost) {
+        const cost = providerModelInfo.cost;
+        const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
+        const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
+        const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
+        const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
+
+        providerPrice = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+        providerPricing = {
+          inputPerMillion: cost.input || 0,
+          outputPerMillion: cost.output || 0,
+          cacheReadPerMillion: cost.cache_read || 0,
+          cacheWritePerMillion: cost.cache_write || 0
+        };
+        providerBreakdown = {
+          input: inputCost,
+          output: outputCost,
+          cacheRead: cacheReadCost,
+          cacheWrite: cacheWriteCost
+        };
+      } else {
+        // Model not found in pricing API - assume it's free
+        isFreeModel = true;
+        providerPrice = 0;
+        providerPricing = {
+          inputPerMillion: 0,
+          outputPerMillion: 0,
+          cacheReadPerMillion: 0,
+          cacheWritePerMillion: 0
+        };
+        providerBreakdown = {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0
+        };
+      }
+    }
+
+    return {
+      modelName: providerModelInfo?.name || modelId,
+      provider: providerModelInfo?.provider || 'OpenCode',
+      publicEstimate,
+      providerPrice,
+      totalCostUSD: publicEstimate, // Use public estimate as total for display
+      providerPricing,
+      providerBreakdown,
+      isFreeModel,
+      tokenUsage
+    };
+  } catch (error) {
+    // If pricing calculation fails, return null values
+    return {
+      modelName: modelId,
+      provider: 'OpenCode',
+      publicEstimate: null,
+      providerPrice: null,
+      totalCostUSD: null,
+      providerPricing: null,
+      providerBreakdown: null,
+      isFreeModel: false,
+      tokenUsage
+    };
+  }
 };
 
 // Function to validate OpenCode connection
@@ -305,18 +476,20 @@ export const executeOpenCodeCommand = async (params) => {
 
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
 
-      let exitCode = 0;
-      let sessionId = null;
-      let limitReached = false;
-      let limitResetTime = null;
-      let lastMessage = '';
+       let exitCode = 0;
+       let sessionId = null;
+       let limitReached = false;
+       let limitResetTime = null;
+       let lastMessage = '';
+       let fullOutput = ''; // Collect all output for pricing calculation
 
-      for await (const chunk of execCommand.stream()) {
-        if (chunk.type === 'stdout') {
-          const output = chunk.data.toString();
-          await log(output);
-          lastMessage = output;
-        }
+       for await (const chunk of execCommand.stream()) {
+         if (chunk.type === 'stdout') {
+           const output = chunk.data.toString();
+           await log(output);
+           lastMessage = output;
+           fullOutput += output; // Collect for pricing calculation
+         }
 
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
@@ -355,22 +528,54 @@ export const executeOpenCodeCommand = async (params) => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
-        return {
-          success: false,
-          sessionId,
-          limitReached,
-          limitResetTime
-        };
+         return {
+           success: false,
+           sessionId,
+           limitReached,
+           limitResetTime,
+           tokenUsage: null,
+           pricingInfo: null,
+           publicPricingEstimate: null
+         };
       }
 
-      await log('\n\n✅ OpenCode command completed');
+       await log('\n\n✅ OpenCode command completed');
 
-      return {
-        success: true,
-        sessionId,
-        limitReached,
-        limitResetTime
-      };
+       // Parse token usage from collected output
+       const tokenUsage = parseOpenCodeTokenUsage(fullOutput);
+       const pricingInfo = await calculateOpenCodePricing(mappedModel, tokenUsage);
+
+       // Log pricing information
+       if (tokenUsage.stepCount > 0) {
+         await log('\n💰 Token Usage Summary:');
+         await log(`   📊 ${pricingInfo.modelName || mappedModel}:`);
+         await log(`      Input tokens: ${tokenUsage.inputTokens.toLocaleString()}`);
+         await log(`      Output tokens: ${tokenUsage.outputTokens.toLocaleString()}`);
+         if (tokenUsage.reasoningTokens > 0) {
+           await log(`      Reasoning tokens: ${tokenUsage.reasoningTokens.toLocaleString()}`);
+         }
+         if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
+           await log(`      Cache read: ${tokenUsage.cacheReadTokens.toLocaleString()}`);
+           await log(`      Cache write: ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
+         }
+         await log(`      Provider: ${pricingInfo.provider || 'OpenCode'}`);
+         if (pricingInfo.publicEstimate !== null) {
+           await log(`      Public pricing estimate: $${pricingInfo.publicEstimate.toFixed(6)} USD`);
+         }
+         if (pricingInfo.providerPrice !== null) {
+           await log(`      Provider price: $${pricingInfo.providerPrice.toFixed(6)} USD`);
+         }
+       }
+
+       return {
+         success: true,
+         sessionId,
+         limitReached,
+         limitResetTime,
+         tokenUsage,
+         pricingInfo,
+         publicPricingEstimate: pricingInfo.totalCostUSD
+       };
     } catch (error) {
       reportError(error, {
         context: 'execute_opencode',
@@ -380,12 +585,15 @@ export const executeOpenCodeCommand = async (params) => {
       });
 
       await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
-      return {
-        success: false,
-        sessionId: null,
-        limitReached: false,
-        limitResetTime: null
-      };
+       return {
+         success: false,
+         sessionId: null,
+         limitReached: false,
+         limitResetTime: null,
+         tokenUsage: null,
+         pricingInfo: null,
+         publicPricingEstimate: null
+       };
     }
   };
 

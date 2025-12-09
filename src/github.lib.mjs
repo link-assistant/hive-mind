@@ -47,10 +47,22 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
     costInfo += tokenInfo;
   }
+  // Show provider-specific cost calculation
   if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
     costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
     if (totalCostUSD !== null) {
       const diff = anthropicTotalCostUSD - totalCostUSD;
+      const pct = totalCostUSD > 0 ? ((diff / totalCostUSD) * 100) : 0;
+      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+    } else {
+      costInfo += '\n- Difference: unknown';
+    }
+  } else if (pricingInfo && pricingInfo.providerPrice !== null && pricingInfo.providerPrice !== undefined) {
+    // For tools like opencode/agent that provide provider price
+    const providerName = pricingInfo.provider === 'OpenCode' ? 'OpenCode' : pricingInfo.provider || 'Provider';
+    costInfo += `\n- Calculated by ${providerName}: $${pricingInfo.providerPrice.toFixed(6)} USD`;
+    if (totalCostUSD !== null) {
+      const diff = pricingInfo.providerPrice - totalCostUSD;
       const pct = totalCostUSD > 0 ? ((diff / totalCostUSD) * 100) : 0;
       costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
     } else {

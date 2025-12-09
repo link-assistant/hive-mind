@@ -841,11 +841,16 @@ try {
     toolResult = claudeResult;
   }
 
-  const { success } = toolResult;
-  let sessionId = toolResult.sessionId;
-  let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
-  let publicPricingEstimate = toolResult.publicPricingEstimate;  // Used by agent tool
-  let pricingInfo = toolResult.pricingInfo;  // Used by agent tool for detailed pricing
+   const { success } = toolResult;
+   let sessionId = toolResult.sessionId;
+   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+   let publicPricingEstimate = toolResult.publicPricingEstimate;  // Used by agent tool
+   let pricingInfo = toolResult.pricingInfo;  // Used by agent tool for detailed pricing
+
+   // For opencode, use provider price as anthropicTotalCostUSD for PR comment display
+   if (argv.tool === 'opencode' && pricingInfo && pricingInfo.providerPrice !== null && pricingInfo.providerPrice !== undefined) {
+     anthropicTotalCostUSD = pricingInfo.providerPrice;
+   }
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1062,20 +1067,22 @@ try {
     if (shouldAttachLogs && prNumber) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
-        const logUploadSuccess = await attachLogToGitHub({
-          logFile: getLogFile(),
-          targetType: 'pr',
-          targetNumber: prNumber,
-          owner,
-          repo,
-          $,
-          log,
-          sanitizeLogContent,
-          verbose: argv.verbose,
-          sessionId,
-          tempDir,
-          anthropicTotalCostUSD
-        });
+         const logUploadSuccess = await attachLogToGitHub({
+           logFile: getLogFile(),
+           targetType: 'pr',
+           targetNumber: prNumber,
+           owner,
+           repo,
+           $,
+           log,
+           sanitizeLogContent,
+           verbose: argv.verbose,
+           sessionId,
+           tempDir,
+           anthropicTotalCostUSD,
+           publicPricingEstimate,
+           pricingInfo
+         });
 
         if (logUploadSuccess) {
           await log('✅ Working session logs uploaded successfully');

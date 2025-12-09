@@ -139,7 +139,7 @@ export const validateToolModelCompatibility = (tool, model) => {
     throw new Error(
       `Model '${model}' (mapped to '${mappedModel}') is not compatible with --tool ${tool}.\n` +
       `Valid models for ${tool}: ${validModels.join(', ')}\n` +
-      `Hint: Different tools use different model APIs and naming conventions.`
+      'Hint: Different tools use different model APIs and naming conventions.'
     );
   }
 };

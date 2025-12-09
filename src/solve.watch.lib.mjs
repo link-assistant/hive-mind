@@ -88,7 +88,6 @@ export const watchForFeedback = async (params) => {
   } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
-  const intervalMs = watchInterval * 1000;
   const isTemporaryWatch = argv.temporaryWatch || false;
   const maxAutoRestartIterations = argv.autoRestartMaxIterations || 3;
 

@@ -27,25 +27,6 @@ export const CLAUDE_MODELS = {
   'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
 
-export const OPENCODE_MODELS = {
-  'gpt4': 'openai/gpt-4',
-  'gpt4o': 'openai/gpt-4o',
-  'claude': 'anthropic/claude-3-5-sonnet',
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'opus': 'anthropic/claude-3-opus',
-  'gemini': 'google/gemini-pro',
-  'grok': 'opencode/grok-code',
-  'grok-code': 'opencode/grok-code',
-  'grok-code-fast-1': 'opencode/grok-code',
-  // Full model IDs
-  'openai/gpt-4': 'openai/gpt-4',
-  'openai/gpt-4o': 'openai/gpt-4o',
-  'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
-  'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
-  'google/gemini-pro': 'google/gemini-pro',
-  'opencode/grok-code': 'opencode/grok-code',
-};
-
 export const CODEX_MODELS = {
   'gpt5': 'gpt-5',
   'gpt-5': 'gpt-5',
@@ -89,13 +70,11 @@ export const AGENT_MODELS = {
 
 /**
  * Get the model map for a given tool
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
+ * @param {string} tool - The tool name ('claude', 'codex', 'agent')
  * @returns {Object} The model mapping for the tool
  */
 export const getModelMapForTool = (tool) => {
   switch (tool) {
-    case 'opencode':
-      return OPENCODE_MODELS;
     case 'codex':
       return CODEX_MODELS;
     case 'agent':
@@ -108,7 +87,7 @@ export const getModelMapForTool = (tool) => {
 
 /**
  * Get the list of available model names for a tool (for display in help/error messages)
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
+ * @param {string} tool - The tool name ('claude', 'codex', 'agent')
  * @returns {string[]} Array of available model short names
  */
 export const getAvailableModelNames = (tool) => {
@@ -197,7 +176,7 @@ export const findSimilarModels = (input, validModels, maxSuggestions = 3, maxDis
 /**
  * Validate a model name against the available models for a tool
  * @param {string} model - The model name to validate
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'codex', 'agent')
  * @returns {{ valid: boolean, message?: string, suggestions?: string[] }}
  */
 export const validateModelName = (model, tool = 'claude') => {
@@ -246,7 +225,7 @@ export const validateModelName = (model, tool = 'claude') => {
  * Validate model name and exit with error if invalid
  * This is the main entry point for model validation in solve.mjs, hive.mjs, etc.
  * @param {string} model - The model name to validate
- * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
+ * @param {string} tool - The tool name ('claude', 'codex', 'agent')
  * @param {Function} exitFn - Function to call for exiting (default: process.exit)
  * @returns {Promise<boolean>} True if valid, exits process if invalid
  */

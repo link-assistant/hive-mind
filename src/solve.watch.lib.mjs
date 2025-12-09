@@ -294,35 +294,7 @@ export const watchForFeedback = async (params) => {
         const { getResourceSnapshot } = memoryCheck;
 
         let toolResult;
-        if (argv.tool === 'opencode') {
-          // Use OpenCode
-          const opencodeExecLib = await import('./opencode.lib.mjs');
-          const { executeOpenCode } = opencodeExecLib;
-
-          // Get opencode path
-          const opencodePath = argv.opencodePath || 'opencode';
-
-          toolResult = await executeOpenCode({
-            issueUrl,
-            issueNumber,
-            prNumber,
-            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            branchName,
-            tempDir,
-            isContinueMode: true,
-            mergeStateStatus,
-            forkedRepo: argv.fork,
-            feedbackLines,
-            owner,
-            repo,
-            argv,
-            log,
-            formatAligned,
-            getResourceSnapshot,
-            opencodePath,
-            $
-          });
-        } else if (argv.tool === 'codex') {
+        if (argv.tool === 'codex') {
           // Use Codex
           const codexExecLib = await import('./codex.lib.mjs');
           const { executeCodex } = codexExecLib;

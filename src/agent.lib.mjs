@@ -470,12 +470,30 @@ export const executeAgentCommand = async (params) => {
       // Helper function to detect errors in output
       // Uses JSON-aware parsing to avoid false positives from tool output content
       // See: docs/case-studies/issue-873-phantom-error-detection/README.md
+      // See: docs/case-studies/issue-886-false-positive-error-detection/README.md
       const detectOutputErrors = (stdoutOutput, stderrOutput) => {
         const lines = stdoutOutput.split('\n');
         const nonToolOutputLines = [];
 
+        // Helper to extract tool state from various JSON message formats
+        // Agent JSON can have format: { type: "tool_use", part: { type: "tool", state: {...} } }
+        // or simpler format: { type: "tool", state: {...} }
+        const getToolState = (msg) => {
+          // Format 1: { type: "tool_use", part: { type: "tool", state: {...} } }
+          if (msg.type === 'tool_use' && msg.part?.type === 'tool') {
+            return msg.part.state;
+          }
+          // Format 2: { type: "tool", state: {...} }
+          if (msg.type === 'tool') {
+            return msg.state;
+          }
+          return null;
+        };
+
         // First, filter out completed tool outputs from stdout to avoid false positives
         // Tool outputs contain source code/data that may include error-related text
+        // Issue #886: Bash command output may contain "Permission denied" from shell warnings
+        // but still complete successfully (exit code 0)
         for (const line of lines) {
           if (!line.trim()) continue;
 
@@ -487,18 +505,26 @@ export const executeAgentCommand = async (params) => {
               return { detected: true, type: 'AgentError', match: line.substring(0, 100) };
             }
 
-            // Check for failed tool execution
-            if (msg.type === 'tool' && msg.state?.status === 'failed') {
-              const errorMsg = msg.state.error || 'Tool execution failed';
-              return { detected: true, type: 'ToolError', match: errorMsg };
+            // Get tool state from various JSON formats
+            const toolState = getToolState(msg);
+
+            if (toolState) {
+              // Check for failed tool execution (status = 'failed')
+              if (toolState.status === 'failed') {
+                const errorMsg = toolState.error || 'Tool execution failed';
+                return { detected: true, type: 'ToolError', match: errorMsg };
+              }
+
+              // Skip completed tool outputs entirely - their output may contain
+              // error-like text (e.g., shell warnings) that shouldn't trigger false positives
+              // Issue #886: Even if bash output contains "Permission denied", if the tool
+              // completed successfully (status=completed, exit=0), don't flag as error
+              if (toolState.status === 'completed') {
+                continue; // Don't add this line to scanning - skip entirely
+              }
             }
 
-            // Skip completed tool outputs (they contain source code/data)
-            if (msg.type === 'tool' && msg.state?.status === 'completed') {
-              continue; // Don't scan successful tool output content
-            }
-
-            // Keep other JSON lines for scanning (step_start, step_finish, etc.)
+            // Keep other JSON lines for scanning (step_start, step_finish, text, etc.)
             nonToolOutputLines.push(line);
           } catch {
             // Not JSON or malformed - keep for pattern scanning

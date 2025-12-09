@@ -223,15 +223,7 @@ export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
     let isToolConnected = false;
-    if (argv.tool === 'opencode') {
-      // Validate OpenCode connection
-      const opencodeLib = await import('./opencode.lib.mjs');
-      isToolConnected = await opencodeLib.validateOpenCodeConnection(model);
-      if (!isToolConnected) {
-        await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
-        return false;
-      }
-    } else if (argv.tool === 'codex') {
+    if (argv.tool === 'codex') {
       // Validate Codex connection
       const codexLib = await import('./codex.lib.mjs');
       isToolConnected = await codexLib.validateCodexConnection(model);

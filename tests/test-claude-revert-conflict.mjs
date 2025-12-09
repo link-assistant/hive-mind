@@ -8,7 +8,7 @@
  * regression of issue #625.
  *
  * References:
- * - Issue #625: https://github.com/deep-assistant/hive-mind/issues/625
+ * - Issue #625: https://github.com/link-assistant/hive-mind/issues/625
  * - Root cause: CLAUDE.md was modified after initial commit (e.g., by prettier)
  *   causing a merge conflict when git revert tries to revert the initial commit
  */

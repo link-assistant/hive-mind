@@ -793,7 +793,7 @@ fi
 
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent
+bun install -g @link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."
@@ -895,7 +895,7 @@ elif [ -d "$REPO_DIR" ]; then
   log_warning "Directory '$REPO_DIR' exists but is not a git repo; skipping clone."
 else
   log_info "Cloning hive-mind repository..."
-  (cd "$HOME" && git clone https://github.com/deep-assistant/hive-mind) || log_warning "clone failed (continuing)."
+  (cd "$HOME" && git clone https://github.com/link-assistant/hive-mind) || log_warning "clone failed (continuing)."
   log_success "hive-mind repository cloned"
 fi
 

@@ -1,9 +1,9 @@
 # Case Study: AI Assistant Unable to Solve space_compiler_public Issue #1
 
 ## Issue Reference
-- **Hive-Mind Issue**: [#731 - Unable to solve issue](https://github.com/deep-assistant/hive-mind/issues/731)
+- **Hive-Mind Issue**: [#731 - Unable to solve issue](https://github.com/link-assistant/hive-mind/issues/731)
 - **Target Issue**: [xlab2016/space_compiler_public#1 - Foundation](https://github.com/xlab2016/space_compiler_public/issues/1)
-- **Pull Request**: [#732](https://github.com/deep-assistant/hive-mind/pull/732)
+- **Pull Request**: [#732](https://github.com/link-assistant/hive-mind/pull/732)
 - **Referenced Gist**: https://gist.github.com/konard/d14c8c68bad8d8339db760d1a685eb54 (now available and archived)
 - **Archived Log**: `solve-log-2025-11-13.txt` (in this directory)
 
@@ -63,7 +63,7 @@ This case study analyzes why the AI issue solver was unable to complete the task
 
 ### 4. Failure Report
 **Time**: 2025-11-13T19:43:38Z
-- Issue #731 created in deep-assistant/hive-mind
+- Issue #731 created in link-assistant/hive-mind
 - Title: "Unable to solve issue"
 - References the failed attempt
 - Links to Gist with full logs (now 404)

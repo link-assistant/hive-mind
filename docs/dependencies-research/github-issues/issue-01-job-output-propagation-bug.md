@@ -100,7 +100,7 @@ jobs:
 
 ## Verification
 The workaround was verified to work in production:
-- Repository: https://github.com/deep-assistant/hive-mind
+- Repository: https://github.com/link-assistant/hive-mind
 - Working run: #14 (after applying workaround)
 - Previously failing runs: #11, #12, #13
 

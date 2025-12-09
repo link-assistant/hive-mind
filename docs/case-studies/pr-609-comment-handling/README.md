@@ -8,8 +8,8 @@ This case study analyzes the comment handling and GitHub workflow behavior in Pu
 
 - **PR Number**: #609
 - **Title**: Implement real-time Claude usage indicator for telegram bot
-- **Repository**: deep-assistant/hive-mind
-- **URL**: https://github.com/deep-assistant/hive-mind/pull/609
+- **Repository**: link-assistant/hive-mind
+- **URL**: https://github.com/link-assistant/hive-mind/pull/609
 - **Status**: OPEN
 - **Created**: 2025-10-23T23:54:28Z
 

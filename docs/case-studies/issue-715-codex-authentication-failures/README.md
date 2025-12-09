@@ -1,8 +1,8 @@
 # Case Study: Repeated Codex CLI Authentication Failures (401 Unauthorized)
 
 ## Issue Reference
-- **Issue**: [#715 - Unable to complete pull request draft using Codex CLI](https://github.com/deep-assistant/hive-mind/issues/715)
-- **Pull Request**: [#716](https://github.com/deep-assistant/hive-mind/pull/716)
+- **Issue**: [#715 - Unable to complete pull request draft using Codex CLI](https://github.com/link-assistant/hive-mind/issues/715)
+- **Pull Request**: [#716](https://github.com/link-assistant/hive-mind/pull/716)
 - **Referenced PR with failures**: [veb86/zcadvelecAI#522](https://github.com/veb86/zcadvelecAI/pull/522)
 - **Full log gist**: [bec2f59f1a5422e5ce6e1f35b2f61d71](https://gist.github.com/konard/bec2f59f1a5422e5ce6e1f35b2f61d71)
 
@@ -707,7 +707,7 @@ For each solution implemented:
 
 ## References
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/715
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/715
 - **Failed PR**: https://github.com/veb86/zcadvelecAI/pull/522
 - **Original Issue**: https://github.com/veb86/zcadvelecAI/issues/521
 - **Full Logs**: https://gist.github.com/konard/bec2f59f1a5422e5ce6e1f35b2f61d71

@@ -83,73 +83,78 @@ export const parseAgentTokenUsage = (output) => {
  * Calculate pricing for agent tool usage using models.dev API
  * @param {string} modelId - The model ID used (e.g., 'opencode/grok-code')
  * @param {Object} tokenUsage - Token usage data from parseAgentTokenUsage
- * @returns {Object} Pricing information
+ * @returns {Object} Pricing information with separate public estimate and provider price
  */
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
   let modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
 
-  // Special case: For opencode/grok-code, use grok-code-fast-1 pricing for public price estimate
-  // as per issue #892 - public price estimate should be based on actual cost of xai/grok-code-fast-1
-  if (modelId === 'opencode/grok-code') {
-    modelName = 'grok-code-fast-1';
-  }
-
   try {
-    // Fetch model info from models.dev API
-    const modelInfo = await fetchModelInfo(modelName);
+    // Always calculate public estimate using grok-code-fast-1 pricing
+    // as per issue #892 - public price estimate should be based on actual cost of xai/grok-code-fast-1
+    const publicEstimateModelInfo = await fetchModelInfo('grok-code-fast-1');
+    let publicEstimate = null;
+    if (publicEstimateModelInfo && publicEstimateModelInfo.cost) {
+      const cost = publicEstimateModelInfo.cost;
+      const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
+      const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
+      const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
+      const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
+      publicEstimate = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+    }
 
-    if (modelInfo && modelInfo.cost) {
-      const cost = modelInfo.cost;
+    // Calculate provider price using grok-code-fast-1 pricing
+    // as per issue #892 - provider price should be based on actual cost of xai/grok-code-fast-1
+    const providerModelInfo = await fetchModelInfo('grok-code-fast-1');
+    let providerPrice = null;
+    let providerPricing = null;
+    let providerBreakdown = null;
+    let isFreeModel = false;
 
-      // Calculate cost based on token usage
-      // Prices are per 1M tokens, so divide by 1,000,000
+    if (providerModelInfo && providerModelInfo.cost) {
+      const cost = providerModelInfo.cost;
       const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
       const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
       const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
       const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
 
-      const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost;
-
-      return {
-        modelId,
-        modelName: modelInfo.name || modelName,
-        provider: modelInfo.provider || 'OpenCode Zen',
-        pricing: {
-          inputPerMillion: cost.input || 0,
-          outputPerMillion: cost.output || 0,
-          cacheReadPerMillion: cost.cache_read || 0,
-          cacheWritePerMillion: cost.cache_write || 0
-        },
-        tokenUsage,
-        breakdown: {
-          input: inputCost,
-          output: outputCost,
-          cacheRead: cacheReadCost,
-          cacheWrite: cacheWriteCost
-        },
-        totalCostUSD: totalCost,
-        isFreeModel: cost.input === 0 && cost.output === 0
+      providerPrice = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+      providerPricing = {
+        inputPerMillion: cost.input || 0,
+        outputPerMillion: cost.output || 0,
+        cacheReadPerMillion: cost.cache_read || 0,
+        cacheWritePerMillion: cost.cache_write || 0
       };
+      providerBreakdown = {
+        input: inputCost,
+        output: outputCost,
+        cacheRead: cacheReadCost,
+        cacheWrite: cacheWriteCost
+      };
+      isFreeModel = cost.input === 0 && cost.output === 0;
     }
 
-    // Model not found in API, return what we have
     return {
       modelId,
-      modelName,
-      provider: 'Unknown',
+      modelName: providerModelInfo?.name || modelName,
+      provider: providerModelInfo?.provider || 'OpenCode Zen',
+      pricing: providerPricing,
       tokenUsage,
-      totalCostUSD: null,
-      error: 'Model not found in models.dev API'
+      breakdown: providerBreakdown,
+      publicEstimate,
+      providerPrice,
+      isFreeModel
     };
+
   } catch (error) {
     // Error fetching pricing, return with error info
     return {
       modelId,
       modelName,
       tokenUsage,
-      totalCostUSD: null,
+      publicEstimate: null,
+      providerPrice: null,
       error: error.message
     };
   }
@@ -553,7 +558,7 @@ export const executeAgentCommand = async (params) => {
           errorInfo,  // Include structured error information
           tokenUsage,
           pricingInfo,
-          publicPricingEstimate: pricingInfo.totalCostUSD
+          publicPricingEstimate: pricingInfo.publicEstimate
         };
       }
 
@@ -577,16 +582,25 @@ export const executeAgentCommand = async (params) => {
           await log(`      Cache write: ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
         }
 
-        if (pricingInfo.totalCostUSD !== null) {
+        // Log provider price (actual cost charged)
+        if (pricingInfo.providerPrice !== null) {
           if (pricingInfo.isFreeModel) {
-            await log('      Cost: $0.00 (Free model)');
+            await log('      Provider cost: $0.00 (Free model)');
           } else {
-            await log(`      Cost: $${pricingInfo.totalCostUSD.toFixed(6)}`);
+            await log(`      Provider cost: $${pricingInfo.providerPrice.toFixed(6)}`);
           }
-          await log(`      Provider: ${pricingInfo.provider || 'OpenCode Zen'}`);
         } else {
-          await log('      Cost: Not available (could not fetch pricing)');
+          await log('      Provider cost: Not available (could not fetch pricing)');
         }
+
+        // Log public estimate (always based on grok-code-fast-1 pricing)
+        if (pricingInfo.publicEstimate !== null) {
+          await log(`      Public estimate: $${pricingInfo.publicEstimate.toFixed(6)}`);
+        } else {
+          await log('      Public estimate: Not available (could not fetch grok-code-fast-1 pricing)');
+        }
+
+        await log(`      Provider: ${pricingInfo.provider || 'OpenCode Zen'}`);
       }
 
       return {

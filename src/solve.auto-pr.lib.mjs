@@ -509,6 +509,7 @@ Issue: ${issueUrl}`;
         let compareAttempts = 0;
         const maxCompareAttempts = 5;
         const targetBranchForCompare = argv.baseBranch || defaultBranch;
+        let compareResult; // Declare outside loop so it's accessible for error checking
 
         while (!compareReady && compareAttempts < maxCompareAttempts) {
           compareAttempts++;
@@ -531,7 +532,7 @@ Issue: ${issueUrl}`;
           } else {
             headRef = branchName;
           }
-          const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+          compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
             const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);

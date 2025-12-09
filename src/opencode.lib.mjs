@@ -117,8 +117,8 @@ export const calculateOpenCodePricing = async (modelId, tokenUsage) => {
       publicEstimate = inputCost + outputCost + cacheReadCost + cacheWriteCost;
     }
 
-    // Calculate provider price: use actual cost from JSON output if available, otherwise calculate using grok-code-fast-1 pricing
-    // as per issue #892 - provider price should be based on actual cost of xai/grok-code-fast-1
+    // Calculate provider price: use actual cost from JSON output if available, otherwise calculate using opencode/grok-code pricing
+    // as per issue #892 - provider price should be based on opencode/grok-code pricing or actual costs
     let providerPrice = null;
     let providerPricing = null;
     let providerBreakdown = null;
@@ -141,8 +141,8 @@ export const calculateOpenCodePricing = async (modelId, tokenUsage) => {
         cacheWrite: 0
       };
     } else {
-      // Fallback: calculate using grok-code-fast-1 pricing from API
-      providerModelInfo = await fetchModelInfo('grok-code-fast-1');
+      // Fallback: calculate using opencode/grok-code pricing from API (modelName = 'grok-code')
+      providerModelInfo = await fetchModelInfo(modelName);
       if (providerModelInfo && providerModelInfo.cost) {
         const cost = providerModelInfo.cost;
         const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
@@ -163,6 +163,7 @@ export const calculateOpenCodePricing = async (modelId, tokenUsage) => {
           cacheRead: cacheReadCost,
           cacheWrite: cacheWriteCost
         };
+        isFreeModel = cost.input === 0 && cost.output === 0;
       } else {
         // Model not found in pricing API - assume it's free
         isFreeModel = true;

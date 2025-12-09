@@ -68,7 +68,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), appendedContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -138,7 +138,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), newContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -197,7 +197,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), content);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();

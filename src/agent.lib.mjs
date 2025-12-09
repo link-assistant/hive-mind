@@ -298,30 +298,82 @@ export const executeAgentCommand = async (params) => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
+      let allOutput = '';      // Collect all output for error pattern matching
+      let allStderr = '';      // Collect all stderr for error detection
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output);
           lastMessage = output;
+          allOutput += output;
         }
 
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
+            allStderr += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
       }
 
-      if (exitCode !== 0) {
+      // Error patterns to detect failures even when exit code is 0
+      // Agent may exit with code 0 despite throwing errors (Node.js uncaught exception behavior)
+      const errorPatterns = [
+        { pattern: /ProviderModelNotFoundError/i, type: 'ProviderModelNotFoundError' },
+        { pattern: /ModelNotFoundError/i, type: 'ModelNotFoundError' },
+        { pattern: /\s+at\s+\S+\s+\([^)]+:\d+:\d+\)/m, type: 'StackTrace' },  // Stack trace pattern
+        { pattern: /throw new \w+Error/i, type: 'ThrowError' },
+        { pattern: /authentication failed/i, type: 'AuthenticationError' },
+        { pattern: /permission denied/i, type: 'PermissionError' },
+        { pattern: /ENOENT|EACCES|EPERM/i, type: 'FileSystemError' },
+        { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
+        { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
+        { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
+        { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
+      ];
+
+      // Check both stdout and stderr for error patterns
+      const combinedOutput = allOutput + allStderr;
+
+      // Helper function to detect errors in output
+      const detectOutputErrors = (output) => {
+        for (const { pattern, type } of errorPatterns) {
+          const match = output.match(pattern);
+          if (match) {
+            return { detected: true, type, match: match[0] };
+          }
+        }
+        return { detected: false };
+      };
+
+      const outputError = detectOutputErrors(combinedOutput);
+
+      if (exitCode !== 0 || outputError.detected) {
+        // Build JSON error structure for consistent error reporting
+        const errorInfo = {
+          type: 'error',
+          exitCode,
+          errorDetectedInOutput: outputError.detected,
+          errorType: outputError.detected ? outputError.type : (exitCode !== 0 ? 'NonZeroExitCode' : null),
+          errorMatch: outputError.detected ? outputError.match : null,
+          message: null,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null
+        };
+
         // Check for usage limit errors first (more specific)
         const limitInfo = detectUsageLimit(lastMessage);
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          errorInfo.limitReached = true;
+          errorInfo.limitResetTime = limitResetTime;
+          errorInfo.errorType = 'UsageLimit';
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -334,9 +386,24 @@ export const executeAgentCommand = async (params) => {
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
+        } else if (outputError.detected && exitCode === 0) {
+          // Error detected in output but exit code was 0 - this is the bug we're fixing
+          errorInfo.message = `Agent command failed: ${outputError.type} detected in output despite exit code 0`;
+          await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
+          await log(`   Error pattern matched: ${outputError.match}`, { level: 'error' });
+          // Log truncated output context for debugging
+          const truncatedOutput = combinedOutput.length > 1000
+            ? combinedOutput.substring(combinedOutput.length - 1000)
+            : combinedOutput;
+          await log(`   Last output context (truncated): ${truncatedOutput.substring(0, 500)}...`, { level: 'error' });
         } else {
-          await log(`\n\n❌ Agent command failed with exit code ${exitCode}`, { level: 'error' });
+          errorInfo.message = `Agent command failed with exit code ${exitCode}`;
+          await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
         }
+
+        // Log error as JSON for structured output (since agent expects JSON input/output)
+        await log(`\n📋 Error details (JSON):`, { level: 'error' });
+        await log(JSON.stringify(errorInfo, null, 2), { level: 'error' });
 
         const resourcesAfter = await getResourceSnapshot();
         await log('\n📈 System resources after execution:', { verbose: true });
@@ -347,7 +414,8 @@ export const executeAgentCommand = async (params) => {
           success: false,
           sessionId,
           limitReached,
-          limitResetTime
+          limitResetTime,
+          errorInfo  // Include structured error information
         };
       }
 

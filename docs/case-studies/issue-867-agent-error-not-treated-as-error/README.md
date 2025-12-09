@@ -543,12 +543,18 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 
 ## Recommended Implementation Plan
 
-### Phase 1: Immediate Fix (Solutions 1 + 4) - **RECOMMENDED**
-1. Implement output-based error detection in `agent.lib.mjs`
+### Phase 1: Immediate Fix (Solutions 1 + 4) - **RECOMMENDED** ✅ IMPLEMENTED
+1. Implement output-based error detection in `agent.lib.mjs` ✅
 2. Add pre-flight validation before PR creation
 3. Test with the exact command from PR #864
 4. Verify error is now detected and reported correctly
 5. **Estimated timeline**: 1 hour
+
+**Implementation Details (v0.37.22):**
+- Added error pattern detection in `src/agent.lib.mjs` that checks for common error patterns even when exit code is 0
+- Patterns include: `ProviderModelNotFoundError`, `ModelNotFoundError`, stack traces, JavaScript errors, etc.
+- Added JSON-formatted error output for consistent error reporting
+- Errors are now properly detected and reported with structured error information
 
 ### Phase 2: Enhanced Validation (Solution 2)
 1. Add session ID requirement for success
@@ -556,8 +562,8 @@ if (!argv.dryRun && argv.autoPullRequestCreation) {
 3. Test edge cases (dry-run, different tools)
 4. **Estimated timeline**: 1 hour
 
-### Phase 3: Root Cause Fix (Solution 3)
-1. File issue in @link-assistant/agent repository
+### Phase 3: Root Cause Fix (Solution 3) ✅ BUG FILED
+1. File issue in @link-assistant/agent repository ✅ https://github.com/link-assistant/agent/issues/22
 2. Submit PR with proper exit code handling
 3. Wait for review and merge
 4. Update dependency in hive-mind

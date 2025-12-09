@@ -147,8 +147,11 @@ export async function checkUncommittedChanges({
           }
 
           feedbackLines.push('');
-          feedbackLines.push('Please review and handle these changes appropriately.');
-          feedbackLines.push('Consider committing important changes or cleaning up unnecessary files.');
+          feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+          feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
+          feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
+          feedbackLines.push('');
+          feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
           return feedbackLines;
         } else {
           await log('✅ No uncommitted changes found');

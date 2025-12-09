@@ -208,8 +208,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     if (limitReached) {
       await log('\n⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoContinueLimit && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
         // Only show resume recommendation if --no-auto-cleanup was passed
@@ -218,8 +218,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
           await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
 
           if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
+            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
           }
 
           await log('\n   This will continue from where it left off with full context.\n');
@@ -250,7 +250,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -374,7 +374,10 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             verbose: argv.verbose,
             sessionId,
             tempDir,
-            anthropicTotalCostUSD
+            anthropicTotalCostUSD,
+            // Pass agent tool pricing data when available
+            publicPricingEstimate,
+            pricingInfo
           });
         }
 
@@ -435,7 +438,10 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           verbose: argv.verbose,
           sessionId,
           tempDir,
-          anthropicTotalCostUSD
+          anthropicTotalCostUSD,
+          // Pass agent tool pricing data when available
+          publicPricingEstimate,
+          pricingInfo
         });
       }
 

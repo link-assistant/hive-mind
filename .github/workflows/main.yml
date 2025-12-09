@@ -422,6 +422,11 @@ jobs:
         echo "Running test suite for Telegram URL validation..."
         node tests/test-telegram-validate-url.mjs
 
+    - name: Run interactive mode test (Issue #800)
+      run: |
+        echo "Running test suite for interactive mode..."
+        node tests/test-interactive-mode.mjs
+
     - name: Run start-screen test (Issue #539)
       run: |
         echo "Running test suite for start-screen.mjs..."
@@ -552,7 +557,9 @@ jobs:
 
         echo ""
         echo "Testing hive-telegram-bot --dry-run (issue #487)..."
-        timeout 10s hive-telegram-bot \
+        # Note: 30s timeout needed for first-time module loading via unpkg.com CDN
+        # The telegraf module can take several seconds to load on cold start
+        timeout 30s hive-telegram-bot \
           --token "test_token" \
           --allowed-chats "(-1 -2)" \
           --no-hive \
@@ -872,7 +879,7 @@ jobs:
         PACKAGE_NAME=$(node -p "require('./package.json').name")
         gh release create "v${VERSION}" \
           --title "${VERSION}" \
-          --notes "https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}"
+          --notes "Release ${VERSION} - NPM: https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}, Docker: https://hub.docker.com/r/konard/hive-mind/tags?name=${VERSION}, Helm chart attached as asset"
 
     - name: Upload Source Maps to Sentry
       if: needs.detect-changes.outputs.new-version == 'true'
@@ -882,3 +889,411 @@ jobs:
         echo "📤 Uploading source maps to Sentry for version ${{ needs.detect-changes.outputs.version }}"
         chmod +x scripts/upload-sourcemaps.mjs
         node scripts/upload-sourcemaps.mjs
+
+  # === DOCKER BUILD AND PUBLISH ===
+  docker-publish:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [detect-changes, publish]
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Check if Docker publish should run
+        id: should-run
+        run: |
+          if [ "${{ needs.detect-changes.outputs.new-version }}" != "true" ]; then
+            echo "⊘ Docker publish skipped (no new version detected)"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "✓ New version detected, proceeding with Docker publish"
+          echo "should_run=true" >> $GITHUB_OUTPUT
+
+      - name: Wait for NPM package availability
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          VERSION="${{ needs.detect-changes.outputs.version }}"
+          PACKAGE_NAME="@deep-assistant/hive-mind"
+          MAX_ATTEMPTS=30
+          SLEEP_TIME=10
+
+          echo "⏳ Waiting for NPM package ${PACKAGE_NAME}@${VERSION} to become available..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $i/$MAX_ATTEMPTS: Checking NPM registry..."
+
+            if npm view "${PACKAGE_NAME}@${VERSION}" version 2>/dev/null; then
+              echo "✅ Package ${PACKAGE_NAME}@${VERSION} is now available on NPM!"
+              exit 0
+            fi
+
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              echo "Package not yet available, waiting ${SLEEP_TIME} seconds..."
+              sleep $SLEEP_TIME
+            fi
+          done
+
+          echo "❌ Package ${PACKAGE_NAME}@${VERSION} did not become available after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
+          exit 1
+
+      - name: Checkout repository
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        if: steps.should-run.outputs.should_run == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.detect-changes.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Verify published image
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "✅ Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo ""
+          echo "To pull and use this image:"
+          echo "  docker pull ${{ env.IMAGE_NAME }}:${{ needs.detect-changes.outputs.version }}"
+          echo "  docker pull ${{ env.IMAGE_NAME }}:latest"
+          echo "  docker run -it ${{ env.IMAGE_NAME }}:latest"
+
+  # === DOCKER PR CHECK ===
+  docker-pr-check:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: github.event_name == 'pull_request'
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Check if Docker check should run
+        id: should-run
+        run: |
+          CHANGED_FILES="${{ needs.detect-changes.outputs.workflow-changed }}"
+          # Check if Dockerfile or related files changed
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # For now, run on all PRs to main - could be optimized with path filters
+          echo "should_run=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Build Docker image with log capture
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "🔨 Building Docker image with log capture..."
+          # Build with plain progress output to capture full logs
+          # This is the ONLY build - we use --load to make it available for docker run
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "✅ Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify Homebrew and PHP in build logs
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "📊 Checking installation status in build logs..."
+
+          # Check for the specific "not found" errors that indicate failure
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] PHP: not found' build-output.log; then
+            echo "❌ ERROR: PHP installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Check for success indicators
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "✅ Homebrew installation verified in build logs"
+          else
+            echo "⚠️  WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] PHP:' build-output.log; then
+            echo "✅ PHP installation verified in build logs"
+          else
+            echo "⚠️  WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+          fi
+
+      - name: Verify tools in running container
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "🔍 Verifying tools are available in the running container..."
+
+          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo '✅ Homebrew is accessible'
+            else
+              echo '❌ Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking PHP...'
+            if command -v php &>/dev/null; then
+              php --version | head -n1
+              echo '✅ PHP is accessible'
+            else
+              # Check if PHP binary exists but is not in PATH
+              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
+              else
+                echo '❌ PHP not found in container'
+                exit 1
+              fi
+            fi
+          "
+
+          echo ""
+          echo "✅ All verification checks passed!"
+
+  # === HELM PR CHECK ===
+  helm-pr-check:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Lint Helm chart
+        run: |
+          echo "Linting Helm chart..."
+          helm lint helm/hive-mind
+          echo "✅ Helm chart validation passed"
+
+      - name: Verify Chart.yaml structure
+        run: |
+          echo "Verifying Chart.yaml structure..."
+          if [ ! -f "helm/hive-mind/Chart.yaml" ]; then
+            echo "❌ Chart.yaml not found"
+            exit 1
+          fi
+
+          # Check for required fields
+          if ! grep -q "^name:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart name not found"
+            exit 1
+          fi
+
+          if ! grep -q "^version:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart version not found"
+            exit 1
+          fi
+
+          if ! grep -q "^appVersion:" helm/hive-mind/Chart.yaml; then
+            echo "❌ Chart appVersion not found"
+            exit 1
+          fi
+
+          echo "✅ Chart.yaml structure is valid"
+
+  # === HELM CHART RELEASE ===
+  helm-release:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [detect-changes, docker-publish]
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Check if Helm release should run
+        id: should-run
+        run: |
+          if [ "${{ needs.detect-changes.outputs.new-version }}" != "true" ]; then
+            echo "⊘ Helm release skipped (no new version detected)"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "✓ New version detected, proceeding with Helm release"
+          echo "should_run=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Update Chart versions
+        if: steps.should-run.outputs.should_run == 'true'
+        id: chart-version
+        run: |
+          APP_VERSION="${{ needs.detect-changes.outputs.version }}"
+
+          # Update appVersion to match package.json version
+          sed -i "s/^appVersion: .*/appVersion: \"$APP_VERSION\"/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml appVersion to $APP_VERSION"
+
+          # Sync chart version with app version for consistency
+          # This ensures a new release is created when appVersion changes
+          sed -i "s/^version: .*/version: $APP_VERSION/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml version to $APP_VERSION"
+
+          echo "chart_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
+          # Show the updated Chart.yaml
+          echo "=== Updated Chart.yaml ==="
+          cat helm/hive-mind/Chart.yaml
+
+      - name: Lint Helm chart
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          helm lint helm/hive-mind
+
+      - name: Ensure gh-pages branch exists
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          # Check if gh-pages branch exists on remote
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "gh-pages branch does not exist. Creating it..."
+
+            # Create an orphan branch (no history)
+            git checkout --orphan gh-pages
+
+            # Remove all files from staging
+            git reset --hard
+
+            # Create initial commit
+            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
+
+            # Push the new branch to remote
+            git push origin gh-pages
+
+            # Switch back to the original branch
+            git checkout -
+
+            echo "gh-pages branch created successfully"
+          else
+            echo "gh-pages branch already exists"
+          fi
+
+      - name: Run chart-releaser
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          charts_dir: helm
+          skip_existing: true
+          create_release: false
+
+      - name: Deploy to GitHub Pages
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .cr-index
+          destination_dir: .
+          keep_files: true
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: 'Update Helm chart index'
+
+      - name: Create ArtifactHub metadata
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          cat > artifacthub-repo.yml <<EOF
+          repositoryID: $(uuidgen)
+          owners:
+            - name: Link Assistant Team
+              email: support@link-assistant.com
+          EOF
+
+      - name: Upload chart to release
+        if: steps.should-run.outputs.should_run == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag: v${{ needs.detect-changes.outputs.version }}
+          files: .cr-release-packages/*.tgz
+
+      - name: Summary
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          echo "✅ Helm chart released successfully"
+          echo "Chart released to GitHub Pages"
+          echo "ArtifactHub will automatically discover it at:"
+          echo "https://link-assistant.github.io/hive-mind"
+          echo ""
+          echo "To add to ArtifactHub manually:"
+          echo "1. Go to https://artifacthub.io"
+          echo "2. Add repository: https://link-assistant.github.io/hive-mind"
+          echo "3. Set organization: link-assistant"
+          echo "4. Set name: hive-mind"

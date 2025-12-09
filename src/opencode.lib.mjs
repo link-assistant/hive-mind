@@ -70,7 +70,7 @@ export const validateOpenCodeConnection = async (model = 'grok-code-fast-1') => 
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --model ${mappedModel}`;
+      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -257,11 +257,11 @@ export const executeOpenCodeCommand = async (params) => {
     const mappedModel = mapModelToId(argv.model);
 
     // Build opencode command arguments
-    let opencodeArgs = `run --model ${mappedModel}`;
+    let opencodeArgs = `run --format json --model ${mappedModel}`;
 
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      opencodeArgs = `run --resume ${argv.resume} --model ${mappedModel}`;
+      opencodeArgs = `run --format json --resume ${argv.resume} --model ${mappedModel}`;
     }
 
     // For OpenCode, we pass the prompt via stdin
@@ -287,12 +287,12 @@ export const executeOpenCodeCommand = async (params) => {
         execCommand = $({
           cwd: tempDir,
           mirror: false
-        })`cat ${promptFile} | ${opencodePath} run --resume ${argv.resume} --model ${mappedModel}`;
+        })`cat ${promptFile} | ${opencodePath} run --format json --resume ${argv.resume} --model ${mappedModel}`;
       } else {
         execCommand = $({
           cwd: tempDir,
           mirror: false
-        })`cat ${promptFile} | ${opencodePath} run --model ${mappedModel}`;
+        })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);

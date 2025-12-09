@@ -22,12 +22,25 @@ export function isUsageLimitError(message) {
 
   // Check for specific usage limit patterns
   const patterns = [
-    'you\'ve hit your usage limit',
+    // Generic
+    "you've hit your usage limit",
     'hit your usage limit',
     'you have exceeded your rate limit',
     'usage limit reached',
     'usage limit exceeded',
-    'rate_limit_exceeded'
+    'rate_limit_exceeded',
+    'rate limit exceeded',
+    'limit reached',
+    'limit has been reached',
+    // Provider-specific phrasings we’ve seen in the wild
+    'session limit reached', // Claude
+    'weekly limit reached',  // Claude
+    'daily limit reached',
+    'monthly limit reached',
+    'billing hard limit',
+    'please try again at',   // Codex/OpenCode style
+    'available again at',
+    'resets'                 // Claude shows: “∙ resets 5am”
   ];
 
   return patterns.some(pattern => lowerMessage.includes(pattern));
@@ -44,28 +57,69 @@ export function extractResetTime(message) {
     return null;
   }
 
+  // Normalize whitespace for easier matching
+  const normalized = message.replace(/\s+/g, ' ');
+
   // Pattern 1: "try again at 12:16 PM"
-  const tryAgainMatch = message.match(/try again at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
+  const tryAgainMatch = normalized.match(/try again at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
   if (tryAgainMatch) {
     return tryAgainMatch[1];
   }
 
   // Pattern 2: "available at 12:16 PM"
-  const availableMatch = message.match(/available at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
+  const availableMatch = normalized.match(/available at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
   if (availableMatch) {
     return availableMatch[1];
   }
 
   // Pattern 3: "reset at 12:16 PM"
-  const resetMatch = message.match(/reset at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
+  const resetMatch = normalized.match(/reset at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
   if (resetMatch) {
     return resetMatch[1];
   }
 
-  // Pattern 4: "12:16 PM" standalone (less reliable, so last)
-  const timeMatch = message.match(/\b([0-9]{1,2}:[0-9]{2}\s*[AP]M)\b/i);
+  // Pattern 4: Claude-style: "resets 5am" or "resets at 5am" (no minutes)
+  const resetsAmPmNoMinutes = normalized.match(/resets(?:\s+at)?\s+([0-9]{1,2})\s*([AP]M)/i);
+  if (resetsAmPmNoMinutes) {
+    const hour = resetsAmPmNoMinutes[1];
+    const ampm = resetsAmPmNoMinutes[2].toUpperCase();
+    return `${hour}:00 ${ampm}`;
+  }
+
+  // Pattern 5: Claude-style with minutes: "resets 5:00am" or "resets at 5:00 am"
+  const resetsAmPmWithMinutes = normalized.match(/resets(?:\s+at)?\s+([0-9]{1,2}:[0-9]{2})\s*([AP]M)/i);
+  if (resetsAmPmWithMinutes) {
+    const time = resetsAmPmWithMinutes[1];
+    const ampm = resetsAmPmWithMinutes[2].toUpperCase();
+    return `${time} ${ampm}`;
+  }
+
+  // Pattern 6: 24-hour time: "resets 17:00" or "resets at 05:00"
+  const resets24h = normalized.match(/resets(?:\s+at)?\s+([0-2]?[0-9]):([0-5][0-9])\b/i);
+  if (resets24h) {
+    let hour = parseInt(resets24h[1], 10);
+    const minute = resets24h[2];
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    if (hour === 0) hour = 12; // 0 -> 12 AM
+    else if (hour > 12) hour -= 12; // 13-23 -> 1-11 PM
+    return `${hour}:${minute} ${ampm}`;
+  }
+
+  // Pattern 7: "resets 5am" written without space (already partially covered) – ensure we catch compact forms
+  const resetsCompact = normalized.match(/resets(?:\s+at)?\s*([0-9]{1,2})(?::([0-9]{2}))?\s*([ap]m)/i);
+  if (resetsCompact) {
+    const hour = resetsCompact[1];
+    const minute = resetsCompact[2] || '00';
+    const ampm = resetsCompact[3].toUpperCase();
+    return `${hour}:${minute} ${ampm}`;
+  }
+
+  // Pattern 8: standalone time like "12:16 PM" (less reliable, so last)
+  const timeMatch = normalized.match(/\b([0-9]{1,2}:[0-9]{2}\s*[AP]M)\b/i);
   if (timeMatch) {
-    return timeMatch[1];
+    // Normalize spacing in AM/PM
+    const t = timeMatch[1].replace(/\s*([AP]M)/i, ' $1');
+    return t;
   }
 
   return null;

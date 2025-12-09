@@ -109,7 +109,7 @@ const argv = yargs()
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1-20250805']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
   })
   .option('verbose', {
     type: 'boolean',

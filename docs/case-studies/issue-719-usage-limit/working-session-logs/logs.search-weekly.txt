@@ -1,0 +1,5 @@
+src/solve.config.lib.mjs:122:      description: 'Automatically continue when Claude limit resets (waits until reset time)',
+src/github.lib.mjs:538:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:679:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/claude.lib.mjs:949:            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+src/solve.auto-continue.lib.mjs:59:export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {

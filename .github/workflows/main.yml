@@ -1274,12 +1274,12 @@ jobs:
           echo "Updated index.yaml:"
           cat index.yaml
 
-       - name: Commit and push to gh-pages
-         if: steps.should-run.outputs.should_run == 'true'
-         run: |
-           git add -f *.tgz index.yaml
-           git commit -m "Release Helm chart version ${{ needs.detect-changes.outputs.version }}" || echo "No changes to commit"
-           git push origin gh-pages
+      - name: Commit and push to gh-pages
+        if: steps.should-run.outputs.should_run == 'true'
+        run: |
+          git add -f *.tgz index.yaml
+          git commit -m "Release Helm chart version ${{ needs.detect-changes.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages
 
       - name: Switch back to main branch
         if: steps.should-run.outputs.should_run == 'true'

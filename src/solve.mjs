@@ -86,6 +86,10 @@ const { startWorkSession, endWorkSession } = sessionLib;
 const preparationLib = await import('./solve.preparation.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
 
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -115,6 +119,9 @@ if (argv.tool === 'opencode') {
 } else if (argv.tool === 'codex') {
   const codexLib = await import('./codex.lib.mjs');
   checkForUncommittedChanges = codexLib.checkForUncommittedChanges;
+} else if (argv.tool === 'agent') {
+  const agentLib = await import('./agent.lib.mjs');
+  checkForUncommittedChanges = agentLib.checkForUncommittedChanges;
 } else {
   checkForUncommittedChanges = claudeLib.checkForUncommittedChanges;
 }
@@ -194,10 +201,17 @@ if (!(await validateUrlRequirement(issueUrl))) {
 if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
   await safeExit(1, 'Feedback validation failed');
 }
+
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
 // Perform all system checks using validation module
-// Skip tool validation in dry-run mode or when --skip-tool-check or --no-tool-check is enabled
-const skipToolCheck = argv.dryRun || argv.skipToolCheck || !argv.toolCheck;
-if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.model, argv))) {
+// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
+// Note: This does NOT skip model validation which is performed above
+const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
 // URL validation debug logging
@@ -771,6 +785,34 @@ try {
       codexPath,
       $
     });
+  } else if (argv.tool === 'agent') {
+    const agentLib = await import('./agent.lib.mjs');
+    const { executeAgent } = agentLib;
+    const agentPath = process.env.AGENT_PATH || 'agent';
+
+    toolResult = await executeAgent({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      agentPath,
+      $
+    });
   } else {
     // Default to Claude
     const claudeResult = await executeClaude({
@@ -802,6 +844,8 @@ try {
   const { success } = toolResult;
   let sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+  let publicPricingEstimate = toolResult.publicPricingEstimate;  // Used by agent tool
+  let pricingInfo = toolResult.pricingInfo;  // Used by agent tool for detailed pricing
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -891,7 +935,8 @@ try {
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
           toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
                     (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
@@ -926,7 +971,8 @@ try {
 
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

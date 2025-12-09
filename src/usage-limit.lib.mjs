@@ -106,7 +106,7 @@ export function extractResetTime(message) {
   }
 
   // Pattern 7: "resets 5am" written without space (already partially covered) – ensure we catch compact forms
-  const resetsCompact = normalized.match(/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i);
+  const resetsCompact = normalized.match(/resets(?:\s+at)?\s*([0-9]{1,2})(?::([0-9]{2}))?\s*([ap]m)/i);
   if (resetsCompact) {
     const hour = resetsCompact[1];
     const minute = resetsCompact[2] || '00';

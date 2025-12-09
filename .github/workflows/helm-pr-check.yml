@@ -1,0 +1,27 @@
+name: Helm Chart PR Check
+
+on:
+  pull_request:
+    paths:
+      - 'helm/**'
+      - '.github/workflows/helm-pr-check.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Lint Helm chart
+        run: |
+          helm lint helm/hive-mind
+
+      - name: Validate Helm chart
+        run: |
+          helm template test helm/hive-mind --debug

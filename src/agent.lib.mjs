@@ -533,7 +533,7 @@ export const executeAgentCommand = async (params) => {
         }
 
         // Log error as JSON for structured output (since agent expects JSON input/output)
-        await log(`\n📋 Error details (JSON):`, { level: 'error' });
+        await log('\n📋 Error details (JSON):', { level: 'error' });
         await log(JSON.stringify(errorInfo, null, 2), { level: 'error' });
 
         const resourcesAfter = await getResourceSnapshot();

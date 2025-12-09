@@ -191,7 +191,16 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.
+
+Playwright MCP usage (browser automation via mcp__playwright__* tools).
+   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
+   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
+   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
+   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
+   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
+   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
+   - When you finish using the browser, always close it with browser_close to free resources.`;
 };
 
 // Export all functions as default object too

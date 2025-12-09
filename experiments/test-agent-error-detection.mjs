@@ -1,140 +1,139 @@
 #!/usr/bin/env node
 /**
- * Test script for agent error detection patterns
- * This script tests that error patterns are correctly detected even when exit code is 0
+ * Experiment script for testing agent error detection
+ * Issue #886: Simplified error detection - trust exit code, don't pattern match output
+ *
+ * This experiment demonstrates why we removed pattern matching:
+ * - AI agents execute bash commands that may produce warnings like "Permission denied"
+ * - These warnings appear in output but don't indicate failure (exit code 0)
+ * - Pattern matching causes false positives in normal operation
+ *
+ * New approach:
+ * - Trust exit code (0 = success, non-zero = failure)
+ * - Only detect explicit JSON error messages from agent
  */
 
-// Error patterns to detect failures even when exit code is 0
-const errorPatterns = [
-  { pattern: /ProviderModelNotFoundError/i, type: 'ProviderModelNotFoundError' },
-  { pattern: /ModelNotFoundError/i, type: 'ModelNotFoundError' },
-  { pattern: /\s+at\s+\S+\s+\([^)]+:\d+:\d+\)/m, type: 'StackTrace' },  // Stack trace pattern
-  { pattern: /throw new \w+Error/i, type: 'ThrowError' },
-  { pattern: /authentication failed/i, type: 'AuthenticationError' },
-  { pattern: /permission denied/i, type: 'PermissionError' },
-  { pattern: /ENOENT|EACCES|EPERM/i, type: 'FileSystemError' },
-  { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
-  { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
-  { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
-];
+// Simplified error detection function - matches agent.lib.mjs
+const detectAgentErrors = (stdoutOutput) => {
+  const lines = stdoutOutput.split('\n');
 
-// Helper function to detect errors in output
-const detectOutputErrors = (output) => {
-  for (const { pattern, type } of errorPatterns) {
-    const match = output.match(pattern);
-    if (match) {
-      return { detected: true, type, match: match[0] };
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    try {
+      const msg = JSON.parse(line);
+
+      // Check for explicit error message types from agent
+      if (msg.type === 'error' || msg.type === 'step_error') {
+        return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
+      }
+    } catch {
+      // Not JSON - ignore for error detection
+      continue;
     }
   }
+
   return { detected: false };
 };
 
-// Test cases
+// Test cases demonstrating the simplified approach
 const testCases = [
   {
-    name: 'ProviderModelNotFoundError from PR #864',
-    input: `519 |       providerID,
-520 |       modelID,
-521 |     })
-522 |
-523 |     const provider = s.providers[providerID]
-524 |     if (!provider) throw new ModelNotFoundError({ providerID, modelID })
-                              ^
-ProviderModelNotFoundError: Provi****************Error
- data: {
-  providerID: "anthropic",
-  modelID: "claude-3-5-sonnet",
-},
-
-      at getModel (/home/hive/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts:524:26)`,
-    expected: { detected: true, type: 'ProviderModelNotFoundError' }
+    name: 'Issue #886: Shell warnings in bash output (false positive before fix)',
+    input: `{"type":"tool_use","part":{"type":"tool","state":{"status":"completed","output":"/bin/sh: 1: src/main.rs: Permission denied\\nhttps://github.com/repo/pull/2\\n","metadata":{"exit":0}}}}`,
+    expected: { detected: false },
+    comment: 'Should NOT detect - exit code 0, just shell warning'
   },
   {
-    name: 'Stack trace detection',
+    name: 'Issue #873: Source code containing error strings',
+    input: `{"type":"tool","state":{"status":"completed","output":"if (err.includes('Permission denied')) { ... }"}}`,
+    expected: { detected: false },
+    comment: 'Should NOT detect - just source code content'
+  },
+  {
+    name: 'Explicit JSON error message',
+    input: '{"type":"error","message":"Rate limit exceeded"}',
+    expected: { detected: true, type: 'AgentError' },
+    comment: 'Should detect - explicit error from agent'
+  },
+  {
+    name: 'step_error message',
+    input: '{"type":"step_error","message":"Tool execution failed"}',
+    expected: { detected: true, type: 'AgentError' },
+    comment: 'Should detect - explicit step_error'
+  },
+  {
+    name: 'Stack trace in non-JSON output (now ignored)',
     input: `Error: Something went wrong
       at myFunction (/path/to/file.js:123:45)
       at Object.<anonymous> (/path/to/other.js:10:20)`,
-    expected: { detected: true, type: 'StackTrace' }
+    expected: { detected: false },
+    comment: 'Should NOT detect - trust exit code instead of pattern matching'
   },
   {
-    name: 'TypeError detection',
+    name: 'TypeError in output (now ignored)',
     input: 'TypeError: Cannot read properties of undefined (reading "foo")',
-    expected: { detected: true, type: 'JavaScriptError' }
+    expected: { detected: false },
+    comment: 'Should NOT detect - trust exit code instead'
   },
   {
-    name: 'Null reference error detection',
-    input: 'Cannot read property of null',
-    expected: { detected: true, type: 'NullReferenceError' }
+    name: 'ENOENT error text (now ignored)',
+    input: "Error: ENOENT: no such file or directory, open '/tmp/test.txt'",
+    expected: { detected: false },
+    comment: 'Should NOT detect - trust exit code instead'
   },
   {
-    name: 'Authentication failed',
-    input: 'Error: Authentication failed. Please check your credentials.',
-    expected: { detected: true, type: 'AuthenticationError' }
+    name: 'Clean successful output',
+    input: `{"type":"step_start","snapshot":"abc123"}
+{"type":"step_finish","reason":"stop"}`,
+    expected: { detected: false },
+    comment: 'Should NOT detect - normal successful execution'
   },
   {
-    name: 'Permission denied',
-    input: 'Error: Permission denied while accessing /etc/shadow',
-    expected: { detected: true, type: 'PermissionError' }
-  },
-  {
-    name: 'File not found (ENOENT)',
-    input: 'Error: ENOENT: no such file or directory, open \'/tmp/test.txt\'',
-    expected: { detected: true, type: 'FileSystemError' }
-  },
-  {
-    name: 'Valid JSON output (no error)',
-    input: `{
-  "type": "step_start",
-  "timestamp": 1765236916365,
-  "sessionID": "ses_4ffae5350ffel9Uelq2VYSx4CA"
-}`,
-    expected: { detected: false }
-  },
-  {
-    name: 'Successful tool output',
-    input: '✅ Agent command completed\nSession ID: ses_123456',
-    expected: { detected: false }
-  },
-  {
-    name: 'Uncaught Exception',
-    input: 'Uncaught Exception: Something terrible happened',
-    expected: { detected: true, type: 'UncaughtException' }
-  },
-  {
-    name: 'Unhandled Promise Rejection',
-    input: 'Unhandled Rejection at: Promise {...} reason: Error: API timeout',
-    expected: { detected: true, type: 'UnhandledRejection' }
+    name: 'Error among other JSON messages',
+    input: `{"type":"step_start"}
+{"type":"error","message":"API connection failed"}
+{"type":"step_finish","reason":"error"}`,
+    expected: { detected: true, type: 'AgentError' },
+    comment: 'Should detect - has explicit error message'
   }
 ];
 
-console.log('🧪 Testing agent error detection patterns...\n');
+console.log('🧪 Testing simplified agent error detection...\n');
+console.log('Issue #886: Trust exit code, only detect explicit JSON errors\n');
 
 let passed = 0;
 let failed = 0;
 
 for (const testCase of testCases) {
-  const result = detectOutputErrors(testCase.input);
+  const result = detectAgentErrors(testCase.input);
   const success = result.detected === testCase.expected.detected &&
     (!testCase.expected.type || result.type === testCase.expected.type);
 
   if (success) {
     console.log(`✅ PASS: ${testCase.name}`);
+    console.log(`   ${testCase.comment}`);
     passed++;
   } else {
     console.log(`❌ FAIL: ${testCase.name}`);
     console.log(`   Expected: ${JSON.stringify(testCase.expected)}`);
     console.log(`   Got: ${JSON.stringify(result)}`);
+    console.log(`   ${testCase.comment}`);
     failed++;
   }
+  console.log();
 }
 
-console.log(`\n📊 Results: ${passed} passed, ${failed} failed`);
+console.log(`📊 Results: ${passed} passed, ${failed} failed\n`);
 
 if (failed > 0) {
-  console.log('\n❌ Some tests failed!');
+  console.log('❌ Some tests failed!');
   process.exit(1);
 } else {
-  console.log('\n✅ All tests passed!');
+  console.log('✅ All tests passed!');
+  console.log('\nNote: Error detection now relies on:');
+  console.log('  1. Exit code (non-zero = error)');
+  console.log('  2. Explicit JSON error messages (type: "error" or "step_error")');
+  console.log('Pattern matching has been removed to prevent false positives.');
   process.exit(0);
 }

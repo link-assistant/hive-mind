@@ -430,7 +430,6 @@ export const executeAgentCommand = async (params) => {
       let limitResetTime = null;
       let lastMessage = '';
       let fullOutput = ''; // Collect all output for pricing calculation and error detection
-      let allStderr = '';  // Collect all stderr for error detection
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -444,83 +443,45 @@ export const executeAgentCommand = async (params) => {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            allStderr += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
       }
 
-      // Error patterns to detect failures even when exit code is 0
-      // Agent may exit with code 0 despite throwing errors (Node.js uncaught exception behavior)
-      const errorPatterns = [
-        { pattern: /ProviderModelNotFoundError/i, type: 'ProviderModelNotFoundError' },
-        { pattern: /ModelNotFoundError/i, type: 'ModelNotFoundError' },
-        { pattern: /\s+at\s+\S+\s+\([^)]+:\d+:\d+\)/m, type: 'StackTrace' },  // Stack trace pattern
-        { pattern: /throw new \w+Error/i, type: 'ThrowError' },
-        { pattern: /authentication failed/i, type: 'AuthenticationError' },
-        { pattern: /permission denied/i, type: 'PermissionError' },
-        { pattern: /ENOENT|EACCES|EPERM/i, type: 'FileSystemError' },
-        { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
-        { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
-        { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-        { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
-      ];
-
-      // Helper function to detect errors in output
-      // Uses JSON-aware parsing to avoid false positives from tool output content
-      // See: docs/case-studies/issue-873-phantom-error-detection/README.md
-      const detectOutputErrors = (stdoutOutput, stderrOutput) => {
+      // Simplified error detection for agent tool
+      // Issue #886: Trust exit code - agent now properly returns code 1 on errors with JSON error response
+      // Don't scan output for error patterns as this causes false positives during normal operation
+      // (e.g., AI executing bash commands that produce "Permission denied" warnings but succeed)
+      //
+      // Error detection is now based on:
+      // 1. Non-zero exit code (agent returns 1 on errors)
+      // 2. Explicit JSON error messages from agent (type: "error")
+      // 3. Usage limit detection (handled separately)
+      const detectAgentErrors = (stdoutOutput) => {
         const lines = stdoutOutput.split('\n');
-        const nonToolOutputLines = [];
 
-        // First, filter out completed tool outputs from stdout to avoid false positives
-        // Tool outputs contain source code/data that may include error-related text
         for (const line of lines) {
           if (!line.trim()) continue;
 
           try {
             const msg = JSON.parse(line);
 
-            // Check for explicit error message types
+            // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {
-              return { detected: true, type: 'AgentError', match: line.substring(0, 100) };
+              return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
             }
-
-            // Check for failed tool execution
-            if (msg.type === 'tool' && msg.state?.status === 'failed') {
-              const errorMsg = msg.state.error || 'Tool execution failed';
-              return { detected: true, type: 'ToolError', match: errorMsg };
-            }
-
-            // Skip completed tool outputs (they contain source code/data)
-            if (msg.type === 'tool' && msg.state?.status === 'completed') {
-              continue; // Don't scan successful tool output content
-            }
-
-            // Keep other JSON lines for scanning (step_start, step_finish, etc.)
-            nonToolOutputLines.push(line);
           } catch {
-            // Not JSON or malformed - keep for pattern scanning
-            nonToolOutputLines.push(line);
-          }
-        }
-
-        // Combine filtered stdout with all stderr
-        const filteredOutput = nonToolOutputLines.join('\n') + '\n' + stderrOutput;
-
-        // Now scan the filtered output with error patterns
-        for (const { pattern, type } of errorPatterns) {
-          const match = filteredOutput.match(pattern);
-          if (match) {
-            return { detected: true, type, match: match[0] };
+            // Not JSON - ignore for error detection
+            continue;
           }
         }
 
         return { detected: false };
       };
 
-      const outputError = detectOutputErrors(fullOutput, allStderr);
+      // Only check for JSON error messages, not pattern matching in output
+      const outputError = detectAgentErrors(fullOutput);
 
       if (exitCode !== 0 || outputError.detected) {
         // Build JSON error structure for consistent error reporting
@@ -556,17 +517,10 @@ export const executeAgentCommand = async (params) => {
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
-        } else if (outputError.detected && exitCode === 0) {
-          // Error detected in output but exit code was 0 - this is the bug we're fixing
-          errorInfo.message = `Agent command failed: ${outputError.type} detected in output despite exit code 0`;
+        } else if (outputError.detected) {
+          // Explicit JSON error message from agent
+          errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
-          await log(`   Error pattern matched: ${outputError.match}`, { level: 'error' });
-          // Log truncated output context for debugging
-          const combinedOutputForLogging = fullOutput + allStderr;
-          const truncatedOutput = combinedOutputForLogging.length > 1000
-            ? combinedOutputForLogging.substring(combinedOutputForLogging.length - 1000)
-            : combinedOutputForLogging;
-          await log(`   Last output context (truncated): ${truncatedOutput.substring(0, 500)}...`, { level: 'error' });
         } else {
           errorInfo.message = `Agent command failed with exit code ${exitCode}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });

@@ -15,6 +15,7 @@ jobs:
       package-changed: ${{ steps.changes.outputs.package }}
       docs-changed: ${{ steps.changes.outputs.docs }}
       workflow-changed: ${{ steps.changes.outputs.workflow }}
+      docker-changed: ${{ steps.changes.outputs.docker }}
       any-code-changed: ${{ steps.changes.outputs.code }}
       new-version: ${{ steps.changes.outputs.new-version }}
       version: ${{ steps.changes.outputs.version }}
@@ -62,12 +63,19 @@ jobs:
           echo "docs=false" >> $GITHUB_OUTPUT
         fi
         
-        # Check for workflow changes
-        if echo "$CHANGED_FILES" | grep -q '\.github/workflows/'; then
-          echo "workflow=true" >> $GITHUB_OUTPUT
-        else
-          echo "workflow=false" >> $GITHUB_OUTPUT
-        fi
+         # Check for workflow changes
+         if echo "$CHANGED_FILES" | grep -q '\.github/workflows/'; then
+           echo "workflow=true" >> $GITHUB_OUTPUT
+         else
+           echo "workflow=false" >> $GITHUB_OUTPUT
+         fi
+
+         # Check for docker-related changes
+         if echo "$CHANGED_FILES" | grep -qE '(^Dockerfile$|^\.dockerignore$|^scripts/ubuntu-24-server-install\.sh$)'; then
+           echo "docker=true" >> $GITHUB_OUTPUT
+         else
+           echo "docker=false" >> $GITHUB_OUTPUT
+         fi
         
         # Check for any code changes (.mjs, package.json, or workflows)
         if echo "$CHANGED_FILES" | grep -qE '\.(mjs|json|yml|yaml)$|\.github/workflows/'; then
@@ -1005,104 +1013,88 @@ jobs:
   docker-pr-check:
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
 
     steps:
-      - name: Check if Docker check should run
-        id: should-run
-        run: |
-          CHANGED_FILES="${{ needs.detect-changes.outputs.workflow-changed }}"
-          # Check if Dockerfile or related files changed
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          # For now, run on all PRs to main - could be optimized with path filters
-          echo "should_run=true" >> $GITHUB_OUTPUT
+       - name: Checkout repository
+         uses: actions/checkout@v4
 
-      - name: Checkout repository
-        if: steps.should-run.outputs.should_run == 'true'
-        uses: actions/checkout@v4
+       - name: Build Docker image with log capture
+         run: |
+           echo "🔨 Building Docker image with log capture..."
+           # Build with plain progress output to capture full logs
+           # This is the ONLY build - we use --load to make it available for docker run
+           docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
-      - name: Build Docker image with log capture
-        if: steps.should-run.outputs.should_run == 'true'
-        run: |
-          echo "🔨 Building Docker image with log capture..."
-          # Build with plain progress output to capture full logs
-          # This is the ONLY build - we use --load to make it available for docker run
-          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+           echo ""
+           echo "✅ Docker image built successfully"
+           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
 
-          echo ""
-          echo "✅ Docker image built successfully"
-          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+       - name: Verify Homebrew and PHP in build logs
+         run: |
+           echo "📊 Checking installation status in build logs..."
 
-      - name: Verify Homebrew and PHP in build logs
-        if: steps.should-run.outputs.should_run == 'true'
-        run: |
-          echo "📊 Checking installation status in build logs..."
+           # Check for the specific "not found" errors that indicate failure
+           if grep -E '\[!\] Homebrew: not found' build-output.log; then
+             echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
+             exit 1
+           fi
 
-          # Check for the specific "not found" errors that indicate failure
-          if grep -E '\[!\] Homebrew: not found' build-output.log; then
-            echo "❌ ERROR: Homebrew installation failed - showing as 'not found'"
-            exit 1
-          fi
+           if grep -E '\[!\] PHP: not found' build-output.log; then
+             echo "❌ ERROR: PHP installation failed - showing as 'not found'"
+             exit 1
+           fi
 
-          if grep -E '\[!\] PHP: not found' build-output.log; then
-            echo "❌ ERROR: PHP installation failed - showing as 'not found'"
-            exit 1
-          fi
+           # Check for success indicators
+           if grep -E '\[✓\] Homebrew:' build-output.log; then
+             echo "✅ Homebrew installation verified in build logs"
+           else
+             echo "⚠️  WARNING: Homebrew success message not found in logs"
+           fi
 
-          # Check for success indicators
-          if grep -E '\[✓\] Homebrew:' build-output.log; then
-            echo "✅ Homebrew installation verified in build logs"
-          else
-            echo "⚠️  WARNING: Homebrew success message not found in logs"
-          fi
+           if grep -E '\[✓\] PHP:' build-output.log; then
+             echo "✅ PHP installation verified in build logs"
+           else
+             echo "⚠️  WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+           fi
 
-          if grep -E '\[✓\] PHP:' build-output.log; then
-            echo "✅ PHP installation verified in build logs"
-          else
-            echo "⚠️  WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
-          fi
+       - name: Verify tools in running container
+         run: |
+           echo "🔍 Verifying tools are available in the running container..."
 
-      - name: Verify tools in running container
-        if: steps.should-run.outputs.should_run == 'true'
-        run: |
-          echo "🔍 Verifying tools are available in the running container..."
+           docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+             echo 'Checking Homebrew...'
+             if command -v brew &>/dev/null; then
+               brew --version | head -n1
+               echo '✅ Homebrew is accessible'
+             else
+               echo '❌ Homebrew command not found in container'
+               exit 1
+             fi
 
-          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
-            echo 'Checking Homebrew...'
-            if command -v brew &>/dev/null; then
-              brew --version | head -n1
-              echo '✅ Homebrew is accessible'
-            else
-              echo '❌ Homebrew command not found in container'
-              exit 1
-            fi
+             echo ''
+             echo 'Checking PHP...'
+             if command -v php &>/dev/null; then
+               php --version | head -n1
+               echo '✅ PHP is accessible'
+             else
+               # Check if PHP binary exists but is not in PATH
+               if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                 /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                 echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
+               else
+                 echo '❌ PHP not found in container'
+                 exit 1
+               fi
+             fi
+           "
 
-            echo ''
-            echo 'Checking PHP...'
-            if command -v php &>/dev/null; then
-              php --version | head -n1
-              echo '✅ PHP is accessible'
-            else
-              # Check if PHP binary exists but is not in PATH
-              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
-                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
-                echo '⚠️  PHP is installed but not in PATH (may need shell restart)'
-              else
-                echo '❌ PHP not found in container'
-                exit 1
-              fi
-            fi
-          "
-
-          echo ""
-          echo "✅ All verification checks passed!"
+           echo ""
+           echo "✅ All verification checks passed!"
 
   # === HELM PR CHECK ===
   helm-pr-check:

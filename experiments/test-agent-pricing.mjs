@@ -51,21 +51,28 @@ console.log('\n\nTest 2: calculateAgentPricing (requires network)');
 console.log('-'.repeat(40));
 
 try {
-  // Test with grok-code (free model)
-  console.log('\nTesting grok-code (free model):');
+  // Test with grok-code (should use grok-code-fast-1 pricing per issue #892)
+  console.log('\nTesting opencode/grok-code (should use grok-code-fast-1 pricing per issue #892):');
   const grokPricing = await calculateAgentPricing('opencode/grok-code', tokenUsage);
   console.log('Pricing result:', JSON.stringify(grokPricing, null, 2));
 
-  if (grokPricing.isFreeModel) {
-    console.log('✅ Correctly identified as free model');
+  // Verify that it uses grok-code-fast-1 pricing (should not be free)
+  if (grokPricing.modelName === 'Grok Code Fast 1') {
+    console.log('✅ Correctly using grok-code-fast-1 for pricing');
   } else {
-    console.log('❌ Should be identified as free model');
+    console.log(`❌ Should use grok-code-fast-1 for pricing, got ${grokPricing.modelName}`);
   }
 
-  if (grokPricing.totalCostUSD === 0) {
-    console.log('✅ Total cost is $0.00');
+  if (!grokPricing.isFreeModel) {
+    console.log('✅ Correctly identified as paid model (grok-code-fast-1 pricing)');
   } else {
-    console.log(`❌ Total cost should be $0.00, got $${grokPricing.totalCostUSD}`);
+    console.log('❌ Should be identified as paid model');
+  }
+
+  if (grokPricing.totalCostUSD > 0) {
+    console.log(`✅ Total cost is $${grokPricing.totalCostUSD.toFixed(6)} (using grok-code-fast-1 pricing)`);
+  } else {
+    console.log('❌ Should have calculated a cost');
   }
 
   // Test with a paid model (Claude)

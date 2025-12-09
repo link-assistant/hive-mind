@@ -88,7 +88,13 @@ export const parseAgentTokenUsage = (output) => {
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
-  const modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+  let modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+
+  // Special case: For opencode/grok-code, use grok-code-fast-1 pricing for public price estimate
+  // as per issue #892 - public price estimate should be based on actual cost of xai/grok-code-fast-1
+  if (modelId === 'opencode/grok-code') {
+    modelName = 'grok-code-fast-1';
+  }
 
   try {
     // Fetch model info from models.dev API

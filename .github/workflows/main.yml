@@ -879,7 +879,7 @@ jobs:
         PACKAGE_NAME=$(node -p "require('./package.json').name")
         gh release create "v${VERSION}" \
           --title "${VERSION}" \
-          --notes "https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}"
+          --notes "Release ${VERSION} - NPM: https://www.npmjs.com/package/${PACKAGE_NAME}/v/${VERSION}, Docker: https://hub.docker.com/r/konard/hive-mind/tags?name=${VERSION}, Helm chart attached as asset"
 
     - name: Upload Source Maps to Sentry
       if: needs.detect-changes.outputs.new-version == 'true'
@@ -1253,6 +1253,7 @@ jobs:
         with:
           charts_dir: helm
           skip_existing: true
+          create_release: false
 
       - name: Deploy to GitHub Pages
         if: steps.should-run.outputs.should_run == 'true'
@@ -1277,9 +1278,10 @@ jobs:
           EOF
 
       - name: Upload chart to release
-        if: steps.should-run.outputs.should_run == 'true' && startsWith(github.ref, 'refs/tags/')
+        if: steps.should-run.outputs.should_run == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag: v${{ needs.detect-changes.outputs.version }}
           files: .cr-release-packages/*.tgz
 
       - name: Summary

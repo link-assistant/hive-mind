@@ -463,7 +463,10 @@ export async function attachLogToGitHub(options) {
     isUsageLimit = false,
     limitResetTime = null,
     toolName = 'AI tool',
-    resumeCommand = null
+    resumeCommand = null,
+    // New parameters for agent tool pricing support
+    publicPricingEstimate = null,
+    pricingInfo = null
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -478,8 +481,9 @@ export async function attachLogToGitHub(options) {
       return false;
     }
     // Calculate token usage if sessionId and tempDir are provided
-    let totalCostUSD = null;
-    if (sessionId && tempDir && !errorMessage) {
+    // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
+    let totalCostUSD = publicPricingEstimate;
+    if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
@@ -581,11 +585,43 @@ ${logContent}
     } else {
       // Success log format
       let costInfo = '\n\n💰 **Cost estimation:**';
-      if (totalCostUSD !== null) {
-        costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+
+      // Check if this is an agent tool run with pricing info
+      if (pricingInfo && pricingInfo.modelName) {
+        costInfo += `\n- Model: ${pricingInfo.modelName}`;
+        if (pricingInfo.provider) {
+          costInfo += `\n- Provider: ${pricingInfo.provider}`;
+        }
+      }
+
+      if (totalCostUSD !== null && totalCostUSD !== undefined) {
+        // Check if this is a free model
+        if (pricingInfo && pricingInfo.isFreeModel) {
+          costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+        } else {
+          costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+        }
       } else {
         costInfo += '\n- Public pricing estimate: unknown';
       }
+
+      // Add token usage if available from pricingInfo
+      if (pricingInfo && pricingInfo.tokenUsage) {
+        const usage = pricingInfo.tokenUsage;
+        let tokenInfo = '\n- Token usage:';
+        tokenInfo += ` ${usage.inputTokens?.toLocaleString() || 0} input`;
+        tokenInfo += `, ${usage.outputTokens?.toLocaleString() || 0} output`;
+        if (usage.reasoningTokens > 0) {
+          tokenInfo += `, ${usage.reasoningTokens.toLocaleString()} reasoning`;
+        }
+        if (usage.cacheReadTokens > 0 || usage.cacheWriteTokens > 0) {
+          tokenInfo += `, ${usage.cacheReadTokens?.toLocaleString() || 0} cache read`;
+          tokenInfo += `, ${usage.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+        }
+        costInfo += tokenInfo;
+      }
+
+      // Show Anthropic cost only for Claude (not for agent tool)
       if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
         costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
         if (totalCostUSD !== null) {
@@ -595,7 +631,8 @@ ${logContent}
         } else {
           costInfo += '\n- Difference: unknown';
         }
-      } else {
+      } else if (!pricingInfo) {
+        // Only show "unknown" if there's no pricingInfo (Claude without session file)
         costInfo += '\n- Calculated by Anthropic: unknown';
         costInfo += '\n- Difference: unknown';
       }
@@ -735,11 +772,43 @@ ${errorMessage}
           } else {
             // Success log gist format
             let costInfo = '\n\n💰 **Cost estimation:**';
-            if (totalCostUSD !== null) {
-              costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+
+            // Check if this is an agent tool run with pricing info
+            if (pricingInfo && pricingInfo.modelName) {
+              costInfo += `\n- Model: ${pricingInfo.modelName}`;
+              if (pricingInfo.provider) {
+                costInfo += `\n- Provider: ${pricingInfo.provider}`;
+              }
+            }
+
+            if (totalCostUSD !== null && totalCostUSD !== undefined) {
+              // Check if this is a free model
+              if (pricingInfo && pricingInfo.isFreeModel) {
+                costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+              } else {
+                costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+              }
             } else {
               costInfo += '\n- Public pricing estimate: unknown';
             }
+
+            // Add token usage if available from pricingInfo
+            if (pricingInfo && pricingInfo.tokenUsage) {
+              const usage = pricingInfo.tokenUsage;
+              let tokenInfo = '\n- Token usage:';
+              tokenInfo += ` ${usage.inputTokens?.toLocaleString() || 0} input`;
+              tokenInfo += `, ${usage.outputTokens?.toLocaleString() || 0} output`;
+              if (usage.reasoningTokens > 0) {
+                tokenInfo += `, ${usage.reasoningTokens.toLocaleString()} reasoning`;
+              }
+              if (usage.cacheReadTokens > 0 || usage.cacheWriteTokens > 0) {
+                tokenInfo += `, ${usage.cacheReadTokens?.toLocaleString() || 0} cache read`;
+                tokenInfo += `, ${usage.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+              }
+              costInfo += tokenInfo;
+            }
+
+            // Show Anthropic cost only for Claude (not for agent tool)
             if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
               costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
               if (totalCostUSD !== null) {
@@ -749,7 +818,8 @@ ${errorMessage}
               } else {
                 costInfo += '\n- Difference: unknown';
               }
-            } else {
+            } else if (!pricingInfo) {
+              // Only show "unknown" if there's no pricingInfo (Claude without session file)
               costInfo += '\n- Calculated by Anthropic: unknown';
               costInfo += '\n- Difference: unknown';
             }

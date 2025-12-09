@@ -9,20 +9,20 @@ const mockFetchModelInfoImpl = (modelId) => {
     'grok-code-fast-1': {
       name: 'Grok Code Fast 1',
       cost: {
-        input: 0.000003,
-        output: 0.000015,
-        cache_read: 0.0000015,
-        cache_write: 0.0000075
+        input: 0.2, // $0.20 per million input tokens (real pricing)
+        output: 1.5, // $1.50 per million output tokens
+        cache_read: 0.02 // $0.02 per million cache read tokens
+        // Note: no cache_write in real API for grok-code-fast-1
       },
       provider: 'xAI'
     },
     'grok-code': {
       name: 'Grok Code',
       cost: {
-        input: 0.000005,
-        output: 0.000025,
-        cache_read: 0.0000025,
-        cache_write: 0.0000125
+        input: 0, // Free model
+        output: 0,
+        cache_read: 0,
+        cache_write: 0
       },
       provider: 'OpenCode'
     }
@@ -104,5 +104,44 @@ const pricingUnknown = await calculateOpenCodePricing('unknown/model', tokenUsag
 assert.strictEqual(pricingUnknown.isFreeModel, true, 'Unknown model should be marked as free when pricing API fails');
 
 console.log('✅ calculateOpenCodePricing tests passed');
+
+// Test issue #892 specific requirements
+console.log('🧪 Testing issue #892 pricing requirements...');
+
+// Test data matching our debug script
+const issue892TokenUsage = {
+  inputTokens: 10000,
+  outputTokens: 5000,
+  reasoningTokens: 2000,
+  cacheReadTokens: 1000,
+  cacheWriteTokens: 500,
+  totalCost: 0,
+  stepCount: 1
+};
+
+const issue892TokenUsageWithActualCost = {
+  ...issue892TokenUsage,
+  totalCost: 0.0125 // Actual cost from JSON
+};
+
+// Test 1: Public estimate should always use grok-code-fast-1 pricing
+const pricingPublicEstimate = await calculateOpenCodePricing('opencode/grok-code', issue892TokenUsage);
+const expectedPublicEstimate = (10000 * 0.2 + 5000 * 1.5 + 1000 * 0.02 + 500 * 0) / 1_000_000; // 0.00952
+assert(Math.abs(pricingPublicEstimate.publicEstimate - expectedPublicEstimate) < 0.000001, `Public estimate should be ${expectedPublicEstimate}, got ${pricingPublicEstimate.publicEstimate}`);
+console.log('✅ Public estimate uses grok-code-fast-1 pricing correctly');
+
+// Test 2: Provider price with actual costs should use actual cost
+const pricingWithActualCost = await calculateOpenCodePricing('opencode/grok-code', issue892TokenUsageWithActualCost);
+assert.strictEqual(pricingWithActualCost.providerPrice, 0.0125, 'Provider price should use actual cost from JSON when available');
+assert(Math.abs(pricingWithActualCost.publicEstimate - expectedPublicEstimate) < 0.000001, `Public estimate should be ${expectedPublicEstimate}, got ${pricingWithActualCost.publicEstimate}`);
+console.log('✅ Provider price uses actual cost from JSON correctly');
+
+// Test 3: Provider price without actual costs should use opencode/grok-code pricing
+const pricingFallback = await calculateOpenCodePricing('opencode/grok-code', issue892TokenUsage);
+assert.strictEqual(pricingFallback.providerPrice, 0, 'Provider price should be 0 for free grok-code model when no actual cost');
+assert(Math.abs(pricingFallback.publicEstimate - expectedPublicEstimate) < 0.000001, `Public estimate should be ${expectedPublicEstimate}, got ${pricingFallback.publicEstimate}`);
+console.log('✅ Provider price falls back to grok-code pricing correctly');
+
+console.log('✅ Issue #892 pricing requirements tests passed');
 
 console.log('🎉 All opencode pricing tests passed!');

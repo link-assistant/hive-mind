@@ -467,21 +467,60 @@ export const executeAgentCommand = async (params) => {
         { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
       ];
 
-      // Check both stdout and stderr for error patterns
-      const combinedOutput = fullOutput + allStderr;
-
       // Helper function to detect errors in output
-      const detectOutputErrors = (output) => {
+      // Uses JSON-aware parsing to avoid false positives from tool output content
+      // See: docs/case-studies/issue-873-phantom-error-detection/README.md
+      const detectOutputErrors = (stdoutOutput, stderrOutput) => {
+        const lines = stdoutOutput.split('\n');
+        const nonToolOutputLines = [];
+
+        // First, filter out completed tool outputs from stdout to avoid false positives
+        // Tool outputs contain source code/data that may include error-related text
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const msg = JSON.parse(line);
+
+            // Check for explicit error message types
+            if (msg.type === 'error' || msg.type === 'step_error') {
+              return { detected: true, type: 'AgentError', match: line.substring(0, 100) };
+            }
+
+            // Check for failed tool execution
+            if (msg.type === 'tool' && msg.state?.status === 'failed') {
+              const errorMsg = msg.state.error || 'Tool execution failed';
+              return { detected: true, type: 'ToolError', match: errorMsg };
+            }
+
+            // Skip completed tool outputs (they contain source code/data)
+            if (msg.type === 'tool' && msg.state?.status === 'completed') {
+              continue; // Don't scan successful tool output content
+            }
+
+            // Keep other JSON lines for scanning (step_start, step_finish, etc.)
+            nonToolOutputLines.push(line);
+          } catch {
+            // Not JSON or malformed - keep for pattern scanning
+            nonToolOutputLines.push(line);
+          }
+        }
+
+        // Combine filtered stdout with all stderr
+        const filteredOutput = nonToolOutputLines.join('\n') + '\n' + stderrOutput;
+
+        // Now scan the filtered output with error patterns
         for (const { pattern, type } of errorPatterns) {
-          const match = output.match(pattern);
+          const match = filteredOutput.match(pattern);
           if (match) {
             return { detected: true, type, match: match[0] };
           }
         }
+
         return { detected: false };
       };
 
-      const outputError = detectOutputErrors(combinedOutput);
+      const outputError = detectOutputErrors(fullOutput, allStderr);
 
       if (exitCode !== 0 || outputError.detected) {
         // Build JSON error structure for consistent error reporting
@@ -523,9 +562,10 @@ export const executeAgentCommand = async (params) => {
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
           await log(`   Error pattern matched: ${outputError.match}`, { level: 'error' });
           // Log truncated output context for debugging
-          const truncatedOutput = combinedOutput.length > 1000
-            ? combinedOutput.substring(combinedOutput.length - 1000)
-            : combinedOutput;
+          const combinedOutputForLogging = fullOutput + allStderr;
+          const truncatedOutput = combinedOutputForLogging.length > 1000
+            ? combinedOutputForLogging.substring(combinedOutputForLogging.length - 1000)
+            : combinedOutputForLogging;
           await log(`   Last output context (truncated): ${truncatedOutput.substring(0, 500)}...`, { level: 'error' });
         } else {
           errorInfo.message = `Agent command failed with exit code ${exitCode}`;

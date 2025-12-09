@@ -330,12 +330,151 @@ Based on web search, infinite loop issues are a known class of problems in AI CL
 
 ## Implementation Status
 
-- [ ] Solution 1: Fix tool dispatch in watch mode
-- [ ] Solution 2: Add retry limits with exponential backoff
+- [x] Solution 1: Fix tool dispatch in watch mode
+- [x] Solution 2: Add retry limits with exponential backoff
 - [ ] Solution 3: Model validation at tool selection (future improvement)
-- [ ] Solution 4: Unified model mapping layer (future improvement)
+- [x] Solution 4: Unified model mapping layer
+
+---
+
+## Implementation Details
+
+### Solution 1: Fix Tool Dispatch in Watch Mode ✅
+
+**File**: `src/solve.watch.lib.mjs`
+
+Added explicit handling for `--tool agent` in the watch mode tool dispatch logic (lines 356-384):
+
+```javascript
+} else if (argv.tool === 'agent') {
+  // Use Agent
+  const agentExecLib = await import('./agent.lib.mjs');
+  const { executeAgent } = agentExecLib;
+
+  // Get agent path
+  const agentPath = argv.agentPath || 'agent';
+
+  toolResult = await executeAgent({
+    issueUrl,
+    issueNumber,
+    prNumber,
+    prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+    branchName,
+    tempDir,
+    isContinueMode: true,
+    mergeStateStatus,
+    forkedRepo: argv.fork,
+    feedbackLines,
+    forkActionsUrl: null,
+    owner,
+    repo,
+    argv,
+    log,
+    formatAligned,
+    getResourceSnapshot,
+    agentPath,
+    $
+  });
+}
+```
+
+**Impact**: Watch mode now correctly dispatches to the Agent CLI instead of falling back to Claude CLI, ensuring proper model name mapping.
+
+### Solution 2: Add Retry Limits with Exponential Backoff ✅
+
+**File**: `src/solve.watch.lib.mjs`
+
+Implemented API error detection and retry limiting:
+
+1. **Added tracking variables** (lines 99-102):
+```javascript
+// Track consecutive API errors for retry limit
+const MAX_API_ERROR_RETRIES = 3;
+let consecutiveApiErrors = 0;
+let currentBackoffSeconds = watchInterval;
+```
+
+2. **API error detection and retry logic** (lines 420-479):
+- Detects API errors (404, 401, 400, etc.) from tool execution results
+- Tracks consecutive API failures
+- Exits watch mode after 3 consecutive API errors
+- Applies exponential backoff (doubles interval, capped at 5 minutes)
+- Resets counters on successful execution
+- Provides clear error messages with troubleshooting hints
+
+3. **Backoff interval application** (lines 506-512):
+```javascript
+// Use backoff interval if we have consecutive API errors
+const actualWaitSeconds = consecutiveApiErrors > 0 ? currentBackoffSeconds : watchInterval;
+const actualWaitMs = actualWaitSeconds * 1000;
+await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
+```
+
+**Impact**: Prevents infinite loops by detecting persistent API errors and exiting with helpful diagnostics.
+
+### Solution 4: Unified Model Mapping Layer ✅
+
+**File**: `src/model-mapping.lib.mjs` (new file)
+
+Created a centralized model mapping module that provides:
+
+1. **Tool-specific model maps**:
+   - `claudeModels`: Anthropic API models (claude-sonnet-4-5, etc.)
+   - `agentModels`: OpenCode API models via agent CLI (opencode/grok-code, etc.)
+   - `opencodeModels`: OpenCode API models (openai/gpt-4, etc.)
+   - `codexModels`: OpenAI API models (gpt-5, o3, etc.)
+
+2. **Unified mapping function**:
+```javascript
+export const mapModelForTool = (tool, model) => {
+  switch (tool) {
+    case 'claude':
+      return claudeModels[model] || model;
+    case 'agent':
+      return agentModels[model] || model;
+    case 'opencode':
+      return opencodeModels[model] || model;
+    case 'codex':
+      return codexModels[model] || model;
+    default:
+      return model;
+  }
+};
+```
+
+3. **Validation functions**:
+   - `isModelCompatibleWithTool(tool, model)`: Checks compatibility
+   - `validateToolModelCompatibility(tool, model)`: Throws descriptive errors
+   - `getValidModelsForTool(tool)`: Returns list of valid models
+
+**Impact**: Single source of truth for model mapping, enabling future validation and preventing model name mismatches.
+
+### Tests ✅
+
+**File**: `tests/test-issue-882-fixes.mjs` (new file)
+
+Comprehensive test suite covering:
+- Model mapping for all tools (10 test cases)
+- Compatibility validation
+- Error handling
+- Model list exports
+
+All tests pass successfully.
+
+---
+
+## Verification
+
+The implementation addresses all three root causes:
+
+1. **Root Cause #1 (Model Mismatch)**: Fixed by Solution 1 - watch mode now uses agent CLI
+2. **Root Cause #2 (Missing Retry Limits)**: Fixed by Solution 2 - max 3 API error retries
+3. **Root Cause #3 (Accelerating Check Intervals)**: Fixed by Solution 2 - exponential backoff
+
+The `--no-tool-check` flag correctly only skips **tool connection checks**, not model validation, as clarified in the user feedback.
 
 ---
 
 **Generated**: 2025-12-09
+**Updated**: 2025-12-09
 **Author**: Claude Code (AI Issue Solver)

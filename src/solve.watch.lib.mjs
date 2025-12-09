@@ -191,10 +191,18 @@ export const watchForFeedback = async (params) => {
 
       // Check if there's any feedback or if it's the first iteration in temporary mode
       const hasFeedback = feedbackLines && feedbackLines.length > 0;
-      const shouldRestart = hasFeedback || firstIterationInTemporaryMode;
+
+      // In temporary watch mode, also check for uncommitted changes as a restart trigger
+      let hasUncommittedInTempMode = false;
+      if (isTemporaryWatch && !firstIterationInTemporaryMode) {
+        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $);
+      }
+
+      const shouldRestart = hasFeedback || firstIterationInTemporaryMode || hasUncommittedInTempMode;
 
       if (shouldRestart) {
-        if (firstIterationInTemporaryMode) {
+        // Handle uncommitted changes in temporary watch mode (first iteration or subsequent)
+        if (firstIterationInTemporaryMode || hasUncommittedInTempMode) {
           await log(formatAligned('📝', 'UNCOMMITTED CHANGES:', '', 2));
           // Get uncommitted changes for display
           try {
@@ -216,12 +224,15 @@ export const watchForFeedback = async (params) => {
             // Ignore errors
           }
           await log('');
-          await log(formatAligned('🔄', 'Initial restart:', `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
+
+          // Increment auto-restart counter and log restart number
+          autoRestartCount++;
+          const restartLabel = firstIterationInTemporaryMode ? 'Initial restart' : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
+          await log(formatAligned('🔄', `${restartLabel}:`, `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
 
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              autoRestartCount++;
               const remainingIterations = maxAutoRestartIterations - autoRestartCount;
 
               // Get uncommitted files list for the comment
@@ -254,12 +265,12 @@ export const watchForFeedback = async (params) => {
             }
           }
 
-          // Add uncommitted changes info to feedbackLines for the first run
+          // Add uncommitted changes info to feedbackLines for the run
           if (!feedbackLines) {
             feedbackLines = [];
           }
           feedbackLines.push('');
-          feedbackLines.push('⚠️ UNCOMMITTED CHANGES DETECTED:');
+          feedbackLines.push(`⚠️ UNCOMMITTED CHANGES DETECTED (Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}):`);
           feedbackLines.push('The following uncommitted changes were found in the repository:');
 
           try {
@@ -271,8 +282,11 @@ export const watchForFeedback = async (params) => {
                 feedbackLines.push(`  ${line}`);
               }
               feedbackLines.push('');
-              feedbackLines.push('Please review and handle these changes appropriately.');
-              feedbackLines.push('Consider committing important changes or cleaning up unnecessary files.');
+              feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+              feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
+              feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
+              feedbackLines.push('');
+              feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
             }
           } catch (e) {
             reportError(e, {

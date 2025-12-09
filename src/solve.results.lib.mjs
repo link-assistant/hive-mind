@@ -201,7 +201,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = (await use('path'));
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
@@ -242,7 +241,12 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
     // Don't show log preview, it's too technical
   } else {
-    await log('❌ No session ID extracted');
+    // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
+    if (argv.tool !== 'agent') {
+      await log('❌ No session ID extracted');
+    } else {
+      await log('ℹ️  Agent tool completed (session IDs not used for resuming)');
+    }
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);

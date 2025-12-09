@@ -1286,12 +1286,12 @@ jobs:
         run: |
           git checkout -
 
-      - name: Upload chart to release
-        if: steps.should-run.outputs.should_run == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag: v${{ needs.detect-changes.outputs.version }}
-          files: .helm-packages/*.tgz
+       - name: Upload chart to release
+         if: steps.should-run.outputs.should_run == 'true'
+         uses: softprops/action-gh-release@v2
+         with:
+           tag_name: v${{ needs.detect-changes.outputs.version }}
+           files: .helm-packages/*.tgz
 
       - name: Summary
         if: steps.should-run.outputs.should_run == 'true'

@@ -729,35 +729,7 @@ try {
 
   // Execute tool command with all prompts and settings
   let toolResult;
-  if (argv.tool === 'opencode') {
-    const opencodeLib = await import('./opencode.lib.mjs');
-    const { executeOpenCode } = opencodeLib;
-    const opencodePath = process.env.OPENCODE_PATH || 'opencode';
-
-    toolResult = await executeOpenCode({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl,
-      branchName,
-      tempDir,
-      isContinueMode,
-      mergeStateStatus,
-      forkedRepo,
-      feedbackLines,
-      forkActionsUrl,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile,
-      getLogFile,
-      formatAligned,
-      getResourceSnapshot,
-      opencodePath,
-      $
-    });
-  } else if (argv.tool === 'codex') {
+  if (argv.tool === 'codex') {
     const codexLib = await import('./codex.lib.mjs');
     const { executeCodex } = codexLib;
     const codexPath = process.env.CODEX_PATH || 'codex';

@@ -4,7 +4,7 @@
  * This module provides utilities for detecting and handling usage limit errors
  * from AI tools (Claude, Codex, OpenCode).
  *
- * Related issue: https://github.com/deep-assistant/hive-mind/issues/719
+ * Related issue: https://github.com/link-assistant/hive-mind/issues/719
  */
 
 /**

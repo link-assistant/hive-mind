@@ -1488,7 +1488,7 @@ try {
     console.error('\nStack trace:');
     console.error(fatalError.stack);
   }
-  console.error('\nPlease report this issue at: https://github.com/deep-assistant/hive-mind/issues');
+  console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
   process.exit(1);
 }
 

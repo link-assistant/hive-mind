@@ -9,7 +9,7 @@ This document provides a detailed chronological timeline of the Codex loop incid
 ### 04:00:57.949 - Execution Start
 - **Log Line**: 1
 - **Event**: solve.mjs v0.33.3 started
-- **Command**: `solve https://github.com/deep-assistant/hive-mind/issues/719 --tool codex --auto-fork --auto-continue --attach-logs --verbose --no-tool-check`
+- **Command**: `solve https://github.com/link-assistant/hive-mind/issues/719 --tool codex --auto-fork --auto-continue --attach-logs --verbose --no-tool-check`
 - **Branch**: issue-719-a653aae7d4d5 (created)
 - **PR**: #722 (created as draft)
 

@@ -936,7 +936,7 @@ jobs:
         if: steps.should-run.outputs.should_run == 'true'
         run: |
           VERSION="${{ needs.detect-changes.outputs.version }}"
-          PACKAGE_NAME="@deep-assistant/hive-mind"
+          PACKAGE_NAME="@link-assistant/hive-mind"
           MAX_ATTEMPTS=30
           SLEEP_TIME=10
 

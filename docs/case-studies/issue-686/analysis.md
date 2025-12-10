@@ -149,7 +149,7 @@ bun pm -g untrusted
 1. **Option A (Trust All)**: Run postinstalls after installation
    ```bash
    echo "[*] Installing global bun packages..."
-   bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles ...
+   bun install -g @link-assistant/hive-mind @link-assistant/claude-profiles ...
    echo "[*] Running postinstall scripts for trusted packages..."
    bun pm -g trust
    ```
@@ -157,7 +157,7 @@ bun pm -g untrusted
 2. **Option B (Selective Trust)**: Identify and trust only necessary packages
    ```bash
    echo "[*] Installing global bun packages..."
-   bun install -g @deep-assistant/hive-mind ...
+   bun install -g @link-assistant/hive-mind ...
    # Check which packages need postinstall
    UNTRUSTED=$(bun pm -g untrusted 2>/dev/null || echo "")
    if [ -n "$UNTRUSTED" ]; then

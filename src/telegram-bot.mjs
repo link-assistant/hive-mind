@@ -404,8 +404,8 @@ async function executeStartScreen(command, args) {
 
     if (!whichPath) {
       const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' +
-                        'Please ensure @deep-assistant/hive-mind is properly installed\n' +
-                        'You may need to run: npm install -g @deep-assistant/hive-mind';
+                        'Please ensure @link-assistant/hive-mind is properly installed\n' +
+                        'You may need to run: npm install -g @link-assistant/hive-mind';
       console.warn(warningMsg);
 
       // Still try to execute with 'start-screen' in case it's available in PATH but 'which' failed

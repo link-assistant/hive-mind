@@ -11,22 +11,22 @@ console.log('🧪 Testing --continue-only-on-feedback option validation...\n');
 const tests = [
   {
     name: 'Valid: PR URL with --continue-only-on-feedback',
-    command: './solve.mjs https://github.com/deep-assistant/hive-mind/pull/153 --continue-only-on-feedback --dry-run',
+    command: './solve.mjs https://github.com/link-assistant/hive-mind/pull/153 --continue-only-on-feedback --dry-run',
     shouldSucceed: true
   },
   {
     name: 'Valid: Issue URL with --auto-continue and --continue-only-on-feedback',
-    command: './solve.mjs https://github.com/deep-assistant/hive-mind/issues/144 --auto-continue --continue-only-on-feedback --dry-run',
+    command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --auto-continue --continue-only-on-feedback --dry-run',
     shouldSucceed: true
   },
   {
     name: 'Invalid: Issue URL without --auto-continue but with --continue-only-on-feedback',
-    command: './solve.mjs https://github.com/deep-assistant/hive-mind/issues/144 --continue-only-on-feedback --dry-run',
+    command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --continue-only-on-feedback --dry-run',
     shouldSucceed: false
   },
   {
     name: 'Valid: Issue URL without any special options (baseline)',
-    command: './solve.mjs https://github.com/deep-assistant/hive-mind/issues/144 --dry-run',
+    command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --dry-run',
     shouldSucceed: true
   }
 ];

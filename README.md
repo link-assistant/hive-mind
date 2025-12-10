@@ -1,9 +1,9 @@
-[![npm](https://img.shields.io/npm/v/@deep-assistant/hive-mind.svg)](https://npmjs.com/@deep-assistant/hive-mind)
-[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/deep-assistant/hive-mind/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/deep-assistant/hive-mind?style=social)](https://github.com/deep-assistant/hive-mind/stargazers)
+[![npm](https://img.shields.io/npm/v/@link-assistant/hive-mind.svg)](https://npmjs.com/@link-assistant/hive-mind)
+[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/link-assistant/hive-mind/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/link-assistant/hive-mind?style=social)](https://github.com/link-assistant/hive-mind/stargazers)
 
-[![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/deep-assistant/hive-mind)
-[![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=deep-assistant/hive-mind)
+[![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/link-assistant/hive-mind)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind)
 
 # Hive Mind 🧠
 
@@ -67,12 +67,12 @@ Minimum system requirements to run `hive.mjs`:
 
 #### Using Bun (Recommended)
 ```bash
-bun install -g @deep-assistant/hive-mind
+bun install -g @link-assistant/hive-mind
 ```
 
 #### Using Node.js
 ```bash
-npm install -g @deep-assistant/hive-mind
+npm install -g @link-assistant/hive-mind
 ```
 
 ### Docker Installation
@@ -154,7 +154,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 2. Login to `root` user.
 3. Execute main installation script
    ```bash
-   curl -fsSL -o- https://github.com/deep-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
+   curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
    ```
    **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
@@ -636,8 +636,8 @@ No environment variable configuration is currently supported.
 
 ### Hive Mind Issues
 If you encounter issues with **Hive Mind** (this project), please report them on our GitHub Issues page:
-- **Repository**: https://github.com/deep-assistant/hive-mind
-- **Issues**: https://github.com/deep-assistant/hive-mind/issues
+- **Repository**: https://github.com/link-assistant/hive-mind
+- **Issues**: https://github.com/link-assistant/hive-mind/issues
 
 ### Claude Code CLI Issues
 If you encounter issues with the **Claude Code CLI** itself (e.g., `claude` command errors, installation problems, or CLI bugs), please report them to the official Claude Code repository:

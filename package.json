@@ -1,6 +1,6 @@
 {
-  "name": "@deep-assistant/hive-mind",
-  "version": "0.38.3",
+  "name": "@link-assistant/hive-mind",
+  "version": "0.38.4",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -19,7 +19,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deep-assistant/hive-mind.git"
+    "url": "git+https://github.com/link-assistant/hive-mind.git"
   },
   "keywords": [
     "ai",
@@ -29,12 +29,12 @@
     "hive-mind",
     "collaborative"
   ],
-  "author": "deep-assistant",
+  "author": "link-assistant",
   "license": "Unlicense",
   "bugs": {
-    "url": "https://github.com/deep-assistant/hive-mind/issues"
+    "url": "https://github.com/link-assistant/hive-mind/issues"
   },
-  "homepage": "https://github.com/deep-assistant/hive-mind#readme",
+  "homepage": "https://github.com/link-assistant/hive-mind#readme",
   "engines": {
     "node": ">=18.0.0"
   },

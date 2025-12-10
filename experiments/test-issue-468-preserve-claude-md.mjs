@@ -44,7 +44,7 @@ Do not delete this content!`;
     console.log('✅ Existing CLAUDE.md created and committed');
 
     // Simulate what the fix should do: append task info with separator
-    const taskInfo = `Issue to solve: https://github.com/deep-assistant/hive-mind/issues/468
+    const taskInfo = `Issue to solve: https://github.com/link-assistant/hive-mind/issues/468
 Your prepared branch: issue-468-test
 Your prepared working directory: ${testDir}
 
@@ -73,7 +73,7 @@ Proceed.`;
     }
 
     // Check that task info was added
-    if (!finalContent.includes('Issue to solve: https://github.com/deep-assistant/hive-mind/issues/468')) {
+    if (!finalContent.includes('Issue to solve: https://github.com/link-assistant/hive-mind/issues/468')) {
       throw new Error('❌ Task info not added!');
     }
 

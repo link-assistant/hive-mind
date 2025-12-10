@@ -928,7 +928,7 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     const maxPageSize = isSearchCommand ? 100 : 1000;
     const improvedCommand = `${commandWithoutLimit} --limit ${maxPageSize}`;
     await log(`   🔎 Executing: ${improvedCommand}`, { verbose: true });
-    const output = execSync(improvedCommand, { encoding: 'utf8' });
+    const output = execSync(improvedCommand, { encoding: 'utf8', env: process.env });
     const endTime = Date.now();
     const issues = JSON.parse(output || '[]');
     await log(`   ✅ Fetched ${issues.length} issues in ${Math.round((endTime - startTime) / 1000)}s`);
@@ -965,7 +965,7 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
       await log('   🔄 Falling back to default behavior...', { verbose: true });
       const fallbackCommand = baseCommand.includes('--limit') ? baseCommand : `${baseCommand} --limit 100`;
       await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay)); // Shorter delay for fallback
-      const output = execSync(fallbackCommand, { encoding: 'utf8' });
+      const output = execSync(fallbackCommand, { encoding: 'utf8', env: process.env });
       const issues = JSON.parse(output || '[]');
       await log(`   ⚠️  Fallback: fetched ${issues.length} issues (limited to 100)`, { level: 'warning' });
       return issues;

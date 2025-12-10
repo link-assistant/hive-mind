@@ -714,7 +714,7 @@ Issue: ${issueUrl}`;
             const { execSync } = await import('child_process');
             // This will throw if user doesn't have access, but won't print anything
             execSync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
-                      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+                      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], env: process.env });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
           } catch (e) {
@@ -919,7 +919,7 @@ ${prBody}`, { verbose: true });
 
           // Try to create PR with assignee first (if specified)
           try {
-            output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+            output = execSync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -943,7 +943,7 @@ ${prBody}`, { verbose: true });
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+              output = execSync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;

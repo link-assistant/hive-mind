@@ -375,7 +375,7 @@ async function hasApprovals(prUrl) {
     // Check for reviews using GitHub API
     const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --jq '[.[] | select(.state == "APPROVED")] | length'`;
     
-    const output = execSync(cmd, { encoding: 'utf8' }).trim();
+    const output = execSync(cmd, { encoding: 'utf8', env: process.env }).trim();
     const approvalCount = parseInt(output) || 0;
     
     if (approvalCount > 0) {
@@ -418,7 +418,7 @@ async function fetchPullRequests() {
       
       // Use execSync to avoid escaping issues
       const { execSync } = await import('child_process');
-      const output = execSync(searchCmd, { encoding: 'utf8' });
+      const output = execSync(searchCmd, { encoding: 'utf8', env: process.env });
       prs = JSON.parse(output || '[]');
       
     } else {
@@ -431,7 +431,7 @@ async function fetchPullRequests() {
         await log(`   🔎 Command: ${listCmd}`, { verbose: true });
         
         try {
-          const output = execSync(listCmd, { encoding: 'utf8' });
+          const output = execSync(listCmd, { encoding: 'utf8', env: process.env });
           prs = JSON.parse(output || '[]');
         } catch (listError) {
           await log(`   ⚠️  List failed: ${listError.message.split('\n')[0]}`, { verbose: true });
@@ -462,7 +462,7 @@ async function fetchPullRequests() {
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
         
         try {
-          const output = execSync(searchCmd, { encoding: 'utf8' });
+          const output = execSync(searchCmd, { encoding: 'utf8', env: process.env });
           prs = JSON.parse(output || '[]');
         } catch (searchError) {
           await log(`   ⚠️  Search failed: ${searchError.message.split('\n')[0]}`, { verbose: true });

@@ -176,7 +176,7 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
     // Add delay for rate limiting
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const repoOutput = execSync(repoListCmd, { encoding: 'utf8' });
+    const repoOutput = execSync(repoListCmd, { encoding: 'utf8', env: process.env });
     // Parse the output line by line, as gh api with --jq outputs one JSON object per line
     const repoLines = repoOutput.trim().split('\n').filter(line => line.trim());
     const allRepositories = repoLines.map(line => JSON.parse(line));

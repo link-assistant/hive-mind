@@ -13,7 +13,9 @@
  * @returns {Promise<Array>} Array of issues
  */
 async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanErrorMessage, issueLimit = 100) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   const allIssues = [];
   let hasNextPage = true;
   let cursor = null;
@@ -57,8 +59,8 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const result = execSync(graphqlCmd, { encoding: 'utf8', env: process.env });
-      const data = JSON.parse(result);
+      const { stdout } = await execAsync(graphqlCmd, { encoding: 'utf8', env: process.env });
+      const data = JSON.parse(stdout);
       const issuesData = data.data.repository.issues;
 
       // Add issues to collection
@@ -92,7 +94,9 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
  * @returns {Promise<{success: boolean, issues: Array, repoCount: number}>}
  */
 export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage, repoLimit = 100, issueLimit = 100) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
 
   try {
     await log('   🧪 Attempting GraphQL approach with pagination support...', { verbose: true });
@@ -167,8 +171,8 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const result = execSync(graphqlCmd, { encoding: 'utf8', env: process.env });
-      const data = JSON.parse(result);
+      const { stdout } = await execAsync(graphqlCmd, { encoding: 'utf8', env: process.env });
+      const data = JSON.parse(stdout);
       const repos = isOrg ? data.data.organization.repositories : data.data.user.repositories;
 
       // Add repos to collection

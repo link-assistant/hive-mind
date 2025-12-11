@@ -670,6 +670,21 @@ function escapeMarkdown(text) {
 }
 
 /**
+ * Escape special characters for Telegram's MarkdownV2 parser.
+ * MarkdownV2 requires escaping these characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
+ *
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text safe for MarkdownV2 parse_mode
+ */
+function escapeMarkdownV2(text) {
+  if (!text || typeof text !== 'string') {
+    return text;
+  }
+  // Escape all special characters for MarkdownV2
+  return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+}
+
+/**
  * Extract GitHub issue/PR URL from message text
  * Validates that message contains exactly one GitHub issue/PR link
  *
@@ -858,11 +873,14 @@ bot.command('limits', async (ctx) => {
 
   if (!result.success) {
     // Edit the fetching message to show the error
+    // Escape the error message for MarkdownV2
+    const escapedError = escapeMarkdownV2(result.error);
     await ctx.telegram.editMessageText(
       fetchingMessage.chat.id,
       fetchingMessage.message_id,
       undefined,
-      `❌ ${result.error}`
+      `❌ ${escapedError}`,
+      { parse_mode: 'MarkdownV2' }
     );
     return;
   }

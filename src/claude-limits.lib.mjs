@@ -158,7 +158,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!accessToken) {
       return {
         success: false,
-        error: 'No access token found in Claude credentials. Please re-authenticate with Claude.'
+        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
       };
     }
 
@@ -188,7 +188,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (response.status === 401) {
         return {
           success: false,
-          error: 'Claude authentication expired. Please re-authenticate with Claude.'
+          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
         };
       }
 

@@ -374,6 +374,16 @@ Both tools generate well-structured markdown files with:
 
 Images are downloaded to a subdirectory (e.g., `issue-123-images/` or `pr-456-images/`) and automatically referenced in the markdown.
 
+### Technical Deep Dive
+
+For a comprehensive analysis of the "Could not process image" error and how these tools solve it, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes:
+
+- Root cause analysis proving this is NOT an Anthropic API bug
+- Timeline reconstruction from error and success logs
+- Evidence showing GitHub's time-limited S3 URLs expiring during processing
+- HTML 404 pages being mistakenly processed as images
+- Proposed solutions and recommendations
+
 ## 🔧 solve Options
 ```bash
 solve <issue-url> [options]

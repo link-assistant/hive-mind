@@ -6,8 +6,8 @@
 
 import { escapeMarkdownV2 } from '../src/telegram-markdown.lib.mjs';
 
-// Test cases
-const testCases = [
+// Test cases with default behavior (preserveCodeBlocks: true)
+const testCasesDefault = [
   {
     input: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
     expected: 'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
@@ -27,18 +27,52 @@ const testCases = [
   {
     input: 'Multiple `code1` and `code2` blocks',
     expected: 'Multiple `code1` and `code2` blocks'
+  },
+  {
+    input: 'Backslash \\ test',
+    expected: 'Backslash \\\\ test'
+  }
+];
+
+// Test cases with preserveCodeBlocks: false
+const testCasesNoPreserve = [
+  {
+    input: 'Text with `code` in the middle',
+    expected: 'Text with \\`code\\` in the middle'
+  },
+  {
+    input: 'Multiple `code1` and `code2` blocks',
+    expected: 'Multiple \\`code1\\` and \\`code2\\` blocks'
   }
 ];
 
 console.log('Testing escapeMarkdownV2 function:\n');
+console.log('=== Tests with default behavior (preserveCodeBlocks: true) ===\n');
 
 let allPassed = true;
-testCases.forEach((testCase, index) => {
+testCasesDefault.forEach((testCase, index) => {
   const result = escapeMarkdownV2(testCase.input);
   const passed = result === testCase.expected;
   allPassed = allPassed && passed;
 
   console.log(`Test ${index + 1}: ${passed ? '✓ PASSED' : '✗ FAILED'}`);
+  console.log(`Input:    ${testCase.input}`);
+  console.log(`Expected: ${testCase.expected}`);
+  console.log(`Got:      ${result}`);
+  if (!passed) {
+    console.log(`Diff: Expected and Got are different`);
+  }
+  console.log('');
+});
+
+console.log('=== Tests with preserveCodeBlocks: false ===\n');
+
+testCasesNoPreserve.forEach((testCase, index) => {
+  const result = escapeMarkdownV2(testCase.input, { preserveCodeBlocks: false });
+  const passed = result === testCase.expected;
+  allPassed = allPassed && passed;
+
+  console.log(`Test ${index + testCasesDefault.length + 1}: ${passed ? '✓ PASSED' : '✗ FAILED'}`);
   console.log(`Input:    ${testCase.input}`);
   console.log(`Expected: ${testCase.expected}`);
   console.log(`Got:      ${result}`);

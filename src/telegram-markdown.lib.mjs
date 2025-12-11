@@ -20,14 +20,22 @@ export function escapeMarkdown(text) {
 
 /**
  * Escape special characters for Telegram's MarkdownV2 parser.
- * Preserves inline code blocks (text between backticks) without escaping.
  * According to Telegram Bot API, these characters must be escaped in MarkdownV2:
  * _ * [ ] ( ) ~ ` > # + - = | { } . ! \
  * @param {string} text - Text to escape
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.preserveCodeBlocks - If true, preserves inline code blocks (text between backticks) without escaping. Default: true
  * @returns {string} Escaped text safe for MarkdownV2 parse_mode
  */
-export function escapeMarkdownV2(text) {
+export function escapeMarkdownV2(text, options = {}) {
   if (!text || typeof text !== 'string') return text;
+
+  const { preserveCodeBlocks = true } = options;
+
+  // If not preserving code blocks, escape everything including backticks
+  if (!preserveCodeBlocks) {
+    return text.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+  }
 
   // Split text into parts: inline code blocks and regular text
   const parts = [];
@@ -39,7 +47,7 @@ export function escapeMarkdownV2(text) {
     // Add escaped regular text before code block
     if (match.index > lastIndex) {
       const regularText = text.substring(lastIndex, match.index);
-      parts.push(regularText.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1'));
+      parts.push(regularText.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1'));
     }
     // Add unescaped code block
     parts.push(match[0]);
@@ -49,7 +57,7 @@ export function escapeMarkdownV2(text) {
   // Add remaining text after last code block
   if (lastIndex < text.length) {
     const regularText = text.substring(lastIndex);
-    parts.push(regularText.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1'));
+    parts.push(regularText.replace(/([_*[\]()~`>#+\-=|{}.!\\])/g, '\\$1'));
   }
 
   return parts.join('');

@@ -24,6 +24,13 @@ const {
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
+// Import branch name validation functions
+const branchLib = await import('./solve.branch.lib.mjs');
+const {
+  getIssueBranchPrefix,
+  matchesIssuePattern
+} = branchLib;
+
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const {
@@ -48,6 +55,24 @@ const {
   calculateWaitTime
 } = validation;
 
+/**
+ * Format time duration in days:hours:minutes:seconds
+ * @param {number} ms - Milliseconds
+ * @returns {string} - Formatted time string (e.g., "0:02:15:30")
+ */
+const formatWaitTime = (ms) => {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  const s = seconds % 60;
+  const m = minutes % 60;
+  const h = hours % 24;
+
+  return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
 // Auto-continue function that waits until limit resets
 export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
   try {
@@ -55,7 +80,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const waitMs = calculateWaitTime(resetTime);
 
     await log(`\n⏰ Waiting until ${resetTime} for limit to reset...`);
-    await log(`   Wait time: ${Math.round(waitMs / (1000 * 60))} minutes`);
+    await log(`   Wait time: ${formatWaitTime(waitMs)}`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Show countdown every 30 minutes for long waits, every minute for short waits
@@ -65,8 +90,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const countdownTimer = setInterval(async () => {
       remainingMs -= countdownInterval;
       if (remainingMs > 0) {
-        const remainingMinutes = Math.round(remainingMs / (1000 * 60));
-        await log(`⏳ ${remainingMinutes} minutes remaining until ${resetTime}`);
+        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${resetTime}`);
       }
     }, countdownInterval);
 
@@ -85,9 +109,13 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const resumeArgs = [
       process.argv[1], // solve.mjs path
       issueUrl,
-      '--resume', sessionId,
-      '--auto-continue-limit' // Keep auto-continue-limit enabled
+      '--resume', sessionId
     ];
+
+    // Preserve auto-continue flag
+    if (argv.autoContinueOnLimitReset) {
+      resumeArgs.push('--auto-continue-on-limit-reset');
+    }
 
     // Preserve other flags from original invocation
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
@@ -100,7 +128,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // Execute the resume command
     const child = childProcess.spawn('node', resumeArgs, {
       stdio: 'inherit',
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: process.env
     });
 
     child.on('close', (code) => {
@@ -155,9 +184,9 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
             // Check if PR is open (not closed)
             if (pr.state === 'OPEN') {
               // CRITICAL: Validate that branch name matches the expected pattern for this issue
-              // Branch naming convention: issue-{issueNumber}-{randomHash}
-              const expectedBranchPrefix = `issue-${issueNumber}-`;
-              if (!pr.headRefName.startsWith(expectedBranchPrefix)) {
+              // Branch naming convention: issue-{issueNumber}-{randomHash} (supports both 8-char legacy and 12-char new formats)
+              if (!matchesIssuePattern(pr.headRefName, issueNumber)) {
+                const expectedBranchPrefix = getIssueBranchPrefix(issueNumber);
                 await log(`  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`);
                 continue;
               }
@@ -319,20 +348,22 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       const userResult = await $`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
-        const forkRepo = `${currentUser}/${repo}`;
+        // Determine fork name based on --prefix-fork-name-with-owner-name option
+        const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
+        const forkRepo = `${currentUser}/${forkRepoName}`;
 
         // Check if fork exists
         const forkCheckResult = await $`gh repo view ${forkRepo} --json name 2>/dev/null`;
         if (forkCheckResult.code === 0) {
           await log(`🔍 Fork mode: Checking for existing branches in ${forkRepo}...`);
 
-          // List all branches in the fork that match the pattern issue-{issueNumber}-*
-          const branchPattern = `issue-${issueNumber}-`;
+          // List all branches in the fork that match the pattern issue-{issueNumber}-* (supports both 8-char and 12-char formats)
+          const branchPattern = getIssueBranchPrefix(issueNumber);
           const branchListResult = await $`gh api --paginate repos/${forkRepo}/branches --jq '.[].name'`;
 
           if (branchListResult.code === 0) {
             const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
-            existingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
+            existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
             if (existingBranches.length > 0) {
               await log(`📋 Found ${existingBranches.length} existing branch(es) in fork matching pattern '${branchPattern}*':`);
@@ -358,13 +389,13 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     try {
       await log(`🔍 Checking for existing branches in ${owner}/${repo}...`);
 
-      // List all branches in the main repo that match the pattern issue-{issueNumber}-*
-      const branchPattern = `issue-${issueNumber}-`;
+      // List all branches in the main repo that match the pattern issue-{issueNumber}-* (supports both 8-char and 12-char formats)
+      const branchPattern = getIssueBranchPrefix(issueNumber);
       const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
       if (branchListResult.code === 0) {
         const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
-        existingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
+        existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
         if (existingBranches.length > 0) {
           await log(`📋 Found ${existingBranches.length} existing branch(es) in main repo matching pattern '${branchPattern}*':`);
@@ -408,9 +439,9 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
           // Check if PR is open (not closed)
           if (pr.state === 'OPEN') {
             // CRITICAL: Validate that branch name matches the expected pattern for this issue
-            // Branch naming convention: issue-{issueNumber}-{randomHash}
-            const expectedBranchPrefix = `issue-${issueNumber}-`;
-            if (!pr.headRefName.startsWith(expectedBranchPrefix)) {
+            // Branch naming convention: issue-{issueNumber}-{randomHash} (supports both 8-char legacy and 12-char new formats)
+            if (!matchesIssuePattern(pr.headRefName, issueNumber)) {
+              const expectedBranchPrefix = getIssueBranchPrefix(issueNumber);
               await log(`  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`);
               continue;
             }

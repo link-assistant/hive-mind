@@ -11,7 +11,7 @@ async function testBatchImplementation() {
   // Test with some real issues from the hive-mind repository
   const testCases = [
     {
-      owner: 'deep-assistant',
+      owner: 'link-assistant',
       repo: 'hive-mind',
       issues: [186, 194, 197, 183, 184], // Mix of issues with and without PRs
       description: 'Mixed issues from hive-mind repo'

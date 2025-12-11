@@ -172,7 +172,7 @@ export const createUnhandledRejectionHandler = (options) => {
     $
   } = options;
 
-  return async (reason, _promise) => {
+  return async (reason) => {
     await log(`\n❌ Unhandled Rejection: ${cleanErrorMessage(reason)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -215,6 +215,22 @@ export const handleMainExecutionError = async (options) => {
     sanitizeLogContent,
     $
   } = options;
+
+  // Special handling for authentication errors
+  if (error.isAuthError) {
+    await log('\n❌ AUTHENTICATION ERROR', { level: 'error' });
+    await log('', { level: 'error' });
+    await log('   The AI tool authentication has failed.', { level: 'error' });
+    await log('   This error cannot be resolved by retrying.', { level: 'error' });
+    await log('', { level: 'error' });
+    await log(`   Error: ${cleanErrorMessage(error)}`, { level: 'error' });
+    await log('', { level: 'error' });
+    await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+
+    // Don't try to attach logs or create issues for auth errors
+    await safeExit(1, 'Authentication error');
+    return;
+  }
 
   await log('Error executing command:', cleanErrorMessage(error));
   await log(`Stack trace: ${error.stack}`, { verbose: true });

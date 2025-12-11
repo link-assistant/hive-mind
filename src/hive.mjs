@@ -108,6 +108,9 @@ const yargsConfigLib = await import('./hive.config.lib.mjs');
 const { createYargsConfig } = yargsConfigLib;
 const claudeLib = await import('./claude.lib.mjs');
 const { validateClaudeConnection } = claudeLib;
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
 const githubLib = await import('./github.lib.mjs');
 const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
 // Import YouTrack-related functions
@@ -141,7 +144,9 @@ const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
  * @returns {Promise<Array>} Array of issues
  */
 async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   try {
     await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
     // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -173,7 +178,7 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
     // Add delay for rate limiting
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const repoOutput = execSync(repoListCmd, { encoding: 'utf8' });
+    const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
     // Parse the output line by line, as gh api with --jq outputs one JSON object per line
     const repoLines = repoOutput.trim().split('\n').filter(line => line.trim());
     const allRepositories = repoLines.map(line => JSON.parse(line));
@@ -289,11 +294,11 @@ process.stderr.write = function(chunk, encoding, callback) {
   return true;
 };
 
-try {
-  argv = await createYargsConfig(yargs()).parse(rawArgs);
-  // Restore stderr if parsing succeeded
-  process.stderr.write = originalStderrWrite;
-} catch (error) {
+  try {
+    argv = await createYargsConfig(yargs()).parse(rawArgs);
+    // Restore stderr if parsing succeeded
+    process.stderr.write = originalStderrWrite;
+  } catch (error) {
   // Restore stderr before handling the error
   process.stderr.write = originalStderrWrite;
 
@@ -316,6 +321,10 @@ try {
     }
     throw error;
   }
+
+  // Normalize deprecated flags to new names
+  if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+  if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
 }
 
 let githubUrl = argv['github-url'];
@@ -476,6 +485,11 @@ if (argv.projectMode) {
   }
 }
 
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
 // Validate conflicting options
 if (argv.skipIssuesWithPrs && argv.autoContinue) {
   await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
@@ -488,8 +502,8 @@ if (argv.skipIssuesWithPrs && argv.autoContinue) {
 // Helper function to check GitHub permissions - moved to github.lib.mjs
 
 // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const hasValidAuth = await checkGitHubPermissions();
   if (!hasValidAuth) {
@@ -557,7 +571,7 @@ if (urlMatch) {
 // Determine scope
 if (!repo) {
   // Check if it's an organization or user (skip in dry-run mode to avoid hanging)
-  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
+  if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
     // In dry-run mode, default to user to avoid GitHub API calls
     scope = 'user';
     await log('   ℹ️  Assuming user scope (dry-run mode, skipping API detection)', { verbose: true });
@@ -625,12 +639,9 @@ await log(`   ${argv.once ? '🚀 Mode: Single run' : '♾️  Mode: Continuous 
 if (argv.maxIssues > 0) {
   await log(`   🔢 Max Issues: ${argv.maxIssues}`);
 }
-if (argv.dryRun) {
-  await log('   🧪 DRY RUN MODE - No actual processing');
-}
-if (argv.autoCleanup) {
-  await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
-}
+if (argv.dryRun) await log('   🧪 DRY RUN MODE - No actual processing');
+if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
+if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
 await log('');
 
 // Producer/Consumer Queue implementation
@@ -740,12 +751,14 @@ async function worker(workerId) {
         const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
         const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
         const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-        const skipToolCheckFlag = (argv.skipToolCheck || !argv.toolCheck) ? ' --skip-tool-check' : '';
+        const skipToolConnectionCheckFlag = (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) ? ' --skip-tool-connection-check' : '';
         const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
         const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
+        const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
+        const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
 
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
@@ -776,8 +789,8 @@ async function worker(workerId) {
         if (argv.dryRun) {
           args.push('--dry-run');
         }
-        if (argv.skipToolCheck || !argv.toolCheck) {
-          args.push('--skip-tool-check');
+        if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+          args.push('--skip-tool-connection-check');
         }
         if (argv.autoContinue) {
           args.push('--auto-continue');
@@ -788,20 +801,21 @@ async function worker(workerId) {
         if (!argv.sentry) {
           args.push('--no-sentry');
         }
-        if (argv.watch) {
-          args.push('--watch');
-        }
+        if (argv.watch) args.push('--watch');
+        if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
+        if (argv.interactiveMode) args.push('--interactive-mode');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
 
         // Create promise to handle async spawn process
-        await new Promise((resolve, _reject) => {
+        await new Promise((resolve) => {
           const child = spawn(solveCommand, args, {
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: process.env
           });
 
           // Handle stdout data - stream output in real-time
@@ -1427,9 +1441,9 @@ process.on('SIGINT', () => gracefulShutdown('interrupt'));
 process.on('SIGTERM', () => gracefulShutdown('termination'));
 
 // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-check enabled)', { verbose: true });
-  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const systemCheck = await checkSystem(
     {
@@ -1477,7 +1491,7 @@ try {
     console.error('\nStack trace:');
     console.error(fatalError.stack);
   }
-  console.error('\nPlease report this issue at: https://github.com/deep-assistant/hive-mind/issues');
+  console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
   process.exit(1);
 }
 

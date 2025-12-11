@@ -1,0 +1,62 @@
+apiVersion: v2
+name: hive-mind
+description: A Helm chart for deploying Hive Mind - the master AI that controls a hive of AI agents
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 1.0.0
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are expected to
+# follow Semantic Versioning (https://semver.org/)
+appVersion: "0.37.0"
+
+keywords:
+  - ai
+  - automation
+  - github
+  - claude
+  - agent
+  - orchestration
+
+home: https://github.com/link-assistant/hive-mind
+sources:
+  - https://github.com/link-assistant/hive-mind
+
+maintainers:
+  - name: Link Assistant Team
+    url: https://github.com/link-assistant
+
+icon: https://github.com/link-assistant/hive-mind/raw/main/docs/images/hive-mind-icon.png
+
+annotations:
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/displayName: Hive Mind
+  artifacthub.io/license: Unlicense
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://github.com/link-assistant/hive-mind/blob/main/README.md
+    - name: Docker Hub
+      url: https://hub.docker.com/r/konard/hive-mind
+  artifacthub.io/readme: |
+    # Hive Mind Helm Chart
+
+    Deploy Hive Mind on Kubernetes - the master AI that controls a hive of AI agents.
+
+    ## Prerequisites
+
+    - Kubernetes 1.19+
+    - Helm 3.0+
+
+    ## Installation
+
+    ```bash
+    helm repo add link-assistant https://link-assistant.github.io/hive-mind
+    helm repo update
+    helm install hive-mind link-assistant/hive-mind
+    ```
+
+    ## Configuration
+
+    See values.yaml for all configurable options.

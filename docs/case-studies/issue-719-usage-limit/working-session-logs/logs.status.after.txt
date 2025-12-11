@@ -1,0 +1,30 @@
+ M logs.lint.txt
+ M logs.ls.txt
+ M logs.status.txt
+?? ci-logs.gh-run-list.after.json
+?? ci-logs.gh-run-list.after2.json
+?? ci-logs.gh-run-list.json
+?? ci-logs.issue-719.txt
+?? ci-logs.pr-722.txt
+?? ci-logs/ci-run-19320070232.errors.txt
+?? ci-logs/ci-run-19320070232.tail.txt
+?? logs.filecount.txt
+?? logs.package.json.txt
+?? logs.remotes.txt
+?? logs.search-attach-log.txt
+?? logs.search-auto-continue.txt
+?? logs.search-claude.txt
+?? logs.search-comments.txt
+?? logs.search-limit-vars.txt
+?? logs.search-usage-limit-refs.txt
+?? logs.search-version.txt
+?? logs.search-weekly-limit.txt
+?? logs.search-workflows-version.txt
+?? logs.solve-auto-continue.1.txt
+?? logs.src-claude.mid.txt
+?? logs.src-claude.usage.txt
+?? logs.src-github.usage-limit.txt
+?? logs.src-solve.logs1.txt
+?? logs.src-usage-limit.1.txt
+?? logs.status.after.txt
+?? logs.workflow-version-check.txt

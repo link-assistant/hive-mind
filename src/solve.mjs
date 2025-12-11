@@ -90,6 +90,10 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
 
+// Import monitoring database library
+const monitoringDbLib = await import('./monitoring-database.lib.mjs');
+const { createMonitoringDatabase } = monitoringDbLib;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -227,6 +231,36 @@ const { owner, repo, urlNumber } = parseUrlComponents(issueUrl);
 // Store owner and repo globally for error handlers
 global.owner = owner;
 global.repo = repo;
+
+// Initialize monitoring database if requested
+let monitoringDb = null;
+let runId = argv.runId;
+
+if (argv.localMonitoringDatabase) {
+  try {
+    await log('📊 Initializing monitoring database...');
+    monitoringDb = await createMonitoringDatabase(argv.localMonitoringDatabase);
+
+    // Generate run ID if not provided
+    if (!runId) {
+      runId = crypto.randomUUID();
+      await log(`   Generated run ID: ${runId}`, { verbose: argv.verbose });
+    } else {
+      await log(`   Using run ID: ${runId}`, { verbose: argv.verbose });
+    }
+
+    // Get current user from gh CLI
+    const userResult = await $`gh api user --jq .login`;
+    const user = userResult.code === 0 ? userResult.stdout.toString().trim() : 'unknown';
+
+    // Log run start
+    await monitoringDb.logRunStart(runId, issueUrl, user, argv.model);
+    await log(`✅ Monitoring database initialized at ${argv.localMonitoringDatabase}`);
+  } catch (dbError) {
+    await log(`⚠️  Failed to initialize monitoring database: ${dbError.message}`, { level: 'warning' });
+    monitoringDb = null;
+  }
+}
 
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
@@ -1099,7 +1133,32 @@ try {
     $,
     logsAttached
   });
+
+  // Log successful completion to monitoring database
+  if (monitoringDb && runId) {
+    try {
+      await monitoringDb.logRunComplete(runId);
+      if (argv.verbose) {
+        await log('📊 Logged successful completion to monitoring database', { verbose: true });
+      }
+    } catch (dbError) {
+      await log(`⚠️  Failed to log completion to monitoring database: ${dbError.message}`, { level: 'warning' });
+    }
+  }
 } catch (error) {
+  // Log error to monitoring database
+  if (monitoringDb && runId) {
+    try {
+      await monitoringDb.logRunError(runId, error);
+      if (argv.verbose) {
+        await log('📊 Logged error to monitoring database', { verbose: true });
+      }
+    } catch (dbError) {
+      await log(`⚠️  Failed to log error to monitoring database: ${dbError.message}`, { level: 'warning' });
+    }
+  }
+
+
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {

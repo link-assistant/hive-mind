@@ -343,6 +343,8 @@ solve <issue-url> [options]
                         [default: true]
   --auto-cleanup        Delete temp directory on completion
                         [default: true for private repos, false for public repos]
+  --run-id              UUID to track this solve execution (for integration with telegram bot)
+  --local-monitoring-database  Directory for monitoring database (tracks solve executions)
   --version             Show version number
   --help, -h            Show help
 ```
@@ -559,6 +561,70 @@ sequenceDiagram
 ```
 
 📖 **For comprehensive data flow documentation including human feedback integration points, see [docs/flow.md](./docs/flow.md)**
+
+## 📊 Monitoring Database
+
+Hive Mind includes an optional monitoring database to track solve command executions, calculate statistics, and monitor costs across users and models.
+
+### Features
+
+- **Append-Only Storage**: Events are stored in Links Notation (.lino) format for human-readable logging
+- **Run Tracking**: Track each solve execution with start, completion, and error events
+- **Statistics**: Calculate success rates per user and per model
+- **Cost Monitoring**: Track total executions for cost estimation
+- **Database Locking**: Built-in locking mechanism prevents concurrent write corruption (5-minute timeout)
+- **UUID Tracking**: Optional run IDs enable cross-system tracking (e.g., from telegram bot to solve execution)
+
+### Usage
+
+```bash
+# Enable monitoring database for a solve execution
+solve https://github.com/owner/repo/issues/123 \
+  --local-monitoring-database ~/monitoring-db
+
+# Provide a run ID from external system (e.g., telegram bot)
+solve https://github.com/owner/repo/issues/123 \
+  --local-monitoring-database ~/monitoring-db \
+  --run-id "550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Query Database
+
+```bash
+# Run the example script
+node experiments/monitoring-database-example.mjs
+
+# Query existing database
+node experiments/query-monitoring-database.mjs ~/monitoring-db
+```
+
+### Database Format
+
+The monitoring database uses:
+- `db.lino` - Human-readable Links Notation format with all events
+- `db.lock.lino` - Lock file to prevent concurrent write corruption
+
+Events are stored in append-only mode with:
+- Run start events (issue URL, user, model, timestamp)
+- Run completion events (success/error status)
+- Issue description events (optional)
+
+### Example Output
+
+```
+📈 Overall Statistics:
+  Total runs: 10
+  Successful: 8
+  Failed: 2
+
+👥 User Statistics:
+  alice: Total: 6 | Success: 5 | Failed: 1 | Success Rate: 83.3%
+  bob:   Total: 4 | Success: 3 | Failed: 1 | Success Rate: 75.0%
+
+🤖 Model Statistics:
+  sonnet: Total: 7 | Success: 6 | Failed: 1 | Success Rate: 85.7%
+  opus:   Total: 3 | Success: 2 | Failed: 1 | Success Rate: 66.7%
+```
 
 ## 📊 Usage Examples
 

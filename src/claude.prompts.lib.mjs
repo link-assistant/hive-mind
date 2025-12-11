@@ -171,6 +171,7 @@ Preparing pull request.
       make sure no uncommitted changes corresponding to the original requirements are left behind,
       make sure the default branch is merged to the pull request's branch,
       make sure all CI checks passing if they exist before you finish,
+      check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request answer to original requirements of the issue,
       make sure no new new bugs are introduced in pull request by carefully reading gh pr diff,
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
@@ -190,6 +191,7 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
+   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
    - When you finalize, confirm code, tests, and description are consistent.`;
 };

@@ -709,12 +709,14 @@ Issue: ${issueUrl}`;
 
           // Check if user has push access (is a collaborator or owner)
           // IMPORTANT: We need to completely suppress the JSON error output
-          // Using execSync to have full control over stderr
+          // Using async exec to have full control over stderr
           try {
-            const { execSync } = await import('child_process');
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
             // This will throw if user doesn't have access, but won't print anything
-            execSync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
-                      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], env: process.env });
+            await execAsync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
+                      { encoding: 'utf8', env: process.env });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
           } catch (e) {
@@ -878,10 +880,12 @@ _Details will be added as the solution draft is developed..._
 ${prBody}`, { verbose: true });
         }
 
-        // Use execSync for gh pr create to avoid command-stream output issues
+        // Use async exec for gh pr create to avoid command-stream output issues
         // Similar to how create-test-repo.mjs handles it
         try {
-          const { execSync } = await import('child_process');
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
 
           // Write PR body to temp file to avoid shell escaping issues
           const prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
@@ -919,7 +923,8 @@ ${prBody}`, { verbose: true });
 
           // Try to create PR with assignee first (if specified)
           try {
-            output = execSync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+            output = result.stdout;
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -943,7 +948,8 @@ ${prBody}`, { verbose: true });
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              output = execSync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              output = retryResult.stdout;
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;

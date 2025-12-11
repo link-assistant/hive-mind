@@ -852,8 +852,8 @@ bot.command('limits', async (ctx) => {
 
   if (!result.success) {
     // Edit the fetching message to show the error
-    // Escape the error message for MarkdownV2
-    const escapedError = escapeMarkdownV2(result.error);
+    // Escape the error message for MarkdownV2, preserving inline code blocks
+    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
     await ctx.telegram.editMessageText(
       fetchingMessage.chat.id,
       fetchingMessage.message_id,

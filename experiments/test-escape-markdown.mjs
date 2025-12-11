@@ -6,8 +6,28 @@
 
 import { escapeMarkdownV2 } from '../src/telegram-markdown.lib.mjs';
 
-// Test cases with default behavior (preserveCodeBlocks: true)
+// Test cases with default behavior (preserveCodeBlocks: false - full escape)
 const testCasesDefault = [
+  {
+    input: 'Some text with special characters: . - !',
+    expected: 'Some text with special characters: \\. \\- \\!'
+  },
+  {
+    input: 'Text with `code` in the middle',
+    expected: 'Text with \\`code\\` in the middle'
+  },
+  {
+    input: 'Multiple `code1` and `code2` blocks',
+    expected: 'Multiple \\`code1\\` and \\`code2\\` blocks'
+  },
+  {
+    input: 'Backslash \\ test',
+    expected: 'Backslash \\\\ test'
+  }
+];
+
+// Test cases with preserveCodeBlocks: true (preserving inline code)
+const testCasesWithPreserve = [
   {
     input: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
     expected: 'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
@@ -17,37 +37,17 @@ const testCasesDefault = [
     expected: 'Claude authentication expired\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
   },
   {
-    input: 'Some text with special characters: . - !',
-    expected: 'Some text with special characters: \\. \\- \\!'
-  },
-  {
     input: 'Text with `code` in the middle',
     expected: 'Text with `code` in the middle'
   },
   {
     input: 'Multiple `code1` and `code2` blocks',
     expected: 'Multiple `code1` and `code2` blocks'
-  },
-  {
-    input: 'Backslash \\ test',
-    expected: 'Backslash \\\\ test'
-  }
-];
-
-// Test cases with preserveCodeBlocks: false
-const testCasesNoPreserve = [
-  {
-    input: 'Text with `code` in the middle',
-    expected: 'Text with \\`code\\` in the middle'
-  },
-  {
-    input: 'Multiple `code1` and `code2` blocks',
-    expected: 'Multiple \\`code1\\` and \\`code2\\` blocks'
   }
 ];
 
 console.log('Testing escapeMarkdownV2 function:\n');
-console.log('=== Tests with default behavior (preserveCodeBlocks: true) ===\n');
+console.log('=== Tests with default behavior (preserveCodeBlocks: false - full escape) ===\n');
 
 let allPassed = true;
 testCasesDefault.forEach((testCase, index) => {
@@ -65,10 +65,10 @@ testCasesDefault.forEach((testCase, index) => {
   console.log('');
 });
 
-console.log('=== Tests with preserveCodeBlocks: false ===\n');
+console.log('=== Tests with preserveCodeBlocks: true (preserving inline code) ===\n');
 
-testCasesNoPreserve.forEach((testCase, index) => {
-  const result = escapeMarkdownV2(testCase.input, { preserveCodeBlocks: false });
+testCasesWithPreserve.forEach((testCase, index) => {
+  const result = escapeMarkdownV2(testCase.input, { preserveCodeBlocks: true });
   const passed = result === testCase.expected;
   allPassed = allPassed && passed;
 

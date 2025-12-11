@@ -24,13 +24,13 @@ export function escapeMarkdown(text) {
  * _ * [ ] ( ) ~ ` > # + - = | { } . ! \
  * @param {string} text - Text to escape
  * @param {Object} options - Configuration options
- * @param {boolean} options.preserveCodeBlocks - If true, preserves inline code blocks (text between backticks) without escaping. Default: true
+ * @param {boolean} options.preserveCodeBlocks - If true, preserves inline code blocks (text between backticks) without escaping. Default: false
  * @returns {string} Escaped text safe for MarkdownV2 parse_mode
  */
 export function escapeMarkdownV2(text, options = {}) {
   if (!text || typeof text !== 'string') return text;
 
-  const { preserveCodeBlocks = true } = options;
+  const { preserveCodeBlocks = false } = options;
 
   // If not preserving code blocks, escape everything including backticks
   if (!preserveCodeBlocks) {

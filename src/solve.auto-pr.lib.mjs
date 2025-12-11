@@ -593,7 +593,7 @@ Issue: ${issueUrl}`;
               await log('');
               await log('  🔍 What happened:');
               await log(`     The repository ${forkedRepo} is NOT a GitHub fork.`);
-              await log(`     GitHub API reports: fork=false, parent=null`);
+              await log('     GitHub API reports: fork=false, parent=null');
               await log('');
               await log('  💡 Why this happens:');
               await log('     This repository was likely created by cloning and pushing (git clone + git push)');

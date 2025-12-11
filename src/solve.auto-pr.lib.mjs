@@ -565,38 +565,130 @@ Issue: ${issueUrl}`;
           }
 
           if (isRepositoryMismatch) {
+            // BEFORE showing any error, verify if the repository is actually a GitHub fork
             await log('');
-            await log(formatAligned('❌', 'REPOSITORY MISMATCH:', 'Fork is from different repository tree'), { level: 'error' });
-            await log('');
-            await log('  🔍 What happened:');
-            await log(`     Your fork ${forkedRepo} appears to be from a different repository tree`);
-            await log(`     than the target repository ${owner}/${repo}.`);
-            await log('     GitHub\'s compare API cannot find commits between these repositories.');
-            await log('');
-            await log('  📦 Error details:');
-            await log('     • Target repository: ' + `${owner}/${repo}`);
-            await log('     • Your fork: ' + forkedRepo);
-            await log('     • Compare API returned: HTTP 404 (Not Found)');
-            await log('');
-            await log('  💡 Why this happens:');
-            await log('     This occurs when you have an existing fork from a different repository');
-            await log('     that shares the same name but is from a different source.');
-            await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     Option 1: Delete the conflicting fork and create a new one');
-            await log(`        gh repo delete ${forkedRepo}`);
-            await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
-            await log('');
-            await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
-            await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
-            await log('        This creates forks with names like "owner-repo" instead of just "repo"');
-            await log('');
-            await log('     Option 3: Work directly on the repository (if you have write access)');
-            await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
-            await log('');
+            await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
 
-            throw new Error('Repository mismatch - fork is from different repository tree');
+            const forkInfoResult = await $({ silent: true })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
+
+            let isFork = false;
+            let parentRepo = null;
+            let sourceRepo = null;
+
+            if (forkInfoResult.code === 0) {
+              try {
+                const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+                isFork = forkInfo.fork === true;
+                parentRepo = forkInfo.parent || null;
+                sourceRepo = forkInfo.source || null;
+              } catch {
+                // Failed to parse fork info
+              }
+            }
+
+            if (!isFork) {
+              // Repository is NOT a fork at all
+              await log('');
+              await log(formatAligned('❌', 'NOT A GITHUB FORK:', 'Repository is not a fork'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is NOT a GitHub fork.`);
+              await log(`     GitHub API reports: fork=false, parent=null`);
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     This repository was likely created by cloning and pushing (git clone + git push)');
+              await log('     instead of using GitHub\'s Fork button or API.');
+              await log('');
+              await log('     When a repository is created this way:');
+              await log('     • GitHub does not track it as a fork');
+              await log('     • It has no parent relationship with the original repository');
+              await log('     • Pull requests cannot be created to the original repository');
+              await log('     • Compare API returns 404 when comparing with unrelated repositories');
+              await log('');
+              await log('  📦 Repository details:');
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('     • Your repository: ' + forkedRepo);
+              await log('     • Fork status: false (NOT A FORK)');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the non-fork repository and create a proper fork');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper GitHub fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid name conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Repository is not a GitHub fork - cannot create PR to unrelated repository');
+            } else if (parentRepo !== `${owner}/${repo}` && sourceRepo !== `${owner}/${repo}`) {
+              // Repository IS a fork, but of a different repository
+              await log('');
+              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} IS a GitHub fork,`);
+              await log(`     but it's a fork of a DIFFERENT repository than ${owner}/${repo}.`);
+              await log('');
+              await log('  📦 Fork relationship:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Fork source: ' + (sourceRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     You have an existing fork from a different repository');
+              await log('     that shares the same name but is from a different source.');
+              await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the conflicting fork and create a new one');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Fork parent mismatch - fork is from different repository tree');
+            } else {
+              // Repository is a fork of the correct parent, but compare API still failed
+              // This is unexpected - show detailed error
+              await log('');
+              await log(formatAligned('❌', 'COMPARE API ERROR:', 'Unexpected failure'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is a valid fork of ${owner}/${repo},`);
+              await log('     but GitHub\'s compare API still returned an error.');
+              await log('');
+              await log('  📦 Fork verification:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork status: true (VALID FORK)');
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 This is unexpected:');
+              await log('     The fork relationship is correct, but the compare API failed.');
+              await log('     This might be a temporary GitHub API issue.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     1. Wait a minute and try creating the PR manually:');
+              if (argv.fork && forkedRepo) {
+                const forkUser = forkedRepo.split('/')[0];
+                await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+              }
+              await log('     2. Check if the issue persists - it might be a GitHub API outage');
+              await log('');
+
+              throw new Error('Compare API failed unexpectedly despite valid fork relationship');
+            }
           } else {
             // Original timeout error for other cases
             await log('');

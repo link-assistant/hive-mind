@@ -671,16 +671,11 @@ function escapeMarkdown(text) {
 
 /**
  * Escape special characters for Telegram's MarkdownV2 parser.
- * MarkdownV2 requires escaping these characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
- *
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for MarkdownV2 parse_mode
  */
 function escapeMarkdownV2(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
-  // Escape all special characters for MarkdownV2
+  if (!text || typeof text !== 'string') return text;
   return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 }
 

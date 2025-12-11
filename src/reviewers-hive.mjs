@@ -364,19 +364,21 @@ async function reviewer(reviewerId) {
 // Function to check if a PR already has approvals
 async function hasApprovals(prUrl) {
   try {
-    const { execSync } = await import('child_process');
-    
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
     // Extract owner, repo, and PR number from URL
     const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!urlMatch) return false;
-    
+
     const [, prOwner, prRepo, prNumber] = urlMatch;
-    
+
     // Check for reviews using GitHub API
     const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --jq '[.[] | select(.state == "APPROVED")] | length'`;
-    
-    const output = execSync(cmd, { encoding: 'utf8', env: process.env }).trim();
-    const approvalCount = parseInt(output) || 0;
+
+    const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+    const approvalCount = parseInt(stdout.trim()) || 0;
     
     if (approvalCount > 0) {
       await log(`      ↳ Skipping (has ${approvalCount} approval${approvalCount > 1 ? 's' : ''})`, { verbose: true });
@@ -415,24 +417,28 @@ async function fetchPullRequests() {
       }
       
       await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-      
-      // Use execSync to avoid escaping issues
-      const { execSync } = await import('child_process');
-      const output = execSync(searchCmd, { encoding: 'utf8', env: process.env });
-      prs = JSON.parse(output || '[]');
+
+      // Use async exec to avoid escaping issues
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+      prs = JSON.parse(stdout || '[]');
       
     } else {
       // Use label filter
-      const { execSync } = await import('child_process');
-      
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
       // For repositories, use gh pr list which works better
       if (scope === 'repository') {
         const listCmd = `gh pr list --repo ${owner}/${repo} --state open --label "${argv.reviewLabel}" --limit 100 --json url,title,number,isDraft`;
         await log(`   🔎 Command: ${listCmd}`, { verbose: true });
-        
+
         try {
-          const output = execSync(listCmd, { encoding: 'utf8', env: process.env });
-          prs = JSON.parse(output || '[]');
+          const { stdout } = await execAsync(listCmd, { encoding: 'utf8', env: process.env });
+          prs = JSON.parse(stdout || '[]');
         } catch (listError) {
           await log(`   ⚠️  List failed: ${listError.message.split('\n')[0]}`, { verbose: true });
           prs = [];
@@ -460,10 +466,10 @@ async function fetchPullRequests() {
         
         await log(`   🔎 Search query: ${searchQuery}`, { verbose: true });
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-        
+
         try {
-          const output = execSync(searchCmd, { encoding: 'utf8', env: process.env });
-          prs = JSON.parse(output || '[]');
+          const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+          prs = JSON.parse(stdout || '[]');
         } catch (searchError) {
           await log(`   ⚠️  Search failed: ${searchError.message.split('\n')[0]}`, { verbose: true });
           prs = [];

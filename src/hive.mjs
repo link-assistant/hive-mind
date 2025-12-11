@@ -144,7 +144,9 @@ const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
  * @returns {Promise<Array>} Array of issues
  */
 async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   try {
     await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
     // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -176,7 +178,7 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
     // Add delay for rate limiting
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const repoOutput = execSync(repoListCmd, { encoding: 'utf8', env: process.env });
+    const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
     // Parse the output line by line, as gh api with --jq outputs one JSON object per line
     const repoLines = repoOutput.trim().split('\n').filter(line => line.trim());
     const allRepositories = repoLines.map(line => JSON.parse(line));

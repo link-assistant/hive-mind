@@ -444,7 +444,8 @@ function executeWithCommand(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
+      env: process.env
     });
 
     let stdout = '';

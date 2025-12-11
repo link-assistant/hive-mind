@@ -57,7 +57,7 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const result = execSync(graphqlCmd, { encoding: 'utf8' });
+      const result = execSync(graphqlCmd, { encoding: 'utf8', env: process.env });
       const data = JSON.parse(result);
       const issuesData = data.data.repository.issues;
 
@@ -167,7 +167,7 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       // Add delay for rate limiting
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const result = execSync(graphqlCmd, { encoding: 'utf8' });
+      const result = execSync(graphqlCmd, { encoding: 'utf8', env: process.env });
       const data = JSON.parse(result);
       const repos = isOrg ? data.data.organization.repositories : data.data.user.repositories;
 

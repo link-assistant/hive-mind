@@ -202,7 +202,8 @@ const executeClaude = (prompt, model) => {
     ];
     
     const child = spawn(claudePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env
     });
     
     let stdout = '';

@@ -7,7 +7,8 @@ export const isGitRepository = async (execSync) => {
   try {
     execSync('git rev-parse --git-dir', {
       encoding: 'utf8',
-      stdio: ['pipe', 'ignore', 'ignore']  // Suppress both stdout and stderr
+      stdio: ['pipe', 'ignore', 'ignore'],  // Suppress both stdout and stderr
+      env: process.env
     });
     return true;
   } catch {
@@ -20,7 +21,8 @@ export const getGitTag = async (execSync) => {
   try {
     const gitTag = execSync('git describe --exact-match --tags HEAD', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
+      stdio: ['pipe', 'pipe', 'ignore'],  // Suppress stderr
+      env: process.env
     }).trim();
     return gitTag;
   } catch {
@@ -33,7 +35,8 @@ export const getLatestGitTag = async (execSync) => {
   try {
     const latestTag = execSync('git describe --tags --abbrev=0', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
+      stdio: ['pipe', 'pipe', 'ignore'],  // Suppress stderr
+      env: process.env
     }).trim().replace(/^v/, '');
     return latestTag;
   } catch {
@@ -46,7 +49,8 @@ export const getCommitSha = async (execSync) => {
   try {
     const commitSha = execSync('git rev-parse --short HEAD', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
+      stdio: ['pipe', 'pipe', 'ignore'],  // Suppress stderr
+      env: process.env
     }).trim();
     return commitSha;
   } catch {

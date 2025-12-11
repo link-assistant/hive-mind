@@ -97,13 +97,25 @@ async function main() {
   }
   console.log('');
 
-  // Show the raw database file
-  console.log('📄 Raw database contents (db.lino):');
+  // Show the raw database files
+  console.log('📄 Database files created:');
+
   const linoPath = path.join(dbDir, 'db.lino');
+  const linksPath = path.join(dbDir, 'db.links');
+
   const content = await fs.readFile(linoPath, 'utf-8');
   const lines = content.split('\n').filter(l => l.trim());
-  console.log(`${lines.length} events stored in append-only format\n`);
+  console.log(`  - db.lino: ${lines.length} events in human-readable Links Notation format`);
 
+  try {
+    const linksStats = await fs.stat(linksPath);
+    console.log(`  - db.links: ${linksStats.size} bytes in binary doublets format`);
+  } catch {
+    console.log(`  - db.links: Not created (clink not installed)`);
+  }
+  console.log();
+
+  console.log('Sample events from db.lino (first 3):');
   lines.slice(0, 3).forEach((line, i) => {
     console.log(`Event ${i + 1} (first 100 chars):`);
     console.log(`  ${line.substring(0, 100)}...\n`);
@@ -112,6 +124,7 @@ async function main() {
   console.log('✨ Example complete!');
   console.log(`\nYou can inspect the database at: ${dbDir}`);
   console.log(`  - db.lino: Human-readable Links Notation format`);
+  console.log(`  - db.links: Binary doublets format (requires clink to be installed)`);
   console.log(`  - Use the monitoring database API to query and analyze the data`);
 }
 

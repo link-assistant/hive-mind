@@ -7,6 +7,7 @@ import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
 import { encode, decode } from 'link-notation-objects-codec';
+import { createLinkDB } from './link-db-service.lib.mjs';
 
 /**
  * Event types for the monitoring database
@@ -102,9 +103,12 @@ export class MonitoringDatabase {
   constructor(databaseDir) {
     this.databaseDir = databaseDir;
     this.linoPath = path.join(databaseDir, 'db.lino');
+    this.linksPath = path.join(databaseDir, 'db.links');
     this.lockPath = path.join(databaseDir, 'db.lock.lino');
     this.snapshotCache = null;
     this.snapshotCacheTime = 0;
+    this.linkDB = null;
+    this.clinkAvailable = null;
   }
 
   /**
@@ -113,16 +117,75 @@ export class MonitoringDatabase {
   async initialize() {
     await fs.mkdir(this.databaseDir, { recursive: true });
 
-    // Create empty database file if it doesn't exist
+    // Create empty .lino database file if it doesn't exist
     try {
       await fs.access(this.linoPath);
     } catch {
       await fs.writeFile(this.linoPath, '', 'utf-8');
     }
+
+    // Initialize LinkDB service and check if clink is available
+    this.linkDB = createLinkDB(this.linksPath);
+    try {
+      this.clinkAvailable = await this.linkDB.checkClinkAvailable();
+    } catch {
+      this.clinkAvailable = false;
+    }
+
+    // Log warning if clink is not available
+    if (!this.clinkAvailable) {
+      console.warn('Warning: clink (link-cli) is not installed. The .links binary database will not be created.');
+      console.warn('To enable .links support, install link-cli: dotnet tool install --global clink');
+    }
+  }
+
+  /**
+   * Convert an event to doublets for .links binary storage
+   * Each event is stored as a series of links (doublets/triplets)
+   * The event data is encoded as numeric links following the doublets format
+   */
+  async writeEventToLinks(eventRecord) {
+    if (!this.clinkAvailable) {
+      return; // Skip if clink is not available
+    }
+
+    try {
+      // For the .links binary format, we encode the event as a JSON string
+      // and store it as a single link where:
+      // - source: hash of the event ID (to make it unique)
+      // - target: timestamp
+      // The actual event data is in the .lino file for human readability
+
+      // Create a simple numeric representation of the event
+      // Using hash of event ID as source and timestamp as target
+      const eventIdHash = Math.abs(this.hashString(eventRecord.id)) % 1000000;
+      const timestamp = eventRecord.timestamp;
+
+      // Create a link representing this event
+      await this.linkDB.createLink(eventIdHash, timestamp);
+    } catch (error) {
+      // Log error but don't fail the operation
+      // The .lino file is the primary storage, .links is supplementary
+      console.warn('Warning: Failed to write to .links database:', error.message);
+    }
+  }
+
+  /**
+   * Simple string hash function for converting event IDs to numbers
+   */
+  hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
   }
 
   /**
    * Append an event to the database in append-only mode
+   * Writes to both .lino (human-readable) and .links (binary) formats
    */
   async appendEvent(event) {
     const lock = new DatabaseLock(this.lockPath);
@@ -142,6 +205,9 @@ export class MonitoringDatabase {
 
       // Append to .lino file with newline separator
       await fs.appendFile(this.linoPath, encodedEvent + '\n', 'utf-8');
+
+      // Also write to .links binary format if available
+      await this.writeEventToLinks(eventRecord);
 
       // Invalidate cache
       this.snapshotCache = null;

@@ -38,6 +38,9 @@ test('MonitoringDatabase - initialization creates directory and files', async ()
 
     // Check that database can be used
     assert.ok(db, 'Database instance should exist');
+
+    // Check clink availability was checked
+    assert.ok(db.clinkAvailable !== null, 'clink availability should be checked');
   } finally {
     await cleanupTempTestDir(tempDir);
   }
@@ -303,6 +306,38 @@ test('MonitoringDatabase - handles empty database', async () => {
     const snapshot = await db.buildSnapshot();
     assert.equal(snapshot.stats.totalRuns, 0, 'Empty database should have zero total runs');
     assert.deepEqual(snapshot.runs, {}, 'Empty database should have no runs');
+  } finally {
+    await cleanupTempTestDir(tempDir);
+  }
+});
+
+test('MonitoringDatabase - creates .links file when clink is available', async () => {
+  const tempDir = await createTempTestDir();
+
+  try {
+    const db = await createMonitoringDatabase(tempDir);
+
+    // Log some events
+    const runId = 'test-run-' + Date.now();
+    await db.logRunStart(runId, 'https://github.com/owner/repo/issues/123', 'test-user', 'sonnet');
+    await db.logRunComplete(runId);
+
+    // Check if .lino file exists (should always exist)
+    const linoPath = path.join(tempDir, 'db.lino');
+    const linoExists = await fs.access(linoPath).then(() => true).catch(() => false);
+    assert.ok(linoExists, 'db.lino file should always be created');
+
+    // Check if .links file exists (only if clink is available)
+    const linksPath = path.join(tempDir, 'db.links');
+    const linksExists = await fs.access(linksPath).then(() => true).catch(() => false);
+
+    if (db.clinkAvailable) {
+      assert.ok(linksExists, 'db.links file should be created when clink is available');
+      console.log('  ✓ .links binary format is working (clink is installed)');
+    } else {
+      console.log('  ⚠ Skipping .links verification (clink is not installed)');
+      console.log('    To enable .links support: dotnet tool install --global clink');
+    }
   } finally {
     await cleanupTempTestDir(tempDir);
   }

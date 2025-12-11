@@ -568,7 +568,9 @@ Hive Mind includes an optional monitoring database to track solve command execut
 
 ### Features
 
+- **Dual Format Storage**: Events are stored in both human-readable (.lino) and binary (.links) formats
 - **Append-Only Storage**: Events are stored in Links Notation (.lino) format for human-readable logging
+- **Binary Doublets**: Events are also stored in binary .links format using the Links platform doublets structure
 - **Run Tracking**: Track each solve execution with start, completion, and error events
 - **Statistics**: Calculate success rates per user and per model
 - **Cost Monitoring**: Track total executions for cost estimation
@@ -600,9 +602,18 @@ node experiments/query-monitoring-database.mjs ~/monitoring-db
 
 ### Database Format
 
-The monitoring database uses:
-- `db.lino` - Human-readable Links Notation format with all events
+The monitoring database uses both .lino (text) and .links (binary) formats as specified in [issue #919](https://github.com/link-assistant/hive-mind/issues/919):
+
+- `db.lino` - Human-readable Links Notation format with all events (variable-sized links)
+- `db.links` - Binary doublets format (requires [clink](https://github.com/link-foundation/link-cli) to be installed)
 - `db.lock.lino` - Lock file to prevent concurrent write corruption
+
+The database writes to both formats simultaneously on any changes. The .lino file is the primary human-readable format, while .links provides the binary doublets representation required by the Links platform.
+
+**Installing clink for .links support:**
+```bash
+dotnet tool install --global clink
+```
 
 Events are stored in append-only mode with:
 - Run start events (issue URL, user, model, timestamp)

@@ -236,6 +236,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
+    .option('enable-architecture-care-sub-prompt', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

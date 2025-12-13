@@ -3,6 +3,8 @@
  * Handles building prompts for Claude commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Claude
  * @param {Object} params - Parameters for building the user prompt
@@ -193,7 +195,7 @@ Self review.
    - When you check your solution draft, run all tests locally.
    - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

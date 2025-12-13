@@ -3,6 +3,8 @@
  * Handles building prompts for Codex CLI commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Codex
  * @param {Object} params - Parameters for building the user prompt
@@ -184,7 +186,7 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

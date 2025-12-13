@@ -1107,6 +1107,22 @@ export function parseGitHubUrl(url) {
   if (normalizedUrl.startsWith('http://')) {
     normalizedUrl = normalizedUrl.replace(/^http:\/\//, 'https://');
   }
+
+  // Check for backslashes in the URL path (excluding query params and hash)
+  // According to RFC 3986, backslash is not a valid character in URL paths
+  const urlBeforeQueryAndHash = normalizedUrl.split('?')[0].split('#')[0];
+  if (urlBeforeQueryAndHash.includes('\\')) {
+    // Generate suggested URL by replacing backslashes with forward slashes
+    const suggestedUrl = urlBeforeQueryAndHash.replace(/\\/g, '/');
+    const urlAfterPath = normalizedUrl.substring(urlBeforeQueryAndHash.length);
+
+    return {
+      valid: false,
+      error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
+      suggestion: suggestedUrl + urlAfterPath
+    };
+  }
+
   // Parse the URL
   let urlObj;
   try {

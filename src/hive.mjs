@@ -341,7 +341,10 @@ if (githubUrl) {
     if (parsedUrl.error) {
       console.error(`  ${parsedUrl.error}`);
     }
-    console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
+    if (parsedUrl.suggestion) {
+      console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    }
+    console.error('\nExpected: https://github.com/owner or https://github.com/owner/repo');
     console.error('You can use any of these formats:');
     console.error('  - https://github.com/owner');
     console.error('  - https://github.com/owner/repo');

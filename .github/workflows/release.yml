@@ -1,0 +1,258 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write  # Required for npm Trusted Publishing (OIDC)
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create Release Pull Request or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: npm run release
+          version: npm run version
+          title: 'chore: version packages'
+          commit: 'chore: version packages'
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Note: NPM_TOKEN is not needed with Trusted Publishing!
+          # npm CLI will use OIDC token exchange automatically
+
+      - name: Post-publish - Upload Source Maps to Sentry
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          echo "Uploading source maps to Sentry for published packages..."
+          chmod +x scripts/upload-sourcemaps.mjs
+          node scripts/upload-sourcemaps.mjs
+
+      - name: Post-publish - Trigger Docker Build
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          echo "Published packages: ${{ steps.changesets.outputs.publishedPackages }}"
+          echo "Triggering Docker build workflow..."
+          # The docker workflow will be triggered by the new release
+
+  docker-publish:
+    name: Docker Publish
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Get published version
+        id: version
+        run: |
+          # Extract version from published packages
+          VERSION=$(echo '${{ needs.release.outputs.publishedPackages }}' | jq -r '.[0].version // empty')
+          if [ -z "$VERSION" ]; then
+            echo "No version found in published packages"
+            exit 0
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Wait for NPM package availability
+        if: steps.version.outputs.version != ''
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PACKAGE_NAME="@link-assistant/hive-mind"
+          MAX_ATTEMPTS=30
+          SLEEP_TIME=10
+
+          echo "Waiting for NPM package ${PACKAGE_NAME}@${VERSION} to become available..."
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $i/$MAX_ATTEMPTS: Checking NPM registry..."
+
+            if npm view "${PACKAGE_NAME}@${VERSION}" version 2>/dev/null; then
+              echo "Package ${PACKAGE_NAME}@${VERSION} is now available on NPM!"
+              exit 0
+            fi
+
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              echo "Package not yet available, waiting ${SLEEP_TIME} seconds..."
+              sleep $SLEEP_TIME
+            fi
+          done
+
+          echo "Package ${PACKAGE_NAME}@${VERSION} did not become available after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
+          exit 1
+
+      - name: Checkout repository
+        if: steps.version.outputs.version != ''
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: steps.version.outputs.version != ''
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: steps.version.outputs.version != ''
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        if: steps.version.outputs.version != ''
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        if: steps.version.outputs.version != ''
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+  helm-release:
+    name: Helm Release
+    needs: [release, docker-publish]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Get published version
+        id: version
+        run: |
+          VERSION=$(echo '${{ needs.release.outputs.publishedPackages }}' | jq -r '.[0].version // empty')
+          if [ -z "$VERSION" ]; then
+            echo "No version found in published packages"
+            exit 0
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        if: steps.version.outputs.version != ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        if: steps.version.outputs.version != ''
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Install Helm
+        if: steps.version.outputs.version != ''
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Update Chart versions
+        if: steps.version.outputs.version != ''
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" helm/hive-mind/Chart.yaml
+          sed -i "s/^version: .*/version: $VERSION/" helm/hive-mind/Chart.yaml
+          echo "Updated Chart.yaml to version $VERSION"
+          cat helm/hive-mind/Chart.yaml
+
+      - name: Lint Helm chart
+        if: steps.version.outputs.version != ''
+        run: helm lint helm/hive-mind
+
+      - name: Package Helm chart
+        if: steps.version.outputs.version != ''
+        run: |
+          mkdir -p .helm-packages
+          helm package helm/hive-mind -d .helm-packages
+          ls -la .helm-packages/
+
+      - name: Ensure gh-pages branch exists
+        if: steps.version.outputs.version != ''
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "Creating gh-pages branch..."
+            git checkout --orphan gh-pages
+            git reset --hard
+            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
+            git push origin gh-pages
+            git checkout -
+          fi
+
+      - name: Checkout gh-pages branch
+        if: steps.version.outputs.version != ''
+        run: |
+          git fetch origin gh-pages:gh-pages
+          git checkout gh-pages
+
+      - name: Update Helm repository index
+        if: steps.version.outputs.version != ''
+        run: |
+          cp .helm-packages/*.tgz .
+          helm repo index . --url https://link-assistant.github.io/hive-mind
+          cat index.yaml
+
+      - name: Commit and push to gh-pages
+        if: steps.version.outputs.version != ''
+        run: |
+          git add -f *.tgz index.yaml
+          git commit -m "Release Helm chart version ${{ steps.version.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages
+
+      - name: Switch back to main branch
+        if: steps.version.outputs.version != ''
+        run: git checkout -
+
+      - name: Upload chart to release
+        if: steps.version.outputs.version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: .helm-packages/*.tgz

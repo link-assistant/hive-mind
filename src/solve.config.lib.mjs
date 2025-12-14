@@ -240,6 +240,16 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
+    .option('run-id', {
+      type: 'string',
+      description: 'UUID to track this solve execution across systems (e.g., from telegram bot /solve command)',
+      default: undefined
+    })
+    .option('local-monitoring-database', {
+      type: 'string',
+      description: 'Directory path for the monitoring database (stores db.links and db.lino files for tracking solve executions)',
+      default: undefined
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

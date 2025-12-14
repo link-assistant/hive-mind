@@ -155,3 +155,7 @@ vite.config.ts.timestamp-*
 *.ipr
 .nb-gradle/
 .gradle/
+
+# Example monitoring database directories
+example-monitoring-db/
+temp-test-db-*/

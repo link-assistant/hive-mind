@@ -1,13 +1,19 @@
 // Monitoring database module for solve command
 // This module implements an append-only database using Links Notation (.lino) format
-// for tracking solve command executions, statistics, and costs
+// and optionally binary .links format for tracking solve command executions,
+// statistics, and costs.
+//
+// Key features:
+// - Dual-format storage for fault tolerance (.lino primary, .links secondary)
+// - Write verification ensures data integrity
+// - Common storage interface allows separate testing of each format
 
 import { promises as fs } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import os from 'os';
-import { encode, decode } from 'link-notation-objects-codec';
-import { createLinkDB } from './link-db-service.lib.mjs';
+import { encode, decode } from './vendor/link-notation-objects-codec/index.js';
+import { createDualStorage, LinoStorage, LinksStorage } from './monitoring-storage.lib.mjs';
 
 /**
  * Event types for the monitoring database
@@ -41,7 +47,7 @@ class DatabaseLock {
         // Check if lock file exists
         try {
           const lockContent = await fs.readFile(this.lockFilePath, 'utf-8');
-          const lockData = decode(lockContent);
+          const lockData = decode({ notation: lockContent });
 
           // Check if lock has timed out
           const lockAge = Date.now() - lockData.timestamp;
@@ -65,7 +71,7 @@ class DatabaseLock {
         };
 
         // Use wx flag to ensure exclusive creation
-        await fs.writeFile(this.lockFilePath, encode(lockData), { flag: 'wx' });
+        await fs.writeFile(this.lockFilePath, encode({ obj: lockData }), { flag: 'wx' });
         this.lockAcquired = true;
         return true;
       } catch (err) {
@@ -97,7 +103,7 @@ class DatabaseLock {
 }
 
 /**
- * Monitoring database class
+ * Monitoring database class with dual-format storage and verification
  */
 export class MonitoringDatabase {
   constructor(databaseDir) {
@@ -107,85 +113,28 @@ export class MonitoringDatabase {
     this.lockPath = path.join(databaseDir, 'db.lock.lino');
     this.snapshotCache = null;
     this.snapshotCacheTime = 0;
-    this.linkDB = null;
+    this.storage = null;
     this.clinkAvailable = null;
   }
 
   /**
-   * Initialize the database directory
+   * Initialize the database directory and storage backends
    */
   async initialize() {
     await fs.mkdir(this.databaseDir, { recursive: true });
 
-    // Create empty .lino database file if it doesn't exist
-    try {
-      await fs.access(this.linoPath);
-    } catch {
-      await fs.writeFile(this.linoPath, '', 'utf-8');
-    }
+    // Initialize dual storage (handles both .lino and .links)
+    this.storage = await createDualStorage(this.databaseDir);
 
-    // Initialize LinkDB service and check if clink is available
-    this.linkDB = createLinkDB(this.linksPath);
-    try {
-      this.clinkAvailable = await this.linkDB.checkClinkAvailable();
-    } catch {
-      this.clinkAvailable = false;
-    }
-
-    // Log warning if clink is not available
-    if (!this.clinkAvailable) {
-      console.warn('Warning: clink (link-cli) is not installed. The .links binary database will not be created.');
-      console.warn('To enable .links support, install link-cli: dotnet tool install --global clink');
-    }
-  }
-
-  /**
-   * Convert an event to doublets for .links binary storage
-   * Each event is stored as a series of links (doublets/triplets)
-   * The event data is encoded as numeric links following the doublets format
-   */
-  async writeEventToLinks(eventRecord) {
-    if (!this.clinkAvailable) {
-      return; // Skip if clink is not available
-    }
-
-    try {
-      // For the .links binary format, we encode the event as a JSON string
-      // and store it as a single link where:
-      // - source: hash of the event ID (to make it unique)
-      // - target: timestamp
-      // The actual event data is in the .lino file for human readability
-
-      // Create a simple numeric representation of the event
-      // Using hash of event ID as source and timestamp as target
-      const eventIdHash = Math.abs(this.hashString(eventRecord.id)) % 1000000;
-      const timestamp = eventRecord.timestamp;
-
-      // Create a link representing this event
-      await this.linkDB.createLink(eventIdHash, timestamp);
-    } catch (error) {
-      // Log error but don't fail the operation
-      // The .lino file is the primary storage, .links is supplementary
-      console.warn('Warning: Failed to write to .links database:', error.message);
-    }
-  }
-
-  /**
-   * Simple string hash function for converting event IDs to numbers
-   */
-  hashString(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return hash;
+    // Check clink availability for backward compatibility
+    const availability = await this.storage.getAvailability();
+    this.clinkAvailable = availability.links;
   }
 
   /**
    * Append an event to the database in append-only mode
    * Writes to both .lino (human-readable) and .links (binary) formats
+   * with verification to ensure data integrity.
    */
   async appendEvent(event) {
     const lock = new DatabaseLock(this.lockPath);
@@ -200,14 +149,19 @@ export class MonitoringDatabase {
         ...event
       };
 
-      // Encode event to Links Notation
-      const encodedEvent = encode(eventRecord);
+      // Write to both storages and verify
+      const writeResult = await this.storage.appendAndVerify(eventRecord);
 
-      // Append to .lino file with newline separator
-      await fs.appendFile(this.linoPath, encodedEvent + '\n', 'utf-8');
+      if (!writeResult.success) {
+        console.error('MonitoringDatabase: Write verification failed:', writeResult.errors);
+        // Throw error if primary storage (.lino) failed
+        throw new Error(`Failed to write event to database: ${writeResult.errors.join(', ')}`);
+      }
 
-      // Also write to .links binary format if available
-      await this.writeEventToLinks(eventRecord);
+      // Log any warnings about secondary storage
+      if (writeResult.errors.length > 0) {
+        console.warn('MonitoringDatabase: Secondary storage warnings:', writeResult.errors);
+      }
 
       // Invalidate cache
       this.snapshotCache = null;
@@ -222,24 +176,7 @@ export class MonitoringDatabase {
    * Read all events from the database
    */
   async readAllEvents() {
-    try {
-      const content = await fs.readFile(this.linoPath, 'utf-8');
-      const lines = content.split('\n').filter(line => line.trim());
-
-      return lines.map(line => {
-        try {
-          return decode(line);
-        } catch (err) {
-          console.error('Failed to decode event:', err);
-          return null;
-        }
-      }).filter(event => event !== null);
-    } catch (err) {
-      if (err.code === 'ENOENT') {
-        return [];
-      }
-      throw err;
-    }
+    return await this.storage.readAllEvents();
   }
 
   /**
@@ -424,6 +361,13 @@ export class MonitoringDatabase {
     const snapshot = await this.buildSnapshot();
     return snapshot.stats;
   }
+
+  /**
+   * Get storage statistics for monitoring/debugging
+   */
+  async getStorageStats() {
+    return await this.storage.getStorageStats();
+  }
 }
 
 /**
@@ -434,3 +378,6 @@ export async function createMonitoringDatabase(databaseDir) {
   await db.initialize();
   return db;
 }
+
+// Re-export storage classes for separate testing
+export { LinoStorage, LinksStorage };

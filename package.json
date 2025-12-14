@@ -49,6 +49,6 @@
   "dependencies": {
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0",
-    "link-notation-objects-codec": "file:../link-notation-objects-codec/js/link-notation-objects-codec-0.1.0.tgz"
+    "links-notation": "^0.13.0"
   }
 }

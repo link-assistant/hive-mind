@@ -17,8 +17,8 @@
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
     "changeset": "changeset",
-    "version": "changeset version",
-    "release": "npm run build:pre && npm publish --access public",
+    "changeset:version": "changeset version",
+    "changeset:publish": "npm run build:pre && changeset publish",
     "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs"
   },
   "repository": {

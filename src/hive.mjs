@@ -133,7 +133,6 @@ const { tryFetchIssuesWithGraphQL } = graphqlLib;
 const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
 const isLocalScript = commandName.endsWith('.mjs');
 const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
-
 /**
  * Fallback function to fetch issues from organization/user repositories
  * when search API hits rate limits
@@ -814,7 +813,6 @@ async function worker(workerId) {
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
-
         // Create promise to handle async spawn process
         await new Promise((resolve) => {
           const child = spawn(solveCommand, args, {

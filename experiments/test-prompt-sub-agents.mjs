@@ -81,7 +81,19 @@ test('System prompt with --prompt-general-purpose-sub-agent enabled', async () =
   assert.ok(systemPrompt.includes('general-purpose'), 'Should mention general-purpose sub agents');
   assert.ok(systemPrompt.includes('delegate work'), 'Should mention delegating work');
   assert.ok(systemPrompt.includes('lots of files or folders'), 'Should mention when to use sub agents');
-  console.log('✅ Test 5 passed: System prompt includes sub-agent instructions when enabled');
+
+  // Verify the prompt is placed AFTER "When x do y" rules, not in personality section
+  const personalityEndIndex = systemPrompt.indexOf('General guidelines.');
+  const subAgentIndex = systemPrompt.indexOf('general-purpose');
+  assert.ok(subAgentIndex > personalityEndIndex,
+    'Sub-agent prompt should appear after personality section (after "General guidelines.")');
+
+  // Verify it's in the "Initial research" section (after the "When" rules start)
+  const initialResearchIndex = systemPrompt.indexOf('Initial research.');
+  assert.ok(subAgentIndex > initialResearchIndex,
+    'Sub-agent prompt should appear in or after "Initial research" section');
+
+  console.log('✅ Test 5 passed: System prompt includes sub-agent instructions when enabled in correct location');
 });
 
 // Test 6: Verify help text

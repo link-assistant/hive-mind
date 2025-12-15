@@ -240,6 +240,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
+    .option('prompt-explore-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

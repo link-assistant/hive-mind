@@ -193,7 +193,7 @@ Self review.
    - When you check your solution draft, run all tests locally.
    - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.${argv && argv.promptPlanSubAgent ? '\n\nPlan sub-agent usage.\n   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.\n   - When using the Plan sub-agent, you can add it as the first item in your todo list.\n   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.' : ''}`;
 };
 
 // Export all functions as default object too

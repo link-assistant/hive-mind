@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.39.0
+
+### Minor Changes
+
+- 5751dbf: Add --prompt-explore-sub-agent option to encourage Claude to use Explore sub-agent for codebase exploration
+
 ## 0.38.9
 
 ### Patch Changes

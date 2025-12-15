@@ -46,6 +46,7 @@ const systemPrompt2 = buildSystemPrompt(paramsWithOption);
 console.log('\nUser Prompt (with option):');
 console.log(userPrompt2);
 console.log('\n--- Contains "Plan sub-agent":', userPrompt2.includes('Plan sub-agent'));
+console.log('--- Expected: NO (user prompt should NOT contain Plan sub-agent)');
 
 console.log('\nSystem Prompt excerpt (with option):');
 const systemLines2 = systemPrompt2.split('\n').slice(0, 10);
@@ -62,9 +63,9 @@ console.log('Plan section contains forcing language (ALWAYS/FIRST/IMPORTANT):', 
 const hasConsiderInPlanSection = planSubAgentSection.includes('consider');
 console.log('Plan section contains suggestive "consider":', hasConsiderInPlanSection ? 'YES (PASS)' : 'NO (FAIL)');
 
-// Also check user prompt
-const userHasForcingLanguage = /ALWAYS|FIRST|IMPORTANT/.test(userPrompt2.substring(userPrompt2.indexOf('Plan sub-agent')));
-console.log('User prompt Plan section contains forcing language:', userHasForcingLanguage ? 'YES (FAIL)' : 'NO (PASS)');
+// Also check user prompt should NOT have Plan sub-agent additions
+const userHasPlanSubAgent = userPrompt2.includes('Plan sub-agent');
+console.log('User prompt contains Plan sub-agent additions:', userHasPlanSubAgent ? 'YES (FAIL)' : 'NO (PASS)');
 
 console.log('\n\n=== Test 4: Verify Task tool instruction ===');
 const taskToolMatch = systemPrompt2.match(/Task tool.*subagent_type.*Plan/i);

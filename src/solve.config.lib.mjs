@@ -240,6 +240,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
+    .option('prompt-sub-agents', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

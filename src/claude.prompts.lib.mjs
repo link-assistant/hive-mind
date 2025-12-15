@@ -108,8 +108,14 @@ export const buildSystemPrompt = (params) => {
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
+  // Build sub-agent usage instruction
+  let subAgentLine = '';
+  if (argv && argv.promptSubAgents) {
+    subAgentLine = '\nWhen the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.\n';
+  }
+
   // Use backticks for jq commands to avoid quote escaping issues
-  return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}
+  return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}${subAgentLine}
 
 General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.

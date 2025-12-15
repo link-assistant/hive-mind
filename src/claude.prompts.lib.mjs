@@ -60,6 +60,13 @@ export const buildUserPrompt = (params) => {
     promptLines.push(contributingGuidelines);
   }
 
+  // Add sub-agent planning reminder if enabled
+  if (argv && argv.promptSubAgents) {
+    promptLines.push('');
+    promptLines.push('IMPORTANT: Start by using the Plan sub-agent to research and plan your approach.');
+    promptLines.push('Add this as the first item in your todo list before proceeding with implementation.');
+  }
+
   // Add blank line
   promptLines.push('');
 
@@ -108,8 +115,14 @@ export const buildSystemPrompt = (params) => {
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
+  // Build sub-agent planning instruction
+  let subAgentLine = '';
+  if (argv && argv.promptSubAgents) {
+    subAgentLine = `\nWhen you start working on a task, ALWAYS create a detailed todo list first. The FIRST item in your todo list should be: "Use Plan sub-agent to research codebase and create implementation plan". Use the Task tool with subagent_type="Plan" to delegate the planning phase before any implementation work. This ensures thorough analysis before making changes.\n`;
+  }
+
   // Use backticks for jq commands to avoid quote escaping issues
-  return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}
+  return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}${subAgentLine}
 
 General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.

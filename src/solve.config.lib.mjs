@@ -194,6 +194,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
+    .option('prompt-sub-agents', {
+      type: 'boolean',
+      description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+      default: false
+    })
     .option('base-branch', {
       type: 'string',
       description: 'Target branch for the pull request (defaults to repository default branch)',

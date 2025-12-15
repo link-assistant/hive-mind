@@ -2,4 +2,4 @@
 "@link-assistant/hive-mind": minor
 ---
 
-Add --prompt-sub-agents option to encourage Plan sub-agent usage before implementation. When enabled, the AI receives instructions to create a todo list with Plan sub-agent research as the first item, improving solution quality through better upfront planning.
+Add --prompt-plan-sub-agent option to encourage Plan sub-agent usage. When enabled, the AI receives suggestive instructions to consider using the Plan sub-agent for initial research and planning, improving solution quality through better upfront analysis.

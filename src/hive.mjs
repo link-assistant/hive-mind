@@ -755,7 +755,7 @@ async function worker(workerId) {
         const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
         const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
-        const promptSubAgentsFlag = argv.promptSubAgents ? ' --prompt-sub-agents' : '';
+        const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
         const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
@@ -799,7 +799,7 @@ async function worker(workerId) {
         if (argv.think) {
           args.push('--think', argv.think);
         }
-        if (argv.promptSubAgents) args.push('--prompt-sub-agents');
+        if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
         if (!argv.sentry) {
           args.push('--no-sentry');
         }
@@ -808,7 +808,7 @@ async function worker(workerId) {
         if (argv.interactiveMode) args.push('--interactive-mode');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptSubAgentsFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;

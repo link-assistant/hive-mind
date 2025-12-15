@@ -208,7 +208,7 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
-    .option('prompt-sub-agents', {
+    .option('prompt-plan-sub-agent', {
       type: 'boolean',
       description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
       default: false

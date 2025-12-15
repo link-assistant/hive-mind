@@ -133,7 +133,6 @@ const { tryFetchIssuesWithGraphQL } = graphqlLib;
 const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
 const isLocalScript = commandName.endsWith('.mjs');
 const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
-
 /**
  * Fallback function to fetch issues from organization/user repositories
  * when search API hits rate limits
@@ -755,6 +754,7 @@ async function worker(workerId) {
         const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
         const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
+        const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
         const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
@@ -799,6 +799,7 @@ async function worker(workerId) {
         if (argv.think) {
           args.push('--think', argv.think);
         }
+        if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
         if (!argv.sentry) {
           args.push('--no-sentry');
         }
@@ -808,11 +809,10 @@ async function worker(workerId) {
         if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
-
         // Create promise to handle async spawn process
         await new Promise((resolve) => {
           const child = spawn(solveCommand, args, {

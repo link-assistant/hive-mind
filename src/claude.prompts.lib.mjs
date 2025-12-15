@@ -118,7 +118,7 @@ export const buildSystemPrompt = (params) => {
   // Build sub-agent planning instruction
   let subAgentLine = '';
   if (argv && argv.promptSubAgents) {
-    subAgentLine = `\nWhen you start working on a task, ALWAYS create a detailed todo list first. The FIRST item in your todo list should be: "Use Plan sub-agent to research codebase and create implementation plan". Use the Task tool with subagent_type="Plan" to delegate the planning phase before any implementation work. This ensures thorough analysis before making changes.\n`;
+    subAgentLine = '\nWhen you start working on a task, ALWAYS create a detailed todo list first. The FIRST item in your todo list should be: "Use Plan sub-agent to research codebase and create implementation plan". Use the Task tool with subagent_type="Plan" to delegate the planning phase before any implementation work. This ensures thorough analysis before making changes.\n';
   }
 
   // Use backticks for jq commands to avoid quote escaping issues

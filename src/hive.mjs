@@ -799,9 +799,7 @@ async function worker(workerId) {
         if (argv.think) {
           args.push('--think', argv.think);
         }
-        if (argv.promptSubAgents) {
-          args.push('--prompt-sub-agents');
-        }
+        if (argv.promptSubAgents) args.push('--prompt-sub-agents');
         if (!argv.sentry) {
           args.push('--no-sentry');
         }

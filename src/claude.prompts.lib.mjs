@@ -110,7 +110,7 @@ export const buildSystemPrompt = (params) => {
 
   // Build sub-agent usage instruction
   let subAgentLine = '';
-  if (argv && argv.promptSubAgents) {
+  if (argv && argv.promptGeneralPurposeSubAgent) {
     subAgentLine = '\nWhen the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.\n';
   }
 

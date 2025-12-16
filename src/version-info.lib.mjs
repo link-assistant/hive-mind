@@ -4,6 +4,7 @@
 // Provides comprehensive version information for bot, commands, and runtime
 
 import { getVersion } from './version.lib.mjs';
+import { execSync } from 'child_process';
 
 /**
  * Get comprehensive version information for all components
@@ -21,6 +22,20 @@ export async function getVersionInfo(verbose = false) {
 
     if (verbose) {
       console.log(`[VERBOSE] Package version: ${packageVersion}`);
+    }
+
+    // Get Claude Code version
+    let claudeVersion = 'unknown';
+    try {
+      const result = execSync('timeout 5 claude --version 2>&1', { encoding: 'utf8' });
+      claudeVersion = result.trim();
+      if (verbose) {
+        console.log(`[VERBOSE] Claude Code version: ${claudeVersion}`);
+      }
+    } catch (error) {
+      if (verbose) {
+        console.log('[VERBOSE] Claude Code version check failed:', error.message);
+      }
     }
 
     // Get Node.js runtime version
@@ -45,6 +60,7 @@ export async function getVersionInfo(verbose = false) {
         bot: packageVersion,
         solve: packageVersion,
         hive: packageVersion,
+        claudeCode: claudeVersion,
         node: nodeVersion,
         platform: `${platform} (${arch})`,
       },
@@ -87,6 +103,13 @@ export function formatVersionMessage(versions) {
 
   if (versions.hive) {
     lines.push(`*hive:* \`${versions.hive}\``);
+  }
+
+  // Agent version
+  if (versions.claudeCode) {
+    lines.push('');
+    lines.push('*Agent:*');
+    lines.push(`• Claude Code: \`${versions.claudeCode}\``);
   }
 
   // Runtime information

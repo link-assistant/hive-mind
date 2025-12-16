@@ -1,5 +1,16 @@
 # @link-assistant/hive-mind
 
+## 0.40.3
+
+### Patch Changes
+
+- f8ebd99: Make Playwright MCP usage guidelines conditional based on MCP availability
+
+  - Add `checkPlaywrightMcpAvailability()` function to detect if Playwright MCP is installed
+  - Conditionally include Playwright MCP section in Claude system prompt only when MCP is detected
+  - Integration in both main execution (solve.mjs) and watch mode (solve.watch.lib.mjs)
+  - Resolves merge conflicts from main branch
+
 ## 0.40.1
 
 ### Patch Changes

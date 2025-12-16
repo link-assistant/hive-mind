@@ -361,6 +361,33 @@ export const handleClaudeRuntimeSwitch = async (argv) => {
   }
 };
 /**
+ * Check if Playwright MCP is available and connected to Claude
+ * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
+ */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    // Try to run a simple claude command that would list MCP servers if available
+    // Use a timeout to avoid hanging if Claude is not installed
+    const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
+
+    if (!result || result.code !== 0) {
+      return false;
+    }
+
+    const output = result.stdout?.toString() || '';
+
+    // Check if playwright is in the list of MCP servers
+    if (output.toLowerCase().includes('playwright')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // If any error occurs, assume Playwright MCP is not available
+    return false;
+  }
+};
+/**
  * Execute Claude with all prompts and settings
  * This is the main entry point that handles all prompt building and execution
  * @param {Object} params - Parameters for Claude execution

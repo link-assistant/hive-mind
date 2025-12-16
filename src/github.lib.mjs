@@ -912,7 +912,9 @@ export function isRateLimitError(error) {
  * @returns {Promise<Array>} Array of issues
  */
 export async function fetchAllIssuesWithPagination(baseCommand) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   // Import log and cleanErrorMessage from lib.mjs
   const { log, cleanErrorMessage } = await import('./lib.mjs');
   try {
@@ -928,9 +930,9 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     const maxPageSize = isSearchCommand ? 100 : 1000;
     const improvedCommand = `${commandWithoutLimit} --limit ${maxPageSize}`;
     await log(`   🔎 Executing: ${improvedCommand}`, { verbose: true });
-    const output = execSync(improvedCommand, { encoding: 'utf8' });
+    const { stdout } = await execAsync(improvedCommand, { encoding: 'utf8', env: process.env });
     const endTime = Date.now();
-    const issues = JSON.parse(output || '[]');
+    const issues = JSON.parse(stdout || '[]');
     await log(`   ✅ Fetched ${issues.length} issues in ${Math.round((endTime - startTime) / 1000)}s`);
     // If we got exactly the max page size, there might be more - log a warning and throw error to trigger fallback
     if (issues.length === maxPageSize) {
@@ -965,8 +967,8 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
       await log('   🔄 Falling back to default behavior...', { verbose: true });
       const fallbackCommand = baseCommand.includes('--limit') ? baseCommand : `${baseCommand} --limit 100`;
       await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay)); // Shorter delay for fallback
-      const output = execSync(fallbackCommand, { encoding: 'utf8' });
-      const issues = JSON.parse(output || '[]');
+      const { stdout } = await execAsync(fallbackCommand, { encoding: 'utf8', env: process.env });
+      const issues = JSON.parse(stdout || '[]');
       await log(`   ⚠️  Fallback: fetched ${issues.length} issues (limited to 100)`, { level: 'warning' });
       return issues;
     } catch (fallbackError) {

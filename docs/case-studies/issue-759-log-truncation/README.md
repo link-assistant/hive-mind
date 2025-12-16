@@ -138,7 +138,7 @@ The log appearing incomplete (missing final entries) is likely a timing issue wh
 
 ## References
 
-- Issue: https://github.com/deep-assistant/hive-mind/issues/759
+- Issue: https://github.com/link-assistant/hive-mind/issues/759
 - PR #88 Comment: https://github.com/konard/hh-job-application-automation/pull/88#issuecomment-3592731009
 - GitHub Gist API Docs: https://docs.github.com/en/rest/gists/gists
 - Stack Overflow - Gist Limits: https://stackoverflow.com/questions/69078164/limits-in-github-gists

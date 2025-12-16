@@ -296,7 +296,7 @@ To update to the latest version:
 
 ## Support
 
-- **Hive-Mind Issues**: https://github.com/deep-assistant/hive-mind/issues
+- **Hive-Mind Issues**: https://github.com/link-assistant/hive-mind/issues
 - **Coolify Documentation**: https://coolify.io/docs
 - **Coolify Discord**: https://discord.gg/coolify
 

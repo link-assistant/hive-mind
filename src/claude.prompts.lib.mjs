@@ -137,7 +137,7 @@ Initial research.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
+   - When you need repo context, read files in your working directory.${argv && argv.promptExploreSubAgent ? '\n   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.' : ''}
    - When you study related work, study the most recent related pull requests.
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
@@ -171,6 +171,7 @@ Preparing pull request.
       make sure no uncommitted changes corresponding to the original requirements are left behind,
       make sure the default branch is merged to the pull request's branch,
       make sure all CI checks passing if they exist before you finish,
+      check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request answer to original requirements of the issue,
       make sure no new new bugs are introduced in pull request by carefully reading gh pr diff,
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
@@ -190,17 +191,10 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
+   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.
+   - When you finalize, confirm code, tests, and description are consistent.${argv && argv.promptPlaywrightMcp ? '\n\nPlaywright MCP usage (browser automation via mcp__playwright__* tools).\n   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.\n   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.\n   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.\n   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.\n   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).\n   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.\n   - When you finish using the browser, always close it with browser_close to free resources.' : ''}${argv && argv.promptPlanSubAgent ? '\n\nPlan sub-agent usage.\n   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.\n   - When using the Plan sub-agent, you can add it as the first item in your todo list.\n   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.' : ''}`;
 
-Playwright MCP usage (browser automation via mcp__playwright__* tools).
-   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
-   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
-   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
-   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
-   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
-   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
-   - When you finish using the browser, always close it with browser_close to free resources.`;
 };
 
 // Export all functions as default object too

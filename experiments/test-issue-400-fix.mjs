@@ -15,7 +15,7 @@ const { $ } = await use('command-stream');
 console.log('🧪 Testing Issue #400 Fix: Existing Branch Detection\n');
 
 // Test parameters
-const testOwner = 'deep-assistant';
+const testOwner = 'link-assistant';
 const testRepo = 'hive-mind';
 const testIssueNumber = '400'; // Use the current issue
 

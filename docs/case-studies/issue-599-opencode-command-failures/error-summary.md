@@ -180,5 +180,5 @@ echo "  Total command errors: $ERROR_COUNT"
 
 - **Main Case Study**: See [README.md](./README.md) for full analysis
 - **Original Logs**: See [original-logs.md](./original-logs.md) for complete log file
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/599
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/599
 - **Related PR**: https://github.com/veb86/zcadvelecAI/pull/313#issuecomment-3431504835

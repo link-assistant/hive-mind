@@ -793,7 +793,23 @@ fi
 
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent
+# Try to install packages individually, continuing on failure for unpublished packages
+PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent"
+FAILED_PACKAGES=""
+
+for pkg in $PACKAGES; do
+  if bun install -g "$pkg" 2>&1 | tee /tmp/bun-install-$$.log | grep -q "error:"; then
+    log_note "Package $pkg not available (may not be published yet) - continuing..."
+    FAILED_PACKAGES="$FAILED_PACKAGES $pkg"
+  fi
+done
+
+if [ -n "$FAILED_PACKAGES" ]; then
+  log_note "Some packages could not be installed:$FAILED_PACKAGES"
+  log_note "This is expected if packages haven't been published to NPM yet."
+else
+  log_success "All global packages installed successfully"
+fi
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."
@@ -895,7 +911,7 @@ elif [ -d "$REPO_DIR" ]; then
   log_warning "Directory '$REPO_DIR' exists but is not a git repo; skipping clone."
 else
   log_info "Cloning hive-mind repository..."
-  (cd "$HOME" && git clone https://github.com/deep-assistant/hive-mind) || log_warning "clone failed (continuing)."
+  (cd "$HOME" && git clone https://github.com/link-assistant/hive-mind) || log_warning "clone failed (continuing)."
   log_success "hive-mind repository cloned"
 fi
 

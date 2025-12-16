@@ -192,7 +192,7 @@ export const createIssueForError = async (options) => {
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
     await fs.writeFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo deep-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
 
     await fs.unlink(tempBodyFile).catch(() => {});
 

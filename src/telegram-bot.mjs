@@ -47,6 +47,9 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
+// Import Telegram markdown escaping utilities
+const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
+
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
   .option('configuration', {
@@ -404,8 +407,8 @@ async function executeStartScreen(command, args) {
 
     if (!whichPath) {
       const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' +
-                        'Please ensure @deep-assistant/hive-mind is properly installed\n' +
-                        'You may need to run: npm install -g @deep-assistant/hive-mind';
+                        'Please ensure @link-assistant/hive-mind is properly installed\n' +
+                        'You may need to run: npm install -g @link-assistant/hive-mind';
       console.warn(warningMsg);
 
       // Still try to execute with 'start-screen' in case it's available in PATH but 'which' failed
@@ -444,7 +447,8 @@ function executeWithCommand(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
+      env: process.env
     });
 
     let stdout = '';
@@ -659,15 +663,6 @@ function validateGitHubUrl(args, options = {}) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
-function escapeMarkdown(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
-  // Escape underscore and asterisk which are the most common issues in URLs
-  // These can cause "Can't find end of entity" errors when Telegram tries to parse them
-  return text.replace(/_/g, '\\_').replace(/\*/g, '\\*');
-}
-
 /**
  * Extract GitHub issue/PR URL from message text
  * Validates that message contains exactly one GitHub issue/PR link
@@ -857,11 +852,14 @@ bot.command('limits', async (ctx) => {
 
   if (!result.success) {
     // Edit the fetching message to show the error
+    // Escape the error message for MarkdownV2, preserving inline code blocks
+    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
     await ctx.telegram.editMessageText(
       fetchingMessage.chat.id,
       fetchingMessage.message_id,
       undefined,
-      `❌ ${result.error}`
+      `❌ ${escapedError}`,
+      { parse_mode: 'MarkdownV2' }
     );
     return;
   }

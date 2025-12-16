@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.41.0
+
+### Minor Changes
+
+- 5d193ef: Add `--prompt-general-purpose-sub-agent` flag for Claude tool to enable general-purpose sub-agent usage prompting when processing large tasks with multiple files or folders
+
 ## 0.40.3
 
 ### Patch Changes

@@ -250,6 +250,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
       default: false
     })
+    .option('prompt-general-purpose-sub-agent', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

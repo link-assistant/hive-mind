@@ -764,13 +764,7 @@ bot.command('help', async (ctx) => {
   }
 
   message += '*/limits* - Show Claude usage limits\n';
-  message += 'Usage: `/limits`\n';
-  message += 'Shows current session and weekly usage percentages\n\n';
-
-  message += '*/version* - Show version information\n';
-  message += 'Usage: `/version`\n';
-  message += 'Shows bot, command, and runtime versions\n\n';
-
+  message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
   message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
@@ -881,88 +875,27 @@ bot.command('limits', async (ctx) => {
     { parse_mode: 'Markdown' }
   );
 });
-
 bot.command('version', async (ctx) => {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /version command received');
-  }
-
-  // Add breadcrumb for error tracking
-  await addBreadcrumb({
-    category: 'telegram.command',
-    message: '/version command received',
-    level: 'info',
-    data: {
-      chatId: ctx.chat?.id,
-      chatType: ctx.chat?.type,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
-    },
-  });
-
-  // Ignore messages sent before bot started
-  if (isOldMessage(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /version ignored: old message');
-    }
-    return;
-  }
-
-  // Ignore forwarded or reply messages
-  if (isForwardedOrReply(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /version ignored: forwarded or reply');
-    }
-    return;
-  }
-
+  VERBOSE && console.log('[VERBOSE] /version command received');
+  await addBreadcrumb({ category: 'telegram.command', message: '/version command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
+  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
   if (!isGroupChat(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /version ignored: not a group chat');
-    }
     await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   const chatId = ctx.chat.id;
   if (!isChatAuthorized(chatId)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /version ignored: chat not authorized');
-    }
     await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
-  // Send "fetching" message to indicate work is in progress
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', { reply_to_message_id: ctx.message.message_id });
-
-  // Get the version information using the library function
   const result = await getVersionInfo(VERBOSE);
-
   if (!result.success) {
-    // Edit the fetching message to show the error
-    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
-    await ctx.telegram.editMessageText(
-      fetchingMessage.chat.id,
-      fetchingMessage.message_id,
-      undefined,
-      `❌ ${escapedError}`,
-      { parse_mode: 'MarkdownV2' }
-    );
+    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
     return;
   }
-
-  // Format and edit the fetching message with the results
-  const message = '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions);
-  await ctx.telegram.editMessageText(
-    fetchingMessage.chat.id,
-    fetchingMessage.message_id,
-    undefined,
-    message,
-    { parse_mode: 'Markdown' }
-  );
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
-
 bot.command(/^solve$/i, async (ctx) => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
@@ -1349,14 +1282,12 @@ if (VERBOSE) {
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
   console.error('Error:', error);
-
   // Log detailed error information
   console.error('Error details:', {
     name: error.name,
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
-
   // Log context information for debugging
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {

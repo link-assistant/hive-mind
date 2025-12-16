@@ -493,7 +493,15 @@ export const fetchModelInfo = async (modelId) => {
         res.on('end', () => {
           try {
             const apiData = JSON.parse(data);
-            // Search for the model across all providers
+            // For public pricing calculation, prefer Anthropic provider for Claude models
+            // Check Anthropic provider first
+            if (apiData.anthropic?.models?.[modelId]) {
+              const modelInfo = apiData.anthropic.models[modelId];
+              modelInfo.provider = apiData.anthropic.name || 'Anthropic';
+              resolve(modelInfo);
+              return;
+            }
+            // Search for the model across all other providers
             for (const provider of Object.values(apiData)) {
               if (provider.models && provider.models[modelId]) {
                 const modelInfo = provider.models[modelId];

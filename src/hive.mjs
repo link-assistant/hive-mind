@@ -760,6 +760,7 @@ async function worker(workerId) {
         const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
         const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
         const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
+        const workingSessionLiveProgressFlag = argv.workingSessionLiveProgress ? ' --working-session-live-progress' : '';
 
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
@@ -807,9 +808,10 @@ async function worker(workerId) {
         if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
         if (argv.interactiveMode) args.push('--interactive-mode');
         if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
+        if (argv.workingSessionLiveProgress) args.push('--working-session-live-progress');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${workingSessionLiveProgressFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;

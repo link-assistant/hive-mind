@@ -250,6 +250,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
       default: false
     })
+    .option('working-session-live-progress', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Enable live progress monitoring in PR descriptions. Updates PR with TODO list progress. Only supported for --tool claude with --interactive-mode.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true
     })

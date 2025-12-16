@@ -220,10 +220,12 @@ const getToolIcon = (toolName) => {
  * @param {Function} options.$ - command-stream $ function
  * @param {Function} options.log - Logging function
  * @param {boolean} [options.verbose=false] - Enable verbose logging
+ * @param {boolean} [options.enableProgressMonitoring=false] - Enable live progress monitoring
+ * @param {string} [options.sessionId=null] - Work session identifier for progress tracking
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = (options) => {
-  const { owner, repo, prNumber, $, log, verbose = false } = options;
+  const { owner, repo, prNumber, $, log, verbose = false, enableProgressMonitoring = false, sessionId = null } = options;
 
   // State tracking for the handler
   const state = {
@@ -245,6 +247,30 @@ export const createInteractiveHandler = (options) => {
     // This is preserved even after pendingToolCalls entry is deleted
     toolUseRegistry: new Map()
   };
+
+  // Initialize progress monitor if enabled
+  let progressMonitor = null;
+  if (enableProgressMonitoring) {
+    (async () => {
+      try {
+        const { createProgressMonitor } = await import('./solve.progress-monitoring.lib.mjs');
+        progressMonitor = createProgressMonitor({
+          owner,
+          repo,
+          prNumber,
+          $,
+          log,
+          verbose,
+          sessionId
+        });
+        if (verbose) {
+          await log('📊 Progress monitoring: ENABLED', { verbose: true });
+        }
+      } catch (error) {
+        await log(`⚠️ Failed to initialize progress monitoring: ${error.message}`);
+      }
+    })();
+  }
 
   /**
    * Post a comment to the PR (with rate limiting)
@@ -561,6 +587,16 @@ ${createRawJsonSection(data)}`;
         todosPreview,
         true
       );
+
+      // Update progress monitoring if enabled
+      if (progressMonitor && input.todos) {
+        // Don't await to avoid blocking comment posting
+        progressMonitor.updateProgress(input.todos).catch(error => {
+          if (verbose) {
+            log(`⚠️ Progress update failed: ${error.message}`, { verbose: true });
+          }
+        });
+      }
     } else if (toolName === 'Task') {
       inputDisplay = `**Description:** ${input.description || 'N/A'}`;
       if (input.prompt) {

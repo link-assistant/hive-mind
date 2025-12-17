@@ -875,8 +875,42 @@ try {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
-      // Post failure comment to PR if we have one
-      if (prNumber) {
+      // If --attach-logs is enabled and we have a PR, attach logs with usage limit details
+      if (shouldAttachLogs && sessionId && prNumber) {
+        await log('\n📄 Attaching logs to Pull Request...');
+        try {
+          // Build resume command
+          const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+          const logUploadSuccess = await attachLogToGitHub({
+            logFile: getLogFile(),
+            targetType: 'pr',
+            targetNumber: prNumber,
+            owner,
+            repo,
+            $,
+            log,
+            sanitizeLogContent,
+            // Mark this as a usage limit case for proper formatting
+            isUsageLimit: true,
+            limitResetTime: global.limitResetTime,
+            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            resumeCommand,
+            sessionId
+          });
+
+          if (logUploadSuccess) {
+            await log('  ✅ Logs uploaded successfully');
+          } else {
+            await log('  ⚠️  Failed to upload logs', { verbose: true });
+          }
+        } catch (uploadError) {
+          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+        }
+      } else if (prNumber) {
+        // Fallback: Post simple failure comment if logs are not attached
         try {
           const resetTime = global.limitResetTime;
           const failureComment = resetTime
@@ -894,33 +928,70 @@ try {
 
       await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
     } else {
-      // auto-continue-on-limit-reset is enabled - post waiting comment
+      // auto-continue-on-limit-reset is enabled - attach logs and/or post waiting comment
       if (prNumber && global.limitResetTime) {
-        try {
-          // Calculate wait time in d:h:m:s format
-          const validation = await import('./solve.validation.lib.mjs');
-          const { calculateWaitTime } = validation;
-          const waitMs = calculateWaitTime(global.limitResetTime);
+        // If --attach-logs is enabled, upload logs with usage limit details
+        if (shouldAttachLogs && sessionId) {
+          await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
+          try {
+            // Build resume command
+            const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+            const logUploadSuccess = await attachLogToGitHub({
+              logFile: getLogFile(),
+              targetType: 'pr',
+              targetNumber: prNumber,
+              owner,
+              repo,
+              $,
+              log,
+              sanitizeLogContent,
+              // Mark this as a usage limit case for proper formatting
+              isUsageLimit: true,
+              limitResetTime: global.limitResetTime,
+              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              resumeCommand,
+              sessionId
+            });
 
-          const formatWaitTime = (ms) => {
-            const seconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            const s = seconds % 60;
-            const m = minutes % 60;
-            const h = hours % 24;
-            return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-          };
-
-          const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
-
-          const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
-          if (commentResult.code === 0) {
-            await log('   Posted waiting comment to PR');
+            if (logUploadSuccess) {
+              await log('  ✅ Logs uploaded successfully');
+            } else {
+              await log('  ⚠️  Failed to upload logs', { verbose: true });
+            }
+          } catch (uploadError) {
+            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
           }
-        } catch (error) {
-          await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });
+        } else {
+          // Fallback: Post simple waiting comment if logs are not attached
+          try {
+            // Calculate wait time in d:h:m:s format
+            const validation = await import('./solve.validation.lib.mjs');
+            const { calculateWaitTime } = validation;
+            const waitMs = calculateWaitTime(global.limitResetTime);
+
+            const formatWaitTime = (ms) => {
+              const seconds = Math.floor(ms / 1000);
+              const minutes = Math.floor(seconds / 60);
+              const hours = Math.floor(minutes / 60);
+              const days = Math.floor(hours / 24);
+              const s = seconds % 60;
+              const m = minutes % 60;
+              const h = hours % 24;
+              return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
+
+            const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
+            if (commentResult.code === 0) {
+              await log('   Posted waiting comment to PR');
+            }
+          } catch (error) {
+            await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });
+          }
         }
       }
     }

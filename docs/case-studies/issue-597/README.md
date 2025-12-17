@@ -207,7 +207,13 @@ The "Could not process image" error is **not** a flaky Anthropic API bug. It is 
 3. The HTML content is mistakenly treated as image data
 4. Anthropic API correctly rejects the invalid image data
 
-The solution is to use our `gh-issue-download` and `gh-pr-download` tools, which properly handle GitHub's image URLs and download images to local files before processing.
+The comprehensive solution is being developed in separate repositories:
+- [gh-download-issue](https://github.com/link-foundation/gh-download-issue) - Issue #7
+- [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request) - Issue #7
+
+These tools will properly handle GitHub's image URLs and download images to local files before processing. Integration with hive-mind will be done in #753.
+
+For now, this PR implements a **minimal hotfix** by adding validation warnings to AI solver prompts to detect corrupted image downloads before they crash the solver.
 
 ## Appendix
 
@@ -215,10 +221,10 @@ The solution is to use our `gh-issue-download` and `gh-pr-download` tools, which
 - Error case: `logs/error-cases/hh-job-125-error-full.log` (201KB)
 - Success case: `logs/success-cases/hh-job-125-success-full.log` (714KB)
 
-### Tools Created
-- `src/gh-issue-download.mjs` - Downloads GitHub issues with images
-- `src/gh-pr-download.mjs` - Downloads GitHub PRs with images
-- `experiments/test-gh-download-tools.mjs` - Test suite
+### Future Work
+- Comprehensive GitHub download tools: [gh-download-issue #7](https://github.com/link-foundation/gh-download-issue/issues/7)
+- Comprehensive GitHub download tools: [gh-download-pull-request #7](https://github.com/link-foundation/gh-download-pull-request/issues/7)
+- Integration with hive-mind: #753
 
 ### References
 - Original issue: #597

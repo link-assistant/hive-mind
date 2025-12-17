@@ -638,7 +638,8 @@ function validateGitHubUrl(args, options = {}) {
   if (!parsed.valid) {
     return {
       valid: false,
-      error: parsed.error || 'Invalid GitHub URL'
+      error: parsed.error || 'Invalid GitHub URL',
+      suggestion: parsed.suggestion
     };
   }
 
@@ -987,7 +988,12 @@ bot.command(/^solve$/i, async (ctx) => {
 
   const validation = validateGitHubUrl(userArgs);
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/solve https://github.com/owner/repo/issues/123\`\n\nOr reply to a message containing a GitHub link with \`/solve\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1136,7 +1142,12 @@ bot.command(/^hive$/i, async (ctx) => {
     exampleUrl: 'https://github.com/owner/repo'
   });
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/hive https://github.com/owner/repo\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 

@@ -134,7 +134,7 @@ Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) List recent CI runs with timestamps, (2) Download logs from failed runs to ci-logs/ directory, (3) Analyze error messages and identify root cause, (4) Implement fix, (5) Verify fix resolves the specific errors found in logs.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${argv && argv.promptExploreSubAgent ? '\n   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.' : ''}
@@ -144,7 +144,7 @@ Initial research.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
    - When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.
-   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.
+   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.

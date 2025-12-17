@@ -47,6 +47,9 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
+// Import Telegram markdown escaping utilities
+const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
+
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
   .option('configuration', {
@@ -444,7 +447,8 @@ function executeWithCommand(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
+      env: process.env
     });
 
     let stdout = '';
@@ -634,7 +638,8 @@ function validateGitHubUrl(args, options = {}) {
   if (!parsed.valid) {
     return {
       valid: false,
-      error: parsed.error || 'Invalid GitHub URL'
+      error: parsed.error || 'Invalid GitHub URL',
+      suggestion: parsed.suggestion
     };
   }
 
@@ -659,15 +664,6 @@ function validateGitHubUrl(args, options = {}) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
-function escapeMarkdown(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
-  // Escape underscore and asterisk which are the most common issues in URLs
-  // These can cause "Can't find end of entity" errors when Telegram tries to parse them
-  return text.replace(/_/g, '\\_').replace(/\*/g, '\\*');
-}
-
 /**
  * Extract GitHub issue/PR URL from message text
  * Validates that message contains exactly one GitHub issue/PR link
@@ -857,11 +853,14 @@ bot.command('limits', async (ctx) => {
 
   if (!result.success) {
     // Edit the fetching message to show the error
+    // Escape the error message for MarkdownV2, preserving inline code blocks
+    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
     await ctx.telegram.editMessageText(
       fetchingMessage.chat.id,
       fetchingMessage.message_id,
       undefined,
-      `❌ ${result.error}`
+      `❌ ${escapedError}`,
+      { parse_mode: 'MarkdownV2' }
     );
     return;
   }
@@ -989,7 +988,12 @@ bot.command(/^solve$/i, async (ctx) => {
 
   const validation = validateGitHubUrl(userArgs);
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/solve https://github.com/owner/repo/issues/123\`\n\nOr reply to a message containing a GitHub link with \`/solve\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1138,7 +1142,12 @@ bot.command(/^hive$/i, async (ctx) => {
     exampleUrl: 'https://github.com/owner/repo'
   });
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/hive https://github.com/owner/repo\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 

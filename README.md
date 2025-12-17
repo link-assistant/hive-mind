@@ -200,19 +200,14 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
      TELEGRAM_HIVE_OVERRIDES:
        --all-issues
        --once
-       --auto-fork
        --skip-issues-with-prs
        --attach-logs
        --verbose
        --no-tool-check
-       --prefix-fork-name-with-owner-name
      TELEGRAM_SOLVE_OVERRIDES:
-       --auto-fork
-       --auto-continue
        --attach-logs
        --verbose
        --no-tool-check
-       --prefix-fork-name-with-owner-name
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -229,19 +224,14 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    )" --hive-overrides "(
      --all-issues
      --once
-     --auto-fork
      --skip-issues-with-prs
      --attach-logs
      --verbose
      --no-tool-check
-     --prefix-fork-name-with-owner-name
    )" --solve-overrides "(
-     --auto-fork
-     --auto-continue
      --attach-logs
      --verbose
      --no-tool-check
-     --prefix-fork-name-with-owner-name
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -305,6 +295,8 @@ review --repo owner/repo --pr 456
 | `review.mjs` (alpha) | Code review automation | Collaborative AI reviews, automated feedback |
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management | Multi-agent consensus, reviewer assignment |
 | `telegram-bot.mjs` (stable) | Telegram bot interface | Remote command execution, group chat support, diagnostic tools |
+
+> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
 
 ## 🔧 solve Options
 ```bash

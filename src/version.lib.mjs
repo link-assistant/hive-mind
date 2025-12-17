@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from 'fs';
+import { readFile, access } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { execSync } from 'child_process';
 import { getGitVersion } from './git.lib.mjs';
 
-function isRunningAsScript() {
+async function isRunningAsScript() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const gitDir = join(__dirname, '..', '.git');
-  return existsSync(gitDir);
+  try {
+    await access(gitDir);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function getVersion() {
@@ -19,11 +23,12 @@ export async function getVersion() {
   const packagePath = join(__dirname, '..', 'package.json');
 
   try {
-    const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+    const packageJsonContent = await readFile(packagePath, 'utf8');
+    const packageJson = JSON.parse(packageJsonContent);
     const currentVersion = packageJson.version;
 
-    if (isRunningAsScript()) {
-      const version = await getGitVersion(execSync, currentVersion);
+    if (await isRunningAsScript()) {
+      const version = await getGitVersion(undefined, currentVersion);
       return version;
     }
 

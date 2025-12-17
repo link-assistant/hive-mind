@@ -208,6 +208,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
+    .option('prompt-plan-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+      default: false
+    })
     .option('sentry', {
       type: 'boolean',
       description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
@@ -234,6 +239,16 @@ export const createYargsConfig = (yargsInstance) => {
     .option('interactive-mode', {
       type: 'boolean',
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-explore-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-general-purpose-sub-agent', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
       default: false
     })
     .parserConfiguration({

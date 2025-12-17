@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.41.7
+
+### Patch Changes
+
+- 781a8e4: Fix: Upload logs when usage limit is reached
+
 ## 0.41.5
 
 ### Patch Changes

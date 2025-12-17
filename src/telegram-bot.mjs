@@ -992,7 +992,7 @@ bot.command(/^solve$/i, async (ctx) => {
     if (validation.suggestion) {
       errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
     }
-    errorMsg += `\n\nExample: \`/solve https://github.com/owner/repo/issues/123\`\n\nOr reply to a message containing a GitHub link with \`/solve\``;
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
     await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
@@ -1146,7 +1146,7 @@ bot.command(/^hive$/i, async (ctx) => {
     if (validation.suggestion) {
       errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
     }
-    errorMsg += `\n\nExample: \`/hive https://github.com/owner/repo\``;
+    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
     await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }

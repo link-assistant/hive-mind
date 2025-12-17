@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "0.38.8",
+  "version": "0.41.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -10,9 +10,7 @@
     "task": "./src/task.mjs",
     "review": "./src/review.mjs",
     "start-screen": "./src/start-screen.mjs",
-    "hive-telegram-bot": "./src/telegram-bot.mjs",
-    "gh-issue-download": "./src/gh-issue-download.mjs",
-    "gh-pr-download": "./src/gh-pr-download.mjs"
+    "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

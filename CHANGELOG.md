@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.41.2
+
+### Patch Changes
+
+- 43d5e01: Add image format validation warning to system prompts to prevent "Could not process image" errors. AI solvers are now instructed to verify image files with the 'file' command before reading them, avoiding crashes from corrupted downloads or HTML 404 pages. Includes reference to case study documenting the root cause of GitHub image processing failures.
+
 ## 0.41.0
 
 ### Minor Changes

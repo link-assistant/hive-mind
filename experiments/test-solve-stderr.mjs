@@ -21,7 +21,7 @@ console.log('  Command: node src/solve.mjs https://github.com/test/test/issues/1
 
 const child = spawn('node', [
   join(projectRoot, 'src', 'solve.mjs'),
-  'https://github.com/deep-assistant/hive-mind/issues/1',
+  'https://github.com/link-assistant/hive-mind/issues/1',
   '--dry-run',
   '--skip-tool-check'
 ], {

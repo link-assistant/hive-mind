@@ -19,10 +19,10 @@ const { LenvReader, lenvReader, loadLenvConfig } = lenvReaderModule;
 let testsPassed = 0;
 let testsFailed = 0;
 
-function runTest(name, testFn) {
+async function runTest(name, testFn) {
   process.stdout.write(`Testing ${name}... `);
   try {
-    testFn();
+    await testFn();
     console.log('✅ PASSED');
     testsPassed++;
   } catch (error) {
@@ -119,7 +119,7 @@ runTest('parse null configuration', () => {
 });
 
 // Test 8: Read .lenv file
-runTest('read .lenv file', () => {
+runTest('read .lenv file', async () => {
   const reader = new LenvReader();
   const testFile = join(__dirname, '.test-lenv-file');
 
@@ -129,7 +129,7 @@ TEST_VAR2: 123`;
   writeFileSync(testFile, testContent);
 
   try {
-    const result = reader.readFile(testFile);
+    const result = await reader.readFile(testFile);
 
     if (!result) {
       throw new Error('readFile returned null');
@@ -151,9 +151,9 @@ TEST_VAR2: 123`;
 });
 
 // Test 9: Read non-existent file
-runTest('read non-existent file', () => {
+runTest('read non-existent file', async () => {
   const reader = new LenvReader();
-  const result = reader.readFile('/non/existent/file.lenv');
+  const result = await reader.readFile('/non/existent/file.lenv');
 
   if (result !== null) {
     throw new Error('Expected null for non-existent file');
@@ -161,7 +161,7 @@ runTest('read non-existent file', () => {
 });
 
 // Test 10: config() method with configuration string
-runTest('config() with configuration string', () => {
+runTest('config() with configuration string', async () => {
   const reader = new LenvReader();
 
   // Save original env vars
@@ -172,7 +172,7 @@ runTest('config() with configuration string', () => {
     const config = `TEST_CONFIG_VAR1: value1
 TEST_CONFIG_VAR2: value2`;
 
-    const result = reader.config({
+    const result = await reader.config({
       configuration: config,
       override: true,
       quiet: true
@@ -205,7 +205,7 @@ TEST_CONFIG_VAR2: value2`;
 });
 
 // Test 11: config() method with file
-runTest('config() with file', () => {
+runTest('config() with file', async () => {
   const reader = new LenvReader();
   const testFile = join(__dirname, '.test-config-lenv');
 
@@ -217,7 +217,7 @@ runTest('config() with file', () => {
     const testContent = `TEST_FILE_VAR: file_value`;
     writeFileSync(testFile, testContent);
 
-    const result = reader.config({
+    const result = await reader.config({
       path: testFile,
       override: true,
       quiet: true
@@ -244,7 +244,7 @@ runTest('config() with file', () => {
 });
 
 // Test 12: config() respects override flag
-runTest('config() respects override flag', () => {
+runTest('config() respects override flag', async () => {
   const reader = new LenvReader();
 
   // Set existing env var
@@ -254,7 +254,7 @@ runTest('config() respects override flag', () => {
     const config = `TEST_OVERRIDE_VAR: new_value`;
 
     // First try without override
-    reader.config({
+    await reader.config({
       configuration: config,
       override: false,
       quiet: true
@@ -265,7 +265,7 @@ runTest('config() respects override flag', () => {
     }
 
     // Now try with override
-    reader.config({
+    await reader.config({
       configuration: config,
       override: true,
       quiet: true
@@ -281,7 +281,7 @@ runTest('config() respects override flag', () => {
 });
 
 // Test 13: shouldUseLenv() method
-runTest('shouldUseLenv() method', () => {
+runTest('shouldUseLenv() method', async () => {
   const reader = new LenvReader();
   const testLenvFile = join(__dirname, '.test-should-use.lenv');
   const testEnvFile = join(__dirname, '.test-should-use.env');
@@ -290,7 +290,7 @@ runTest('shouldUseLenv() method', () => {
     // Create .lenv file
     writeFileSync(testLenvFile, 'TEST: value');
 
-    const shouldUse = reader.shouldUseLenv(testLenvFile, testEnvFile);
+    const shouldUse = await reader.shouldUseLenv(testLenvFile, testEnvFile);
 
     if (!shouldUse) {
       throw new Error('shouldUseLenv should return true when .lenv exists');
@@ -304,12 +304,12 @@ runTest('shouldUseLenv() method', () => {
 });
 
 // Test 14: shouldUseLenv() returns false when .lenv doesn't exist
-runTest('shouldUseLenv() returns false when no .lenv', () => {
+runTest('shouldUseLenv() returns false when no .lenv', async () => {
   const reader = new LenvReader();
   const testLenvFile = join(__dirname, '.test-no-lenv.lenv');
   const testEnvFile = join(__dirname, '.test-no-lenv.env');
 
-  const shouldUse = reader.shouldUseLenv(testLenvFile, testEnvFile);
+  const shouldUse = await reader.shouldUseLenv(testLenvFile, testEnvFile);
 
   if (shouldUse) {
     throw new Error('shouldUseLenv should return false when .lenv does not exist');
@@ -343,12 +343,12 @@ LINO_LIST: (
 });
 
 // Test 16: loadLenvConfig function
-runTest('loadLenvConfig function', () => {
+runTest('loadLenvConfig function', async () => {
   // Save original env var
   const originalVar = process.env.TEST_LOAD_VAR;
 
   try {
-    const result = loadLenvConfig({
+    const result = await loadLenvConfig({
       configuration: 'TEST_LOAD_VAR: loaded',
       override: true,
       quiet: true

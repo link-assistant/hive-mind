@@ -119,7 +119,7 @@ await log(`📁 Log file: ${logFilePath}`);
 await log('   (All output will be logged here)\n');
 
 // Validate GitHub PR URL format
-if (!prUrl.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/)) {
+if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
   await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', { level: 'error' });
   process.exit(1);
 }

@@ -74,7 +74,7 @@ This directory contains a comprehensive analysis of issue #655 - PDF processing 
 
 ## Related Links
 
-- **Issue**: [deep-assistant/hive-mind#655](https://github.com/deep-assistant/hive-mind/issues/655)
+- **Issue**: [link-assistant/hive-mind#655](https://github.com/link-assistant/hive-mind/issues/655)
 - **Failed PR #2**: [Cybersyn21/asistente#2](https://github.com/Cybersyn21/asistente/pull/2)
 - **Failed PR #3**: [Cybersyn21/asistente#3](https://github.com/Cybersyn21/asistente/pull/3)
 - **Original Issue**: [Cybersyn21/asistente#1](https://github.com/Cybersyn21/asistente/issues/1)
@@ -125,4 +125,4 @@ If you have additional insights, encounter similar issues, or implement any of t
 
 ## License
 
-This case study is part of the deep-assistant/hive-mind repository and follows the same license.
+This case study is part of the link-assistant/hive-mind repository and follows the same license.

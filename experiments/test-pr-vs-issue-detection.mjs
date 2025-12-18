@@ -6,7 +6,7 @@ if (typeof globalThis.use === 'undefined') {
 const use = globalThis.use;
 const { $ } = await use('command-stream');
 
-const owner = 'deep-assistant';
+const owner = 'link-assistant';
 const repo = 'hive-mind';
 const number = 320;
 

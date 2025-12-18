@@ -1,7 +1,7 @@
 # GitHub API Rate Limit Error Analysis
 
 ## Issue Context
-**GitHub Issue**: [#186](https://github.com/deep-assistant/hive-mind/issues/186)
+**GitHub Issue**: [#186](https://github.com/link-assistant/hive-mind/issues/186)
 **Problem**: Search API hits rate limits, need fallback to repository listing API
 **Goal**: Implement proper detection of rate limit errors and fallback mechanism
 

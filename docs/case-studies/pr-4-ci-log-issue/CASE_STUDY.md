@@ -8,7 +8,7 @@ This case study documents a critical pattern where an AI agent (Claude Code) rep
 3. Having the necessary tools and permissions
 4. Claiming it would download the logs
 
-**Issue Reference:** [deep-assistant/hive-mind#506](https://github.com/deep-assistant/hive-mind/issues/506)
+**Issue Reference:** [link-assistant/hive-mind#506](https://github.com/link-assistant/hive-mind/issues/506)
 **Problem PR:** [konard/p-vs-np#4](https://github.com/konard/p-vs-np/pull/4)
 **Date:** October 13, 2025
 
@@ -408,6 +408,6 @@ The proposed solutions focus on making CI log investigation **mandatory, explici
 
 ## References
 
-- Issue: https://github.com/deep-assistant/hive-mind/issues/506
+- Issue: https://github.com/link-assistant/hive-mind/issues/506
 - Problem PR: https://github.com/konard/p-vs-np/pull/4
 - System Prompt: See session logs for complete prompts with guidelines

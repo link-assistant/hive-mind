@@ -50,25 +50,38 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Prepare everything but do not execute Claude (alias for --only-prepare-command)',
       alias: 'n'
     })
+    .option('skip-tool-connection-check', {
+      type: 'boolean',
+      description: 'Skip tool connection check (useful in CI environments). Does NOT skip model validation.',
+      default: false
+    })
     .option('skip-tool-check', {
       type: 'boolean',
-      description: 'Skip tool connection check (useful in CI environments)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated, use --skip-tool-connection-check instead)',
+      default: false,
+      hidden: true
     })
     .option('skip-claude-check', {
       type: 'boolean',
-      description: 'Alias for --skip-tool-check (kept for backward compatibility with CI/tests)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated)',
+      default: false,
+      hidden: true
+    })
+    .option('tool-connection-check', {
+      type: 'boolean',
+      description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
+      default: true,
+      hidden: true
     })
     .option('tool-check', {
       type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-check to skip)',
+      description: 'Alias for --tool-connection-check (deprecated)',
       default: true,
       hidden: true
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
       alias: 'm',
       default: (currentParsedArgs) => {
         // Dynamic default based on tool selection
@@ -76,6 +89,8 @@ export const createYargsConfig = (yargsInstance) => {
           return 'grok-code-fast-1';
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
+        } else if (currentParsedArgs?.tool === 'agent') {
+          return 'grok-code';
         }
         return 'sonnet';
       }
@@ -100,7 +115,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-fork', {
       type: 'boolean',
       description: 'Automatically fork public repositories without write access (fails for private repos)',
-      default: false
+      default: true
     })
     .option('attach-logs', {
       type: 'boolean',
@@ -115,7 +130,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-continue', {
       type: 'boolean',
       description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
-      default: false
+      default: true
     })
     .option('auto-continue-on-limit-reset', {
       type: 'boolean',
@@ -179,6 +194,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
+    .option('prompt-plan-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+      default: false
+    })
     .option('base-branch', {
       type: 'string',
       description: 'Target branch for the pull request (defaults to repository default branch)',
@@ -211,14 +231,29 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('prefix-fork-name-with-owner-name', {
       type: 'boolean',
-      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners. Experimental feature.',
-      default: false
+      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
+      default: true
     })
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode', 'codex'],
+      choices: ['claude', 'opencode', 'codex', 'agent'],
       default: 'claude'
+    })
+    .option('interactive-mode', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-explore-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-general-purpose-sub-agent', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      default: false
     })
     .parserConfiguration({
       'boolean-negation': true
@@ -290,9 +325,16 @@ export const parseArguments = async (yargs, hideBin) => {
   // so we need to handle this manually after parsing
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m');
 
-  // Normalize alias flags: --skip-claude-check behaves like --skip-tool-check
-  if (argv && argv.skipClaudeCheck) {
-    argv.skipToolCheck = true;
+  // Normalize alias flags: legacy --skip-tool-check and --skip-claude-check behave like --skip-tool-connection-check
+  if (argv) {
+    // Support deprecated flags
+    if (argv.skipToolCheck || argv.skipClaudeCheck) {
+      argv.skipToolConnectionCheck = true;
+    }
+    // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
+    if (argv.toolCheck === false) {
+      argv.toolConnectionCheck = false;
+    }
   }
 
   if (argv.tool === 'opencode' && !modelExplicitlyProvided) {
@@ -301,6 +343,9 @@ export const parseArguments = async (yargs, hideBin) => {
   } else if (argv.tool === 'codex' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for codex
     argv.model = 'gpt-5';
+  } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
+    // User did not explicitly provide --model, so use the correct default for agent
+    argv.model = 'grok-code';
   }
 
   return argv;

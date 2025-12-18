@@ -19,6 +19,48 @@ import {
   batchCheckPullRequestsForIssues as batchCheckPRs,
   batchCheckArchivedRepositories as batchCheckArchived
 } from './github.batch.lib.mjs';
+
+/**
+ * Build cost estimation string for log comments
+ * @param {number|null} totalCostUSD - Public pricing estimate
+ * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
+ * @param {Object|null} pricingInfo - Pricing info from agent tool
+ * @returns {string} Formatted cost info string for markdown
+ */
+const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
+  let costInfo = '\n\n💰 **Cost estimation:**';
+  if (pricingInfo && pricingInfo.modelName) {
+    costInfo += `\n- Model: ${pricingInfo.modelName}`;
+    if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
+  }
+  if (totalCostUSD !== null && totalCostUSD !== undefined) {
+    costInfo += pricingInfo?.isFreeModel
+      ? '\n- Public pricing estimate: $0.00 (Free model)'
+      : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+  } else {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  if (pricingInfo?.tokenUsage) {
+    const u = pricingInfo.tokenUsage;
+    let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
+    if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
+    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+    costInfo += tokenInfo;
+  }
+  if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+    costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+    if (totalCostUSD !== null) {
+      const diff = anthropicTotalCostUSD - totalCostUSD;
+      const pct = totalCostUSD > 0 ? ((diff / totalCostUSD) * 100) : 0;
+      costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+    } else {
+      costInfo += '\n- Difference: unknown';
+    }
+  } else if (!pricingInfo) {
+    costInfo += '\n- Calculated by Anthropic: unknown\n- Difference: unknown';
+  }
+  return costInfo;
+};
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
 // Helper function to get GitHub tokens from local config files
@@ -463,7 +505,10 @@ export async function attachLogToGitHub(options) {
     isUsageLimit = false,
     limitResetTime = null,
     toolName = 'AI tool',
-    resumeCommand = null
+    resumeCommand = null,
+    // New parameters for agent tool pricing support
+    publicPricingEstimate = null,
+    pricingInfo = null
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -478,8 +523,9 @@ export async function attachLogToGitHub(options) {
       return false;
     }
     // Calculate token usage if sessionId and tempDir are provided
-    let totalCostUSD = null;
-    if (sessionId && tempDir && !errorMessage) {
+    // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
+    let totalCostUSD = publicPricingEstimate;
+    if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
         const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
@@ -579,26 +625,8 @@ ${logContent}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
-      // Success log format
-      let costInfo = '\n\n💰 **Cost estimation:**';
-      if (totalCostUSD !== null) {
-        costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-      } else {
-        costInfo += '\n- Public pricing estimate: unknown';
-      }
-      if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-        costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-        if (totalCostUSD !== null) {
-          const difference = anthropicTotalCostUSD - totalCostUSD;
-          const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
-          costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
-        } else {
-          costInfo += '\n- Difference: unknown';
-        }
-      } else {
-        costInfo += '\n- Calculated by Anthropic: unknown';
-        costInfo += '\n- Difference: unknown';
-      }
+      // Success log format - use helper function for cost info
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
       logComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 <details>
@@ -733,26 +761,8 @@ ${errorMessage}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
-            // Success log gist format
-            let costInfo = '\n\n💰 **Cost estimation:**';
-            if (totalCostUSD !== null) {
-              costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-            } else {
-              costInfo += '\n- Public pricing estimate: unknown';
-            }
-            if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-              costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-              if (totalCostUSD !== null) {
-                const difference = anthropicTotalCostUSD - totalCostUSD;
-                const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
-                costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
-              } else {
-                costInfo += '\n- Difference: unknown';
-              }
-            } else {
-              costInfo += '\n- Calculated by Anthropic: unknown';
-              costInfo += '\n- Difference: unknown';
-            }
+            // Success log gist format - use helper function for cost info
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
             gistComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
 📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
@@ -902,7 +912,9 @@ export function isRateLimitError(error) {
  * @returns {Promise<Array>} Array of issues
  */
 export async function fetchAllIssuesWithPagination(baseCommand) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   // Import log and cleanErrorMessage from lib.mjs
   const { log, cleanErrorMessage } = await import('./lib.mjs');
   try {
@@ -918,9 +930,9 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     const maxPageSize = isSearchCommand ? 100 : 1000;
     const improvedCommand = `${commandWithoutLimit} --limit ${maxPageSize}`;
     await log(`   🔎 Executing: ${improvedCommand}`, { verbose: true });
-    const output = execSync(improvedCommand, { encoding: 'utf8' });
+    const { stdout } = await execAsync(improvedCommand, { encoding: 'utf8', env: process.env });
     const endTime = Date.now();
-    const issues = JSON.parse(output || '[]');
+    const issues = JSON.parse(stdout || '[]');
     await log(`   ✅ Fetched ${issues.length} issues in ${Math.round((endTime - startTime) / 1000)}s`);
     // If we got exactly the max page size, there might be more - log a warning and throw error to trigger fallback
     if (issues.length === maxPageSize) {
@@ -955,8 +967,8 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
       await log('   🔄 Falling back to default behavior...', { verbose: true });
       const fallbackCommand = baseCommand.includes('--limit') ? baseCommand : `${baseCommand} --limit 100`;
       await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay)); // Shorter delay for fallback
-      const output = execSync(fallbackCommand, { encoding: 'utf8' });
-      const issues = JSON.parse(output || '[]');
+      const { stdout } = await execAsync(fallbackCommand, { encoding: 'utf8', env: process.env });
+      const issues = JSON.parse(stdout || '[]');
       await log(`   ⚠️  Fallback: fetched ${issues.length} issues (limited to 100)`, { level: 'warning' });
       return issues;
     } catch (fallbackError) {
@@ -1095,6 +1107,22 @@ export function parseGitHubUrl(url) {
   if (normalizedUrl.startsWith('http://')) {
     normalizedUrl = normalizedUrl.replace(/^http:\/\//, 'https://');
   }
+
+  // Check for backslashes in the URL path (excluding query params and hash)
+  // According to RFC 3986, backslash is not a valid character in URL paths
+  const urlBeforeQueryAndHash = normalizedUrl.split('?')[0].split('#')[0];
+  if (urlBeforeQueryAndHash.includes('\\')) {
+    // Generate suggested URL by replacing backslashes with forward slashes
+    const suggestedUrl = urlBeforeQueryAndHash.replace(/\\/g, '/');
+    const urlAfterPath = normalizedUrl.substring(urlBeforeQueryAndHash.length);
+
+    return {
+      valid: false,
+      error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
+      suggestion: suggestedUrl + urlAfterPath
+    };
+  }
+
   // Parse the URL
   let urlObj;
   try {

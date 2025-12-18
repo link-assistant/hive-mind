@@ -36,9 +36,9 @@ async function testDishkaRepo() {
 
 async function testHiveMindRepo() {
   console.log('\n\n=================================\n');
-  console.log('Testing deep-assistant/hive-mind repository...');
+  console.log('Testing link-assistant/hive-mind repository...');
 
-  const guidelines = await detectContributingGuidelines('deep-assistant', 'hive-mind');
+  const guidelines = await detectContributingGuidelines('link-assistant', 'hive-mind');
 
   console.log('\nResults:');
   console.log('  Found:', guidelines.found);
@@ -57,7 +57,7 @@ async function testHiveMindRepo() {
   }
 
   console.log('\n--- Contributing Section for Prompt ---');
-  const section = await buildContributingSection('deep-assistant', 'hive-mind');
+  const section = await buildContributingSection('link-assistant', 'hive-mind');
   console.log(section);
 }
 

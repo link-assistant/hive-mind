@@ -203,7 +203,7 @@ claude-code --timeout 120000 "sudo apt-get update && sudo apt-get install -y som
 
 ## Related Issues
 
-- Original issue: https://github.com/deep-assistant/hive-mind/issues/371
+- Original issue: https://github.com/link-assistant/hive-mind/issues/371
 - Related PR: https://github.com/zamtmn/fpdwg/pull/11
 
 ## Status

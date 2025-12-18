@@ -814,6 +814,14 @@ jobs:
           echo ""
 
           docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            # Source shell initialization files for tools that need it
+            export HOME=/home/hive
+            [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
+            [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+            export PYENV_ROOT=\"\$HOME/.pyenv\"
+            export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
+            if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
             if command -v bun &>/dev/null; then

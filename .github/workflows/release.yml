@@ -650,12 +650,50 @@ jobs:
           echo "Docker image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
 
-      - name: Verify Homebrew and PHP in build logs
+      - name: Verify system & development tools installation in build logs
         run: |
           echo "Checking installation status in build logs..."
+          echo "Verifying all tools are installed (in alphabetical order to reduce merge conflicts)"
+          echo ""
+
+          # Check for failures - alphabetical order
+          if grep -E '\[!\] Bun: not found' build-output.log; then
+            echo "ERROR: Bun installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Cargo: not found' build-output.log; then
+            echo "ERROR: Cargo installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Deno: not found' build-output.log; then
+            echo "ERROR: Deno installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Git: not found' build-output.log; then
+            echo "ERROR: Git installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] GitHub CLI: not found' build-output.log; then
+            echo "ERROR: GitHub CLI installation failed - showing as 'not found'"
+            exit 1
+          fi
 
           if grep -E '\[!\] Homebrew: not found' build-output.log; then
             echo "ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Node\.js: not found' build-output.log; then
+            echo "ERROR: Node.js installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] NPM: not found' build-output.log; then
+            echo "ERROR: NPM installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -664,10 +702,76 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Playwright: not found' build-output.log; then
+            echo "ERROR: Playwright installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Python: not found' build-output.log; then
+            echo "ERROR: Python installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Pyenv: not found' build-output.log; then
+            echo "ERROR: Pyenv installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Rust: not found' build-output.log; then
+            echo "ERROR: Rust installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Verify successful installations - alphabetical order
+          echo ""
+          echo "Verifying successful installations..."
+
+          if grep -E '\[✓\] Bun:' build-output.log; then
+            echo "Bun installation verified in build logs"
+          else
+            echo "WARNING: Bun success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Cargo:' build-output.log; then
+            echo "Cargo installation verified in build logs"
+          else
+            echo "WARNING: Cargo success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Deno:' build-output.log; then
+            echo "Deno installation verified in build logs"
+          else
+            echo "WARNING: Deno success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Git:' build-output.log; then
+            echo "Git installation verified in build logs"
+          else
+            echo "WARNING: Git success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] GitHub CLI:' build-output.log; then
+            echo "GitHub CLI installation verified in build logs"
+          else
+            echo "WARNING: GitHub CLI success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Homebrew:' build-output.log; then
             echo "Homebrew installation verified in build logs"
           else
             echo "WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Node\.js:' build-output.log; then
+            echo "Node.js installation verified in build logs"
+          else
+            echo "WARNING: Node.js success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] NPM:' build-output.log; then
+            echo "NPM installation verified in build logs"
+          else
+            echo "WARNING: NPM success message not found in logs"
           fi
 
           if grep -E '\[✓\] PHP:' build-output.log; then
@@ -676,17 +780,125 @@ jobs:
             echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
           fi
 
+          if grep -E '\[✓\] Playwright:' build-output.log; then
+            echo "Playwright installation verified in build logs"
+          else
+            echo "WARNING: Playwright success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Python:' build-output.log; then
+            echo "Python installation verified in build logs"
+          else
+            echo "WARNING: Python success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Pyenv:' build-output.log; then
+            echo "Pyenv installation verified in build logs"
+          else
+            echo "WARNING: Pyenv success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Rust:' build-output.log; then
+            echo "Rust installation verified in build logs"
+          else
+            echo "WARNING: Rust success message not found in logs"
+          fi
+
+          echo ""
+          echo "All system & development tools verification completed"
+
       - name: Verify tools in running container
         run: |
           echo "Verifying tools are available in the running container..."
+          echo "Checking all tools in alphabetical order to reduce merge conflicts"
+          echo ""
 
           docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            # Source shell initialization files for tools that need it
+            export HOME=/home/hive
+            [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
+            [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+            export PYENV_ROOT=\"\$HOME/.pyenv\"
+            export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
+            if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+
+            # Verify all system & development tools - alphabetical order
+            echo 'Checking Bun...'
+            if command -v bun &>/dev/null; then
+              bun --version
+              echo 'Bun is accessible'
+            else
+              echo 'Bun command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Cargo...'
+            if command -v cargo &>/dev/null; then
+              cargo --version
+              echo 'Cargo is accessible'
+            else
+              echo 'Cargo command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Deno...'
+            if command -v deno &>/dev/null; then
+              deno --version | head -n1
+              echo 'Deno is accessible'
+            else
+              echo 'Deno command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Git...'
+            if command -v git &>/dev/null; then
+              git --version
+              echo 'Git is accessible'
+            else
+              echo 'Git command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking GitHub CLI...'
+            if command -v gh &>/dev/null; then
+              gh --version | head -n1
+              echo 'GitHub CLI is accessible'
+            else
+              echo 'GitHub CLI command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Homebrew...'
             if command -v brew &>/dev/null; then
               brew --version | head -n1
               echo 'Homebrew is accessible'
             else
               echo 'Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Node.js...'
+            if command -v node &>/dev/null; then
+              node --version
+              echo 'Node.js is accessible'
+            else
+              echo 'Node.js command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking NPM...'
+            if command -v npm &>/dev/null; then
+              npm --version
+              echo 'NPM is accessible'
+            else
+              echo 'NPM command not found in container'
               exit 1
             fi
 
@@ -704,10 +916,50 @@ jobs:
                 exit 1
               fi
             fi
+
+            echo ''
+            echo 'Checking Playwright...'
+            if command -v playwright &>/dev/null; then
+              playwright --version
+              echo 'Playwright is accessible'
+            else
+              echo 'Playwright command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Python...'
+            if command -v python &>/dev/null; then
+              python --version
+              echo 'Python is accessible'
+            else
+              echo 'Python command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Pyenv...'
+            if command -v pyenv &>/dev/null; then
+              pyenv --version
+              echo 'Pyenv is accessible'
+            else
+              echo 'Pyenv command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Rust...'
+            if command -v rustc &>/dev/null; then
+              rustc --version
+              echo 'Rust is accessible'
+            else
+              echo 'Rust command not found in container'
+              exit 1
+            fi
           "
 
           echo ""
-          echo "All verification checks passed!"
+          echo "All system & development tools verification checks passed!"
 
   # === HELM PR CHECK ===
   helm-pr-check:

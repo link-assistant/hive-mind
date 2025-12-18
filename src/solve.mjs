@@ -875,6 +875,23 @@ try {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
+      // Always show manual resume command in console so users can resume after limit resets
+      if (sessionId) {
+        const resetTime = global.limitResetTime;
+        await log('');
+        await log(`📁 Working directory: ${tempDir}`);
+        await log(`📌 Session ID: ${sessionId}`);
+        if (resetTime) {
+          await log(`⏰ Limit resets at: ${resetTime}`);
+        }
+        await log('');
+        await log('🔄 To resume manually after the limit resets, run:');
+        await log(`   ${process.argv[0]} ${process.argv[1]} "${issueUrl}" --resume ${sessionId}`);
+        await log('');
+        await log('💡 Or enable auto-continue-on-limit-reset to wait automatically:');
+        await log(`   ${process.argv[0]} ${process.argv[1]} "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
+      }
+
       // If --attach-logs is enabled and we have a PR, attach logs with usage limit details
       if (shouldAttachLogs && sessionId && prNumber) {
         await log('\n📄 Attaching logs to Pull Request...');

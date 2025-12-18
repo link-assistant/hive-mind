@@ -650,7 +650,7 @@ jobs:
           echo "Docker image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
 
-      - name: Verify Homebrew and PHP in build logs
+      - name: Verify Homebrew, PHP, and Deno in build logs
         run: |
           echo "Checking installation status in build logs..."
 
@@ -664,6 +664,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Deno: not found' build-output.log; then
+            echo "ERROR: Deno installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[✓\] Homebrew:' build-output.log; then
             echo "Homebrew installation verified in build logs"
           else
@@ -674,6 +679,12 @@ jobs:
             echo "PHP installation verified in build logs"
           else
             echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+          fi
+
+          if grep -E '\[✓\] Deno:' build-output.log; then
+            echo "Deno installation verified in build logs"
+          else
+            echo "WARNING: Deno success message not found in logs"
           fi
 
       - name: Verify tools in running container
@@ -703,6 +714,16 @@ jobs:
                 echo 'PHP not found in container'
                 exit 1
               fi
+            fi
+
+            echo ''
+            echo 'Checking Deno...'
+            if command -v deno &>/dev/null; then
+              deno --version | head -n1
+              echo 'Deno is accessible'
+            else
+              echo 'Deno command not found in container'
+              exit 1
             fi
           "
 

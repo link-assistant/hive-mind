@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.41.8
+
+### Patch Changes
+
+- 80aff72: Add Deno runtime installation support to Ubuntu 24 server installation script and Docker environment
+
 ## 0.41.7
 
 ### Patch Changes

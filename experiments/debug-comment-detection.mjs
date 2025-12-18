@@ -24,7 +24,7 @@ async function $(command) {
 async function debugCommentDetection() {
   try {
     // Test with the current PR #169
-    const owner = 'deep-assistant';
+    const owner = 'link-assistant';
     const repo = 'hive-mind';
     const prNumber = 169;
 

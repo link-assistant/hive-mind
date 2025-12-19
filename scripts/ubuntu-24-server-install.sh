@@ -586,7 +586,11 @@ fi
 # Load SDKMAN for current session and install Java
 export SDKMAN_DIR="$HOME/.sdkman"
 if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  # Temporarily disable unbound variable check for SDKMAN init
+  # SDKMAN's init script has variables that may not be set initially
+  set +u
   source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  set -u
   log_success "SDKMAN loaded for current session"
 
   # Install latest LTS Java version (Java 21)

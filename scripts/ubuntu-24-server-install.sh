@@ -797,7 +797,7 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
 
     # Install latest stable Perl version
     log_info "Installing latest stable Perl version (this may take several minutes)..."
-    LATEST_PERL=$(perlbrew available | grep -E '^\s*perl-5\.[0-9]+\.[0-9]+$' | head -1 | tr -d '[:space:]')
+    LATEST_PERL=$(perlbrew available 2>/dev/null | grep -E '^\s*perl-5\.[0-9]+\.[0-9]+$' | head -1 | tr -d '[:space:]' || true)
 
     if [ -n "$LATEST_PERL" ]; then
       log_info "Installing $LATEST_PERL..."

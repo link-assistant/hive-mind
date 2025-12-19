@@ -687,6 +687,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Java: not found' build-output.log; then
+            echo "ERROR: Java installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Node\.js: not found' build-output.log; then
             echo "ERROR: Node.js installation failed - showing as 'not found'"
             exit 1
@@ -719,6 +724,11 @@ jobs:
 
           if grep -E '\[!\] Rust: not found' build-output.log; then
             echo "ERROR: Rust installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] SDKMAN: not found' build-output.log; then
+            echo "ERROR: SDKMAN installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -760,6 +770,12 @@ jobs:
             echo "Homebrew installation verified in build logs"
           else
             echo "WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Java:' build-output.log; then
+            echo "Java installation verified in build logs"
+          else
+            echo "WARNING: Java success message not found in logs"
           fi
 
           if grep -E '\[✓\] Node\.js:' build-output.log; then
@@ -804,6 +820,12 @@ jobs:
             echo "WARNING: Rust success message not found in logs"
           fi
 
+          if grep -E '\[✓\] SDKMAN:' build-output.log; then
+            echo "SDKMAN installation verified in build logs"
+          else
+            echo "WARNING: SDKMAN success message not found in logs"
+          fi
+
           echo ""
           echo "All system & development tools verification completed"
 
@@ -821,6 +843,8 @@ jobs:
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+            export SDKMAN_DIR=\"\$HOME/.sdkman\"
+            if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
 
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
@@ -879,6 +903,16 @@ jobs:
               echo 'Homebrew is accessible'
             else
               echo 'Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Java...'
+            if command -v java &>/dev/null; then
+              java -version 2>&1 | head -n1
+              echo 'Java is accessible'
+            else
+              echo 'Java command not found in container'
               exit 1
             fi
 
@@ -954,6 +988,16 @@ jobs:
               echo 'Rust is accessible'
             else
               echo 'Rust command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking SDKMAN...'
+            if command -v sdk &>/dev/null; then
+              sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'SDKMAN installed'
+              echo 'SDKMAN is accessible'
+            else
+              echo 'SDKMAN command not found in container'
               exit 1
             fi
           "

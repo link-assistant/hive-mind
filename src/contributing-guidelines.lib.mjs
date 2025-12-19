@@ -85,7 +85,7 @@ export async function detectContributingGuidelines(owner, repo) {
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');
 
         // Look for contributing documentation URL
-        const contributingMatch = readmeContent.match(/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi);
+        const contributingMatch = readmeContent.match(/https?:\/\/[^\s)]+contributing[^\s)]*/gi);
         if (contributingMatch && contributingMatch[0]) {
           result.found = true;
           result.docsUrl = contributingMatch[0];

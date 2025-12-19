@@ -52,12 +52,13 @@ export function buildUserMention({
     case 'Markdown':
       // Legacy Markdown: [text](url)
       return `[${displayName}](${link})`;
-    case 'MarkdownV2':
+    case 'MarkdownV2': {
       // MarkdownV2 requires escaping special characters
-      const escapedName = displayName.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+      const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
       return `[${escapedName}](${link})`;
+    }
     case 'HTML':
-    default:
+    default: {
       // HTML mode: <a href="url">text</a>
       const escapedHtml = displayName
         .replace(/&/g, '&amp;')
@@ -65,5 +66,6 @@ export function buildUserMention({
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
       return `<a href="${link}">${escapedHtml}</a>`;
+    }
   }
 }

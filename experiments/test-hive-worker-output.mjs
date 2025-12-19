@@ -11,7 +11,7 @@ console.log('🧪 Testing hive.mjs worker output with new prefixes...\n');
 // Test with dry-run to avoid actually processing issues
 const testCommand = './hive.mjs';
 const testArgs = [
-  'https://github.com/deep-assistant/hive-mind/issues/171',
+  'https://github.com/link-assistant/hive-mind/issues/171',
   '--dry-run',
   '--concurrency', '2',
   '--verbose'

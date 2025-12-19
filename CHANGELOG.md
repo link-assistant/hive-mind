@@ -1,5 +1,23 @@
 # @link-assistant/hive-mind
 
+## 0.42.0
+
+### Minor Changes
+
+- d98d9c9: Add Java (OpenJDK) runtime installation support via SDKMAN in Ubuntu 24 server installation script
+
+  - Install SDKMAN as Java version manager (following pattern of pyenv for Python, nvm for Node.js)
+  - Install Java 21 LTS (Eclipse Temurin distribution) by default with fallback to OpenJDK
+  - Add SDKMAN configuration to .bashrc for persistence
+  - Add Java and SDKMAN to installation summary output
+  - Add zip package to prerequisites (required by SDKMAN)
+
+  Fixes #737
+
+### Patch Changes
+
+- d42d221: Add Perl runtime installation support via Perlbrew to Ubuntu 24 server installation script and Docker environment with CI verification
+
 ## 0.41.10
 
 ### Patch Changes

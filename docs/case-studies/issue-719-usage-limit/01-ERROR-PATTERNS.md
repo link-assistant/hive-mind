@@ -157,5 +157,5 @@ assert(result.resetTime === null);
 
 ## References
 
-- Issue #719: https://github.com/deep-assistant/hive-mind/issues/719
+- Issue #719: https://github.com/link-assistant/hive-mind/issues/719
 - Example log: https://github.com/link-foundation/ideav-local-associative-js/pull/2#issuecomment-3521528245

@@ -14,7 +14,7 @@ const testRepos = [
   // Archived repository from the issue
   { owner: 'konard', name: 'test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5' },
   // Regular repository (should not be archived)
-  { owner: 'deep-assistant', name: 'hive-mind' },
+  { owner: 'link-assistant', name: 'hive-mind' },
   // Another test repository
   { owner: 'konard', name: 'vk-bot' }
 ];

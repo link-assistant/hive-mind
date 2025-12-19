@@ -71,7 +71,7 @@ async function compareApproaches() {
   console.log('🔬 Comparing PR Checking Approaches\n');
   console.log('=' .repeat(60));
 
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
   const issues = [183, 184, 186, 194, 197]; // Mix of issues
 

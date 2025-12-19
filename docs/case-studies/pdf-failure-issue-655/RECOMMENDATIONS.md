@@ -263,7 +263,7 @@ for await (const chunk of streamPdfPages('large.pdf')) {
 
 ### 9. Add PDF Processing to Contributing Guidelines
 
-**For**: deep-assistant/hive-mind repository
+**For**: link-assistant/hive-mind repository
 
 **Action**: Add section to CONTRIBUTING.md:
 
@@ -314,7 +314,7 @@ See `examples/pdf-processing/` for working examples.
 
 ### 10. Create PDF Processing Examples
 
-**For**: deep-assistant/hive-mind repository
+**For**: link-assistant/hive-mind repository
 
 **Action**: Add example scripts in `examples/pdf-processing/`:
 

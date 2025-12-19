@@ -41,8 +41,8 @@ function extractGitHubUrl(text) {
 const testCases = [
   {
     desc: 'Plain issue URL',
-    text: 'https://github.com/deep-assistant/hive-mind/issues/603',
-    expected: 'https://github.com/deep-assistant/hive-mind/issues/603'
+    text: 'https://github.com/link-assistant/hive-mind/issues/603',
+    expected: 'https://github.com/link-assistant/hive-mind/issues/603'
   },
   {
     desc: 'Issue URL in a sentence',

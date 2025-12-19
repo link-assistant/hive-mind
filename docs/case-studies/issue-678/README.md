@@ -145,6 +145,6 @@ The solution is complete and ready for testing. Users experiencing these issues 
 
 ## Links
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/678
-- **Pull Request**: https://github.com/deep-assistant/hive-mind/pull/680
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/678
+- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/680
 - **Test Script**: [../../experiments/test-fork-compare-api-fix.mjs](../../experiments/test-fork-compare-api-fix.mjs)

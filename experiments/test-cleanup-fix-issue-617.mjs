@@ -59,7 +59,7 @@ try {
   console.log('   Creating CLAUDE.md commit...');
   await fs.promises.writeFile(path.join(testDir, 'CLAUDE.md'), 'Issue to solve: test\n');
   await $({ cwd: testDir })`git add CLAUDE.md`;
-  await $({ cwd: testDir })`git commit -m "Initial commit with task details for issue #123"`;
+  await $({ cwd: testDir })`git commit -m "Initial commit with task details"`;
 
   const claudeCommitResult = await $({ cwd: testDir })`git log --format=%H -1`;
   const claudeCommitHash = claudeCommitResult.stdout.toString().trim();

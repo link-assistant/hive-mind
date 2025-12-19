@@ -1,8 +1,8 @@
 # Case Study: Pricing Calculation Failures at PR Generation
 
 ## Issue Reference
-- **Issue**: [#667 - Make a detailed case study on why pricing calculation does not work at Pull Request generation of solve command](https://github.com/deep-assistant/hive-mind/issues/667)
-- **Pull Request**: [#668](https://github.com/deep-assistant/hive-mind/pull/668)
+- **Issue**: [#667 - Make a detailed case study on why pricing calculation does not work at Pull Request generation of solve command](https://github.com/link-assistant/hive-mind/issues/667)
+- **Pull Request**: [#668](https://github.com/link-assistant/hive-mind/pull/668)
 - **Referenced PR with failures**: [konard/hh-job-application-automation#49](https://github.com/konard/hh-job-application-automation/pull/49)
 
 ## Executive Summary

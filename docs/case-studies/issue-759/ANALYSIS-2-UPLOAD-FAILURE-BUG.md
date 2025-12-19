@@ -184,8 +184,8 @@ Log Size Check
 
 ## References
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/759
-- **Pull Request**: https://github.com/deep-assistant/hive-mind/pull/763
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/759
+- **Pull Request**: https://github.com/link-assistant/hive-mind/pull/763
 - **Source File**: `src/github.lib.mjs:662`
 - **First Gist**: https://gist.github.com/konard/d5059763df5684ad9e436673a8af0bc3
 - **Second Gist**: https://gist.github.com/konard/7257b11a986a6e712f0e11ba7c56b572

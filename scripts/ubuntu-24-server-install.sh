@@ -595,6 +595,9 @@ if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
 
   # Install latest LTS Java version (Java 21)
   log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  # Temporarily disable unbound variable check for SDK commands
+  # SDKMAN's scripts check variables that may not be set in non-interactive contexts
+  set +u
   if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
     # Install Eclipse Temurin (recommended OpenJDK distribution)
     sdk install java 21-tem < /dev/null || {
@@ -606,6 +609,7 @@ if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
   else
     log_info "Java 21 (Temurin) already installed."
   fi
+  set -u
 
   # Verify Java installation
   if command -v java &>/dev/null; then

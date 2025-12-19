@@ -672,6 +672,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Elan: not found' build-output.log; then
+            echo "ERROR: Elan installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Git: not found' build-output.log; then
             echo "ERROR: Git installation failed - showing as 'not found'"
             exit 1
@@ -679,6 +684,16 @@ jobs:
 
           if grep -E '\[!\] GitHub CLI: not found' build-output.log; then
             echo "ERROR: GitHub CLI installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lake: not found' build-output.log; then
+            echo "ERROR: Lake installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lean: not found' build-output.log; then
+            echo "ERROR: Lean installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -744,6 +759,12 @@ jobs:
             echo "WARNING: Deno success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Elan:' build-output.log; then
+            echo "Elan installation verified in build logs"
+          else
+            echo "WARNING: Elan success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Git:' build-output.log; then
             echo "Git installation verified in build logs"
           else
@@ -754,6 +775,18 @@ jobs:
             echo "GitHub CLI installation verified in build logs"
           else
             echo "WARNING: GitHub CLI success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lake:' build-output.log; then
+            echo "Lake installation verified in build logs"
+          else
+            echo "WARNING: Lake success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lean:' build-output.log; then
+            echo "Lean installation verified in build logs"
+          else
+            echo "WARNING: Lean success message not found in logs"
           fi
 
           if grep -E '\[✓\] Homebrew:' build-output.log; then
@@ -818,6 +851,7 @@ jobs:
             export HOME=/home/hive
             [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
             [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+            [ -s \"\$HOME/.elan/env\" ] && source \"\$HOME/.elan/env\"
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
@@ -853,6 +887,16 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Elan...'
+            if command -v elan &>/dev/null; then
+              elan --version
+              echo 'Elan is accessible'
+            else
+              echo 'Elan command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Git...'
             if command -v git &>/dev/null; then
               git --version
@@ -869,6 +913,26 @@ jobs:
               echo 'GitHub CLI is accessible'
             else
               echo 'GitHub CLI command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lake...'
+            if command -v lake &>/dev/null; then
+              lake --version
+              echo 'Lake is accessible'
+            else
+              echo 'Lake command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lean...'
+            if command -v lean &>/dev/null; then
+              lean --version
+              echo 'Lean is accessible'
+            else
+              echo 'Lean command not found in container'
               exit 1
             fi
 

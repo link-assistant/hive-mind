@@ -12,10 +12,10 @@ function debugCommentDisplay() {
   const newPrComments = 0;
   const newIssueComments = 0;
   
-  let prompt = `Issue to solve: https://github.com/deep-assistant/hive-mind/issues/108
+  let prompt = `Issue to solve: https://github.com/link-assistant/hive-mind/issues/108
 Your prepared branch: issue-108-33029b6d
 Your prepared working directory: /tmp/gh-issue-solver-1757833169610
-Your prepared Pull Request: https://github.com/deep-assistant/hive-mind/pull/109
+Your prepared Pull Request: https://github.com/link-assistant/hive-mind/pull/109
 Existing pull request's merge state status: CLEAN
 
 Continue.`;

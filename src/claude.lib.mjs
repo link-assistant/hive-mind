@@ -12,6 +12,7 @@ import { log, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -360,6 +361,33 @@ export const handleClaudeRuntimeSwitch = async (argv) => {
   }
 };
 /**
+ * Check if Playwright MCP is available and connected to Claude
+ * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
+ */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    // Try to run a simple claude command that would list MCP servers if available
+    // Use a timeout to avoid hanging if Claude is not installed
+    const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
+
+    if (!result || result.code !== 0) {
+      return false;
+    }
+
+    const output = result.stdout?.toString() || '';
+
+    // Check if playwright is in the list of MCP servers
+    if (output.toLowerCase().includes('playwright')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // If any error occurs, assume Playwright MCP is not available
+    return false;
+  }
+};
+/**
  * Execute Claude with all prompts and settings
  * This is the main entry point that handles all prompt building and execution
  * @param {Object} params - Parameters for Claude execution
@@ -462,7 +490,11 @@ export const executeClaude = async (params) => {
     forkedRepo,
     feedbackLines,
     claudePath,
-    $
+    $,
+    // For interactive mode
+    owner,
+    repo,
+    prNumber
   });
 };
 /**
@@ -488,7 +520,15 @@ export const fetchModelInfo = async (modelId) => {
         res.on('end', () => {
           try {
             const apiData = JSON.parse(data);
-            // Search for the model across all providers
+            // For public pricing calculation, prefer Anthropic provider for Claude models
+            // Check Anthropic provider first
+            if (apiData.anthropic?.models?.[modelId]) {
+              const modelInfo = apiData.anthropic.models[modelId];
+              modelInfo.provider = apiData.anthropic.name || 'Anthropic';
+              resolve(modelInfo);
+              return;
+            }
+            // Search for the model across all other providers
             for (const provider of Object.values(apiData)) {
               if (provider.models && provider.models[modelId]) {
                 const modelInfo = provider.models[modelId];
@@ -792,7 +832,11 @@ export const executeClaudeCommand = async (params) => {
     forkedRepo,
     feedbackLines,
     claudePath,
-    $  // Add command-stream $ to params
+    $,  // Add command-stream $ to params
+    // For interactive mode
+    owner,
+    repo,
+    prNumber
   } = params;
   // Retry configuration for API overload errors
   const maxRetries = 3;
@@ -837,6 +881,23 @@ export const executeClaudeCommand = async (params) => {
     let is503Error = false;
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+
+  // Create interactive mode handler if enabled
+  let interactiveHandler = null;
+  if (argv.interactiveMode && owner && repo && prNumber) {
+    await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
+    interactiveHandler = createInteractiveHandler({
+      owner,
+      repo,
+      prNumber,
+      $,
+      log,
+      verbose: argv.verbose
+    });
+  } else if (argv.interactiveMode) {
+    await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
+  }
+
   // Build claude command with optional resume flag
   let execCommand;
   // Map model alias to full ID
@@ -910,6 +971,15 @@ export const executeClaudeCommand = async (params) => {
           if (!line.trim()) continue;
           try {
             const data = JSON.parse(line);
+            // Process event in interactive mode (posts PR comments in real-time)
+            if (interactiveHandler) {
+              try {
+                await interactiveHandler.processEvent(data);
+              } catch (interactiveError) {
+                // Don't let interactive mode errors stop the main execution
+                await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
+              }
+            }
             // Output formatted JSON as in v0.3.2
             await log(JSON.stringify(data, null, 2));
             // Capture session ID from the first message
@@ -1035,6 +1105,16 @@ export const executeClaudeCommand = async (params) => {
         // Don't break here - let the loop finish naturally to process all output
       }
     }
+
+    // Flush any remaining queued comments from interactive mode
+    if (interactiveHandler) {
+      try {
+        await interactiveHandler.flush();
+      } catch (flushError) {
+        await log(`⚠️ Interactive mode flush error: ${flushError.message}`, { verbose: true });
+      }
+    }
+
     if ((commandFailed || isOverloadError) &&
         (isOverloadError ||
          (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ||

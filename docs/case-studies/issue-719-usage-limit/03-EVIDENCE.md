@@ -4,8 +4,8 @@
 
 This document compiles concrete evidence, logs, and a reconstructed timeline for Issue #719: usage limit handling across tools (Claude, Codex, OpenCode).
 
-- Issue: https://github.com/deep-assistant/hive-mind/issues/719
-- Pull Request: https://github.com/deep-assistant/hive-mind/pull/722
+- Issue: https://github.com/link-assistant/hive-mind/issues/719
+- Pull Request: https://github.com/link-assistant/hive-mind/pull/722
 
 ## Timeline
 

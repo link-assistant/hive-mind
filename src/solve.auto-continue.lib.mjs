@@ -128,7 +128,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // Execute the resume command
     const child = childProcess.spawn('node', resumeArgs, {
       stdio: 'inherit',
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: process.env
     });
 
     child.on('close', (code) => {

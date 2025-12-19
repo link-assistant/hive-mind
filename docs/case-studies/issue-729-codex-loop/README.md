@@ -122,9 +122,9 @@ if (limitReached && !argv.autoContinueLimit) {
 
 ## Related Issues
 
-- **[Issue #719](https://github.com/deep-assistant/hive-mind/issues/719)** - Original issue (usage limit handling)
-- **[PR #722](https://github.com/deep-assistant/hive-mind/pull/722)** - Where the loop occurred
-- **[Issue #729](https://github.com/deep-assistant/hive-mind/issues/729)** - This case study
+- **[Issue #719](https://github.com/link-assistant/hive-mind/issues/719)** - Original issue (usage limit handling)
+- **[PR #722](https://github.com/link-assistant/hive-mind/pull/722)** - Where the loop occurred
+- **[Issue #729](https://github.com/link-assistant/hive-mind/issues/729)** - This case study
 
 ## Log Repository
 

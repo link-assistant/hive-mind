@@ -1,7 +1,7 @@
 # Case Study: Log Truncation in GitHub Gist Display
 
 ## Issue Reference
-- **Issue URL**: https://github.com/deep-assistant/hive-mind/issues/759
+- **Issue URL**: https://github.com/link-assistant/hive-mind/issues/759
 - **Related PR**: https://github.com/konard/hh-job-application-automation/pull/88
 - **Uploaded Log Gist**: https://gist.github.com/konard/d5059763df5684ad9e436673a8af0bc3
 - **PR Comment**: https://github.com/konard/hh-job-application-automation/pull/88#issuecomment-3592731009

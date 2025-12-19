@@ -86,6 +86,10 @@ const { startWorkSession, endWorkSession } = sessionLib;
 const preparationLib = await import('./solve.preparation.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
 
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -115,6 +119,9 @@ if (argv.tool === 'opencode') {
 } else if (argv.tool === 'codex') {
   const codexLib = await import('./codex.lib.mjs');
   checkForUncommittedChanges = codexLib.checkForUncommittedChanges;
+} else if (argv.tool === 'agent') {
+  const agentLib = await import('./agent.lib.mjs');
+  checkForUncommittedChanges = agentLib.checkForUncommittedChanges;
 } else {
   checkForUncommittedChanges = claudeLib.checkForUncommittedChanges;
 }
@@ -194,10 +201,17 @@ if (!(await validateUrlRequirement(issueUrl))) {
 if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
   await safeExit(1, 'Feedback validation failed');
 }
+
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
 // Perform all system checks using validation module
-// Skip tool validation in dry-run mode or when --skip-tool-check or --no-tool-check is enabled
-const skipToolCheck = argv.dryRun || argv.skipToolCheck || !argv.toolCheck;
-if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.model, argv))) {
+// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
+// Note: This does NOT skip model validation which is performed above
+const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
 // URL validation debug logging
@@ -771,8 +785,48 @@ try {
       codexPath,
       $
     });
+  } else if (argv.tool === 'agent') {
+    const agentLib = await import('./agent.lib.mjs');
+    const { executeAgent } = agentLib;
+    const agentPath = process.env.AGENT_PATH || 'agent';
+
+    toolResult = await executeAgent({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      agentPath,
+      $
+    });
   } else {
     // Default to Claude
+    // Check for Playwright MCP availability if using Claude tool
+    if (argv.tool === 'claude' || !argv.tool) {
+      const { checkPlaywrightMcpAvailability } = claudeLib;
+      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+      if (playwrightMcpAvailable) {
+        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+        argv.promptPlaywrightMcp = true;
+      } else {
+        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+        argv.promptPlaywrightMcp = false;
+      }
+    }
     const claudeResult = await executeClaude({
       issueUrl,
       issueNumber,
@@ -802,6 +856,8 @@ try {
   const { success } = toolResult;
   let sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+  let publicPricingEstimate = toolResult.publicPricingEstimate;  // Used by agent tool
+  let pricingInfo = toolResult.pricingInfo;  // Used by agent tool for detailed pricing
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -819,8 +875,42 @@ try {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
-      // Post failure comment to PR if we have one
-      if (prNumber) {
+      // If --attach-logs is enabled and we have a PR, attach logs with usage limit details
+      if (shouldAttachLogs && sessionId && prNumber) {
+        await log('\n📄 Attaching logs to Pull Request...');
+        try {
+          // Build resume command
+          const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+          const logUploadSuccess = await attachLogToGitHub({
+            logFile: getLogFile(),
+            targetType: 'pr',
+            targetNumber: prNumber,
+            owner,
+            repo,
+            $,
+            log,
+            sanitizeLogContent,
+            // Mark this as a usage limit case for proper formatting
+            isUsageLimit: true,
+            limitResetTime: global.limitResetTime,
+            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                      (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            resumeCommand,
+            sessionId
+          });
+
+          if (logUploadSuccess) {
+            await log('  ✅ Logs uploaded successfully');
+          } else {
+            await log('  ⚠️  Failed to upload logs', { verbose: true });
+          }
+        } catch (uploadError) {
+          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+        }
+      } else if (prNumber) {
+        // Fallback: Post simple failure comment if logs are not attached
         try {
           const resetTime = global.limitResetTime;
           const failureComment = resetTime
@@ -838,33 +928,70 @@ try {
 
       await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
     } else {
-      // auto-continue-on-limit-reset is enabled - post waiting comment
+      // auto-continue-on-limit-reset is enabled - attach logs and/or post waiting comment
       if (prNumber && global.limitResetTime) {
-        try {
-          // Calculate wait time in d:h:m:s format
-          const validation = await import('./solve.validation.lib.mjs');
-          const { calculateWaitTime } = validation;
-          const waitMs = calculateWaitTime(global.limitResetTime);
+        // If --attach-logs is enabled, upload logs with usage limit details
+        if (shouldAttachLogs && sessionId) {
+          await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
+          try {
+            // Build resume command
+            const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+            const logUploadSuccess = await attachLogToGitHub({
+              logFile: getLogFile(),
+              targetType: 'pr',
+              targetNumber: prNumber,
+              owner,
+              repo,
+              $,
+              log,
+              sanitizeLogContent,
+              // Mark this as a usage limit case for proper formatting
+              isUsageLimit: true,
+              limitResetTime: global.limitResetTime,
+              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                        (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              resumeCommand,
+              sessionId
+            });
 
-          const formatWaitTime = (ms) => {
-            const seconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            const s = seconds % 60;
-            const m = minutes % 60;
-            const h = hours % 24;
-            return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-          };
-
-          const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
-
-          const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
-          if (commentResult.code === 0) {
-            await log('   Posted waiting comment to PR');
+            if (logUploadSuccess) {
+              await log('  ✅ Logs uploaded successfully');
+            } else {
+              await log('  ⚠️  Failed to upload logs', { verbose: true });
+            }
+          } catch (uploadError) {
+            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
           }
-        } catch (error) {
-          await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });
+        } else {
+          // Fallback: Post simple waiting comment if logs are not attached
+          try {
+            // Calculate wait time in d:h:m:s format
+            const validation = await import('./solve.validation.lib.mjs');
+            const { calculateWaitTime } = validation;
+            const waitMs = calculateWaitTime(global.limitResetTime);
+
+            const formatWaitTime = (ms) => {
+              const seconds = Math.floor(ms / 1000);
+              const minutes = Math.floor(seconds / 60);
+              const hours = Math.floor(minutes / 60);
+              const days = Math.floor(hours / 24);
+              const s = seconds % 60;
+              const m = minutes % 60;
+              const h = hours % 24;
+              return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
+
+            const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
+            if (commentResult.code === 0) {
+              await log('   Posted waiting comment to PR');
+            }
+          } catch (error) {
+            await log(`   Warning: Could not post waiting comment: ${cleanErrorMessage(error)}`, { verbose: true });
+          }
         }
       }
     }
@@ -891,7 +1018,8 @@ try {
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
           toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
                     (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
+                    (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
@@ -926,7 +1054,8 @@ try {
 
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

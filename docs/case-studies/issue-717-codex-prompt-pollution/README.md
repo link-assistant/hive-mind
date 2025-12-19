@@ -1,8 +1,8 @@
 # Case Study: Temporary Prompt Files Polluting Repository Workspace
 
 ## Issue Reference
-- **Issue**: [#717 - codex_prompt.txt created inside repository by solve command](https://github.com/deep-assistant/hive-mind/issues/717)
-- **Pull Request**: [#718](https://github.com/deep-assistant/hive-mind/pull/718)
+- **Issue**: [#717 - codex_prompt.txt created inside repository by solve command](https://github.com/link-assistant/hive-mind/issues/717)
+- **Pull Request**: [#718](https://github.com/link-assistant/hive-mind/pull/718)
 - **Example PR with pollution**: [link-foundation/ideav-local-associative-js#2](https://github.com/link-foundation/ideav-local-associative-js/pull/2)
 
 ## Executive Summary
@@ -184,8 +184,8 @@ opencode_prompt.txt
 ## Related Issues and Context
 
 ### Related Issues
-- [#715 - Codex authentication failures](https://github.com/deep-assistant/hive-mind/issues/715) - Mentions uncommitted codex_prompt.txt
-- [#717 - Current issue](https://github.com/deep-assistant/hive-mind/issues/717)
+- [#715 - Codex authentication failures](https://github.com/link-assistant/hive-mind/issues/715) - Mentions uncommitted codex_prompt.txt
+- [#717 - Current issue](https://github.com/link-assistant/hive-mind/issues/717)
 
 ### Related PRs
 - [link-foundation/ideav-local-associative-js#2](https://github.com/link-foundation/ideav-local-associative-js/pull/2) - Example of pollution

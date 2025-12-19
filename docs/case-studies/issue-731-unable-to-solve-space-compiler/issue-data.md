@@ -7,7 +7,7 @@
 **Author:** konard
 **Labels:** bug
 **Created:** 2025-11-13T19:43:38Z
-**URL:** https://github.com/deep-assistant/hive-mind/issues/731
+**URL:** https://github.com/link-assistant/hive-mind/issues/731
 
 ### Description
 ```

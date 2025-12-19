@@ -182,7 +182,7 @@ Replace lines 407-409 with:
 ```bash
 # --- Global bun packages ---
 log_info "Installing global bun packages..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai
+bun install -g @link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."

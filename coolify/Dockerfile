@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     build-essential \
     python3 \
+    expect \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -62,8 +63,8 @@ ENV PATH="/home/hive/.cargo/bin:${PATH}"
 # Install global npm/bun packages
 RUN bun install -g \
     @anthropic-ai/claude-code \
-    @deep-assistant/claude-profiles \
-    @deep-assistant/hive-mind
+    @link-assistant/claude-profiles \
+    @link-assistant/hive-mind
 
 # Create app directory
 WORKDIR /app

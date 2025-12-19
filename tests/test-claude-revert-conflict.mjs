@@ -8,7 +8,7 @@
  * regression of issue #625.
  *
  * References:
- * - Issue #625: https://github.com/deep-assistant/hive-mind/issues/625
+ * - Issue #625: https://github.com/link-assistant/hive-mind/issues/625
  * - Root cause: CLAUDE.md was modified after initial commit (e.g., by prettier)
  *   causing a merge conflict when git revert tries to revert the initial commit
  */
@@ -82,7 +82,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), appendedContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -131,7 +131,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), newContent);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();
@@ -175,7 +175,7 @@ Proceed.
 `;
     await fs.writeFile(path.join(tempDir, 'CLAUDE.md'), content);
     await $({ cwd: tempDir })`git add CLAUDE.md`;
-    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details for issue #19"`;
+    await $({ cwd: tempDir })`git commit -q -m "Initial commit with task details"`;
 
     const initialCommitResult = await $({ cwd: tempDir })`git rev-parse HEAD`;
     const initialCommitHash = initialCommitResult.stdout.trim();

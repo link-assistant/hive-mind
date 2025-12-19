@@ -1,7 +1,7 @@
 # Case Study: Issue #642 - Codex Watch Mode and Network Issues
 
 ## Issue Reference
-- **Issue**: [#642](https://github.com/deep-assistant/hive-mind/issues/642)
+- **Issue**: [#642](https://github.com/link-assistant/hive-mind/issues/642)
 - **Title**: Fix codex issues
 - **Date**: 2025-11-01
 - **Reporter**: @konard
@@ -266,5 +266,5 @@ The main issue was that the user interrupted the process (Ctrl+C) before it coul
 
 ### Related Commits
 
-- [935b44b](https://github.com/deep-assistant/hive-mind/commit/935b44b) - Fix codex session ID extraction to support thread_id
-- [9115196](https://github.com/deep-assistant/hive-mind/commit/9115196) - Fix auto-restart bug when uncommitted changes are detected
+- [935b44b](https://github.com/link-assistant/hive-mind/commit/935b44b) - Fix codex session ID extraction to support thread_id
+- [9115196](https://github.com/link-assistant/hive-mind/commit/9115196) - Fix auto-restart bug when uncommitted changes are detected

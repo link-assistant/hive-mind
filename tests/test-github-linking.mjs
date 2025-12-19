@@ -7,7 +7,7 @@
  * for linking pull requests to issues, and prevents regression of issue #568.
  *
  * References:
- * - Issue #568: https://github.com/deep-assistant/hive-mind/issues/568
+ * - Issue #568: https://github.com/link-assistant/hive-mind/issues/568
  * - PR #558: Missing "Resolves #515" keyword
  * - PR #563: Used "Implements issue #524" which is NOT a GitHub keyword
  */
@@ -89,8 +89,8 @@ const validFormats = [
   { prBody: 'Closed #55', issueNumber: '55', desc: 'Closed #N' },
   { prBody: 'Resolved #44', issueNumber: '44', desc: 'Resolved #N' },
   { prBody: 'Some text here\n\nFixes #515\n\nMore text', issueNumber: '515', desc: 'Fixes #N in middle of text' },
-  { prBody: 'Fixes deep-assistant/hive-mind#515', issueNumber: '515', owner: 'deep-assistant', repo: 'hive-mind', desc: 'Fixes owner/repo#N' },
-  { prBody: 'Resolves https://github.com/deep-assistant/hive-mind/issues/515', issueNumber: '515', owner: 'deep-assistant', repo: 'hive-mind', desc: 'Resolves full URL' },
+  { prBody: 'Fixes link-assistant/hive-mind#515', issueNumber: '515', owner: 'link-assistant', repo: 'hive-mind', desc: 'Fixes owner/repo#N' },
+  { prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515', issueNumber: '515', owner: 'link-assistant', repo: 'hive-mind', desc: 'Resolves full URL' },
   { prBody: 'Multiple changes\n\n---\n\nResolves #568', issueNumber: '568', desc: 'Resolves #N after separator' },
 ];
 
@@ -167,8 +167,8 @@ console.log('\n📋 Test Suite 5: Issue Number Extraction\n');
 const extractionTests = [
   { prBody: 'Fixes #515', expected: '515', desc: 'Extract from Fixes #N' },
   { prBody: 'Closes #42', expected: '42', desc: 'Extract from Closes #N' },
-  { prBody: 'Resolves deep-assistant/hive-mind#568', expected: '568', desc: 'Extract from owner/repo#N' },
-  { prBody: 'Fixes https://github.com/deep-assistant/hive-mind/issues/123', expected: '123', desc: 'Extract from full URL' },
+  { prBody: 'Resolves link-assistant/hive-mind#568', expected: '568', desc: 'Extract from owner/repo#N' },
+  { prBody: 'Fixes https://github.com/link-assistant/hive-mind/issues/123', expected: '123', desc: 'Extract from full URL' },
   { prBody: 'No issue here', expected: null, desc: 'Return null when no issue found' },
   { prBody: 'Implements issue #524', expected: null, desc: 'Return null for non-GitHub keyword' },
   { prBody: '', expected: null, desc: 'Return null for empty body' },

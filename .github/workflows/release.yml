@@ -707,6 +707,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Go: not found' build-output.log; then
+            echo "ERROR: Go installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Homebrew: not found' build-output.log; then
             echo "ERROR: Homebrew installation failed - showing as 'not found'"
             exit 1
@@ -826,6 +831,12 @@ jobs:
             echo "WARNING: GitHub CLI success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Go:' build-output.log; then
+            echo "Go installation verified in build logs"
+          else
+            echo "WARNING: Go success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Homebrew:' build-output.log; then
             echo "Homebrew installation verified in build logs"
           else
@@ -909,6 +920,12 @@ jobs:
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+            # Source Go environment
+            if [ -d \"\$HOME/.go\" ]; then
+              export GOROOT=\"\$HOME/.go\"
+              export GOPATH=\"\$HOME/go\"
+              export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
+            fi
 
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
@@ -1007,6 +1024,16 @@ jobs:
               echo 'GitHub CLI is accessible'
             else
               echo 'GitHub CLI command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Go...'
+            if command -v go &>/dev/null; then
+              go version
+              echo 'Go is accessible'
+            else
+              echo 'Go command not found in container'
               exit 1
             fi
 

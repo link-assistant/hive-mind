@@ -10,7 +10,8 @@
     "task": "./src/task.mjs",
     "review": "./src/review.mjs",
     "start-screen": "./src/start-screen.mjs",
-    "hive-telegram-bot": "./src/telegram-bot.mjs"
+    "hive-telegram-bot": "./src/telegram-bot.mjs",
+    "org-clone": "./src/org-clone.mjs"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

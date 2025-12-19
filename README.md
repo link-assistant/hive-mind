@@ -279,6 +279,12 @@ hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 # Monitor all issues in organization with auto-fork
 hive https://github.com/microsoft --all-issues --max-issues 10 --auto-fork
 
+# Clone entire organization for full local context
+org-clone deep-assistant --dir ./workspaces/deep-assistant --threads 8
+
+# Clone user repositories with SSH
+org-clone octocat --dir ./repos --ssh --threads 4
+
 # Run collaborative review process
 review --repo owner/repo --pr 456
 
@@ -292,6 +298,7 @@ review --repo owner/repo --pr 456
 |--------|---------|--------------|
 | `solve.mjs` (stable) | GitHub issue solver | Auto fork, branch creation, PR generation, resume sessions, fork support |
 | `hive.mjs` (stable) | AI orchestration & monitoring | Multi-repo monitoring, concurrent workers, issue queue management |
+| `org-clone.mjs` (stable) | Organization repository cloning | Clone all repos from org/user, parallel processing, auto-update |
 | `review.mjs` (alpha) | Code review automation | Collaborative AI reviews, automated feedback |
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management | Multi-agent consensus, reviewer assignment |
 | `telegram-bot.mjs` (stable) | Telegram bot interface | Remote command execution, group chat support, diagnostic tools |
@@ -346,6 +353,22 @@ solve <issue-url> [options]
   --auto-cleanup        Delete temp directory on completion
                         [default: true for private repos, false for public repos]
   --version             Show version number
+  --help, -h            Show help
+```
+
+## 🔧 org-clone Options
+```bash
+org-clone <org-or-user> [options]
+
+  --dir, -d             Target directory for cloning            [default: cwd]
+  --ssh                 Use SSH for cloning                     [default: false]
+  --threads, -t         Number of parallel operations           [default: 8]
+  --verbose, -v         Enable verbose logging                  [default: false]
+  --dry-run, -n         List repositories without cloning       [default: false]
+  --include-forks       Include forked repositories             [default: false]
+  --include-archived    Include archived repositories           [default: false]
+  --log-dir, -l         Directory for log files                 [default: cwd]
+  --sentry              Enable Sentry error tracking            [default: true]
   --help, -h            Show help
 ```
 
@@ -598,6 +621,24 @@ hive https://github.com/org/repo --skip-issues-with-prs --verbose
 
 # Auto-cleanup temporary files and auto-fork if needed
 hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
+```
+
+### Organization Clone
+```bash
+# Clone all repositories from an organization
+org-clone deep-assistant --dir ./workspaces/deep-assistant
+
+# Clone with SSH and custom thread count
+org-clone octocat --dir ./repos --ssh --threads 16
+
+# Dry run to see what would be cloned
+org-clone microsoft --dry-run --include-forks
+
+# Clone user repositories excluding archived
+org-clone username --dir ./my-repos --threads 4
+
+# Include all repositories (forks and archived)
+org-clone myorg --include-forks --include-archived --verbose
 ```
 
 ### Session Management

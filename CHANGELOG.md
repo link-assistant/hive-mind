@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 0.41.9
+
+### Patch Changes
+
+- 1635432: Add C/C++ development tools (CMake, Clang/LLVM, GCC, Make) to Ubuntu 24 server installation script with CI verification
+
+## 0.41.8
+
+### Patch Changes
+
+- 80aff72: Add Deno runtime installation support to Ubuntu 24 server installation script and Docker environment
+
 ## 0.41.7
 
 ### Patch Changes

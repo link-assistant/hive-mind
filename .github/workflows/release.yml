@@ -667,8 +667,33 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Clang: not found' build-output.log; then
+            echo "ERROR: Clang installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Clang\+\+: not found' build-output.log; then
+            echo "ERROR: Clang++ installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] CMake: not found' build-output.log; then
+            echo "ERROR: CMake installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Deno: not found' build-output.log; then
             echo "ERROR: Deno installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] G\+\+: not found' build-output.log; then
+            echo "ERROR: G++ installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] GCC: not found' build-output.log; then
+            echo "ERROR: GCC installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -682,6 +707,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Go: not found' build-output.log; then
+            echo "ERROR: Go installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Homebrew: not found' build-output.log; then
             echo "ERROR: Homebrew installation failed - showing as 'not found'"
             exit 1
@@ -692,6 +722,21 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] LLD Linker: not found' build-output.log; then
+            echo "ERROR: LLD Linker installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] LLVM: not found' build-output.log; then
+            echo "ERROR: LLVM installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Make: not found' build-output.log; then
+            echo "ERROR: Make installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Node\.js: not found' build-output.log; then
             echo "ERROR: Node.js installation failed - showing as 'not found'"
             exit 1
@@ -699,6 +744,11 @@ jobs:
 
           if grep -E '\[!\] NPM: not found' build-output.log; then
             echo "ERROR: NPM installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Opam: not found' build-output.log; then
+            echo "ERROR: Opam installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -719,6 +769,11 @@ jobs:
 
           if grep -E '\[!\] Pyenv: not found' build-output.log; then
             echo "ERROR: Pyenv installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Rocq/Coq: not found' build-output.log; then
+            echo "ERROR: Rocq/Coq installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -748,10 +803,40 @@ jobs:
             echo "WARNING: Cargo success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Clang:' build-output.log; then
+            echo "Clang installation verified in build logs"
+          else
+            echo "WARNING: Clang success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Clang\+\+:' build-output.log; then
+            echo "Clang++ installation verified in build logs"
+          else
+            echo "WARNING: Clang++ success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] CMake:' build-output.log; then
+            echo "CMake installation verified in build logs"
+          else
+            echo "WARNING: CMake success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Deno:' build-output.log; then
             echo "Deno installation verified in build logs"
           else
             echo "WARNING: Deno success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] G\+\+:' build-output.log; then
+            echo "G++ installation verified in build logs"
+          else
+            echo "WARNING: G++ success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] GCC:' build-output.log; then
+            echo "GCC installation verified in build logs"
+          else
+            echo "WARNING: GCC success message not found in logs"
           fi
 
           if grep -E '\[✓\] Git:' build-output.log; then
@@ -766,6 +851,12 @@ jobs:
             echo "WARNING: GitHub CLI success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Go:' build-output.log; then
+            echo "Go installation verified in build logs"
+          else
+            echo "WARNING: Go success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Homebrew:' build-output.log; then
             echo "Homebrew installation verified in build logs"
           else
@@ -778,6 +869,24 @@ jobs:
             echo "WARNING: Java success message not found in logs"
           fi
 
+          if grep -E '\[✓\] LLD Linker:' build-output.log; then
+            echo "LLD Linker installation verified in build logs"
+          else
+            echo "WARNING: LLD Linker success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] LLVM:' build-output.log; then
+            echo "LLVM installation verified in build logs"
+          else
+            echo "WARNING: LLVM success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Make:' build-output.log; then
+            echo "Make installation verified in build logs"
+          else
+            echo "WARNING: Make success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Node\.js:' build-output.log; then
             echo "Node.js installation verified in build logs"
           else
@@ -788,6 +897,12 @@ jobs:
             echo "NPM installation verified in build logs"
           else
             echo "WARNING: NPM success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Opam:' build-output.log; then
+            echo "Opam installation verified in build logs"
+          else
+            echo "WARNING: Opam success message not found in logs"
           fi
 
           if grep -E '\[✓\] PHP:' build-output.log; then
@@ -812,6 +927,12 @@ jobs:
             echo "Pyenv installation verified in build logs"
           else
             echo "WARNING: Pyenv success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
+            echo "Rocq/Coq installation verified in build logs"
+          else
+            echo "WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)"
           fi
 
           if grep -E '\[✓\] Rust:' build-output.log; then
@@ -845,6 +966,12 @@ jobs:
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
             export SDKMAN_DIR=\"\$HOME/.sdkman\"
             if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
+            # Source Go environment
+            if [ -d \"\$HOME/.go\" ]; then
+              export GOROOT=\"\$HOME/.go\"
+              export GOPATH=\"\$HOME/go\"
+              export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
+            fi
 
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
@@ -867,12 +994,62 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Clang...'
+            if command -v clang &>/dev/null; then
+              clang --version | head -n1
+              echo 'Clang is accessible'
+            else
+              echo 'Clang command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Clang++...'
+            if command -v clang++ &>/dev/null; then
+              clang++ --version | head -n1
+              echo 'Clang++ is accessible'
+            else
+              echo 'Clang++ command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking CMake...'
+            if command -v cmake &>/dev/null; then
+              cmake --version | head -n1
+              echo 'CMake is accessible'
+            else
+              echo 'CMake command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Deno...'
             if command -v deno &>/dev/null; then
               deno --version | head -n1
               echo 'Deno is accessible'
             else
               echo 'Deno command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking G++...'
+            if command -v g++ &>/dev/null; then
+              g++ --version | head -n1
+              echo 'G++ is accessible'
+            else
+              echo 'G++ command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking GCC...'
+            if command -v gcc &>/dev/null; then
+              gcc --version | head -n1
+              echo 'GCC is accessible'
+            else
+              echo 'GCC command not found in container'
               exit 1
             fi
 
@@ -897,6 +1074,16 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Go...'
+            if command -v go &>/dev/null; then
+              go version
+              echo 'Go is accessible'
+            else
+              echo 'Go command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Homebrew...'
             if command -v brew &>/dev/null; then
               brew --version | head -n1
@@ -917,6 +1104,36 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking LLD Linker...'
+            if command -v lld &>/dev/null; then
+              lld --version | head -n1
+              echo 'LLD Linker is accessible'
+            else
+              echo 'LLD Linker command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking LLVM...'
+            if command -v llvm-config &>/dev/null; then
+              echo \"LLVM \$(llvm-config --version)\"
+              echo 'LLVM is accessible'
+            else
+              echo 'LLVM command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Make...'
+            if command -v make &>/dev/null; then
+              make --version | head -n1
+              echo 'Make is accessible'
+            else
+              echo 'Make command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Node.js...'
             if command -v node &>/dev/null; then
               node --version
@@ -933,6 +1150,16 @@ jobs:
               echo 'NPM is accessible'
             else
               echo 'NPM command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Opam...'
+            if command -v opam &>/dev/null; then
+              opam --version
+              echo 'Opam is accessible'
+            else
+              echo 'Opam command not found in container'
               exit 1
             fi
 
@@ -979,6 +1206,22 @@ jobs:
             else
               echo 'Pyenv command not found in container'
               exit 1
+            fi
+
+            echo ''
+            echo 'Checking Rocq/Coq...'
+            # Source opam environment for Rocq/Coq access
+            if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
+              source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
+            fi
+            if command -v rocq &>/dev/null; then
+              rocq --version | head -n1
+              echo 'Rocq is accessible'
+            elif command -v coqc &>/dev/null; then
+              coqc --version | head -n1
+              echo 'Coq is accessible'
+            else
+              echo 'Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)'
             fi
 
             echo ''

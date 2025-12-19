@@ -1228,8 +1228,9 @@ bot.command(/^hive$/i, async (ctx) => {
 // Store active top sessions: Map<chatId, { messageId, screenName, intervalId }>
 const activeTopSessions = new Map();
 
-// /top command - show system top output in an auto-updating message
+// /top command - show system top output in an auto-updating message (EXPERIMENTAL)
 // Only accessible by chat owner
+// Not documented in /help as requested in issue #500
 bot.command('top', async (ctx) => {
   if (VERBOSE) {
     console.log('[VERBOSE] /top command received');
@@ -1288,6 +1289,12 @@ bot.command('top', async (ctx) => {
     console.log('[VERBOSE] /top passed all checks, starting...');
   }
 
+  // Show experimental feature warning
+  await ctx.reply('🧪 *EXPERIMENTAL FEATURE*\n\nThis command is experimental and may have issues. Use with caution.', {
+    parse_mode: 'Markdown',
+    reply_to_message_id: ctx.message.message_id
+  });
+
   // Check if there's already an active top session for this chat
   if (activeTopSessions.has(chatId)) {
     await ctx.reply('❌ A top session is already running for this chat. Stop it first using the button.', { reply_to_message_id: ctx.message.message_id });
@@ -1302,7 +1309,7 @@ bot.command('top', async (ctx) => {
   try {
     const { stdout } = await exec('screen -ls');
     sessionExists = stdout.includes(screenName);
-  } catch (error) {
+  } catch {
     // screen -ls returns non-zero when no sessions exist
     sessionExists = false;
   }
@@ -1346,7 +1353,7 @@ bot.command('top', async (ctx) => {
   };
 
   // Send initial message with loading indicator
-  const initialMessage = await ctx.reply('📊 Loading system monitor...', {
+  const initialMessage = await ctx.reply('🧪 📊 Loading system monitor... (EXPERIMENTAL)', {
     reply_to_message_id: ctx.message.message_id,
     reply_markup: {
       inline_keyboard: [[

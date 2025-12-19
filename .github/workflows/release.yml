@@ -742,6 +742,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Opam: not found' build-output.log; then
+            echo "ERROR: Opam installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] PHP: not found' build-output.log; then
             echo "ERROR: PHP installation failed - showing as 'not found'"
             exit 1
@@ -759,6 +764,11 @@ jobs:
 
           if grep -E '\[!\] Pyenv: not found' build-output.log; then
             echo "ERROR: Pyenv installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Rocq/Coq: not found' build-output.log; then
+            echo "ERROR: Rocq/Coq installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -873,6 +883,12 @@ jobs:
             echo "WARNING: NPM success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Opam:' build-output.log; then
+            echo "Opam installation verified in build logs"
+          else
+            echo "WARNING: Opam success message not found in logs"
+          fi
+
           if grep -E '\[✓\] PHP:' build-output.log; then
             echo "PHP installation verified in build logs"
           else
@@ -895,6 +911,12 @@ jobs:
             echo "Pyenv installation verified in build logs"
           else
             echo "WARNING: Pyenv success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
+            echo "Rocq/Coq installation verified in build logs"
+          else
+            echo "WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)"
           fi
 
           if grep -E '\[✓\] Rust:' build-output.log; then
@@ -1098,6 +1120,16 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Opam...'
+            if command -v opam &>/dev/null; then
+              opam --version
+              echo 'Opam is accessible'
+            else
+              echo 'Opam command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking PHP...'
             if command -v php &>/dev/null; then
               php --version | head -n1
@@ -1140,6 +1172,22 @@ jobs:
             else
               echo 'Pyenv command not found in container'
               exit 1
+            fi
+
+            echo ''
+            echo 'Checking Rocq/Coq...'
+            # Source opam environment for Rocq/Coq access
+            if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
+              source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
+            fi
+            if command -v rocq &>/dev/null; then
+              rocq --version | head -n1
+              echo 'Rocq is accessible'
+            elif command -v coqc &>/dev/null; then
+              coqc --version | head -n1
+              echo 'Coq is accessible'
+            else
+              echo 'Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)'
             fi
 
             echo ''

@@ -20,6 +20,9 @@ if (typeof globalThis.use === 'undefined') {
 
 const getenv = await use('getenv');
 
+// Import lino for parsing Links Notation format
+const { lino } = await import('./lino.lib.mjs');
+
 // Helper function to safely parse integers with fallback
 const parseIntWithDefault = (envVar, defaultValue) => {
   const value = getenv(envVar, defaultValue.toString());
@@ -38,6 +41,7 @@ const parseFloatWithDefault = (envVar, defaultValue) => {
 export const timeouts = {
   claudeCli: parseIntWithDefault('HIVE_MIND_CLAUDE_TIMEOUT_SECONDS', 60) * 1000,
   opencodeCli: parseIntWithDefault('HIVE_MIND_OPENCODE_TIMEOUT_SECONDS', 60) * 1000,
+  codexCli: parseIntWithDefault('HIVE_MIND_CODEX_TIMEOUT_SECONDS', 60) * 1000,
   githubApiDelay: parseIntWithDefault('HIVE_MIND_GITHUB_API_DELAY_MS', 5000),
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
@@ -111,8 +115,21 @@ export const externalUrls = {
 };
 
 // Model configurations
+// Default available models in Links Notation format (only aliases)
+const defaultAvailableModels = `(
+  opus
+  sonnet
+  haiku
+)`;
+
 export const modelConfig = {
-  availableModels: getenv('HIVE_MIND_AVAILABLE_MODELS', 'opus,sonnet,claude-sonnet-4-5-20250929,claude-opus-4-1-20250805').split(','),
+  availableModels: (() => {
+    const envValue = getenv('HIVE_MIND_AVAILABLE_MODELS', defaultAvailableModels);
+    // Parse Links Notation format
+    const parsed = lino.parse(envValue);
+    // If parsing returns empty array, fall back to the three aliases
+    return parsed.length > 0 ? parsed : ['opus', 'sonnet', 'haiku'];
+  })(),
   defaultModel: getenv('HIVE_MIND_DEFAULT_MODEL', 'sonnet'),
   // Allow any model ID - validation is delegated to the tool implementation
   restrictModels: getenv('HIVE_MIND_RESTRICT_MODELS', 'false').toLowerCase() === 'true',

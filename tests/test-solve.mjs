@@ -171,14 +171,14 @@ runTest('solve.mjs loads successfully', () => {
   }
 });
 
-// Test 13: Check --skip-tool-check flag is available
-runTest('solve.mjs --skip-tool-check flag', () => {
+// Test 13: Check --skip-tool-connection-check flag is available
+runTest('solve.mjs --skip-tool-connection-check flag', () => {
   const output = execCommand(`${solvePath} --help 2>&1`);
-  if (!output.includes('skip-tool-check')) {
-    throw new Error('--skip-tool-check option not found in help output');
+  if (!output.includes('skip-tool-connection-check')) {
+    throw new Error('--skip-tool-connection-check option not found in help output');
   }
   if (!output.includes('Skip tool connection check')) {
-    throw new Error('--skip-tool-check description not found in help output');
+    throw new Error('--skip-tool-connection-check description not found in help output');
   }
 });
 

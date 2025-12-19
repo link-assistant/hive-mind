@@ -1,0 +1,323 @@
+14:import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+445:  // Escape prompts for shell usage
+469: * Calculate total token usage from a session's JSONL file
+472: * @returns {Object} Token usage statistics
+517: * Calculate USD cost for a model's usage with detailed breakdown
+518: * @param {Object} usage - Token usage object
+523:export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
+535:  if (usage.inputTokens && cost.input) {
+537:      tokens: usage.inputTokens,
+539:      cost: (usage.inputTokens / 1000000) * cost.input
+543:  if (usage.cacheCreationTokens && cost.cache_write) {
+545:      tokens: usage.cacheCreationTokens,
+547:      cost: (usage.cacheCreationTokens / 1000000) * cost.cache_write
+551:  if (usage.cacheReadTokens && cost.cache_read) {
+553:      tokens: usage.cacheReadTokens,
+555:      cost: (usage.cacheReadTokens / 1000000) * cost.cache_read
+559:  if (usage.outputTokens && cost.output) {
+561:      tokens: usage.outputTokens,
+563:      cost: (usage.outputTokens / 1000000) * cost.output
+576: * Display detailed model usage information
+577: * @param {Object} usage - Usage data for a model
+580:const displayModelUsage = async (usage, log) => {
+582:  if (usage.modelInfo) {
+583:    const info = usage.modelInfo;
+587:      { label: 'Context window', value: info.limit?.context ? `${formatNumber(info.limit.context)} tokens` : null },
+588:      { label: 'Max output', value: info.limit?.output ? `${formatNumber(info.limit.output)} tokens` : null },
+603:  // Show usage data
+605:  await log(`        Input tokens: ${formatNumber(usage.inputTokens)}`);
+606:  if (usage.cacheCreationTokens > 0) {
+607:    await log(`        Cache creation tokens: ${formatNumber(usage.cacheCreationTokens)}`);
+609:  if (usage.cacheReadTokens > 0) {
+610:    await log(`        Cache read tokens: ${formatNumber(usage.cacheReadTokens)}`);
+612:  await log(`        Output tokens: ${formatNumber(usage.outputTokens)}`);
+613:  if (usage.webSearchRequests > 0) {
+614:    await log(`        Web search requests: ${usage.webSearchRequests}`);
+617:  if (usage.costUSD !== null && usage.costUSD !== undefined && usage.costBreakdown) {
+620:    const breakdown = usage.costBreakdown;
+633:    await log(`        Total: $${usage.costUSD.toFixed(6)}`);
+634:  } else if (usage.modelInfo === null) {
+654:  // Initialize per-model usage tracking
+665:        if (entry.message && entry.message.usage && entry.message.model) {
+667:          const usage = entry.message.usage;
+681:          if (usage.input_tokens) {
+682:            modelUsage[model].inputTokens += usage.input_tokens;
+685:          if (usage.cache_creation_input_tokens) {
+686:            modelUsage[model].cacheCreationTokens += usage.cache_creation_input_tokens;
+689:          if (usage.cache_creation) {
+690:            if (usage.cache_creation.ephemeral_5m_input_tokens) {
+691:              modelUsage[model].cacheCreation5mTokens += usage.cache_creation.ephemeral_5m_input_tokens;
+693:            if (usage.cache_creation.ephemeral_1h_input_tokens) {
+694:              modelUsage[model].cacheCreation1hTokens += usage.cache_creation.ephemeral_1h_input_tokens;
+698:          if (usage.cache_read_input_tokens) {
+699:            modelUsage[model].cacheReadTokens += usage.cache_read_input_tokens;
+702:          if (usage.output_tokens) {
+703:            modelUsage[model].outputTokens += usage.output_tokens;
+711:    // If no usage data was found, return null
+728:    for (const [modelId, usage] of Object.entries(modelUsage)) {
+732:        const costData = calculateModelCost(usage, modelInfo, true);
+733:        usage.costUSD = costData.total;
+734:        usage.costBreakdown = costData.breakdown;
+735:        usage.modelName = modelInfo.name || modelId;
+736:        usage.modelInfo = modelInfo; // Store complete model info
+738:        usage.costUSD = null;
+739:        usage.costBreakdown = null;
+740:        usage.modelName = modelId;
+741:        usage.modelInfo = null;
+751:    for (const usage of Object.values(modelUsage)) {
+752:      totalInputTokens += usage.inputTokens;
+753:      totalCacheCreationTokens += usage.cacheCreationTokens;
+754:      totalCacheReadTokens += usage.cacheReadTokens;
+755:      totalOutputTokens += usage.outputTokens;
+756:      if (usage.costUSD !== null) {
+757:        totalCostUSD += usage.costUSD;
+831:    let limitReached = false;
+832:    let limitResetTime = null;
+904:        // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+949:            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+960:                if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
+961:                  limitReached = true;
+962:                  await log('⚠️ Detected session limit in result', { verbose: true });
+1058:          limitReached: false,
+1059:          limitResetTime: null,
+1106:          limitReached: false,
+1107:          limitResetTime: null,
+1115:      // Check for usage limit errors first (more specific)
+1116:      const limitInfo = detectUsageLimit(lastMessage);
+1117:      if (limitInfo.isUsageLimit) {
+1118:        limitReached = true;
+1119:        limitResetTime = limitInfo.resetTime;
+1124:          resetTime: limitInfo.resetTime,
+1181:        limitReached,
+1182:        limitResetTime,
+1189:    // Calculate and display total token usage from session JSONL file
+1199:              const usage = tokenUsage.modelUsage[modelId];
+1200:              await log(`\n   📊 ${usage.modelName || modelId}:`);
+1201:              await displayModelUsage(usage, log);
+1270:        await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
+1276:      limitReached,
+1277:      limitResetTime,
+1323:      limitReached,
+1324:      limitResetTime: null,
+    tempDir,
+    branchName,
+    prompt,
+    systemPrompt,
+    escapedPrompt,
+    escapedSystemPrompt,
+    argv,
+    log,
+    setLogFile,
+    getLogFile,
+    formatAligned,
+    getResourceSnapshot,
+    forkedRepo,
+    feedbackLines,
+    claudePath,
+    $  // Add command-stream $ to params
+  } = params;
+  // Retry configuration for API overload errors
+  const maxRetries = 3;
+  const baseDelay = timeouts.retryBaseDelay;
+  let retryCount = 0;
+  // Function to execute with retry logic
+  const executeWithRetry = async () => {
+    // Execute claude command from the cloned repository directory
+    if (retryCount === 0) {
+      await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
+    } else {
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+    }
+    if (argv.verbose) {
+    // Output the actual model being used
+    const modelName = argv.model === 'opus' ? 'opus' : 'sonnet';
+    await log(`   Model: ${modelName}`, { verbose: true });
+    await log(`   Working directory: ${tempDir}`, { verbose: true });
+    await log(`   Branch: ${branchName}`, { verbose: true });
+    await log(`   Prompt length: ${prompt.length} chars`, { verbose: true });
+    await log(`   System prompt length: ${systemPrompt.length} chars`, { verbose: true });
+    if (feedbackLines && feedbackLines.length > 0) {
+      await log(`   Feedback info included: Yes (${feedbackLines.length} lines)`, { verbose: true });
+    } else {
+      await log('   Feedback info included: No', { verbose: true });
+    }
+  }
+  // Take resource snapshot before execution
+  const resourcesBefore = await getResourceSnapshot();
+  await log('📈 System resources before execution:', { verbose: true });
+  await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+  await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
+    // Use command-stream's async iteration for real-time streaming with file logging
+    let commandFailed = false;
+    let sessionId = null;
+    let limitReached = false;
+    let limitResetTime = null;
+    let messageCount = 0;
+    let toolUseCount = 0;
+    let lastMessage = '';
+    let isOverloadError = false;
+    let is503Error = false;
+    let stderrErrors = [];
+    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+  // Build claude command with optional resume flag
+  let execCommand;
+  // Map model alias to full ID
+  const mappedModel = mapModelToId(argv.model);
+  // Build claude command arguments
+  let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
+  if (argv.resume) {
+    await log(`🔄 Resuming from session: ${argv.resume}`);
+    claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
+  }
+  claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+  // Build the full command for display (with jq for formatting as in v0.3.2)
+  const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
+  // Print the actual raw command being executed
+  await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
+  await log(`${fullCommand}`);
+  await log('');
+  // Output prompts in verbose mode for debugging
+  if (argv.verbose) {
+    await log('📋 User prompt:', { verbose: true });
+    await log('---BEGIN USER PROMPT---', { verbose: true });
+    await log(prompt, { verbose: true });
+    await log('---END USER PROMPT---', { verbose: true });
+    await log('', { verbose: true });
+    await log('📋 System prompt:', { verbose: true });
+    await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
+    await log(systemPrompt, { verbose: true });
+    await log('---END SYSTEM PROMPT---', { verbose: true });
+    await log('', { verbose: true });
+  }
+  try {
+    if (argv.resume) {
+      // When resuming, pass prompt directly with -p flag
+      // Use simpler escaping - just escape double quotes
+      const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      execCommand = $({
+        cwd: tempDir,
+        mirror: false
+      })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+    } else {
+      // When not resuming, pass prompt via stdin
+      // For system prompt, escape it properly for shell - just escape double quotes
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      execCommand = $({
+        cwd: tempDir,
+        stdin: prompt,
+        mirror: false
+      })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+    }
+    await log(`${formatAligned('📋', 'Command details:', '')}`);
+    await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+    await log(formatAligned('🌿', 'Branch:', branchName, 2));
+    await log(formatAligned('🤖', 'Model:', `Claude ${argv.model.toUpperCase()}`, 2));
+    if (argv.fork && forkedRepo) {
+      await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+    }
+    await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+    // Use command-stream's async iteration for real-time streaming
+    let exitCode = 0;
+    for await (const chunk of execCommand.stream()) {
+      if (chunk.type === 'stdout') {
+        const output = chunk.data.toString();
+        // Split output into individual lines for NDJSON parsing
+        // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+        // This allows us to parse each event independently and extract structured data like session IDs,
+        // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
+        // since multiple JSON objects aren't valid JSON together.
+        const lines = output.split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            // Output formatted JSON as in v0.3.2
+            await log(JSON.stringify(data, null, 2));
+            // Capture session ID from the first message
+            if (!sessionId && data.session_id) {
+              sessionId = data.session_id;
+              await log(`📌 Session ID: ${sessionId}`);
+              // Try to rename log file to include session ID
+              let sessionLogFile;
+          let remainingMs = delay;
+          const countdownTimer = setInterval(async () => {
+            remainingMs -= countdownInterval;
+            if (remainingMs > 0) {
+              const remainingMinutes = Math.round(remainingMs / (1000 * 60));
+              await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
+            }
+          }, countdownInterval);
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+          clearInterval(countdownTimer);
+        } else {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        await log('\n🔄 Retrying now...');
+        // Increment retry count and retry
+        retryCount++;
+        return await executeWithRetry();
+      } else {
+        await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, { level: 'error' });
+        await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
+        await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          messageCount,
+          toolUseCount,
+          is503Error: true
+        };
+      }
+    }
+    if (commandFailed) {
+      // Check for usage limit errors first (more specific)
+      const limitInfo = detectUsageLimit(lastMessage);
+      if (limitInfo.isUsageLimit) {
+        limitReached = true;
+        limitResetTime = limitInfo.resetTime;
+
+        // Format and display user-friendly message
+        const messageLines = formatUsageLimitMessage({
+          tool: 'Claude',
+          resetTime: limitInfo.resetTime,
+          sessionId,
+          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+        });
+
+        for (const line of messageLines) {
+          await log(line, { level: 'warning' });
+        }
+      } else if (lastMessage.includes('context_length_exceeded')) {
+        await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
+      } else {
+        await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+        if (sessionId && !argv.resume) {
+          await log(`📌 Session ID for resuming: ${sessionId}`);
+          await log('\nTo resume this session, run:');
+          await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+        }
+      }
+    }
+    // Additional failure detection: if no messages were processed and there were stderr errors,
+    // or if the command produced no output at all, treat it as a failure
+    //
+    // This is critical for detecting "silent failures" where:
+    // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
+    // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
+    // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
+    //
+    // Common cause: sudo commands that timeout
+    // - Timeout triggers process.kill() in Claude CLI
+    // - If child process runs with sudo (root), parent can't kill it → EPERM error
+    // - Error logged to stderr, but command doesn't properly fail
+    //
+    // Workaround (applied in system prompt):
+    // - Instruct Claude to run sudo commands (installations) in background
+    // - Background processes avoid timeout kill mechanism
+    // - Prevents EPERM errors and false success reports
+    //

@@ -1,0 +1,9 @@
+262:    if (argv.resume) {
+263:      await log(`🔄 Resuming from session: ${argv.resume}`);
+264:      opencodeArgs = `run --resume ${argv.resume} --model ${mappedModel}`;
+286:      if (argv.resume) {
+290:        })`cat ${promptFile} | ${opencodePath} run --resume ${argv.resume} --model ${mappedModel}`;
+332:        // Check for usage limit errors first (more specific)
+336:          limitResetTime = limitInfo.resetTime;
+341:            resetTime: limitInfo.resetTime,
+343:            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null

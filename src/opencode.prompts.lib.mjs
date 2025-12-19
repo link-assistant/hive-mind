@@ -17,7 +17,6 @@ export const buildUserPrompt = (params) => {
     branchName,
     tempDir,
     isContinueMode,
-    mergeStateStatus,
     forkedRepo,
     feedbackLines,
     forkActionsUrl,
@@ -120,7 +119,7 @@ General guidelines.
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.
@@ -129,8 +128,8 @@ Initial research.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request, use appropriate GitHub API commands.
-   - When you need latest comments on issue, use appropriate GitHub API commands.
+   - When you need latest comments on pull request, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments.
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -164,7 +163,8 @@ Preparing pull request.
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.
    - When you push, push only to branch ${branchName}.
-   - When you finish, create a pull request from branch ${branchName}. (Note: PR ${prNumber} already exists, update it instead)
+   - When you finish, create a pull request from branch ${branchName}.
+   - When pr ${prNumber} already exists for this branch, update it instead of creating new one.
    - When you organize workflow, use pull requests instead of direct merges to default branch (main or master).
    - When you manage commits, preserve commit history for later analysis.
    - When you contribute, keep repository history forward-moving with regular commits, pushes, and reverts if needed.
@@ -176,7 +176,15 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.
+
+GitHub CLI command patterns.
+   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments.
+   - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
+   - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
+   - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'reverse | .[0:5]'.`;
 };
 
 // Export all functions as default object too

@@ -1,0 +1,49 @@
+# .lenv.example - LINO-based environment configuration
+#
+# This is an example .lenv file using Links Notation (LINO) format.
+# Copy this file to .lenv and customize the values for your environment.
+#
+# Format: VARIABLE_NAME: value
+#
+# For lists, use LINO notation:
+# VARIABLE_NAME: (
+#   value1
+#   value2
+#   value3
+# )
+#
+# Priority: .lenv takes precedence over .env if both exist
+
+# Telegram Bot Configuration
+
+TELEGRAM_BOT_TOKEN: your_bot_token_here
+
+# Optional: Allowed chat IDs in lino notation (Links Notation)
+# If not set, all chats are allowed
+TELEGRAM_ALLOWED_CHATS: (
+  123456789
+  987654321
+)
+
+# Optional: Override options for /solve command in lino notation
+# These options will be locked and override any user-provided values
+TELEGRAM_SOLVE_OVERRIDES: (
+  --auto-continue
+  --attach-logs
+  --verbose
+  --tool
+  opencode
+)
+
+# Optional: Override options for /hive command in lino notation
+TELEGRAM_HIVE_OVERRIDES: (
+  --verbose
+  --all-issues
+  --model
+  sonnet
+)
+
+# Optional: Enable/disable specific commands (default: true)
+# Set to false to disable a command
+TELEGRAM_SOLVE: true
+TELEGRAM_HIVE: true

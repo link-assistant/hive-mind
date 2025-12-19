@@ -7,7 +7,7 @@ const { $ } = await use('command-stream');
 console.log('Testing comment counting logic...');
 
 // Mock values for testing
-const owner = 'deep-assistant';
+const owner = 'link-assistant';
 const repo = 'hive-mind';
 const prNumber = 82;
 const issueNumber = 76;

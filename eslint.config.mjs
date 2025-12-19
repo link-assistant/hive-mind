@@ -29,16 +29,27 @@ export default [
 
         // Custom globals
         use: 'readonly',
-        fetch: 'readonly'
+        fetch: 'readonly',
+        URL: 'readonly'
       }
     },
-    files: ['**/*.mjs', '**/*.js'],
+    files: ['src/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': ['error'],
       'no-console': 'off',
       'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }]
+      'quotes': ['error', 'single', { avoidEscape: true }],
+      'no-useless-escape': 'warn',
+      'no-case-declarations': 'warn',
+      'no-empty': 'error',
+      'camelcase': ['error', {
+        properties: 'never',
+        ignoreDestructuring: true,
+        ignoreImports: false,
+        ignoreGlobals: false,
+        allow: ['^[A-Z_]+$']
+      }]
     }
   }
 ];

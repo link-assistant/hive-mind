@@ -8,7 +8,7 @@ if (earlyArgs.includes('--version')) {
   try {
     const version = await getVersion();
     console.log(version);
-  } catch (versionError) {
+  } catch {
     console.error('Error: Unable to determine version');
     process.exit(1);
   }
@@ -47,7 +47,7 @@ import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
-import { executeClaude, executeClaudeCommand, validateClaudeConnection } from './claude.lib.mjs';
+import { executeClaudeCommand } from './claude.lib.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
 // Use yargs().parse(args) instead of yargs(args).argv to ensure .strict() mode works
@@ -72,7 +72,7 @@ const argv = yargs()
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1-20250805']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
   })
   .option('focus', {
     type: 'string',
@@ -102,7 +102,7 @@ const argv = yargs()
   .strict()
   .parse(process.argv.slice(2));
 
-const prUrl = argv._[0];
+const prUrl = argv['pr-url'] || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
@@ -116,10 +116,10 @@ setLogFile(logFilePath);
 // Create the log file immediately
 await fs.writeFile(logFilePath, `# Review.mjs Log - ${new Date().toISOString()}\n\n`);
 await log(`📁 Log file: ${logFilePath}`);
-await log(`   (All output will be logged here)\n`);
+await log('   (All output will be logged here)\n');
 
 // Validate GitHub PR URL format
-if (!prUrl.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/)) {
+if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
   await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', { level: 'error' });
   process.exit(1);
 }
@@ -166,13 +166,15 @@ if (isResuming) {
   await log(`Creating temporary directory: ${tempDir}\n`);
 }
 
+let limitReached = false;
+
 try {
   // Get PR details first
-  await log(`📊 Getting pull request details...`);
+  await log('📊 Getting pull request details...');
   const prDetailsResult = await $`gh pr view ${prUrl} --json title,body,headRefName,baseRefName,author,number,state,files`;
   
   if (prDetailsResult.code !== 0) {
-    await log(`Error: Failed to get PR details`, { level: 'error' });
+    await log('Error: Failed to get PR details', { level: 'error' });
     await log(prDetailsResult.stderr ? prDetailsResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
@@ -191,7 +193,7 @@ try {
   
   // Verify clone was successful
   if (cloneResult.code !== 0) {
-    await log(`Error: Failed to clone repository`, { level: 'error' });
+    await log('Error: Failed to clone repository', { level: 'error' });
     await log(cloneResult.stderr ? cloneResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
@@ -209,19 +211,19 @@ try {
   const fetchResult = await $`cd ${tempDir} && gh pr checkout ${prNumber}`;
   
   if (fetchResult.code !== 0) {
-    await log(`Error: Failed to checkout PR branch`, { level: 'error' });
+    await log('Error: Failed to checkout PR branch', { level: 'error' });
     await log(fetchResult.stderr ? fetchResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
   
-  await log(`✅ Successfully checked out PR branch\n`);
+  await log('✅ Successfully checked out PR branch\n');
 
   // Get the diff for the PR
-  await log(`📝 Getting PR diff...`);
+  await log('📝 Getting PR diff...');
   const diffResult = await $`gh pr diff ${prUrl}`;
   
   if (diffResult.code !== 0) {
-    await log(`Error: Failed to get PR diff`, { level: 'error' });
+    await log('Error: Failed to get PR diff', { level: 'error' });
     await log(diffResult.stderr ? diffResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
@@ -261,7 +263,7 @@ Review this pull request thoroughly.`;
    - When you review commits, use gh pr view ${prNumber} --json commits.
 
 2. Review focus areas.
-   ${argv.focus === 'all' ? `- Review all aspects: logic, security, performance, style, tests, documentation.` : `- Focus specifically on: ${argv.focus}`}
+   ${argv.focus === 'all' ? '- Review all aspects: logic, security, performance, style, tests, documentation.' : `- Focus specifically on: ${argv.focus}`}
    - When reviewing logic, check for edge cases and error handling.
    - When reviewing security, look for vulnerabilities and unsafe patterns.
    - When reviewing performance, identify bottlenecks and inefficiencies.
@@ -313,7 +315,7 @@ Review this pull request thoroughly.`;
 
   // If dry-run, exit here
   if (argv.dryRun) {
-    await log(`✅ Command preparation complete`);
+    await log('✅ Command preparation complete');
     await log(`📂 Repository cloned to: ${tempDir}`);
     await log(`🔀 PR branch checked out: ${prDetails.headRefName}`);
     process.exit(0);
@@ -343,7 +345,8 @@ Review this pull request thoroughly.`;
     $
   });
 
-  const { success: commandSuccess, sessionId, limitReached, messageCount, toolUseCount } = result;
+  const { success: commandSuccess, sessionId, limitReached: limitReachedResult } = result;
+  limitReached = limitReachedResult;
 
   // Handle command failure
   if (!commandSuccess) {
@@ -360,13 +363,13 @@ Review this pull request thoroughly.`;
     await log(`✅ Complete log file: ${getLogFile()}`);
 
     if (limitReached) {
-      await log(`\n⏰ LIMIT REACHED DETECTED!`);
-      await log(`\n🔄 To resume when limit resets, use:\n`);
+      await log('\n⏰ LIMIT REACHED DETECTED!');
+      await log('\n🔄 To resume when limit resets, use:\n');
       await log(`./review.mjs "${prUrl}" --resume ${sessionId}`);
-      await log(`\n   This will continue from where it left off with full context.\n`);
+      await log('\n   This will continue from where it left off with full context.\n');
     } else {
       // Check if review was submitted
-      await log(`\n🔍 Checking for submitted review...`);
+      await log('\n🔍 Checking for submitted review...');
       
       try {
         // Get reviews for the PR
@@ -376,7 +379,7 @@ Review this pull request thoroughly.`;
           await log(`✅ Review has been submitted to PR #${prNumber}`);
           await log(`📍 View at: ${prUrl}`);
         } else {
-          await log(`ℹ️  Review may be pending or saved as draft`);
+          await log('ℹ️  Review may be pending or saved as draft');
         }
       } catch (error) {
         reportError(error, {
@@ -384,26 +387,26 @@ Review this pull request thoroughly.`;
           prNumber,
           level: 'warning'
         });
-        await log(`⚠️  Could not verify review status`);
+        await log('⚠️  Could not verify review status');
       }
       
       // Show command to resume session in interactive mode
-      await log(`\n💡 To continue this session in Claude Code interactive mode:\n`);
+      await log('\n💡 To continue this session in Claude Code interactive mode:\n');
       await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-      await log(``);
+      await log('');
     }
   } else {
-    await log(`❌ No session ID extracted`);
+    await log('❌ No session ID extracted');
     await log(`📁 Log file available: ${getLogFile()}`);
   }
 
-  await log(`\n✨ Review process complete. Check the PR for review comments.`);
+  await log('\n✨ Review process complete. Check the PR for review comments.');
   await log(`📍 Pull Request: ${prUrl}`);
 
 } catch (error) {
   reportError(error, {
     context: 'review_execution',
-    prUrl: argv._[0]
+    prUrl: prUrl
   });
   await log('Error executing review:', error.message, { level: 'error' });
   process.exit(1);

@@ -19,3 +19,10 @@ RUN bun install -g opencode-ai
 # Install Lean (via elan)
 RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
 ENV PATH="/home/gitpod/.elan/bin:${PATH}"
+
+# Install Opam and Rocq (Coq theorem prover)
+RUN brew install opam
+RUN opam init --disable-sandboxing --auto-setup -y
+RUN opam repo add rocq-released https://rocq-prover.org/opam/released || true
+RUN eval $(opam env) && opam install rocq-prover -y || opam install coq -y || true
+ENV PATH="/home/gitpod/.opam/default/bin:${PATH}"

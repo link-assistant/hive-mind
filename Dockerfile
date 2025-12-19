@@ -33,7 +33,8 @@ ENV CARGO_HOME="/home/hive/.cargo"
 # Include PHP paths from Homebrew (PHP is keg-only and needs explicit PATH entry)
 # Include Cargo/Rust paths (installed via rustup)
 # Include Lean/elan paths
-ENV PATH="/home/hive/.elan/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
+# Include Opam paths for Rocq/Coq theorem prover
+ENV PATH="/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
 
 # Load NVM, Pyenv, and other tools in shell sessions
 SHELL ["/bin/bash", "-c"]

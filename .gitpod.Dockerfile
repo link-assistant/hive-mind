@@ -16,6 +16,10 @@ RUN bun install -g @link-assistant/claude-profiles
 # Install OpenCode AI
 RUN bun install -g opencode-ai
 
+# Install Lean (via elan)
+RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+ENV PATH="/home/gitpod/.elan/bin:${PATH}"
+
 # Install Opam and Rocq (Coq theorem prover)
 RUN brew install opam
 RUN opam init --disable-sandboxing --auto-setup -y

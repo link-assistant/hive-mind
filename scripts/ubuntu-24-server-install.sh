@@ -704,6 +704,33 @@ else
   log_warning "SDKMAN installation may have failed. Skipping Java setup."
 fi
 
+# --- Lean (via elan) ---
+if [ ! -d "$HOME/.elan" ]; then
+  log_info "Installing Lean (via elan)..."
+  curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+    log_success "Lean installed successfully"
+  else
+    log_warning "Lean installation may have failed or been cancelled. Skipping Lean environment setup."
+  fi
+  # Add elan to shell profile for persistence
+  if ! grep -q 'elan' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding elan to shell configuration..."
+    {
+      echo ''
+      echo '# Lean (elan) configuration'
+      echo 'export PATH="$HOME/.elan/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_info "Lean (elan) already installed."
+  # Ensure elan is loaded for current session
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+  fi
+fi
+
 # --- Opam + Rocq (Coq theorem prover) ---
 if ! command -v opam &>/dev/null; then
   log_info "Installing Opam (OCaml package manager)..."
@@ -1233,6 +1260,9 @@ if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; el
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
 if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
 if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
+if command -v elan &>/dev/null; then log_success "Elan: $(elan --version)"; else log_warning "Elan: not found"; fi
+if command -v lean &>/dev/null; then log_success "Lean: $(lean --version)"; else log_warning "Lean: not found"; fi
+if command -v lake &>/dev/null; then log_success "Lake: $(lake --version)"; else log_warning "Lake: not found"; fi
 
 if command -v brew &>/dev/null; then
   BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")

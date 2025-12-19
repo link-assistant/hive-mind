@@ -687,6 +687,11 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Elan: not found' build-output.log; then
+            echo "ERROR: Elan installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] G\+\+: not found' build-output.log; then
             echo "ERROR: G++ installation failed - showing as 'not found'"
             exit 1
@@ -719,6 +724,16 @@ jobs:
 
           if grep -E '\[!\] Java: not found' build-output.log; then
             echo "ERROR: Java installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lake: not found' build-output.log; then
+            echo "ERROR: Lake installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lean: not found' build-output.log; then
+            echo "ERROR: Lean installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -837,6 +852,12 @@ jobs:
             echo "WARNING: Deno success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Elan:' build-output.log; then
+            echo "Elan installation verified in build logs"
+          else
+            echo "WARNING: Elan success message not found in logs"
+          fi
+
           if grep -E '\[✓\] G\+\+:' build-output.log; then
             echo "G++ installation verified in build logs"
           else
@@ -877,6 +898,18 @@ jobs:
             echo "Java installation verified in build logs"
           else
             echo "WARNING: Java success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lake:' build-output.log; then
+            echo "Lake installation verified in build logs"
+          else
+            echo "WARNING: Lake success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lean:' build-output.log; then
+            echo "Lean installation verified in build logs"
+          else
+            echo "WARNING: Lean success message not found in logs"
           fi
 
           if grep -E '\[✓\] LLD Linker:' build-output.log; then
@@ -983,6 +1016,7 @@ jobs:
             export HOME=/home/hive
             [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
             [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+            [ -s \"\$HOME/.elan/env\" ] && source \"\$HOME/.elan/env\"
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
@@ -1060,6 +1094,16 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Elan...'
+            if command -v elan &>/dev/null; then
+              elan --version
+              echo 'Elan is accessible'
+            else
+              echo 'Elan command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking G++...'
             if command -v g++ &>/dev/null; then
               g++ --version | head -n1
@@ -1126,6 +1170,26 @@ jobs:
               echo 'Java is accessible'
             else
               echo 'Java command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lake...'
+            if command -v lake &>/dev/null; then
+              lake --version
+              echo 'Lake is accessible'
+            else
+              echo 'Lake command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lean...'
+            if command -v lean &>/dev/null; then
+              lean --version
+              echo 'Lean is accessible'
+            else
+              echo 'Lean command not found in container'
               exit 1
             fi
 

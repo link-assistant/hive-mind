@@ -301,6 +301,11 @@ log_info "Installing essential development tools..."
 maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
 log_success "Essential tools installed"
 
+# --- Install C/C++ Development Tools ---
+log_info "Installing C/C++ development tools (CMake, Clang/LLVM)..."
+sudo apt install -y cmake clang llvm lld
+log_success "C/C++ development tools installed"
+
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
 maybe_sudo apt install -y \
@@ -550,6 +555,83 @@ else
   log_warning "Pyenv installation may have failed. Skipping Python setup."
 fi
 
+# --- Golang ---
+if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
+  log_info "Installing Golang..."
+
+  # Detect architecture
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) GO_ARCH="amd64" ;;
+    aarch64) GO_ARCH="arm64" ;;
+    armv7l) GO_ARCH="armv6l" ;;
+    *)
+      log_warning "Unsupported architecture: $ARCH. Skipping Go installation."
+      GO_ARCH=""
+      ;;
+  esac
+
+  if [ -n "$GO_ARCH" ]; then
+    # Get latest stable Go version from golang.org
+    log_info "Fetching latest Go version..."
+    GO_VERSION=$(curl -sL 'https://go.dev/VERSION?m=text' | head -n1)
+
+    if [ -n "$GO_VERSION" ]; then
+      GO_TARBALL="${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      GO_URL="https://go.dev/dl/${GO_TARBALL}"
+
+      log_info "Downloading Go $GO_VERSION for $GO_ARCH..."
+      TEMP_DIR=$(mktemp -d)
+      curl -sL "$GO_URL" -o "$TEMP_DIR/$GO_TARBALL"
+
+      # Install to user's home directory
+      log_info "Installing Go to $HOME/.go..."
+      mkdir -p "$HOME/.go"
+      tar -xzf "$TEMP_DIR/$GO_TARBALL" -C "$HOME/.go" --strip-components=1
+      rm -rf "$TEMP_DIR"
+
+      # Add Go to shell profile for persistence
+      if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
+        log_info "Adding Go to shell configuration..."
+        {
+          echo ''
+          echo '# Go configuration'
+          echo 'export GOROOT="$HOME/.go"'
+          echo 'export GOPATH="$HOME/go"'
+          echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
+        } >> "$HOME/.bashrc"
+      fi
+
+      # Load Go for current session
+      export GOROOT="$HOME/.go"
+      export GOPATH="$HOME/go"
+      export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+      # Create GOPATH directory
+      mkdir -p "$GOPATH"
+
+      if command -v go &>/dev/null; then
+        log_success "Golang installed: $(go version)"
+      else
+        log_error "Go installation failed - binary not found in PATH"
+        exit 1
+      fi
+    else
+      log_warning "Could not determine latest Go version. Skipping Go installation."
+    fi
+  fi
+else
+  log_info "Golang already installed."
+  # Ensure Go is in PATH for current session
+  if [ -d "$HOME/.go/bin" ]; then
+    export GOROOT="$HOME/.go"
+    export GOPATH="$HOME/go"
+    export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+  elif [ -d "/usr/local/go/bin" ]; then
+    export PATH="/usr/local/go/bin:$PATH"
+  fi
+fi
+
 # --- Rust ---
 if [ ! -d "$HOME/.cargo" ]; then
   log_info "Installing Rust..."
@@ -562,6 +644,83 @@ if [ ! -d "$HOME/.cargo" ]; then
   fi
 else
   log_info "Rust already installed."
+fi
+
+# --- Opam + Rocq (Coq theorem prover) ---
+if ! command -v opam &>/dev/null; then
+  log_info "Installing Opam (OCaml package manager)..."
+  # Install opam dependencies
+  sudo apt install -y bubblewrap || {
+    log_warning "Failed to install bubblewrap (opam sandboxing dependency)"
+  }
+
+  # Install opam via official script
+  bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh) --no-backup" <<< "y" || {
+    log_warning "Opam installation via script failed. Trying apt..."
+    sudo apt install -y opam || {
+      log_warning "Opam installation failed."
+    }
+  }
+
+  if command -v opam &>/dev/null; then
+    log_success "Opam installed successfully"
+  fi
+else
+  log_info "Opam already installed."
+fi
+
+# Initialize opam and install Rocq
+if command -v opam &>/dev/null; then
+  if [ ! -d "$HOME/.opam" ]; then
+    log_info "Initializing Opam..."
+    # Use --disable-sandboxing for Docker/container compatibility
+    opam init --disable-sandboxing --auto-setup -y || {
+      log_warning "Opam init failed."
+    }
+    log_success "Opam initialized"
+  else
+    log_info "Opam already initialized."
+  fi
+
+  # Source opam environment
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Install Rocq (the proof assistant formerly known as Coq)
+  if ! opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+    log_info "Installing Rocq Prover (this may take several minutes)..."
+    log_note "Rocq is the new name for the Coq theorem prover"
+
+    # Add Rocq package repository
+    opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
+
+    # Install Rocq prover
+    opam install rocq-prover -y || {
+      log_warning "Rocq installation failed. Trying to install Coq as fallback..."
+      opam install coq -y || {
+        log_warning "Coq installation also failed."
+      }
+    }
+
+    if opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_success "Rocq Prover installed successfully"
+    elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+      log_success "Coq installed successfully (fallback)"
+    fi
+  else
+    log_info "Rocq Prover already installed."
+  fi
+
+  # Add opam environment to shell profile for persistence
+  if ! grep -q 'opam env' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Opam environment to shell configuration..."
+    {
+      echo ''
+      echo '# Opam (OCaml/Rocq) configuration'
+      echo 'test -r $HOME/.opam/opam-init/init.sh && . $HOME/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_warning "Opam not available. Skipping Rocq installation."
 fi
 
 # --- Homebrew ---
@@ -1011,14 +1170,18 @@ if command -v node &>/dev/null; then log_success "Node.js: $(node --version)"; e
 if command -v npm &>/dev/null; then log_success "NPM: $(npm --version)"; else log_warning "NPM: not found"; fi
 if command -v python &>/dev/null; then log_success "Python: $(python --version)"; else log_warning "Python: not found"; fi
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
+if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+
 if command -v brew &>/dev/null; then
   BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")
   log_success "Homebrew: $BREW_VERSION"
 else
   log_warning "Homebrew: not found"
 fi
+
+if command -v opam &>/dev/null; then log_success "Opam: $(opam --version)"; else log_warning "Opam: not found"; fi
 
 if command -v php &>/dev/null; then
   PHP_VERSION=$(php --version 2>/dev/null | head -n1 || echo "unknown version")
@@ -1048,7 +1211,33 @@ else
   log_warning "Perl: not found"
 fi
 if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
+
+if command -v rocq &>/dev/null; then
+  log_success "Rocq: $(rocq --version | head -n1)"
+elif command -v coqc &>/dev/null; then
+  log_success "Coq: $(coqc --version | head -n1)"
+elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  log_warning "Rocq: installed via opam but not in current PATH"
+  log_note "Rocq will be available after shell restart or: eval \$(opam env)"
+elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+  log_warning "Coq: installed via opam but not in current PATH"
+  log_note "Coq will be available after shell restart or: eval \$(opam env)"
+else
+  log_warning "Rocq/Coq: not found"
+fi
+
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
+
+echo ""
+echo "C/C++ Development Tools:"
+if command -v make &>/dev/null; then log_success "Make: $(make --version | head -n1)"; else log_warning "Make: not found"; fi
+if command -v cmake &>/dev/null; then log_success "CMake: $(cmake --version | head -n1)"; else log_warning "CMake: not found"; fi
+if command -v gcc &>/dev/null; then log_success "GCC: $(gcc --version | head -n1)"; else log_warning "GCC: not found"; fi
+if command -v g++ &>/dev/null; then log_success "G++: $(g++ --version | head -n1)"; else log_warning "G++: not found"; fi
+if command -v clang &>/dev/null; then log_success "Clang: $(clang --version | head -n1)"; else log_warning "Clang: not found"; fi
+if command -v clang++ &>/dev/null; then log_success "Clang++: $(clang++ --version | head -n1)"; else log_warning "Clang++: not found"; fi
+if command -v llvm-config &>/dev/null; then log_success "LLVM: $(llvm-config --version)"; else log_warning "LLVM: not found"; fi
+if command -v lld &>/dev/null; then log_success "LLD Linker: $(lld --version | head -n1)"; else log_warning "LLD Linker: not found"; fi
 
 echo ""
 echo "Swap Configuration:"

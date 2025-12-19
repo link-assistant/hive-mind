@@ -270,10 +270,10 @@ async function main() {
     console.log('-'.repeat(80));
     await testUserIssuesWithGraphQL('konard', null, 20);
 
-    // Test 2: Fetch issues from deep-assistant organization
-    console.log('\n📋 Test 2: Fetch all open issues from org deep-assistant');
+    // Test 2: Fetch issues from link-assistant organization
+    console.log('\n📋 Test 2: Fetch all open issues from org link-assistant');
     console.log('-'.repeat(80));
-    await testOrgIssuesWithGraphQL('deep-assistant', null, 20);
+    await testOrgIssuesWithGraphQL('link-assistant', null, 20);
 
     // Test 3: Fetch repos with issues from konard (alternative approach)
     console.log('\n📋 Test 3: Fetch repos with their issues from user konard');

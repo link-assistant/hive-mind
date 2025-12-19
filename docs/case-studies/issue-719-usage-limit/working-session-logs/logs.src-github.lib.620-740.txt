@@ -1,0 +1,121 @@
+        let isPublicRepo = true;
+        try {
+          const repoVisibilityResult = await $`gh api repos/${owner}/${repo} --jq .visibility`;
+          if (repoVisibilityResult.code === 0) {
+            const visibility = repoVisibilityResult.stdout.toString().trim();
+            isPublicRepo = visibility === 'public';
+            if (verbose) {
+              await log(`  🔍 Repository visibility: ${visibility}`, { verbose: true });
+            }
+          }
+        } catch (visibilityError) {
+          reportError(visibilityError, {
+            context: 'check_repo_visibility',
+            level: 'warning',
+            owner,
+            repo
+          });
+          // Default to public if we can't determine visibility
+          await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
+        }
+        // Create gist with appropriate visibility
+        // Note: Gists don't need escaping because they are uploaded as plain text files
+        const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
+        // Use the original sanitized content (before escaping) for gist since it's a text file
+        await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
+        const gistCommand = isPublicRepo
+          ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`
+          : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
+        if (verbose) {
+          await log(`  🔐 Creating ${isPublicRepo ? 'public' : 'private'} gist...`, { verbose: true });
+        }
+        const gistResult = await $(gistCommand);
+        await fs.unlink(tempLogFile).catch(() => {});
+        if (gistResult.code === 0) {
+          const gistUrl = gistResult.stdout.toString().trim();
+          // Create comment with gist link
+          let gistComment;
+          // For usage limit cases, always use the dedicated format regardless of errorMessage
+          if (isUsageLimit) {
+            // Usage limit error gist format
+            gistComment = `## ⏳ Usage Limit Reached
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+
+            if (limitResetTime) {
+              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+            }
+
+            if (sessionId) {
+              gistComment += `\n- **Session ID**: ${sessionId}`;
+            }
+
+            gistComment += '\n\n### 🔄 How to Continue\n';
+
+            if (limitResetTime) {
+              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+            } else {
+              gistComment += 'Once the limit resets, ';
+            }
+
+            if (resumeCommand) {
+              gistComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+            } else if (sessionId) {
+              gistComment += `you can resume this session using session ID: \`${sessionId}\``;
+            } else {
+              gistComment += 'you can retry the operation.';
+            }
+
+            gistComment += `
+
+📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete execution log](${gistUrl})
+
+---
+*This session was interrupted due to usage limits. You can resume once the limit resets.*`;
+          } else if (errorMessage) {
+            // Failure log gist format (non-usage-limit errors)
+            gistComment = `## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+\`\`\`
+${errorMessage}
+\`\`\`
+📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete failure log](${gistUrl})
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+          } else {
+            // Success log gist format
+            let costInfo = '\n\n💰 **Cost estimation:**';
+            if (totalCostUSD !== null) {
+              costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+            } else {
+              costInfo += '\n- Public pricing estimate: unknown';
+            }
+            if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+              costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
+              if (totalCostUSD !== null) {
+                const difference = anthropicTotalCostUSD - totalCostUSD;
+                const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
+                costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
+              } else {
+                costInfo += '\n- Difference: unknown';
+              }
+            } else {
+              costInfo += '\n- Calculated by Anthropic: unknown';
+              costInfo += '\n- Difference: unknown';
+            }
+            gistComment = `## ${customTitle}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete solution draft log](${gistUrl})
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+          }

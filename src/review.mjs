@@ -72,7 +72,7 @@ const argv = yargs()
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1-20250805']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
   })
   .option('focus', {
     type: 'string',
@@ -119,7 +119,7 @@ await log(`📁 Log file: ${logFilePath}`);
 await log('   (All output will be logged here)\n');
 
 // Validate GitHub PR URL format
-if (!prUrl.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/)) {
+if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
   await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', { level: 'error' });
   process.exit(1);
 }

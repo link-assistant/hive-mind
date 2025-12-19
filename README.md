@@ -1,9 +1,9 @@
-[![npm](https://img.shields.io/npm/v/@deep-assistant/hive-mind.svg)](https://npmjs.com/@deep-assistant/hive-mind)
-[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/deep-assistant/hive-mind/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/deep-assistant/hive-mind?style=social)](https://github.com/deep-assistant/hive-mind/stargazers)
+[![npm](https://img.shields.io/npm/v/@link-assistant/hive-mind.svg)](https://npmjs.com/@link-assistant/hive-mind)
+[![License](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://github.com/link-assistant/hive-mind/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/link-assistant/hive-mind?style=social)](https://github.com/link-assistant/hive-mind/stargazers)
 
-[![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/deep-assistant/hive-mind)
-[![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=deep-assistant/hive-mind)
+[![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/link-assistant/hive-mind)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind)
 
 # Hive Mind 🧠
 
@@ -67,13 +67,86 @@ Minimum system requirements to run `hive.mjs`:
 
 #### Using Bun (Recommended)
 ```bash
-bun install -g @deep-assistant/hive-mind
+bun install -g @link-assistant/hive-mind
 ```
 
 #### Using Node.js
 ```bash
-npm install -g @deep-assistant/hive-mind
+npm install -g @link-assistant/hive-mind
 ```
+
+### Docker Installation
+
+Run the Hive Mind using Docker for safer local installation - no manual setup required:
+
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes) section below.
+
+```bash
+# Pull the latest image from Docker Hub
+docker pull konard/hive-mind:latest
+
+# Run an interactive session
+docker run -it konard/hive-mind:latest
+
+# IMPORTANT: Authenticate AFTER the Docker image is installed
+# This avoids build timeouts and allows the installation to complete successfully
+
+# Inside the container, authenticate with GitHub
+gh auth login -h github.com -s repo,workflow,user,read:org,gist
+
+# Setup git using account from gh tool
+USERNAME=$(gh api user --jq '.login')
+EMAIL=$(gh api user/emails --jq '.[] | select(.primary==true) | .email')
+
+git config --global user.name "$USERNAME"
+git config --global user.email "$EMAIL"
+
+echo "Git configured:"
+git config --global user.name
+git config --global user.email
+
+# Authenticate with Claude
+claude
+
+# Now you can use hive and solve commands
+solve https://github.com/owner/repo/issues/123
+```
+
+**Benefits of Docker:**
+- ✅ Pre-configured Ubuntu 24.04 environment
+- ✅ All dependencies pre-installed
+- ✅ Isolated from your host system
+- ✅ Easy to run multiple instances with different GitHub accounts
+- ✅ Consistent environment across different machines
+
+See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
+
+### Helm Installation (Kubernetes)
+
+Deploy Hive Mind on Kubernetes using Helm:
+
+```bash
+# Add the Hive Mind Helm repository
+helm repo add link-assistant https://link-assistant.github.io/hive-mind
+helm repo update
+
+# Install Hive Mind
+helm install hive-mind link-assistant/hive-mind
+
+# Or install with custom values
+helm install hive-mind link-assistant/hive-mind -f values.yaml
+```
+
+**Benefits of Helm:**
+- ✅ Easy deployment to Kubernetes clusters
+- ✅ Declarative configuration management
+- ✅ Simple upgrades and rollbacks
+- ✅ Production-ready with configurable resources
+- ✅ Supports multiple replicas and scaling
+
+See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
+
+**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
 
 ### Installation on Ubuntu 24.04 server
 
@@ -81,23 +154,39 @@ npm install -g @deep-assistant/hive-mind
 2. Login to `root` user.
 3. Execute main installation script
    ```bash
-   curl -fsSL -o- https://github.com/deep-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
+   curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
    ```
-   Note: in the process of installation you will be asked to authorize using GitHub account, it is required for gh tool to be working, the system will do all actions using that GitHub account.
+   **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
 4. Login to `hive` user
    ```bash
    su - hive
    ```
 
-5. Claude Code CLI and OpenCode AI CLI are preinstalled with the previous script, now you need to make sure claude is authorized also. Execute claude command, and follow all steps to authorize the local claude
+5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
+   ```bash
+   gh auth login -h github.com -s repo,workflow,user,read:org,gist
+
+   USERNAME=$(gh api user --jq '.login')
+   EMAIL=$(gh api user/emails --jq '.[] | select(.primary==true) | .email')
+
+   git config --global user.name "$USERNAME"
+   git config --global user.email "$EMAIL"
+
+   echo "Git configured:"
+   git config --global user.name
+   git config --global user.email
+   ```
+   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
+
+6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
    ```bash
    claude
    ```
 
-   Note: opencode at the moment comes with free Grok Code Fast 1 model by default - so no authorization here is required.
+   Note: Both opencode and agent come with free Grok Code Fast 1 model by default - so no authorization is required for these tools.
 
-6. Launch the Hive Mind telegram bot:
+7. Launch the Hive Mind telegram bot:
 
    **Using Links Notation (recommended):**
    ```
@@ -111,14 +200,11 @@ npm install -g @deep-assistant/hive-mind
      TELEGRAM_HIVE_OVERRIDES:
        --all-issues
        --once
-       --auto-fork
        --skip-issues-with-prs
        --attach-logs
        --verbose
        --no-tool-check
      TELEGRAM_SOLVE_OVERRIDES:
-       --auto-fork
-       --auto-continue
        --attach-logs
        --verbose
        --no-tool-check
@@ -138,14 +224,11 @@ npm install -g @deep-assistant/hive-mind
    )" --hive-overrides "(
      --all-issues
      --once
-     --auto-fork
      --skip-issues-with-prs
      --attach-logs
      --verbose
      --no-tool-check
    )" --solve-overrides "(
-     --auto-fork
-     --auto-continue
      --attach-logs
      --verbose
      --no-tool-check
@@ -213,13 +296,15 @@ review --repo owner/repo --pr 456
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management | Multi-agent consensus, reviewer assignment |
 | `telegram-bot.mjs` (stable) | Telegram bot interface | Remote command execution, group chat support, diagnostic tools |
 
+> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
+
 ## 🔧 solve Options
 ```bash
 solve <issue-url> [options]
 
-  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
+  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
   --fork, -f            Fork repo if no write access         [default: false]
   --auto-fork           Automatically fork public repos without write access (fails for private)
                         [default: false]
@@ -246,6 +331,9 @@ solve <issue-url> [options]
   --allow-fork-divergence-resolution-using-force-push-with-lease
                         Allow force-push with --force-with-lease when fork diverges
                         (DANGEROUS: can overwrite fork history) [default: false]
+  --prefix-fork-name-with-owner-name  Prefix fork name with owner (owner-repo)
+                        Useful for forking repos with same name from different owners
+                        [default: true]
   --continue-only-on-feedback  Only continue if feedback detected
                         [default: false]
   --watch, -w           Monitor for feedback and auto-restart [default: false]
@@ -270,9 +358,9 @@ hive <github-url> [options]
   --skip-issues-with-prs, -s  Skip issues with existing PRs [default: false]
   --concurrency, -c     Parallel workers                     [default: 2]
   --pull-requests-per-issue, -p  Number of PRs per issue    [default: 1]
-  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex]
-  --tool                AI tool (claude, opencode, codex)    [default: claude]
+  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
+                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
+  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
   --interval, -i        Poll interval (seconds)              [default: 300]
   --max-issues          Limit processed issues               [default: 0 (unlimited)]
   --once                Single run (don't monitor)           [default: false]
@@ -540,8 +628,8 @@ No environment variable configuration is currently supported.
 
 ### Hive Mind Issues
 If you encounter issues with **Hive Mind** (this project), please report them on our GitHub Issues page:
-- **Repository**: https://github.com/deep-assistant/hive-mind
-- **Issues**: https://github.com/deep-assistant/hive-mind/issues
+- **Repository**: https://github.com/link-assistant/hive-mind
+- **Issues**: https://github.com/link-assistant/hive-mind/issues
 
 ### Claude Code CLI Issues
 If you encounter issues with the **Claude Code CLI** itself (e.g., `claude` command errors, installation problems, or CLI bugs), please report them to the official Claude Code repository:
@@ -632,7 +720,33 @@ procinfo 62220
 
 ## Maintenance
 
-Close all screens to free up RAM.
+### Reboot server.
+
+```
+sudo reboot
+```
+
+That will remove all dangling unused proccesses and screens, which will in turn free the RAM and reduce CPU load. Also reboot may clear all temporary files, so next step can do nothing if reboot was done.
+
+### Cleanup disk space.
+
+```
+df -h
+
+rm -rf /tmp
+
+df -h
+```
+
+These commands should be executed under `hive` user. If you have accidentally removed the `/tmp` folder itself under `root` user, you will need to restore it like this:
+
+```bash
+sudo mkdir -p /tmp
+sudo chown root:root /tmp
+sudo chmod 1777 /tmp
+```
+
+### Close all screens to free up RAM
 
 ```bash
 # close all (Attached or Detached) sessions
@@ -646,21 +760,7 @@ screen -wipe
 screen -ls
 ```
 
-Cleanup disk space.
-
-```
-df -h
-
-rm -rf /tmp
-
-df -h
-```
-
-Reboot server.
-
-```
-sudo reboot
-```
+That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License
 

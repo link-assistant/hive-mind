@@ -84,10 +84,10 @@ npm install @sentry/node octokit
 import { Octokit } from 'octokit';
 
 const SENTRY_API_TOKEN = process.env.SENTRY_API_TOKEN;
-const SENTRY_ORG = 'deep-assistant';
+const SENTRY_ORG = 'link-assistant';
 const SENTRY_PROJECT = 'hive-mind';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_OWNER = 'deep-assistant';
+const GITHUB_OWNER = 'link-assistant';
 const GITHUB_REPO = 'hive-mind';
 
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
@@ -253,7 +253,7 @@ app.post('/sentry-webhook', async (req, res) => {
     const sentryIssue = req.body.data.issue;
 
     await octokit.rest.issues.create({
-      owner: 'deep-assistant',
+      owner: 'link-assistant',
       repo: 'hive-mind',
       title: `[Sentry] ${sentryIssue.title}`,
       body: `

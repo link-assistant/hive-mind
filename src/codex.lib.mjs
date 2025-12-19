@@ -10,11 +10,13 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
+const os = (await use('os')).default;
 
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
+import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for Codex
 export const mapModelToId = (model) => {
@@ -68,7 +70,7 @@ export const validateCodexConnection = async (model = 'gpt-5') => {
 
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --full-auto`;
+      const testResult = await $`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -78,9 +80,11 @@ export const validateCodexConnection = async (model = 'gpt-5') => {
         // Codex CLI may return auth errors in JSON format on stdout
         if (stderr.includes('auth') || stderr.includes('login') ||
             stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
+          const authError = new Error('Codex authentication failed - 401 Unauthorized');
+          authError.isAuthError = true;
           await log('❌ Codex authentication failed', { level: 'error' });
           await log('   💡 Please run: codex login', { level: 'error' });
-          return false;
+          throw authError;
         }
 
         await log(`❌ Codex validation failed with exit code ${testResult.code}`, { level: 'error' });
@@ -263,12 +267,12 @@ export const executeCodexCommand = async (params) => {
     // Codex uses exec mode for non-interactive execution
     // --json provides structured output
     // --full-auto enables automatic execution with workspace-write sandbox
-    let codexArgs = `exec --model ${mappedModel} --json --full-auto`;
+    let codexArgs = `exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
 
     if (argv.resume) {
       // Codex supports resuming sessions
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      codexArgs = `exec resume ${argv.resume} --json --full-auto`;
+      codexArgs = `exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
     }
 
     // For Codex, we combine system and user prompts into a single message
@@ -276,7 +280,8 @@ export const executeCodexCommand = async (params) => {
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
     // Write the combined prompt to a file for piping
-    const promptFile = path.join(tempDir, 'codex_prompt.txt');
+    // Use OS temporary directory instead of repository workspace to avoid polluting the repo
+    const promptFile = path.join(os.tmpdir(), `codex_prompt_${Date.now()}_${process.pid}.txt`);
     await fs.writeFile(promptFile, combinedPrompt);
 
     // Build the full command - pipe the prompt file to codex
@@ -292,12 +297,12 @@ export const executeCodexCommand = async (params) => {
         execCommand = $({
           cwd: tempDir,
           mirror: false
-        })`cat ${promptFile} | ${codexPath} exec resume ${argv.resume} --json --full-auto`;
+        })`cat ${promptFile} | ${codexPath} exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
       } else {
         execCommand = $({
           cwd: tempDir,
           mirror: false
-        })`cat ${promptFile} | ${codexPath} exec --model ${mappedModel} --json --full-auto`;
+        })`cat ${promptFile} | ${codexPath} exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -313,7 +318,9 @@ export const executeCodexCommand = async (params) => {
       let exitCode = 0;
       let sessionId = null;
       let limitReached = false;
+      let limitResetTime = null;
       let lastMessage = '';
+      let authError = false;
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -333,6 +340,29 @@ export const executeCodexCommand = async (params) => {
                 sessionId = data.thread_id || data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
               }
+
+              // Check for authentication errors (401 Unauthorized)
+              // These should never be retried as they indicate missing/invalid credentials
+              if (data.type === 'error' && data.message &&
+                  (data.message.includes('401 Unauthorized') ||
+                   data.message.includes('401') ||
+                   data.message.includes('Unauthorized'))) {
+                authError = true;
+                await log('\n❌ Authentication error detected: 401 Unauthorized', { level: 'error' });
+                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+                await log('   💡 Please run: codex login', { level: 'error' });
+              }
+
+              // Also check turn.failed events for auth errors
+              if (data.type === 'turn.failed' && data.error && data.error.message &&
+                  (data.error.message.includes('401 Unauthorized') ||
+                   data.error.message.includes('401') ||
+                   data.error.message.includes('Unauthorized'))) {
+                authError = true;
+                await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
+                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+                await log('   💡 Please run: codex login', { level: 'error' });
+              }
             }
           } catch {
             // Not JSON, continue
@@ -349,10 +379,37 @@ export const executeCodexCommand = async (params) => {
         }
       }
 
+      // Check for authentication errors first - these should never be retried
+      if (authError) {
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        // Throw an error to stop retries and propagate the auth failure
+        const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
+        error.isAuthError = true;
+        throw error;
+      }
+
       if (exitCode !== 0) {
-        if (lastMessage.includes('rate_limit') || lastMessage.includes('limit')) {
+        // Check for usage limit errors first (more specific)
+        const limitInfo = detectUsageLimit(lastMessage);
+        if (limitInfo.isUsageLimit) {
           limitReached = true;
-          await log('\n\n⏳ Rate limit reached.', { level: 'warning' });
+          limitResetTime = limitInfo.resetTime;
+
+          // Format and display user-friendly message
+          const messageLines = formatUsageLimitMessage({
+            tool: 'Codex',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
         } else {
           await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
         }
@@ -365,7 +422,8 @@ export const executeCodexCommand = async (params) => {
         return {
           success: false,
           sessionId,
-          limitReached
+          limitReached,
+          limitResetTime
         };
       }
 
@@ -374,21 +432,32 @@ export const executeCodexCommand = async (params) => {
       return {
         success: true,
         sessionId,
-        limitReached
+        limitReached,
+        limitResetTime
       };
     } catch (error) {
-      reportError(error, {
-        context: 'execute_codex',
-        command: params.command,
-        codexPath: params.codexPath,
-        operation: 'run_codex_command'
-      });
+      // Don't report auth errors to Sentry as they are user configuration issues
+      if (!error.isAuthError) {
+        reportError(error, {
+          context: 'execute_codex',
+          command: params.command,
+          codexPath: params.codexPath,
+          operation: 'run_codex_command'
+        });
+      }
 
       await log(`\n\n❌ Error executing Codex command: ${error.message}`, { level: 'error' });
+
+      // Re-throw auth errors to stop any outer retry loops
+      if (error.isAuthError) {
+        throw error;
+      }
+
       return {
         success: false,
         sessionId: null,
-        limitReached: false
+        limitReached: false,
+        limitResetTime: null
       };
     }
   };

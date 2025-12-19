@@ -10,7 +10,7 @@ console.log('Testing haiku model support...\n');
 const testCases = [
   { input: 'haiku', expected: 'claude-haiku-4-5-20251001', description: 'haiku alias' },
   { input: 'sonnet', expected: 'claude-sonnet-4-5-20250929', description: 'sonnet alias' },
-  { input: 'opus', expected: 'claude-opus-4-1-20250805', description: 'opus alias' },
+  { input: 'opus', expected: 'claude-opus-4-5-20251101', description: 'opus alias' },
   { input: 'claude-haiku-4-5-20251001', expected: 'claude-haiku-4-5-20251001', description: 'full haiku model ID' },
   { input: 'some-other-model', expected: 'some-other-model', description: 'unknown model (passthrough)' },
 ];

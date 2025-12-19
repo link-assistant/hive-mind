@@ -2,7 +2,7 @@
 
 ## Issue Reference
 
-- **Issue**: [#655](https://github.com/deep-assistant/hive-mind/issues/655)
+- **Issue**: [#655](https://github.com/link-assistant/hive-mind/issues/655)
 - **Related PRs**:
   - [Cybersyn21/asistente#2](https://github.com/Cybersyn21/asistente/pull/2) (Closed)
   - [Cybersyn21/asistente#3](https://github.com/Cybersyn21/asistente/pull/3) (Open)
@@ -239,7 +239,7 @@ The solver:
 
 ## Related Issues
 
-- Current issue being tracked: [#655](https://github.com/deep-assistant/hive-mind/issues/655)
+- Current issue being tracked: [#655](https://github.com/link-assistant/hive-mind/issues/655)
 
 ## Artifacts
 

@@ -6,10 +6,10 @@ import { spawn } from 'child_process';
 console.log('🧪 Testing --attach-logs flag passing...\n');
 
 // Test dry run with --attach-logs flag
-console.log('Testing: ./hive.mjs https://github.com/deep-assistant/hive-mind --dry-run --once --attach-logs');
+console.log('Testing: ./hive.mjs https://github.com/link-assistant/hive-mind --dry-run --once --attach-logs');
 
 const child = spawn('./hive.mjs', [
-  'https://github.com/deep-assistant/hive-mind',
+  'https://github.com/link-assistant/hive-mind',
   '--dry-run',
   '--once',
   '--attach-logs',

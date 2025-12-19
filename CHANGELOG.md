@@ -1,5 +1,19 @@
 # @link-assistant/hive-mind
 
+## 0.41.10
+
+### Patch Changes
+
+- f77fdf8: Add Golang runtime installation support to Ubuntu 24 server installation script with proper success verification
+- ca4d83d: Add preinstalled Rocq (formerly Coq) theorem prover runtime support
+
+  - Install opam (OCaml package manager) as prerequisite
+  - Configure Rocq-released repository for package installation
+  - Add Rocq prover with fallback to classic Coq package if unavailable
+  - Add CI verification checks for Opam and Rocq/Coq installation
+  - Include Opam paths in Docker environment variables
+  - Support both Rocq and Coq theorem provers across all deployment configurations
+
 ## 0.41.9
 
 ### Patch Changes

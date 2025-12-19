@@ -702,6 +702,16 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Perl: not found' build-output.log; then
+            echo "ERROR: Perl installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Perlbrew: not found' build-output.log; then
+            echo "ERROR: Perlbrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Playwright: not found' build-output.log; then
             echo "ERROR: Playwright installation failed - showing as 'not found'"
             exit 1
@@ -780,6 +790,18 @@ jobs:
             echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
           fi
 
+          if grep -E '\[✓\] Perl:' build-output.log; then
+            echo "Perl installation verified in build logs"
+          else
+            echo "WARNING: Perl success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Perlbrew:' build-output.log; then
+            echo "Perlbrew installation verified in build logs"
+          else
+            echo "WARNING: Perlbrew success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Playwright:' build-output.log; then
             echo "Playwright installation verified in build logs"
           else
@@ -821,6 +843,8 @@ jobs:
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+            export PERLBREW_ROOT=\"\$HOME/perl5/perlbrew\"
+            [ -s \"\$PERLBREW_ROOT/etc/bashrc\" ] && source \"\$PERLBREW_ROOT/etc/bashrc\"
 
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
@@ -915,6 +939,26 @@ jobs:
                 echo 'PHP not found in container'
                 exit 1
               fi
+            fi
+
+            echo ''
+            echo 'Checking Perl...'
+            if command -v perl &>/dev/null; then
+              perl --version | head -n2 | tail -n1
+              echo 'Perl is accessible'
+            else
+              echo 'Perl command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Perlbrew...'
+            if command -v perlbrew &>/dev/null; then
+              perlbrew --version
+              echo 'Perlbrew is accessible'
+            else
+              echo 'Perlbrew command not found in container'
+              exit 1
             fi
 
             echo ''

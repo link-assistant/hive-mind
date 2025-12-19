@@ -490,7 +490,7 @@ This case study demonstrates a critical bug in the solve command's cleanup logic
 
 **Process Memory Approach (User's Recommendation)**
 
-Following the user's guidance in [PR #618 comment](https://github.com/deep-assistant/hive-mind/pull/618#issuecomment-3446343251), we implemented a solution that relies on the solve command's process memory rather than searching for commits:
+Following the user's guidance in [PR #618 comment](https://github.com/link-assistant/hive-mind/pull/618#issuecomment-3446343251), we implemented a solution that relies on the solve command's process memory rather than searching for commits:
 
 > "I think the best solution would be to rely on our solve command process memory. If we were creating initial commit for pull request creation - we should revert it, but if we didn't like in continue/auto-continue mode - we just need to do nothing, as in that working session was no \"initial commit\"."
 
@@ -551,8 +551,8 @@ This fix completely eliminates the bug documented in this case study. Future con
 
 ## References
 
-- **Issue:** https://github.com/deep-assistant/hive-mind/issues/617
-- **This PR:** https://github.com/deep-assistant/hive-mind/pull/618
+- **Issue:** https://github.com/link-assistant/hive-mind/issues/617
+- **This PR:** https://github.com/link-assistant/hive-mind/pull/618
 - **External PR:** https://github.com/link-foundation/test-anywhere/pull/4
 - **Session logs:**
   - https://gist.github.com/konard/b1d5083bdb3297d8013ced7ee0a3104f (Session 1)

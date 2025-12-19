@@ -1,6 +1,6 @@
 # Case Study: OpenCode Tool Command Failures
 
-**Issue Reference**: [#599](https://github.com/deep-assistant/hive-mind/issues/599)
+**Issue Reference**: [#599](https://github.com/link-assistant/hive-mind/issues/599)
 
 **Related Pull Request**: https://github.com/veb86/zcadvelecAI/pull/313#issuecomment-3431504835
 

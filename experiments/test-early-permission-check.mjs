@@ -76,11 +76,11 @@ console.log('   Expected: Should pass with confirmation message\n');
 
 logs.length = 0;
 const test3Result = await checkRepositoryWritePermission(
-  'deep-assistant',
+  'link-assistant',
   'hive-mind',
   {
     useFork: false,
-    issueUrl: 'https://github.com/deep-assistant/hive-mind/issues/439'
+    issueUrl: 'https://github.com/link-assistant/hive-mind/issues/439'
   }
 );
 

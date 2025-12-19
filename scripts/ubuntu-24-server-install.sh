@@ -298,7 +298,7 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
+maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
 log_success "Essential tools installed"
 
 # --- Install C/C++ Development Tools ---
@@ -644,6 +644,64 @@ if [ ! -d "$HOME/.cargo" ]; then
   fi
 else
   log_info "Rust already installed."
+fi
+
+# --- Java (SDKMAN + OpenJDK) ---
+if [ ! -d "$HOME/.sdkman" ]; then
+  log_info "Installing SDKMAN (Java version manager)..."
+  curl -s "https://get.sdkman.io?rcupdate=false" | bash
+  # Add SDKMAN to shell profile for persistence
+  if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding SDKMAN to shell configuration..."
+    {
+      echo ''
+      echo '# SDKMAN configuration'
+      echo 'export SDKMAN_DIR="$HOME/.sdkman"'
+      echo '[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "SDKMAN installed and configured"
+else
+  log_info "SDKMAN already installed."
+fi
+
+# Load SDKMAN for current session and install Java
+export SDKMAN_DIR="$HOME/.sdkman"
+if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  # Temporarily disable unbound variable check for SDKMAN init
+  # SDKMAN's init script has variables that may not be set initially
+  set +u
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  set -u
+  log_success "SDKMAN loaded for current session"
+
+  # Install latest LTS Java version (Java 21)
+  log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  # Temporarily disable unbound variable check for SDK commands
+  # SDKMAN's scripts check variables that may not be set in non-interactive contexts
+  set +u
+  if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
+    # Install Eclipse Temurin (recommended OpenJDK distribution)
+    sdk install java 21-tem < /dev/null || {
+      log_warning "Eclipse Temurin installation failed, trying default OpenJDK..."
+      sdk install java 21-open < /dev/null || {
+        log_warning "Java installation failed. You can install manually with: sdk install java"
+      }
+    }
+  else
+    log_info "Java 21 (Temurin) already installed."
+  fi
+  set -u
+
+  # Verify Java installation
+  if command -v java &>/dev/null; then
+    log_success "Java version manager setup complete"
+    java -version 2>&1 | head -n1
+  else
+    log_warning "Java installation may have failed. You can install manually with: sdk install java"
+  fi
+else
+  log_warning "SDKMAN installation may have failed. Skipping Java setup."
 fi
 
 # --- Opam + Rocq (Coq theorem prover) ---
@@ -1111,6 +1169,8 @@ if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; e
 if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
+if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
 
 if command -v brew &>/dev/null; then
   BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")

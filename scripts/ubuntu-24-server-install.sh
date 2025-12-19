@@ -298,7 +298,7 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
+maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
 log_success "Essential tools installed"
 
 # --- Install C/C++ Development Tools ---
@@ -646,6 +646,64 @@ else
   log_info "Rust already installed."
 fi
 
+# --- Java (SDKMAN + OpenJDK) ---
+if [ ! -d "$HOME/.sdkman" ]; then
+  log_info "Installing SDKMAN (Java version manager)..."
+  curl -s "https://get.sdkman.io?rcupdate=false" | bash
+  # Add SDKMAN to shell profile for persistence
+  if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding SDKMAN to shell configuration..."
+    {
+      echo ''
+      echo '# SDKMAN configuration'
+      echo 'export SDKMAN_DIR="$HOME/.sdkman"'
+      echo '[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "SDKMAN installed and configured"
+else
+  log_info "SDKMAN already installed."
+fi
+
+# Load SDKMAN for current session and install Java
+export SDKMAN_DIR="$HOME/.sdkman"
+if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  # Temporarily disable unbound variable check for SDKMAN init
+  # SDKMAN's init script has variables that may not be set initially
+  set +u
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  set -u
+  log_success "SDKMAN loaded for current session"
+
+  # Install latest LTS Java version (Java 21)
+  log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  # Temporarily disable unbound variable check for SDK commands
+  # SDKMAN's scripts check variables that may not be set in non-interactive contexts
+  set +u
+  if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
+    # Install Eclipse Temurin (recommended OpenJDK distribution)
+    sdk install java 21-tem < /dev/null || {
+      log_warning "Eclipse Temurin installation failed, trying default OpenJDK..."
+      sdk install java 21-open < /dev/null || {
+        log_warning "Java installation failed. You can install manually with: sdk install java"
+      }
+    }
+  else
+    log_info "Java 21 (Temurin) already installed."
+  fi
+  set -u
+
+  # Verify Java installation
+  if command -v java &>/dev/null; then
+    log_success "Java version manager setup complete"
+    java -version 2>&1 | head -n1
+  else
+    log_warning "Java installation may have failed. You can install manually with: sdk install java"
+  fi
+else
+  log_warning "SDKMAN installation may have failed. Skipping Java setup."
+fi
+
 # --- Lean (via elan) ---
 if [ ! -d "$HOME/.elan" ]; then
   log_info "Installing Lean (via elan)..."
@@ -957,6 +1015,68 @@ else
   log_warning "Homebrew not available. Skipping PHP installation."
 fi
 
+# --- Perl (via Perlbrew) ---
+if [ ! -d "$HOME/perl5/perlbrew" ]; then
+  log_info "Installing Perlbrew (Perl version manager)..."
+
+  # Install Perlbrew
+  curl -L https://install.perlbrew.pl | bash
+
+  # Add Perlbrew to shell profile for persistence
+  if ! grep -q 'perlbrew' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Perlbrew to shell configuration..."
+    {
+      echo ''
+      echo '# Perlbrew configuration'
+      echo 'export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo 'source "$PERLBREW_ROOT/etc/bashrc"'
+    } >> "$HOME/.bashrc"
+  fi
+
+  # Load Perlbrew for current session
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew installed and configured"
+
+    # Install latest stable Perl version
+    log_info "Installing latest stable Perl version (this may take several minutes)..."
+    LATEST_PERL=$(perlbrew available 2>/dev/null | grep -E '^\s*perl-5\.[0-9]+\.[0-9]+$' | head -1 | tr -d '[:space:]' || true)
+
+    if [ -n "$LATEST_PERL" ]; then
+      log_info "Installing $LATEST_PERL..."
+      if ! perlbrew list | grep -q "$LATEST_PERL"; then
+        perlbrew install "$LATEST_PERL" --notest || {
+          log_warning "Perl installation failed. You can try manually: perlbrew install $LATEST_PERL"
+        }
+      else
+        log_info "$LATEST_PERL already installed."
+      fi
+
+      # Switch to the installed Perl version
+      if perlbrew list | grep -q "$LATEST_PERL"; then
+        log_info "Switching to $LATEST_PERL..."
+        perlbrew switch "$LATEST_PERL"
+        log_success "Perl version manager setup complete"
+        perl --version | head -n 2
+      fi
+    else
+      log_warning "Could not determine latest Perl version. Skipping Perl installation."
+      log_note "You can install Perl manually: perlbrew available && perlbrew install perl-5.x.x"
+    fi
+  else
+    log_warning "Perlbrew installation may have failed. Skipping Perl setup."
+  fi
+else
+  log_info "Perlbrew already installed."
+  # Load Perlbrew for current session if available
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew loaded for current session"
+  fi
+fi
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -1138,6 +1258,8 @@ if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; e
 if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
+if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
 if command -v elan &>/dev/null; then log_success "Elan: $(elan --version)"; else log_warning "Elan: not found"; fi
 if command -v lean &>/dev/null; then log_success "Lean: $(lean --version)"; else log_warning "Lean: not found"; fi
 if command -v lake &>/dev/null; then log_success "Lake: $(lake --version)"; else log_warning "Lake: not found"; fi
@@ -1173,6 +1295,12 @@ else
     log_warning "PHP: not found"
   fi
 fi
+if command -v perl &>/dev/null; then
+  log_success "Perl: $(perl --version | head -n 2 | tail -n 1 | sed 's/^[[:space:]]*//')"
+else
+  log_warning "Perl: not found"
+fi
+if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
 
 if command -v rocq &>/dev/null; then
   log_success "Rocq: $(rocq --version | head -n1)"
@@ -1187,6 +1315,7 @@ elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
 else
   log_warning "Rocq/Coq: not found"
 fi
+
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
 
 echo ""

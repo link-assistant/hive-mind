@@ -717,6 +717,16 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Java: not found' build-output.log; then
+            echo "ERROR: Java installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Lake: not found' build-output.log; then
             echo "ERROR: Lake installation failed - showing as 'not found'"
             exit 1
@@ -724,11 +734,6 @@ jobs:
 
           if grep -E '\[!\] Lean: not found' build-output.log; then
             echo "ERROR: Lean installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Homebrew: not found' build-output.log; then
-            echo "ERROR: Homebrew installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -767,6 +772,16 @@ jobs:
             exit 1
           fi
 
+          if grep -E '\[!\] Perl: not found' build-output.log; then
+            echo "ERROR: Perl installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Perlbrew: not found' build-output.log; then
+            echo "ERROR: Perlbrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
           if grep -E '\[!\] Playwright: not found' build-output.log; then
             echo "ERROR: Playwright installation failed - showing as 'not found'"
             exit 1
@@ -789,6 +804,11 @@ jobs:
 
           if grep -E '\[!\] Rust: not found' build-output.log; then
             echo "ERROR: Rust installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] SDKMAN: not found' build-output.log; then
+            echo "ERROR: SDKMAN installation failed - showing as 'not found'"
             exit 1
           fi
 
@@ -868,6 +888,18 @@ jobs:
             echo "WARNING: Go success message not found in logs"
           fi
 
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "Homebrew installation verified in build logs"
+          else
+            echo "WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Java:' build-output.log; then
+            echo "Java installation verified in build logs"
+          else
+            echo "WARNING: Java success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Lake:' build-output.log; then
             echo "Lake installation verified in build logs"
           else
@@ -878,12 +910,6 @@ jobs:
             echo "Lean installation verified in build logs"
           else
             echo "WARNING: Lean success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Homebrew:' build-output.log; then
-            echo "Homebrew installation verified in build logs"
-          else
-            echo "WARNING: Homebrew success message not found in logs"
           fi
 
           if grep -E '\[✓\] LLD Linker:' build-output.log; then
@@ -928,6 +954,18 @@ jobs:
             echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
           fi
 
+          if grep -E '\[✓\] Perl:' build-output.log; then
+            echo "Perl installation verified in build logs"
+          else
+            echo "WARNING: Perl success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Perlbrew:' build-output.log; then
+            echo "Perlbrew installation verified in build logs"
+          else
+            echo "WARNING: Perlbrew success message not found in logs"
+          fi
+
           if grep -E '\[✓\] Playwright:' build-output.log; then
             echo "Playwright installation verified in build logs"
           else
@@ -958,6 +996,12 @@ jobs:
             echo "WARNING: Rust success message not found in logs"
           fi
 
+          if grep -E '\[✓\] SDKMAN:' build-output.log; then
+            echo "SDKMAN installation verified in build logs"
+          else
+            echo "WARNING: SDKMAN success message not found in logs"
+          fi
+
           echo ""
           echo "All system & development tools verification completed"
 
@@ -976,12 +1020,18 @@ jobs:
             export PYENV_ROOT=\"\$HOME/.pyenv\"
             export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+            export SDKMAN_DIR=\"\$HOME/.sdkman\"
+            if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
             # Source Go environment
             if [ -d \"\$HOME/.go\" ]; then
               export GOROOT=\"\$HOME/.go\"
               export GOPATH=\"\$HOME/go\"
               export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
             fi
+
+            export PERLBREW_ROOT=\"\$HOME/perl5/perlbrew\"
+            [ -s \"\$PERLBREW_ROOT/etc/bashrc\" ] && source \"\$PERLBREW_ROOT/etc/bashrc\"
+
 
             # Verify all system & development tools - alphabetical order
             echo 'Checking Bun...'
@@ -1104,6 +1154,26 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo 'Homebrew is accessible'
+            else
+              echo 'Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Java...'
+            if command -v java &>/dev/null; then
+              java -version 2>&1 | head -n1
+              echo 'Java is accessible'
+            else
+              echo 'Java command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Lake...'
             if command -v lake &>/dev/null; then
               lake --version
@@ -1120,16 +1190,6 @@ jobs:
               echo 'Lean is accessible'
             else
               echo 'Lean command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Homebrew...'
-            if command -v brew &>/dev/null; then
-              brew --version | head -n1
-              echo 'Homebrew is accessible'
-            else
-              echo 'Homebrew command not found in container'
               exit 1
             fi
 
@@ -1209,6 +1269,26 @@ jobs:
             fi
 
             echo ''
+            echo 'Checking Perl...'
+            if command -v perl &>/dev/null; then
+              perl --version | head -n2 | tail -n1
+              echo 'Perl is accessible'
+            else
+              echo 'Perl command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Perlbrew...'
+            if command -v perlbrew &>/dev/null; then
+              perlbrew --version
+              echo 'Perlbrew is accessible'
+            else
+              echo 'Perlbrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
             echo 'Checking Playwright...'
             if command -v playwright &>/dev/null; then
               playwright --version
@@ -1261,6 +1341,16 @@ jobs:
               echo 'Rust is accessible'
             else
               echo 'Rust command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking SDKMAN...'
+            if command -v sdk &>/dev/null; then
+              sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'SDKMAN installed'
+              echo 'SDKMAN is accessible'
+            else
+              echo 'SDKMAN command not found in container'
               exit 1
             fi
           "

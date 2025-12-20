@@ -256,6 +256,11 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
       default: false
     })
+    .option('prompt-case-studies', {
+      type: 'boolean',
+      description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
+      default: false
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

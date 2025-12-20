@@ -66,10 +66,9 @@ export const validateGitHubUrl = (issueUrl) => {
 
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
-    if (parsedUrl.error) {
-      console.error(`  ${parsedUrl.error}`);
-    }
-    console.error('  Please provide a valid GitHub issue or pull request URL');
+    if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    console.error('\n  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
     console.error('    https://github.com/owner/repo/pull/456 (pull request)');

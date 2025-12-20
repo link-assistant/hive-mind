@@ -25,13 +25,14 @@ export async function handleBranchCheckoutError({
   // Check if this is a PR from a fork
   let isForkPR = false;
   let forkOwner = null;
+  let forkRepoName = null; // Track the actual fork repo name (may be prefixed)
   let userHasFork = false;
   let suggestForkOption = false;
   let branchExistsInFork = false;
 
   if (prNumber) {
     try {
-      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName 2>/dev/null`;
+      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName,headRepository 2>/dev/null`;
       if (prCheckResult.code === 0) {
         const prData = JSON.parse(prCheckResult.stdout.toString());
         if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
@@ -39,9 +40,16 @@ export async function handleBranchCheckoutError({
           forkOwner = prData.headRepositoryOwner.login;
           suggestForkOption = true;
 
+          // Get the actual fork repository name (might be prefixed)
+          let forkRepoFullName = `${forkOwner}/${repo}`;
+          if (prData.headRepository && prData.headRepository.name) {
+            forkRepoFullName = `${forkOwner}/${prData.headRepository.name}`;
+            forkRepoName = prData.headRepository.name;
+          }
+
           // Check if the branch exists in the fork
           try {
-            const branchCheckResult = await $`gh api repos/${forkOwner}/${repo}/git/ref/heads/${branchName} 2>/dev/null`;
+            const branchCheckResult = await $`gh api repos/${forkRepoFullName}/git/ref/heads/${branchName} 2>/dev/null`;
             if (branchCheckResult.code === 0) {
               branchExistsInFork = true;
             }
@@ -50,6 +58,7 @@ export async function handleBranchCheckoutError({
               context: 'check_fork_for_branch',
               prNumber,
               forkOwner,
+              forkRepoFullName,
               branchName,
               operation: 'verify_fork_branch'
             });
@@ -72,27 +81,32 @@ export async function handleBranchCheckoutError({
       const userResult = await $`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
-        const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json parent 2>/dev/null`;
+        // Determine fork name based on --prefix-fork-name-with-owner-name option
+        const userForkRepoName = (argv && argv.prefixForkNameWithOwnerName) ? `${owner}-${repo}` : repo;
+        const userForkRepo = `${currentUser}/${userForkRepoName}`;
+        const forkCheckResult = await $`gh repo view ${userForkRepo} --json parent 2>/dev/null`;
         if (forkCheckResult.code === 0) {
           const forkData = JSON.parse(forkCheckResult.stdout.toString());
           if (forkData.parent && forkData.parent.owner && forkData.parent.owner.login === owner) {
             userHasFork = true;
             if (!forkOwner) forkOwner = currentUser;
+            if (!forkRepoName) forkRepoName = userForkRepoName;
             suggestForkOption = true;
 
             // Check if the branch exists in user's fork
             if (!branchExistsInFork) {
               try {
-                const branchCheckResult = await $`gh api repos/${currentUser}/${repo}/git/ref/heads/${branchName} 2>/dev/null`;
+                const branchCheckResult = await $`gh api repos/${userForkRepo}/git/ref/heads/${branchName} 2>/dev/null`;
                 if (branchCheckResult.code === 0) {
                   branchExistsInFork = true;
                   forkOwner = currentUser;
+                  forkRepoName = userForkRepoName;
                 }
               } catch (e) {
                 reportError(e, {
                   context: 'check_user_fork_branch',
                   userForkOwner: currentUser,
-                  repo,
+                  userForkRepoName,
                   branchName,
                   operation: 'check_branch_in_user_fork'
                 });
@@ -140,21 +154,25 @@ export async function handleBranchCheckoutError({
   // Explain why this happened
   await log('  💡 Why this happened:');
   if (isForkPR && forkOwner) {
+    // Use forkRepoName if available, otherwise default to repo
+    const displayForkRepo = forkRepoName || repo;
     if (branchExistsInFork) {
       await log(`     The PR branch '${branchName}' exists in the fork repository:`);
-      await log(`       https://github.com/${forkOwner}/${repo}`);
+      await log(`       https://github.com/${forkOwner}/${displayForkRepo}`);
       await log('     but you\'re trying to access it from the main repository:');
       await log(`       https://github.com/${owner}/${repo}`);
       await log('     This branch does NOT exist in the main repository.');
     } else {
-      await log(`     The PR is from a fork (https://github.com/${forkOwner}/${repo})`);
+      await log(`     The PR is from a fork (https://github.com/${forkOwner}/${displayForkRepo})`);
       await log(`     but the branch '${branchName}' could not be found there either.`);
       await log('     The branch may have been deleted or renamed.');
     }
     await log('     This is a common issue with pull requests from forks.');
   } else if (userHasFork && branchExistsInFork) {
+    // Use forkRepoName if available, otherwise default to repo
+    const displayForkRepo = forkRepoName || repo;
     await log(`     The branch '${branchName}' exists in your fork:`);
-    await log(`       https://github.com/${forkOwner}/${repo}`);
+    await log(`       https://github.com/${forkOwner}/${displayForkRepo}`);
     await log('     but NOT in the main repository:');
     await log(`       https://github.com/${owner}/${repo}`);
     await log('     You need to use --fork to work with your fork.');
@@ -184,7 +202,9 @@ export async function handleBranchCheckoutError({
     await log('');
     await log('  This will automatically:');
     if (userHasFork) {
-      await log(`    ✓ Use your existing fork (${forkOwner}/${repo})`);
+      // Use forkRepoName if available, otherwise default to repo
+      const displayForkRepo = forkRepoName || repo;
+      await log(`    ✓ Use your existing fork (${forkOwner}/${displayForkRepo})`);
     } else if (isForkPR && forkOwner) {
       await log('    ✓ Work with the fork that contains the PR branch');
     } else {

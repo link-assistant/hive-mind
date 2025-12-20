@@ -24,15 +24,15 @@ export function buildUserMention({
   // Derive core fields from `user` with inline overrides
   const id = idParam ?? user?.id;
   const username = usernameParam ?? user?.username;
-  const first_name = firstNameParam ?? user?.first_name;
-  const last_name = lastNameParam ?? user?.last_name;
+  const firstName = firstNameParam ?? user?.first_name;
+  const lastName = lastNameParam ?? user?.last_name;
 
   let displayName;
   if (username) {
     displayName = `@${username}`;
   } else {
     // Trim all string names, then filter out empty values
-    const raw = [first_name, last_name];
+    const raw = [firstName, lastName];
     // Trim whitespace and Hangul filler (ㅤ) characters from names
     const trimmedAll = raw.map((rawName) => (
       typeof rawName === 'string' ? rawName.trim().replace(/^[\s\t\n\rㅤ]+|[\s\t\n\rㅤ]+$/g, '') : rawName
@@ -52,12 +52,13 @@ export function buildUserMention({
     case 'Markdown':
       // Legacy Markdown: [text](url)
       return `[${displayName}](${link})`;
-    case 'MarkdownV2':
+    case 'MarkdownV2': {
       // MarkdownV2 requires escaping special characters
-      const escapedName = displayName.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+      const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
       return `[${escapedName}](${link})`;
+    }
     case 'HTML':
-    default:
+    default: {
       // HTML mode: <a href="url">text</a>
       const escapedHtml = displayName
         .replace(/&/g, '&amp;')
@@ -65,5 +66,6 @@ export function buildUserMention({
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
       return `<a href="${link}">${escapedHtml}</a>`;
+    }
   }
 }

@@ -18,7 +18,7 @@ export async function isScreenSessionRunning(sessionName) {
     // Match the session name more precisely to avoid partial matches
     const sessionPattern = new RegExp(`\\t\\d+\\.${sessionName}\\t`, 'm');
     return sessionPattern.test(stdout);
-  } catch (error) {
+  } catch {
     // screen -ls returns non-zero exit code when no sessions exist
     return false;
   }
@@ -237,7 +237,7 @@ export async function findLogFile(sessionName, logDir = null) {
       if (logFile) {
         return logFile;
       }
-    } catch (error) {
+    } catch {
       // Pattern didn't match, continue
     }
   }

@@ -1,0 +1,200 @@
+#!/usr/bin/env node
+// Import Sentry instrumentation first (must be before other imports)
+import './instrument.mjs';
+const earlyArgs = process.argv.slice(2);
+if (earlyArgs.includes('--version')) {
+  const { getVersion } = await import('./version.lib.mjs');
+  try {
+    const version = await getVersion();
+    console.log(version);
+  } catch {
+    console.error('Error: Unable to determine version');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
+  try {
+    // Load minimal modules needed for help
+    const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+    globalThis.use = use;
+    const yargsModule = await use('yargs@17.7.2');
+    const yargs = yargsModule.default || yargsModule;
+    const { hideBin } = await use('yargs@17.7.2/helpers');
+    const rawArgs = hideBin(process.argv);
+
+    // Reuse createYargsConfig from shared module to avoid duplication
+    const { createYargsConfig } = await import('./hive.config.lib.mjs');
+    const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
+
+    // Show help and exit
+    helpYargs.showHelp();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error: Failed to load help information');
+    console.error(`   ${error.message}`);
+    console.error('   This might be due to network issues or missing dependencies.');
+    console.error('   Please check your internet connection and try again.');
+    process.exit(1);
+  }
+}
+export { createYargsConfig } from './hive.config.lib.mjs';
+// Only execute main logic if this module is being run directly (not imported)
+// This prevents heavy module loading when hive.mjs is imported by other modules
+// Check if we're being executed (not imported) by looking at various indicators:
+// 1. process.argv[1] is the executed file path
+// 2. import.meta.url is this file's URL
+// 3. For global installs, argv[1] might be a symlink, so we check if it contains 'hive'
+import { fileURLToPath } from 'url';
+const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) ||
+                          (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
+
+if (isDirectExecution) {
+console.log('🐝 Hive Mind - AI-powered issue solver');
+console.log('   Initializing...');
+try {
+console.log('   Loading dependencies (this may take a moment)...');
+// Helper function to add timeout to async operations
+const withTimeout = (promise, timeoutMs, operation) => {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs)
+    )
+  ]);
+};
+
+// Use use-m to dynamically import modules for cross-runtime compatibility
+if (typeof use === 'undefined') {
+  try {
+    // Wrap fetch in timeout to prevent hanging
+    const useMCode = await withTimeout(
+      fetch('https://unpkg.com/use-m/use.js').then(r => r.text()),
+      10000,
+      'fetching use-m library'
+    );
+    globalThis.use = (await eval(useMCode)).use;
+  } catch (error) {
+    console.error('❌ Fatal error: Failed to load dependencies');
+    console.error(`   ${error.message}`);
+    console.error('   This might be due to network issues or missing dependencies.');
+    console.error('   Please check your internet connection and try again.');
+    process.exit(1);
+  }
+}
+// Use command-stream for consistent $ behavior across runtimes
+const { $ } = await withTimeout(
+  use('command-stream'),
+  30000, // 30 second timeout
+  'loading command-stream'
+);
+const yargsModule = await withTimeout(
+  use('yargs@17.7.2'),
+  30000,
+  'loading yargs'
+);
+const yargs = yargsModule.default || yargsModule;
+const { hideBin } = await withTimeout(
+  use('yargs@17.7.2/helpers'),
+  30000,
+  'loading yargs helpers'
+);
+const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
+const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
+// Import shared library functions
+const lib = await import('./lib.mjs');
+const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+const yargsConfigLib = await import('./hive.config.lib.mjs');
+const { createYargsConfig } = yargsConfigLib;
+const claudeLib = await import('./claude.lib.mjs');
+const { validateClaudeConnection } = claudeLib;
+const githubLib = await import('./github.lib.mjs');
+const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
+// Import YouTrack-related functions
+const youTrackLib = await import('./youtrack/youtrack.lib.mjs');
+const {
+  validateYouTrackConfig,
+  testYouTrackConnection,
+  createYouTrackConfigFromEnv
+} = youTrackLib;
+const youTrackSync = await import('./youtrack/youtrack-sync.mjs');
+const { syncYouTrackToGitHub, formatIssuesForHive } = youTrackSync;
+const memCheck = await import('./memory-check.mjs');
+const { checkSystem } = memCheck;
+const exitHandler = await import('./exit-handler.lib.mjs');
+const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const sentryLib = await import('./sentry.lib.mjs');
+const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
+const graphqlLib = await import('./github.graphql.lib.mjs');
+const { tryFetchIssuesWithGraphQL } = graphqlLib;
+const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
+const isLocalScript = commandName.endsWith('.mjs');
+const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
+
+/**
+ * Fallback function to fetch issues from organization/user repositories
+ * when search API hits rate limits
+ * @param {string} owner - Organization or user name
+ * @param {string} scope - 'organization' or 'user'
+ * @param {string} monitorTag - Label to filter by (optional)
+ * @param {boolean} allIssues - Whether to fetch all issues or only labeled ones
+ * @returns {Promise<Array>} Array of issues
+ */
+async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
+  const { execSync } = await import('child_process');
+  try {
+    await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
+    // Strategy 1: Try GraphQL approach first (faster but has limitations)
+    // Only try GraphQL for "all issues" mode, not for labeled issues
+    if (fetchAllIssues) {
+      const graphqlResult = await tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage);
+      if (graphqlResult.success) {
+        await log(`   ✅ GraphQL approach successful: ${graphqlResult.issues.length} issues from ${graphqlResult.repoCount} repositories`);
+        return graphqlResult.issues;
+      }
+    }
+
+    // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
+    await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
+
+    // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
+    // This approach uses the GitHub API directly to fetch all repositories without any limits
+    // Include isArchived field to filter out archived repositories
+    let repoListCmd;
+    if (scope === 'organization') {
+      repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
+    } else {
+      repoListCmd = `gh api users/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
+    }
+
+    await log('   📋 Fetching repository list (using --paginate for unlimited pagination)...', { verbose: true });
+    await log(`   🔎 Command: ${repoListCmd}`, { verbose: true });
+
+    // Add delay for rate limiting
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const repoOutput = execSync(repoListCmd, { encoding: 'utf8' });
+    // Parse the output line by line, as gh api with --jq outputs one JSON object per line
+    const repoLines = repoOutput.trim().split('\n').filter(line => line.trim());
+    const allRepositories = repoLines.map(line => JSON.parse(line));
+
+    await log(`   📊 Found ${allRepositories.length} repositories`);
+
+    // Filter repositories to only include those owned by the target user/org
+    const ownedRepositories = allRepositories.filter(repo => {
+      const repoOwner = repo.owner?.login || repo.owner;
+      return repoOwner === owner;
+    });
+    const unownedCount = allRepositories.length - ownedRepositories.length;
+
+    if (unownedCount > 0) {
+      await log(`   ⏭️  Skipping ${unownedCount} repository(ies) not owned by ${owner}`);
+    }
+
+    // Filter out archived repositories from owned repositories
+    const repositories = ownedRepositories.filter(repo => !repo.isArchived);
+    const archivedCount = ownedRepositories.length - repositories.length;
+
+    if (archivedCount > 0) {
+      await log(`   ⏭️  Skipping ${archivedCount} archived repository(ies)`);
+    }

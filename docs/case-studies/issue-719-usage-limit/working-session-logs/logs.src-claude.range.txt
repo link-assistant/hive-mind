@@ -1,0 +1,401 @@
+   820	      await log('   Feedback info included: No', { verbose: true });
+   821	    }
+   822	  }
+   823	  // Take resource snapshot before execution
+   824	  const resourcesBefore = await getResourceSnapshot();
+   825	  await log('📈 System resources before execution:', { verbose: true });
+   826	  await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+   827	  await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
+   828	    // Use command-stream's async iteration for real-time streaming with file logging
+   829	    let commandFailed = false;
+   830	    let sessionId = null;
+   831	    let limitReached = false;
+   832	    let limitResetTime = null;
+   833	    let messageCount = 0;
+   834	    let toolUseCount = 0;
+   835	    let lastMessage = '';
+   836	    let isOverloadError = false;
+   837	    let is503Error = false;
+   838	    let stderrErrors = [];
+   839	    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+   840	  // Build claude command with optional resume flag
+   841	  let execCommand;
+   842	  // Map model alias to full ID
+   843	  const mappedModel = mapModelToId(argv.model);
+   844	  // Build claude command arguments
+   845	  let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
+   846	  if (argv.resume) {
+   847	    await log(`🔄 Resuming from session: ${argv.resume}`);
+   848	    claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
+   849	  }
+   850	  claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+   851	  // Build the full command for display (with jq for formatting as in v0.3.2)
+   852	  const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
+   853	  // Print the actual raw command being executed
+   854	  await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
+   855	  await log(`${fullCommand}`);
+   856	  await log('');
+   857	  // Output prompts in verbose mode for debugging
+   858	  if (argv.verbose) {
+   859	    await log('📋 User prompt:', { verbose: true });
+   860	    await log('---BEGIN USER PROMPT---', { verbose: true });
+   861	    await log(prompt, { verbose: true });
+   862	    await log('---END USER PROMPT---', { verbose: true });
+   863	    await log('', { verbose: true });
+   864	    await log('📋 System prompt:', { verbose: true });
+   865	    await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
+   866	    await log(systemPrompt, { verbose: true });
+   867	    await log('---END SYSTEM PROMPT---', { verbose: true });
+   868	    await log('', { verbose: true });
+   869	  }
+   870	  try {
+   871	    if (argv.resume) {
+   872	      // When resuming, pass prompt directly with -p flag
+   873	      // Use simpler escaping - just escape double quotes
+   874	      const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
+   875	      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+   876	      execCommand = $({
+   877	        cwd: tempDir,
+   878	        mirror: false
+   879	      })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+   880	    } else {
+   881	      // When not resuming, pass prompt via stdin
+   882	      // For system prompt, escape it properly for shell - just escape double quotes
+   883	      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+   884	      execCommand = $({
+   885	        cwd: tempDir,
+   886	        stdin: prompt,
+   887	        mirror: false
+   888	      })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+   889	    }
+   890	    await log(`${formatAligned('📋', 'Command details:', '')}`);
+   891	    await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+   892	    await log(formatAligned('🌿', 'Branch:', branchName, 2));
+   893	    await log(formatAligned('🤖', 'Model:', `Claude ${argv.model.toUpperCase()}`, 2));
+   894	    if (argv.fork && forkedRepo) {
+   895	      await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+   896	    }
+   897	    await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+   898	    // Use command-stream's async iteration for real-time streaming
+   899	    let exitCode = 0;
+   900	    for await (const chunk of execCommand.stream()) {
+   901	      if (chunk.type === 'stdout') {
+   902	        const output = chunk.data.toString();
+   903	        // Split output into individual lines for NDJSON parsing
+   904	        // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+   905	        // This allows us to parse each event independently and extract structured data like session IDs,
+   906	        // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
+   907	        // since multiple JSON objects aren't valid JSON together.
+   908	        const lines = output.split('\n');
+   909	        for (const line of lines) {
+   910	          if (!line.trim()) continue;
+   911	          try {
+   912	            const data = JSON.parse(line);
+   913	            // Output formatted JSON as in v0.3.2
+   914	            await log(JSON.stringify(data, null, 2));
+   915	            // Capture session ID from the first message
+   916	            if (!sessionId && data.session_id) {
+   917	              sessionId = data.session_id;
+   918	              await log(`📌 Session ID: ${sessionId}`);
+   919	              // Try to rename log file to include session ID
+   920	              let sessionLogFile;
+   921	              try {
+   922	                const currentLogFile = getLogFile();
+   923	                const logDir = path.dirname(currentLogFile);
+   924	                sessionLogFile = path.join(logDir, `${sessionId}.log`);
+   925	                // Use fs.promises to rename the file
+   926	                await fs.rename(currentLogFile, sessionLogFile);
+   927	                // Update the global log file reference
+   928	                setLogFile(sessionLogFile);
+   929	                await log(`📁 Log renamed to: ${sessionLogFile}`);
+   930	              } catch (renameError) {
+   931	                reportError(renameError, {
+   932	                  context: 'rename_session_log',
+   933	                  sessionId,
+   934	                  sessionLogFile,
+   935	                  operation: 'rename_log_file'
+   936	                });
+   937	                // If rename fails, keep original filename
+   938	                await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
+   939	              }
+   940	            }
+   941	            // Track message and tool use counts
+   942	            if (data.type === 'message') {
+   943	              messageCount++;
+   944	            } else if (data.type === 'tool_use') {
+   945	              toolUseCount++;
+   946	            }
+   947	            // Handle session result type from Claude CLI
+   948	            // This is emitted when a session completes, either successfully or with an error
+   949	            // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+   950	            if (data.type === 'result') {
+   951	              // Capture Anthropic's official total_cost_usd from the result
+   952	              if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+   953	                anthropicTotalCostUSD = data.total_cost_usd;
+   954	                await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+   955	              }
+   956	              if (data.is_error === true) {
+   957	                commandFailed = true;
+   958	                lastMessage = data.result || JSON.stringify(data);
+   959	                await log('⚠️ Detected error result from Claude CLI', { verbose: true });
+   960	                if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
+   961	                  limitReached = true;
+   962	                  await log('⚠️ Detected session limit in result', { verbose: true });
+   963	                }
+   964	              }
+   965	            }
+   966	            // Store last message for error detection
+   967	            if (data.type === 'text' && data.text) {
+   968	              lastMessage = data.text;
+   969	            } else if (data.type === 'error') {
+   970	              lastMessage = data.error || JSON.stringify(data);
+   971	            }
+   972	            // Check for API overload error and 503 errors
+   973	            if (data.type === 'assistant' && data.message && data.message.content) {
+   974	              const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+   975	              for (const item of content) {
+   976	                if (item.type === 'text' && item.text) {
+   977	                  // Check for the specific 500 overload error pattern
+   978	                  if (item.text.includes('API Error: 500') &&
+   979	                      item.text.includes('api_error') &&
+   980	                      item.text.includes('Overloaded')) {
+   981	                    isOverloadError = true;
+   982	                    lastMessage = item.text;
+   983	                    await log('⚠️ Detected API overload error', { verbose: true });
+   984	                  }
+   985	                  // Check for 503 errors
+   986	                  if (item.text.includes('API Error: 503') ||
+   987	                      (item.text.includes('503') && item.text.includes('upstream connect error')) ||
+   988	                      (item.text.includes('503') && item.text.includes('remote connection failure'))) {
+   989	                    is503Error = true;
+   990	                    lastMessage = item.text;
+   991	                    await log('⚠️ Detected 503 network error', { verbose: true });
+   992	                  }
+   993	                }
+   994	              }
+   995	            }
+   996	          } catch (parseError) {
+   997	            // JSON parse errors are expected for non-JSON output
+   998	            // Only report in verbose mode
+   999	            if (global.verboseMode) {
+  1000	              reportError(parseError, {
+  1001	                context: 'parse_claude_output',
+  1002	                line,
+  1003	                operation: 'parse_json_output',
+  1004	                level: 'debug'
+  1005	              });
+  1006	            }
+  1007	            // Not JSON or parsing failed, output as-is if it's not empty
+  1008	            if (line.trim() && !line.includes('node:internal')) {
+  1009	              await log(line, { stream: 'raw' });
+  1010	              lastMessage = line;
+  1011	            }
+  1012	          }
+  1013	        }
+  1014	      }
+  1015	      if (chunk.type === 'stderr') {
+  1016	        const errorOutput = chunk.data.toString();
+  1017	        // Log stderr immediately
+  1018	        if (errorOutput) {
+  1019	          await log(errorOutput, { stream: 'stderr' });
+  1020	          // Track stderr errors for failure detection
+  1021	          const trimmed = errorOutput.trim();
+  1022	          // Exclude warnings (messages starting with ⚠️) from being treated as errors
+  1023	          // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
+  1024	          // Even though this contains the word "failed", it's a warning, not an error
+  1025	          const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+  1026	          if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+  1027	            stderrErrors.push(trimmed);
+  1028	          }
+  1029	        }
+  1030	      } else if (chunk.type === 'exit') {
+  1031	        exitCode = chunk.code;
+  1032	        if (chunk.code !== 0) {
+  1033	          commandFailed = true;
+  1034	        }
+  1035	        // Don't break here - let the loop finish naturally to process all output
+  1036	      }
+  1037	    }
+  1038	    if ((commandFailed || isOverloadError) &&
+  1039	        (isOverloadError ||
+  1040	         (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ||
+  1041	         (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')))) {
+  1042	      if (retryCount < maxRetries) {
+  1043	        // Calculate exponential backoff delay
+  1044	        const delay = baseDelay * Math.pow(2, retryCount);
+  1045	        await log(`\n⚠️ API overload error detected. Retrying in ${delay / 1000} seconds...`, { level: 'warning' });
+  1046	        await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
+  1047	        // Wait before retrying
+  1048	        await new Promise(resolve => setTimeout(resolve, delay));
+  1049	        // Increment retry count and retry
+  1050	        retryCount++;
+  1051	        return await executeWithRetry();
+  1052	      } else {
+  1053	        await log(`\n\n❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
+  1054	        await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
+  1055	        return {
+  1056	          success: false,
+  1057	          sessionId,
+  1058	          limitReached: false,
+  1059	          limitResetTime: null,
+  1060	          messageCount,
+  1061	          toolUseCount
+  1062	        };
+  1063	      }
+  1064	    }
+  1065	    if ((commandFailed || is503Error) && argv.autoResumeOnErrors &&
+  1066	        (is503Error ||
+  1067	         lastMessage.includes('API Error: 503') ||
+  1068	         (lastMessage.includes('503') && lastMessage.includes('upstream connect error')) ||
+  1069	         (lastMessage.includes('503') && lastMessage.includes('remote connection failure')))) {
+  1070	      if (retryCount < retryLimits.max503Retries) {
+  1071	        // Calculate exponential backoff delay starting from 5 minutes
+  1072	        const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+  1073	        const delayMinutes = Math.round(delay / (1000 * 60));
+  1074	        await log(`\n⚠️ 503 network error detected. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
+  1075	        await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
+  1076	        await log(`   Retry ${retryCount + 1}/${retryLimits.max503Retries}`, { verbose: true });
+  1077	        // Show countdown for long waits
+  1078	        if (delay > 60000) {
+  1079	          const countdownInterval = 60000; // Every minute
+  1080	          let remainingMs = delay;
+  1081	          const countdownTimer = setInterval(async () => {
+  1082	            remainingMs -= countdownInterval;
+  1083	            if (remainingMs > 0) {
+  1084	              const remainingMinutes = Math.round(remainingMs / (1000 * 60));
+  1085	              await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
+  1086	            }
+  1087	          }, countdownInterval);
+  1088	          // Wait before retrying
+  1089	          await new Promise(resolve => setTimeout(resolve, delay));
+  1090	          clearInterval(countdownTimer);
+  1091	        } else {
+  1092	          // Wait before retrying
+  1093	          await new Promise(resolve => setTimeout(resolve, delay));
+  1094	        }
+  1095	        await log('\n🔄 Retrying now...');
+  1096	        // Increment retry count and retry
+  1097	        retryCount++;
+  1098	        return await executeWithRetry();
+  1099	      } else {
+  1100	        await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, { level: 'error' });
+  1101	        await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
+  1102	        await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+  1103	        return {
+  1104	          success: false,
+  1105	          sessionId,
+  1106	          limitReached: false,
+  1107	          limitResetTime: null,
+  1108	          messageCount,
+  1109	          toolUseCount,
+  1110	          is503Error: true
+  1111	        };
+  1112	      }
+  1113	    }
+  1114	    if (commandFailed) {
+  1115	      // Check for usage limit errors first (more specific)
+  1116	      const limitInfo = detectUsageLimit(lastMessage);
+  1117	      if (limitInfo.isUsageLimit) {
+  1118	        limitReached = true;
+  1119	        limitResetTime = limitInfo.resetTime;
+  1120	
+  1121	        // Format and display user-friendly message
+  1122	        const messageLines = formatUsageLimitMessage({
+  1123	          tool: 'Claude',
+  1124	          resetTime: limitInfo.resetTime,
+  1125	          sessionId,
+  1126	          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+  1127	        });
+  1128	
+  1129	        for (const line of messageLines) {
+  1130	          await log(line, { level: 'warning' });
+  1131	        }
+  1132	      } else if (lastMessage.includes('context_length_exceeded')) {
+  1133	        await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
+  1134	      } else {
+  1135	        await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+  1136	        if (sessionId && !argv.resume) {
+  1137	          await log(`📌 Session ID for resuming: ${sessionId}`);
+  1138	          await log('\nTo resume this session, run:');
+  1139	          await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+  1140	        }
+  1141	      }
+  1142	    }
+  1143	    // Additional failure detection: if no messages were processed and there were stderr errors,
+  1144	    // or if the command produced no output at all, treat it as a failure
+  1145	    //
+  1146	    // This is critical for detecting "silent failures" where:
+  1147	    // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
+  1148	    // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
+  1149	    // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
+  1150	    //
+  1151	    // Common cause: sudo commands that timeout
+  1152	    // - Timeout triggers process.kill() in Claude CLI
+  1153	    // - If child process runs with sudo (root), parent can't kill it → EPERM error
+  1154	    // - Error logged to stderr, but command doesn't properly fail
+  1155	    //
+  1156	    // Workaround (applied in system prompt):
+  1157	    // - Instruct Claude to run sudo commands (installations) in background
+  1158	    // - Background processes avoid timeout kill mechanism
+  1159	    // - Prevents EPERM errors and false success reports
+  1160	    //
+  1161	    // See: docs/dependencies-research/claude-code-issues/README.md for full details
+  1162	    if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+  1163	      commandFailed = true;
+  1164	      await log('\n\n❌ Command failed: No messages processed and errors detected in stderr', { level: 'error' });
+  1165	      await log('Stderr errors:', { level: 'error' });
+  1166	      for (const err of stderrErrors.slice(0, 5)) {
+  1167	        await log(`   ${err.substring(0, 200)}`, { level: 'error' });
+  1168	      }
+  1169	    }
+  1170	    if (commandFailed) {
+  1171	      // Take resource snapshot after failure
+  1172	      const resourcesAfter = await getResourceSnapshot();
+  1173	      await log('\n📈 System resources after execution:', { verbose: true });
+  1174	      await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+  1175	      await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+  1176	      // Log attachment will be handled by solve.mjs when it receives success=false
+  1177	      await log('', { verbose: true });
+  1178	      return {
+  1179	        success: false,
+  1180	        sessionId,
+  1181	        limitReached,
+  1182	        limitResetTime,
+  1183	        messageCount,
+  1184	        toolUseCount
+  1185	      };
+  1186	    }
+  1187	    await log('\n\n✅ Claude command completed');
+  1188	    await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
+  1189	    // Calculate and display total token usage from session JSONL file
+  1190	    if (sessionId && tempDir) {
+  1191	      try {
+  1192	        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+  1193	        if (tokenUsage) {
+  1194	          await log('\n💰 Token Usage Summary:');
+  1195	          // Display per-model breakdown
+  1196	          if (tokenUsage.modelUsage) {
+  1197	            const modelIds = Object.keys(tokenUsage.modelUsage);
+  1198	            for (const modelId of modelIds) {
+  1199	              const usage = tokenUsage.modelUsage[modelId];
+  1200	              await log(`\n   📊 ${usage.modelName || modelId}:`);
+  1201	              await displayModelUsage(usage, log);
+  1202	            }
+  1203	            // Show totals if multiple models were used
+  1204	            if (modelIds.length > 1) {
+  1205	              await log('\n   📈 Total across all models:');
+  1206	              // Show cost comparison
+  1207	              await log('\n   💰 Cost estimation:');
+  1208	              if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+  1209	                await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
+  1210	              } else {
+  1211	                await log('      Public pricing estimate: unknown');
+  1212	              }
+  1213	              if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+  1214	                await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+  1215	                // Show comparison if both are available
+  1216	                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+  1217	                  const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
+  1218	                  const percentDiff = tokenUsage.totalCostUSD > 0 ? ((difference / tokenUsage.totalCostUSD) * 100) : 0;
+  1219	                  await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+  1220	                } else {

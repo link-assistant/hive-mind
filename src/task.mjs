@@ -8,7 +8,7 @@ if (earlyArgs.includes('--version')) {
   try {
     const version = await getVersion();
     console.log(version);
-  } catch (versionError) {
+  } catch {
     console.error('Error: Unable to determine version');
     process.exit(1);
   }
@@ -34,18 +34,13 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 // Use use-m to dynamically import modules for cross-runtime compatibility
 const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
-// Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
 const yargs = (await use('yargs@latest')).default;
-const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
-const crypto = (await use('crypto')).default;
 const { spawn } = (await use('child_process')).default;
 
 // Import Claude execution functions
-import { validateClaudeConnection, mapModelToId } from './claude.lib.mjs';
+import { mapModelToId } from './claude.lib.mjs';
 
 // Global log file reference
 let logFile = null;
@@ -114,7 +109,7 @@ const argv = yargs()
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1-20250805']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
   })
   .option('verbose', {
     type: 'boolean',
@@ -130,7 +125,7 @@ const argv = yargs()
     choices: ['text', 'json']
   })
   .check((argv) => {
-    if (!argv._[0]) {
+    if (!argv['task-description'] && !argv._[0]) {
       throw new Error('Please provide a task description');
     }
     
@@ -161,7 +156,7 @@ const argv = yargs()
   .strict()
   .parse(process.argv.slice(2));
 
-const taskDescription = argv._[0];
+const taskDescription = argv['task-description'] || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
@@ -174,7 +169,7 @@ logFile = path.join(scriptDir, `task-${timestamp}.log`);
 // Create the log file immediately
 await fs.writeFile(logFile, `# Task.mjs Log - ${new Date().toISOString()}\n\n`);
 await log(`📁 Log file: ${logFile}`);
-await log(`   (All output will be logged here)`);
+await log('   (All output will be logged here)');
 
 // Helper function to format aligned console output
 const formatAligned = (icon, label, value, indent = 0) => {
@@ -184,7 +179,7 @@ const formatAligned = (icon, label, value, indent = 0) => {
   return `${spaces}${icon} ${paddedLabel} ${value || ''}`;
 };
 
-await log(`\n🎯 Task Processing Started`);
+await log('\n🎯 Task Processing Started');
 await log(formatAligned('📝', 'Task description:', taskDescription));
 await log(formatAligned('🤖', 'Model:', argv.model));
 await log(formatAligned('💡', 'Clarify mode:', argv.clarify ? 'enabled' : 'disabled'));
@@ -207,7 +202,8 @@ const executeClaude = (prompt, model) => {
     ];
     
     const child = spawn(claudePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env
     });
     
     let stdout = '';
@@ -245,8 +241,8 @@ try {
 
   // Phase 1: Clarification
   if (argv.clarify) {
-    await log(`\n🤔 Phase 1: Task Clarification`);
-    await log(`   Analyzing task and generating clarifying questions...`);
+    await log('\n🤔 Phase 1: Task Clarification');
+    await log('   Analyzing task and generating clarifying questions...');
     
     const clarifyPrompt = `Task: "${taskDescription}"
 
@@ -265,13 +261,13 @@ Provide your response in a clear, structured format that helps refine the task u
     }
     
     results.clarification = clarificationOutput;
-    await log(`\n✅ Clarification phase completed`);
+    await log('\n✅ Clarification phase completed');
   }
 
   // Phase 2: Decomposition
   if (argv.decompose) {
-    await log(`\n🔍 Phase 2: Task Decomposition`);
-    await log(`   Breaking down task into manageable subtasks...`);
+    await log('\n🔍 Phase 2: Task Decomposition');
+    await log('   Breaking down task into manageable subtasks...');
     
     let decomposePrompt = `Task: "${taskDescription}"`;
     
@@ -295,7 +291,7 @@ Provide your response as a structured breakdown that someone could use as a impl
     }
     
     results.decomposition = decompositionOutput;
-    await log(`\n✅ Decomposition phase completed`);
+    await log('\n✅ Decomposition phase completed');
   }
 
   // Output results
@@ -303,7 +299,7 @@ Provide your response as a structured breakdown that someone could use as a impl
     console.log('\n' + JSON.stringify(results, null, 2));
   }
 
-  await log(`\n🎉 Task processing completed successfully`);
+  await log('\n🎉 Task processing completed successfully');
   await log(`💡 Review the session log for details: ${logFile}`);
   
 } catch (error) {

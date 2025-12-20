@@ -1,5 +1,122 @@
 # @link-assistant/hive-mind
 
+## 0.43.0
+
+### Minor Changes
+
+- fe002f8: Add --prompt-issue-reporting flag for automatic issue creation
+
+  This release introduces a new opt-in feature that enables the AI to automatically create GitHub issues when it spots bugs, errors, or minor issues during working sessions that are not related to the main task.
+
+  **New Features:**
+
+  - Added `--prompt-issue-reporting` CLI flag (disabled by default)
+  - Issues include reproducible examples, workarounds, and fix suggestions
+  - Supports creating issues in both current and third-party repositories
+  - Automatic duplicate checking before creating issues
+
+  **Usage:**
+
+  ```bash
+  hive solve <issue-url> --prompt-issue-reporting
+  solve <issue-url> --prompt-issue-reporting
+  ```
+
+  **Implementation:**
+
+  - New guideline in system prompt (conditional on flag)
+  - Flag added to both `hive` and `solve` commands
+  - Uses `gh` CLI for authenticated issue creation (works with private repos)
+
+  This feature helps ensure that no bugs slip through the cracks during development while giving users full control over when it's active.
+
+## 0.42.3
+
+### Patch Changes
+
+- 64d6cf8: Add experimental /top command to Telegram bot
+
+  - Added /top command to show live system monitor in Telegram
+  - Displays auto-updating `top` output in a single message (updates every 2 seconds)
+  - Owner-only access with chat authorization checks
+  - Session isolation per chat using GNU screen
+  - Clean stop button to terminate monitoring session
+  - Marked as EXPERIMENTAL feature with user warnings
+  - Not documented in /help as requested
+  - Requires GNU screen to be installed on the system
+
+  Fixes #500
+
+## 0.42.2
+
+### Patch Changes
+
+- dca5bed: Make --auto-continue enabled by default
+
+  - Changed default value from false to true for --auto-continue in both hive and solve commands
+  - Smart handling of -s (--skip-issues-with-prs) flag interaction:
+    - When -s is used, auto-continue is automatically disabled to avoid conflicts
+    - Explicit --auto-continue with -s shows proper error message
+    - Users can still use --no-auto-continue to explicitly disable
+  - This improves user experience as users typically want to continue working on existing PRs
+
+  Fixes #454
+
+## 0.42.1
+
+### Patch Changes
+
+- acd70a9: Add Lean runtime preinstallation support via elan
+
+  - Install elan (Lean version manager) with stable toolchain in all deployment environments
+  - Add Lean/elan to PATH in Dockerfile, .gitpod.Dockerfile, coolify/Dockerfile
+  - Add installation verification for elan, lean, and lake commands
+  - Add CI checks to verify Lean installation in Docker builds
+
+## 0.42.0
+
+### Minor Changes
+
+- d98d9c9: Add Java (OpenJDK) runtime installation support via SDKMAN in Ubuntu 24 server installation script
+
+  - Install SDKMAN as Java version manager (following pattern of pyenv for Python, nvm for Node.js)
+  - Install Java 21 LTS (Eclipse Temurin distribution) by default with fallback to OpenJDK
+  - Add SDKMAN configuration to .bashrc for persistence
+  - Add Java and SDKMAN to installation summary output
+  - Add zip package to prerequisites (required by SDKMAN)
+
+  Fixes #737
+
+### Patch Changes
+
+- d42d221: Add Perl runtime installation support via Perlbrew to Ubuntu 24 server installation script and Docker environment with CI verification
+
+## 0.41.10
+
+### Patch Changes
+
+- f77fdf8: Add Golang runtime installation support to Ubuntu 24 server installation script with proper success verification
+- ca4d83d: Add preinstalled Rocq (formerly Coq) theorem prover runtime support
+
+  - Install opam (OCaml package manager) as prerequisite
+  - Configure Rocq-released repository for package installation
+  - Add Rocq prover with fallback to classic Coq package if unavailable
+  - Add CI verification checks for Opam and Rocq/Coq installation
+  - Include Opam paths in Docker environment variables
+  - Support both Rocq and Coq theorem provers across all deployment configurations
+
+## 0.41.9
+
+### Patch Changes
+
+- 1635432: Add C/C++ development tools (CMake, Clang/LLVM, GCC, Make) to Ubuntu 24 server installation script with CI verification
+
+## 0.41.8
+
+### Patch Changes
+
+- 80aff72: Add Deno runtime installation support to Ubuntu 24 server installation script and Docker environment
+
 ## 0.41.7
 
 ### Patch Changes

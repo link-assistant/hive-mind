@@ -298,8 +298,13 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
+maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
 log_success "Essential tools installed"
+
+# --- Install C/C++ Development Tools ---
+log_info "Installing C/C++ development tools (CMake, Clang/LLVM)..."
+sudo apt install -y cmake clang llvm lld
+log_success "C/C++ development tools installed"
 
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
@@ -465,6 +470,29 @@ else
   log_info "Bun already installed."
 fi
 
+# --- Deno ---
+if ! command -v deno &>/dev/null; then
+  log_info "Installing Deno..."
+  # Use -y flag to skip interactive prompts (fixes "cannot open /dev/tty" error
+  # when running in non-interactive contexts like su/sudo or CI pipelines)
+  curl -fsSL https://deno.land/install.sh | sh -s -- -y
+  export DENO_INSTALL="$HOME/.deno"
+  export PATH="$DENO_INSTALL/bin:$PATH"
+  # Add Deno to shell profile for persistence
+  if ! grep -q 'DENO_INSTALL' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Deno to shell configuration..."
+    {
+      echo ''
+      echo '# Deno configuration'
+      echo 'export DENO_INSTALL="$HOME/.deno"'
+      echo 'export PATH="$DENO_INSTALL/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "Deno installed"
+else
+  log_info "Deno already installed."
+fi
+
 # --- NVM + Node ---
 if [ ! -d "$HOME/.nvm" ]; then
   log_info "Installing NVM..."
@@ -529,6 +557,83 @@ else
   log_warning "Pyenv installation may have failed. Skipping Python setup."
 fi
 
+# --- Golang ---
+if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
+  log_info "Installing Golang..."
+
+  # Detect architecture
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) GO_ARCH="amd64" ;;
+    aarch64) GO_ARCH="arm64" ;;
+    armv7l) GO_ARCH="armv6l" ;;
+    *)
+      log_warning "Unsupported architecture: $ARCH. Skipping Go installation."
+      GO_ARCH=""
+      ;;
+  esac
+
+  if [ -n "$GO_ARCH" ]; then
+    # Get latest stable Go version from golang.org
+    log_info "Fetching latest Go version..."
+    GO_VERSION=$(curl -sL 'https://go.dev/VERSION?m=text' | head -n1)
+
+    if [ -n "$GO_VERSION" ]; then
+      GO_TARBALL="${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      GO_URL="https://go.dev/dl/${GO_TARBALL}"
+
+      log_info "Downloading Go $GO_VERSION for $GO_ARCH..."
+      TEMP_DIR=$(mktemp -d)
+      curl -sL "$GO_URL" -o "$TEMP_DIR/$GO_TARBALL"
+
+      # Install to user's home directory
+      log_info "Installing Go to $HOME/.go..."
+      mkdir -p "$HOME/.go"
+      tar -xzf "$TEMP_DIR/$GO_TARBALL" -C "$HOME/.go" --strip-components=1
+      rm -rf "$TEMP_DIR"
+
+      # Add Go to shell profile for persistence
+      if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
+        log_info "Adding Go to shell configuration..."
+        {
+          echo ''
+          echo '# Go configuration'
+          echo 'export GOROOT="$HOME/.go"'
+          echo 'export GOPATH="$HOME/go"'
+          echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
+        } >> "$HOME/.bashrc"
+      fi
+
+      # Load Go for current session
+      export GOROOT="$HOME/.go"
+      export GOPATH="$HOME/go"
+      export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+      # Create GOPATH directory
+      mkdir -p "$GOPATH"
+
+      if command -v go &>/dev/null; then
+        log_success "Golang installed: $(go version)"
+      else
+        log_error "Go installation failed - binary not found in PATH"
+        exit 1
+      fi
+    else
+      log_warning "Could not determine latest Go version. Skipping Go installation."
+    fi
+  fi
+else
+  log_info "Golang already installed."
+  # Ensure Go is in PATH for current session
+  if [ -d "$HOME/.go/bin" ]; then
+    export GOROOT="$HOME/.go"
+    export GOPATH="$HOME/go"
+    export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+  elif [ -d "/usr/local/go/bin" ]; then
+    export PATH="/usr/local/go/bin:$PATH"
+  fi
+fi
+
 # --- Rust ---
 if [ ! -d "$HOME/.cargo" ]; then
   log_info "Installing Rust..."
@@ -541,6 +646,170 @@ if [ ! -d "$HOME/.cargo" ]; then
   fi
 else
   log_info "Rust already installed."
+fi
+
+# --- Java (SDKMAN + OpenJDK) ---
+if [ ! -d "$HOME/.sdkman" ]; then
+  log_info "Installing SDKMAN (Java version manager)..."
+  # Use ci=true for non-interactive installation (auto-answers prompts,
+  # disables color output for cleaner logs, prevents auto-updates)
+  curl -s "https://get.sdkman.io?rcupdate=false&ci=true" | bash
+  # Add SDKMAN to shell profile for persistence
+  if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding SDKMAN to shell configuration..."
+    {
+      echo ''
+      echo '# SDKMAN configuration'
+      echo 'export SDKMAN_DIR="$HOME/.sdkman"'
+      echo '[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "SDKMAN installed and configured"
+else
+  log_info "SDKMAN already installed."
+fi
+
+# Load SDKMAN for current session and install Java
+export SDKMAN_DIR="$HOME/.sdkman"
+if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  # Temporarily disable unbound variable check for SDKMAN init
+  # SDKMAN's init script has variables that may not be set initially
+  set +u
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  set -u
+  log_success "SDKMAN loaded for current session"
+
+  # Install latest LTS Java version (Java 21)
+  log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  # Temporarily disable unbound variable check for SDK commands
+  # SDKMAN's scripts check variables that may not be set in non-interactive contexts
+  set +u
+  if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
+    # Install Eclipse Temurin (recommended OpenJDK distribution)
+    sdk install java 21-tem < /dev/null || {
+      log_warning "Eclipse Temurin installation failed, trying default OpenJDK..."
+      sdk install java 21-open < /dev/null || {
+        log_warning "Java installation failed. You can install manually with: sdk install java"
+      }
+    }
+  else
+    log_info "Java 21 (Temurin) already installed."
+  fi
+  set -u
+
+  # Verify Java installation
+  if command -v java &>/dev/null; then
+    log_success "Java version manager setup complete"
+    java -version 2>&1 | head -n1
+  else
+    log_warning "Java installation may have failed. You can install manually with: sdk install java"
+  fi
+else
+  log_warning "SDKMAN installation may have failed. Skipping Java setup."
+fi
+
+# --- Lean (via elan) ---
+if [ ! -d "$HOME/.elan" ]; then
+  log_info "Installing Lean (via elan)..."
+  curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+    log_success "Lean installed successfully"
+  else
+    log_warning "Lean installation may have failed or been cancelled. Skipping Lean environment setup."
+  fi
+  # Add elan to shell profile for persistence
+  if ! grep -q 'elan' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding elan to shell configuration..."
+    {
+      echo ''
+      echo '# Lean (elan) configuration'
+      echo 'export PATH="$HOME/.elan/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_info "Lean (elan) already installed."
+  # Ensure elan is loaded for current session
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+  fi
+fi
+
+# --- Opam + Rocq (Coq theorem prover) ---
+if ! command -v opam &>/dev/null; then
+  log_info "Installing Opam (OCaml package manager)..."
+  # Install opam dependencies
+  sudo apt install -y bubblewrap || {
+    log_warning "Failed to install bubblewrap (opam sandboxing dependency)"
+  }
+
+  # Install opam via official script
+  bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh) --no-backup" <<< "y" || {
+    log_warning "Opam installation via script failed. Trying apt..."
+    sudo apt install -y opam || {
+      log_warning "Opam installation failed."
+    }
+  }
+
+  if command -v opam &>/dev/null; then
+    log_success "Opam installed successfully"
+  fi
+else
+  log_info "Opam already installed."
+fi
+
+# Initialize opam and install Rocq
+if command -v opam &>/dev/null; then
+  if [ ! -d "$HOME/.opam" ]; then
+    log_info "Initializing Opam..."
+    # Use --disable-sandboxing for Docker/container compatibility
+    opam init --disable-sandboxing --auto-setup -y || {
+      log_warning "Opam init failed."
+    }
+    log_success "Opam initialized"
+  else
+    log_info "Opam already initialized."
+  fi
+
+  # Source opam environment
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Install Rocq (the proof assistant formerly known as Coq)
+  if ! opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+    log_info "Installing Rocq Prover (this may take several minutes)..."
+    log_note "Rocq is the new name for the Coq theorem prover"
+
+    # Add Rocq package repository
+    opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
+
+    # Install Rocq prover
+    opam install rocq-prover -y || {
+      log_warning "Rocq installation failed. Trying to install Coq as fallback..."
+      opam install coq -y || {
+        log_warning "Coq installation also failed."
+      }
+    }
+
+    if opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_success "Rocq Prover installed successfully"
+    elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+      log_success "Coq installed successfully (fallback)"
+    fi
+  else
+    log_info "Rocq Prover already installed."
+  fi
+
+  # Add opam environment to shell profile for persistence
+  if ! grep -q 'opam env' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Opam environment to shell configuration..."
+    {
+      echo ''
+      echo '# Opam (OCaml/Rocq) configuration'
+      echo 'test -r $HOME/.opam/opam-init/init.sh && . $HOME/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_warning "Opam not available. Skipping Rocq installation."
 fi
 
 # --- Homebrew ---
@@ -750,6 +1019,83 @@ else
   log_warning "Homebrew not available. Skipping PHP installation."
 fi
 
+# --- Perl (via Perlbrew) ---
+if [ ! -d "$HOME/perl5/perlbrew" ]; then
+  log_info "Installing Perlbrew (Perl version manager)..."
+
+  # Install Perlbrew
+  curl -L https://install.perlbrew.pl | bash
+
+  # Add Perlbrew to shell profile for persistence
+  if ! grep -q 'perlbrew' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Perlbrew to shell configuration..."
+    {
+      echo ''
+      echo '# Perlbrew configuration'
+      echo 'export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo 'source "$PERLBREW_ROOT/etc/bashrc"'
+    } >> "$HOME/.bashrc"
+  fi
+
+  # Load Perlbrew for current session
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew installed and configured"
+
+    # Install latest stable Perl version
+    log_info "Installing latest stable Perl version (this may take several minutes)..."
+
+    # Fetch available Perl versions and extract the first stable version
+    # Use grep -oE to robustly extract version strings regardless of line formatting
+    # Filter for stable releases only (even minor version numbers: 5.32.x, 5.34.x, etc.)
+    PERLBREW_OUTPUT=$(perlbrew available 2>&1 || true)
+    if [ -z "$PERLBREW_OUTPUT" ]; then
+      log_warning "perlbrew available returned empty output"
+    fi
+
+    # Extract version using -oE to handle any line formatting (spaces, markers, etc.)
+    LATEST_PERL=$(echo "$PERLBREW_OUTPUT" | grep -oE 'perl-5\.[0-9]+\.[0-9]+' | head -1 || true)
+
+    if [ -n "$LATEST_PERL" ]; then
+      log_info "Installing $LATEST_PERL..."
+      if ! perlbrew list | grep -q "$LATEST_PERL"; then
+        perlbrew install "$LATEST_PERL" --notest || {
+          log_warning "Perl installation failed. You can try manually: perlbrew install $LATEST_PERL"
+        }
+      else
+        log_info "$LATEST_PERL already installed."
+      fi
+
+      # Switch to the installed Perl version
+      if perlbrew list | grep -q "$LATEST_PERL"; then
+        log_info "Switching to $LATEST_PERL..."
+        perlbrew switch "$LATEST_PERL"
+        log_success "Perl version manager setup complete"
+        perl --version | head -n 2
+      fi
+    else
+      log_warning "Could not determine latest Perl version. Skipping Perl installation."
+      log_note "You can install Perl manually: perlbrew available && perlbrew install perl-5.x.x"
+      # Show first few lines of perlbrew output for debugging
+      if [ -n "$PERLBREW_OUTPUT" ]; then
+        log_note "perlbrew available output (first 5 lines):"
+        echo "$PERLBREW_OUTPUT" | head -5
+      fi
+    fi
+  else
+    log_warning "Perlbrew installation may have failed. Skipping Perl setup."
+  fi
+else
+  log_info "Perlbrew already installed."
+  # Load Perlbrew for current session if available
+  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    source "$PERLBREW_ROOT/etc/bashrc"
+    log_success "Perlbrew loaded for current session"
+  fi
+fi
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -923,18 +1269,28 @@ echo "System & Development Tools:"
 if command -v gh &>/dev/null; then log_success "GitHub CLI: $(gh --version | head -n1)"; else log_warning "GitHub CLI: not found"; fi
 if command -v git &>/dev/null; then log_success "Git: $(git --version)"; else log_warning "Git: not found"; fi
 if command -v bun &>/dev/null; then log_success "Bun: $(bun --version)"; else log_warning "Bun: not found"; fi
+if command -v deno &>/dev/null; then log_success "Deno: $(deno --version | head -n1)"; else log_warning "Deno: not found"; fi
 if command -v node &>/dev/null; then log_success "Node.js: $(node --version)"; else log_warning "Node.js: not found"; fi
 if command -v npm &>/dev/null; then log_success "NPM: $(npm --version)"; else log_warning "NPM: not found"; fi
 if command -v python &>/dev/null; then log_success "Python: $(python --version)"; else log_warning "Python: not found"; fi
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
+if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
+if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
+if command -v elan &>/dev/null; then log_success "Elan: $(elan --version)"; else log_warning "Elan: not found"; fi
+if command -v lean &>/dev/null; then log_success "Lean: $(lean --version)"; else log_warning "Lean: not found"; fi
+if command -v lake &>/dev/null; then log_success "Lake: $(lake --version)"; else log_warning "Lake: not found"; fi
+
 if command -v brew &>/dev/null; then
   BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")
   log_success "Homebrew: $BREW_VERSION"
 else
   log_warning "Homebrew: not found"
 fi
+
+if command -v opam &>/dev/null; then log_success "Opam: $(opam --version)"; else log_warning "Opam: not found"; fi
 
 if command -v php &>/dev/null; then
   PHP_VERSION=$(php --version 2>/dev/null | head -n1 || echo "unknown version")
@@ -958,7 +1314,39 @@ else
     log_warning "PHP: not found"
   fi
 fi
+if command -v perl &>/dev/null; then
+  log_success "Perl: $(perl --version | head -n 2 | tail -n 1 | sed 's/^[[:space:]]*//')"
+else
+  log_warning "Perl: not found"
+fi
+if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
+
+if command -v rocq &>/dev/null; then
+  log_success "Rocq: $(rocq --version | head -n1)"
+elif command -v coqc &>/dev/null; then
+  log_success "Coq: $(coqc --version | head -n1)"
+elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  log_warning "Rocq: installed via opam but not in current PATH"
+  log_note "Rocq will be available after shell restart or: eval \$(opam env)"
+elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+  log_warning "Coq: installed via opam but not in current PATH"
+  log_note "Coq will be available after shell restart or: eval \$(opam env)"
+else
+  log_warning "Rocq/Coq: not found"
+fi
+
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
+
+echo ""
+echo "C/C++ Development Tools:"
+if command -v make &>/dev/null; then log_success "Make: $(make --version | head -n1)"; else log_warning "Make: not found"; fi
+if command -v cmake &>/dev/null; then log_success "CMake: $(cmake --version | head -n1)"; else log_warning "CMake: not found"; fi
+if command -v gcc &>/dev/null; then log_success "GCC: $(gcc --version | head -n1)"; else log_warning "GCC: not found"; fi
+if command -v g++ &>/dev/null; then log_success "G++: $(g++ --version | head -n1)"; else log_warning "G++: not found"; fi
+if command -v clang &>/dev/null; then log_success "Clang: $(clang --version | head -n1)"; else log_warning "Clang: not found"; fi
+if command -v clang++ &>/dev/null; then log_success "Clang++: $(clang++ --version | head -n1)"; else log_warning "Clang++: not found"; fi
+if command -v llvm-config &>/dev/null; then log_success "LLVM: $(llvm-config --version)"; else log_warning "LLVM: not found"; fi
+if command -v lld &>/dev/null; then log_success "LLD Linker: $(lld --version | head -n1)"; else log_warning "LLD Linker: not found"; fi
 
 echo ""
 echo "Swap Configuration:"

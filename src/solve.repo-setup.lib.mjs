@@ -30,9 +30,6 @@ export async function setupRepositoryAndClone({
     await log('Note: gh auth setup-git had issues, continuing anyway\n');
   }
 
-  // Ensure README.md exists in the repository
-  await ensureReadmeExists(tempDir, owner, repo, forkedRepo);
-
   return { repoToClone, forkedRepo, upstreamRemote, prForkRemote, prForkOwner };
 }
 
@@ -58,12 +55,6 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   const repository = await import('./solve.repository.lib.mjs');
   const { setupPrForkRemote: setupPrForkFn } = repository;
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
-}
-
-async function ensureReadmeExists(tempDir, owner, repo, forkedRepo) {
-  const repository = await import('./solve.repository.lib.mjs');
-  const { ensureReadmeExists: ensureReadmeFn } = repository;
-  return await ensureReadmeFn(tempDir, owner, repo, forkedRepo);
 }
 
 export async function verifyDefaultBranchAndStatus({

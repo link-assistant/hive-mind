@@ -153,23 +153,8 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
 
     await log(`${formatAligned('', '', 'Creating a simple README.md to make repository forkable')}`);
 
-    // Get repository description to include in README
-    const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq '{description: .description}'`;
-    let description = '';
-    if (repoInfoResult.code === 0) {
-      try {
-        const repoInfo = JSON.parse(repoInfoResult.stdout.toString().trim());
-        description = repoInfo.description || '';
-      } catch {
-        // If parsing fails, continue with empty description
-      }
-    }
-
-    // Create README content with repository name and description (if available)
-    let readmeContent = `# ${repo}\n`;
-    if (description) {
-      readmeContent += `\n${description}\n`;
-    }
+    // Create simple README content with just the repository name
+    const readmeContent = `# ${repo}\n`;
     const base64Content = Buffer.from(readmeContent).toString('base64');
 
     // Try to create README.md using GitHub API
@@ -203,125 +188,6 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
     });
     await log(`${formatAligned('❌', 'Error:', 'Failed to initialize repository')}`);
     return false;
-  }
-};
-
-// Check if README.md exists in cloned repository and create it if missing
-// This function is called after cloning to ensure all repositories have a README
-export const ensureReadmeExists = async (tempDir, owner, repo, forkedRepo) => {
-  try {
-    // Check if README.md exists in the cloned repository using fs.access
-    // This is more reliable than shell test command
-    try {
-      await fs.access(path.join(tempDir, 'README.md'));
-      // README already exists, nothing to do
-      return { created: false, reason: 'exists' };
-    } catch {
-      // README doesn't exist, continue to creation
-    }
-
-    // README.md doesn't exist, we need to create it
-    await log(`\n${formatAligned('📄', 'README.md missing:', 'Initializing repository with README...')}`);
-
-    // Get repository description
-    const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq '{description: .description}'`;
-    let description = '';
-    if (repoInfoResult.code === 0) {
-      try {
-        const repoInfo = JSON.parse(repoInfoResult.stdout.toString().trim());
-        description = repoInfo.description || '';
-      } catch {
-        // If parsing fails, continue with empty description
-      }
-    }
-
-    // Create README content with repository name and description (if available)
-    let readmeContent = `# ${repo}\n`;
-    if (description) {
-      readmeContent += `\n${description}\n`;
-    }
-
-    // Determine target repository for logging
-    const targetRepo = forkedRepo || `${owner}/${repo}`;
-
-    // Try to create README.md in the cloned repository
-    await fs.writeFile(path.join(tempDir, 'README.md'), readmeContent, 'utf8');
-    await log(`${formatAligned('✅', 'README.md created:', 'Added to local repository')}`);
-
-    // Try to commit and push the README.md
-    // Configure git user if not already configured
-    const gitConfigCheckResult = await $({ cwd: tempDir })`git config user.name 2>&1`;
-    if (gitConfigCheckResult.code !== 0 || !gitConfigCheckResult.stdout.toString().trim()) {
-      // Set git config using gh CLI credentials
-      const userResult = await $`gh api user --jq .login`;
-      if (userResult.code === 0) {
-        const username = userResult.stdout.toString().trim();
-        await $({ cwd: tempDir })`git config user.name "${username}"`;
-        await $({ cwd: tempDir })`git config user.email "${username}@users.noreply.github.com"`;
-      } else {
-        // Fallback to generic values
-        await $({ cwd: tempDir })`git config user.name "Hive Mind Bot"`;
-        await $({ cwd: tempDir })`git config user.email "bot@hive-mind.ai"`;
-      }
-    }
-
-    // Add and commit the README.md
-    const addResult = await $({ cwd: tempDir })`git add README.md`;
-    if (addResult.code !== 0) {
-      await log(`${formatAligned('⚠️', 'Warning:', 'Failed to stage README.md')}`);
-      return { created: true, committed: false, pushed: false, reason: 'stage_failed' };
-    }
-
-    const commitResult = await $({ cwd: tempDir })`git commit -m "Initialize repository with README"`;
-    if (commitResult.code !== 0) {
-      await log(`${formatAligned('⚠️', 'Warning:', 'Failed to commit README.md')}`);
-      return { created: true, committed: false, pushed: false, reason: 'commit_failed' };
-    }
-
-    await log(`${formatAligned('✅', 'Committed:', 'README.md committed to repository')}`);
-
-    // Try to push the commit
-    // Get the current branch name
-    const branchResult = await $({ cwd: tempDir })`git branch --show-current`;
-    if (branchResult.code !== 0) {
-      await log(`${formatAligned('⚠️', 'Warning:', 'Failed to get current branch name')}`);
-      return { created: true, committed: true, pushed: false, reason: 'branch_detection_failed' };
-    }
-
-    const branchName = branchResult.stdout.toString().trim();
-    const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
-
-    if (pushResult.code === 0) {
-      await log(`${formatAligned('✅', 'Pushed:', `README.md pushed to ${targetRepo}`)}`);
-      return { created: true, committed: true, pushed: true, branch: branchName };
-    } else {
-      const pushError = pushResult.stderr ? pushResult.stderr.toString() : '';
-
-      // Check if it's a permission error
-      if (pushError.includes('403') || pushError.includes('Forbidden') ||
-          pushError.includes('not have permission') || pushError.includes('denied')) {
-        await log(`${formatAligned('⚠️', 'Push failed:', 'No write access to repository')}`);
-        await log(`${formatAligned('ℹ️', 'Note:', 'README.md is committed locally and will be included in your work')}`);
-        return { created: true, committed: true, pushed: false, reason: 'no_write_access' };
-      } else {
-        await log(`${formatAligned('⚠️', 'Push failed:', 'Could not push to remote')}`);
-        await log(`${formatAligned('', 'Error:', pushError.split('\n')[0])}`);
-        await log(`${formatAligned('ℹ️', 'Note:', 'README.md is committed locally and will be included in your work')}`);
-        return { created: true, committed: true, pushed: false, reason: 'push_error' };
-      }
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'ensure_readme_exists',
-      owner,
-      repo,
-      forkedRepo,
-      operation: 'create_readme_after_clone'
-    });
-    await log(`${formatAligned('⚠️', 'Warning:', 'Failed to ensure README.md exists')}`);
-    // Don't fail the entire operation if README creation fails
-    // This is a nice-to-have feature, not critical
-    return { created: false, error: error.message };
   }
 };
 

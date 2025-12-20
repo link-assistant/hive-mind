@@ -101,3 +101,101 @@ export function mergeArgsWithOverrides(userArgs, overrides) {
   // Merge: filtered user args + overrides
   return [...filteredArgs, ...overrides];
 }
+
+/**
+ * Validate model name in command arguments
+ * @param {string[]} args - Command arguments
+ * @param {string} tool - Tool name ('claude' or other)
+ * @param {Function} validateModelName - Model validation function
+ * @returns {string|null} Error message if invalid, null if valid
+ */
+export function validateModelInArgs(args, tool, validateModelName) {
+  // Find --model or -m flag and its value
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--model' || args[i] === '-m') {
+      if (i + 1 < args.length) {
+        const modelName = args[i + 1];
+        const validation = validateModelName(modelName, tool);
+        if (!validation.valid) {
+          return validation.message;
+        }
+      }
+    } else if (args[i].startsWith('--model=')) {
+      const modelName = args[i].substring('--model='.length);
+      const validation = validateModelName(modelName, tool);
+      if (!validation.valid) {
+        return validation.message;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Validate GitHub URL in command arguments
+ * @param {string[]} args - Command arguments
+ * @param {Object} options - Validation options
+ * @param {Function} parseGitHubUrl - GitHub URL parser function
+ * @returns {Object} Validation result with valid flag and error message
+ */
+export function validateGitHubUrl(args, options, parseGitHubUrl) {
+  // Default options for /solve command (backward compatibility)
+  const {
+    allowedTypes = ['issue', 'pull'],
+    commandName = 'solve'
+  } = options;
+
+  if (args.length === 0) {
+    return {
+      valid: false,
+      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`
+    };
+  }
+
+  const url = args[0];
+  if (!url.includes('github.com')) {
+    return {
+      valid: false,
+      error: 'First argument must be a GitHub URL'
+    };
+  }
+
+  // Parse the URL to validate structure
+  const parsed = parseGitHubUrl(url);
+  if (!parsed.valid) {
+    return {
+      valid: false,
+      error: parsed.error || 'Invalid GitHub URL',
+      suggestion: parsed.suggestion
+    };
+  }
+
+  // Check if the URL type is allowed for this command
+  if (!allowedTypes.includes(parsed.type)) {
+    const allowedTypesStr = allowedTypes.map(t => t === 'pull' ? 'pull request' : t).join(', ');
+    return {
+      valid: false,
+      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Extract GitHub URL from message text
+ * @param {string} text - Message text that might contain a GitHub URL
+ * @returns {string|null} Extracted GitHub URL or null if not found
+ */
+export function extractGitHubUrl(text) {
+  // Match GitHub URLs in various formats
+  const urlRegex = /https?:\/\/github\.com\/[^\s]+/i;
+  const match = text.match(urlRegex);
+
+  if (match) {
+    // Remove trailing punctuation that's not part of the URL
+    return match[0].replace(/[.,;!?)]+$/, '');
+  }
+
+  return null;
+}

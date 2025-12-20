@@ -14,7 +14,7 @@ const { lino } = await import('./lino.lib.mjs');
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
-const { parseCommandArgs, mergeArgsWithOverrides } = await import('./telegram-bot-helpers.lib.mjs');
+const { parseCommandArgs, mergeArgsWithOverrides, validateModelInArgs: validateModelInArgsHelper, validateGitHubUrl: validateGitHubUrlHelper } = await import('./telegram-bot-helpers.lib.mjs');
 
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
@@ -499,25 +499,7 @@ function executeWithCommand(startScreenCmd, command, args) {
  * @returns {string|null} Error message if invalid, null if valid or no model specified
  */
 function validateModelInArgs(args, tool = 'claude') {
-  // Find --model or -m flag and its value
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--model' || args[i] === '-m') {
-      if (i + 1 < args.length) {
-        const modelName = args[i + 1];
-        const validation = validateModelName(modelName, tool);
-        if (!validation.valid) {
-          return validation.message;
-        }
-      }
-    } else if (args[i].startsWith('--model=')) {
-      const modelName = args[i].substring('--model='.length);
-      const validation = validateModelName(modelName, tool);
-      if (!validation.valid) {
-        return validation.message;
-      }
-    }
-  }
-  return null;
+  return validateModelInArgsHelper(args, tool, validateModelName);
 }
 
 /**
@@ -626,47 +608,7 @@ function getActiveSessions(chatId) {
  * @returns {{ valid: boolean, error?: string }}
  */
 function validateGitHubUrl(args, options = {}) {
-  // Default options for /solve command (backward compatibility)
-  const {
-    allowedTypes = ['issue', 'pull'],
-    commandName = 'solve'
-  } = options;
-
-  if (args.length === 0) {
-    return {
-      valid: false,
-      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`
-    };
-  }
-
-  const url = args[0];
-  if (!url.includes('github.com')) {
-    return {
-      valid: false,
-      error: 'First argument must be a GitHub URL'
-    };
-  }
-
-  // Parse the URL to validate structure
-  const parsed = parseGitHubUrl(url);
-  if (!parsed.valid) {
-    return {
-      valid: false,
-      error: parsed.error || 'Invalid GitHub URL',
-      suggestion: parsed.suggestion
-    };
-  }
-
-  // Check if the URL type is allowed for this command
-  if (!allowedTypes.includes(parsed.type)) {
-    const allowedTypesStr = allowedTypes.map(t => t === 'pull' ? 'pull request' : t).join(', ');
-    return {
-      valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`
-    };
-  }
-
-  return { valid: true };
+  return validateGitHubUrlHelper(args, options, parseGitHubUrl);
 }
 
 /**

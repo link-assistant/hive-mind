@@ -9,7 +9,6 @@
 const youTrackLib = await import('./youtrack.lib.mjs');
 const {
   parseYouTrackIssueId,
-  getYouTrackIssue,
   updateYouTrackIssueStage,
   addYouTrackComment,
   createYouTrackConfigFromEnv
@@ -83,9 +82,9 @@ export async function updateYouTrackIssue(youTrackIssueId, youTrackConfig, prUrl
   const prComment = `Pull Request created: ${prUrl}\n\nPlease review the proposed solution.`;
   const commentAdded = await addYouTrackComment(youTrackIssueId, prComment, youTrackConfig);
   if (commentAdded) {
-    await log(`✅ Added comment to YouTrack issue`);
+    await log('✅ Added comment to YouTrack issue');
   } else {
-    await log(`⚠️ Failed to add comment to YouTrack issue`, { level: 'warning' });
+    await log('⚠️ Failed to add comment to YouTrack issue', { level: 'warning' });
   }
 
   // Update issue stage if nextStage is configured
@@ -94,7 +93,7 @@ export async function updateYouTrackIssue(youTrackIssueId, youTrackConfig, prUrl
     if (stageUpdated) {
       await log(`✅ Updated YouTrack issue stage to "${youTrackConfig.nextStage}"`);
     } else {
-      await log(`⚠️ Failed to update YouTrack issue stage`, { level: 'warning' });
+      await log('⚠️ Failed to update YouTrack issue stage', { level: 'warning' });
     }
   }
 }

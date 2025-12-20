@@ -66,10 +66,9 @@ export const validateGitHubUrl = (issueUrl) => {
 
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
-    if (parsedUrl.error) {
-      console.error(`  ${parsedUrl.error}`);
-    }
-    console.error('  Please provide a valid GitHub issue or pull request URL');
+    if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    console.error('\n  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
     console.error('    https://github.com/owner/repo/pull/456 (pull request)');
@@ -205,7 +204,9 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 };
 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
-export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, model = 'sonnet', argv = {}) => {
+// Note: skipToolConnection only skips the connection check, not model validation
+// Model validation should be done separately before calling this function
+export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -218,8 +219,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
     return false;
   }
 
-  // Skip tool validation if in dry-run mode or explicitly requested
-  if (!skipTool) {
+  // Skip tool connection validation if in dry-run mode or explicitly requested
+  if (!skipToolConnection) {
     let isToolConnected = false;
     if (argv.tool === 'opencode') {
       // Validate OpenCode connection
@@ -227,6 +228,22 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
       isToolConnected = await opencodeLib.validateOpenCodeConnection(model);
       if (!isToolConnected) {
         await log('❌ Cannot proceed without OpenCode connection', { level: 'error' });
+        return false;
+      }
+    } else if (argv.tool === 'codex') {
+      // Validate Codex connection
+      const codexLib = await import('./codex.lib.mjs');
+      isToolConnected = await codexLib.validateCodexConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Codex connection', { level: 'error' });
+        return false;
+      }
+    } else if (argv.tool === 'agent') {
+      // Validate Agent connection
+      const agentLib = await import('./agent.lib.mjs');
+      isToolConnected = await agentLib.validateAgentConnection(model);
+      if (!isToolConnected) {
+        await log('❌ Cannot proceed without Agent connection', { level: 'error' });
         return false;
       }
     } else {
@@ -246,8 +263,8 @@ export const performSystemChecks = async (minDiskSpace = 500, skipTool = false, 
       return false;
     }
   } else {
-    await log('⏩ Skipping tool validation (dry-run mode)', { verbose: true });
-    await log('⏩ Skipping GitHub authentication check (dry-run mode)', { verbose: true });
+    await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+    await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
   }
 
   return true;
@@ -265,13 +282,18 @@ export const parseUrlComponents = (issueUrl) => {
 
 // Helper function to parse time string and calculate wait time
 export const parseResetTime = (timeStr) => {
-  // Parse time format like "5:30am" or "11:45pm"
-  const match = timeStr.match(/(\d{1,2}):(\d{2})([ap]m)/i);
+  // Normalize and parse time formats like:
+  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
+  const normalized = (timeStr || '').toString().trim();
+
+  // Accept both HH:MM am/pm and HH am/pm
+  let match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
   if (!match) {
     throw new Error(`Invalid time format: ${timeStr}`);
   }
 
-  const [, hourStr, minuteStr, ampm] = match;
+  const [, hourStr, minuteMaybe, ampm] = match;
+  const minuteStr = minuteMaybe || '00';
   let hour = parseInt(hourStr);
   const minute = parseInt(minuteStr);
 

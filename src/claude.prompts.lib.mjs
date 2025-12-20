@@ -17,7 +17,6 @@ export const buildUserPrompt = (params) => {
     branchName,
     tempDir,
     isContinueMode,
-    mergeStateStatus,
     forkedRepo,
     feedbackLines,
     owner,
@@ -135,17 +134,17 @@ Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) List recent CI runs with timestamps, (2) Download logs from failed runs to ci-logs/ directory, (3) Analyze error messages and identify root cause, (4) Implement fix, (5) Verify fix resolves the specific errors found in logs.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
+   - When you need repo context, read files in your working directory.${argv && argv.promptExploreSubAgent ? '\n   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.' : ''}
    - When you study related work, study the most recent related pull requests.
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
    - When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.
-   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.
+   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -172,6 +171,7 @@ Preparing pull request.
       make sure no uncommitted changes corresponding to the original requirements are left behind,
       make sure the default branch is merged to the pull request's branch,
       make sure all CI checks passing if they exist before you finish,
+      check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request answer to original requirements of the issue,
       make sure no new new bugs are introduced in pull request by carefully reading gh pr diff,
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
@@ -191,8 +191,10 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
+   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.${argv && argv.promptPlaywrightMcp ? '\n\nPlaywright MCP usage (browser automation via mcp__playwright__* tools).\n   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.\n   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.\n   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.\n   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.\n   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).\n   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.\n   - When you finish using the browser, always close it with browser_close to free resources.' : ''}${argv && argv.promptPlanSubAgent ? '\n\nPlan sub-agent usage.\n   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.\n   - When using the Plan sub-agent, you can add it as the first item in your todo list.\n   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.' : ''}`;
+
 };
 
 // Export all functions as default object too

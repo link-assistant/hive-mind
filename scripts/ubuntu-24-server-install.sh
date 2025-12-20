@@ -473,7 +473,9 @@ fi
 # --- Deno ---
 if ! command -v deno &>/dev/null; then
   log_info "Installing Deno..."
-  curl -fsSL https://deno.land/install.sh | sh
+  # Use -y flag to skip interactive prompts (fixes "cannot open /dev/tty" error
+  # when running in non-interactive contexts like su/sudo or CI pipelines)
+  curl -fsSL https://deno.land/install.sh | sh -s -- -y
   export DENO_INSTALL="$HOME/.deno"
   export PATH="$DENO_INSTALL/bin:$PATH"
   # Add Deno to shell profile for persistence
@@ -649,7 +651,9 @@ fi
 # --- Java (SDKMAN + OpenJDK) ---
 if [ ! -d "$HOME/.sdkman" ]; then
   log_info "Installing SDKMAN (Java version manager)..."
-  curl -s "https://get.sdkman.io?rcupdate=false" | bash
+  # Use ci=true for non-interactive installation (auto-answers prompts,
+  # disables color output for cleaner logs, prevents auto-updates)
+  curl -s "https://get.sdkman.io?rcupdate=false&ci=true" | bash
   # Add SDKMAN to shell profile for persistence
   if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
     log_info "Adding SDKMAN to shell configuration..."

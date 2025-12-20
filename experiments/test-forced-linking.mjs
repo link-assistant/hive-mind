@@ -18,8 +18,8 @@ const testCases = [
   {
     name: "Fork issue reference",
     prBody: "Fix for the bug in the main repository",
-    issueRef: "deep-assistant/hive-mind#42",
-    expectedOutput: "Fix for the bug in the main repository\n\n---\n\nResolves deep-assistant/hive-mind#42"
+    issueRef: "link-assistant/hive-mind#42",
+    expectedOutput: "Fix for the bug in the main repository\n\n---\n\nResolves link-assistant/hive-mind#42"
   }
 ];
 

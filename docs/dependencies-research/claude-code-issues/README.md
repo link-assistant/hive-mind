@@ -2,6 +2,19 @@
 
 This directory contains documentation and reproducible test cases for issues encountered with the Claude Code CLI (`@anthropic-ai/claude-code`).
 
+## Reporting Claude Code Issues
+
+If you encounter issues with the Claude Code CLI, please report them to the official repository:
+- **GitHub Issues**: https://github.com/anthropics/claude-code/issues
+- **Repository**: https://github.com/anthropics/claude-code
+
+This includes:
+- Installation errors (e.g., module not found)
+- Command execution failures
+- Authentication problems
+- Performance issues
+- Any other CLI-related bugs
+
 ## Issues Documented
 
 1. **issue-01-kill-eperm-timeout.md** - EPERM error when killing timed-out processes, resulting in false success reporting
@@ -190,7 +203,7 @@ claude-code --timeout 120000 "sudo apt-get update && sudo apt-get install -y som
 
 ## Related Issues
 
-- Original issue: https://github.com/deep-assistant/hive-mind/issues/371
+- Original issue: https://github.com/link-assistant/hive-mind/issues/371
 - Related PR: https://github.com/zamtmn/fpdwg/pull/11
 
 ## Status

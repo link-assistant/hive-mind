@@ -1,0 +1,221 @@
+        })`cat ${promptFile} | ${codexPath} exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+      } else {
+        execCommand = $({
+          cwd: tempDir,
+          mirror: false
+        })`cat ${promptFile} | ${codexPath} exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+      }
+
+      await log(`${formatAligned('📋', 'Command details:', '')}`);
+      await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+      await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
+      if (argv.fork && forkedRepo) {
+        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+      }
+
+      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+
+      let exitCode = 0;
+      let sessionId = null;
+      let limitReached = false;
+      let limitResetTime = null;
+      let lastMessage = '';
+      let authError = false;
+
+      for await (const chunk of execCommand.stream()) {
+        if (chunk.type === 'stdout') {
+          const output = chunk.data.toString();
+          await log(output);
+          lastMessage = output;
+
+          // Try to parse JSON output to extract session info
+          // Codex CLI uses thread_id instead of session_id
+          try {
+            const lines = output.split('\n');
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const data = JSON.parse(line);
+              // Check for both thread_id (codex) and session_id (legacy)
+              if ((data.thread_id || data.session_id) && !sessionId) {
+                sessionId = data.thread_id || data.session_id;
+                await log(`📌 Session ID: ${sessionId}`);
+              }
+
+              // Check for authentication errors (401 Unauthorized)
+              // These should never be retried as they indicate missing/invalid credentials
+              if (data.type === 'error' && data.message &&
+                  (data.message.includes('401 Unauthorized') ||
+                   data.message.includes('401') ||
+                   data.message.includes('Unauthorized'))) {
+                authError = true;
+                await log('\n❌ Authentication error detected: 401 Unauthorized', { level: 'error' });
+                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+                await log('   💡 Please run: codex login', { level: 'error' });
+              }
+
+              // Also check turn.failed events for auth errors
+              if (data.type === 'turn.failed' && data.error && data.error.message &&
+                  (data.error.message.includes('401 Unauthorized') ||
+                   data.error.message.includes('401') ||
+                   data.error.message.includes('Unauthorized'))) {
+                authError = true;
+                await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
+                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+                await log('   💡 Please run: codex login', { level: 'error' });
+              }
+            }
+          } catch {
+            // Not JSON, continue
+          }
+        }
+
+        if (chunk.type === 'stderr') {
+          const errorOutput = chunk.data.toString();
+          if (errorOutput) {
+            await log(errorOutput, { stream: 'stderr' });
+          }
+        } else if (chunk.type === 'exit') {
+          exitCode = chunk.code;
+        }
+      }
+
+      // Check for authentication errors first - these should never be retried
+      if (authError) {
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        // Throw an error to stop retries and propagate the auth failure
+        const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
+        error.isAuthError = true;
+        throw error;
+      }
+
+      if (exitCode !== 0) {
+        // Check for usage limit errors first (more specific)
+        const limitInfo = detectUsageLimit(lastMessage);
+        if (limitInfo.isUsageLimit) {
+          limitReached = true;
+          limitResetTime = limitInfo.resetTime;
+
+          // Format and display user-friendly message
+          const messageLines = formatUsageLimitMessage({
+            tool: 'Codex',
+            resetTime: limitInfo.resetTime,
+            sessionId,
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+          });
+
+          for (const line of messageLines) {
+            await log(line, { level: 'warning' });
+          }
+        } else {
+          await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime
+        };
+      }
+
+      await log('\n\n✅ Codex command completed');
+
+      return {
+        success: true,
+        sessionId,
+        limitReached,
+        limitResetTime
+      };
+    } catch (error) {
+      // Don't report auth errors to Sentry as they are user configuration issues
+      if (!error.isAuthError) {
+        reportError(error, {
+          context: 'execute_codex',
+          command: params.command,
+          codexPath: params.codexPath,
+          operation: 'run_codex_command'
+        });
+      }
+
+      await log(`\n\n❌ Error executing Codex command: ${error.message}`, { level: 'error' });
+
+      // Re-throw auth errors to stop any outer retry loops
+      if (error.isAuthError) {
+        throw error;
+      }
+
+      return {
+        success: false,
+        sessionId: null,
+        limitReached: false,
+        limitResetTime: null
+      };
+    }
+  };
+
+  // Start the execution with retry logic
+  return await executeWithRetry();
+};
+
+export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+  // Similar to Claude and OpenCode version, check for uncommitted changes
+  await log('\n🔍 Checking for uncommitted changes...');
+  try {
+    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+
+    if (gitStatusResult.code === 0) {
+      const statusOutput = gitStatusResult.stdout.toString().trim();
+
+      if (statusOutput) {
+        await log('📝 Found uncommitted changes');
+        await log('Changes:');
+        for (const line of statusOutput.split('\n')) {
+          await log(`   ${line}`);
+        }
+
+        if (autoCommit) {
+          await log('💾 Auto-committing changes (--auto-commit-uncommitted-changes is enabled)...');
+
+          const addResult = await $({ cwd: tempDir })`git add -A`;
+          if (addResult.code === 0) {
+            const commitMessage = 'Auto-commit: Changes made by Codex during problem-solving session';
+            const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
+
+            if (commitResult.code === 0) {
+              await log('✅ Changes committed successfully');
+
+              const pushResult = await $({ cwd: tempDir })`git push origin ${branchName}`;
+
+              if (pushResult.code === 0) {
+                await log('✅ Changes pushed successfully');
+              } else {
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+              }
+            } else {
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+            }
+          } else {
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+          }
+          return false;
+        } else if (autoRestartEnabled) {
+          await log('');
+          await log('⚠️  IMPORTANT: Uncommitted changes detected!');
+          await log('   Codex made changes that were not committed.');
+          await log('');
+          await log('🔄 AUTO-RESTART: Restarting Codex to handle uncommitted changes...');
+          await log('   Codex will review the changes and decide what to commit.');
+          await log('');
+          return true;
+        } else {
+          await log('');

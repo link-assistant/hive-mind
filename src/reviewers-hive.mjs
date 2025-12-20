@@ -136,7 +136,7 @@ const argv = yargs(process.argv.slice(2))
   .alias('h', 'help')
   .argv;
 
-const githubUrl = argv._[0];
+const githubUrl = argv['github-url'] || argv._[0];
 
 // Set global verbose mode
 global.verboseMode = argv.verbose;
@@ -149,7 +149,7 @@ logFile = path.join(scriptDir, `reviewers-hive-${timestamp}.log`);
 // Create the log file immediately
 await fs.writeFile(logFile, `# Reviewers-Hive.mjs Log - ${new Date().toISOString()}\n\n`);
 await log(`📁 Log file: ${logFile}`);
-await log(`   (All output will be logged here)\n`);
+await log('   (All output will be logged here)\n');
 
 // Parse GitHub URL to determine organization, repository, or user
 let scope = 'repository';
@@ -157,7 +157,7 @@ let owner = null;
 let repo = null;
 
 // Parse URL format: https://github.com/owner or https://github.com/owner/repo
-const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/);
+const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^/]+)(\/([^/]+))?$/);
 if (!urlMatch) {
   await log('Error: Invalid GitHub URL format', { level: 'error' });
   await log('Expected: https://github.com/owner or https://github.com/owner/repo', { level: 'error' });
@@ -174,7 +174,7 @@ if (!repo) {
     const typeResult = await $`gh api users/${owner} --jq .type`;
     const accountType = typeResult.stdout.toString().trim();
     scope = accountType === 'Organization' ? 'organization' : 'user';
-  } catch (e) {
+  } catch {
     // Default to user if API call fails
     scope = 'user';
   }
@@ -182,25 +182,25 @@ if (!repo) {
   scope = 'repository';
 }
 
-await log(`🎯 PR Review Monitoring Configuration:`);
+await log('🎯 PR Review Monitoring Configuration:');
 await log(`   📍 Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`);
 if (argv.allPrs) {
-  await log(`   🏷️  Mode: ALL PULL REQUESTS (no label filter)`);
+  await log('   🏷️  Mode: ALL PULL REQUESTS (no label filter)');
 } else {
   await log(`   🏷️  Label: "${argv.reviewLabel}"`);
 }
 if (argv.skipDraft) {
-  await log(`   🚫 Skipping: Draft PRs`);
+  await log('   🚫 Skipping: Draft PRs');
 }
 if (argv.skipApproved) {
-  await log(`   🚫 Skipping: Already approved PRs`);
+  await log('   🚫 Skipping: Already approved PRs');
 }
 await log(`   🔄 Concurrency: ${argv.concurrency} parallel reviewers`);
 await log(`   📊 Reviews per PR: ${argv.reviewsPerPr}`);
 await log(`   🤖 Model: ${argv.model}`);
 await log(`   🎯 Focus: ${argv.focus}`);
 if (argv.autoApprove) {
-  await log(`   ✅ Auto-approve: Enabled`);
+  await log('   ✅ Auto-approve: Enabled');
 }
 if (!argv.once) {
   await log(`   ⏱️  Polling Interval: ${argv.interval} seconds`);
@@ -210,7 +210,7 @@ if (argv.maxPrs > 0) {
   await log(`   🔢 Max PRs: ${argv.maxPrs}`);
 }
 if (argv.dryRun) {
-  await log(`   🧪 DRY RUN MODE - No actual reviewing`);
+  await log('   🧪 DRY RUN MODE - No actual reviewing');
 }
 await log('');
 
@@ -364,19 +364,21 @@ async function reviewer(reviewerId) {
 // Function to check if a PR already has approvals
 async function hasApprovals(prUrl) {
   try {
-    const { execSync } = await import('child_process');
-    
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
     // Extract owner, repo, and PR number from URL
-    const urlMatch = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
+    const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
     if (!urlMatch) return false;
-    
+
     const [, prOwner, prRepo, prNumber] = urlMatch;
-    
+
     // Check for reviews using GitHub API
     const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --jq '[.[] | select(.state == "APPROVED")] | length'`;
-    
-    const output = execSync(cmd, { encoding: 'utf8' }).trim();
-    const approvalCount = parseInt(output) || 0;
+
+    const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+    const approvalCount = parseInt(stdout.trim()) || 0;
     
     if (approvalCount > 0) {
       await log(`      ↳ Skipping (has ${approvalCount} approval${approvalCount > 1 ? 's' : ''})`, { verbose: true });
@@ -394,7 +396,7 @@ async function hasApprovals(prUrl) {
 // Function to fetch pull requests from GitHub
 async function fetchPullRequests() {
   if (argv.allPrs) {
-    await log(`\n🔍 Fetching ALL open pull requests...`);
+    await log('\n🔍 Fetching ALL open pull requests...');
   } else {
     await log(`\n🔍 Fetching pull requests with label "${argv.reviewLabel}"...`);
   }
@@ -415,24 +417,28 @@ async function fetchPullRequests() {
       }
       
       await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-      
-      // Use execSync to avoid escaping issues
-      const { execSync } = await import('child_process');
-      const output = execSync(searchCmd, { encoding: 'utf8' });
-      prs = JSON.parse(output || '[]');
+
+      // Use async exec to avoid escaping issues
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+      prs = JSON.parse(stdout || '[]');
       
     } else {
       // Use label filter
-      const { execSync } = await import('child_process');
-      
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
       // For repositories, use gh pr list which works better
       if (scope === 'repository') {
         const listCmd = `gh pr list --repo ${owner}/${repo} --state open --label "${argv.reviewLabel}" --limit 100 --json url,title,number,isDraft`;
         await log(`   🔎 Command: ${listCmd}`, { verbose: true });
-        
+
         try {
-          const output = execSync(listCmd, { encoding: 'utf8' });
-          prs = JSON.parse(output || '[]');
+          const { stdout } = await execAsync(listCmd, { encoding: 'utf8', env: process.env });
+          prs = JSON.parse(stdout || '[]');
         } catch (listError) {
           await log(`   ⚠️  List failed: ${listError.message.split('\n')[0]}`, { verbose: true });
           prs = [];
@@ -460,10 +466,10 @@ async function fetchPullRequests() {
         
         await log(`   🔎 Search query: ${searchQuery}`, { verbose: true });
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-        
+
         try {
-          const output = execSync(searchCmd, { encoding: 'utf8' });
-          prs = JSON.parse(output || '[]');
+          const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
+          prs = JSON.parse(stdout || '[]');
         } catch (searchError) {
           await log(`   ⚠️  Search failed: ${searchError.message.split('\n')[0]}`, { verbose: true });
           prs = [];
@@ -473,7 +479,7 @@ async function fetchPullRequests() {
     
     if (prs.length === 0) {
       if (argv.allPrs) {
-        await log(`   ℹ️  No open pull requests found`);
+        await log('   ℹ️  No open pull requests found');
       } else {
         await log(`   ℹ️  No pull requests found with label "${argv.reviewLabel}"`);
       }
@@ -505,7 +511,7 @@ async function fetchPullRequests() {
     
     // Filter out PRs with approvals if option is enabled
     if (argv.skipApproved) {
-      await log(`   🔍 Checking for existing approvals...`);
+      await log('   🔍 Checking for existing approvals...');
       const filteredPrs = [];
       
       for (const pr of prsToProcess) {
@@ -526,7 +532,7 @@ async function fetchPullRequests() {
     
     // In dry-run mode, show the PRs that would be reviewed
     if (argv.dryRun && prsToProcess.length > 0) {
-      await log(`\n   📝 PRs that would be reviewed:`);
+      await log('\n   📝 PRs that would be reviewed:');
       for (const pr of prsToProcess) {
         await log(`      - ${pr.title || 'Untitled'} (${pr.url})`);
       }
@@ -542,7 +548,7 @@ async function fetchPullRequests() {
 
 // Main monitoring loop
 async function monitor() {
-  await log(`\n🚀 Starting Reviewers Hive Mind monitoring system...`);
+  await log('\n🚀 Starting Reviewers Hive Mind monitoring system...');
   
   // Start reviewers
   await log(`\n👀 Starting ${argv.concurrency} reviewers...`);
@@ -571,12 +577,12 @@ async function monitor() {
     if (newPrs > 0) {
       await log(`   📥 Added ${newPrs} new PR(s) to review queue`);
     } else {
-      await log(`   ℹ️  No new PRs to add (all already reviewed or in queue)`);
+      await log('   ℹ️  No new PRs to add (all already reviewed or in queue)');
     }
     
     // Show current stats
     const stats = prQueue.getStats();
-    await log(`\n📊 Current Status:`);
+    await log('\n📊 Current Status:');
     await log(`   📋 Queued: ${stats.queued}`);
     await log(`   ⚙️  Reviewing: ${stats.processing}`);
     await log(`   ✅ Completed: ${stats.completed}`);
@@ -584,7 +590,7 @@ async function monitor() {
     
     // If running once, wait for queue to empty then exit
     if (argv.once) {
-      await log(`\n🏁 Single run mode - waiting for review queue to empty...`);
+      await log('\n🏁 Single run mode - waiting for review queue to empty...');
       
       while (stats.queued > 0 || stats.processing > 0) {
         await new Promise(resolve => setTimeout(resolve, 5000));
@@ -595,7 +601,7 @@ async function monitor() {
         Object.assign(stats, currentStats);
       }
       
-      await log(`\n✅ All PRs reviewed!`);
+      await log('\n✅ All PRs reviewed!');
       await log(`   Completed: ${stats.completed}`);
       await log(`   Failed: ${stats.failed}`);
       break;
@@ -610,7 +616,7 @@ async function monitor() {
   prQueue.stop();
   await Promise.all(prQueue.workers);
   
-  await log(`\n👋 Reviewers Hive Mind monitoring stopped`);
+  await log('\n👋 Reviewers Hive Mind monitoring stopped');
 }
 
 // Handle graceful shutdown

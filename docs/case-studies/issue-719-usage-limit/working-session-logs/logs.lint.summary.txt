@@ -1,0 +1,13 @@
+3:  57:7   warning  Unexpected lexical declaration in case block  no-case-declarations
+4:  57:52  warning  Unnecessary escape character: \[              no-useless-escape
+5:  62:7   warning  Unexpected lexical declaration in case block  no-case-declarations
+8:  88:71  warning  Unnecessary escape character: \)  no-useless-escape
+9:  88:91  warning  Unnecessary escape character: \)  no-useless-escape
+12:  122:45  warning  Unnecessary escape character: \/  no-useless-escape
+13:  122:53  warning  Unnecessary escape character: \/  no-useless-escape
+16:  160:62  warning  Unnecessary escape character: \/  no-useless-escape
+17:  160:73  warning  Unnecessary escape character: \/  no-useless-escape
+18:  370:51  warning  Unnecessary escape character: \/  no-useless-escape
+19:  370:61  warning  Unnecessary escape character: \/  no-useless-escape
+22:  109:77  warning  Unnecessary escape character: \:  no-useless-escape
+24:✖ 12 problems (0 errors, 12 warnings)

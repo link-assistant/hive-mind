@@ -501,7 +501,7 @@ If you encounter issues while implementing these solutions:
 1. Check the [main README](./README.md) for context
 2. Review the [error summary](./error-summary.md) for specific error patterns
 3. Run the [reproduction script](./reproduce-errors.sh) to verify the issue
-4. Open an issue at https://github.com/deep-assistant/hive-mind/issues
+4. Open an issue at https://github.com/link-assistant/hive-mind/issues
 
 ---
 

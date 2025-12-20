@@ -1,0 +1,186 @@
+Verifying current branch and listing repo files
+issue-719-a653aae7d4d5
+## issue-719-a653aae7d4d5...origin/issue-719-a653aae7d4d5
+ M ci-logs.gh-run-list.branch-latest.json
+ M ci-logs.issue-719.json
+ M ci-logs.issue-719.txt
+ M ci-logs.pr-722.details.json
+ M ci-logs/issue-719.json
+ M ci-logs/pr-722.json
+ M logs.git-push.txt
+ M logs.package.json.head.txt
+ M logs.pr-comment-722.txt
+ M logs.src-tree.txt
+ M logs.src-usage-limit.1.txt
+?? .logs_step1.txt
+?? ci-logs.gh-run-list.branch-after-push.json
+?? ci-logs/gh-run-list.branch-after-push.json
+?? ci-logs/gh-run-list.branch-watch.json
+?? ci-logs/gh-run-list.branch.json
+?? ci-logs/gh-run-list.branch.txt
+?? ci-logs/issue-719.txt
+?? ci-logs/pr-722.after.json
+?? ci-logs/pr-722.body.json
+?? ci-logs/pr-722.body.txt
+?? ci-logs/pr-722.details.json
+?? ci-logs/pr-722.details.txt
+?? ci-logs/pr-722.head-sha.txt
+?? ci-logs/pr-722.head.json
+?? ci-logs/pr-722.state.json
+?? ci-logs/pr-722.txt
+?? ci-logs/runs/
+?? logs.exp-parse-reset-time.head.txt
+?? logs.git-commit.txt
+?? logs.git-last-commit.txt
+?? logs.issue-719.txt
+?? logs.ls-experiments.txt
+?? logs.node-npm.txt
+?? logs.pr-722.txt
+?? logs.runid.txt
+?? logs.search-experiments-parse.txt
+?? logs.search-gh-lib.txt
+?? logs.search-limit-tools.txt
+?? logs.search-parse-reset.txt
+?? logs.search-usage-limit-in-solve.txt
+?? logs.src-github.lib.620-740.txt
+?? logs.src-solve.head.txt
+?? logs_repo_scan.txt
+total 7652
+drwxrwxr-x  14 hive hive   12288 Nov 13 04:46 .
+drwxrwxrwt 631 root root  167936 Nov 13 04:46 ..
+-rw-rw-r--   1 hive hive     497 Nov 13 04:01 .dockerignore
+-rw-rw-r--   1 hive hive     997 Nov 13 04:01 .env.example
+drwxrwxr-x   8 hive hive    4096 Nov 13 04:46 .git
+drwxrwxr-x   3 hive hive    4096 Nov 13 04:01 .github
+-rw-rw-r--   1 hive hive    2285 Nov 13 04:01 .gitignore
+-rw-rw-r--   1 hive hive     383 Nov 13 04:01 .gitpod.Dockerfile
+-rw-rw-r--   1 hive hive     119 Nov 13 04:01 .gitpod.yml
+-rw-rw-r--   1 hive hive    1115 Nov 13 04:01 .lenv.example
+-rw-rw-r--   1 hive hive    1394 Nov 13 04:46 .logs_step1.txt
+-rw-rw-r--   1 hive hive     193 Nov 13 04:04 CLAUDE.md
+-rw-rw-r--   1 hive hive     820 Nov 13 04:01 Dockerfile
+-rw-rw-r--   1 hive hive    1211 Nov 13 04:01 LICENSE
+-rw-rw-r--   1 hive hive   23989 Nov 13 04:01 README.md
+drwxrwxr-x   3 hive hive    4096 Nov 13 04:40 ci-logs
+-rw-rw-r--   1 hive hive     685 Nov 13 04:14 ci-logs.gh-run-list.after.json
+-rw-rw-r--   1 hive hive    1358 Nov 13 04:21 ci-logs.gh-run-list.after2.json
+-rw-rw-r--   1 hive hive     918 Nov 13 04:09 ci-logs.gh-run-list.after3.json
+-rw-rw-r--   1 hive hive     546 Nov 13 04:27 ci-logs.gh-run-list.branch-after-push.json
+-rw-rw-r--   1 hive hive      31 Nov 13 04:34 ci-logs.gh-run-list.branch-latest.json
+-rw-rw-r--   1 hive hive     181 Nov 13 04:26 ci-logs.gh-run-list.branch-watch.json
+-rw-rw-r--   1 hive hive     277 Nov 13 04:25 ci-logs.gh-run-list.for-pr-sha.json
+-rw-rw-r--   1 hive hive    1365 Nov 13 04:18 ci-logs.gh-run-list.json
+-rw-rw-r--   1 hive hive     925 Nov 13 04:23 ci-logs.gh-run-list.latest.json
+-rw-rw-r--   1 hive hive    5897 Nov 13 04:31 ci-logs.issue-719.json
+-rw-rw-r--   1 hive hive    1750 Nov 13 04:25 ci-logs.issue-719.latest.json
+-rw-rw-r--   1 hive hive    1537 Nov 13 04:31 ci-logs.issue-719.txt
+-rw-rw-r--   1 hive hive    2830 Nov 13 04:10 ci-logs.pr-722-latest5.json
+-rw-rw-r--   1 hive hive    1329 Nov 13 04:24 ci-logs.pr-722.after.json
+-rw-rw-r--   1 hive hive    1104 Nov 13 04:25 ci-logs.pr-722.body.json
+-rw-rw-r--   1 hive hive    1075 Nov 13 04:25 ci-logs.pr-722.body.txt
+-rw-rw-r--   1 hive hive       0 Nov 13 04:32 ci-logs.pr-722.details.json
+-rw-rw-r--   1 hive hive      41 Nov 13 04:25 ci-logs.pr-722.head-sha.txt
+-rw-rw-r--   1 hive hive    1261 Nov 13 04:18 ci-logs.pr-722.json
+-rw-rw-r--   1 hive hive    2677 Nov 13 04:18 ci-logs.pr-722.txt
+-rwxrwxr-x   1 hive hive    4714 Nov 13 04:01 claude-runtime.mjs
+-rwxrwxr-x   1 hive hive   10604 Nov 13 04:01 cleanup-test-repos.mjs
+drwxrwxr-x   2 hive hive    4096 Nov 13 04:01 coolify
+-rwxrwxr-x   1 hive hive   15720 Nov 13 04:01 create-test-repo.mjs
+-rw-rw-r--   1 hive hive      89 Nov 13 04:01 cspell.json
+drwxrwxr-x   3 hive hive    4096 Nov 13 04:01 data
+-rwxrwxr-x   1 hive hive    1177 Nov 13 04:01 do.mjs
+-rw-rw-r--   1 hive hive     889 Nov 13 04:01 docker-compose.yml
+-rwxrwxr-x   1 hive hive    2529 Nov 13 04:01 docker-restore-auth.sh
+-rwxrwxr-x   1 hive hive    1828 Nov 13 04:01 docker-solve.sh
+drwxrwxr-x   4 hive hive    4096 Nov 13 04:01 docs
+-rw-rw-r--   1 hive hive    1382 Nov 13 04:01 eslint.config.mjs
+drwxrwxr-x   2 hive hive   20480 Nov 13 04:26 experiments
+-rwxrwxr-x   1 hive hive     745 Nov 13 04:01 gitpod-backup-auth.sh
+-rwxrwxr-x   1 hive hive    1020 Nov 13 04:01 gitpod-restore-auth.sh
+-rw-rw-r--   1 hive hive    2646 Nov 13 04:13 hive-2025-11-13T04-13-31-182Z.log
+drwxrwxr-x   2 hive hive   12288 Nov 13 04:45 logs
+-rw-rw-r--   1 hive hive      23 Nov 13 04:22 logs.branch.txt
+-rw-rw-r--   1 hive hive    2910 Nov 13 04:23 logs.case-study.head.txt
+-rw-rw-r--   1 hive hive     329 Nov 13 04:42 logs.exp-parse-reset-time.head.txt
+-rw-rw-r--   1 hive hive       4 Nov 13 04:05 logs.filecount.txt
+-rw-rw-r--   1 hive hive     188 Nov 13 04:34 logs.git-commit.txt
+-rw-rw-r--   1 hive hive     100 Nov 13 04:41 logs.git-last-commit.txt
+-rw-rw-r--   1 hive hive     121 Nov 13 04:34 logs.git-push.txt
+-rw-rw-r--   1 hive hive    3657 Nov 13 04:35 logs.issue-719.txt
+-rw-rw-r--   1 hive hive    1107 Nov 13 04:41 logs.lint.run.txt
+-rw-rw-r--   1 hive hive     100 Nov 13 04:07 logs.lint.txt
+-rw-rw-r--   1 hive hive   25586 Nov 13 04:39 logs.ls-experiments.txt
+-rw-rw-r--   1 hive hive    5532 Nov 13 04:22 logs.ls-root.txt
+-rw-rw-r--   1 hive hive    3638 Nov 13 04:06 logs.ls.txt
+-rw-rw-r--   1 hive hive       7 Nov 13 04:41 logs.node-npm.txt
+-rw-rw-r--   1 hive hive    1312 Nov 13 04:41 logs.package.json.head.txt
+-rw-rw-r--   1 hive hive    1312 Nov 13 04:06 logs.package.json.txt
+-rw-rw-r--   1 hive hive    3001 Nov 13 04:35 logs.pr-722.txt
+-rw-rw-r--   1 hive hive      38 Nov 13 04:42 logs.pr-comment-722.txt
+-rw-rw-r--   1 hive hive     125 Nov 13 04:05 logs.remotes.txt
+-rw-rw-r--   1 hive hive     321 Nov 13 04:38 logs.runid.txt
+-rw-rw-r--   1 hive hive     650 Nov 13 04:06 logs.search-attach-log.txt
+-rw-rw-r--   1 hive hive  205650 Nov 13 04:05 logs.search-auto-continue.txt
+-rw-rw-r--   1 hive hive  796414 Nov 13 04:05 logs.search-claude.txt
+-rw-rw-r--   1 hive hive    3447 Nov 13 04:06 logs.search-comments.txt
+-rw-rw-r--   1 hive hive       0 Nov 13 04:39 logs.search-experiments-parse.txt
+-rw-rw-r--   1 hive hive     190 Nov 13 04:32 logs.search-gh-lib.txt
+-rw-rw-r--   1 hive hive     789 Nov 13 04:08 logs.search-global-limit.txt
+-rw-rw-r--   1 hive hive     430 Nov 13 04:08 logs.search-global-limitset.txt
+-rw-rw-r--   1 hive hive 4680627 Nov 13 04:22 logs.search-keywords.txt
+-rw-rw-r--   1 hive hive    1178 Nov 13 04:32 logs.search-limit-tools.txt
+-rw-rw-r--   1 hive hive    3059 Nov 13 04:06 logs.search-limit-vars.txt
+-rw-rw-r--   1 hive hive    3331 Nov 13 04:22 logs.search-limitReached.txt
+-rw-rw-r--   1 hive hive     161 Nov 13 04:33 logs.search-parse-reset.txt
+-rw-rw-r--   1 hive hive       0 Nov 13 04:08 logs.search-solve-setreset.txt
+-rw-rw-r--   1 hive hive     690 Nov 13 04:22 logs.search-summary.txt
+-rw-rw-r--   1 hive hive    6641 Nov 13 04:38 logs.search-usage-limit-in-solve.txt
+-rw-rw-r--   1 hive hive    1208 Nov 13 04:06 logs.search-usage-limit-refs.txt
+-rw-rw-r--   1 hive hive 1027779 Nov 13 04:06 logs.search-version.txt
+-rw-rw-r--   1 hive hive   41509 Nov 13 04:05 logs.search-weekly-limit.txt
+-rw-rw-r--   1 hive hive    5171 Nov 13 04:07 logs.search-workflows-version.txt
+-rw-rw-r--   1 hive hive   20801 Nov 13 04:06 logs.solve-auto-continue.1.txt
+-rw-rw-r--   1 hive hive   16171 Nov 13 04:22 logs.src-claude.limit.txt
+-rw-rw-r--   1 hive hive   13857 Nov 13 04:08 logs.src-claude.limitset.txt
+-rw-rw-r--   1 hive hive    5050 Nov 13 04:06 logs.src-claude.mid.txt
+-rw-rw-r--   1 hive hive   22964 Nov 13 04:22 logs.src-claude.range.txt
+-rw-rw-r--   1 hive hive    7003 Nov 13 04:23 logs.src-claude.range2.txt
+-rw-rw-r--   1 hive hive    7603 Nov 13 04:06 logs.src-claude.usage.txt
+-rw-rw-r--   1 hive hive    6337 Nov 13 04:22 logs.src-codex.limit.txt
+-rw-rw-r--   1 hive hive    7931 Nov 13 04:23 logs.src-codex.range.txt
+-rw-rw-r--   1 hive hive    3270 Nov 13 04:23 logs.src-codex.range2.txt
+-rw-rw-r--   1 hive hive    2458 Nov 13 04:08 logs.src-execution-limit.txt
+-rw-rw-r--   1 hive hive    6567 Nov 13 04:38 logs.src-github.lib.620-740.txt
+-rw-rw-r--   1 hive hive   12292 Nov 13 04:06 logs.src-github.usage-limit.txt
+-rw-rw-r--   1 hive hive    7645 Nov 13 04:22 logs.src-github.usage.txt
+-rw-rw-r--   1 hive hive    2933 Nov 13 04:22 logs.src-opencode.limit.txt
+-rw-rw-r--   1 hive hive    4052 Nov 13 04:23 logs.src-opencode.range.txt
+-rw-rw-r--   1 hive hive    3232 Nov 13 04:23 logs.src-opencode.range2.txt
+-rw-rw-r--   1 hive hive    2300 Nov 13 04:08 logs.src-repo.keepdir.txt
+-rw-rw-r--   1 hive hive    2719 Nov 13 04:08 logs.src-results-limit.txt
+-rw-rw-r--   1 hive hive    7774 Nov 13 04:22 logs.src-solve.error.txt
+-rw-rw-r--   1 hive hive    3324 Nov 13 04:41 logs.src-solve.head.txt
+-rw-rw-r--   1 hive hive    3439 Nov 13 04:08 logs.src-solve.limit.txt
+-rw-rw-r--   1 hive hive    6252 Nov 13 04:06 logs.src-solve.logs1.txt
+-rw-rw-r--   1 hive hive   20131 Nov 13 04:22 logs.src-solve.range.txt
+-rw-rw-r--   1 hive hive    4527 Nov 13 04:22 logs.src-solve.range2.txt
+-rw-rw-r--   1 hive hive   24400 Nov 13 04:22 logs.src-solve.results.1.txt
+-rw-rw-r--   1 hive hive    3177 Nov 13 04:22 logs.src-solve.results.grep.txt
+-rw-rw-r--   1 hive hive   14528 Nov 13 04:22 logs.src-solve.results.head.txt
+-rw-rw-r--   1 hive hive    4069 Nov 13 04:22 logs.src-solve.results.range.txt
+-rw-rw-r--   1 hive hive    1538 Nov 13 04:22 logs.src-solve.results.range2.txt
+-rw-rw-r--   1 hive hive    1265 Nov 13 04:32 logs.src-tree.txt
+-rw-rw-r--   1 hive hive    4515 Nov 13 04:29 logs.src-usage-limit.1.txt
+-rw-rw-r--   1 hive hive       0 Nov 13 04:29 logs.src-usage-limit.2.txt
+-rw-rw-r--   1 hive hive     864 Nov 13 04:07 logs.status.after.txt
+-rw-rw-r--   1 hive hive      40 Nov 13 04:05 logs.status.txt
+-rw-rw-r--   1 hive hive    3293 Nov 13 04:07 logs.workflow-version-check.txt
+-rw-rw-r--   1 hive hive    9449 Nov 13 04:31 logs_repo_scan.txt
+drwxrwxr-x 106 hive hive    4096 Nov 13 04:38 node_modules
+-rw-rw-r--   1 hive hive   78745 Nov 13 04:01 package-lock.json
+-rw-rw-r--   1 hive hive    1312 Nov 13 04:24 package.json
+drwxrwxr-x   2 hive hive    4096 Nov 13 04:01 scripts
+-rw-rw-r--   1 hive hive    1488 Nov 13 04:13 solve-2025-11-13T04-13-22-183Z.log
+-rw-rw-r--   1 hive hive    1284 Nov 13 04:30 solve-2025-11-13T04-30-55-676Z.log
+drwxrwxr-x   3 hive hive    4096 Nov 13 04:01 src
+drwxrwxr-x   2 hive hive    4096 Nov 13 04:01 tests

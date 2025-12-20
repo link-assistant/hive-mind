@@ -67,7 +67,7 @@ async function simulateForkedPRError() {
 async function simulateNormalPRError() {
   const isForkPR = false;
   const prNumber = 123;
-  const owner = "deep-assistant";
+  const owner = "link-assistant";
   const repo = "hive-mind";
   const branchName = "issue-123-abcd1234";
   const tempDir = "/tmp/test-directory";

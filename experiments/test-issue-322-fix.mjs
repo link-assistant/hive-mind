@@ -8,7 +8,7 @@ const { $ } = await use('command-stream');
 
 const log = async (msg) => console.log(msg);
 
-const owner = 'deep-assistant';
+const owner = 'link-assistant';
 const repo = 'hive-mind';
 const prNumber = 320;
 

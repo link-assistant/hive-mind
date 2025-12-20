@@ -7,11 +7,11 @@ const testContinueModePrompt = () => {
   // Simulate continue mode variables
   const isContinueMode = true;
   const issueNumber = '71';
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
   const branchName = 'issue-71-145a3af2';
   const tempDir = '/tmp/test-dir';
-  const prUrl = 'https://github.com/deep-assistant/hive-mind/pull/72';
+  const prUrl = 'https://github.com/link-assistant/hive-mind/pull/72';
   const mergeStateStatus = 'CLEAN';
   
   // This is the same logic as in solve.mjs

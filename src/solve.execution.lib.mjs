@@ -99,19 +99,30 @@ export const setupRepository = async (argv, owner, repo) => {
     }
     const currentUser = userResult.stdout.toString().trim();
 
+    // Determine fork name based on --prefix-fork-name-with-owner-name option
+    const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
+    const forkFullName = `${currentUser}/${forkRepoName}`;
+
     // Check if fork already exists
-    const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+    const forkCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
 
     if (forkCheckResult.code === 0) {
       // Fork exists
-      await log(`${formatAligned('✅', 'Fork exists:', `${currentUser}/${repo}`)}`);
-      repoToClone = `${currentUser}/${repo}`;
-      forkedRepo = `${currentUser}/${repo}`;
+      await log(`${formatAligned('✅', 'Fork exists:', forkFullName)}`);
+      repoToClone = forkFullName;
+      forkedRepo = forkFullName;
       upstreamRemote = `${owner}/${repo}`;
     } else {
       // Need to create fork
       await log(`${formatAligned('🔄', 'Creating fork...', '')}`);
-      const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+      let forkResult;
+      if (argv.prefixForkNameWithOwnerName) {
+        // Use --fork-name flag to create fork with owner prefix
+        forkResult = await $`gh repo fork ${owner}/${repo} --fork-name ${forkRepoName} --clone=false`;
+      } else {
+        // Standard fork creation (no custom name)
+        forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+      }
 
       // Check if fork creation failed or if fork already exists
       if (forkResult.code !== 0) {
@@ -125,7 +136,7 @@ export const setupRepository = async (argv, owner, repo) => {
       if (forkOutput.includes('already exists')) {
         // Fork was created by another worker - treat as if fork already existed
         await log(`${formatAligned('ℹ️', 'Fork exists:', 'Already created by another worker')}`);
-        await log(`${formatAligned('✅', 'Using existing fork:', `${currentUser}/${repo}`)}`);
+        await log(`${formatAligned('✅', 'Using existing fork:', forkFullName)}`);
 
         // Retry verification with exponential backoff
         // GitHub may need time to propagate the fork visibility across their infrastructure
@@ -138,7 +149,7 @@ export const setupRepository = async (argv, owner, repo) => {
           await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay/1000}s)...`)}`);
           await new Promise(resolve => setTimeout(resolve, delay));
 
-          const reCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+          const reCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
           if (reCheckResult.code === 0) {
             forkVerified = true;
             await log(`${formatAligned('✅', 'Fork verified:', 'Successfully confirmed fork exists')}`);
@@ -152,15 +163,15 @@ export const setupRepository = async (argv, owner, repo) => {
           process.exit(1);
         }
       } else {
-        await log(`${formatAligned('✅', 'Fork created:', `${currentUser}/${repo}`)}`);
+        await log(`${formatAligned('✅', 'Fork created:', forkFullName)}`);
 
         // Wait a moment for fork to be ready
         await log(`${formatAligned('⏳', 'Waiting:', 'For fork to be ready...')}`);
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      repoToClone = `${currentUser}/${repo}`;
-      forkedRepo = `${currentUser}/${repo}`;
+      repoToClone = forkFullName;
+      forkedRepo = forkFullName;
       upstreamRemote = `${owner}/${repo}`;
     }
   }

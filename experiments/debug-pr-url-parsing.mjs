@@ -25,7 +25,7 @@ async function $(command) {
 async function debugPrUrlParsing() {
   try {
     // Test the exact URL parsing logic from solve.mjs
-    const issueUrl = 'https://github.com/deep-assistant/hive-mind/pull/169';
+    const issueUrl = 'https://github.com/link-assistant/hive-mind/pull/169';
     console.log(`🔗 Input URL: ${issueUrl}`);
 
     // Check if it's recognized as a PR URL

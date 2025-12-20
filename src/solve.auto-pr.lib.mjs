@@ -212,13 +212,13 @@ Proceed.`;
 
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
     const commitMessage = commitFileName === 'CLAUDE.md'
-      ? `Initial commit with task details for issue #${issueNumber}
+      ? `Initial commit with task details
 
 Adding CLAUDE.md with task information for AI processing.
 This file will be removed when the task is complete.
 
 Issue: ${issueUrl}`
-      : `Initial commit with task details for issue #${issueNumber}
+      : `Initial commit with task details
 
 Adding .gitkeep for PR creation (CLAUDE.md is in .gitignore).
 This file will be removed when the task is complete.
@@ -309,18 +309,13 @@ Issue: ${issueUrl}`;
       // Push the branch
       await log(formatAligned('📤', 'Pushing branch:', 'To remote repository...'));
 
+      // Always use regular push - never force push, rebase, or reset
+      // History must be preserved at all times
       if (argv.verbose) {
-        await log(`   Command: git push -u origin ${branchName}`, { verbose: true });
+        await log(`   Push command: git push -u origin ${branchName}`);
       }
 
-      // Push the branch with the CLAUDE.md commit
-      if (argv.verbose) {
-        await log(`   Push command: git push -f -u origin ${branchName}`);
-      }
-
-      // Always use force push to ensure our commit gets to GitHub
-      // (The branch is new with random name, so force is safe)
-      const pushResult = await $({ cwd: tempDir })`git push -f -u origin ${branchName} 2>&1`;
+      const pushResult = await $({ cwd: tempDir })`git push -u origin ${branchName} 2>&1`;
 
       if (argv.verbose) {
         await log(`   Push exit code: ${pushResult.code}`);
@@ -381,11 +376,14 @@ Issue: ${issueUrl}`;
           // Check if user already has a fork
           let userHasFork = false;
           let currentUser = null;
+          // Determine fork name based on --prefix-fork-name-with-owner-name option
+          const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
           try {
             const userResult = await $`gh api user --jq .login`;
             if (userResult.code === 0) {
               currentUser = userResult.stdout.toString().trim();
-              const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json parent 2>/dev/null`;
+              const userForkName = `${currentUser}/${forkRepoName}`;
+              const forkCheckResult = await $`gh repo view ${userForkName} --json parent 2>/dev/null`;
               if (forkCheckResult.code === 0) {
                 const forkData = JSON.parse(forkCheckResult.stdout.toString());
                 if (forkData.parent && forkData.parent.owner && forkData.parent.owner.login === owner) {
@@ -425,7 +423,7 @@ Issue: ${issueUrl}`;
           await log('');
           await log('  This will automatically:');
           if (userHasFork) {
-            await log(`    ✓ Use your existing fork (${currentUser}/${repo})`);
+            await log(`    ✓ Use your existing fork (${currentUser}/${forkRepoName})`);
             await log('    ✓ Sync your fork with the latest changes');
           } else {
             await log('    ✓ Fork the repository to your account');
@@ -453,10 +451,39 @@ Issue: ${issueUrl}`;
           await log('');
           await log('💡 Tip: The --fork option automates the entire fork workflow!');
           if (userHasFork) {
-            await log(`   Note: We detected you already have a fork at ${currentUser}/${repo}`);
+            await log(`   Note: We detected you already have a fork at ${currentUser}/${forkRepoName}`);
           }
           await log('');
           throw new Error('Permission denied - need fork or collaborator access');
+        } else if (errorOutput.includes('non-fast-forward') || errorOutput.includes('rejected') || errorOutput.includes('! [rejected]')) {
+          // Push rejected due to conflicts or diverged history
+          await log('');
+          await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
+          await log('');
+          await log('  🔍 What happened:');
+          await log('     The remote branch has changes that conflict with your local changes.');
+          await log('     This typically means someone else has pushed to this branch.');
+          await log('');
+          await log('  💡 Why we cannot fix this automatically:');
+          await log('     • We never use force push to preserve history');
+          await log('     • We never use rebase or reset to avoid altering git history');
+          await log('     • Manual conflict resolution is required');
+          await log('');
+          await log('  🔧 How to fix:');
+          await log('     1. Clone the repository and checkout the branch:');
+          await log(`        git clone https://github.com/${owner}/${repo}.git`);
+          await log(`        cd ${repo}`);
+          await log(`        git checkout ${branchName}`);
+          await log('');
+          await log('     2. Pull and merge the remote changes:');
+          await log(`        git pull origin ${branchName}`);
+          await log('');
+          await log('     3. Resolve any conflicts manually, then:');
+          await log(`        git push origin ${branchName}`);
+          await log('');
+          await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          await log('');
+          throw new Error('Push rejected - branch has diverged, manual resolution required');
         } else {
           // Other push errors
           await log(`${formatAligned('❌', 'Failed to push:', 'See error below')}`, { level: 'error' });
@@ -482,6 +509,7 @@ Issue: ${issueUrl}`;
         let compareAttempts = 0;
         const maxCompareAttempts = 5;
         const targetBranchForCompare = argv.baseBranch || defaultBranch;
+        let compareResult; // Declare outside loop so it's accessible for error checking
 
         while (!compareReady && compareAttempts < maxCompareAttempts) {
           compareAttempts++;
@@ -504,7 +532,7 @@ Issue: ${issueUrl}`;
           } else {
             headRef = branchName;
           }
-          const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+          compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
             const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);
@@ -526,36 +554,191 @@ Issue: ${issueUrl}`;
         }
 
         if (!compareReady) {
-          await log('');
-          await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), { level: 'error' });
-          await log('');
-          await log('  🔍 What happened:');
-          await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
-          await log(`     between ${targetBranchForCompare} and ${branchName}.`);
-          await log('');
-          await log('  💡 This usually means:');
-          await log('     • GitHub\'s backend systems haven\'t finished indexing the push');
-          await log('     • There\'s a temporary issue with GitHub\'s API');
-          await log('     • The commits may not have been pushed correctly');
-          await log('');
-          await log('  🔧 How to fix:');
-          await log('     1. Wait a minute and try creating the PR manually:');
-          await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
-          await log('     2. Check if the branch exists on GitHub:');
-          await log(`        https://github.com/${owner}/${repo}/tree/${branchName}`);
-          await log('     3. Check the commit is on GitHub:');
-          await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
-          await log('');
-          throw new Error('GitHub compare API not ready - cannot create PR safely');
+          // Check if this is a repository mismatch error (HTTP 404 from compare API)
+          let isRepositoryMismatch = false;
+          if (argv.fork && forkedRepo) {
+            // For fork mode, check the last compare API call result for 404
+            const lastCompareOutput = compareResult.stdout || compareResult.stderr || '';
+            if (lastCompareOutput.includes('HTTP 404') || lastCompareOutput.includes('Not Found')) {
+              isRepositoryMismatch = true;
+            }
+          }
+
+          if (isRepositoryMismatch) {
+            // BEFORE showing any error, verify if the repository is actually a GitHub fork
+            await log('');
+            await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
+
+            const forkInfoResult = await $({ silent: true })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
+
+            let isFork = false;
+            let parentRepo = null;
+            let sourceRepo = null;
+
+            if (forkInfoResult.code === 0) {
+              try {
+                const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+                isFork = forkInfo.fork === true;
+                parentRepo = forkInfo.parent || null;
+                sourceRepo = forkInfo.source || null;
+              } catch {
+                // Failed to parse fork info
+              }
+            }
+
+            if (!isFork) {
+              // Repository is NOT a fork at all
+              await log('');
+              await log(formatAligned('❌', 'NOT A GITHUB FORK:', 'Repository is not a fork'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is NOT a GitHub fork.`);
+              await log('     GitHub API reports: fork=false, parent=null');
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     This repository was likely created by cloning and pushing (git clone + git push)');
+              await log('     instead of using GitHub\'s Fork button or API.');
+              await log('');
+              await log('     When a repository is created this way:');
+              await log('     • GitHub does not track it as a fork');
+              await log('     • It has no parent relationship with the original repository');
+              await log('     • Pull requests cannot be created to the original repository');
+              await log('     • Compare API returns 404 when comparing with unrelated repositories');
+              await log('');
+              await log('  📦 Repository details:');
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('     • Your repository: ' + forkedRepo);
+              await log('     • Fork status: false (NOT A FORK)');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the non-fork repository and create a proper fork');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper GitHub fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid name conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Repository is not a GitHub fork - cannot create PR to unrelated repository');
+            } else if (parentRepo !== `${owner}/${repo}` && sourceRepo !== `${owner}/${repo}`) {
+              // Repository IS a fork, but of a different repository
+              await log('');
+              await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} IS a GitHub fork,`);
+              await log(`     but it's a fork of a DIFFERENT repository than ${owner}/${repo}.`);
+              await log('');
+              await log('  📦 Fork relationship:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Fork source: ' + (sourceRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 Why this happens:');
+              await log('     You have an existing fork from a different repository');
+              await log('     that shares the same name but is from a different source.');
+              await log('     GitHub treats forks hierarchically - each fork tracks its root repository.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     Option 1: Delete the conflicting fork and create a new one');
+              await log(`        gh repo delete ${forkedRepo}`);
+              await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
+              await log('');
+              await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
+              await log('        This creates forks with names like "owner-repo" instead of just "repo"');
+              await log('');
+              await log('     Option 3: Work directly on the repository (if you have write access)');
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --no-fork`);
+              await log('');
+
+              throw new Error('Fork parent mismatch - fork is from different repository tree');
+            } else {
+              // Repository is a fork of the correct parent, but compare API still failed
+              // This is unexpected - show detailed error
+              await log('');
+              await log(formatAligned('❌', 'COMPARE API ERROR:', 'Unexpected failure'), { level: 'error' });
+              await log('');
+              await log('  🔍 What happened:');
+              await log(`     The repository ${forkedRepo} is a valid fork of ${owner}/${repo},`);
+              await log('     but GitHub\'s compare API still returned an error.');
+              await log('');
+              await log('  📦 Fork verification:');
+              await log('     • Your fork: ' + forkedRepo);
+              await log('     • Fork status: true (VALID FORK)');
+              await log('     • Fork parent: ' + (parentRepo || 'unknown'));
+              await log('     • Target repository: ' + `${owner}/${repo}`);
+              await log('');
+              await log('  💡 This is unexpected:');
+              await log('     The fork relationship is correct, but the compare API failed.');
+              await log('     This might be a temporary GitHub API issue.');
+              await log('');
+              await log('  🔧 How to fix:');
+              await log('     1. Wait a minute and try creating the PR manually:');
+              if (argv.fork && forkedRepo) {
+                const forkUser = forkedRepo.split('/')[0];
+                await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+              }
+              await log('     2. Check if the issue persists - it might be a GitHub API outage');
+              await log('');
+
+              throw new Error('Compare API failed unexpectedly despite valid fork relationship');
+            }
+          } else {
+            // Original timeout error for other cases
+            await log('');
+            await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), { level: 'error' });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     After ${maxCompareAttempts} attempts, GitHub's compare API still shows no commits`);
+            await log(`     between ${targetBranchForCompare} and ${branchName}.`);
+            await log('');
+            await log('  💡 This usually means:');
+            await log('     • GitHub\'s backend systems haven\'t finished indexing the push');
+            await log('     • There\'s a temporary issue with GitHub\'s API');
+            await log('     • The commits may not have been pushed correctly');
+            await log('');
+            await log('  🔧 How to fix:');
+            await log('     1. Wait a minute and try creating the PR manually:');
+            // For fork mode, use the correct head reference format
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
+            } else {
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
+            }
+            await log('     2. Check if the branch exists on GitHub:');
+            // Show the correct repository where the branch was pushed
+            const branchRepo = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
+            await log(`        https://github.com/${branchRepo}/tree/${branchName}`);
+            await log('     3. Check the commit is on GitHub:');
+            // Use the correct head reference for the compare API check
+            if (argv.fork && forkedRepo) {
+              const forkUser = forkedRepo.split('/')[0];
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
+            } else {
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
+            }
+            await log('');
+
+            throw new Error('GitHub compare API not ready - cannot create PR safely');
+          }
         }
 
         // Verify the push actually worked by checking GitHub API
-        const branchCheckResult = await $({ silent: true })`gh api repos/${owner}/${repo}/branches/${branchName} --jq .name 2>&1`;
+        // When using fork mode, check the fork repository; otherwise check the original repository
+        const repoToCheck = (argv.fork && forkedRepo) ? forkedRepo : `${owner}/${repo}`;
+        const branchCheckResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches/${branchName} --jq .name 2>&1`;
         if (branchCheckResult.code === 0 && branchCheckResult.stdout.toString().trim() === branchName) {
           await log(`   Branch verified on GitHub: ${branchName}`);
 
           // Get the commit SHA from GitHub
-          const shaCheckResult = await $({ silent: true })`gh api repos/${owner}/${repo}/branches/${branchName} --jq .commit.sha 2>&1`;
+          const shaCheckResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches/${branchName} --jq .commit.sha 2>&1`;
           if (shaCheckResult.code === 0) {
             const remoteSha = shaCheckResult.stdout.toString().trim();
             await log(`   Remote commit SHA: ${remoteSha.substring(0, 7)}...`);
@@ -568,15 +751,15 @@ Issue: ${issueUrl}`;
             await log(`   Branch check result: ${branchCheckResult.stdout || branchCheckResult.stderr || 'empty'}`);
 
             // Show all branches on GitHub
-            const allBranchesResult = await $({ silent: true })`gh api repos/${owner}/${repo}/branches --jq '.[].name' 2>&1`;
+            const allBranchesResult = await $({ silent: true })`gh api repos/${repoToCheck}/branches --jq '.[].name' 2>&1`;
             if (allBranchesResult.code === 0) {
               await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);
             }
           }
 
-          // Try one more force push with explicit ref
+          // Try one more push with explicit ref (without force)
           await log('   Attempting explicit push...');
-          const explicitPushCmd = `git push origin HEAD:refs/heads/${branchName} -f`;
+          const explicitPushCmd = `git push origin HEAD:refs/heads/${branchName}`;
           if (argv.verbose) {
             await log(`   Command: ${explicitPushCmd}`);
           }
@@ -591,6 +774,7 @@ Issue: ${issueUrl}`;
           } else {
             await log('   ERROR: Cannot push to GitHub!');
             await log(`   Error: ${explicitPushResult.stderr || explicitPushResult.stdout || 'Unknown'}`);
+            await log('   Force push is not allowed to preserve history');
           }
         }
 
@@ -617,12 +801,14 @@ Issue: ${issueUrl}`;
 
           // Check if user has push access (is a collaborator or owner)
           // IMPORTANT: We need to completely suppress the JSON error output
-          // Using execSync to have full control over stderr
+          // Using async exec to have full control over stderr
           try {
-            const { execSync } = await import('child_process');
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
             // This will throw if user doesn't have access, but won't print anything
-            execSync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
-                      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+            await execAsync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`,
+                      { encoding: 'utf8', env: process.env });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
           } catch (e) {
@@ -676,24 +862,53 @@ Issue: ${issueUrl}`;
           }
 
           if (commitCount === 0) {
+            // Check if the branch was already merged
+            const mergedCheckResult = await $({ cwd: tempDir, silent: true })`git branch -r --merged origin/${targetBranch} | grep -q "origin/${branchName}" 2>&1`;
+            const wasAlreadyMerged = mergedCheckResult.code === 0;
+
             // No commits to create PR - branch is up to date with base or behind it
             await log('');
             await log(formatAligned('❌', 'NO COMMITS TO CREATE PR', ''), { level: 'error' });
             await log('');
             await log('  🔍 What happened:');
             await log(`     The branch ${branchName} has no new commits compared to ${targetBranch}.`);
-            await log(`     This means all commits in this branch are already in ${targetBranch}.`);
+
+            if (wasAlreadyMerged) {
+              await log(`     ✅ This branch was already merged into ${targetBranch}.`);
+              await log('');
+              await log('  📋 Branch Status: ALREADY MERGED');
+              await log('');
+              await log('  💡 This means:');
+              await log('     • The work on this branch has been completed and integrated');
+              await log('     • A new branch should be created for any additional work');
+              await log('     • The issue may already be resolved');
+            } else {
+              await log(`     This means all commits in this branch are already in ${targetBranch}.`);
+            }
+
             await log('');
             await log('  💡 Possible causes:');
-            await log('     • The branch was already merged');
+            if (wasAlreadyMerged) {
+              await log('     • ✅ The branch was already merged (confirmed)');
+            } else {
+              await log('     • The branch was already merged');
+            }
             await log('     • The branch is outdated and needs to be rebased');
             await log(`     • Local ${targetBranch} is outdated (though we just fetched it)`);
             await log('');
             await log('  🔧 How to fix:');
             await log('');
-            await log('     Option 1: Check if branch was already merged');
-            await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName} --state merged`);
-            await log('        If merged, you may want to close the related issue or create a new branch');
+
+            if (wasAlreadyMerged) {
+              await log('     Option 1: Check the merged PR and close the issue');
+              await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName} --state merged`);
+              await log('        If the issue is resolved, close it. Otherwise, create a new branch.');
+            } else {
+              await log('     Option 1: Check if branch was already merged');
+              await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName} --state merged`);
+              await log('        If merged, you may want to close the related issue or create a new branch');
+            }
+
             await log('');
             await log('     Option 2: Verify branch state');
             await log(`        cd ${tempDir}`);
@@ -703,7 +918,12 @@ Issue: ${issueUrl}`;
             await log('     Option 3: Create new commits on this branch');
             await log('        The branch exists but has no new work to contribute');
             await log('');
-            throw new Error('No commits between base and head - cannot create PR');
+
+            if (wasAlreadyMerged) {
+              throw new Error('Branch was already merged into base - cannot create PR');
+            } else {
+              throw new Error('No commits between base and head - cannot create PR');
+            }
           } else {
             await log(formatAligned('✅', 'Commits found:', `${commitCount} commit(s) ahead`));
           }
@@ -752,10 +972,12 @@ _Details will be added as the solution draft is developed..._
 ${prBody}`, { verbose: true });
         }
 
-        // Use execSync for gh pr create to avoid command-stream output issues
+        // Use async exec for gh pr create to avoid command-stream output issues
         // Similar to how create-test-repo.mjs handles it
         try {
-          const { execSync } = await import('child_process');
+          const { exec } = await import('child_process');
+          const { promisify } = await import('util');
+          const execAsync = promisify(exec);
 
           // Write PR body to temp file to avoid shell escaping issues
           const prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
@@ -793,7 +1015,8 @@ ${prBody}`, { verbose: true });
 
           // Try to create PR with assignee first (if specified)
           try {
-            output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+            output = result.stdout;
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -817,7 +1040,8 @@ ${prBody}`, { verbose: true });
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              output = execSync(command, { encoding: 'utf8', cwd: tempDir });
+              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              output = retryResult.stdout;
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;

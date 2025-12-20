@@ -22,6 +22,7 @@ This directory contains reproducible test cases for issues encountered with the 
 16. **issue-16-unwanted-stdout.mjs** - Unwanted stdout output even with mirror:false
 17. **issue-17-trace-logs-in-ci.mjs** - command-stream emits trace logs when CI=true environment variable is set
 18. **issue-18-auto-quoting-control.mjs** - Lack of ability to turn off auto-quoting causes full command strings to be misinterpreted
+19. **issue-19-stderr-ignore-not-working.mjs** - The stderr: 'ignore' option doesn't actually suppress stderr output
 
 ## Critical Issues
 
@@ -38,6 +39,8 @@ This directory contains reproducible test cases for issues encountered with the 
 ⚠️ **Issue #17 - Trace Logs in CI Environment**: When the `CI` environment variable is set to `true` (as in GitHub Actions), command-stream emits trace logs to stderr in the format `[TRACE 2025-01-14T12:34:56.789Z] ...`. These logs appear even with `mirror: false` and `capture: true` options, breaking JSON parsing and causing test failures. Workaround: redirect stderr with `2>/dev/null` or filter trace logs from output.
 
 ⚠️ **Issue #18 - Auto-Quoting Control**: command-stream lacks the ability to turn off auto-quoting, which causes full command strings to be misinterpreted as quoted commands. This breaks telegram bot command execution and similar use cases where pre-constructed command strings need to be executed. Always use `child_process.spawn()` or `execSync()` for commands requiring precise argument control.
+
+⚠️ **Issue #19 - stderr: 'ignore' Option Doesn't Work**: The `$({ stderr: 'ignore' })` and `$({ silent: true, stderr: 'ignore' })` options don't actually suppress stderr output. This causes non-blocking error messages to pollute logs in worker processes and background tasks, making successful execution look broken. In hive-mind issue #583, this caused "fatal: not a git repository" and "YError: Not enough arguments" to appear with ERROR labels even though execution was proceeding normally. Workarounds: (1) Use shell-level redirection `2>/dev/null`, or (2) Use `execSync` with `stdio: [..., 'ignore']` for precise control.
 
 ## Running the Tests
 
@@ -215,6 +218,7 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
    - Authentication operations: Fall back to child_process when command-stream fails silently
    - **CI environments**: Add `2>/dev/null` to commands or filter trace logs (critical issue #17)
    - **Full command strings**: Use spawn() or execSync() for pre-constructed commands (critical issue #18)
+   - **Suppressing stderr**: Use `2>/dev/null` or execSync with `stdio` options; don't rely on `$({ stderr: 'ignore' })` (critical issue #19)
 
 ## Alternative Approaches
 

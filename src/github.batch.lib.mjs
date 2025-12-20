@@ -70,13 +70,16 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
         }
 
         // Execute GraphQL query
-        const { execSync } = await import('child_process');
-        const result = execSync(`gh api graphql -f query='${query}'`, {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
           encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize
+          maxBuffer: githubLimits.bufferMaxSize,
+          env: process.env
         });
 
-        const data = JSON.parse(result);
+        const data = JSON.parse(stdout);
 
         // Process results for this batch
         for (const issueNum of batch) {
@@ -122,11 +125,13 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
 
         for (const issueNum of batch) {
           try {
-            const { execSync } = await import('child_process');
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
             const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
 
-            const output = execSync(cmd, { encoding: 'utf8' }).trim();
-            const openPrCount = parseInt(output) || 0;
+            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            const openPrCount = parseInt(stdout.trim()) || 0;
 
             results[issueNum] = {
               openPRCount: openPrCount,
@@ -198,13 +203,16 @@ export async function batchCheckArchivedRepositories(repositories) {
         }
 
         // Execute GraphQL query
-        const { execSync } = await import('child_process');
-        const result = execSync(`gh api graphql -f query='${query}'`, {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
           encoding: 'utf8',
-          maxBuffer: githubLimits.bufferMaxSize
+          maxBuffer: githubLimits.bufferMaxSize,
+          env: process.env
         });
 
-        const data = JSON.parse(result);
+        const data = JSON.parse(stdout);
 
         // Process results for this batch
         batch.forEach((repo, index) => {
@@ -225,11 +233,13 @@ export async function batchCheckArchivedRepositories(repositories) {
 
         for (const repo of batch) {
           try {
-            const { execSync } = await import('child_process');
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
             const cmd = `gh api repos/${repo.owner}/${repo.name} --jq .archived`;
 
-            const output = execSync(cmd, { encoding: 'utf8' }).trim();
-            const isArchived = output === 'true';
+            const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
+            const isArchived = stdout.trim() === 'true';
 
             const repoKey = `${repo.owner}/${repo.name}`;
             results[repoKey] = isArchived;

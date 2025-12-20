@@ -218,6 +218,10 @@ export const detectAndCountFeedback = async (params) => {
           }
 
           // 2. Check for edited descriptions
+          // Issue #895: Filter out edits made during current work session to prevent
+          // infinite restart loops. When the agent updates the PR description as part of
+          // its work, this should not trigger a restart. Only external edits (before work
+          // started) should be considered feedback.
           try {
             // Check PR description edit time
             const prDetailsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
@@ -225,9 +229,19 @@ export const detectAndCountFeedback = async (params) => {
               const prDetails = JSON.parse(prDetailsResult.stdout.toString());
               const prUpdatedAt = new Date(prDetails.updated_at);
               if (prUpdatedAt > lastCommitTime) {
-                feedbackLines.push('Pull request description was edited after last commit');
-                feedbackDetected = true;
-                feedbackSources.push('PR description edited');
+                // Issue #895: Check if the edit happened during current work session
+                // If the PR was updated after work started, it's likely the agent's own edit
+                if (workStartTime && prUpdatedAt > new Date(workStartTime)) {
+                  if (argv.verbose) {
+                    await log('   Note: PR description updated during current work session (likely by agent itself) - ignoring', { verbose: true });
+                  }
+                  // Don't treat this as external feedback
+                } else {
+                  // The PR was updated after last commit but before work started - external feedback
+                  feedbackLines.push('Pull request description was edited after last commit');
+                  feedbackDetected = true;
+                  feedbackSources.push('PR description edited');
+                }
               }
             }
 
@@ -238,9 +252,18 @@ export const detectAndCountFeedback = async (params) => {
                 const issueDetails = JSON.parse(issueDetailsResult.stdout.toString());
                 const issueUpdatedAt = new Date(issueDetails.updated_at);
                 if (issueUpdatedAt > lastCommitTime) {
-                  feedbackLines.push('Issue description was edited after last commit');
-                  feedbackDetected = true;
-                  feedbackSources.push('Issue description edited');
+                  // Issue #895: Check if the edit happened during current work session
+                  if (workStartTime && issueUpdatedAt > new Date(workStartTime)) {
+                    if (argv.verbose) {
+                      await log('   Note: Issue description updated during current work session (likely by agent itself) - ignoring', { verbose: true });
+                    }
+                    // Don't treat this as external feedback
+                  } else {
+                    // The issue was updated after last commit but before work started - external feedback
+                    feedbackLines.push('Issue description was edited after last commit');
+                    feedbackDetected = true;
+                    feedbackSources.push('Issue description edited');
+                  }
                 }
               }
             }

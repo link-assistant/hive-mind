@@ -1,0 +1,9 @@
+52:detect-changes	Run actions/checkout@v4	2025-11-13T04:01:27.0987739Z Temporarily overriding HOME='/home/runner/work/_temp/b6cec67f-be6a-4dbe-930f-46d698c5010f' before making global git config changes
+218:detect-changes	Post Run actions/checkout@v4	2025-11-13T04:01:28.5258655Z Temporarily overriding HOME='/home/runner/work/_temp/c41fd3c1-1e04-496c-a69f-b125c9739197' before making global git config changes
+287:verify-version-bump	Checkout PR branch	2025-11-13T04:01:27.3903956Z Temporarily overriding HOME='/home/runner/work/_temp/46d0c1cf-1c91-4e87-ba72-afa1b1114210' before making global git config changes
+1080:verify-version-bump	Verify version bump	2025-11-13T04:01:29.6989130Z ##[error]Process completed with exit code 1.
+1084:verify-version-bump	Post Checkout PR branch	2025-11-13T04:01:29.8122181Z Temporarily overriding HOME='/home/runner/work/_temp/4dc6a725-9560-48a6-aed0-393d1a76c0d9' before making global git config changes
+1146:validate-docs	Run actions/checkout@v4	2025-11-13T04:01:35.7387356Z Temporarily overriding HOME='/home/runner/work/_temp/b1450e60-e334-46ad-9d8b-bb8bf31606d8' before making global git config changes
+1383:validate-docs	Post Run actions/checkout@v4	2025-11-13T04:01:40.1803294Z Temporarily overriding HOME='/home/runner/work/_temp/0c52f1ff-849f-4034-b060-87e8c271c5b2' before making global git config changes
+1445:publish	Checkout code	2025-11-13T04:01:47.0343229Z Temporarily overriding HOME='/home/runner/work/_temp/974ee0ac-e8aa-4967-b45e-086d2c30fdde' before making global git config changes
+1556:publish	Post Checkout code	2025-11-13T04:01:48.8926171Z Temporarily overriding HOME='/home/runner/work/_temp/9aa3f71b-06c9-4896-b3de-aaaf2cab9d54' before making global git config changes

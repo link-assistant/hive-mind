@@ -12,7 +12,7 @@ const getSentry = async () => {
   if (Sentry === null) {
     try {
       Sentry = await import('@sentry/node');
-    } catch (e) {
+    } catch {
       // If Sentry is not available, just return null
       Sentry = { close: async () => {} };
     }
@@ -73,7 +73,7 @@ export const safeExit = async (code = 0, reason = 'Process completed') => {
     if (sentry && sentry.close) {
       await sentry.close(2000); // Wait up to 2 seconds for pending events to be sent
     }
-  } catch (e) {
+  } catch {
     // Ignore Sentry.close() errors - exit anyway
   }
 
@@ -100,7 +100,7 @@ export const installGlobalExitHandlers = () => {
           }
           console.log(`📁 Full log file: ${currentLogPath}`);
         }
-      } catch (e) {
+      } catch {
         // If we can't get the log path synchronously, skip showing it
       }
     }
@@ -111,7 +111,7 @@ export const installGlobalExitHandlers = () => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors on signal
       }
     }
@@ -121,7 +121,7 @@ export const installGlobalExitHandlers = () => {
       if (sentry && sentry.close) {
         await sentry.close(2000);
       }
-    } catch (e) {
+    } catch {
       // Ignore Sentry.close() errors
     }
     process.exit(130);
@@ -132,7 +132,7 @@ export const installGlobalExitHandlers = () => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors on signal
       }
     }
@@ -142,7 +142,7 @@ export const installGlobalExitHandlers = () => {
       if (sentry && sentry.close) {
         await sentry.close(2000);
       }
-    } catch (e) {
+    } catch {
       // Ignore Sentry.close() errors
     }
     process.exit(143);
@@ -153,7 +153,7 @@ export const installGlobalExitHandlers = () => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors on exception
       }
     }
@@ -166,7 +166,7 @@ export const installGlobalExitHandlers = () => {
       if (sentry && sentry.close) {
         await sentry.close(2000);
       }
-    } catch (e) {
+    } catch {
       // Ignore Sentry.close() errors
     }
     process.exit(1);
@@ -177,7 +177,7 @@ export const installGlobalExitHandlers = () => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors on rejection
       }
     }
@@ -190,7 +190,7 @@ export const installGlobalExitHandlers = () => {
       if (sentry && sentry.close) {
         await sentry.close(2000);
       }
-    } catch (e) {
+    } catch {
       // Ignore Sentry.close() errors
     }
     process.exit(1);

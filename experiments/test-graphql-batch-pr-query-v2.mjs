@@ -8,7 +8,7 @@ async function testGraphQLBatchQuery() {
   console.log('🔬 Testing GitHub GraphQL API for batch PR queries\n');
 
   // Test repository
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
   const issueNumbers = [186, 194, 197]; // Using valid issue numbers
 
@@ -116,7 +116,7 @@ async function testGraphQLBatchQuery() {
 async function testRESTAPIBatchApproach() {
   console.log('\n\n🔬 Alternative: REST API approach (current implementation)\n');
 
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
   const issueNumbers = [186, 194, 197];
 

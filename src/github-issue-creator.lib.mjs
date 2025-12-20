@@ -157,7 +157,7 @@ export const createIssueForError = async (options) => {
 
     const issueTitle = error.message || errorMessage || `${errorType} in hive-mind`;
 
-    let issueBody = `## Error Details\n\n`;
+    let issueBody = '## Error Details\n\n';
     issueBody += `**Type**: ${errorType}\n`;
     issueBody += `**Message**: ${errorMessage}\n\n`;
 
@@ -186,13 +186,13 @@ export const createIssueForError = async (options) => {
       }
     }
 
-    issueBody += `---\n`;
+    issueBody += '---\n';
     issueBody += `*This issue was automatically created by @${currentUser} using hive-mind error reporting*\n`;
 
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
     await fs.writeFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo deep-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
 
     await fs.unlink(tempBodyFile).catch(() => {});
 

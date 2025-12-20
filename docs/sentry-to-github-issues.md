@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explores all available options for automatically converting Sentry issues into GitHub Issues for the `deep-assistant/hive-mind` project. Our Sentry dashboard is available at: https://deepassistant.sentry.io/issues
+This document explores all available options for automatically converting Sentry issues into GitHub Issues for the `link-assistant/hive-mind` project. Our Sentry dashboard is available at: https://deepassistant.sentry.io/issues
 
 ## Current Integration Status
 

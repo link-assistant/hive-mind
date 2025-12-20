@@ -1,0 +1,200 @@
+diff --git a/ci-logs.gh-run-list.after.json b/ci-logs.gh-run-list.after.json
+new file mode 100644
+index 0000000..8107676
+--- /dev/null
++++ b/ci-logs.gh-run-list.after.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:13:55Z","databaseId":19320298099,"headSha":"f0f83ec39374be48b53c4fcd596c90047048d0d1"},{"conclusion":"success","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1"},{"conclusion":"success","createdAt":"2025-11-13T04:07:34Z","databaseId":19320182040,"headSha":"97aea4dd97ef70d5ade9a760f301ad789aa5b9c4"},{"conclusion":"failure","createdAt":"2025-11-13T04:04:44Z","databaseId":19320129982,"headSha":"fe8043d6ecd64fdbe045a35b09fdb55618b5982b"},{"conclusion":"failure","createdAt":"2025-11-13T04:04:23Z","databaseId":19320124562,"headSha":"5e21cf3702d8b04583a0805bd084c02fb47e1413"}]
+diff --git a/ci-logs.gh-run-list.after2.json b/ci-logs.gh-run-list.after2.json
+new file mode 100644
+index 0000000..d972fd3
+--- /dev/null
++++ b/ci-logs.gh-run-list.after2.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:20:56Z","databaseId":19320419391,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"42c9e440a2b67d80cba085d6da876b2e3bee0c84","name":"CI/CD Pipeline for main branch"},{"conclusion":"","createdAt":"2025-11-13T04:17:18Z","databaseId":19320357688,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"7c17442218cf67b05736b81aba33e87db7d5de56","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:13:55Z","databaseId":19320298099,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"f0f83ec39374be48b53c4fcd596c90047048d0d1","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:07:34Z","databaseId":19320182040,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"97aea4dd97ef70d5ade9a760f301ad789aa5b9c4","name":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.after3.json b/ci-logs.gh-run-list.after3.json
+new file mode 100644
+index 0000000..9ee811b
+--- /dev/null
++++ b/ci-logs.gh-run-list.after3.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"","createdAt":"2025-11-13T04:07:34Z","databaseId":19320182040,"headSha":"97aea4dd97ef70d5ade9a760f301ad789aa5b9c4","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"failure","createdAt":"2025-11-13T04:04:44Z","databaseId":19320129982,"headSha":"fe8043d6ecd64fdbe045a35b09fdb55618b5982b","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"failure","createdAt":"2025-11-13T04:04:23Z","databaseId":19320124562,"headSha":"5e21cf3702d8b04583a0805bd084c02fb47e1413","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"failure","createdAt":"2025-11-13T04:01:21Z","databaseId":19320070232,"headSha":"33e31b46878c9829a523979c7ef8c91beea048f7","workflowName":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.branch-latest.json b/ci-logs.gh-run-list.branch-latest.json
+new file mode 100644
+index 0000000..3e678d3
+--- /dev/null
++++ b/ci-logs.gh-run-list.branch-latest.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:24:14Z","databaseId":19320475997,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"9df04d9119a7a55213403b5ed69b2cc0df286fda","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:20:56Z","databaseId":19320419391,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"42c9e440a2b67d80cba085d6da876b2e3bee0c84","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:17:18Z","databaseId":19320357688,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"7c17442218cf67b05736b81aba33e87db7d5de56","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:13:55Z","databaseId":19320298099,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"f0f83ec39374be48b53c4fcd596c90047048d0d1","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1","workflowName":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.branch-watch.json b/ci-logs.gh-run-list.branch-watch.json
+new file mode 100644
+index 0000000..f1a3bd1
+--- /dev/null
++++ b/ci-logs.gh-run-list.branch-watch.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:24:14Z","databaseId":19320475997,"headSha":"9df04d9119a7a55213403b5ed69b2cc0df286fda","workflowName":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.for-pr-sha.json b/ci-logs.gh-run-list.for-pr-sha.json
+new file mode 100644
+index 0000000..70769a3
+--- /dev/null
++++ b/ci-logs.gh-run-list.for-pr-sha.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:24:14Z","databaseId":19320475997,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"9df04d9119a7a55213403b5ed69b2cc0df286fda","workflowName":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.json b/ci-logs.gh-run-list.json
+new file mode 100644
+index 0000000..b98c00c
+--- /dev/null
++++ b/ci-logs.gh-run-list.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:17:18Z","databaseId":19320357688,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"7c17442218cf67b05736b81aba33e87db7d5de56","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:13:55Z","databaseId":19320298099,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"f0f83ec39374be48b53c4fcd596c90047048d0d1","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1","name":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:07:34Z","databaseId":19320182040,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"97aea4dd97ef70d5ade9a760f301ad789aa5b9c4","name":"CI/CD Pipeline for main branch"},{"conclusion":"failure","createdAt":"2025-11-13T04:04:44Z","databaseId":19320129982,"displayTitle":"[WIP] Make sure we handle limit reached for all tools: claude, codex, opencode","headSha":"fe8043d6ecd64fdbe045a35b09fdb55618b5982b","name":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.gh-run-list.latest.json b/ci-logs.gh-run-list.latest.json
+new file mode 100644
+index 0000000..fea40a0
+--- /dev/null
++++ b/ci-logs.gh-run-list.latest.json
+@@ -0,0 +1 @@
++[{"conclusion":"","createdAt":"2025-11-13T04:20:56Z","databaseId":19320419391,"headSha":"42c9e440a2b67d80cba085d6da876b2e3bee0c84","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:17:18Z","databaseId":19320357688,"headSha":"7c17442218cf67b05736b81aba33e87db7d5de56","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:13:55Z","databaseId":19320298099,"headSha":"f0f83ec39374be48b53c4fcd596c90047048d0d1","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:09:07Z","databaseId":19320210206,"headSha":"dd81ea93544facbe8a7c09c331bb5ad0b24c57f1","workflowName":"CI/CD Pipeline for main branch"},{"conclusion":"success","createdAt":"2025-11-13T04:07:34Z","databaseId":19320182040,"headSha":"97aea4dd97ef70d5ade9a760f301ad789aa5b9c4","workflowName":"CI/CD Pipeline for main branch"}]
+diff --git a/ci-logs.issue-719.json b/ci-logs.issue-719.json
+new file mode 100644
+index 0000000..22cd71d
+--- /dev/null
++++ b/ci-logs.issue-719.json
+@@ -0,0 +1 @@
++{"author":{"id":"MDQ6VXNlcjE0MzE5MDQ=","is_bot":false,"login":"konard","name":"Konstantin Diachenko"},"body":"```\n[2025-11-12T11:47:04.135Z] [INFO] 📌 Session ID: 019a77e4-0716-7152-8396-b642e26c3e20\n[2025-11-12T11:47:04.163Z] [INFO] {\"type\":\"turn.started\"}\n\n[2025-11-12T11:47:04.639Z] [INFO] {\"type\":\"error\",\"message\":\"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM.\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM.\"}}\n```\n\nFull logs here: https://github.com/link-foundation/ideav-local-associative-js/pull/2#issuecomment-3521528245\n\nPlease download all logs and data related about the issue, make sure we compile that data to `./docs/case-studies` folder, and use it to do deep case study analysis, in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.\n\nI think we should show the command as failed, not the success, and separately handle usage limit error in all tools, to make sure we notify our users the next time when the limit will reset in that case. So the form of comment markdown should separate for that, but similar to failed.\n\nAnd it also should contain log if we asked to --attach-logs.\n\nSo the user should have easy to read and find message about limit reached. So we will save time for the user not to go to logs.","createdAt":"2025-11-12T12:32:15Z","labels":[{"id":"LA_kwDOPUU0qc8AAAACGYm6iw","name":"bug","description":"Something isn't working","color":"d73a4a"}],"number":719,"state":"OPEN","title":"Make sure we handle limit reached for all tools: claude, codex, opencode","updatedAt":"2025-11-13T04:00:00Z","url":"https://github.com/deep-assistant/hive-mind/issues/719"}
+diff --git a/ci-logs.issue-719.latest.json b/ci-logs.issue-719.latest.json
+new file mode 100644
+index 0000000..3317dfe
+--- /dev/null
++++ b/ci-logs.issue-719.latest.json
+@@ -0,0 +1 @@
++{"author":{"id":"MDQ6VXNlcjE0MzE5MDQ=","is_bot":false,"login":"konard","name":"Konstantin Diachenko"},"body":"```\n[2025-11-12T11:47:04.135Z] [INFO] 📌 Session ID: 019a77e4-0716-7152-8396-b642e26c3e20\n[2025-11-12T11:47:04.163Z] [INFO] {\"type\":\"turn.started\"}\n\n[2025-11-12T11:47:04.639Z] [INFO] {\"type\":\"error\",\"message\":\"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM.\"}\n{\"type\":\"turn.failed\",\"error\":{\"message\":\"You've hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM.\"}}\n```\n\nFull logs here: https://github.com/link-foundation/ideav-local-associative-js/pull/2#issuecomment-3521528245\n\nPlease download all logs and data related about the issue, make sure we compile that data to `./docs/case-studies` folder, and use it to do deep case study analysis, in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.\n\nI think we should show the command as failed, not the success, and separately handle usage limit error in all tools, to make sure we notify our users the next time when the limit will reset in that case. So the form of comment markdown should separate for that, but similar to failed.\n\nAnd it also should contain log if we asked to --attach-logs.\n\nSo the user should have easy to read and find message about limit reached. So we will save time for the user not to go to logs.","createdAt":"2025-11-12T12:32:15Z","number":719,"state":"OPEN","title":"Make sure we handle limit reached for all tools: claude, codex, opencode","updatedAt":"2025-11-13T04:00:00Z","url":"https://github.com/deep-assistant/hive-mind/issues/719"}
+diff --git a/ci-logs.issue-719.txt b/ci-logs.issue-719.txt
+new file mode 100644
+index 0000000..8b079d7
+--- /dev/null
++++ b/ci-logs.issue-719.txt
+@@ -0,0 +1,116 @@
++author:	konard
++association:	member
++edited:	true
++status:	none
++--
++```
++[2025-11-13T03:54:27.301Z] [INFO] {
++  "type": "assistant",
++  "message": {
++    "id": "79ba1466-909b-4b90-95cf-d6c9052fb790",
++    "container": null,
++    "model": "<synthetic>",
++    "role": "assistant",
++    "stop_reason": "stop_sequence",
++    "stop_sequence": "",
++    "type": "message",
++    "usage": {
++      "input_tokens": 0,
++      "output_tokens": 0,
++      "cache_creation_input_tokens": 0,
++      "cache_read_input_tokens": 0,
++      "server_tool_use": {
++        "web_search_requests": 0,
++        "web_fetch_requests": 0
++      },
++      "service_tier": null,
++      "cache_creation": {
++        "ephemeral_1h_input_tokens": 0,
++        "ephemeral_5m_input_tokens": 0
++      }
++    },
++    "content": [
++      {
++        "type": "text",
++        "text": "Weekly limit reached ∙ resets 5am"
++      }
++    ],
++    "context_management": null
++  },
++  "parent_tool_use_id": null,
++  "session_id": "64652bfd-65f5-460f-bb16-fa89fa8fc778",
++  "uuid": "7ee889aa-b2e7-4828-8fed-8143a176e09a"
++}
++[2025-11-13T03:54:27.302Z] [INFO] {
++  "type": "result",
++  "subtype": "success",
++  "is_error": true,
++  "duration_ms": 26660,
++  "duration_api_ms": 60865,
++  "num_turns": 10,
++  "result": "Weekly limit reached ∙ resets 5am",
++  "session_id": "64652bfd-65f5-460f-bb16-fa89fa8fc778",
++  "total_cost_usd": 0.14746179999999998,
++  "usage": {
++    "input_tokens": 17,
++    "cache_creation_input_tokens": 19624,
++    "cache_read_input_tokens": 58446,
++    "output_tokens": 800,
++    "server_tool_use": {
++      "web_search_requests": 0,
++      "web_fetch_requests": 0
++    },
++    "service_tier": "standard",
++    "cache_creation": {
++      "ephemeral_1h_input_tokens": 0,
++      "ephemeral_5m_input_tokens": 19624
++    }
++  },
++  "modelUsage": {
++    "claude-haiku-4-5-20251001": {
++      "inputTokens": 7209,
++      "outputTokens": 2120,
++      "cacheReadInputTokens": 0,
++      "cacheCreationInputTokens": 0,
++      "webSearchRequests": 0,
++      "costUSD": 0.017809,
++      "contextWindow": 200000
++    },
++    "claude-sonnet-4-5-20250929": {
++      "inputTokens": 858,
++      "outputTokens": 2397,
++      "cacheReadInputTokens": 58446,
++      "cacheCreationInputTokens": 19624,
++      "webSearchRequests": 0,
++      "costUSD": 0.12965279999999998,
++      "contextWindow": 200000
++    }
++  },
++  "permission_denials": [],
++  "uuid": "ee1192d0-1437-4687-a704-6d27ccb47644"
++}
++[2025-11-13T03:54:27.304Z] [INFO] 💰 Anthropic official cost captured: $0.147462
++[2025-11-13T03:54:27.304Z] [INFO] ⚠️ Detected error result from Claude CLI
++[2025-11-13T03:54:27.304Z] [INFO] ⚠️ Detected session limit in result
++[2025-11-13T03:54:27.502Z] [ERROR] 
++
++❌ Claude command failed with exit code 0
++[2025-11-13T03:54:27.503Z] [INFO] 📌 Session ID for resuming: 64652bfd-65f5-460f-bb16-fa89fa8fc778
++[2025-11-13T03:54:27.504Z] [INFO] 
++To resume this session, run:
++[2025-11-13T03:54:27.504Z] [INFO]    /home/hive/.nvm/versions/node/v20.19.5/bin/node /home/hive/.bun/bin/solve undefined --resume 64652bfd-65f5-460f-bb16-fa89fa8fc778
++[2025-11-13T03:54:27.537Z] [INFO] 
++📈 System resources after execution:
++[2025-11-13T03:54:27.538Z] [INFO]    Memory: MemFree:          849168 kB
++[2025-11-13T03:54:27.538Z] [INFO]    Load: 0.18 0.29 0.32 1/435 806272
++[2025-11-13T03:54:27.539Z] [INFO] 
++[2025-11-13T03:54:27.539Z] [INFO] 
++📄 Attaching failure logs to Pull Request...
++```
++
++https://github.com/konard/hh-questions/pull/30#issuecomment-3525165717 - comment is here.
++
++We didn't handle properly weekly limit reach for claude tool. The comment in Pull Request was not updated with it and showed generic error message instead.
++
++I also don't see actual reset time captured in logs.
++--
+diff --git a/ci-logs.pr-722-latest5.json b/ci-logs.pr-722-latest5.json
+new file mode 100644
+index 0000000..fb7b427
+--- /dev/null
++++ b/ci-logs.pr-722-latest5.json
+@@ -0,0 +1 @@
++[{"author":{"login":"konard"},"authorAssociation":"MEMBER","body":"Also fixed capturing of the usage limit reset time by assigning `global.limitResetTime` from the tool result in `src/solve.mjs`. This enables auto-continue messaging and PR comments to include the reset time as intended.","createdAt":"2025-11-13T04:09:14Z","id":"IC_kwDOPUU0qc7SHpJO","includesCreatedEdit":false,"isMinimized":false,"minimizedReason":"","reactionGroups":[],"url":"https://github.com/deep-assistant/hive-mind/pull/722#issuecomment-3525218894","viewerDidAuthor":true},{"author":{"login":"konard"},"authorAssociation":"MEMBER","body":"Bumped package version to 0.33.4 to satisfy the verify-version-bump check. CI has been re-triggered for commit 97aea4d.\\n\\nThe weekly usage limit handling (including reset time and PR comment formatting) is present in this branch via usage-limit detection in Claude/Codex/OpenCode paths and GitHub comment formatting. Once CI passes, this should be ready for review.\\n\\nIf any CI step still fails, I will download and analyze the logs to address it promptly.","createdAt":"2025-11-13T04:07:59Z","id":"IC_kwDOPUU0qc7SHoL2","includesCreatedEdit":false,"isMinimized":false,"minimizedReason":"","reactionGroups":[],"url":"https://github.com/deep-assistant/hive-mind/pull/722#issuecomment-3525214966","viewerDidAuthor":true},{"author":{"login":"konard"},"authorAssociation":"MEMBER","body":"## 🔄 Auto-restart 1/3\n\nDetected uncommitted changes from previous run. Starting new session to review and commit them.\n\n**Uncommitted files:**\n```\n?? logs.git-push.txt\n```\n\n---\n*Auto-restart will stop after changes are committed or after 2 more iterations. Please wait until working session will end and give your feedback.*","createdAt":"2025-11-13T04:04:58Z","id":"IC_kwDOPUU0qc7SHlmn","includesCreatedEdit":false,"isMinimized":false,"minimizedReason":"","reactionGroups":[],"url":"https://github.com/deep-assistant/hive-mind/pull/722#issuecomment-3525204391","viewerDidAuthor":true},{"author":{"login":"konard"},"authorAssociation":"MEMBER","body":"## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: unknown\n- Calculated by Anthropic: unknown\n- Difference: unknown\n📎 **Log file uploaded as GitHub Gist** (1426KB)\n🔗 [View complete solution draft log](https://gist.github.com/konard/4d916545732bcdc2def78bedc62fe1e1)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*","createdAt":"2025-11-13T04:04:50Z","id":"IC_kwDOPUU0qc7SHlcC","includesCreatedEdit":false,"isMinimized":false,"minimizedReason":"","reactionGroups":[],"url":"https://github.com/deep-assistant/hive-mind/pull/722#issuecomment-3525203714","viewerDidAuthor":true}]
+diff --git a/ci-logs.pr-722.after.json b/ci-logs.pr-722.after.json

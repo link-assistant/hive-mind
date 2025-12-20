@@ -27,7 +27,7 @@ export const createYargsConfig = (yargsInstance) => {
         description: 'The GitHub issue URL to solve'
       });
     })
-    .fail((msg, err, _yargs) => {
+    .fail((msg, err) => {
       // Custom fail handler to suppress yargs error output
       // Errors will be handled in the parseArguments catch block
       if (err) throw err; // Rethrow actual errors
@@ -50,24 +50,49 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Prepare everything but do not execute Claude (alias for --only-prepare-command)',
       alias: 'n'
     })
+    .option('skip-tool-connection-check', {
+      type: 'boolean',
+      description: 'Skip tool connection check (useful in CI environments). Does NOT skip model validation.',
+      default: false
+    })
     .option('skip-tool-check', {
       type: 'boolean',
-      description: 'Skip tool connection check (useful in CI environments)',
-      default: false
+      description: 'Alias for --skip-tool-connection-check (deprecated, use --skip-tool-connection-check instead)',
+      default: false,
+      hidden: true
+    })
+    .option('skip-claude-check', {
+      type: 'boolean',
+      description: 'Alias for --skip-tool-connection-check (deprecated)',
+      default: false,
+      hidden: true
+    })
+    .option('tool-connection-check', {
+      type: 'boolean',
+      description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
+      default: true,
+      hidden: true
     })
     .option('tool-check', {
       type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-check to skip)',
+      description: 'Alias for --tool-connection-check (deprecated)',
       default: true,
       hidden: true
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet; for opencode: grok, gpt4o, etc.)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
       alias: 'm',
       default: (currentParsedArgs) => {
         // Dynamic default based on tool selection
-        return currentParsedArgs?.tool === 'opencode' ? 'grok-code-fast-1' : 'sonnet';
+        if (currentParsedArgs?.tool === 'opencode') {
+          return 'grok-code-fast-1';
+        } else if (currentParsedArgs?.tool === 'codex') {
+          return 'gpt-5';
+        } else if (currentParsedArgs?.tool === 'agent') {
+          return 'grok-code';
+        }
+        return 'sonnet';
       }
     })
     .option('auto-pull-request-creation', {
@@ -90,7 +115,7 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-fork', {
       type: 'boolean',
       description: 'Automatically fork public repositories without write access (fails for private repos)',
-      default: false
+      default: true
     })
     .option('attach-logs', {
       type: 'boolean',
@@ -105,13 +130,12 @@ export const createYargsConfig = (yargsInstance) => {
     .option('auto-continue', {
       type: 'boolean',
       description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
-      default: false
+      default: true
     })
-    .option('auto-continue-limit', {
+    .option('auto-continue-on-limit-reset', {
       type: 'boolean',
-      description: 'Automatically continue when Claude limit resets (waits until reset time)',
-      default: false,
-      alias: 'c'
+      description: 'Automatically continue when AI tool limit resets (calculates reset time and waits)',
+      default: false
     })
     .option('auto-resume-on-errors', {
       type: 'boolean',
@@ -127,6 +151,16 @@ export const createYargsConfig = (yargsInstance) => {
       type: 'boolean',
       description: 'Automatically commit and push uncommitted changes made by Claude (disabled by default)',
       default: false
+    })
+    .option('auto-restart-on-uncommitted-changes', {
+      type: 'boolean',
+      description: 'Automatically restart when uncommitted changes are detected to allow the tool to handle them (default: true, use --no-auto-restart-on-uncommitted-changes to disable)',
+      default: true
+    })
+    .option('auto-restart-max-iterations', {
+      type: 'number',
+      description: 'Maximum number of auto-restart iterations when uncommitted changes are detected (default: 3)',
+      default: 3
     })
     .option('continue-only-on-feedback', {
       type: 'boolean',
@@ -160,6 +194,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
+    .option('prompt-plan-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+      default: false
+    })
     .option('base-branch', {
       type: 'string',
       description: 'Target branch for the pull request (defaults to repository default branch)',
@@ -185,11 +224,36 @@ export const createYargsConfig = (yargsInstance) => {
       description: 'Allow automatic force-push (--force-with-lease) when fork diverges from upstream (DANGEROUS: can overwrite fork history)',
       default: false
     })
+    .option('allow-to-push-to-contributors-pull-requests-as-maintainer', {
+      type: 'boolean',
+      description: 'When continuing a fork PR as a maintainer, attempt to push directly to the contributor\'s fork if "Allow edits by maintainers" is enabled. Requires --auto-fork to be enabled.',
+      default: false
+    })
+    .option('prefix-fork-name-with-owner-name', {
+      type: 'boolean',
+      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
+      default: true
+    })
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
-      choices: ['claude', 'opencode'],
+      choices: ['claude', 'opencode', 'codex', 'agent'],
       default: 'claude'
+    })
+    .option('interactive-mode', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-explore-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-general-purpose-sub-agent', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      default: false
     })
     .parserConfiguration({
       'boolean-negation': true
@@ -210,32 +274,78 @@ export const parseArguments = async (yargs, hideBin) => {
 
   let argv;
   try {
-    argv = await createYargsConfig(yargs()).parse(rawArgs);
+    // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
+    // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
+    // Save the original stderr.write
+    const originalStderrWrite = process.stderr.write;
+    const stderrBuffer = [];
+
+    // Temporarily override stderr.write to capture output
+    process.stderr.write = function(chunk, encoding, callback) {
+      stderrBuffer.push(chunk.toString());
+      // Call the callback if provided (for compatibility)
+      if (typeof encoding === 'function') {
+        encoding();
+      } else if (typeof callback === 'function') {
+        callback();
+      }
+      return true;
+    };
+
+    try {
+      argv = await createYargsConfig(yargs()).parse(rawArgs);
+    } finally {
+      // Always restore stderr.write
+      process.stderr.write = originalStderrWrite;
+
+      // In verbose mode, show what was captured from stderr (for debugging)
+      if (global.verboseMode && stderrBuffer.length > 0) {
+        const captured = stderrBuffer.join('');
+        if (captured.trim()) {
+          console.error('[Suppressed yargs stderr]:', captured);
+        }
+      }
+    }
   } catch (error) {
-    // Yargs throws errors for validation issues, but we might still get a parsed object
+    // Yargs throws errors for validation issues
     // If the error is about unknown arguments (strict mode), re-throw it
     if (error.message && error.message.includes('Unknown arguments')) {
       throw error;
     }
-    // Yargs sometimes throws "Not enough arguments" errors even when arguments are present
-    // This appears to be a yargs quirk with command definitions
-    // The error.argv object still contains the parsed arguments, so we can safely continue
-    // Only show warning in verbose mode to avoid confusing output
-    if (error.message && !error.message.includes('Not enough arguments')) {
+    // For other validation errors, show a warning in verbose mode
+    if (error.message && global.verboseMode) {
       console.error('Yargs parsing warning:', error.message);
     }
     // Try to get the argv even with the error
     argv = error.argv || {};
   }
 
-  // Post-processing: Fix model default for opencode tool
+  // Post-processing: Fix model default for opencode and codex tools
   // Yargs doesn't properly handle dynamic defaults based on other arguments,
   // so we need to handle this manually after parsing
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m');
 
+  // Normalize alias flags: legacy --skip-tool-check and --skip-claude-check behave like --skip-tool-connection-check
+  if (argv) {
+    // Support deprecated flags
+    if (argv.skipToolCheck || argv.skipClaudeCheck) {
+      argv.skipToolConnectionCheck = true;
+    }
+    // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
+    if (argv.toolCheck === false) {
+      argv.toolConnectionCheck = false;
+    }
+  }
+
   if (argv.tool === 'opencode' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for opencode
     argv.model = 'grok-code-fast-1';
+  } else if (argv.tool === 'codex' && !modelExplicitlyProvided) {
+    // User did not explicitly provide --model, so use the correct default for codex
+    argv.model = 'gpt-5';
+  } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
+    // User did not explicitly provide --model, so use the correct default for agent
+    argv.model = 'grok-code';
   }
 
   return argv;

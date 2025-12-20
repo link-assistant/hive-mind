@@ -65,13 +65,13 @@ export async function detectContributingGuidelines(owner, repo) {
             // Decode base64 content
             result.content = Buffer.from(data.content, 'base64').toString('utf-8');
           }
-        } catch (err) {
+        } catch {
           // Content parse failed, but we know the file exists
         }
 
         break;
       }
-    } catch (err) {
+    } catch {
       // File doesn't exist, try next path
     }
   }
@@ -85,7 +85,7 @@ export async function detectContributingGuidelines(owner, repo) {
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');
 
         // Look for contributing documentation URL
-        const contributingMatch = readmeContent.match(/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi);
+        const contributingMatch = readmeContent.match(/https?:\/\/[^\s)]+contributing[^\s)]*/gi);
         if (contributingMatch && contributingMatch[0]) {
           result.found = true;
           result.docsUrl = contributingMatch[0];
@@ -106,7 +106,7 @@ export async function detectContributingGuidelines(owner, repo) {
           }
         }
       }
-    } catch (err) {
+    } catch {
       // README fetch failed
     }
   }
@@ -243,10 +243,9 @@ export async function buildContributingSection(owner, repo) {
  * Check for workflow approval requirements in GitHub Actions
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
- * @param {string} prNumber - Pull request number
  * @returns {Promise<Object>} Workflow status info
  */
-export async function checkWorkflowApprovalStatus(owner, repo, prNumber) {
+export async function checkWorkflowApprovalStatus(owner, repo) {
   try {
     // Get workflow runs for the PR
     const runsResult = await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();

@@ -87,7 +87,9 @@ async function createTestRepository() {
   // Get current user
   const userResult = $('gh auth status', { silent: true });
   if (userResult.code !== 0) {
-    throw new Error('GitHub authentication required');
+    const skipError = new Error('GitHub authentication required');
+    skipError.isPermissionError = true;
+    throw skipError;
   }
 
   // Create repository
@@ -251,9 +253,9 @@ function testSolveFeedbackLines(prUrl) {
   const solvePath = path.join(__dirname, '..', 'src', 'solve.mjs');
 
   // Debug: Show what command we're running
-  console.log(`   📝 Running: node solve.mjs "${prUrl}" --dry-run --verbose --skip-tool-check`);
+  console.log(`   📝 Running: node solve.mjs "${prUrl}" --dry-run --verbose --skip-tool-connection-check`);
 
-  const solveResult = $(`node ${solvePath} "${prUrl}" --dry-run --verbose --skip-tool-check 2>&1`, { silent: true });
+  const solveResult = $(`node ${solvePath} "${prUrl}" --dry-run --verbose --skip-tool-connection-check 2>&1`, { silent: true });
 
   if (solveResult.code !== 0) {
     console.log(`   ⚠️  solve.mjs exited with code ${solveResult.code} (expected for --dry-run)`);

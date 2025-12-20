@@ -15,16 +15,16 @@ try {
   if (global.verboseMode) {
     console.debug('Sentry module not available:', _error?.message || 'Import failed');
   }
-  reportError = (_err, _ctx) => {
+  reportError = (err) => {
     // Silent no-op when Sentry is not available
     if (global.verboseMode) {
-      console.debug('Sentry not available for error reporting:', _err?.message);
+      console.debug('Sentry not available for error reporting:', err?.message);
     }
   };
-  reportWarning = (_warn, _ctx) => {
+  reportWarning = () => {
     // Silent no-op when Sentry is not available
     if (global.verboseMode) {
-      console.debug('Sentry not available for warning reporting:', typeof _warn === 'string' ? _warn : _warn?.message);
+      console.debug('Sentry not available for warning reporting');
     }
   };
 }

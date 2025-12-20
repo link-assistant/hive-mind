@@ -1,0 +1,7 @@
+commit 1550f7151fdfd7cc7a1c63d3ed833f674420bc69
+Author:     konard <drakonard@gmail.com>
+AuthorDate: Thu Nov 13 04:51:15 2025 +0000
+Commit:     konard <drakonard@gmail.com>
+CommitDate: Thu Nov 13 04:51:15 2025 +0000
+
+    docs(case-study-719): add index, logs, and timeline + usage-limit demo script

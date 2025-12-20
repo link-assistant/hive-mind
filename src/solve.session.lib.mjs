@@ -72,29 +72,36 @@ export async function endWorkSession({
   argv,
   log,
   formatAligned,
-  $
+  $,
+  logsAttached = false
 }) {
   // Post end work session comment and convert PR back to ready if in continue mode
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
     const workEndTime = new Date();
     await log(`\n${formatAligned('🏁', 'Ending work session:', workEndTime.toISOString())}`);
 
-    // Post a comment marking the end of work session
-    try {
-      const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
-      const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
-      if (commentResult.code === 0) {
-        await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
+    // Only post end comment if logs were NOT already attached
+    // The attachLogToGitHub comment already serves as finishing status with "Now working session is ended" text
+    if (!logsAttached) {
+      // Post a comment marking the end of work session
+      try {
+        const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
+        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
+        if (commentResult.code === 0) {
+          await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
+        }
+      } catch (error) {
+        const sentryLib = await import('./sentry.lib.mjs');
+        const { reportError } = sentryLib;
+        reportError(error, {
+          context: 'post_end_comment',
+          prNumber,
+          operation: 'create_pr_comment'
+        });
+        await log('Warning: Could not post work end comment', { level: 'warning' });
       }
-    } catch (error) {
-      const sentryLib = await import('./sentry.lib.mjs');
-      const { reportError } = sentryLib;
-      reportError(error, {
-        context: 'post_end_comment',
-        prNumber,
-        operation: 'create_pr_comment'
-      });
-      await log('Warning: Could not post work end comment', { level: 'warning' });
+    } else {
+      await log(formatAligned('ℹ️', 'Skipping:', 'End comment (logs already attached with session end message)', 2));
     }
 
     // Convert PR back to ready for review

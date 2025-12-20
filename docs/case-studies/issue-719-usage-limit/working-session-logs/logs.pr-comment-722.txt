@@ -1,0 +1,6 @@
+CI and local validation update:
+- All required checks pass; merge state is CLEAN.
+- PR description is up to date and references the added case-study docs and demo.
+- Local lint passes (0 errors, 11 warnings; unchanged preexisting warnings).
+
+Unless you want me to trim the warnings or add a small parser check, this is ready for review/merge.

@@ -1,5 +1,37 @@
 # @link-assistant/hive-mind
 
+## 0.44.0
+
+### Minor Changes
+
+- b72136f: Add /version command to hive-telegram-bot
+
+  Implements a new /version command that displays comprehensive version information including:
+
+  - Bot version (package version with git commit SHA in development)
+  - solve and hive command versions
+  - Node.js runtime version
+  - Platform information (OS and architecture)
+
+  This helps users and administrators quickly check version information without accessing logs or the server directly.
+
+### Patch Changes
+
+- 445091b: Fix Perl version detection in ubuntu-24-server-install.sh
+
+  The `perlbrew available` command output was not being parsed correctly, causing the installation script to skip Perl installation with the message "Could not determine latest Perl version."
+
+  **Changes:**
+
+  - Use `grep -oE` to robustly extract Perl version strings regardless of line formatting
+  - Capture stderr from `perlbrew available` for better debugging
+  - Add debug output showing `perlbrew available` response when version detection fails
+  - Works with 'i' markers for already-installed versions and variable indentation
+
+  This ensures the latest Perl version is properly detected and installed via perlbrew.
+
+  Fixes #948
+
 ## 0.43.0
 
 ### Minor Changes

@@ -4,18 +4,48 @@
  * Validate changeset for CI - ensures exactly one valid changeset exists
  */
 
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 try {
   // Count changeset files (excluding README.md and config.json)
   const changesetDir = '.changeset';
-  const changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
+
+  // In PR context, only count NEW changesets added by this PR
+  // This prevents failures when main branch has unreleased changesets
+  let changesetFiles;
+
+  // Check if we're in a PR context by looking for base branch
+  const baseBranch = process.env.GITHUB_BASE_REF || 'origin/main';
+
+  try {
+    // Get list of changeset files added in this PR
+    const gitDiff = execSync(`git diff --name-only --diff-filter=A ${baseBranch}...HEAD -- .changeset/`, { encoding: 'utf-8' });
+    const addedChangesets = gitDiff
+      .split('\n')
+      .filter(file => file.endsWith('.md') && !file.endsWith('README.md'))
+      .map(file => file.replace('.changeset/', ''));
+
+    if (addedChangesets.length > 0) {
+      console.log(`Found ${addedChangesets.length} NEW changeset file(s) added by this PR`);
+      changesetFiles = addedChangesets;
+    } else {
+      // Fallback: check all changesets (for non-PR contexts or when git diff fails)
+      console.log('No new changesets detected via git diff, checking all changesets in directory');
+      changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
+      console.log(`Found ${changesetFiles.length} total changeset file(s) in directory`);
+    }
+  } catch (gitError) {
+    // If git diff fails (e.g., not in a git repo), fall back to checking all files
+    console.log('Git diff failed, checking all changesets in directory');
+    changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
+    console.log(`Found ${changesetFiles.length} changeset file(s)`);
+  }
 
   const changesetCount = changesetFiles.length;
-  console.log(`Found ${changesetCount} changeset file(s)`);
 
   // Ensure exactly one changeset file exists
   if (changesetCount === 0) {

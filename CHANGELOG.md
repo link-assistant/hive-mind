@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 0.46.0
+
+### Minor Changes
+
+- a436ee4: Add --prompt-case-studies CLI option for comprehensive issue analysis. When enabled, instructs the AI to download logs, create case study documentation in ./docs/case-studies/issue-{id}/, perform deep analysis, reconstruct timeline, identify root causes, and propose solutions. Works only with --tool claude, disabled by default.
+
+### Patch Changes
+
+- 1110e7a: Add comprehensive changeset documentation to CONTRIBUTING.md explaining how contributors should use the changesets workflow for version management and changelog generation
+
 ## 0.45.0
 
 ### Minor Changes

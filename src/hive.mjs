@@ -108,6 +108,8 @@ if (isDirectExecution) {
     const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
     const graphqlLib = await import('./github.graphql.lib.mjs');
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
+    const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
+    const { listSolutionDrafts } = solutionDraftsLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -1346,10 +1348,7 @@ if (isDirectExecution) {
           }
           // List completed issues with their solution draft PRs
           if (stats.completed > 0) {
-            await log('\n📋 Issues with solution drafts:');
-            const byRepo = {};
-            for (const url of issueQueue.completed) { const m = url.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/); if (m) (byRepo[`${m[1]}/${m[2]}`] ||= { owner: m[1], repo: m[2], iss: [] }).iss.push({ n: +m[3], url }); }
-            for (const r of Object.values(byRepo)) { const prs = await batchCheckPullRequestsForIssues(r.owner, r.repo, r.iss.map(i => i.n)); for (const i of r.iss) if (prs[i.n]?.linkedPRs?.length) { await log(`   - ${i.url}`); for (const p of prs[i.n].linkedPRs) await log(`     → PR #${p.number}: ${p.url}`); } else await log(`   - ${i.url} (no PR found)`); }
+            await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
           }
           await log('\n✅ All issues processed!');
           await log(`   Completed: ${stats.completed}`);

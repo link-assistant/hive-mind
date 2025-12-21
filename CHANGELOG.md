@@ -1,5 +1,101 @@
 # @link-assistant/hive-mind
 
+## 0.46.1
+
+### Patch Changes
+
+- 3707189: Implement fail-fast CI strategy for release.yml workflow
+
+  - Added dependency ordering so long-running checks wait for all fast checks to pass
+  - Fast checks (test-compilation, lint, check-file-line-limits) run first (~7-21s each)
+  - Long-running checks (test-suites, test-execution, memory-check-linux, docker-pr-check) only run after fast checks pass
+  - Added smart conditionals with `!contains(needs.*.result, 'failure')` to skip long checks when fast checks fail
+  - Added section markers to clearly document FAST vs LONG-RUNNING checks in the workflow
+
+  Benefits:
+
+  - Time savings: If fast checks fail, ~4+ minutes of long-running tests are skipped
+  - Faster feedback: Developers get quick feedback on common issues
+  - Resource efficiency: Reduces unnecessary GitHub Actions minutes consumption
+
+## 0.46.0
+
+### Minor Changes
+
+- a436ee4: Add --prompt-case-studies CLI option for comprehensive issue analysis. When enabled, instructs the AI to download logs, create case study documentation in ./docs/case-studies/issue-{id}/, perform deep analysis, reconstruct timeline, identify root causes, and propose solutions. Works only with --tool claude, disabled by default.
+
+### Patch Changes
+
+- 1110e7a: Add comprehensive changeset documentation to CONTRIBUTING.md explaining how contributors should use the changesets workflow for version management and changelog generation
+
+## 0.45.0
+
+### Minor Changes
+
+- 81f8da0: Add `--tokens-budget-stats` option for detailed token usage analysis. This experimental feature shows context window usage and output token usage in absolute values and ratios when using `--tool claude`. Disabled by default.
+
+## 0.44.0
+
+### Minor Changes
+
+- b72136f: Add /version command to hive-telegram-bot
+
+  Implements a new /version command that displays comprehensive version information including:
+
+  - Bot version (package version with git commit SHA in development)
+  - solve and hive command versions
+  - Node.js runtime version
+  - Platform information (OS and architecture)
+
+  This helps users and administrators quickly check version information without accessing logs or the server directly.
+
+### Patch Changes
+
+- 445091b: Fix Perl version detection in ubuntu-24-server-install.sh
+
+  The `perlbrew available` command output was not being parsed correctly, causing the installation script to skip Perl installation with the message "Could not determine latest Perl version."
+
+  **Changes:**
+
+  - Use `grep -oE` to robustly extract Perl version strings regardless of line formatting
+  - Capture stderr from `perlbrew available` for better debugging
+  - Add debug output showing `perlbrew available` response when version detection fails
+  - Works with 'i' markers for already-installed versions and variable indentation
+
+  This ensures the latest Perl version is properly detected and installed via perlbrew.
+
+  Fixes #948
+
+## 0.43.0
+
+### Minor Changes
+
+- fe002f8: Add --prompt-issue-reporting flag for automatic issue creation
+
+  This release introduces a new opt-in feature that enables the AI to automatically create GitHub issues when it spots bugs, errors, or minor issues during working sessions that are not related to the main task.
+
+  **New Features:**
+
+  - Added `--prompt-issue-reporting` CLI flag (disabled by default)
+  - Issues include reproducible examples, workarounds, and fix suggestions
+  - Supports creating issues in both current and third-party repositories
+  - Automatic duplicate checking before creating issues
+
+  **Usage:**
+
+  ```bash
+  hive solve <issue-url> --prompt-issue-reporting
+  solve <issue-url> --prompt-issue-reporting
+  ```
+
+  **Implementation:**
+
+  - New guideline in system prompt (conditional on flag)
+  - Flag added to both `hive` and `solve` commands
+  - Uses `gh` CLI for authenticated issue creation (works with private repos)
+
+  This feature helps ensure that no bugs slip through the cracks during development while giving users full control over when it's active.
+
 ## 0.42.3
 
 ### Patch Changes

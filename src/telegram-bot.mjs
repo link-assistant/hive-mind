@@ -47,6 +47,9 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
+// Import version info library for /version command
+const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+
 // Import Telegram markdown escaping utilities
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 
@@ -762,11 +765,9 @@ bot.command('help', async (ctx) => {
   }
 
   message += '*/limits* - Show Claude usage limits\n';
-  message += 'Usage: `/limits`\n';
-  message += 'Shows current session and weekly usage percentages\n\n';
-
+  message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive and /limits commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
   message += '• `--fork` - Fork the repository\n';
   message += '• `--auto-fork` - Automatically fork public repos without write access\n';
@@ -875,7 +876,18 @@ bot.command('limits', async (ctx) => {
     { parse_mode: 'Markdown' }
   );
 });
-
+bot.command('version', async (ctx) => {
+  VERBOSE && console.log('[VERBOSE] /version command received');
+  await addBreadcrumb({ category: 'telegram.command', message: '/version command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
+  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  const chatId = ctx.chat.id;
+  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Gathering version information...', { reply_to_message_id: ctx.message.message_id });
+  const result = await getVersionInfo(VERBOSE);
+  if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
+});
 bot.command(/^solve$/i, async (ctx) => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
@@ -1264,14 +1276,12 @@ if (VERBOSE) {
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
   console.error('Error:', error);
-
   // Log detailed error information
   console.error('Error details:', {
     name: error.name,
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
-
   // Log context information for debugging
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {

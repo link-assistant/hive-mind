@@ -20,8 +20,8 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { think: undefined }
-    }
+      argv: { think: undefined },
+    },
   },
   {
     name: 'With --think low',
@@ -35,10 +35,10 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { think: 'low' }
+      argv: { think: 'low' },
     },
     expectedUserPrompt: 'Think.',
-    expectedSystemPrompt: 'You always think on every step.'
+    expectedSystemPrompt: 'You always think on every step.',
   },
   {
     name: 'With --think medium',
@@ -52,10 +52,10 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { think: 'medium' }
+      argv: { think: 'medium' },
     },
     expectedUserPrompt: 'Think hard.',
-    expectedSystemPrompt: 'You always think hard on every step.'
+    expectedSystemPrompt: 'You always think hard on every step.',
   },
   {
     name: 'With --think high',
@@ -69,10 +69,10 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { think: 'high' }
+      argv: { think: 'high' },
     },
     expectedUserPrompt: 'Think harder.',
-    expectedSystemPrompt: 'You always think harder on every step.'
+    expectedSystemPrompt: 'You always think harder on every step.',
   },
   {
     name: 'With --think max (continue mode)',
@@ -86,15 +86,15 @@ const testCases = [
       isContinueMode: true,
       owner: 'test',
       repo: 'repo',
-      argv: { think: 'max' }
+      argv: { think: 'max' },
     },
     expectedUserPrompt: 'Ultrathink.',
-    expectedSystemPrompt: 'You always ultrathink on every step.'
-  }
+    expectedSystemPrompt: 'You always ultrathink on every step.',
+  },
 ];
 
 console.log('Testing --think option implementation\n');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 
 testCases.forEach(testCase => {
   console.log(`\nTest: ${testCase.name}`);
@@ -142,12 +142,7 @@ testCases.forEach(testCase => {
       console.log('❌ User prompt contains unexpected think message when option disabled');
     }
 
-    const systemThinkMessages = [
-      'You always think on every step.',
-      'You always think hard on every step.',
-      'You always think harder on every step.',
-      'You always ultrathink on every step.'
-    ];
+    const systemThinkMessages = ['You always think on every step.', 'You always think hard on every step.', 'You always think harder on every step.', 'You always ultrathink on every step.'];
     const hasSystemThinkMessage = systemThinkMessages.some(msg => systemPrompt.includes(msg));
 
     if (!hasSystemThinkMessage) {

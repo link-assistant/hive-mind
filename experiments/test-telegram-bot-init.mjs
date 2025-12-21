@@ -7,7 +7,7 @@ console.log('Testing telegram-bot initialization...');
 // Mock process.exit to prevent the script from exiting
 const originalExit = process.exit;
 let exitCalled = false;
-process.exit = (code) => {
+process.exit = code => {
   exitCalled = true;
   console.log(`process.exit(${code}) was called`);
   // Don't actually exit during test

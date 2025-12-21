@@ -1,0 +1,12 @@
+experiments/test-auto-continue-only-on-new-comments-usage.mjs:37:console.log('3️⃣  Resume with limit reset and new comments check:');
+experiments/test-usage-limit-detection.mjs:3: * Test script for usage limit detection
+experiments/test-usage-limit-detection.mjs:4: * Tests the detectUsageLimit function with various error message patterns
+experiments/test-usage-limit-detection.mjs:7:import { detectUsageLimit, formatUsageLimitMessage } from '../src/usage-limit.lib.mjs';
+experiments/test-usage-limit-detection.mjs:14:    message: '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}',
+experiments/test-usage-limit-detection.mjs:19:    name: 'Turn failed with usage limit',
+experiments/test-usage-limit-detection.mjs:20:    message: '{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit. Try again at 2:30 PM."}}',
+experiments/test-usage-limit-detection.mjs:37:    name: 'Hit your usage limit (short form)',
+experiments/test-usage-limit-detection.mjs:38:    message: 'Error: hit your usage limit',
+experiments/test-usage-limit-detection.mjs:63:  const result = detectUsageLimit(testCase.message);
+experiments/test-usage-limit-detection.mjs:13:    name: 'Usage limit with reset time (from issue #719)',
+experiments/test-usage-limit-detection.mjs:72:      console.log(`      - Reset time: ${result.resetTime}`);

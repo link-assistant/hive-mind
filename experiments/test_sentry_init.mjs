@@ -2,7 +2,7 @@
 
 // Test script to verify Sentry initialization and transaction creation
 
-import '../src/instrument.mjs';  // This initializes Sentry
+import '../src/instrument.mjs'; // This initializes Sentry
 import { initializeSentry, withSentry, reportError } from '../src/sentry.lib.mjs';
 
 console.log('Testing Sentry initialization...');

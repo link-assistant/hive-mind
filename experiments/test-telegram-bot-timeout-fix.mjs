@@ -17,7 +17,7 @@ const { Telegraf } = telegrafModule;
 
 console.log('Test 1: Creating bot with handlerTimeout: Infinity');
 const bot = new Telegraf('test-token-12345', {
-  handlerTimeout: Infinity
+  handlerTimeout: Infinity,
 });
 
 console.log('✓ Bot created successfully');
@@ -39,7 +39,7 @@ bot.catch((error, ctx) => {
 console.log('✓ Error handler registered');
 
 console.log('\nTest 3: Creating a handler that simulates long processing');
-bot.command('test', async (ctx) => {
+bot.command('test', async ctx => {
   console.log('Handler started...');
   // Simulate a long-running operation (95 seconds, more than the old 90-second timeout)
   await new Promise(resolve => setTimeout(resolve, 95000));

@@ -15,7 +15,7 @@ function runTest(name, testFn) {
       console.log('✅ PASSED');
       testsPassed++;
     })
-    .catch((error) => {
+    .catch(error => {
       console.log(`❌ FAILED: ${error.message}`);
       testsFailed++;
     });
@@ -24,12 +24,12 @@ function runTest(name, testFn) {
 console.log('\n🧪 Fork Conflict Detection Tests\n');
 
 await runTest('getRootRepository - original repository (not a fork)', async () => {
-  const rootRepo = await getRootRepository('deep-assistant', 'hive-mind');
+  const rootRepo = await getRootRepository('link-assistant', 'hive-mind');
   if (!rootRepo) {
     throw new Error('getRootRepository returned null');
   }
-  if (rootRepo !== 'deep-assistant/hive-mind') {
-    throw new Error(`Expected 'deep-assistant/hive-mind', got '${rootRepo}'`);
+  if (rootRepo !== 'link-assistant/hive-mind') {
+    throw new Error(`Expected 'link-assistant/hive-mind', got '${rootRepo}'`);
   }
 });
 

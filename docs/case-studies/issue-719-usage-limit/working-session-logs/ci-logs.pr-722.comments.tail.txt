@@ -1,0 +1,30 @@
+konard | null | Validated the latest changes for #719:
+- Confirmed usage-limit gist fallback in `src/github.lib.mjs:656` is active regardless of `errorMessage` when `isUsageLimit=true`.
+- Verified `src/solve.mjs` set
+konard | null | Added case study docs and a small demo:
+
+- docs/case-studies/issue-719-usage-limit/INDEX.md
+- docs/case-studies/issue-719-usage-limit/10-LOGS.md
+- docs/case-studies/issue-719-usage-limit/20-TIMELINE.m
+konard | null | Added the missing case study files and demo referenced in the PR body:
+- docs/case-studies/issue-719-usage-limit/INDEX.md
+- docs/case-studies/issue-719-usage-limit/10-LOGS.md
+- docs/case-studies/issue
+konard | null | CI status update and validation notes:
+
+- Recent CI runs for branch `issue-719-a653aae7d4d5` are green; latest run for head SHA 1550f71 is in progress: https://github.com/deep-assistant/hive-mind/acti
+konard | null | CI and readiness update for #719:
+
+- All recent CI runs on branch `issue-719-a653aae7d4d5` are green; latest head SHA `1550f715` passed (see Actions tab).
+- Older failing run logs preserved locally at
+konard | null | CI is green on the last 5 runs; PR body now references the added case-study files and usage-limit demo. I also verified locally:
+- Lint passes (0 errors, 11 warnings)
+- experiments/usage-limit-demo.mj
+konard | null | CI and local validation update:
+- CI for branch issue-719-a653aae7d4d5 is green on the last 5 runs.
+- Local lint: 0 errors, 11 warnings (unchanged existing warnings).
+- Verified experiments/usage-limi
+konard | null | CI is green on the latest runs; local lint has 0 errors (11 warnings). Verified usage-limit handling paths and demo output. Marking PR ready.
+konard | null | CI is green for the latest head (1550f71). The PR description has been updated to reflect the final set of changes for #719. Lint passes with warnings only; no blocking issues detected.
+
+Unless you’d 

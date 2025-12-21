@@ -1,0 +1,7 @@
+src/opencode.lib.mjs:311:      let limitResetTime = null;
+src/opencode.lib.mjs:336:          limitResetTime = limitInfo.resetTime;
+src/github.lib.mjs:464:    limitResetTime = null,
+src/claude.lib.mjs:832:    let limitResetTime = null;
+src/claude.lib.mjs:1119:        limitResetTime = limitInfo.resetTime;
+src/codex.lib.mjs:321:      let limitResetTime = null;
+src/codex.lib.mjs:400:          limitResetTime = limitInfo.resetTime;

@@ -9,10 +9,10 @@ const { $ } = await use('command-stream');
 async function testGistVisibility() {
   console.log('🧪 Testing Gist Visibility Detection\n');
 
-  // Test with public repository (deep-assistant/hive-mind)
-  console.log('1. Testing with PUBLIC repository (deep-assistant/hive-mind):');
+  // Test with public repository (link-assistant/hive-mind)
+  console.log('1. Testing with PUBLIC repository (link-assistant/hive-mind):');
   try {
-    const visibilityResult = await $`gh api repos/deep-assistant/hive-mind --jq .visibility`;
+    const visibilityResult = await $`gh api repos/link-assistant/hive-mind --jq .visibility`;
     const visibility = visibilityResult.stdout.toString().trim();
     console.log(`   ✅ Repository visibility: ${visibility}`);
 

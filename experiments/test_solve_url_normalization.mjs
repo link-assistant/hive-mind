@@ -1,16 +1,7 @@
 #!/usr/bin/env node
 
 // Test solve URL normalization logic
-const testUrls = [
-  'https://github.com/konard/test/issues/1',
-  'http://github.com/konard/test/issues/1',
-  'github.com/konard/test/issues/1',
-  'konard/test/issues/1',
-  'https://github.com/konard/test/pull/1',
-  'http://github.com/konard/test/pull/1',
-  'github.com/konard/test/pull/1',
-  'konard/test/pull/1'
-];
+const testUrls = ['https://github.com/konard/test/issues/1', 'http://github.com/konard/test/issues/1', 'github.com/konard/test/issues/1', 'konard/test/issues/1', 'https://github.com/konard/test/pull/1', 'http://github.com/konard/test/pull/1', 'github.com/konard/test/pull/1', 'konard/test/pull/1'];
 
 function validateGitHubUrl(issueUrl) {
   if (!issueUrl) {

@@ -23,11 +23,11 @@ const GITHUB_FILE_MAX_SIZE = 10 * 1024 * 1024;
  * @param {string} errorMessage - The error message to display
  * @returns {Promise<boolean>} True if user agrees, false otherwise
  */
-export const promptUserForIssueCreation = async (errorMessage) => {
-  return new Promise((resolve) => {
+export const promptUserForIssueCreation = async errorMessage => {
+  return new Promise(resolve => {
     const rl = createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
 
     console.log('\n❌ An error occurred:');
@@ -37,7 +37,7 @@ export const promptUserForIssueCreation = async (errorMessage) => {
       console.log('\n✅ Error reported to Sentry successfully');
     }
 
-    rl.question('\n❓ Would you like to create a GitHub issue for this error? (y/n): ', (answer) => {
+    rl.question('\n❓ Would you like to create a GitHub issue for this error? (y/n): ', answer => {
       rl.close();
       resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
     });
@@ -57,7 +57,7 @@ const getCurrentGitHubUser = async () => {
   } catch (error) {
     reportError(error, {
       context: 'get_github_user',
-      operation: 'gh_api_user'
+      operation: 'gh_api_user',
     });
   }
   return null;
@@ -83,7 +83,7 @@ const createSecretGist = async (logContent, filename) => {
   } catch (error) {
     reportError(error, {
       context: 'create_secret_gist',
-      operation: 'gh_gist_create'
+      operation: 'gh_gist_create',
     });
   }
   return null;
@@ -101,14 +101,14 @@ export const formatLogForIssue = async (logContent, logFilePath) => {
   if (logSize < GITHUB_ISSUE_BODY_MAX_SIZE) {
     return {
       method: 'inline',
-      content: `\`\`\`\n${logContent}\n\`\`\``
+      content: `\`\`\`\n${logContent}\n\`\`\``,
     };
   }
 
   if (logSize < GITHUB_FILE_MAX_SIZE) {
     return {
       method: 'file',
-      content: `Log file is too large to include inline. Please see the attached log file.\n\nLog file path: \`${logFilePath}\``
+      content: `Log file is too large to include inline. Please see the attached log file.\n\nLog file path: \`${logFilePath}\``,
     };
   }
 
@@ -116,13 +116,13 @@ export const formatLogForIssue = async (logContent, logFilePath) => {
   if (gistUrl) {
     return {
       method: 'gist',
-      content: `Log file is too large for inline attachment.\n\n📄 View full log: ${gistUrl}`
+      content: `Log file is too large for inline attachment.\n\n📄 View full log: ${gistUrl}`,
     };
   }
 
   return {
     method: 'truncated',
-    content: `Log file is too large. Showing last 5000 characters:\n\n\`\`\`\n${logContent.slice(-5000)}\n\`\`\``
+    content: `Log file is too large. Showing last 5000 characters:\n\n\`\`\`\n${logContent.slice(-5000)}\n\`\`\``,
   };
 };
 
@@ -135,7 +135,7 @@ export const formatLogForIssue = async (logContent, logFilePath) => {
  * @param {Object} options.context - Additional context about the error
  * @returns {Promise<string|null>} Issue URL or null on failure
  */
-export const createIssueForError = async (options) => {
+export const createIssueForError = async options => {
   const { error, errorType, logFile, context = {} } = options;
 
   try {
@@ -180,7 +180,7 @@ export const createIssueForError = async (options) => {
         reportError(readError, {
           context: 'read_log_file',
           operation: 'fs_read_file',
-          logFile
+          logFile,
         });
         issueBody += `### Log File\n\nCould not read log file: ${logFile}\n\n`;
       }
@@ -192,7 +192,7 @@ export const createIssueForError = async (options) => {
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
     await fs.writeFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo deep-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
 
     await fs.unlink(tempBodyFile).catch(() => {});
 
@@ -208,7 +208,7 @@ export const createIssueForError = async (options) => {
     reportError(createError, {
       context: 'create_github_issue',
       operation: 'gh_issue_create',
-      originalError: error.message
+      originalError: error.message,
     });
     await log(`❌ Error creating issue: ${cleanErrorMessage(createError)}`, { level: 'error' });
     return null;
@@ -225,7 +225,7 @@ export const createIssueForError = async (options) => {
  * @param {boolean} options.skipPrompt - Skip user prompt (for non-interactive mode)
  * @returns {Promise<string|null>} Issue URL if created, null otherwise
  */
-export const handleErrorWithIssueCreation = async (options) => {
+export const handleErrorWithIssueCreation = async options => {
   const { error, errorType, logFile, context = {}, skipPrompt = false } = options;
 
   if (skipPrompt) {
@@ -240,7 +240,7 @@ export const handleErrorWithIssueCreation = async (options) => {
   return await createIssueForError({
     error,
     errorType,
-    logFile: logFile || await getAbsoluteLogPath(),
-    context
+    logFile: logFile || (await getAbsoluteLogPath()),
+    context,
   });
 };

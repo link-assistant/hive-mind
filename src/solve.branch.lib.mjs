@@ -115,11 +115,16 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     // Traditional mode: create new branch for issue
     const randomHex = crypto.randomBytes(6).toString('hex');
     branchName = `issue-${issueNumber}-${randomHex}`;
-    await log(`\n${formatAligned('🌿', 'Creating branch:', `${branchName} from ${defaultBranch}`)}`);
+
+    // Use user-specified base branch if provided, otherwise use repository default
+    const baseBranch = argv.baseBranch || defaultBranch;
+    const branchSource = argv.baseBranch ? 'custom' : 'default';
+    await log(`\n${formatAligned('🌿', 'Creating branch:', `${branchName} from ${baseBranch} (${branchSource})`)}`);
 
     // IMPORTANT: Don't use 2>&1 here as it can interfere with exit codes
     // Git checkout -b outputs to stderr but that's normal
-    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName}`;
+    // Create branch from the specified base branch (origin/baseBranch)
+    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} origin/${baseBranch}`;
   }
 
   if (checkoutResult.code !== 0) {

@@ -21,10 +21,12 @@ solve https://github.com/uselessgoddess/bar/issues/5 --base-branch feat/perf.t
 ```
 
 The tool was expected to:
+
 1. Create a new issue branch FROM the specified base branch (`feat/perf.t`)
 2. Create a pull request targeting the specified base branch
 
 What actually happened:
+
 1. The tool created the issue branch FROM the repository's default branch (`main`) instead
 2. The pull request correctly targeted the specified base branch (`feat/perf.t`)
 
@@ -33,16 +35,19 @@ This resulted in the PR including commits from `main` that weren't in `feat/perf
 ## Evidence from Logs
 
 From `first-session-log.txt`, line 73:
+
 ```
 🌿 Creating branch:          issue-5-f81abcbe3f46 from main
 ```
 
 But the command was executed with (line 10):
+
 ```
 --base-branch feat/perf.t
 ```
 
 The PR was correctly created with the base branch (line 164):
+
 ```
 gh pr create --draft ... --base feat/perf.t --head konard:issue-5-f81abcbe3f46
 ```
@@ -50,7 +55,9 @@ gh pr create --draft ... --base feat/perf.t --head konard:issue-5-f81abcbe3f46
 ## Root Cause Analysis
 
 ### File Structure
+
 The bug exists in the following files:
+
 - `src/solve.branch.lib.mjs` - Contains the branch creation logic
 - `src/solve.mjs` - Calls the branch creation function
 - `src/solve.config.lib.mjs` - Defines the CLI option
@@ -65,12 +72,12 @@ export async function createOrCheckoutBranch({
   prBranch,
   issueNumber,
   tempDir,
-  defaultBranch,  // <-- This is the repository's default branch (main)
-  argv,           // <-- Contains argv.baseBranch with the user's choice
+  defaultBranch, // <-- This is the repository's default branch (main)
+  argv, // <-- Contains argv.baseBranch with the user's choice
   log,
   formatAligned,
   $,
-  crypto
+  crypto,
 }) {
   // ...
   if (isContinueMode && prBranch) {
@@ -89,6 +96,7 @@ export async function createOrCheckoutBranch({
 ```
 
 **The Problem**:
+
 1. The function receives `defaultBranch` parameter (repository's default branch = "main")
 2. The function receives `argv` which contains `argv.baseBranch` (user's choice = "feat/perf.t")
 3. The log message uses `defaultBranch` for display
@@ -112,16 +120,18 @@ The PR creation code correctly prioritizes `argv.baseBranch` over `defaultBranch
 ### Call Chain
 
 1. `src/solve.mjs:494` - Gets repository's default branch:
+
    ```javascript
    const defaultBranch = await verifyDefaultBranchAndStatus({ ... });
    ```
 
 2. `src/solve.mjs:501` - Calls branch creation with `defaultBranch`:
+
    ```javascript
    const branchName = await createOrCheckoutBranch({
      // ...
-     defaultBranch,  // This is "main"
-     argv,           // Contains baseBranch: "feat/perf.t"
+     defaultBranch, // This is "main"
+     argv, // Contains baseBranch: "feat/perf.t"
      // ...
    });
    ```
@@ -137,6 +147,7 @@ The PR creation code correctly prioritizes `argv.baseBranch` over `defaultBranch
 ### Severity: High
 
 This bug causes:
+
 1. **Incorrect branch history**: The issue branch contains all commits from main, not just from the intended base branch
 2. **Polluted pull requests**: PRs include unrelated commits that exist in main but not in the base branch
 3. **Misleading logs**: The log says "Creating branch: X from main" when the user specified a different base branch

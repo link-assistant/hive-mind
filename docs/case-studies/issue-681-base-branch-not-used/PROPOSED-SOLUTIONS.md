@@ -7,6 +7,7 @@
 **File to modify**: `src/solve.branch.lib.mjs`
 
 **Current code** (lines 126-133):
+
 ```javascript
 } else {
   // Traditional mode: create new branch for issue
@@ -20,6 +21,7 @@
 ```
 
 **Fixed code**:
+
 ```javascript
 } else {
   // Traditional mode: create new branch for issue
@@ -38,6 +40,7 @@
 ```
 
 **Key changes**:
+
 1. Compute `baseBranch = argv.baseBranch || defaultBranch` to respect user's choice
 2. Use `origin/${baseBranch}` in the git command to create from the remote branch
 3. Update log message to show whether base is custom or default
@@ -46,6 +49,7 @@
 ### Why Use `origin/${baseBranch}`?
 
 Using `origin/${baseBranch}` ensures:
+
 1. We create from the remote state of the branch (most up-to-date)
 2. We don't depend on local branch state (which might be outdated)
 3. Consistent behavior with the fetch operation that happens later
@@ -110,9 +114,11 @@ Add validation before branch creation to ensure the base branch exists:
 ### Solution 3: Improve Variable Naming
 
 **Current naming**:
+
 - `defaultBranch` - Ambiguous, could mean "default value" or "repository default"
 
 **Proposed naming**:
+
 ```javascript
 // In the calling code (solve.mjs)
 const repositoryDefaultBranch = await verifyDefaultBranchAndStatus({ ... });
@@ -202,22 +208,26 @@ describe('Base Branch Tests', () => {
 
 Update the README or docs to clarify `--base-branch` behavior:
 
-```markdown
+````markdown
 ### --base-branch Option
 
 The `--base-branch` option allows you to specify which branch to use as the base for creating the issue branch.
 
 **Usage:**
+
 ```bash
 solve <issue-url> --base-branch <branch-name>
 ```
+````
 
 **Examples:**
 
 1. Create issue branch from a feature branch:
+
    ```bash
    solve https://github.com/org/repo/issues/123 --base-branch feature/auth
    ```
+
    This will:
    - Create a new branch like `issue-123-abc123def456` FROM `feature/auth`
    - Create a PR targeting `feature/auth`
@@ -231,10 +241,12 @@ solve <issue-url> --base-branch <branch-name>
    - Create a PR targeting `main`
 
 **Important Notes:**
+
 - The base branch must exist on the remote
 - The issue branch will include all history from the base branch
 - The PR will target the base branch (or default branch if not specified)
-```
+
+````
 
 ## Preventive Measures
 
@@ -269,21 +281,24 @@ async function gitCheckoutNewBranch(cwd, branchName, baseBranch, log) {
   // Ensure command matches log
   return await $({ cwd })`git checkout -b ${branchName} ${baseBranch}`;
 }
-```
+````
 
 ## Migration Plan
 
 ### Phase 1: Fix the Bug (Critical - Ship Immediately)
+
 1. Apply Solution 1 (fix the git command)
 2. Test with real repositories
 3. Release as patch version
 
 ### Phase 2: Add Validation (Important - Next Minor Version)
+
 1. Apply Solution 2 (validate base branch exists)
 2. Improve error messages
 3. Add Solution 4 (automated tests)
 
 ### Phase 3: Improve Code Quality (Nice to Have - Future Release)
+
 1. Apply Solution 3 (improve variable naming)
 2. Add Solution 5 (documentation)
 3. Implement preventive measures
@@ -293,24 +308,28 @@ async function gitCheckoutNewBranch(cwd, branchName, baseBranch, log) {
 ### Manual Testing
 
 Test case 1: Default behavior
+
 ```bash
 solve https://github.com/test/repo/issues/1
 # Expected: Branch created from repository default branch
 ```
 
 Test case 2: Custom base branch
+
 ```bash
 solve https://github.com/test/repo/issues/1 --base-branch feature/x
 # Expected: Branch created from feature/x
 ```
 
 Test case 3: Non-existent base branch
+
 ```bash
 solve https://github.com/test/repo/issues/1 --base-branch nonexistent
 # Expected: Error message with helpful suggestions
 ```
 
 Test case 4: Verify branch history
+
 ```bash
 # After running with --base-branch feature/x
 cd /tmp/gh-issue-solver-*/
@@ -321,6 +340,7 @@ git log --oneline
 ### Automated Testing
 
 Run in CI:
+
 ```bash
 npm test -- tests/base-branch.test.mjs
 ```
@@ -328,19 +348,23 @@ npm test -- tests/base-branch.test.mjs
 ## Risk Assessment
 
 ### Low Risk Changes
+
 - Fixing the git command (Solution 1) - Low risk, high impact
 - Adding validation (Solution 2) - Low risk, prevents user errors
 
 ### Medium Risk Changes
+
 - Renaming variables (Solution 3) - Medium risk, affects multiple files
 - May need careful refactoring
 
 ### High Risk Changes
+
 - None identified - the fix is straightforward
 
 ## Backward Compatibility
 
 The fix maintains backward compatibility:
+
 - Users without `--base-branch` see no change (still uses repository default)
 - Users with `--base-branch` get the expected behavior (currently broken anyway)
 - No breaking changes to CLI interface
@@ -349,6 +373,7 @@ The fix maintains backward compatibility:
 ## Success Criteria
 
 The fix is successful when:
+
 1. ✅ Branch is created from `argv.baseBranch` when specified
 2. ✅ Branch is created from repository default when not specified
 3. ✅ Log messages accurately reflect what the code does

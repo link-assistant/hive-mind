@@ -20,12 +20,12 @@ export async function createOrCheckoutBranch({
   prBranch,
   issueNumber,
   tempDir,
-  defaultBranch,  // Repository's default branch ("main")
-  argv,           // Contains argv.baseBranch ("feat/perf.t")
+  defaultBranch, // Repository's default branch ("main")
+  argv, // Contains argv.baseBranch ("feat/perf.t")
   log,
   formatAligned,
   $,
-  crypto
+  crypto,
 }) {
   let branchName;
   let checkoutResult;
@@ -108,6 +108,7 @@ This is why the PR had the correct target branch, but the branch itself had the 
 ## Data Flow Analysis
 
 ### Step 1: CLI Argument Parsing
+
 **File**: `src/solve.config.lib.mjs:178-182`
 
 ```javascript
@@ -121,6 +122,7 @@ This is why the PR had the correct target branch, but the branch itself had the 
 Result: `argv['base-branch']` = "feat/perf.t" (stored as `argv.baseBranch` by yargs)
 
 ### Step 2: Repository Checkout
+
 **File**: `src/solve.mjs` (around line 494)
 
 ```javascript
@@ -128,13 +130,14 @@ const defaultBranch = await verifyDefaultBranchAndStatus({
   tempDir,
   log,
   formatAligned,
-  $
+  $,
 });
 ```
 
 Result: `defaultBranch` = "main" (from repository settings)
 
 ### Step 3: Branch Creation
+
 **File**: `src/solve.mjs:501-512`
 
 ```javascript
@@ -143,18 +146,19 @@ const branchName = await createOrCheckoutBranch({
   prBranch,
   issueNumber,
   tempDir,
-  defaultBranch,  // "main"
-  argv,           // { baseBranch: "feat/perf.t", ... }
+  defaultBranch, // "main"
+  argv, // { baseBranch: "feat/perf.t", ... }
   log,
   formatAligned,
   $,
-  crypto
+  crypto,
 });
 ```
 
 Problem: Passes both `defaultBranch` and `argv`, but the function only uses `defaultBranch` for logging and ignores both for the actual branch creation.
 
 ### Step 4: PR Creation
+
 **File**: `src/solve.auto-pr.lib.mjs:655`
 
 ```javascript
@@ -170,6 +174,7 @@ Result: PR correctly targets "feat/perf.t"
 ### 1. Misleading Variable Names
 
 The function parameter `defaultBranch` suggests it's the correct branch to use, but:
+
 - It actually means "repository's default branch"
 - It should have been named `repositoryDefaultBranch` for clarity
 - The actual "default value for base branch" should be computed as `argv.baseBranch || repositoryDefaultBranch`
@@ -177,6 +182,7 @@ The function parameter `defaultBranch` suggests it's the correct branch to use, 
 ### 2. Log Message vs Implementation Mismatch
 
 The log message says "from X" but the git command doesn't actually use X:
+
 ```javascript
 await log(`Creating branch: ${branchName} from ${defaultBranch}`);
 checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName}`;
@@ -186,6 +192,7 @@ checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName}`;
 ### 3. Incomplete Testing
 
 The bug suggests that:
+
 - There were no automated tests for the `--base-branch` option
 - Manual testing only verified the PR target, not the branch history
 - The misleading log message made it appear to work correctly
@@ -193,6 +200,7 @@ The bug suggests that:
 ### 4. Missing Integration Point
 
 The function receives `argv` but doesn't use `argv.baseBranch`. This suggests:
+
 - The feature was added to CLI config (`solve.config.lib.mjs`)
 - The feature was added to PR creation (`solve.auto-pr.lib.mjs`)
 - But nobody updated the branch creation logic (`solve.branch.lib.mjs`)
@@ -249,6 +257,7 @@ PR shows: Commits C, D, and G (polluted with commits from main)
 ## Conclusion
 
 The bug was caused by:
+
 1. Incomplete implementation of the `--base-branch` feature
 2. Misleading log messages that suggested it was working
 3. Missing git command parameter

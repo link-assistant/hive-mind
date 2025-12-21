@@ -1025,8 +1025,12 @@ jobs:
 
           if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
             echo "Rocq/Coq installation verified in build logs"
+          elif grep -E '\[!\] Rocq:.*not in current PATH' build-output.log; then
+            echo "WARNING: Rocq installed but not in PATH during build (will be verified in container step)"
           else
-            echo "WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+            echo "ERROR: Rocq/Coq installation failed in build logs"
+            grep -i "rocq\|coq\|opam" build-output.log | tail -20 || true
+            exit 1
           fi
 
           if grep -E '\[✓\] Rust:' build-output.log; then
@@ -1363,14 +1367,20 @@ jobs:
             if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
               source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
             fi
-            if command -v rocq &>/dev/null; then
+            # Verify Rocq using 'rocq -v' as recommended by official documentation
+            # Reference: https://rocq-prover.org/docs/using-opam
+            if rocq -v &>/dev/null; then
+              rocq -v | head -n1
+              echo 'Rocq is accessible (verified with rocq -v)'
+            elif command -v rocq &>/dev/null; then
               rocq --version | head -n1
               echo 'Rocq is accessible'
             elif command -v coqc &>/dev/null; then
               coqc --version | head -n1
               echo 'Coq is accessible'
             else
-              echo 'Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)'
+              echo 'Rocq/Coq command not found in container'
+              exit 1
             fi
 
             echo ''

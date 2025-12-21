@@ -1,0 +1,302 @@
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:12.6793591Z #9 214.9 [*] Installing Lean (via elan)...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:12.7044285Z #9 215.1 info: downloading installer
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.1966618Z #9 215.6 info: default toolchain set to 'stable'
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3668560Z #9 215.6 [✓] Lean installed successfully
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3669062Z #9 215.6 [*] Adding elan to shell configuration...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3669431Z #9 215.6 [*] Installing Opam (OCaml package manager)...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3669748Z #9 215.6 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3670105Z #9 215.6 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.3670746Z #9 215.6 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:13.9355836Z #9 215.6 Reading package lists...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.0993414Z #9 216.3 Building dependency tree...
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.6793730Z (Reading database ... 100%
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.6794083Z (Reading database ... 33043 files and directories currently installed.)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.6794593Z #9 216.9 Preparing to unpack .../bubblewrap_0.9.0-1ubuntu0.1_amd64.deb ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.6795019Z #9 216.9 Unpacking bubblewrap (0.9.0-1ubuntu0.1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:14.6795365Z #9 216.9 Setting up bubblewrap (0.9.0-1ubuntu0.1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.2774201Z #9 217.6 ## Downloading opam 2.5.0 for linux on x86_64...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.4292182Z #9 217.8 ## Downloaded.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.5907975Z #9 217.8 ## Where should it be installed ? [/usr/local/bin] ## y does not exist. Create ? [Y/n] [!] Opam installation via script failed. Trying apt...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.5908678Z #9 217.8 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.5909033Z #9 217.8 WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:15.5909456Z #9 217.8 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.1431835Z #9 217.8 Reading package lists...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.2989781Z #9 218.5 Building dependency tree...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.4337614Z #9 218.7 Reading state information...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.4338496Z #9 218.8 The following additional packages will be installed:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5512806Z #9 218.8   file ledit libamd3 libcolamd3 libcompiler-libs-ocaml-dev libglpk40 libltdl7
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5514518Z #9 218.8   libmagic-mgc libmagic1t64 libpopt0 libstdlib-ocaml libstdlib-ocaml-dev
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5515727Z #9 218.8   libsuitesparseconfig7 m4 mercurial mercurial-common ocaml ocaml-base
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5516692Z #9 218.8   ocaml-interp ocaml-man opam-installer rsync ucf
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5517365Z #9 218.8 Suggested packages:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5518166Z #9 218.8   libiodbc2-dev default-libmysqlclient-dev m4-doc kdiff3 | kdiff3-qt | kompare
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5519287Z #9 218.8   | meld | tkcvs | mgdiff qct python3-mysqldb python3-openssl ocaml-doc
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5520232Z #9 218.8   elpa-tuareg opam-doc openssh-server python3-braceexpand
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5521100Z #9 218.8 Recommended packages:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5521552Z #9 218.8   darcs
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.5521914Z #9 218.9 The following NEW packages will be installed:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.7027206Z #9 218.9   file ledit libamd3 libcolamd3 libcompiler-libs-ocaml-dev libglpk40 libltdl7
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.7028134Z #9 218.9   libmagic-mgc libmagic1t64 libpopt0 libstdlib-ocaml libstdlib-ocaml-dev
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.7028761Z #9 218.9   libsuitesparseconfig7 m4 mercurial mercurial-common ocaml ocaml-base
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.7029311Z #9 218.9   ocaml-interp ocaml-man opam opam-installer rsync ucf
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.8487104Z #9 219.2 0 upgraded, 24 newly installed, 0 to remove and 2 not upgraded.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.8487682Z #9 219.2 Need to get 146 MB of archives.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.8488138Z #9 219.2 After this operation, 504 MB of additional disk space will be used.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:16.8489147Z #9 219.2 Get:1 http://archive.ubuntu.com/ubuntu noble/main amd64 libpopt0 amd64 1.19+dfsg-1build1 [28.6 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:17.0760297Z #9 219.4 Get:2 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 rsync amd64 3.2.7-1ubuntu1.2 [436 kB]
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:19.0558538Z #9 221.2 Get:18 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 mercurial-common all 6.7.2-1ubuntu2.2 [2955 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:19.0559439Z #9 221.3 Get:19 http://archive.ubuntu.com/ubuntu noble-updates/universe amd64 mercurial amd64 6.7.2-1ubuntu2.2 [328 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:19.0560260Z #9 221.3 Get:20 http://archive.ubuntu.com/ubuntu noble/universe amd64 ocaml-interp amd64 4.14.1-1ubuntu1 [7825 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:19.0838462Z #9 221.5 Get:21 http://archive.ubuntu.com/ubuntu noble/universe amd64 ocaml amd64 4.14.1-1ubuntu1 [81.4 MB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:20.9502892Z #9 223.3 Get:22 http://archive.ubuntu.com/ubuntu noble/universe amd64 ocaml-man all 4.14.1-1ubuntu1 [555 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.1231836Z #9 223.3 Get:23 http://archive.ubuntu.com/ubuntu noble/universe amd64 opam-installer amd64 2.1.5-1 [1256 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.1232969Z #9 223.3 Get:24 http://archive.ubuntu.com/ubuntu noble/universe amd64 opam amd64 2.1.5-1 [2584 kB]
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.1664536Z #9 223.5 debconf: delaying package configuration, since apt-utils is not installed
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.2773119Z #9 223.6 Fetched 146 MB in 4s (32.5 MB/s)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.2773773Z #9 223.6 Selecting previously unselected package libpopt0:amd64.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.2774287Z #9 223.6 (Reading database ... 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:21.2774632Z (Reading database ... 5%
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:22.9634903Z #9 225.2 Preparing to unpack .../20-ocaml_4.14.1-1ubuntu1_amd64.deb ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:22.9635582Z #9 225.2 Unpacking ocaml (4.14.1-1ubuntu1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.6966749Z #9 226.1 Selecting previously unselected package ocaml-man.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8363676Z #9 226.1 Preparing to unpack .../21-ocaml-man_4.14.1-1ubuntu1_all.deb ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8364390Z #9 226.1 Unpacking ocaml-man (4.14.1-1ubuntu1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8364984Z #9 226.1 Selecting previously unselected package opam-installer.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8365558Z #9 226.1 Preparing to unpack .../22-opam-installer_2.1.5-1_amd64.deb ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8365924Z #9 226.1 Unpacking opam-installer (2.1.5-1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8366227Z #9 226.1 Selecting previously unselected package opam.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8366613Z #9 226.1 Preparing to unpack .../23-opam_2.1.5-1_amd64.deb ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8367480Z #9 226.1 Unpacking opam (2.1.5-1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:23.8367957Z #9 226.2 Setting up mercurial-common (6.7.2-1ubuntu2.2) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.1222687Z #9 227.5 Setting up libmagic-mgc (1:5.45-3build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2236421Z #9 227.5 Setting up libmagic1t64:amd64 (1:5.45-3build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2236993Z #9 227.5 Setting up m4 (1.4.19-4build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2237425Z #9 227.5 Setting up file (1:5.45-3build1) ...
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2239675Z #9 227.6 debconf: falling back to frontend: Readline
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2240000Z #9 227.6 debconf: unable to initialize frontend: Readline
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2240328Z #9 227.6 debconf: (This frontend requires a controlling tty.)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.2241118Z #9 227.6 debconf: falling back to frontend: Teletype
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3551015Z #9 227.6 Setting up libltdl7:amd64 (2.4.7-7build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3551524Z #9 227.6 Setting up opam-installer (2.1.5-1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3551943Z #9 227.6 Setting up libsuitesparseconfig7:amd64 (1:7.6.1+dfsg-1build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3552349Z #9 227.6 Setting up ocaml-man (4.14.1-1ubuntu1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3552695Z #9 227.6 Setting up libpopt0:amd64 (1.19+dfsg-1build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3553059Z #9 227.6 Setting up libamd3:amd64 (1:7.6.1+dfsg-1build1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.3553396Z #9 227.6 Setting up mercurial (6.7.2-1ubuntu2.2) ...
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.4673916Z #9 227.8 Setting up ocaml-interp (4.14.1-1ubuntu1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.4674414Z #9 227.8 Setting up libglpk40:amd64 (5.0-1build2) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.4674716Z #9 227.8 Setting up rsync (3.2.7-1ubuntu1.2) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.4675036Z #9 227.8 invoke-rc.d: could not determine current runlevel
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.6014225Z #9 227.8 invoke-rc.d: policy-rc.d denied execution of start.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.6014982Z #9 227.9 Setting up opam (2.1.5-1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.6015432Z #9 227.9 Setting up ocaml (4.14.1-1ubuntu1) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.6016681Z #9 227.9 Processing triggers for libc-bin (2.39-0ubuntu8.6) ...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.6017590Z #9 228.0 [✓] Opam installed successfully
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7692774Z #9 228.0 [*] Initializing Opam...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7693447Z #9 228.0 No configuration file found, using built-in defaults.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7694039Z #9 228.0 Checking for available remotes: rsync and local, git, mercurial.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7694693Z #9 228.0   - you won't be able to use darcs repositories unless you install the darcs command on your system.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7695186Z #9 228.0 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7695363Z #9 228.0 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:25.7695724Z #9 228.0 <><> Fetching repository information ><><><><><><><><><><><><><><><><><><><><><>
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:29.2236186Z #9 231.6 [default] Initialised
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:29.3742646Z #9 231.6 default (at https://opam.ocaml.org): 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:29.3743590Z #9 231.6     [WARNING] opam is out-of-date. Please consider updating it (https://opam.ocaml.org/doc/Install.html)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:29.3744341Z #9 231.6 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:39.4718369Z #9 241.8 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:39.4718898Z #9 241.8 User configuration:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:39.6640034Z #9 241.8   Updating ~/.profile.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:39.6640816Z #9 241.8 [NOTE] Make sure that ~/.profile is well sourced in your ~/.bashrc.
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:45.4521851Z #9 247.8 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:45.4522418Z #9 247.8 <><> Processing actions <><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:45.6147555Z #9 247.8 ∗ installed base-bigarray.base
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:45.6148031Z #9 247.8 ∗ installed base-threads.base
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:45.6148398Z #9 247.8 ∗ installed base-unix.base
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:46.1401551Z #9 248.5 ⬇ retrieved ocaml-system.4.14.1  (https://opam.ocaml.org/cache)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:46.3532439Z #9 248.6 ∗ installed ocaml-system.4.14.1
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:46.8382379Z #9 249.2 ⬇ retrieved ocaml-config.2  (2 extra sources)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:47.0693069Z #9 249.2 ∗ installed ocaml-config.2
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:47.0693702Z #9 249.3 ∗ installed ocaml.4.14.1
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:47.0694072Z #9 249.3 Done.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:47.0694581Z #9 249.3 # Run eval $(opam env --switch=default) to update the current shell environment
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:48.4987619Z #9 250.9 [✓] Opam initialized
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.7291687Z #9 252.1 [*] Rocq Prover already installed.
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.8815590Z #9 252.1 [*] Adding Opam environment to shell configuration...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.8816207Z #9 252.1 [*] Installing Homebrew...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.8816838Z #9 252.1 [i] Homebrew will be configured for current session and persist after shell restart
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.8817722Z #9 252.1 [i] Homebrew directory already exists (pre-created for Docker compatibility)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:14:49.8818432Z #9 252.1 [*] Running Homebrew installer...
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:15:02.8795129Z #9 265.2 [✓] Homebrew successfully installed at /home/linuxbrew/.linuxbrew
+--
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:04.1831156Z #9 686.6 info: downloading https://releases.lean-lang.org/lean4/v4.26.0/lean-4.26.0-linux.tar.zst
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:07.1686543Z #9 689.5 info: installing /home/hive/.elan/toolchains/leanprover--lean4---v4.26.0
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:13.5637642Z #9 695.9 [✓] Lean: Lean (version 4.26.0, x86_64-unknown-linux-gnu, commit d8204c9fd894f91bbb2cdfec5912ec8196fd8562, Release)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:13.7768609Z #9 696.1 [✓] Lake: Lake version 5.0.0-src+d8204c9 (Lean version 4.26.0)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:13.9144265Z #9 696.2 [✓] Homebrew: Homebrew 5.0.7
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:13.9144785Z #9 696.2 [✓] Opam: 2.1.5
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:13.9145353Z #9 696.3 [✓] PHP: PHP 8.3.29 (cli) (built: Dec 16 2025 14:32:42) (NTS)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:14.0702634Z #9 696.3 [✓] Perl: This is perl 5, version 42, subversion 0 (v5.42.0) built for x86_64-linux
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:14.0703337Z #9 696.3 /home/hive/perl5/perlbrew/etc/bashrc: line 71: $1: unbound variable
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:14.0703859Z #9 696.3 [✓] Perlbrew: 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.1806938Z #9 697.5 [!] Rocq: installed via opam but not in current PATH
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.1807656Z #9 697.5 [i] Rocq will be available after shell restart or: eval $(opam env)
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.7511045Z #9 698.1 [✓] Playwright: Version 1.57.0
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.8583583Z #9 698.1 
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.8584005Z #9 698.1 C/C++ Development Tools:
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.8584717Z #9 698.1 [✓] Make: GNU Make 4.3
+docker-pr-check	Build Docker image with log capture	2025-12-21T13:22:15.8585203Z #9 698.2 [✓] CMake: cmake version 3.28.3
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9430669Z [36;1mif grep -E '\[!\] NPM: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9431060Z [36;1m  echo "ERROR: NPM installation failed - showing as 'not found'"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9431366Z [36;1m  exit 1[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9431525Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9431668Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9431877Z [36;1mif grep -E '\[!\] Opam: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9432241Z [36;1m  echo "ERROR: Opam installation failed - showing as 'not found'"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9432548Z [36;1m  exit 1[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9432699Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9432844Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9433051Z [36;1mif grep -E '\[!\] PHP: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9433418Z [36;1m  echo "ERROR: PHP installation failed - showing as 'not found'"[0m
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9439346Z [36;1mif grep -E '\[!\] Pyenv: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9439725Z [36;1m  echo "ERROR: Pyenv installation failed - showing as 'not found'"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9440032Z [36;1m  exit 1[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9440186Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9440371Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9440759Z [36;1mif grep -E '\[!\] Rocq/Coq: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9441167Z [36;1m  echo "ERROR: Rocq/Coq installation failed - showing as 'not found'"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9441482Z [36;1m  exit 1[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9441646Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9441792Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9441996Z [36;1mif grep -E '\[!\] Rust: not found' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9442369Z [36;1m  echo "ERROR: Rust installation failed - showing as 'not found'"[0m
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9475097Z [36;1m  echo "NPM installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9475351Z [36;1melse[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9475568Z [36;1m  echo "WARNING: NPM success message not found in logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9475832Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9475979Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9476171Z [36;1mif grep -E '\[✓\] Opam:' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9476484Z [36;1m  echo "Opam installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9476746Z [36;1melse[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9476959Z [36;1m  echo "WARNING: Opam success message not found in logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9477234Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9477379Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9477573Z [36;1mif grep -E '\[✓\] PHP:' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9477872Z [36;1m  echo "PHP installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9478129Z [36;1melse[0m
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9485899Z [36;1m  echo "Pyenv installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9486169Z [36;1melse[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9486456Z [36;1m  echo "WARNING: Pyenv success message not found in logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9486740Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9486885Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9487096Z [36;1mif grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9487441Z [36;1m  echo "Rocq/Coq installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9487712Z [36;1melse[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9488138Z [36;1m  echo "WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9488611Z [36;1mfi[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9488759Z [36;1m[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9488955Z [36;1mif grep -E '\[✓\] Rust:' build-output.log; then[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9489264Z [36;1m  echo "Rust installation verified in build logs"[0m
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:50.9489526Z [36;1melse[0m
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0302119Z Make installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0314100Z #9 685.3 [✓] Node.js: v20.19.6
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0315922Z Node.js installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0327900Z #9 685.4 [✓] NPM: 11.7.0
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0329714Z NPM installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0341910Z #9 696.2 [✓] Opam: 2.1.5
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0343742Z Opam installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0356518Z #9 696.3 [✓] PHP: PHP 8.3.29 (cli) (built: Dec 16 2025 14:32:42) (NTS)
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0357984Z PHP installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0370710Z #9 696.3 [✓] Perl: This is perl 5, version 42, subversion 0 (v5.42.0) built for x86_64-linux
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0372654Z Perl installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0384854Z #9 696.3 [✓] Perlbrew: 
+--
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0400367Z Playwright installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0413506Z #9 685.5 [✓] Python: Python 3.14.2
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0415537Z Python installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0427689Z #9 685.5 [✓] Pyenv: pyenv 2.6.17
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0429513Z Pyenv installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0445673Z WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0457227Z #9 685.7 [✓] Rust: rustc 1.92.0 (ded5c06cf 2025-12-08)
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0459260Z Rust installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0471229Z #9 685.8 [✓] SDKMAN: installed
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0473091Z SDKMAN installation verified in build logs
+docker-pr-check	Verify system & development tools installation in build logs	2025-12-21T13:23:51.0473439Z 
+--
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0572091Z [36;1m    echo 'NPM command not found in container'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0572337Z [36;1m    exit 1[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0572494Z [36;1m  fi[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0572646Z [36;1m[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0572788Z [36;1m  echo ''[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0573097Z [36;1m  echo 'Checking Opam...'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0573339Z [36;1m  if command -v opam &>/dev/null; then[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0573580Z [36;1m    opam --version[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0573793Z [36;1m    echo 'Opam is accessible'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574004Z [36;1m  else[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574208Z [36;1m    echo 'Opam command not found in container'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574455Z [36;1m    exit 1[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574617Z [36;1m  fi[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574761Z [36;1m[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0574907Z [36;1m  echo ''[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0575084Z [36;1m  echo 'Checking PHP...'[0m
+--
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0588465Z [36;1m    echo 'Pyenv command not found in container'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0588712Z [36;1m    exit 1[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0588873Z [36;1m  fi[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0589016Z [36;1m[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0589159Z [36;1m  echo ''[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0589341Z [36;1m  echo 'Checking Rocq/Coq...'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0589603Z [36;1m  # Source opam environment for Rocq/Coq access[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0589901Z [36;1m  if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0590245Z [36;1m    source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0590702Z [36;1m  fi[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0590882Z [36;1m  if command -v rocq &>/dev/null; then[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0591139Z [36;1m    rocq --version | head -n1[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0591370Z [36;1m    echo 'Rocq is accessible'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0591609Z [36;1m  elif command -v coqc &>/dev/null; then[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0591867Z [36;1m    coqc --version | head -n1[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0592252Z [36;1m    echo 'Coq is accessible'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0592463Z [36;1m  else[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0592812Z [36;1m    echo 'Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0593225Z [36;1m  fi[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0593369Z [36;1m[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0593516Z [36;1m  echo ''[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0593693Z [36;1m  echo 'Checking Rust...'[0m
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:51.0593928Z [36;1m  if command -v rustc &>/dev/null; then[0m
+--
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.8513241Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.8513357Z Checking NPM...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9395320Z 11.7.0
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9440629Z NPM is accessible
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9440858Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9440991Z Checking Opam...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9575722Z 2.1.5
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9586640Z Opam is accessible
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9586891Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9587019Z Checking PHP...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:52.9963118Z PHP 8.3.29 (cli) (built: Dec 16 2025 14:32:42) (NTS)
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.0007607Z PHP is accessible
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.0007838Z 
+--
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.7933423Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.7933550Z Checking Pyenv...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8050242Z pyenv 2.6.17
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8052890Z Pyenv is accessible
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8053247Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8053537Z Checking Rocq/Coq...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8061485Z Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8062203Z 
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8062418Z Checking Rust...
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8587788Z rustc 1.92.0 (ded5c06cf 2025-12-08)
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8604234Z Rust is accessible
+docker-pr-check	Verify tools in running container	2025-12-21T13:23:53.8604477Z 

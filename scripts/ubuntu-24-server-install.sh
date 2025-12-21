@@ -1321,8 +1321,20 @@ else
 fi
 if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
 
-if command -v rocq &>/dev/null; then
-  log_success "Rocq: $(rocq --version | head -n1)"
+# Source opam environment to ensure Rocq/Coq is accessible
+# This is required because opam-installed tools need environment setup
+# Reference: https://rocq-prover.org/docs/using-opam
+if [ -f "$HOME/.opam/opam-init/init.sh" ]; then
+  source "$HOME/.opam/opam-init/init.sh" > /dev/null 2>&1 || true
+fi
+
+# Verify Rocq installation using 'rocq -v' as recommended by official documentation
+# Reference: "To ensure that installation was successful, check that rocq -v prints the expected version"
+if rocq -v &>/dev/null; then
+  # Use 'rocq -v' output (official verification command)
+  log_success "Rocq: $(rocq -v 2>&1 | head -n1)"
+elif command -v rocq &>/dev/null; then
+  log_success "Rocq: $(rocq --version 2>&1 | head -n1)"
 elif command -v coqc &>/dev/null; then
   log_success "Coq: $(coqc --version | head -n1)"
 elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then

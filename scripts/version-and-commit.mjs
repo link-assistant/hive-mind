@@ -183,6 +183,10 @@ async function main() {
       console.log('Running changeset version...');
       // Run changeset version to bump versions and update CHANGELOG
       await $`npm run changeset:version`;
+
+      // Synchronize package-lock.json to match updated package.json version
+      console.log('Synchronizing package-lock.json...');
+      await $`npm install --package-lock-only`;
     }
 
     // Get new version after bump

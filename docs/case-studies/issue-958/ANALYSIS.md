@@ -226,20 +226,20 @@ This is not just a cosmetic issue. It represents a gap in quality gates that cou
 - [About protected branches - GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
 - [Managing a branch protection rule - GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/managing-a-branch-protection-rule)
 
-### Solution 2: Fix Workflow Condition Logic
+### Solution 2: Fix Workflow Condition Logic ✅ IMPLEMENTED
 
 **Problem:** The `lint` job condition is too restrictive.
 
-**Current Condition:**
+**Previous Condition:**
 
 ```yaml
 if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 ```
 
-**Proposed Fix:**
+**Implemented Fix:**
 
 ```yaml
-if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
+if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 ```
 
 **Rationale:**
@@ -255,11 +255,7 @@ if: always() && (github.event_name == 'push' || needs.changeset-check.result == 
 - ✅ Consistent behavior between PR and main
 - ✅ Aligns workflow logic with actual tool capabilities
 
-**Considerations:**
-
-- Requires code change and testing
-- May increase CI minutes (more jobs running)
-- Needs careful review of all job conditions
+**Implementation:** This fix has been applied to `.github/workflows/release.yml` in PR #959.
 
 ### Solution 3: Simplify Lint Condition (Alternative)
 
@@ -365,6 +361,47 @@ Both solutions should be implemented to prevent this class of issues from recurr
 - Branch protection is essential, even with sophisticated CI
 - "Skipped" checks are treated as passing by GitHub
 - Workflow conditions should align with tool capabilities (Prettier formats many file types, not just `.mjs`)
+
+### Changeset Validation Best Practices
+
+During the fix implementation, we also reinforced an important policy:
+
+**Rule: Each PR must have exactly ONE changeset.**
+
+This is enforced by `scripts/validate-changeset.mjs` and should NEVER be bypassed. If the changeset validation fails:
+
+1. **Check for duplicate changesets** - If multiple `.md` files exist in `.changeset/` (excluding `README.md` and `config.json`), remove the duplicates and keep only the one for your PR.
+
+2. **Merge the latest main branch** - If main has unreleased changesets from other PRs, merge main into your PR branch. This ensures your PR only adds ONE new changeset.
+
+**Why this matters:**
+
+- Each changeset documents a single change for the changelog
+- Multiple changesets in a PR indicate either duplicates or stale branch
+- The strict validation prevents confusion in release notes
+- It enforces a clean commit-per-feature or PR-per-change workflow
+
+**Anti-pattern (NEVER do this):**
+
+```javascript
+// DON'T modify validate-changeset.mjs to allow multiple changesets
+// DON'T bypass the validation with git diff tricks
+// DON'T create multiple changesets for the same PR
+```
+
+**Correct approach:**
+
+```bash
+# If changeset validation fails, first check what changesets exist
+ls .changeset/*.md
+
+# If you have duplicates, remove extras
+rm .changeset/duplicate-changeset.md
+
+# If main has new changesets, merge main
+git fetch origin main
+git merge origin/main
+```
 
 ---
 

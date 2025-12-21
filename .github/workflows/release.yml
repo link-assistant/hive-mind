@@ -195,7 +195,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
     - name: Checkout repository

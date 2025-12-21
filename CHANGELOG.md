@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.45.0
+
+### Minor Changes
+
+- 81f8da0: Add `--tokens-budget-stats` option for detailed token usage analysis. This experimental feature shows context window usage and output token usage in absolute values and ratios when using `--tool claude`. Disabled by default.
+
 ## 0.44.0
 
 ### Minor Changes

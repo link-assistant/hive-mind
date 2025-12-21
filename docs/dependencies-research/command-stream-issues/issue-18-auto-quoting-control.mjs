@@ -208,8 +208,8 @@ async function runTest() {
   console.log('   const result = await $({ autoQuote: false })`${cmd}`;');
 
   console.log('\n📚 REFERENCES:');
-  console.log('   • Related issue: https://github.com/deep-assistant/hive-mind/issues/377');
-  console.log('   • PR with fix: https://github.com/deep-assistant/hive-mind/pull/387');
+  console.log('   • Related issue: https://github.com/link-assistant/hive-mind/issues/377');
+  console.log('   • PR with fix: https://github.com/link-assistant/hive-mind/pull/387');
 }
 
 // Run the test

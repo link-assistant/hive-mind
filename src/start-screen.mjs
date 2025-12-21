@@ -6,66 +6,9 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-// Load use-m dynamically from unpkg (same pattern as solve.mjs and github.lib.mjs)
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
-
-// Dynamically load parse-github-url using use-m
-const parseGitHubUrlModule = await use('parse-github-url@1.0.3');
-const parseGitHubUrlLib = parseGitHubUrlModule.default || parseGitHubUrlModule;
-
-// Wrapper function to match our expected interface using parse-github-url from npm via use-m
-function parseGitHubUrl(url) {
-  if (!url || typeof url !== 'string') {
-    return {
-      valid: false,
-      error: 'Invalid input: URL must be a non-empty string'
-    };
-  }
-
-  try {
-    // Use parse-github-url library loaded via use-m
-    const parsed = parseGitHubUrlLib(url);
-
-    if (!parsed || !parsed.owner || !parsed.name) {
-      return {
-        valid: false,
-        error: 'Invalid GitHub URL: missing owner/repo'
-      };
-    }
-
-    const result = {
-      valid: true,
-      normalized: parsed.href || url,
-      hostname: parsed.host || 'github.com',
-      owner: parsed.owner,
-      repo: parsed.name,
-      type: 'unknown',
-      path: parsed.filepath || '',
-      number: null
-    };
-
-    // Determine the type based on branch and filepath
-    // Note: parse-github-url treats "issues" as a branch, not part of filepath
-    if (parsed.branch === 'issues' && parsed.filepath && /^\d+$/.test(parsed.filepath)) {
-      result.type = 'issue';
-      result.number = parseInt(parsed.filepath, 10);
-    } else if (parsed.branch === 'pull' && parsed.filepath && /^\d+$/.test(parsed.filepath)) {
-      result.type = 'pr';
-      result.number = parseInt(parsed.filepath, 10);
-    } else if (parsed.owner && parsed.name) {
-      result.type = 'repo';
-    } else if (parsed.owner) {
-      result.type = 'owner';
-    }
-
-    return result;
-  } catch (error) {
-    return {
-      valid: false,
-      error: 'Invalid GitHub URL format: ' + error.message
-    };
-  }
-}
+// Import the shared parseGitHubUrl function from github.lib.mjs
+// This ensures consistent URL validation across all commands (hive, solve, start-screen)
+const { parseGitHubUrl } = await import('./github.lib.mjs');
 
 /**
  * Generate a screen session name based on the command and GitHub URL
@@ -109,7 +52,7 @@ async function screenSessionExists(sessionName) {
   try {
     const { stdout } = await execAsync('screen -ls');
     return stdout.includes(sessionName);
-  } catch (error) {
+  } catch {
     // screen -ls returns non-zero exit code when no sessions exist
     return false;
   }
@@ -148,7 +91,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
             await execAsync(`rm -f ${markerFile}`).catch(() => { });
             return true;
           }
-        } catch (error) {
+        } catch {
           // Marker file doesn't exist yet
         }
 
@@ -159,7 +102,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
       // Marker file didn't appear, session is still busy
       // Clean up any leftover marker file from the queued command
       await execAsync(`rm -f ${markerFile}`).catch(() => { });
-    } catch (error) {
+    } catch {
       // Error sending test command or checking marker
     }
 
@@ -183,19 +126,19 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 
   if (sessionExists) {
     console.log(`Screen session '${sessionName}' already exists.`);
-    console.log(`Checking if session is ready to accept commands...`);
+    console.log('Checking if session is ready to accept commands...');
 
     // Wait for the session to be ready (at a prompt)
     const isReady = await waitForSessionReady(sessionName);
 
     if (isReady) {
-      console.log(`Session is ready.`);
+      console.log('Session is ready.');
     } else {
-      console.log(`Session might still be running a command. Will attempt to send command anyway.`);
-      console.log(`Note: The command will execute once the current operation completes.`);
+      console.log('Session might still be running a command. Will attempt to send command anyway.');
+      console.log('Note: The command will execute once the current operation completes.');
     }
 
-    console.log(`Sending command to existing session...`);
+    console.log('Sending command to existing session...');
 
     // Build the full command to send to the existing session
     const quotedArgs = args.map(arg => {
@@ -261,9 +204,9 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     await execAsync(screenCommand);
     console.log(`Started ${command} in detached screen session: ${sessionName}`);
     if (autoTerminate) {
-      console.log(`Note: Session will terminate after command completes (--auto-terminate mode)`);
+      console.log('Note: Session will terminate after command completes (--auto-terminate mode)');
     } else {
-      console.log(`Session will remain active after command completes`);
+      console.log('Session will remain active after command completes');
     }
     console.log(`To attach to this session, run: screen -r ${sessionName}`);
   } catch (error) {
@@ -358,7 +301,7 @@ async function main() {
   // Check for screen availability
   try {
     await execAsync('which screen');
-  } catch (error) {
+  } catch {
     console.error('Error: GNU Screen is not installed or not in PATH.');
     console.error('Please install it using your package manager:');
     console.error('  Ubuntu/Debian: sudo apt-get install screen');

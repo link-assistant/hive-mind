@@ -40,7 +40,7 @@ async function testBranchCreationError() {
     branchName: 'feature-test-123',
     errorOutput: 'fatal: A branch named \'feature-test-123\' already exists.',
     tempDir: '/tmp/test-repo',
-    owner: 'deep-assistant',
+    owner: 'link-assistant',
     repo: 'hive-mind',
     formatAligned,
     log
@@ -55,7 +55,7 @@ async function testBranchVerificationError() {
     branchName: 'issue-276-expected',
     actualBranch: 'main',
     prNumber: 281,
-    owner: 'deep-assistant',
+    owner: 'link-assistant',
     repo: 'hive-mind',
     tempDir: '/tmp/test-repo',
     formatAligned,

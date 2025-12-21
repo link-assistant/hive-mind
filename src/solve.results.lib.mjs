@@ -50,48 +50,275 @@ const { reportError } = sentryLib;
 const githubLinking = await import('./github-linking.lib.mjs');
 const { hasGitHubLinkingKeyword } = githubLinking;
 
+/**
+ * Detect the CLAUDE.md commit hash from branch structure when not available in session
+ * This handles continue mode where the commit hash was lost between sessions
+ *
+ * Safety checks to prevent Issue #617 (wrong commit revert):
+ * 1. Only look at commits on the PR branch (not default branch commits)
+ * 2. Verify the commit message matches our expected pattern
+ * 3. Verify the commit ONLY adds CLAUDE.md (no other files changed)
+ * 4. Verify there are additional commits after it (actual work was done)
+ *
+ * @param {string} tempDir - The temporary directory with the git repo
+ * @param {string} branchName - The PR branch name
+ * @returns {string|null} - The detected commit hash or null if not found/safe
+ */
+const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
+  try {
+    await log('   Attempting to detect CLAUDE.md commit from branch structure...', { verbose: true });
+
+    // First check if CLAUDE.md exists in current branch
+    const claudeMdExistsResult = await $({ cwd: tempDir })`git ls-files CLAUDE.md 2>&1`;
+    if (claudeMdExistsResult.code !== 0 || !claudeMdExistsResult.stdout || !claudeMdExistsResult.stdout.trim()) {
+      await log('   CLAUDE.md does not exist in current branch', { verbose: true });
+      return null;
+    }
+
+    // Get the default branch to find the fork point
+    const defaultBranchResult = await $({ cwd: tempDir })`git symbolic-ref refs/remotes/origin/HEAD 2>&1`;
+    let defaultBranch = 'main';
+    if (defaultBranchResult.code === 0 && defaultBranchResult.stdout) {
+      const match = defaultBranchResult.stdout.toString().match(/refs\/remotes\/origin\/(.+)/);
+      if (match) {
+        defaultBranch = match[1].trim();
+      }
+    }
+    await log(`   Using default branch: ${defaultBranch}`, { verbose: true });
+
+    // Find the merge base (fork point) between current branch and default branch
+    const mergeBaseResult = await $({ cwd: tempDir })`git merge-base origin/${defaultBranch} HEAD 2>&1`;
+    if (mergeBaseResult.code !== 0 || !mergeBaseResult.stdout) {
+      await log('   Could not find merge base, cannot safely detect CLAUDE.md commit', { verbose: true });
+      return null;
+    }
+    const mergeBase = mergeBaseResult.stdout.toString().trim();
+    await log(`   Merge base: ${mergeBase.substring(0, 7)}`, { verbose: true });
+
+    // Get all commits on the PR branch (commits after the merge base)
+    // Format: hash|message|files_changed
+    const branchCommitsResult = await $({ cwd: tempDir })`git log ${mergeBase}..HEAD --reverse --format="%H|%s" 2>&1`;
+    if (branchCommitsResult.code !== 0 || !branchCommitsResult.stdout) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+
+    const branchCommits = branchCommitsResult.stdout.toString().trim().split('\n').filter(Boolean);
+    if (branchCommits.length === 0) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+
+    await log(`   Found ${branchCommits.length} commit(s) on PR branch`, { verbose: true });
+
+    // Safety check: Must have at least 2 commits (CLAUDE.md commit + actual work)
+    if (branchCommits.length < 2) {
+      await log('   Only 1 commit on branch - not enough commits to safely revert CLAUDE.md', { verbose: true });
+      await log('   (Need at least 2 commits: CLAUDE.md initial + actual work)', { verbose: true });
+      return null;
+    }
+
+    // Get the first commit on the PR branch
+    const firstCommitLine = branchCommits[0];
+    const [firstCommitHash, firstCommitMessage] = firstCommitLine.split('|');
+
+    await log(`   First commit on branch: ${firstCommitHash.substring(0, 7)} - "${firstCommitMessage}"`, { verbose: true });
+
+    // Safety check: Verify commit message matches expected pattern
+    const expectedMessagePatterns = [
+      /^Initial commit with task details/i,
+      /^Add CLAUDE\.md/i,
+      /^CLAUDE\.md/i
+    ];
+
+    const messageMatches = expectedMessagePatterns.some(pattern => pattern.test(firstCommitMessage));
+    if (!messageMatches) {
+      await log('   First commit message does not match expected CLAUDE.md pattern', { verbose: true });
+      await log('   Expected patterns: "Initial commit with task details...", "Add CLAUDE.md", etc.', { verbose: true });
+      return null;
+    }
+
+    // Safety check: Verify the commit ONLY adds CLAUDE.md file (no other files)
+    const filesChangedResult = await $({ cwd: tempDir })`git diff-tree --no-commit-id --name-only -r ${firstCommitHash} 2>&1`;
+    if (filesChangedResult.code !== 0 || !filesChangedResult.stdout) {
+      await log('   Could not get files changed in first commit', { verbose: true });
+      return null;
+    }
+
+    const filesChanged = filesChangedResult.stdout.toString().trim().split('\n').filter(Boolean);
+    await log(`   Files changed in first commit: ${filesChanged.join(', ')}`, { verbose: true });
+
+    // Check if CLAUDE.md is in the files changed
+    if (!filesChanged.includes('CLAUDE.md')) {
+      await log('   First commit does not include CLAUDE.md', { verbose: true });
+      return null;
+    }
+
+    // CRITICAL SAFETY CHECK: Only allow revert if CLAUDE.md is the ONLY file changed
+    // This prevents Issue #617 where reverting a commit deleted .gitignore, LICENSE, README.md
+    if (filesChanged.length > 1) {
+      await log(`   ⚠️  First commit changes more than just CLAUDE.md (${filesChanged.length} files)`, { verbose: true });
+      await log(`   Files: ${filesChanged.join(', ')}`, { verbose: true });
+      await log('   Refusing to revert to prevent data loss (Issue #617 safety)', { verbose: true });
+      return null;
+    }
+
+    // All safety checks passed!
+    await log(`   ✅ Detected CLAUDE.md commit: ${firstCommitHash.substring(0, 7)}`, { verbose: true });
+    await log('   ✅ Commit only contains CLAUDE.md (safe to revert)', { verbose: true });
+    await log(`   ✅ Branch has ${branchCommits.length - 1} additional commit(s) (work was done)`, { verbose: true });
+
+    return firstCommitHash;
+  } catch (error) {
+    reportError(error, {
+      context: 'detect_claude_md_commit',
+      tempDir,
+      branchName,
+      operation: 'detect_commit_from_branch_structure'
+    });
+    await log(`   Error detecting CLAUDE.md commit: ${error.message}`, { verbose: true });
+    return null;
+  }
+};
+
 // Revert the CLAUDE.md commit to restore original state
 export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
   try {
-    await log(formatAligned('🔄', 'Cleanup:', 'Reverting CLAUDE.md commit'));
+    // If no commit hash provided, try to detect it from branch structure
+    // This handles continue mode where the hash was lost between sessions
+    if (!claudeCommitHash) {
+      await log('   No CLAUDE.md commit hash from session, attempting to detect from branch...', { verbose: true });
+      claudeCommitHash = await detectClaudeMdCommitFromBranch(tempDir, branchName);
 
-    let commitToRevert = claudeCommitHash;
-
-    // If commit hash wasn't provided (e.g., in continue mode), fall back to finding it
-    if (!commitToRevert) {
-      await log('   No commit hash provided, searching for first commit...', { verbose: true });
-      const firstCommitResult = await $({ cwd: tempDir })`git log --format=%H --reverse 2>&1`;
-      if (firstCommitResult.code !== 0) {
-        await log('   Warning: Could not get commit history', { verbose: true });
+      if (!claudeCommitHash) {
+        await log('   Could not safely detect CLAUDE.md commit to revert', { verbose: true });
         return;
       }
-
-      const commits = firstCommitResult.stdout.toString().trim().split('\n');
-      if (commits.length === 0) {
-        await log('   Warning: No commits found in branch', { verbose: true });
-        return;
-      }
-
-      commitToRevert = commits[0];
-    } else {
-      await log(`   Using saved commit hash: ${commitToRevert.substring(0, 7)}...`, { verbose: true });
+      await log(`   Detected CLAUDE.md commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
     }
 
-    // Revert the CLAUDE.md commit
-    const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
-    if (revertResult.code === 0) {
-      await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert'));
+    await log(formatAligned('🔄', 'Cleanup:', 'Reverting CLAUDE.md commit'));
+    await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
 
-      // Push the revert
-      const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
-      if (pushRevertResult.code === 0) {
-        await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+    const commitToRevert = claudeCommitHash;
+
+    // APPROACH 3: Check for modifications before reverting (proactive detection)
+    // This is the main strategy - detect if CLAUDE.md was modified after initial commit
+    await log('   Checking if CLAUDE.md was modified since initial commit...', { verbose: true });
+    const diffResult = await $({ cwd: tempDir })`git diff ${commitToRevert} HEAD -- CLAUDE.md 2>&1`;
+
+    if (diffResult.stdout && diffResult.stdout.trim()) {
+      // CLAUDE.md was modified after initial commit - use manual approach to avoid conflicts
+      await log('   CLAUDE.md was modified after initial commit, using manual cleanup...', { verbose: true });
+
+      // Get the state of CLAUDE.md from before the initial commit (parent of the commit we're reverting)
+      const parentCommit = `${commitToRevert}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:CLAUDE.md 2>&1`;
+
+      if (parentFileExists.code === 0) {
+        // CLAUDE.md existed before the initial commit - restore it to that state
+        await log('   CLAUDE.md existed before session, restoring to previous state...', { verbose: true });
+        await $({ cwd: tempDir })`git checkout ${parentCommit} -- CLAUDE.md`;
       } else {
-        await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        // CLAUDE.md didn't exist before the initial commit - delete it
+        await log('   CLAUDE.md was created in session, removing it...', { verbose: true });
+        await $({ cwd: tempDir })`git rm -f CLAUDE.md 2>&1`;
+      }
+
+      // Create a manual revert commit
+      const commitResult = await $({ cwd: tempDir })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit" 2>&1`;
+
+      if (commitResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert (manual)'));
+
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+        } else {
+          await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        }
+      } else {
+        await log('   Warning: Could not create manual revert commit', { verbose: true });
+        await log(`   Commit output: ${commitResult.stderr || commitResult.stdout}`, { verbose: true });
       }
     } else {
-      await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
-      await log(`   Revert output: ${revertResult.stderr || revertResult.stdout}`, { verbose: true });
+      // No modifications detected - safe to use git revert (standard approach)
+      await log('   No modifications detected, using standard git revert...', { verbose: true });
+
+      // FALLBACK 1: Standard git revert
+      const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
+      if (revertResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert'));
+
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+        } else {
+          await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        }
+      } else {
+        // FALLBACK 2: Handle unexpected conflicts (three-way merge with automatic resolution)
+        const revertOutput = revertResult.stderr || revertResult.stdout || '';
+        const hasConflict = revertOutput.includes('CONFLICT') || revertOutput.includes('conflict');
+
+        if (hasConflict) {
+          await log('   Unexpected conflict detected, attempting automatic resolution...', { verbose: true });
+
+          // Check git status to see what files are in conflict
+          const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
+          const statusOutput = statusResult.stdout || '';
+
+          // Check if CLAUDE.md is in the conflict
+          if (statusOutput.includes('CLAUDE.md')) {
+            await log('   Resolving CLAUDE.md conflict by restoring pre-session state...', { verbose: true });
+
+            // Get the state of CLAUDE.md from before the initial commit (parent of the commit we're reverting)
+            const parentCommit = `${commitToRevert}~1`;
+            const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:CLAUDE.md 2>&1`;
+
+            if (parentFileExists.code === 0) {
+              // CLAUDE.md existed before the initial commit - restore it to that state
+              await log('   CLAUDE.md existed before session, restoring to previous state...', { verbose: true });
+              await $({ cwd: tempDir })`git checkout ${parentCommit} -- CLAUDE.md`;
+              // Stage the resolved CLAUDE.md
+              await $({ cwd: tempDir })`git add CLAUDE.md 2>&1`;
+            } else {
+              // CLAUDE.md didn't exist before the initial commit - delete it
+              await log('   CLAUDE.md was created in session, removing it...', { verbose: true });
+              await $({ cwd: tempDir })`git rm -f CLAUDE.md 2>&1`;
+              // No need to git add since git rm stages the deletion
+            }
+
+            // Complete the revert with the resolved conflict
+            const continueResult = await $({ cwd: tempDir })`git revert --continue --no-edit 2>&1`;
+
+            if (continueResult.code === 0) {
+              await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert (conflict resolved)'));
+
+              // Push the revert
+              const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+              if (pushRevertResult.code === 0) {
+                await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+              } else {
+                await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+              }
+            } else {
+              await log('   Warning: Could not complete revert after conflict resolution', { verbose: true });
+              await log(`   Continue output: ${continueResult.stderr || continueResult.stdout}`, { verbose: true });
+            }
+          } else {
+            // Conflict in some other file, not CLAUDE.md - this is unexpected
+            await log('   Warning: Revert conflict in unexpected file(s), aborting revert', { verbose: true });
+            await $({ cwd: tempDir })`git revert --abort 2>&1`;
+          }
+        } else {
+          // Non-conflict error
+          await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
+          await log(`   Revert output: ${revertOutput}`, { verbose: true });
+        }
+      }
     }
   } catch (e) {
     reportError(e, {
@@ -118,8 +345,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     if (limitReached) {
       await log('\n⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoContinueLimit && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
         // Only show resume recommendation if --no-auto-cleanup was passed
@@ -128,8 +355,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
           await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
 
           if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
+            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
           }
 
           await log('\n   This will continue from where it left off with full context.\n');
@@ -160,7 +387,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -281,7 +508,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             $,
             log,
             sanitizeLogContent,
-            verbose: argv.verbose
+            verbose: argv.verbose,
+            sessionId,
+            tempDir,
+            anthropicTotalCostUSD,
+            // Pass agent tool pricing data when available
+            publicPricingEstimate,
+            pricingInfo
           });
         }
 
@@ -293,11 +526,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           await log('⚠️  Solution draft log upload was requested but failed');
         }
         await log('\n✨ Please review the pull request for the proposed solution draft.');
-        // Don't exit if watch mode is enabled - it needs to continue monitoring
-        if (!argv.watch) {
+        // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
+        if (!argv.watch && !shouldRestart) {
           await safeExit(0, 'Process completed successfully');
         }
-        return; // Return normally for watch mode
+        return; // Return normally for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }
@@ -339,7 +572,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           $,
           log,
           sanitizeLogContent,
-          verbose: argv.verbose
+          verbose: argv.verbose,
+          sessionId,
+          tempDir,
+          anthropicTotalCostUSD,
+          // Pass agent tool pricing data when available
+          publicPricingEstimate,
+          pricingInfo
         });
       }
 
@@ -349,11 +588,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         await log('📎 Solution draft log has been attached to the issue');
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
-      // Don't exit if watch mode is enabled - it needs to continue monitoring
-      if (!argv.watch) {
+      // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
+      if (!argv.watch && !shouldRestart) {
         await safeExit(0, 'Process completed successfully');
       }
-      return; // Return normally for watch mode
+      return; // Return normally for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {

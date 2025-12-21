@@ -22,11 +22,9 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     const yargs = yargsModule.default || yargsModule;
     const { hideBin } = await use('yargs@17.7.2/helpers');
     const rawArgs = hideBin(process.argv);
-
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
-
     // Show help and exit
     helpYargs.showHelp();
     process.exit(0);
@@ -48,7 +46,6 @@ export { createYargsConfig } from './hive.config.lib.mjs';
 import { fileURLToPath } from 'url';
 const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) ||
                           (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
-
 if (isDirectExecution) {
 console.log('🐝 Hive Mind - AI-powered issue solver');
 console.log('   Initializing...');
@@ -63,7 +60,6 @@ const withTimeout = (promise, timeoutMs, operation) => {
     )
   ]);
 };
-
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof use === 'undefined') {
   try {
@@ -108,6 +104,9 @@ const yargsConfigLib = await import('./hive.config.lib.mjs');
 const { createYargsConfig } = yargsConfigLib;
 const claudeLib = await import('./claude.lib.mjs');
 const { validateClaudeConnection } = claudeLib;
+// Import model validation library
+const modelValidation = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = modelValidation;
 const githubLib = await import('./github.lib.mjs');
 const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
 // Import YouTrack-related functions
@@ -130,7 +129,6 @@ const { tryFetchIssuesWithGraphQL } = graphqlLib;
 const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
 const isLocalScript = commandName.endsWith('.mjs');
 const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
-
 /**
  * Fallback function to fetch issues from organization/user repositories
  * when search API hits rate limits
@@ -141,7 +139,9 @@ const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
  * @returns {Promise<Array>} Array of issues
  */
 async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-  const { execSync } = await import('child_process');
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
   try {
     await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
     // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -153,7 +153,6 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
         return graphqlResult.issues;
       }
     }
-
     // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
     await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
@@ -166,18 +165,15 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
     } else {
       repoListCmd = `gh api users/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
     }
-
     await log('   📋 Fetching repository list (using --paginate for unlimited pagination)...', { verbose: true });
     await log(`   🔎 Command: ${repoListCmd}`, { verbose: true });
 
     // Add delay for rate limiting
     await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const repoOutput = execSync(repoListCmd, { encoding: 'utf8' });
+    const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
     // Parse the output line by line, as gh api with --jq outputs one JSON object per line
     const repoLines = repoOutput.trim().split('\n').filter(line => line.trim());
     const allRepositories = repoLines.map(line => JSON.parse(line));
-
     await log(`   📊 Found ${allRepositories.length} repositories`);
 
     // Filter repositories to only include those owned by the target user/org
@@ -186,30 +182,24 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
       return repoOwner === owner;
     });
     const unownedCount = allRepositories.length - ownedRepositories.length;
-
     if (unownedCount > 0) {
       await log(`   ⏭️  Skipping ${unownedCount} repository(ies) not owned by ${owner}`);
     }
-
     // Filter out archived repositories from owned repositories
     const repositories = ownedRepositories.filter(repo => !repo.isArchived);
     const archivedCount = ownedRepositories.length - repositories.length;
-
     if (archivedCount > 0) {
       await log(`   ⏭️  Skipping ${archivedCount} archived repository(ies)`);
     }
-
     await log(`   ✅ Processing ${repositories.length} non-archived repositories owned by ${owner}`);
 
     let collectedIssues = [];
     let processedRepos = 0;
-
     // Process repositories in batches to avoid overwhelming the API
     for (const repo of repositories) {
       try {
         const repoName = repo.name;
         const ownerName = repo.owner?.login || owner;
-
         await log(`   🔍 Fetching issues from ${ownerName}/${repoName}...`, { verbose: true });
 
         // Build the appropriate issue list command
@@ -219,7 +209,6 @@ async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIss
         } else {
           issueCmd = `gh issue list --repo ${ownerName}/${repoName} --state open --label "${monitorTag}" --json url,title,number,createdAt`;
         }
-
         // Add delay between repository requests
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -289,11 +278,11 @@ process.stderr.write = function(chunk, encoding, callback) {
   return true;
 };
 
-try {
-  argv = await createYargsConfig(yargs()).parse(rawArgs);
-  // Restore stderr if parsing succeeded
-  process.stderr.write = originalStderrWrite;
-} catch (error) {
+  try {
+    argv = await createYargsConfig(yargs()).parse(rawArgs);
+    // Restore stderr if parsing succeeded
+    process.stderr.write = originalStderrWrite;
+  } catch (error) {
   // Restore stderr before handling the error
   process.stderr.write = originalStderrWrite;
 
@@ -316,6 +305,10 @@ try {
     }
     throw error;
   }
+
+  // Normalize deprecated flags to new names
+  if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+  if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
 }
 
 let githubUrl = argv['github-url'];
@@ -329,10 +322,9 @@ if (githubUrl) {
 
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
-    if (parsedUrl.error) {
-      console.error(`  ${parsedUrl.error}`);
-    }
-    console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
+    if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    console.error('\nExpected: https://github.com/owner or https://github.com/owner/repo');
     console.error('You can use any of these formats:');
     console.error('  - https://github.com/owner');
     console.error('  - https://github.com/owner/repo');
@@ -476,20 +468,38 @@ if (argv.projectMode) {
   }
 }
 
-// Validate conflicting options
-if (argv.skipIssuesWithPrs && argv.autoContinue) {
-  await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
-  await log('   --skip-issues-with-prs: Skips issues that have any open PRs', { level: 'error' });
-  await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
-  await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
-  await safeExit(1, 'Error occurred');
+// Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
+// Model validation is a simple string check and should always be performed
+const tool = argv.tool || 'claude';
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
+// Handle -s (--skip-issues-with-prs) and --auto-continue interaction
+// Detect if user explicitly passed --auto-continue or --no-auto-continue
+const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
+const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
+
+if (argv.skipIssuesWithPrs) {
+  // If user explicitly passed --auto-continue with -s, that's a conflict
+  if (hasExplicitAutoContinue) {
+    await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
+    await log('   --skip-issues-with-prs: Skips issues that have any open PRs', { level: 'error' });
+    await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
+    await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+    await safeExit(1, 'Error occurred');
+  }
+
+  // If user didn't explicitly set auto-continue, disable it when -s is used
+  // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+  if (!hasExplicitNoAutoContinue) {
+    argv.autoContinue = false;
+  }
 }
 
 // Helper function to check GitHub permissions - moved to github.lib.mjs
 
 // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const hasValidAuth = await checkGitHubPermissions();
   if (!hasValidAuth) {
@@ -557,7 +567,7 @@ if (urlMatch) {
 // Determine scope
 if (!repo) {
   // Check if it's an organization or user (skip in dry-run mode to avoid hanging)
-  if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
+  if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
     // In dry-run mode, default to user to avoid GitHub API calls
     scope = 'user';
     await log('   ℹ️  Assuming user scope (dry-run mode, skipping API detection)', { verbose: true });
@@ -625,12 +635,9 @@ await log(`   ${argv.once ? '🚀 Mode: Single run' : '♾️  Mode: Continuous 
 if (argv.maxIssues > 0) {
   await log(`   🔢 Max Issues: ${argv.maxIssues}`);
 }
-if (argv.dryRun) {
-  await log('   🧪 DRY RUN MODE - No actual processing');
-}
-if (argv.autoCleanup) {
-  await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
-}
+if (argv.dryRun) await log('   🧪 DRY RUN MODE - No actual processing');
+if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
+if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
 await log('');
 
 // Producer/Consumer Queue implementation
@@ -740,13 +747,18 @@ async function worker(workerId) {
         const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
         const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
         const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-        const skipToolCheckFlag = (argv.skipToolCheck || !argv.toolCheck) ? ' --skip-tool-check' : '';
+        const skipToolConnectionCheckFlag = (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) ? ' --skip-tool-connection-check' : '';
         const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
-        const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
+        const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
         const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
+        const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
         const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
         const watchFlag = argv.watch ? ' --watch' : '';
-
+        const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
+        const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
+        const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
+        const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
+        const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
 
@@ -776,32 +788,38 @@ async function worker(workerId) {
         if (argv.dryRun) {
           args.push('--dry-run');
         }
-        if (argv.skipToolCheck || !argv.toolCheck) {
-          args.push('--skip-tool-check');
+        if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+          args.push('--skip-tool-connection-check');
         }
         if (argv.autoContinue) {
           args.push('--auto-continue');
+        } else {
+          args.push('--no-auto-continue');
         }
         if (argv.think) {
           args.push('--think', argv.think);
         }
+        if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
         if (!argv.sentry) {
           args.push('--no-sentry');
         }
-        if (argv.watch) {
-          args.push('--watch');
-        }
+        if (argv.watch) args.push('--watch');
+        if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
+        if (argv.interactiveMode) args.push('--interactive-mode');
+        if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
+        if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
+        if (argv.promptCaseStudies) args.push('--prompt-case-studies');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolCheckFlag}${autoContinueFlag}${thinkFlag}${noSentryFlag}${watchFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
-
         // Create promise to handle async spawn process
-        await new Promise((resolve, _reject) => {
+        await new Promise((resolve) => {
           const child = spawn(solveCommand, args, {
-            stdio: ['pipe', 'pipe', 'pipe']
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: process.env
           });
 
           // Handle stdout data - stream output in real-time
@@ -1427,9 +1445,9 @@ process.on('SIGINT', () => gracefulShutdown('interrupt'));
 process.on('SIGTERM', () => gracefulShutdown('termination'));
 
 // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
-if (argv.dryRun || argv.skipToolCheck || !argv.toolCheck) {
-  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-check enabled)', { verbose: true });
-  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-check enabled)', { verbose: true });
+if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+  await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+  await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
 } else {
   const systemCheck = await checkSystem(
     {
@@ -1477,8 +1495,7 @@ try {
     console.error('\nStack trace:');
     console.error(fatalError.stack);
   }
-  console.error('\nPlease report this issue at: https://github.com/deep-assistant/hive-mind/issues');
+  console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
   process.exit(1);
 }
-
 } // End of main execution block

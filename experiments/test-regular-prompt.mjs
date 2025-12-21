@@ -5,7 +5,7 @@
 const testRegularModePrompt = () => {
   // Simulate regular mode variables
   const isContinueMode = false;
-  const issueUrl = 'https://github.com/deep-assistant/hive-mind/issues/71';
+  const issueUrl = 'https://github.com/link-assistant/hive-mind/issues/71';
   const branchName = 'issue-71-145a3af2';
   const tempDir = '/tmp/test-dir';
   

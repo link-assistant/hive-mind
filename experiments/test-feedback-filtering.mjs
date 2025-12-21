@@ -124,7 +124,7 @@ async function runTests() {
   // Test 2: PR draft conversion (would need a real PR)
   console.log('Test 2: PR Draft Conversion (example - needs real PR)');
   console.log('⚠️ Skipping - would need real PR number and permissions');
-  // await testPRDraftConversion(299, 'deep-assistant', 'hive-mind');
+  // await testPRDraftConversion(299, 'link-assistant', 'hive-mind');
   console.log();
 
   // Test 3: Fork actions detection (would need a real fork)
@@ -137,7 +137,7 @@ async function runTests() {
   console.log('Test 4: Comment Filtering (example - needs real PR)');
   console.log('⚠️ Skipping - would need real PR with comments');
   // const workStartTime = new Date(Date.now() - 3600000); // 1 hour ago
-  // await testCommentFiltering('deep-assistant', 'hive-mind', 299, workStartTime);
+  // await testCommentFiltering('link-assistant', 'hive-mind', 299, workStartTime);
   console.log();
 
   console.log('✅ Test script complete!');

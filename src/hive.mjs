@@ -108,6 +108,8 @@ if (isDirectExecution) {
     const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
     const graphqlLib = await import('./github.graphql.lib.mjs');
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
+    const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
+    const { listSolutionDrafts } = solutionDraftsLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -196,9 +198,7 @@ if (isDirectExecution) {
             }
             // Add delay between repository requests
             await new Promise(resolve => setTimeout(resolve, 1000));
-
             const repoIssues = await fetchAllIssuesWithPagination(issueCmd);
-
             // Add repository information to each issue
             const issuesWithRepo = repoIssues.map(issue => ({
               ...issue,
@@ -207,10 +207,8 @@ if (isDirectExecution) {
                 owner: { login: ownerName },
               },
             }));
-
             collectedIssues.push(...issuesWithRepo);
             processedRepos++;
-
             if (issuesWithRepo.length > 0) {
               await log(`   ✅ Found ${issuesWithRepo.length} issues in ${ownerName}/${repoName}`, { verbose: true });
             }
@@ -1348,7 +1346,10 @@ if (isDirectExecution) {
             }
             Object.assign(stats, currentStats);
           }
-
+          // List completed issues with their solution draft PRs
+          if (stats.completed > 0) {
+            await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
+          }
           await log('\n✅ All issues processed!');
           await log(`   Completed: ${stats.completed}`);
           await log(`   Failed: ${stats.failed}`);

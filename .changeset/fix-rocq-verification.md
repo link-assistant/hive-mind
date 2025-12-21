@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 Fix Rocq installation verification by sourcing opam environment

@@ -65,6 +65,7 @@ According to [Rocq's official documentation](https://rocq-prover.org/docs/using-
 > "Every time a new shell is opened you have to type in the `eval $(opam env)` command to update environment variables."
 
 The issue is that:
+
 1. During the installation script, `eval $(opam env)` is run
 2. But the **Installation Summary** runs in the same script context
 3. When checking `command -v rocq`, the opam environment has been evaluated
@@ -81,33 +82,36 @@ ENV PATH="/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.lin
 ```
 
 The PATH includes `/home/hive/.opam/default/bin` but:
+
 1. This path may not contain the Rocq binary directly
 2. The actual binary location may be version-specific (e.g., `/home/hive/.opam/default/bin/rocq` may be a symlink)
 3. The opam environment may need other variables besides PATH
 
 ## Timeline of Events
 
-| Time | Event |
-|------|-------|
-| During Install | Opam installed and initialized successfully |
-| During Install | Rocq-prover package installed via opam |
-| During Install | `eval $(opam env)` executed in installation context |
+| Time                 | Event                                                              |
+| -------------------- | ------------------------------------------------------------------ |
+| During Install       | Opam installed and initialized successfully                        |
+| During Install       | Rocq-prover package installed via opam                             |
+| During Install       | `eval $(opam env)` executed in installation context                |
 | Installation Summary | Warning logged: "Rocq: installed via opam but not in current PATH" |
-| Docker Build | Dockerfile sets PATH with opam bin directory |
-| Container Runtime | `rocq` command not found because opam env not fully initialized |
-| CI Verification | Failure treated as acceptable: "theorem provers are optional" |
+| Docker Build         | Dockerfile sets PATH with opam bin directory                       |
+| Container Runtime    | `rocq` command not found because opam env not fully initialized    |
+| CI Verification      | Failure treated as acceptable: "theorem provers are optional"      |
 
 ## Evidence from CI Logs
 
 ### Successful Run #20410304357 (2025-12-21)
 
 1. **Installation Log**:
+
    ```
    [!] Rocq: installed via opam but not in current PATH
    [i] Rocq will be available after shell restart or: eval $(opam env)
    ```
 
 2. **Build Log Verification**:
+
    ```
    WARNING: Rocq/Coq success message not found in logs (may appear as 'installed but not in current PATH' during build)
    ```
@@ -123,6 +127,7 @@ The PATH includes `/home/hive/.opam/default/bin` but:
 ### Solution 1: Ensure PATH Accessibility in Installation Script
 
 Modify the installation script to:
+
 1. Source opam environment after installation
 2. Verify `rocq -v` works as per [official documentation](https://rocq-prover.org/docs/using-opam)
 3. If verification fails, treat it as an error, not a warning
@@ -130,12 +135,14 @@ Modify the installation script to:
 ### Solution 2: Fix Dockerfile Environment Setup
 
 Ensure the Dockerfile properly initializes the opam environment:
+
 1. Add opam initialization to `.bashrc` entry point
 2. Or add a Docker ENTRYPOINT that sources opam env
 
 ### Solution 3: Make CI Verification Strict
 
 Update the CI workflow to:
+
 1. Remove the "optional" treatment of Rocq
 2. Fail the build if Rocq is not accessible after sourcing opam env
 
@@ -154,18 +161,19 @@ Update the CI workflow to:
 ### Rocq 9.0+ Command Names
 
 According to [GitHub discussions](https://github.com/rocq-prover/rocq/issues/20031), Rocq 9.0+ provides multiple command names:
+
 - `rocq` - CLI tool with subcommands (e.g., `rocq compile`, `rocq repl`)
 - `rocqc` - Compiler alias for Rocq
 - `coqc` - Legacy Coq compiler (backward compatible)
 
 ## Files in This Case Study
 
-| File | Description |
-|------|-------------|
-| [README.md](./README.md) | This overview document |
-| [root-cause-analysis.md](./root-cause-analysis.md) | Detailed technical analysis |
-| [proposed-solutions.md](./proposed-solutions.md) | Recommended code changes |
-| [ci-logs/](./ci-logs/) | Downloaded CI logs for analysis |
+| File                                               | Description                     |
+| -------------------------------------------------- | ------------------------------- |
+| [README.md](./README.md)                           | This overview document          |
+| [root-cause-analysis.md](./root-cause-analysis.md) | Detailed technical analysis     |
+| [proposed-solutions.md](./proposed-solutions.md)   | Recommended code changes        |
+| [ci-logs/](./ci-logs/)                             | Downloaded CI logs for analysis |
 
 ## Key Learnings
 
@@ -191,6 +199,7 @@ WARNING: Rocq/Coq not accessible in container
 ```
 
 **Key Findings:**
+
 1. The `rocq-prover` package IS installed in opam
 2. But there are NO rocq/coq binaries in `~/.opam/default/bin/`
 3. Even `eval $(opam env)` doesn't make rocq accessible

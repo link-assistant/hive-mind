@@ -3,6 +3,7 @@
 ## Problem Statement
 
 After installing Rocq via opam, the Installation Summary shows a warning:
+
 ```
 [!] Rocq: installed via opam but not in current PATH
 [i] Rocq will be available after shell restart or: eval $(opam env)
@@ -60,6 +61,7 @@ Installation Script
 ### Why the PATH Entry Doesn't Work
 
 The Dockerfile includes:
+
 ```dockerfile
 ENV PATH="/home/hive/.opam/default/bin:${PATH}"
 ```
@@ -86,6 +88,7 @@ These additional variables may be required for Rocq to function correctly.
 ### Installation Script Verification Flow
 
 Current code (lines 1324-1336):
+
 ```bash
 if command -v rocq &>/dev/null; then
   log_success "Rocq: $(rocq --version | head -n1)"
@@ -103,6 +106,7 @@ fi
 ```
 
 **Problem**: This logic:
+
 1. First checks if command exists (may fail due to PATH)
 2. Then checks if package is installed via opam (shows warning)
 3. Does NOT attempt to fix the PATH issue
@@ -111,6 +115,7 @@ fi
 ### CI Workflow Verification
 
 The CI workflow sources the opam init script:
+
 ```bash
 if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
   source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
@@ -118,6 +123,7 @@ fi
 ```
 
 But then treats failure as acceptable:
+
 ```bash
 else
   echo 'Rocq/Coq command not found in container (this is acceptable - theorem provers are optional)'
@@ -133,6 +139,7 @@ The Dockerfile only sets PATH but doesn't initialize the full opam environment. 
 ### Root Cause 2: No Post-Installation Verification
 
 The installation script doesn't verify that Rocq is actually usable. Per the [official documentation](https://rocq-prover.org/docs/using-opam):
+
 > "To ensure that installation was successful, check that `rocq -v` prints the expected version of Rocq."
 
 ### Root Cause 3: CI Treats Rocq as Optional

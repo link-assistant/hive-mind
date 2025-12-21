@@ -22,6 +22,7 @@ fi
 #### Change 2: Verify Rocq with `rocq -v` as per official documentation
 
 Update the Rocq verification section to:
+
 1. Source opam environment
 2. Check `rocq -v` command as recommended by [official docs](https://rocq-prover.org/docs/using-opam)
 3. Show success with version, or clear error if not working
@@ -59,6 +60,7 @@ fi
 Update the container verification step:
 
 **Before:**
+
 ```bash
 if command -v rocq &>/dev/null; then
   rocq --version | head -n1
@@ -72,6 +74,7 @@ fi
 ```
 
 **After:**
+
 ```bash
 echo ''
 echo 'Checking Rocq/Coq...'
@@ -98,6 +101,7 @@ fi
 #### Change 2: Update build log verification to fail on Rocq issues
 
 **Before:**
+
 ```bash
 if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
   echo "Rocq/Coq installation verified in build logs"
@@ -107,6 +111,7 @@ fi
 ```
 
 **After:**
+
 ```bash
 if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
   echo "Rocq/Coq installation verified in build logs"
@@ -150,6 +155,7 @@ SHELL ["/bin/bash", "-c", "source ~/.bashrc && exec bash"]
 After implementing the changes:
 
 1. **Local Test**:
+
    ```bash
    docker build -t test-rocq .
    docker run --rm test-rocq bash -c "source ~/.bashrc && rocq -v"

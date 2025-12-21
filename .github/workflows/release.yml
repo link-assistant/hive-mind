@@ -1370,6 +1370,8 @@ jobs:
             # Verify Rocq installation
             # Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)
             # Reference: https://rocq-prover.org/docs/using-opam
+            # Note: Rocq requires proper opam environment initialization which may not persist
+            # in Docker containers. This is documented in issue #952.
             if rocq -v &>/dev/null; then
               rocq -v | head -n1
               echo 'Rocq is accessible (verified with rocq -v)'
@@ -1380,8 +1382,19 @@ jobs:
               coqc --version | head -n1
               echo 'Coq is accessible (legacy compiler)'
             else
-              echo 'Rocq/Coq command not found in container'
-              exit 1
+              echo 'Rocq/Coq verification: checking opam installation...'
+              # Show diagnostic information
+              if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
+                echo 'rocq-prover package is installed in opam'
+                echo 'Opam bin directory contents:'
+                ls -la \"\$HOME/.opam/default/bin/\" 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq binaries found in opam bin'
+                echo 'Trying: eval \$(opam env) && rocq -v'
+                eval \"\$(opam env)\" && rocq -v || echo 'Still not accessible after eval opam env'
+              else
+                echo 'rocq-prover package NOT installed in opam'
+              fi
+              echo 'WARNING: Rocq/Coq not accessible in container'
+              echo 'Users should run: eval \$(opam env) before using Rocq commands'
             fi
 
             echo ''

@@ -20,7 +20,7 @@ async function testGitHubCommand(description, command, expectError = false) {
     const startTime = Date.now();
     const output = execSync(command, {
       encoding: 'utf8',
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     const endTime = Date.now();
 
@@ -44,14 +44,7 @@ async function testGitHubCommand(description, command, expectError = false) {
     }
 
     // Check for rate limit indicators
-    const isRateLimit =
-      combinedOutput.includes('rate limit') ||
-      combinedOutput.includes('API rate limit') ||
-      combinedOutput.includes('secondary rate limit') ||
-      combinedOutput.includes('403') ||
-      combinedOutput.includes('abuse') ||
-      combinedOutput.includes('too many requests') ||
-      combinedOutput.includes('retry-after');
+    const isRateLimit = combinedOutput.includes('rate limit') || combinedOutput.includes('API rate limit') || combinedOutput.includes('secondary rate limit') || combinedOutput.includes('403') || combinedOutput.includes('abuse') || combinedOutput.includes('too many requests') || combinedOutput.includes('retry-after');
 
     if (isRateLimit) {
       log(`   🚨 RATE LIMIT DETECTED!`);
@@ -61,7 +54,7 @@ async function testGitHubCommand(description, command, expectError = false) {
       success: false,
       error: combinedOutput,
       isRateLimit,
-      statusCode: error.status
+      statusCode: error.status,
     };
   }
 }
@@ -71,37 +64,22 @@ async function main() {
   log(`Testing different GitHub CLI commands to understand rate limits and page sizes\n`);
 
   // Test 1: Basic search API with small limit
-  await testGitHubCommand(
-    'Test 1: Search API with small limit (10 items)',
-    'gh search issues "is:issue is:open" --limit 10 --json url,title,number'
-  );
+  await testGitHubCommand('Test 1: Search API with small limit (10 items)', 'gh search issues "is:issue is:open" --limit 10 --json url,title,number');
 
   // Test 2: Search API with medium limit
-  await testGitHubCommand(
-    'Test 2: Search API with medium limit (100 items)',
-    'gh search issues "is:issue is:open" --limit 100 --json url,title,number'
-  );
+  await testGitHubCommand('Test 2: Search API with medium limit (100 items)', 'gh search issues "is:issue is:open" --limit 100 --json url,title,number');
 
   // Test 3: Search API with high limit to test maximum
-  await testGitHubCommand(
-    'Test 3: Search API with high limit (1000 items) - may hit limits',
-    'gh search issues "is:issue is:open" --limit 1000 --json url,title,number'
-  );
+  await testGitHubCommand('Test 3: Search API with high limit (1000 items) - may hit limits', 'gh search issues "is:issue is:open" --limit 1000 --json url,title,number');
 
   // Test 4: Repository listing API for comparison
   const testRepo = 'microsoft/vscode'; // A repo with many issues
-  await testGitHubCommand(
-    'Test 4: Repository listing API with high limit (1000 items)',
-    `gh issue list --repo ${testRepo} --state open --limit 1000 --json url,title,number`
-  );
+  await testGitHubCommand('Test 4: Repository listing API with high limit (1000 items)', `gh issue list --repo ${testRepo} --state open --limit 1000 --json url,title,number`);
 
   // Test 5: Multiple rapid search calls to trigger rate limits
   log(`\n📋 Test 5: Multiple rapid search calls to test rate limits`);
   for (let i = 1; i <= 5; i++) {
-    await testGitHubCommand(
-      `Rapid call ${i}/5`,
-      `gh search issues "is:issue is:open repo:${testRepo}" --limit 30 --json url,title,number`
-    );
+    await testGitHubCommand(`Rapid call ${i}/5`, `gh search issues "is:issue is:open repo:${testRepo}" --limit 30 --json url,title,number`);
 
     if (i < 5) {
       log(`   ⏱️  No delay between calls (${i}/4)`);
@@ -109,31 +87,22 @@ async function main() {
   }
 
   // Test 6: Test org-scope search
-  await testGitHubCommand(
-    'Test 6: Organization-scope search',
-    'gh search issues "org:microsoft is:open" --limit 100 --json url,title,number,repository'
-  );
+  await testGitHubCommand('Test 6: Organization-scope search', 'gh search issues "org:microsoft is:open" --limit 100 --json url,title,number,repository');
 
   // Test 7: Test user-scope search
-  await testGitHubCommand(
-    'Test 7: User-scope search',
-    'gh search issues "user:torvalds is:open" --limit 100 --json url,title,number,repository'
-  );
+  await testGitHubCommand('Test 7: User-scope search', 'gh search issues "user:torvalds is:open" --limit 100 --json url,title,number,repository');
 
   // Test 8: Test API endpoint directly to see raw responses
   log(`\n📋 Test 8: Direct API call to see raw rate limit headers`);
   try {
     const apiResult = execSync('gh api "/search/issues?q=is:issue+is:open&per_page=10" --include', {
       encoding: 'utf8',
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     log(`   ✅ API call successful`);
 
     // Look for rate limit headers in the response
-    const headers = apiResult.split('\n').filter(line =>
-      line.toLowerCase().includes('rate-limit') ||
-      line.toLowerCase().includes('x-ratelimit')
-    );
+    const headers = apiResult.split('\n').filter(line => line.toLowerCase().includes('rate-limit') || line.toLowerCase().includes('x-ratelimit'));
 
     if (headers.length > 0) {
       log(`   📊 Rate limit headers found:`);

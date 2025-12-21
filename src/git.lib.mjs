@@ -12,7 +12,7 @@ export const isGitRepository = async (execFunc = execAsync) => {
   try {
     await execFunc('git rev-parse --git-dir', {
       encoding: 'utf8',
-      env: process.env
+      env: process.env,
     });
     return true;
   } catch {
@@ -25,7 +25,7 @@ export const getGitTag = async (execFunc = execAsync) => {
   try {
     const { stdout } = await execFunc('git describe --exact-match --tags HEAD', {
       encoding: 'utf8',
-      env: process.env
+      env: process.env,
     });
     return stdout.trim();
   } catch {
@@ -38,7 +38,7 @@ export const getLatestGitTag = async (execFunc = execAsync) => {
   try {
     const { stdout } = await execFunc('git describe --tags --abbrev=0', {
       encoding: 'utf8',
-      env: process.env
+      env: process.env,
     });
     return stdout.trim().replace(/^v/, '');
   } catch {
@@ -51,7 +51,7 @@ export const getCommitSha = async (execFunc = execAsync) => {
   try {
     const { stdout } = await execFunc('git rev-parse --short HEAD', {
       encoding: 'utf8',
-      env: process.env
+      env: process.env,
     });
     return stdout.trim();
   } catch {
@@ -62,7 +62,7 @@ export const getCommitSha = async (execFunc = execAsync) => {
 // Helper function to get version string based on git state
 export const getGitVersion = async (execFunc = execAsync, currentVersion) => {
   // First check if we're in a git repository
-  if (!await isGitRepository(execFunc)) {
+  if (!(await isGitRepository(execFunc))) {
     return currentVersion;
   }
 
@@ -141,5 +141,5 @@ export default {
   getLatestGitTag,
   getCommitSha,
   getGitVersion,
-  getGitVersionAsync
+  getGitVersionAsync,
 };

@@ -149,7 +149,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!credentials) {
       return {
         success: false,
-        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.'
+        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.',
       };
     }
 
@@ -158,7 +158,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!accessToken) {
       return {
         success: false,
-        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
+        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
       };
     }
 
@@ -170,12 +170,12 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'claude-code/2.0.55',
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20',
+      },
     });
 
     if (!response.ok) {
@@ -188,13 +188,13 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (response.status === 401) {
         return {
           success: false,
-          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
+          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
         };
       }
 
       return {
         success: false,
-        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`
+        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`,
       };
     }
 
@@ -214,23 +214,23 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       currentSession: {
         percentage: data.five_hour?.utilization ?? null,
         resetTime: formatResetTime(data.five_hour?.resets_at),
-        resetsAt: data.five_hour?.resets_at ?? null
+        resetsAt: data.five_hour?.resets_at ?? null,
       },
       allModels: {
         percentage: data.seven_day?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day?.resets_at),
-        resetsAt: data.seven_day?.resets_at ?? null
+        resetsAt: data.seven_day?.resets_at ?? null,
       },
       sonnetOnly: {
         percentage: data.seven_day_sonnet?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day_sonnet?.resets_at),
-        resetsAt: data.seven_day_sonnet?.resets_at ?? null
-      }
+        resetsAt: data.seven_day_sonnet?.resets_at ?? null,
+      },
     };
 
     return {
       success: true,
-      usage
+      usage,
     };
   } catch (error) {
     if (verbose) {
@@ -238,7 +238,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     }
     return {
       success: false,
-      error: `Failed to get usage limits: ${error.message}`
+      error: `Failed to get usage limits: ${error.message}`,
     };
   }
 }
@@ -385,5 +385,5 @@ export default {
   getClaudeUsageLimits,
   getProgressBar,
   calculateTimePassedPercentage,
-  formatUsageMessage
+  formatUsageMessage,
 };

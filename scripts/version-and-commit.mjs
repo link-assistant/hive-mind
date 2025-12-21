@@ -15,9 +15,7 @@
 import { readFileSync, appendFileSync, readdirSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -60,21 +58,15 @@ if (args.length > 0 && !args[0].startsWith('--')) {
   console.error('Error: Positional arguments detected!');
   console.error('Command line arguments:', args);
   console.error('');
-  console.error(
-    'This script requires named arguments (--mode, --bump-type, --description).'
-  );
+  console.error('This script requires named arguments (--mode, --bump-type, --description).');
   console.error('Usage:');
   console.error('  Changeset mode:');
   console.error('    node scripts/version-and-commit.mjs --mode changeset');
   console.error('  Instant mode:');
-  console.error(
-    '    node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]'
-  );
+  console.error('    node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]');
   console.error('');
   console.error('Examples:');
-  console.error(
-    '  node scripts/version-and-commit.mjs --mode instant --bump-type patch --description "Fix bug"'
-  );
+  console.error('  node scripts/version-and-commit.mjs --mode instant --bump-type patch --description "Fix bug"');
   console.error('  node scripts/version-and-commit.mjs --mode changeset');
   process.exit(1);
 }
@@ -89,9 +81,7 @@ if (mode !== 'changeset' && mode !== 'instant') {
 // Validation: Ensure bump type is provided for instant mode
 if (mode === 'instant' && !bumpType) {
   console.error('Error: --bump-type is required for instant mode');
-  console.error(
-    'Usage: node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]'
-  );
+  console.error('Usage: node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]');
   process.exit(1);
 }
 
@@ -114,7 +104,7 @@ function countChangesets() {
   try {
     const changesetDir = '.changeset';
     const files = readdirSync(changesetDir);
-    return files.filter((f) => f.endsWith('.md') && f !== 'README.md').length;
+    return files.filter(f => f.endsWith('.md') && f !== 'README.md').length;
   } catch {
     return 0;
   }
@@ -153,9 +143,7 @@ async function main() {
     const remoteHead = remoteHeadResult.stdout.trim();
 
     if (localHead !== remoteHead) {
-      console.log(
-        `Remote main has advanced (local: ${localHead}, remote: ${remoteHead})`
-      );
+      console.log(`Remote main has advanced (local: ${localHead}, remote: ${remoteHead})`);
       console.log('This may indicate a previous attempt partially succeeded.');
 
       // Check if the remote version is already the expected bump
@@ -167,9 +155,7 @@ async function main() {
 
       if (changesetCount === 0) {
         console.log('No changesets to process and remote has advanced.');
-        console.log(
-          'Assuming version bump was already completed in a previous attempt.'
-        );
+        console.log('Assuming version bump was already completed in a previous attempt.');
         setOutput('version_committed', 'false');
         setOutput('already_released', 'true');
         setOutput('new_version', remoteVersion);

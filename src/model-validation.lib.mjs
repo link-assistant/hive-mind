@@ -14,9 +14,9 @@ import { log } from './lib.mjs';
 // These are the "known good" model names that we accept
 export const CLAUDE_MODELS = {
   // Short aliases
-  'sonnet': 'claude-sonnet-4-5-20250929',
-  'opus': 'claude-opus-4-5-20251101',
-  'haiku': 'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-5-20250929',
+  opus: 'claude-opus-4-5-20251101',
+  haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
   'haiku-3': 'claude-3-haiku-20240307',
   // Full model IDs (also valid inputs)
@@ -28,13 +28,13 @@ export const CLAUDE_MODELS = {
 };
 
 export const OPENCODE_MODELS = {
-  'gpt4': 'openai/gpt-4',
-  'gpt4o': 'openai/gpt-4o',
-  'claude': 'anthropic/claude-3-5-sonnet',
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'opus': 'anthropic/claude-3-opus',
-  'gemini': 'google/gemini-pro',
-  'grok': 'opencode/grok-code',
+  gpt4: 'openai/gpt-4',
+  gpt4o: 'openai/gpt-4o',
+  claude: 'anthropic/claude-3-5-sonnet',
+  sonnet: 'anthropic/claude-3-5-sonnet',
+  opus: 'anthropic/claude-3-opus',
+  gemini: 'google/gemini-pro',
+  grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   // Full model IDs
@@ -47,17 +47,17 @@ export const OPENCODE_MODELS = {
 };
 
 export const CODEX_MODELS = {
-  'gpt5': 'gpt-5',
+  gpt5: 'gpt-5',
   'gpt-5': 'gpt-5',
   'gpt5-codex': 'gpt-5-codex',
   'gpt-5-codex': 'gpt-5-codex',
-  'o3': 'o3',
+  o3: 'o3',
   'o3-mini': 'o3-mini',
-  'gpt4': 'gpt-4',
-  'gpt4o': 'gpt-4o',
-  'claude': 'claude-3-5-sonnet',
-  'sonnet': 'claude-3-5-sonnet',
-  'opus': 'claude-3-opus',
+  gpt4: 'gpt-4',
+  gpt4o: 'gpt-4o',
+  claude: 'claude-3-5-sonnet',
+  sonnet: 'claude-3-5-sonnet',
+  opus: 'claude-3-opus',
   // Full model IDs
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
@@ -67,15 +67,15 @@ export const CODEX_MODELS = {
 
 export const AGENT_MODELS = {
   // Free models (via OpenCode)
-  'grok': 'opencode/grok-code',
+  grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'openai/gpt-5-nano',
   // Premium models (requires OpenCode Zen subscription)
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'haiku': 'anthropic/claude-3-5-haiku',
-  'opus': 'anthropic/claude-3-opus',
+  sonnet: 'anthropic/claude-3-5-sonnet',
+  haiku: 'anthropic/claude-3-5-haiku',
+  opus: 'anthropic/claude-3-opus',
   'gemini-3-pro': 'google/gemini-3-pro',
   // Full model IDs
   'opencode/grok-code': 'opencode/grok-code',
@@ -92,7 +92,7 @@ export const AGENT_MODELS = {
  * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
  * @returns {Object} The model mapping for the tool
  */
-export const getModelMapForTool = (tool) => {
+export const getModelMapForTool = tool => {
   switch (tool) {
     case 'opencode':
       return OPENCODE_MODELS;
@@ -111,7 +111,7 @@ export const getModelMapForTool = (tool) => {
  * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent')
  * @returns {string[]} Array of available model short names
  */
-export const getAvailableModelNames = (tool) => {
+export const getAvailableModelNames = tool => {
   const modelMap = getModelMapForTool(tool);
   // Get unique short names (aliases) - exclude full model IDs that contain '/' or long claude- prefixed IDs
   const aliases = Object.keys(modelMap).filter(key => {
@@ -121,8 +121,8 @@ export const getAvailableModelNames = (tool) => {
     // - Full gpt- prefixed IDs with version numbers (e.g., 'gpt-4', 'gpt-4o')
     // But keep short names like 'o3', 'o3-mini', 'gpt5', etc.
     if (key.includes('/')) return false;
-    if (key.match(/^claude-.*-\d{8}$/)) return false;  // Full claude model IDs with date
-    if (key.match(/^gpt-\d+/)) return false;  // Full gpt-N model IDs
+    if (key.match(/^claude-.*-\d{8}$/)) return false; // Full claude model IDs with date
+    if (key.match(/^gpt-\d+/)) return false; // Full gpt-N model IDs
     return true;
   });
   return [...new Set(aliases)];
@@ -162,8 +162,8 @@ export const levenshteinDistance = (a, b) => {
       } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1 // deletion
         );
       }
     }
@@ -184,7 +184,7 @@ export const findSimilarModels = (input, validModels, maxSuggestions = 3, maxDis
   const suggestions = validModels
     .map(model => ({
       model,
-      distance: levenshteinDistance(input, model)
+      distance: levenshteinDistance(input, model),
     }))
     .filter(({ distance }) => distance <= maxDistance)
     .sort((a, b) => a.distance - b.distance)
@@ -205,7 +205,7 @@ export const validateModelName = (model, tool = 'claude') => {
     return {
       valid: false,
       message: 'Model name is required',
-      suggestions: []
+      suggestions: [],
     };
   }
 
@@ -219,7 +219,7 @@ export const validateModelName = (model, tool = 'claude') => {
   if (matchedKey) {
     return {
       valid: true,
-      mappedModel: modelMap[matchedKey]
+      mappedModel: modelMap[matchedKey],
     };
   }
 
@@ -238,7 +238,7 @@ export const validateModelName = (model, tool = 'claude') => {
   return {
     valid: false,
     message,
-    suggestions
+    suggestions,
   };
 };
 

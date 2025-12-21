@@ -46,17 +46,21 @@ From the issue description:
 Based on research from official sources:
 
 **Context Window Limits:**
+
 - **Claude Opus 4.5:** 200K tokens (standard)
 - **Claude Sonnet 4.5:** 200K tokens (standard), 1M tokens (beta with context-1m-2025-08-07 header)
 - **Claude Haiku 4.5:** 200K tokens
 
 **Output Token Limits:**
+
 - All Claude 4.5 models support up to **64,000 output tokens**
 
 **Enterprise Plans:**
+
 - Claude Sonnet 4.5 on Enterprise: 500K token context window
 
 **Sources:**
+
 - [Claude Sonnet 4 Model Gets a 1M Token Context Window - The New Stack](https://thenewstack.io/anthropics-claude-sonnet-4-model-gets-a-1m-token-context-window/)
 - [What's new in Claude 4.5 - Claude Docs](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-5)
 - [Models overview - Claude Docs](https://docs.claude.com/en/docs/about-claude/models/overview)
@@ -79,6 +83,7 @@ This meant we could build on existing infrastructure rather than creating new sy
 Added `--tokens-budget-stats` option to two configuration files:
 
 **File: `src/solve.config.lib.mjs`**
+
 ```javascript
 .option('tokens-budget-stats', {
   type: 'boolean',
@@ -88,6 +93,7 @@ Added `--tokens-budget-stats` option to two configuration files:
 ```
 
 **File: `src/hive.config.lib.mjs`**
+
 ```javascript
 .option('tokens-budget-stats', {
   type: 'boolean',
@@ -103,6 +109,7 @@ Both files were updated to ensure the option works in both `solve` and `hive` co
 Created new `displayBudgetStats()` function in `src/claude.lib.mjs`:
 
 **Key Features:**
+
 - Calculates context window usage (input + cache creation + cache read tokens)
 - Shows usage ratio and percentage for context window
 - Shows output token usage against maximum output limit
@@ -110,6 +117,7 @@ Created new `displayBudgetStats()` function in `src/claude.lib.mjs`:
 - Handles missing model limit data gracefully
 
 **Code snippet:**
+
 ```javascript
 const displayBudgetStats = async (usage, log) => {
   const modelInfo = usage.modelInfo;
@@ -162,6 +170,7 @@ if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
 ```
 
 This ensures:
+
 - Budget stats only display when the flag is enabled
 - Only displays when model limit information is available
 - Integrates seamlessly with existing per-model usage display
@@ -173,6 +182,7 @@ This ensures:
 **Decision:** Add budget stats display to the output phase, not the calculation phase.
 
 **Rationale:**
+
 - `calculateSessionTokens()` already returns all necessary data
 - Model limit information is already fetched and stored in `modelInfo`
 - Separation of concerns: calculation vs. presentation
@@ -184,6 +194,7 @@ This ensures:
 **Decision:** Include all input-related tokens (input + cache creation + cache read).
 
 **Rationale:**
+
 - All these tokens count toward the context window
 - Cache read tokens still occupy context space
 - Provides accurate picture of context utilization
@@ -194,6 +205,7 @@ This ensures:
 **Decision:** Mark as `[EXPERIMENTAL]` in the option description.
 
 **Rationale:**
+
 - New feature, may need refinement based on user feedback
 - Signals to users that behavior may change
 - Allows for iteration without breaking changes
@@ -204,6 +216,7 @@ This ensures:
 **Decision:** Set `default: false` for the option.
 
 **Rationale:**
+
 - Explicit requirement from issue
 - Keeps output clean for users who don't need detailed stats
 - Opt-in approach for experimental features
@@ -219,6 +232,7 @@ Since this is an output-only feature, testing should focus on:
 4. **Integration:** Ensure it doesn't break existing token display
 
 **Test scenarios:**
+
 - With flag enabled and model limits available
 - With flag enabled but model limits unavailable
 - With flag disabled (should not show budget stats)
@@ -243,6 +257,7 @@ When `--tokens-budget-stats` is enabled, users will see additional output like:
 ```
 
 This provides clear visibility into:
+
 - How much of the context window was used
 - How close to the output limit the session came
 - Overall session token consumption
@@ -292,6 +307,7 @@ Potential improvements for future iterations:
 The `--tokens-budget-stats` feature provides valuable insights into Claude API usage without affecting the default user experience. By building on existing infrastructure and following the project's patterns, the implementation is clean, maintainable, and easy to extend in the future.
 
 The feature addresses all stated requirements:
+
 - ✅ Shows context usage in absolute values and ratios
 - ✅ Displays usage against maximum input/output limits
 - ✅ Uses models.dev API for limit data (already integrated)

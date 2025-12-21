@@ -24,6 +24,7 @@
 **Error Type**: Workflow Syntax Error
 
 **Error Message**:
+
 ```
 Invalid workflow file: .github/workflows/main.yml#L1166
 You have an error in your yaml syntax on line 1166
@@ -40,11 +41,13 @@ gh run view 20054569331 --repo link-assistant/hive-mind --log
 ```
 
 **Result**:
+
 ```
 failed to get run log: log not found
 ```
 
 **Explanation**:
+
 - The workflow failed during the **parsing phase**
 - GitHub Actions parses the workflow YAML file before executing any jobs
 - If parsing fails, no jobs are executed
@@ -66,18 +69,21 @@ failed to get run log: log not found
 **Actual Error**: Line 1277
 
 **Line 1166 Content**:
+
 ```yaml
-    steps:
+steps:
 ```
 
 **Line 1277 Content** (with error):
+
 ```yaml
-       - name: Commit and push to gh-pages
+- name: Commit and push to gh-pages
 ```
 
 ### Context Around Error
 
 Lines 1265-1290:
+
 ```yaml
 1265:       - name: Update Helm repository index
 1266:         if: steps.should-run.outputs.should_run == 'true'
@@ -113,6 +119,7 @@ gh run view 20054569331 --repo link-assistant/hive-mind --json number,conclusion
 ```
 
 **Output**:
+
 ```json
 {
   "conclusion": "failure",
@@ -132,6 +139,7 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/main.yml'))"
 ```
 
 **Output**:
+
 ```
 yaml.parser.ParserError: while parsing a block collection
   in ".github/workflows/main.yml", line 1167, column 7
@@ -146,6 +154,7 @@ sed -n '1275,1285p' .github/workflows/main.yml | cat -A
 ```
 
 **Output** ($ = end of line, spaces visible):
+
 ```
           cat index.yaml$
 $
@@ -167,6 +176,7 @@ git blame .github/workflows/main.yml | sed -n '1277p'
 ```
 
 **Output**:
+
 ```
 fb7f53df .github/workflows/main.yml  (konard 2025-12-09 07:11:10 +0100 1277)        - name: Commit and push to gh-pages
 ```
@@ -178,6 +188,7 @@ git show fb7f53df .github/workflows/main.yml | grep -A10 -B10 "Commit and push"
 ```
 
 **Output** (showing the indentation change):
+
 ```diff
 -      - name: Commit and push to gh-pages
 -        if: steps.should-run.outputs.should_run == 'true'
@@ -199,6 +210,7 @@ git show fb7f53df .github/workflows/main.yml | grep -A10 -B10 "Commit and push"
 **Message**: Fix helm release CI workflow: force add ignored .tgz files
 
 **Full Commit Message**:
+
 ```
 Fix helm release CI workflow: force add ignored .tgz files
 
@@ -208,6 +220,7 @@ Added -f flag to git add to force inclusion of ignored files.
 ```
 
 **Changes**:
+
 ```
 .github/workflows/main.yml | 12 ++++++------
 1 file changed, 6 insertions(+), 6 deletions(-)
@@ -222,6 +235,7 @@ Added -f flag to git add to force inclusion of ignored files.
 **Message**: Merge pull request #883 from link-assistant/issue-882-6b3733e78b4d
 
 **Full Commit Message**:
+
 ```
 Merge pull request #883 from link-assistant/issue-882-6b3733e78b4d
 
@@ -332,11 +346,13 @@ gh run list --branch issue-884-40bde51754bb --limit 1
 ### Maintenance Considerations
 
 **Challenges**:
+
 - Large file size makes navigation difficult
 - Many steps increase chance of errors
 - Deep nesting complicates indentation
 
 **Recommendations**:
+
 - Consider splitting into multiple workflow files
 - Use reusable workflows for common patterns
 - Implement automated YAML validation

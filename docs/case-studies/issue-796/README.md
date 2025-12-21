@@ -1,12 +1,15 @@
 # Case Study: Issue #796 - Show current time in the same timezone
 
 ## Issue Reference
+
 https://github.com/link-assistant/hive-mind/issues/796
 
 ## Timeline of Events
 
 ### Initial State
+
 The `/limits` command in the Telegram bot was displaying Claude usage limits with several issues:
+
 1. Progress bars were not aligned (not using monospace fonts)
 2. Time format was truncating minutes (showing "10pm" instead of "10:59pm")
 3. No current time displayed in the same timezone
@@ -43,6 +46,7 @@ The `/limits` command in the Telegram bot was displaying Claude usage limits wit
    - Should use Telegram's message editing feature instead
 
 #### Affected Files
+
 - `src/claude-limits.lib.mjs` - Main library for formatting usage limits
 - `src/telegram-bot.mjs` - Telegram bot command handler
 - `package.json` - Version needs to be bumped for release
@@ -50,14 +54,18 @@ The `/limits` command in the Telegram bot was displaying Claude usage limits wit
 ## Proposed Solution
 
 ### 1. Add Minutes to Time Format
+
 Update `formatResetTime` function to include minutes:
+
 ```javascript
 const minutes = date.getUTCMinutes();
 return `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm} (UTC)`;
 ```
 
 ### 2. Add Relative Time Calculation
+
 Create new function to calculate relative time:
+
 ```javascript
 function formatRelativeTime(isoDate) {
   const now = new Date();
@@ -72,20 +80,26 @@ function formatRelativeTime(isoDate) {
 ```
 
 ### 3. Update Message Format
+
 Modify `formatUsageMessage` to:
-- Wrap entire message in Telegram code block (```text ... ```)
+
+- Wrap entire message in Telegram code block (`text ... `)
 - Show current time at the top
 - Show both relative and absolute time for resets
 
 ### 4. Use Message Editing
+
 Update telegram-bot.mjs to:
+
 - Send initial "fetching" message
 - Edit the same message with results instead of sending new message
 
 ### 5. Bump Version
+
 Update package.json version from 0.36.7 to 0.36.8 (patch release for bug fixes)
 
 ## Implementation Status
+
 - [x] Root cause analysis completed
 - [x] Solution designed
 - [ ] Code changes implemented
@@ -95,7 +109,9 @@ Update package.json version from 0.36.7 to 0.36.8 (patch release for bug fixes)
 - [ ] PR updated
 
 ## Expected Outcome
+
 After implementation, the `/limits` command will:
+
 1. Display aligned progress bars using monospace font
 2. Show correct time with minutes (e.g., "10:59pm")
 3. Display current time in UTC

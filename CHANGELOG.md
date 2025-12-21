@@ -1,5 +1,47 @@
 # @link-assistant/hive-mind
 
+## 0.47.0
+
+### Minor Changes
+
+- 1351ffe: Add Prettier for automatic code formatting with ESLint integration
+  - Added Prettier configuration with project code style settings
+  - Created format and format:check npm scripts for code formatting
+  - Integrated Prettier with ESLint to warn about formatting issues
+  - Added eslint-config-prettier and eslint-plugin-prettier dependencies
+
+## 0.46.1
+
+### Patch Changes
+
+- 3707189: Implement fail-fast CI strategy for release.yml workflow
+  - Added dependency ordering so long-running checks wait for all fast checks to pass
+  - Fast checks (test-compilation, lint, check-file-line-limits) run first (~7-21s each)
+  - Long-running checks (test-suites, test-execution, memory-check-linux, docker-pr-check) only run after fast checks pass
+  - Added smart conditionals with `!contains(needs.*.result, 'failure')` to skip long checks when fast checks fail
+  - Added section markers to clearly document FAST vs LONG-RUNNING checks in the workflow
+
+  Benefits:
+  - Time savings: If fast checks fail, ~4+ minutes of long-running tests are skipped
+  - Faster feedback: Developers get quick feedback on common issues
+  - Resource efficiency: Reduces unnecessary GitHub Actions minutes consumption
+
+## 0.46.0
+
+### Minor Changes
+
+- a436ee4: Add --prompt-case-studies CLI option for comprehensive issue analysis. When enabled, instructs the AI to download logs, create case study documentation in ./docs/case-studies/issue-{id}/, perform deep analysis, reconstruct timeline, identify root causes, and propose solutions. Works only with --tool claude, disabled by default.
+
+### Patch Changes
+
+- 1110e7a: Add comprehensive changeset documentation to CONTRIBUTING.md explaining how contributors should use the changesets workflow for version management and changelog generation
+
+## 0.45.0
+
+### Minor Changes
+
+- 81f8da0: Add `--tokens-budget-stats` option for detailed token usage analysis. This experimental feature shows context window usage and output token usage in absolute values and ratios when using `--tool claude`. Disabled by default.
+
 ## 0.44.0
 
 ### Minor Changes
@@ -7,7 +49,6 @@
 - b72136f: Add /version command to hive-telegram-bot
 
   Implements a new /version command that displays comprehensive version information including:
-
   - Bot version (package version with git commit SHA in development)
   - solve and hive command versions
   - Node.js runtime version
@@ -22,7 +63,6 @@
   The `perlbrew available` command output was not being parsed correctly, causing the installation script to skip Perl installation with the message "Could not determine latest Perl version."
 
   **Changes:**
-
   - Use `grep -oE` to robustly extract Perl version strings regardless of line formatting
   - Capture stderr from `perlbrew available` for better debugging
   - Add debug output showing `perlbrew available` response when version detection fails
@@ -41,7 +81,6 @@
   This release introduces a new opt-in feature that enables the AI to automatically create GitHub issues when it spots bugs, errors, or minor issues during working sessions that are not related to the main task.
 
   **New Features:**
-
   - Added `--prompt-issue-reporting` CLI flag (disabled by default)
   - Issues include reproducible examples, workarounds, and fix suggestions
   - Supports creating issues in both current and third-party repositories
@@ -55,7 +94,6 @@
   ```
 
   **Implementation:**
-
   - New guideline in system prompt (conditional on flag)
   - Flag added to both `hive` and `solve` commands
   - Uses `gh` CLI for authenticated issue creation (works with private repos)
@@ -67,7 +105,6 @@
 ### Patch Changes
 
 - 64d6cf8: Add experimental /top command to Telegram bot
-
   - Added /top command to show live system monitor in Telegram
   - Displays auto-updating `top` output in a single message (updates every 2 seconds)
   - Owner-only access with chat authorization checks
@@ -84,7 +121,6 @@
 ### Patch Changes
 
 - dca5bed: Make --auto-continue enabled by default
-
   - Changed default value from false to true for --auto-continue in both hive and solve commands
   - Smart handling of -s (--skip-issues-with-prs) flag interaction:
     - When -s is used, auto-continue is automatically disabled to avoid conflicts
@@ -99,7 +135,6 @@
 ### Patch Changes
 
 - acd70a9: Add Lean runtime preinstallation support via elan
-
   - Install elan (Lean version manager) with stable toolchain in all deployment environments
   - Add Lean/elan to PATH in Dockerfile, .gitpod.Dockerfile, coolify/Dockerfile
   - Add installation verification for elan, lean, and lake commands
@@ -110,7 +145,6 @@
 ### Minor Changes
 
 - d98d9c9: Add Java (OpenJDK) runtime installation support via SDKMAN in Ubuntu 24 server installation script
-
   - Install SDKMAN as Java version manager (following pattern of pyenv for Python, nvm for Node.js)
   - Install Java 21 LTS (Eclipse Temurin distribution) by default with fallback to OpenJDK
   - Add SDKMAN configuration to .bashrc for persistence
@@ -129,7 +163,6 @@
 
 - f77fdf8: Add Golang runtime installation support to Ubuntu 24 server installation script with proper success verification
 - ca4d83d: Add preinstalled Rocq (formerly Coq) theorem prover runtime support
-
   - Install opam (OCaml package manager) as prerequisite
   - Configure Rocq-released repository for package installation
   - Add Rocq prover with fallback to classic Coq package if unavailable
@@ -164,7 +197,6 @@
   When users provide URLs with backslashes (e.g., `https://github.com/owner/repo/issues/123\`), the system now properly validates them and provides helpful error messages with auto-corrected URL suggestions. According to RFC 3986, backslash is not a valid character in URL paths.
 
   **Changes:**
-
   - Enhanced `parseGitHubUrl()` function to detect backslashes in URL paths
   - Updated all validation points (Telegram bot `/solve` and `/hive` commands, CLI `hive` and `solve` commands)
   - Provides user-friendly error messages with corrected URL suggestions
@@ -181,7 +213,6 @@
   When a work session completes successfully but the CLAUDE.md commit hash was lost between sessions (e.g., due to session interruption), the system now attempts to detect the CLAUDE.md commit from the branch structure instead of silently skipping cleanup.
 
   **Safety Checks (Preventing Issue #617 Recurrence):**
-
   1. CLAUDE.md must exist in current branch
   2. Find merge base to isolate PR-only commits
   3. Must have at least 2 commits (CLAUDE.md + actual work)
@@ -207,7 +238,6 @@
 ### Patch Changes
 
 - f8ebd99: Make Playwright MCP usage guidelines conditional based on MCP availability
-
   - Add `checkPlaywrightMcpAvailability()` function to detect if Playwright MCP is installed
   - Conditionally include Playwright MCP section in Claude system prompt only when MCP is detected
   - Integration in both main execution (solve.mjs) and watch mode (solve.watch.lib.mjs)
@@ -238,7 +268,6 @@
 ### Patch Changes
 
 - 40545f6: Consolidate CI/CD workflows to single release.yml following js-ai-driven-development-pipeline-template best practices
-
   - Removed verify-version-bump job (replaced by changeset-check)
   - Consolidated main.yml, ci.yml, and helm-pr-check.yml into release.yml
   - Added template scripts for release automation (validate-changeset, version-and-commit, publish-to-npm, etc.)

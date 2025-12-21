@@ -18,8 +18,8 @@ const testCases = [
       expectedForkName: 'konard/-',
       alternateForkName: 'konard/emirmensitov-afk--',
       defaultForkName: '-',
-      actualForkName: 'konard/-'
-    }
+      actualForkName: 'konard/-',
+    },
   },
   {
     name: 'Prefixed fork naming (option enabled)',
@@ -31,8 +31,8 @@ const testCases = [
       expectedForkName: 'konard/emirmensitov-afk--',
       alternateForkName: 'konard/-',
       defaultForkName: 'emirmensitov-afk--',
-      actualForkName: 'konard/emirmensitov-afk--'
-    }
+      actualForkName: 'konard/emirmensitov-afk--',
+    },
   },
   {
     name: 'Standard fork for regular repo',
@@ -44,8 +44,8 @@ const testCases = [
       expectedForkName: 'konard/vscode',
       alternateForkName: 'konard/microsoft-vscode',
       defaultForkName: 'vscode',
-      actualForkName: 'konard/vscode'
-    }
+      actualForkName: 'konard/vscode',
+    },
   },
   {
     name: 'Prefixed fork for regular repo',
@@ -57,9 +57,9 @@ const testCases = [
       expectedForkName: 'konard/microsoft-vscode',
       alternateForkName: 'konard/vscode',
       defaultForkName: 'microsoft-vscode',
-      actualForkName: 'konard/microsoft-vscode'
-    }
-  }
+      actualForkName: 'konard/microsoft-vscode',
+    },
+  },
 ];
 
 // Test logic (extracted from solve.repository.lib.mjs)
@@ -79,7 +79,7 @@ function testForkNaming(argv, owner, repo, currentUser) {
     expectedForkName,
     alternateForkName,
     defaultForkName,
-    actualForkName
+    actualForkName,
   };
 }
 
@@ -94,12 +94,7 @@ for (const testCase of testCases) {
   console.log(`\nTest: ${testCase.name}`);
   console.log('-'.repeat(80));
 
-  const result = testForkNaming(
-    testCase.argv,
-    testCase.owner,
-    testCase.repo,
-    testCase.currentUser
-  );
+  const result = testForkNaming(testCase.argv, testCase.owner, testCase.repo, testCase.currentUser);
 
   let testPassed = true;
 

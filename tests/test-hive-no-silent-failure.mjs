@@ -30,9 +30,9 @@ let testsPassed = 0;
  * Run a command with timeout and check if it produces output
  */
 function runCommandWithTimeout(args, timeoutMs = 5000) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const child = spawn(hivePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe']  // Ignore stdin to prevent hanging
+      stdio: ['ignore', 'pipe', 'pipe'], // Ignore stdin to prevent hanging
     });
 
     let stdout = '';
@@ -45,28 +45,28 @@ function runCommandWithTimeout(args, timeoutMs = 5000) {
       child.kill('SIGKILL');
     }, timeoutMs);
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       hasOutput = true;
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       hasOutput = true;
       stderr += data.toString();
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       clearTimeout(timer);
       resolve({
         code: timedOut ? null : code,
         stdout,
         stderr,
         hasOutput,
-        timedOut
+        timedOut,
       });
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       clearTimeout(timer);
       resolve({
         code: -1,
@@ -74,7 +74,7 @@ function runCommandWithTimeout(args, timeoutMs = 5000) {
         stderr,
         hasOutput,
         timedOut: false,
-        error: error.message
+        error: error.message,
       });
     });
   });
@@ -118,12 +118,7 @@ await test('hive --version should show version', async () => {
 });
 
 await test('hive --dry-run should produce output and exit cleanly', async () => {
-  const result = await runCommandWithTimeout([
-    'https://github.com/test',
-    '--dry-run',
-    '--once',
-    '--no-sentry'
-  ], 60000);  // 60 second timeout (allows for dependency loading with network delays)
+  const result = await runCommandWithTimeout(['https://github.com/test', '--dry-run', '--once', '--no-sentry'], 60000); // 60 second timeout (allows for dependency loading with network delays)
 
   // Debug output
   if (!result.hasOutput) {

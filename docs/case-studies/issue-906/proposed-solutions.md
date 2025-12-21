@@ -26,7 +26,7 @@ async function validateForkRelationship(forkRepo, targetOwner, targetRepo) {
     return {
       valid: false,
       error: 'NOT_A_FORK',
-      message: `Repository ${forkRepo} is not a GitHub fork. It appears to be a clone pushed as an independent repository.`
+      message: `Repository ${forkRepo} is not a GitHub fork. It appears to be a clone pushed as an independent repository.`,
     };
   }
 
@@ -34,7 +34,7 @@ async function validateForkRelationship(forkRepo, targetOwner, targetRepo) {
     return {
       valid: false,
       error: 'WRONG_PARENT',
-      message: `Repository ${forkRepo} is a fork of ${data.parent}, not ${targetOwner}/${targetRepo}.`
+      message: `Repository ${forkRepo} is a fork of ${data.parent}, not ${targetOwner}/${targetRepo}.`,
     };
   }
 
@@ -144,22 +144,24 @@ if (forkCheckResult.code === 0) {
 ### Add to User Guide
 
 Document the difference between:
+
 - **GitHub Fork**: Created via "Fork" button, maintains relationship
 - **Clone + Push**: Independent repository, cannot create PRs
 
 ### Add to Error Reference
 
-| Error Code | Meaning | Solution |
-|------------|---------|----------|
-| NOT_A_FORK | Repository exists but isn't a GitHub fork | Delete and re-fork properly |
-| WRONG_PARENT | Fork exists but is from different repo | Use --prefix-fork-name-with-owner-name |
-| REPO_MISMATCH | Generic fork network issue | Check fork relationships |
+| Error Code    | Meaning                                   | Solution                               |
+| ------------- | ----------------------------------------- | -------------------------------------- |
+| NOT_A_FORK    | Repository exists but isn't a GitHub fork | Delete and re-fork properly            |
+| WRONG_PARENT  | Fork exists but is from different repo    | Use --prefix-fork-name-with-owner-name |
+| REPO_MISMATCH | Generic fork network issue                | Check fork relationships               |
 
 ## 5. Automated Recovery Options
 
 ### Option A: Auto-rename Conflicting Repo
 
 If a non-fork repository exists with the target name, automatically suggest or perform:
+
 ```bash
 gh repo rename konard/VisageDvachevsky-VEIL konard/VisageDvachevsky-VEIL-backup
 gh repo fork VisageDvachevsky/VEIL
@@ -168,6 +170,7 @@ gh repo fork VisageDvachevsky/VEIL
 ### Option B: Smart Fork Naming
 
 Default to using `--prefix-fork-name-with-owner-name` when conflicts are detected:
+
 ```javascript
 if (conflictDetected) {
   argv.prefixForkNameWithOwnerName = true;
@@ -177,10 +180,10 @@ if (conflictDetected) {
 
 ## Summary of Recommendations
 
-| Priority | Change | Impact |
-|----------|--------|--------|
-| High | Add early fork validation | Fail fast with clear message |
-| High | Improve error message | Users understand the real problem |
-| Medium | Add fork relationship check to conflict detection | Prevent this scenario |
-| Medium | Document the difference | Educate users |
-| Low | Automated recovery | Nice to have |
+| Priority | Change                                            | Impact                            |
+| -------- | ------------------------------------------------- | --------------------------------- |
+| High     | Add early fork validation                         | Fail fast with clear message      |
+| High     | Improve error message                             | Users understand the real problem |
+| Medium   | Add fork relationship check to conflict detection | Prevent this scenario             |
+| Medium   | Document the difference                           | Educate users                     |
+| Low      | Automated recovery                                | Nice to have                      |

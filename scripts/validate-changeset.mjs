@@ -12,25 +12,19 @@ const PACKAGE_NAME = '@link-assistant/hive-mind';
 try {
   // Count changeset files (excluding README.md and config.json)
   const changesetDir = '.changeset';
-  const changesetFiles = readdirSync(changesetDir).filter(
-    (file) => file.endsWith('.md') && file !== 'README.md'
-  );
+  const changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
 
   const changesetCount = changesetFiles.length;
   console.log(`Found ${changesetCount} changeset file(s)`);
 
   // Ensure exactly one changeset file exists
   if (changesetCount === 0) {
-    console.error(
-      "::error::No changeset found. Please add a changeset by running 'npm run changeset' and commit the result."
-    );
+    console.error("::error::No changeset found. Please add a changeset by running 'npm run changeset' and commit the result.");
     process.exit(1);
   } else if (changesetCount > 1) {
-    console.error(
-      `::error::Multiple changesets found (${changesetCount}). Each PR should have exactly ONE changeset.`
-    );
+    console.error(`::error::Multiple changesets found (${changesetCount}). Each PR should have exactly ONE changeset.`);
     console.error('::error::Found changeset files:');
-    changesetFiles.forEach((file) => console.error(`  ${file}`));
+    changesetFiles.forEach(file => console.error(`  ${file}`));
     process.exit(1);
   }
 
@@ -42,14 +36,9 @@ try {
   const content = readFileSync(changesetFile, 'utf-8');
 
   // Check if changeset has a valid type (major, minor, or patch)
-  const versionTypeRegex = new RegExp(
-    `^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`,
-    'm'
-  );
+  const versionTypeRegex = new RegExp(`^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`, 'm');
   if (!versionTypeRegex.test(content)) {
-    console.error(
-      '::error::Changeset must specify a version type: major, minor, or patch'
-    );
+    console.error('::error::Changeset must specify a version type: major, minor, or patch');
     console.error(`::error::Expected format in ${changesetFile}:`);
     console.error('::error::---');
     console.error(`::error::'${PACKAGE_NAME}': patch`);
@@ -64,12 +53,8 @@ try {
   // Extract description (everything after the closing ---) and check it's not empty
   const parts = content.split('---');
   if (parts.length < 3) {
-    console.error(
-      '::error::Changeset must include a description of the changes'
-    );
-    console.error(
-      "::error::The description should appear after the closing '---' in the changeset file"
-    );
+    console.error('::error::Changeset must include a description of the changes');
+    console.error("::error::The description should appear after the closing '---' in the changeset file");
     console.error(`::error::Current content of ${changesetFile}:`);
     console.error(content);
     process.exit(1);
@@ -77,12 +62,8 @@ try {
 
   const description = parts.slice(2).join('---').trim();
   if (!description) {
-    console.error(
-      '::error::Changeset must include a description of the changes'
-    );
-    console.error(
-      "::error::The description should appear after the closing '---' in the changeset file"
-    );
+    console.error('::error::Changeset must include a description of the changes');
+    console.error("::error::The description should appear after the closing '---' in the changeset file");
     console.error(`::error::Current content of ${changesetFile}:`);
     console.error(content);
     process.exit(1);

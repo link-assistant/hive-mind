@@ -142,7 +142,6 @@ await safeExit(0, 'Test completed successfully');
         process.exit(1);
       }
     }
-
   } catch (error) {
     console.error('❌ Test failed:', error.message);
     if (error.stdout) {

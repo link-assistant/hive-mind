@@ -25,7 +25,7 @@ async function runTest(scenario) {
   console.log(`\n📝 Running: ${scenario.name}`);
   console.log(`   Command: ${scenario.command} ${scenario.args.join(' ')}`);
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const child = spawn(scenario.command, scenario.args, {
       cwd: process.cwd(),
       env: process.env
@@ -34,17 +34,17 @@ async function runTest(scenario) {
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       stdout += data.toString();
       process.stdout.write(data);
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       stderr += data.toString();
       process.stderr.write(data);
     });
 
-    child.on('exit', (code) => {
+    child.on('exit', code => {
       const output = stdout + stderr;
 
       if (scenario.expectedPattern) {

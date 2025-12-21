@@ -80,7 +80,15 @@ const tests = [
     name: 'Multiple overrides with mixed types',
     userArgs: ['https://github.com/owner/repo/issues/123', '--verbose', '--tool', 'haiku', '--fork'],
     overrides: ['--auto-continue', '--attach-logs', '--tool', 'opencode'],
-    expected: ['https://github.com/owner/repo/issues/123', '--verbose', '--fork', '--auto-continue', '--attach-logs', '--tool', 'opencode']
+    expected: [
+      'https://github.com/owner/repo/issues/123',
+      '--verbose',
+      '--fork',
+      '--auto-continue',
+      '--attach-logs',
+      '--tool',
+      'opencode'
+    ]
   },
   {
     name: 'Override replaces existing flag',
@@ -98,7 +106,17 @@ const tests = [
     name: 'Complex real-world scenario',
     userArgs: ['https://github.com/owner/repo/issues/123', '--fork', '--model', 'haiku', '--verbose'],
     overrides: ['--auto-continue', '--attach-logs', '--verbose', '--tool', 'opencode'],
-    expected: ['https://github.com/owner/repo/issues/123', '--fork', '--model', 'haiku', '--auto-continue', '--attach-logs', '--verbose', '--tool', 'opencode']
+    expected: [
+      'https://github.com/owner/repo/issues/123',
+      '--fork',
+      '--model',
+      'haiku',
+      '--auto-continue',
+      '--attach-logs',
+      '--verbose',
+      '--tool',
+      'opencode'
+    ]
   },
   {
     name: 'URL preserved as first argument',

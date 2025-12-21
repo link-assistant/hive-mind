@@ -7,27 +7,27 @@ import { spawn } from 'child_process';
 async function testHiveError() {
   console.log('🧪 Testing hive.mjs error handling with absolute log path...\n');
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     // Test with valid GitHub URL but without Claude CLI configured
     // This will create a log file and then fail on Claude validation
     const child = spawn('node', ['src/hive.mjs', 'https://github.com/test/repo'], {
       cwd: process.cwd(),
-      env: { ...process.env, CLAUDE_API_KEY: '' }  // Ensure Claude check fails
+      env: { ...process.env, CLAUDE_API_KEY: '' } // Ensure Claude check fails
     });
 
     let output = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       output += data.toString();
       process.stdout.write(data);
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       output += data.toString();
       process.stderr.write(data);
     });
 
-    child.on('exit', (code) => {
+    child.on('exit', code => {
       console.log('\n' + '='.repeat(50));
 
       // Check if absolute path is shown in log file message

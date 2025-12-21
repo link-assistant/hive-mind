@@ -74,18 +74,8 @@ const checkForUncommittedChanges = async (tempDir, $) => {
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
-export const watchForFeedback = async (params) => {
-  const {
-    issueUrl,
-    owner,
-    repo,
-    issueNumber,
-    prNumber,
-    prBranch,
-    branchName,
-    tempDir,
-    argv
-  } = params;
+export const watchForFeedback = async params => {
+  const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
@@ -152,7 +142,9 @@ export const watchForFeedback = async (params) => {
       // Check if we've reached max iterations
       if (autoRestartCount >= maxAutoRestartIterations) {
         await log('');
-        await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} attempts`));
+        await log(
+          formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} attempts`)
+        );
         await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
         await log(formatAligned('', 'Please review and commit manually if needed', '', 2));
         await log('');
@@ -227,8 +219,16 @@ export const watchForFeedback = async (params) => {
 
           // Increment auto-restart counter and log restart number
           autoRestartCount++;
-          const restartLabel = firstIterationInTemporaryMode ? 'Initial restart' : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
-          await log(formatAligned('🔄', `${restartLabel}:`, `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
+          const restartLabel = firstIterationInTemporaryMode
+            ? 'Initial restart'
+            : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
+          await log(
+            formatAligned(
+              '🔄',
+              `${restartLabel}:`,
+              `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`
+            )
+          );
 
           // Post a comment to PR about auto-restart
           if (prNumber) {
@@ -270,7 +270,9 @@ export const watchForFeedback = async (params) => {
             feedbackLines = [];
           }
           feedbackLines.push('');
-          feedbackLines.push(`⚠️ UNCOMMITTED CHANGES DETECTED (Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}):`);
+          feedbackLines.push(
+            `⚠️ UNCOMMITTED CHANGES DETECTED (Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}):`
+          );
           feedbackLines.push('The following uncommitted changes were found in the repository:');
 
           try {
@@ -283,10 +285,14 @@ export const watchForFeedback = async (params) => {
               }
               feedbackLines.push('');
               feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-              feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
+              feedbackLines.push(
+                '1. COMMITTING them if they are part of the solution (git add + git commit + git push)'
+              );
               feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
               feedbackLines.push('');
-              feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
+              feedbackLines.push(
+                'DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.'
+              );
             }
           } catch (e) {
             reportError(e, {
@@ -415,7 +421,9 @@ export const watchForFeedback = async (params) => {
               await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
               argv.promptPlaywrightMcp = true;
             } else {
-              await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+              await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', {
+                verbose: true
+              });
               argv.promptPlaywrightMcp = false;
             }
           }
@@ -444,15 +452,23 @@ export const watchForFeedback = async (params) => {
 
         if (!toolResult.success) {
           // Check if this is an API error (404, 401, 400, etc.) from the result
-          const isApiError = toolResult.result &&
+          const isApiError =
+            toolResult.result &&
             (toolResult.result.includes('API Error:') ||
-             toolResult.result.includes('not_found_error') ||
-             toolResult.result.includes('authentication_error') ||
-             toolResult.result.includes('invalid_request_error'));
+              toolResult.result.includes('not_found_error') ||
+              toolResult.result.includes('authentication_error') ||
+              toolResult.result.includes('invalid_request_error'));
 
           if (isApiError) {
             consecutiveApiErrors++;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
+            await log(
+              formatAligned(
+                '⚠️',
+                `${argv.tool.toUpperCase()} execution failed`,
+                `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`,
+                2
+              )
+            );
 
             if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
               await log('');
@@ -476,7 +492,9 @@ export const watchForFeedback = async (params) => {
             // Non-API error, reset consecutive counter
             consecutiveApiErrors = 0;
             currentBackoffSeconds = watchInterval;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
+            await log(
+              formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2)
+            );
           }
         } else {
           // Success - reset error counters
@@ -497,7 +515,13 @@ export const watchForFeedback = async (params) => {
 
           await log('');
           if (isTemporaryWatch) {
-            await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking for remaining changes...'));
+            await log(
+              formatAligned(
+                '✅',
+                `${argv.tool.toUpperCase()} execution completed:`,
+                'Checking for remaining changes...'
+              )
+            );
           } else {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Resuming watch mode...'));
           }
@@ -512,7 +536,6 @@ export const watchForFeedback = async (params) => {
       } else {
         await log(formatAligned('', 'No feedback detected', 'Continuing to watch...', 2));
       }
-
     } catch (error) {
       reportError(error, {
         context: 'watch_pr_general',
@@ -552,7 +575,7 @@ export const watchForFeedback = async (params) => {
 /**
  * Start watch mode after initial execution
  */
-export const startWatchMode = async (params) => {
+export const startWatchMode = async params => {
   const { argv } = params;
 
   if (argv.verbose) {

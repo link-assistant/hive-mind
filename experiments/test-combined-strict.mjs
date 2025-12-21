@@ -26,21 +26,19 @@ try {
       alias: 'v',
       default: false
     })
-    .strict()  // General strict mode
-    .strictOptions()  // Strict options checking
-    .strictCommands()  // Strict commands checking
+    .strict() // General strict mode
+    .strictOptions() // Strict options checking
+    .strictCommands() // Strict commands checking
     .fail((msg, err, yargs) => {
       console.error('❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('✅ Parsing succeeded:');
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

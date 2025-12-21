@@ -94,8 +94,8 @@ async function makeYouTrackRequest(endpoint, config, options = {}) {
 
   // Prepare headers
   const requestHeaders = {
-    'Authorization': `Bearer ${config.apiKey}`,
-    'Accept': 'application/json',
+    Authorization: `Bearer ${config.apiKey}`,
+    Accept: 'application/json',
     'Content-Type': 'application/json',
     ...headers
   };
@@ -187,13 +187,13 @@ export async function fetchYouTrackIssues(config) {
 
     // Transform YouTrack issues to our standard format
     const issues = response.map(issue => ({
-      id: issue.idReadable || issue.id,  // Use readable ID (PAG-45) if available
+      id: issue.idReadable || issue.id, // Use readable ID (PAG-45) if available
       summary: issue.summary || 'No title',
       description: issue.description || '',
       stage: config.stage, // Current stage (what we filtered by)
       url: `${config.url}/issue/${issue.idReadable || issue.id}`,
-      reporter: issue.reporter ? (issue.reporter.fullName || issue.reporter.login) : 'Unknown',
-      assignee: issue.assignee ? (issue.assignee.fullName || issue.assignee.login) : null,
+      reporter: issue.reporter ? issue.reporter.fullName || issue.reporter.login : 'Unknown',
+      assignee: issue.assignee ? issue.assignee.fullName || issue.assignee.login : null,
       created: issue.created ? new Date(issue.created) : new Date(),
       updated: issue.updated ? new Date(issue.updated) : new Date()
     }));
@@ -239,9 +239,7 @@ export async function getYouTrackIssue(issueId, config) {
     // Find the State/Stage custom field (check both possible names)
     let currentStage = 'Unknown';
     if (issue.customFields && Array.isArray(issue.customFields)) {
-      const stateField = issue.customFields.find(field =>
-        field.name === 'State' || field.name === 'Stage'
-      );
+      const stateField = issue.customFields.find(field => field.name === 'State' || field.name === 'Stage');
       if (stateField && stateField.value && stateField.value.name) {
         currentStage = stateField.value.name;
       }
@@ -249,14 +247,14 @@ export async function getYouTrackIssue(issueId, config) {
 
     // Transform to our standard format
     const transformedIssue = {
-      id: issue.idReadable || issue.id,  // Use readable ID (PAG-45) as primary ID
+      id: issue.idReadable || issue.id, // Use readable ID (PAG-45) as primary ID
       idReadable: issue.idReadable || issue.id, // User-friendly ID like PAG-55
       summary: issue.summary || 'No title',
       description: issue.description || '',
       stage: currentStage,
       url: `${config.url}/issue/${issue.idReadable || issue.id}`,
-      reporter: issue.reporter ? (issue.reporter.fullName || issue.reporter.login) : 'Unknown',
-      assignee: issue.assignee ? (issue.assignee.fullName || issue.assignee.login) : null,
+      reporter: issue.reporter ? issue.reporter.fullName || issue.reporter.login : 'Unknown',
+      assignee: issue.assignee ? issue.assignee.fullName || issue.assignee.login : null,
       created: issue.created ? new Date(issue.created) : new Date(),
       updated: issue.updated ? new Date(issue.updated) : new Date()
     };

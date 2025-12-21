@@ -16,9 +16,7 @@ import { randomBytes } from 'crypto';
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -32,13 +30,13 @@ const config = makeConfig({
         type: 'string',
         default: getenv('BUMP_TYPE', ''),
         describe: 'Version bump type: major, minor, or patch',
-        choices: ['major', 'minor', 'patch'],
+        choices: ['major', 'minor', 'patch']
       })
       .option('description', {
         type: 'string',
         default: getenv('DESCRIPTION', ''),
-        describe: 'Description for the changeset',
-      }),
+        describe: 'Description for the changeset'
+      })
 });
 
 try {

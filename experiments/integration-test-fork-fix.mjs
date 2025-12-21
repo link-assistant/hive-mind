@@ -12,7 +12,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 
-console.log("Integration test for fork creation fix...");
+console.log('Integration test for fork creation fix...');
 
 // Helper function from solve.mjs
 function formatAligned(icon, label, value, indent = 0) {
@@ -81,7 +81,9 @@ async function testForkCreationLogic(owner, repo) {
       const reCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
       if (reCheckResult.code !== 0) {
         await log(`${formatAligned('❌', 'Error:', 'Fork reported as existing but not found')}`);
-        await log(`${formatAligned('', 'Suggestion:', 'Try running the command again - the fork may need a moment to become available')}`);
+        await log(
+          `${formatAligned('', 'Suggestion:', 'Try running the command again - the fork may need a moment to become available')}`
+        );
         throw new Error('Fork inconsistency');
       }
     } else {

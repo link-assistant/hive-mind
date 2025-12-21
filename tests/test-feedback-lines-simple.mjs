@@ -34,10 +34,7 @@ function test(name, testFn) {
 
 // Test 1: Simulate the FIXED behavior (no feedback in system prompt)
 test('System prompt should NOT contain feedback lines', () => {
-  const feedbackLines = [
-    'New comments on the pull request: 3',
-    'New comments on the issue: 1'
-  ];
+  const feedbackLines = ['New comments on the pull request: 3', 'New comments on the issue: 1'];
 
   // This is the FIXED system prompt (no feedbackLines interpolation)
   const systemPrompt = `You are AI issue solver.
@@ -55,10 +52,7 @@ General guidelines.
 
 // Test 2: Simulate main prompt with feedback lines
 test('Main prompt should contain feedback lines in continue mode', () => {
-  const feedbackLines = [
-    'New comments on the pull request: 3',
-    'New comments on the issue: 1'
-  ];
+  const feedbackLines = ['New comments on the pull request: 3', 'New comments on the issue: 1'];
 
   // Simulate main prompt building (correct behavior)
   let promptLines = [];
@@ -85,9 +79,7 @@ test('Main prompt should contain feedback lines in continue mode', () => {
 
 // Test 3: Simulate the OLD BUGGY behavior to ensure it would fail
 test('OLD buggy behavior should be detected as wrong', () => {
-  const feedbackLines = [
-    'New comments on the pull request: 2'
-  ];
+  const feedbackLines = ['New comments on the pull request: 2'];
 
   // This simulates the OLD BUGGY system prompt that had feedback lines
   const buggySystemPrompt = `You are AI issue solver.${feedbackLines && feedbackLines.length > 0 ? '\n\n' + feedbackLines.join('\n') + '\n' : ''}
@@ -98,7 +90,9 @@ General guidelines.
   // Check that the buggy version WOULD have feedback in system prompt
   const buggyHasFeedbackInSystem = feedbackLines.some(line => buggySystemPrompt.includes(line));
 
-  console.log(`   Buggy system prompt would contain feedback: ${buggyHasFeedbackInSystem ? 'YES (THIS WAS THE BUG)' : 'NO'}`);
+  console.log(
+    `   Buggy system prompt would contain feedback: ${buggyHasFeedbackInSystem ? 'YES (THIS WAS THE BUG)' : 'NO'}`
+  );
 
   // The test passes if we can detect the bug in the old version
   return buggyHasFeedbackInSystem;

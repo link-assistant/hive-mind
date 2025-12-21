@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 // Just test argument parsing - exit before networking
-process.argv = ['node', './hive.mjs', 'https://github.com/suenot/tinkoff-invest-etf-balancer-bot', '-vas', '--once', '--fork'];
+process.argv = [
+  'node',
+  './hive.mjs',
+  'https://github.com/suenot/tinkoff-invest-etf-balancer-bot',
+  '-vas',
+  '--once',
+  '--fork'
+];
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof use === 'undefined') {
@@ -14,7 +21,7 @@ const { hideBin } = await use('yargs@17.7.2/helpers');
 
 // Replicate the exact configuration from hive.mjs
 const argv = yargs(hideBin(process.argv))
-  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', (yargs) => {
+  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', yargs => {
     yargs.positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
@@ -53,18 +60,17 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
     default: false
   })
   .help('h')
-  .alias('h', 'help')
-  .argv;
+  .alias('h', 'help').argv;
 
 console.log('✅ Arguments parsed successfully:');
 console.log('  github-url:', argv['github-url']);
 console.log('  verbose:', argv.verbose);
-console.log('  all-issues:', argv.allIssues);  
+console.log('  all-issues:', argv.allIssues);
 console.log('  skip-issues-with-prs:', argv.skipIssuesWithPrs);
 console.log('  once:', argv.once);
 console.log('  fork:', argv.fork);

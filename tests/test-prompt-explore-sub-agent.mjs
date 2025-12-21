@@ -13,7 +13,7 @@ const colors = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
-  blue: '\x1b[34m',
+  blue: '\x1b[34m'
 };
 
 const log = (message, color = 'reset') => {
@@ -60,10 +60,7 @@ try {
     'System prompt does NOT include Explore sub-agent guidance when option is disabled'
   );
 
-  assert(
-    promptWithoutOption.includes('When you need repo context'),
-    'System prompt includes basic guidance'
-  );
+  assert(promptWithoutOption.includes('When you need repo context'), 'System prompt includes basic guidance');
 
   // Test 2: Verify system prompt WITH --prompt-explore-sub-agent
   log('\n2️⃣  Testing system prompt with --prompt-explore-sub-agent...', 'yellow');
@@ -109,10 +106,7 @@ try {
     'solve.config.lib.mjs has correct description for option'
   );
 
-  assert(
-    solveConfigContent.includes('default: false'),
-    'solve.config.lib.mjs sets default to false for option'
-  );
+  assert(solveConfigContent.includes('default: false'), 'solve.config.lib.mjs sets default to false for option');
 
   // Test 4: Verify the option is defined in hive.config.lib.mjs
   log('\n4️⃣  Testing hive.config.lib.mjs configuration...', 'yellow');
@@ -129,31 +123,21 @@ try {
     'hive.config.lib.mjs has correct description for option'
   );
 
-  assert(
-    hiveConfigContent.includes('default: false'),
-    'hive.config.lib.mjs sets default to false for option'
-  );
+  assert(hiveConfigContent.includes('default: false'), 'hive.config.lib.mjs sets default to false for option');
 
   // Test 5: Verify hive forwards the option to solve
   log('\n5️⃣  Testing hive forwards option to solve...', 'yellow');
   const hivePath = join(__dirname, '../src/hive.mjs');
   const hiveContent = readFileSync(hivePath, 'utf-8');
 
-  assert(
-    hiveContent.includes('promptExploreSubAgent'),
-    'hive.mjs references promptExploreSubAgent option'
-  );
+  assert(hiveContent.includes('promptExploreSubAgent'), 'hive.mjs references promptExploreSubAgent option');
 
-  assert(
-    hiveContent.includes('argv.promptExploreSubAgent'),
-    'hive.mjs checks argv.promptExploreSubAgent'
-  );
+  assert(hiveContent.includes('argv.promptExploreSubAgent'), 'hive.mjs checks argv.promptExploreSubAgent');
 
   assert(
     hiveContent.includes('--prompt-explore-sub-agent'),
     'hive.mjs forwards --prompt-explore-sub-agent flag to solve'
   );
-
 } catch (error) {
   log(`\n❌ Test error: ${error.message}`, 'red');
   log(error.stack, 'red');

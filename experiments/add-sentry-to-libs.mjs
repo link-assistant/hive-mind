@@ -47,10 +47,7 @@ async function addSentryImport(filePath) {
   }
 
   // Insert the Sentry import after the last import
-  const newContent =
-    content.slice(0, lastImportEnd) +
-    sentryImport +
-    content.slice(lastImportEnd);
+  const newContent = content.slice(0, lastImportEnd) + sentryImport + content.slice(lastImportEnd);
 
   await fs.writeFile(filePath, newContent);
   console.log(`✓ Added Sentry import to ${path.basename(filePath)}`);

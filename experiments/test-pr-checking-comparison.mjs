@@ -69,7 +69,7 @@ async function newApproach(owner, repo, issueNumbers) {
 // Main comparison
 async function compareApproaches() {
   console.log('🔬 Comparing PR Checking Approaches\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   const owner = 'link-assistant';
   const repo = 'hive-mind';
@@ -95,15 +95,19 @@ async function compareApproaches() {
   const newResults = await newApproach(owner, repo, issues);
 
   // Compare results
-  console.log('\n' + '=' .repeat(60));
+  console.log('\n' + '='.repeat(60));
   console.log('📈 Comparison Results:\n');
 
   console.log('┌─────────────────┬──────────────────┬──────────────────┐');
   console.log('│ Metric          │ Old Approach     │ New Approach     │');
   console.log('├─────────────────┼──────────────────┼──────────────────┤');
-  console.log(`│ API Calls       │ ${String(oldResults.apiCalls).padEnd(16)} │ ${String(newResults.apiCalls).padEnd(16)} │`);
+  console.log(
+    `│ API Calls       │ ${String(oldResults.apiCalls).padEnd(16)} │ ${String(newResults.apiCalls).padEnd(16)} │`
+  );
   console.log(`│ Time (ms)       │ ${String(oldResults.time).padEnd(16)} │ ${String(newResults.time).padEnd(16)} │`);
-  console.log(`│ Avg time/issue  │ ${String(Math.round(oldResults.time / issues.length)).padEnd(16)} │ ${String(Math.round(newResults.time / issues.length)).padEnd(16)} │`);
+  console.log(
+    `│ Avg time/issue  │ ${String(Math.round(oldResults.time / issues.length)).padEnd(16)} │ ${String(Math.round(newResults.time / issues.length)).padEnd(16)} │`
+  );
   console.log('└─────────────────┴──────────────────┴──────────────────┘');
 
   const apiReduction = Math.round((1 - newResults.apiCalls / oldResults.apiCalls) * 100);

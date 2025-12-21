@@ -13,6 +13,7 @@ Fixes #678
 ### Problem 1: Identical Content When Reusing Branches (v0.29.5)
 
 When using `--auto-continue` mode with existing branches:
+
 1. Checkout existing branch
 2. Append task information to CLAUDE.md
 3. Create commit and push
@@ -27,11 +28,13 @@ Added Compare API check with retry logic to handle GitHub's backend sync delays.
 ### Problem 3: Fork Mode 404 Errors (v0.29.7 regression)
 
 In fork mode, Compare API check failed with 404 errors:
+
 ```
 Compare API error: {"message":"Not Found","status":"404"}
 ```
 
 **Root Cause**: Compare API was called with incorrect head reference:
+
 - Used: `repos/upstream/repo/compare/main...branch-name`
 - Problem: Branch only exists in fork, not upstream
 - Result: GitHub returns 404 error
@@ -54,11 +57,13 @@ This ensures each run creates genuinely unique content, even when appending to e
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // e.g., "konard:issue-678-abc"
+  headRef = `${forkUser}:${branchName}`; // e.g., "konard:issue-678-abc"
 } else {
-  headRef = branchName;  // e.g., "issue-678-abc"
+  headRef = branchName; // e.g., "issue-678-abc"
 }
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
 This matches the format used in `gh pr create` and correctly references branches in forks.
@@ -68,26 +73,33 @@ This matches the format used in `gh pr create` and correctly references branches
 ### Compare API Format
 
 **Non-fork mode:**
+
 ```
 repos/owner/repo/compare/main...feature-branch
 ```
+
 Branch exists in same repository ✅
 
 **Fork mode (before fix):**
+
 ```
 repos/upstream/repo/compare/main...branch-name
 ```
+
 Branch doesn't exist in upstream ❌ 404 error
 
 **Fork mode (after fix):**
+
 ```
 repos/upstream/repo/compare/main...forkUser:branch-name
 ```
+
 GitHub understands cross-repo format ✅ Works correctly
 
 ### Log Evidence
 
 **Non-fork mode failure (v0.29.5):**
+
 ```
 [INFO] ✅ Commit created: Successfully
 [INFO] Push output: 8ee8459..9d8c4fc issue-1-b53fe3666f91 -> issue-1-b53fe3666f91
@@ -96,6 +108,7 @@ GitHub understands cross-repo format ✅ Works correctly
 ```
 
 **Fork mode failure (v0.29.7):**
+
 ```
 [INFO] 🍴 Fork mode: ENABLED
 [INFO] * [new branch] issue-6-01d3f376c347 -> issue-6-01d3f376c347
@@ -150,12 +163,14 @@ All tests pass successfully.
 ## ✨ Result
 
 Users can now reliably use all solve command modes:
+
 - ✅ Direct repository access
 - ✅ Fork mode with `--auto-fork`
 - ✅ Branch reuse with `--auto-continue`
 - ✅ Combined fork + auto-continue workflows
 
 The solve command now handles:
+
 - GitHub's backend sync delays (exponential backoff retry)
 - Content uniqueness when reusing branches (timestamp)
 - Correct API references for fork mode (forkUser:branch format)

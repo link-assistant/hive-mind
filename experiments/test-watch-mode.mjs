@@ -10,13 +10,13 @@ const testParams = {
   owner: 'test',
   repo: 'repo',
   issueNumber: '1',
-  prNumber: '123',  // This should be set after PR creation
+  prNumber: '123', // This should be set after PR creation
   prBranch: 'issue-1-abc123',
   branchName: 'issue-1-abc123',
   tempDir: '/tmp/test',
   argv: {
     watch: true,
-    watchInterval: 5,  // Short interval for testing
+    watchInterval: 5, // Short interval for testing
     autoContinue: true,
     verbose: true
   }

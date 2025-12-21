@@ -15,7 +15,7 @@ console.log('='.repeat(60));
 const testUrls = [
   'https://github.com/veb86/zcadvelecAI/issues/19',
   'https://github.com/veb86/zcadvelecAI/pull/25',
-  'https://github.com/veb86/zcadvelecAI',
+  'https://github.com/veb86/zcadvelecAI'
 ];
 
 for (const url of testUrls) {

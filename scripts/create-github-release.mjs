@@ -15,9 +15,7 @@
 import { readFileSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -31,22 +29,20 @@ const config = makeConfig({
       .option('release-version', {
         type: 'string',
         default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., 1.0.0)',
+        describe: 'Version number (e.g., 1.0.0)'
       })
       .option('repository', {
         type: 'string',
         default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)',
-      }),
+        describe: 'GitHub repository (e.g., owner/repo)'
+      })
 });
 
 const { releaseVersion: version, repository } = config;
 
 if (!version || !repository) {
   console.error('Error: Missing required arguments');
-  console.error(
-    'Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>'
-  );
+  console.error('Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>');
   process.exit(1);
 }
 
@@ -79,11 +75,11 @@ try {
   const payload = JSON.stringify({
     tag_name: tag,
     name: version,
-    body: releaseNotes,
+    body: releaseNotes
   });
 
   await $`gh api repos/${repository}/releases -X POST --input -`.run({
-    stdin: payload,
+    stdin: payload
   });
 
   console.log(`Created GitHub release: ${tag}`);

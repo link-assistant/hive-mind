@@ -58,7 +58,9 @@ test('bot.telegram.deleteWebhook() is called before bot.launch()', () => {
 
 // Test 2: Verify drop_pending_updates is set to true
 test('deleteWebhook is called with drop_pending_updates: true', () => {
-  const deleteWebhookMatch = botCode.match(/bot\.telegram\.deleteWebhook\(\{[^}]*drop_pending_updates:\s*true[^}]*\}\)/);
+  const deleteWebhookMatch = botCode.match(
+    /bot\.telegram\.deleteWebhook\(\{[^}]*drop_pending_updates:\s*true[^}]*\}\)/
+  );
   if (!deleteWebhookMatch) {
     throw new Error('deleteWebhook must be called with { drop_pending_updates: true }');
   }
@@ -87,10 +89,10 @@ test('bot.launch() is called inside the .then() callback', () => {
 });
 
 // Test 5: Verify allowedUpdates configuration is still present
-test('bot.launch() includes allowedUpdates: [\'message\']', () => {
+test("bot.launch() includes allowedUpdates: ['message']", () => {
   const allowedUpdatesPattern = /allowedUpdates:\s*\['message'\]/;
   if (!allowedUpdatesPattern.test(botCode)) {
-    throw new Error('bot.launch() must include allowedUpdates: [\'message\']');
+    throw new Error("bot.launch() must include allowedUpdates: ['message']");
   }
 });
 

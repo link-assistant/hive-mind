@@ -19,17 +19,17 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for Codex
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'gpt5': 'gpt-5',
+    gpt5: 'gpt-5',
     'gpt5-codex': 'gpt-5-codex',
-    'o3': 'o3',
+    o3: 'o3',
     'o3-mini': 'o3-mini',
-    'gpt4': 'gpt-4',
-    'gpt4o': 'gpt-4o',
-    'claude': 'claude-3-5-sonnet',
-    'sonnet': 'claude-3-5-sonnet',
-    'opus': 'claude-3-opus',
+    gpt4: 'gpt-4',
+    gpt4o: 'gpt-4o',
+    claude: 'claude-3-5-sonnet',
+    sonnet: 'claude-3-5-sonnet',
+    opus: 'claude-3-opus'
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is
@@ -70,7 +70,8 @@ export const validateCodexConnection = async (model = 'gpt-5') => {
 
       // Test basic Codex functionality with a simple "echo hi" command
       // Using exec mode with JSON output for validation
-      const testResult = await $`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+      const testResult =
+        await $`printf "echo hi" | timeout ${Math.floor(timeouts.codexCli / 1000)} codex exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -78,8 +79,12 @@ export const validateCodexConnection = async (model = 'gpt-5') => {
 
         // Check for authentication errors in both stderr and stdout
         // Codex CLI may return auth errors in JSON format on stdout
-        if (stderr.includes('auth') || stderr.includes('login') ||
-            stdout.includes('Not logged in') || stdout.includes('401 Unauthorized')) {
+        if (
+          stderr.includes('auth') ||
+          stderr.includes('login') ||
+          stdout.includes('Not logged in') ||
+          stdout.includes('401 Unauthorized')
+        ) {
           const authError = new Error('Codex authentication failed - 401 Unauthorized');
           authError.isAuthError = true;
           await log('❌ Codex authentication failed', { level: 'error' });
@@ -115,7 +120,7 @@ export const handleCodexRuntimeSwitch = async () => {
 };
 
 // Main function to execute Codex with prompts and settings
-export const executeCodex = async (params) => {
+export const executeCodex = async params => {
   const {
     issueUrl,
     issueNumber,
@@ -210,7 +215,7 @@ export const executeCodex = async (params) => {
   });
 };
 
-export const executeCodexCommand = async (params) => {
+export const executeCodexCommand = async params => {
   const {
     tempDir,
     branchName,
@@ -343,10 +348,13 @@ export const executeCodexCommand = async (params) => {
 
               // Check for authentication errors (401 Unauthorized)
               // These should never be retried as they indicate missing/invalid credentials
-              if (data.type === 'error' && data.message &&
-                  (data.message.includes('401 Unauthorized') ||
-                   data.message.includes('401') ||
-                   data.message.includes('Unauthorized'))) {
+              if (
+                data.type === 'error' &&
+                data.message &&
+                (data.message.includes('401 Unauthorized') ||
+                  data.message.includes('401') ||
+                  data.message.includes('Unauthorized'))
+              ) {
                 authError = true;
                 await log('\n❌ Authentication error detected: 401 Unauthorized', { level: 'error' });
                 await log('   This error cannot be resolved by retrying.', { level: 'error' });
@@ -354,10 +362,14 @@ export const executeCodexCommand = async (params) => {
               }
 
               // Also check turn.failed events for auth errors
-              if (data.type === 'turn.failed' && data.error && data.error.message &&
-                  (data.error.message.includes('401 Unauthorized') ||
-                   data.error.message.includes('401') ||
-                   data.error.message.includes('Unauthorized'))) {
+              if (
+                data.type === 'turn.failed' &&
+                data.error &&
+                data.error.message &&
+                (data.error.message.includes('401 Unauthorized') ||
+                  data.error.message.includes('401') ||
+                  data.error.message.includes('Unauthorized'))
+              ) {
                 authError = true;
                 await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
                 await log('   This error cannot be resolved by retrying.', { level: 'error' });
@@ -466,7 +478,16 @@ export const executeCodexCommand = async (params) => {
   return await executeWithRetry();
 };
 
-export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+export const checkForUncommittedChanges = async (
+  tempDir,
+  owner,
+  repo,
+  branchName,
+  $,
+  log,
+  autoCommit = false,
+  autoRestartEnabled = true
+) => {
   // Similar to Claude and OpenCode version, check for uncommitted changes
   await log('\n🔍 Checking for uncommitted changes...');
   try {
@@ -498,13 +519,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning'
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning'
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning'
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -528,7 +555,9 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning'
+      });
       return false;
     }
   } catch (gitError) {

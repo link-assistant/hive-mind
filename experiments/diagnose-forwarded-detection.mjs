@@ -10,7 +10,7 @@ console.log('🔍 Analyzing possible causes of false positive in isForwardedOrRe
 console.log('HYPOTHESIS 1: Empty object/array is truthy');
 console.log('  if ({}) // truthy?', Boolean({}));
 console.log('  if ([]) // truthy?', Boolean([]));
-console.log('  if ("") // truthy?', Boolean(""));
+console.log('  if ("") // truthy?', Boolean(''));
 console.log('  if (null) // truthy?', Boolean(null));
 console.log('  if (undefined) // truthy?', Boolean(undefined));
 console.log('');

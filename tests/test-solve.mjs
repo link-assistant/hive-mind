@@ -155,7 +155,7 @@ runTest('solve.mjs module imports', () => {
 // Test 11: Check that runtime switching options have been removed
 runTest('solve.mjs no runtime switching', () => {
   const output = execCommand(`${solvePath} 2>&1`);
-  
+
   // Verify runtime switching options have been removed (they're now in claude-runtime.mjs)
   if (output.includes('--force-claude-bun-run') || output.includes('--force-claude-nodejs-run')) {
     throw new Error('Runtime switching options should not be in solve.mjs (moved to claude-runtime.mjs)');
@@ -211,7 +211,9 @@ runTest('solve.mjs raw command logging', () => {
   const tempLogFile = `/tmp/test-solve-log-${Date.now()}.log`;
 
   // Run solve.mjs with a mock issue URL and capture output
-  const output = execCommand(`LOG_FILE=${tempLogFile} ${solvePath} https://github.com/test/test/issues/1 --dry-run 2>&1`);
+  const output = execCommand(
+    `LOG_FILE=${tempLogFile} ${solvePath} https://github.com/test/test/issues/1 --dry-run 2>&1`
+  );
 
   // Check that raw command is logged to console output
   if (!output.includes('Raw command executed:')) {

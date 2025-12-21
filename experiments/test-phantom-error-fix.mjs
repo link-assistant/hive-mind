@@ -22,7 +22,7 @@ const errorPatterns = [
   { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
   { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
   { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
+  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' }
 ];
 
 // Fixed error detection function
@@ -76,7 +76,7 @@ const detectOutputErrors = (stdoutOutput, stderrOutput) => {
 };
 
 // Old (buggy) error detection function
-const detectOutputErrorsOld = (output) => {
+const detectOutputErrorsOld = output => {
   for (const { pattern, type } of errorPatterns) {
     const match = output.match(pattern);
     if (match) {
@@ -91,17 +91,20 @@ console.log('🧪 Testing phantom error detection fix for issue #873\n');
 
 // Test 1: Tool output containing "permission denied" in source code (FALSE POSITIVE BUG)
 console.log('Test 1: Tool reads file containing "permission denied" text');
-const test1Stdout = JSON.stringify({
-  type: 'tool',
-  tool: 'read',
-  state: {
-    status: 'completed',
-    output: 'Line 404: await log(`PERMISSION DENIED: Cannot push`); // error handling code'
-  }
-}) + '\n' + JSON.stringify({
-  type: 'step_finish',
-  reason: 'stop'
-});
+const test1Stdout =
+  JSON.stringify({
+    type: 'tool',
+    tool: 'read',
+    state: {
+      status: 'completed',
+      output: 'Line 404: await log(`PERMISSION DENIED: Cannot push`); // error handling code'
+    }
+  }) +
+  '\n' +
+  JSON.stringify({
+    type: 'step_finish',
+    reason: 'stop'
+  });
 const test1Stderr = '';
 
 const test1Old = detectOutputErrorsOld(test1Stdout + test1Stderr);
@@ -184,17 +187,20 @@ console.log();
 
 // Test 6: Multiple tool outputs with source code containing "throw new Error"
 console.log('Test 6: Tool outputs containing "throw new Error" in source code');
-const test6Stdout = JSON.stringify({
-  type: 'tool',
-  tool: 'read',
-  state: {
-    status: 'completed',
-    output: 'function validate() { if (!valid) throw new Error("Invalid"); }'
-  }
-}) + '\n' + JSON.stringify({
-  type: 'text',
-  text: 'I found the validation code'
-});
+const test6Stdout =
+  JSON.stringify({
+    type: 'tool',
+    tool: 'read',
+    state: {
+      status: 'completed',
+      output: 'function validate() { if (!valid) throw new Error("Invalid"); }'
+    }
+  }) +
+  '\n' +
+  JSON.stringify({
+    type: 'text',
+    text: 'I found the validation code'
+  });
 const test6Stderr = '';
 
 const test6Old = detectOutputErrorsOld(test6Stdout + test6Stderr);
@@ -211,8 +217,13 @@ console.log('══════════════════════�
 console.log('SUMMARY');
 console.log('═══════════════════════════════════════════════════════');
 
-const allPassed = !test1New.detected && test2New.detected && test3New.detected &&
-                  test4New.detected && test5New.detected && !test6New.detected;
+const allPassed =
+  !test1New.detected &&
+  test2New.detected &&
+  test3New.detected &&
+  test4New.detected &&
+  test5New.detected &&
+  !test6New.detected;
 
 if (allPassed) {
   console.log('✅ ALL TESTS PASSED');

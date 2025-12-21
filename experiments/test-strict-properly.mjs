@@ -17,10 +17,13 @@ try {
   const argv1 = instance1
     .option('token', { type: 'string' })
     .strict()
-    .fail(false)  // Disable yargs error handling to catch in our catch block
+    .fail(false) // Disable yargs error handling to catch in our catch block
     .parse(['--invalid-option', 'value']);
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv1).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   Keys:',
+    Object.keys(argv1).filter(k => k !== '$0' && k !== '_')
+  );
 } catch (error) {
   const errorStr = String(error);
   if (errorStr.includes('Unknown arguments') || errorStr.includes('invalid-option')) {
@@ -40,7 +43,10 @@ try {
     .fail(false)
     .parseSync(['--invalid-option', 'value']);
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv2).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   Keys:',
+    Object.keys(argv2).filter(k => k !== '$0' && k !== '_')
+  );
 } catch (error) {
   const errorStr = String(error);
   if (errorStr.includes('Unknown arguments') || errorStr.includes('invalid-option')) {
@@ -59,7 +65,10 @@ try {
     .fail(false)
     .parseSync();
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv3).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   Keys:',
+    Object.keys(argv3).filter(k => k !== '$0' && k !== '_')
+  );
 } catch (error) {
   const errorStr = String(error);
   if (errorStr.includes('Unknown arguments') || errorStr.includes('invalid-option')) {
@@ -73,13 +82,13 @@ try {
 console.log('\nTest 4: Using .argv property');
 try {
   const instance4 = yargs(['--invalid-option', 'value']);
-  const config = instance4
-    .option('token', { type: 'string' })
-    .strict()
-    .fail(false);
+  const config = instance4.option('token', { type: 'string' }).strict().fail(false);
   const argv4 = config.argv;
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv4).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   Keys:',
+    Object.keys(argv4).filter(k => k !== '$0' && k !== '_')
+  );
 } catch (error) {
   const errorStr = String(error);
   if (errorStr.includes('Unknown arguments') || errorStr.includes('invalid-option')) {

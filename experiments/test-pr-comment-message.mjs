@@ -29,7 +29,8 @@ async function testPRCommentMessage() {
     }
 
     // Verify the message is in the correct context
-    const commentPattern = /const startComment = `[^`]*Please wait working session to finish, and provide your feedback\.[^`]*`;/;
+    const commentPattern =
+      /const startComment = `[^`]*Please wait working session to finish, and provide your feedback\.[^`]*`;/;
     if (!commentPattern.test(content)) {
       console.error('❌ Error: New message not found in the correct context');
       process.exit(1);
@@ -39,7 +40,6 @@ async function testPRCommentMessage() {
     console.log('   Old message removed: ✓');
     console.log('   New message added: ✓');
     console.log('   Message in correct context: ✓');
-
   } catch (error) {
     console.error('❌ Error during test:', error.message);
     process.exit(1);

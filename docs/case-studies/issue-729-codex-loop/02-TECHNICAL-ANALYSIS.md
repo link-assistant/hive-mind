@@ -24,11 +24,13 @@ try {
 ```
 
 **Problem**: This comparison `prUpdatedAt > lastCommitTime` is purely temporal - it doesn't verify:
+
 - Whether the description content actually changed
 - Who made the change (human vs tool)
 - Whether the change is meaningful
 
 **Why It Triggers False Positives**:
+
 - PR `updated_at` changes for many reasons: comments, labels, reviews, etc.
 - Even if the body didn't change, `updated_at` can update
 - The tool itself may update PR metadata, creating a self-triggering loop
@@ -63,12 +65,14 @@ if (limitInfo.isUsageLimit) {
 ```
 
 **What Works**:
+
 - ✅ Correctly detects usage limit from Codex error message
 - ✅ Extracts reset time
 - ✅ Logs helpful information
 - ✅ Sets `limitReached = true`
 
 **What's Missing**:
+
 - ❌ No tracking of consecutive limit hits
 - ❌ No automatic exit when limit is persistent
 - ❌ No enforcement of `--auto-continue-on-limit-reset` requirement
@@ -81,15 +85,26 @@ if (limitInfo.isUsageLimit) {
 The auto-restart logic is triggered in several places:
 
 #### A. Uncommitted Changes Check (solve.mjs ~854)
+
 ```javascript
 const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
 const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
-const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
+const shouldRestart = await checkForUncommittedChanges(
+  tempDir,
+  owner,
+  repo,
+  branchName,
+  $,
+  log,
+  shouldAutoCommit,
+  autoRestartEnabled
+);
 ```
 
 **Analysis**: When usage limit is hit with no uncommitted changes (tool did nothing), this returns `false`.
 
 #### B. Watch Mode Activation (solve.mjs ~866-880)
+
 ```javascript
 // Start watch mode if enabled OR if we need to handle uncommitted changes
 if (argv.verbose) {
@@ -114,7 +129,9 @@ const temporaryWatchMode = shouldRestart && !argv.watch;
 // Simplified version of the watch loop
 while (keepWatching) {
   // Check for feedback
-  const { feedbackDetected } = await detectAndCountFeedback({ /* ... */ });
+  const { feedbackDetected } = await detectAndCountFeedback({
+    /* ... */
+  });
 
   if (feedbackDetected) {
     await log('📢 FEEDBACK DETECTED!');
@@ -122,7 +139,9 @@ while (keepWatching) {
     await log('🔄 Restarting: Re-running CODEX to handle feedback...');
 
     // RESTART THE TOOL
-    toolResult = await executeCodex({ /* ... */ });
+    toolResult = await executeCodex({
+      /* ... */
+    });
 
     // Check if it succeeded
     if (toolResult.limitReached) {
@@ -139,6 +158,7 @@ while (keepWatching) {
 ```
 
 **Critical Issues**:
+
 1. **No exit condition when `limitReached` is true repeatedly**
 2. **No progress validation before restart**
 3. **No counter for consecutive failures**
@@ -216,13 +236,17 @@ Here's the exact sequence that creates the infinite loop:
 ## Why The Loop Accelerated
 
 ### Initial Phase (3-5 min intervals)
+
 During the early phase, Codex sessions may have taken longer due to:
+
 - Initial connection setup
 - Longer timeout periods before returning usage limit error
 - More verbose logging and checks
 
 ### Rapid Phase (7-8 sec intervals)
+
 The loop accelerated because:
+
 1. **Cached GitHub API responses**: Faster feedback detection
 2. **Faster Codex failures**: Tool learned to fail quickly
 3. **No file operations**: No disk I/O delays
@@ -231,6 +255,7 @@ The loop accelerated because:
 ### Measured Timings from Logs
 
 **Rapid phase breakdown** (from log line 8033 onwards):
+
 ```
 00.0s: Start Codex execution
 00.5s: Codex returns usage limit error
@@ -271,12 +296,15 @@ The feedback detection makes these API calls:
 ## Memory and Resource Impact
 
 ### Log File Growth
+
 - **Rate (rapid phase)**: ~466 KB/minute
 - **Total size**: 140 MB in 4.5 hours
 - **Line rate**: ~300 lines/minute during rapid phase
 
 ### Process Resources
+
 From log snapshots:
+
 ```
 Memory: MemFree: 881052 kB → 514300 kB (dropped ~360 MB during execution)
 Load: 0.25 → 0.21 (system load actually decreased, not CPU bound)
@@ -318,16 +346,19 @@ Load: 0.25 → 0.21 (system load actually decreased, not CPU bound)
 ## Security and Resource Implications
 
 ### API Rate Limiting
+
 - Used ~25% of hourly GitHub API quota
 - Risk of hitting rate limits in multi-user scenarios
 - No exponential backoff implemented
 
 ### Log Storage
+
 - 140 MB for one run is excessive
 - Could fill disk in multi-run scenarios
 - No log rotation or size limits
 
 ### Process Management
+
 - Process ran unattended for 4.5 hours
 - No health checks or monitoring alerts
 - Manual intervention required to stop
@@ -337,16 +368,19 @@ Load: 0.25 → 0.21 (system load actually decreased, not CPU bound)
 See `00-OVERVIEW.md` section "Proposed Solutions" for detailed implementation recommendations.
 
 ### Priority 1 (Critical)
+
 1. Add circuit breaker for consecutive usage limits (3-strike rule)
 2. Respect `--auto-continue-limit` flag for usage limit scenarios
 3. Add progress validation before auto-restart
 
 ### Priority 2 (High)
+
 4. Improve feedback detection to avoid false positives
 5. Add maximum restart limit (50-100)
 6. Implement exponential backoff
 
 ### Priority 3 (Medium)
+
 7. Add metrics and monitoring
 8. Implement log size limits
 9. Add health check endpoints

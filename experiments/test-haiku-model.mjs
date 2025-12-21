@@ -12,7 +12,7 @@ const testCases = [
   { input: 'sonnet', expected: 'claude-sonnet-4-5-20250929', description: 'sonnet alias' },
   { input: 'opus', expected: 'claude-opus-4-5-20251101', description: 'opus alias' },
   { input: 'claude-haiku-4-5-20251001', expected: 'claude-haiku-4-5-20251001', description: 'full haiku model ID' },
-  { input: 'some-other-model', expected: 'some-other-model', description: 'unknown model (passthrough)' },
+  { input: 'some-other-model', expected: 'some-other-model', description: 'unknown model (passthrough)' }
 ];
 
 let allPassed = true;

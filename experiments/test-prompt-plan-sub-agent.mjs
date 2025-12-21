@@ -57,7 +57,10 @@ test('prompt-plan-sub-agent: Verify suggestive language', async () => {
     : '';
 
   const hasForcingLanguageInPlanSection = /ALWAYS|FIRST|IMPORTANT/.test(planSubAgentSection);
-  assert.ok(!hasForcingLanguageInPlanSection, 'Plan section should not contain forcing language (ALWAYS/FIRST/IMPORTANT)');
+  assert.ok(
+    !hasForcingLanguageInPlanSection,
+    'Plan section should not contain forcing language (ALWAYS/FIRST/IMPORTANT)'
+  );
 
   const hasConsiderInPlanSection = planSubAgentSection.includes('consider');
   assert.ok(hasConsiderInPlanSection, 'Plan section should contain suggestive "consider"');
@@ -87,7 +90,10 @@ test('prompt-plan-sub-agent: Verify prompt is after "When x do y" rules', async 
   const planSubAgentIndex = systemPrompt.indexOf('Plan sub-agent usage.');
 
   assert.ok(planSubAgentIndex > -1, 'Plan sub-agent section should be found');
-  assert.ok(planSubAgentIndex > selfReviewIndex, 'Plan sub-agent section should be after Self review (after "When x do y" rules)');
+  assert.ok(
+    planSubAgentIndex > selfReviewIndex,
+    'Plan sub-agent section should be after Self review (after "When x do y" rules)'
+  );
   console.log('✅ Test passed: Plan sub-agent prompt is after "When x do y" rules');
 });
 

@@ -9,13 +9,13 @@
 
 ## Solution Summary Table
 
-| Solution | Effort | Risk | Value | Timeline | Recommended |
-|----------|--------|------|-------|----------|-------------|
-| 1. Status Indicators | Low | Low | High | 0-1 week | ✅ **Yes** |
-| 2. Manual Cleanup Command | Medium | Low | Medium | 2-4 weeks | ✅ **Yes** |
-| 3. Auto-Cleanup After Completion | High | High | High | 2-3 months | ⚠️ **Maybe** |
-| 4. Smart 24-Hour Auto-Continue | Medium | Low | High | 2-4 weeks | ✅ **Yes** |
-| 5. Post-Merge Cleanup Hook | Low | Low | Low | 1-2 weeks | ⏳ **Optional** |
+| Solution                         | Effort | Risk | Value  | Timeline   | Recommended     |
+| -------------------------------- | ------ | ---- | ------ | ---------- | --------------- |
+| 1. Status Indicators             | Low    | Low  | High   | 0-1 week   | ✅ **Yes**      |
+| 2. Manual Cleanup Command        | Medium | Low  | Medium | 2-4 weeks  | ✅ **Yes**      |
+| 3. Auto-Cleanup After Completion | High   | High | High   | 2-3 months | ⚠️ **Maybe**    |
+| 4. Smart 24-Hour Auto-Continue   | Medium | Low  | High   | 2-4 weeks  | ✅ **Yes**      |
+| 5. Post-Merge Cleanup Hook       | Low    | Low  | Low    | 1-2 weeks  | ⏳ **Optional** |
 
 ## Detailed Solutions
 
@@ -28,6 +28,7 @@
 **Step 1:** Enhance CLAUDE.md content format
 
 Current:
+
 ```markdown
 Issue to solve: https://github.com/Org/repo/issues/123
 Your prepared branch: issue-123-abc123
@@ -37,12 +38,14 @@ Proceed.
 ```
 
 Proposed:
+
 ```markdown
 Issue to solve: https://github.com/Org/repo/issues/123
 Your prepared branch: issue-123-abc123
 Your prepared working directory: /tmp/gh-issue-solver-1234567890
 
 Session Details:
+
 - Session ID: 7db309ba-ddaf-4508-bf19-e1626549f1c9
 - Created: 2025-12-16T18:27:59.600Z
 - Mode: auto-pr-creation
@@ -75,7 +78,9 @@ if (!claudeCommitHash) {
 ```javascript
 // When continuing existing PR with CLAUDE.md
 if (claudeMdExistsInBranch && prAge < 24) {
-  await postPRComment(prNumber, `
+  await postPRComment(
+    prNumber,
+    `
 ℹ️ **CLAUDE.md Detected**
 
 This PR contains a CLAUDE.md file from a previous work session.
@@ -88,7 +93,8 @@ git rm CLAUDE.md
 git commit -m "chore: remove CLAUDE.md"
 git push
 \`\`\`
-  `);
+  `
+  );
 }
 ```
 
@@ -130,12 +136,14 @@ git push
 ```
 
 #### Benefits
+
 - ✅ Zero behavior change (safe)
 - ✅ Improves user understanding
 - ✅ Easy to implement (~1-2 hours)
 - ✅ Helps debugging
 
 #### Drawbacks
+
 - ❌ Doesn't solve the actual cleanup issue
 - ❌ Users still need to wait or manually delete
 
@@ -270,12 +278,14 @@ if (argv.cleanupClaudeOnly) {
 ```
 
 #### Benefits
+
 - ✅ User control
 - ✅ Safe (verifies before reverting)
 - ✅ Solves edge cases
 - ✅ Works with any PR
 
 #### Drawbacks
+
 - ❌ Requires manual intervention
 - ❌ Another command to learn
 - ❌ Doesn't prevent the issue
@@ -296,13 +306,10 @@ function isWorkComplete(pr, commits, claudeMdAge) {
   return (
     // PR is marked ready (not draft)
     !pr.isDraft &&
-
     // No recent commits (last 30 min)
-    (Date.now() - commits[0].committedDate) > 30 * 60 * 1000 &&
-
+    Date.now() - commits[0].committedDate > 30 * 60 * 1000 &&
     // CI checks passed (if any)
     (pr.statusCheckRollup?.state === 'SUCCESS' || !pr.statusCheckRollup) &&
-
     // CLAUDE.md is old enough (2+ hours)
     claudeMdAge > 2 * 60 * 60 * 1000
   );
@@ -349,14 +356,14 @@ async function autoCleanupClaudeIfSafe(tempDir, branchName, prInfo) {
 
 **Phase 3:** Testing Matrix
 
-| Scenario | Should Cleanup? | Test Status |
-|----------|-----------------|-------------|
-| Draft PR, CLAUDE.md 1h old | ❌ No | ⏳ Pending |
-| Ready PR, CLAUDE.md 1h old | ❌ No (too soon) | ⏳ Pending |
-| Ready PR, CLAUDE.md 3h old, CI passing | ✅ Yes | ⏳ Pending |
-| Ready PR, CLAUDE.md modified | ❌ No | ⏳ Pending |
-| Ready PR, recent commits | ❌ No | ⏳ Pending |
-| Ready PR, commit affects multiple files | ❌ No | ⏳ Pending |
+| Scenario                                | Should Cleanup?  | Test Status |
+| --------------------------------------- | ---------------- | ----------- |
+| Draft PR, CLAUDE.md 1h old              | ❌ No            | ⏳ Pending  |
+| Ready PR, CLAUDE.md 1h old              | ❌ No (too soon) | ⏳ Pending  |
+| Ready PR, CLAUDE.md 3h old, CI passing  | ✅ Yes           | ⏳ Pending  |
+| Ready PR, CLAUDE.md modified            | ❌ No            | ⏳ Pending  |
+| Ready PR, recent commits                | ❌ No            | ⏳ Pending  |
+| Ready PR, commit affects multiple files | ❌ No            | ⏳ Pending  |
 
 #### Code Changes Required
 
@@ -383,20 +390,22 @@ if (isContinueMode && !claudeCommitHash) {
 
 #### Risks and Mitigation
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Delete wrong commit | Low | High | Multiple safety checks |
-| Interfere with active work | Medium | Medium | Check PR status + age |
-| Break multi-session work | Low | Medium | Only clean if work signals complete |
-| Edge cases not covered | High | Low | Fail safe (skip cleanup rather than risk) |
+| Risk                       | Likelihood | Impact | Mitigation                                |
+| -------------------------- | ---------- | ------ | ----------------------------------------- |
+| Delete wrong commit        | Low        | High   | Multiple safety checks                    |
+| Interfere with active work | Medium     | Medium | Check PR status + age                     |
+| Break multi-session work   | Low        | Medium | Only clean if work signals complete       |
+| Edge cases not covered     | High       | Low    | Fail safe (skip cleanup rather than risk) |
 
 #### Benefits
+
 - ✅ Fully automatic
 - ✅ Meets user expectations
 - ✅ No manual intervention
 - ✅ Clean branch history
 
 #### Drawbacks
+
 - ❌ Complex logic
 - ❌ Hard to test all scenarios
 - ❌ Risk of bugs
@@ -404,7 +413,9 @@ if (isContinueMode && !claudeCommitHash) {
 - ❌ Hard to define "complete"
 
 #### Recommendation
+
 **Implement only if:**
+
 1. Solutions 1, 2, and 4 are insufficient
 2. User complaints continue
 3. Extensive testing is done
@@ -442,7 +453,6 @@ if (!claudeMdExists) {
   // Signal: Work is complete (CLAUDE.md was cleaned up)
   await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed)`);
   usePR();
-
 } else if (pr.isDraft) {
   // Draft PR → work still in progress
   if (prAge < TWENTY_FOUR_HOURS) {
@@ -452,7 +462,6 @@ if (!claudeMdExists) {
     await log(`✅ Auto-continue: Using PR #${pr.number} (draft but abandoned >24h)`);
     usePR();
   }
-
 } else if (!pr.isDraft) {
   // Ready PR → work marked as complete by previous session
   if (prAge < ONE_HOUR) {
@@ -464,12 +473,10 @@ if (!claudeMdExists) {
     await log(`✅ Auto-continue: Using PR #${pr.number} (ready + age ${ageHours}h > 1h)`);
     usePR();
   }
-
 } else if (prAge > FOUR_HOURS) {
   // Fallback: Regardless of status, >4h = probably abandoned
   await log(`✅ Auto-continue: Using PR #${pr.number} (age ${ageHours}h > 4h - likely abandoned)`);
   usePR();
-
 } else {
   await log(`  PR #${pr.number}: age ${ageHours}h < 4h - skipping`);
   skipPR();
@@ -515,19 +522,21 @@ Add new config options:
 ```javascript
 // In config or argv
 const AUTO_CONTINUE_TIMEOUTS = {
-  WORK_COMPLETE_SIGNAL: 1 * 60 * 60 * 1000,  // 1h after PR marked ready
-  ABANDONED_DRAFT: 24 * 60 * 60 * 1000,       // 24h for draft PRs
-  FORCE_CONTINUE: 4 * 60 * 60 * 1000          // 4h regardless of status
+  WORK_COMPLETE_SIGNAL: 1 * 60 * 60 * 1000, // 1h after PR marked ready
+  ABANDONED_DRAFT: 24 * 60 * 60 * 1000, // 24h for draft PRs
+  FORCE_CONTINUE: 4 * 60 * 60 * 1000 // 4h regardless of status
 };
 ```
 
 #### Benefits
+
 - ✅ Faster cleanup (1-4h vs 24h)
 - ✅ Uses PR ready status as signal
 - ✅ Backward compatible
 - ✅ Low risk
 
 #### Drawbacks
+
 - ❌ Still requires waiting
 - ❌ Doesn't help same-day multi-session work
 - ❌ Edge case: PR marked ready by mistake
@@ -589,18 +598,21 @@ jobs:
 ```
 
 #### Benefits
+
 - ✅ Cleans main branch after merge
 - ✅ No risk to PR work
 - ✅ Automatic
 - ✅ Easy to implement
 
 #### Drawbacks
+
 - ❌ Only cleans main, not PR branch
 - ❌ Requires GitHub Actions
 - ❌ Post-facto (doesn't prevent)
 - ❌ Extra commit in main branch
 
 #### When to Use
+
 - Repositories that frequently merge PRs with CLAUDE.md
 - Want clean main branch
 - Don't mind extra cleanup commits
@@ -610,6 +622,7 @@ jobs:
 ## Implementation Roadmap
 
 ### Phase 1: Immediate (Week 1)
+
 **Goal:** Improve visibility and documentation
 
 - [ ] Implement **Solution 1** (Status Indicators)
@@ -621,6 +634,7 @@ jobs:
 - [ ] Update this case study
 
 **Deliverables:**
+
 - Enhanced CLAUDE.md format
 - Better logging
 - Documentation
@@ -630,6 +644,7 @@ jobs:
 **Risk:** None (no behavior change)
 
 ### Phase 2: Short-term (Weeks 2-4)
+
 **Goal:** Give users control and reduce wait time
 
 - [ ] Implement **Solution 2** (Manual Cleanup Command)
@@ -645,6 +660,7 @@ jobs:
   - [ ] Monitor impact
 
 **Deliverables:**
+
 - `cleanup-claude.mjs` command
 - Faster auto-continue (1-4h)
 - Test suite
@@ -654,6 +670,7 @@ jobs:
 **Risk:** Low (opt-in manual command + well-tested logic changes)
 
 ### Phase 3: Long-term (Months 2-3)
+
 **Goal:** Full automation with safety
 
 - [ ] Evaluate need for **Solution 3** (Auto-Cleanup)
@@ -668,6 +685,7 @@ jobs:
   - [ ] Documentation
 
 **Deliverables:**
+
 - (Optional) Auto-cleanup feature
 - (Optional) Post-merge hook template
 - Metrics dashboard
@@ -683,24 +701,28 @@ jobs:
 ### User Experience Metrics
 
 **Before Implementation:**
+
 - User confusion: High (GitHub issue #940)
 - Manual cleanup required: ~20-30% of PRs
 - Wait time for auto-cleanup: 24 hours
 - Manual intervention rate: ~15-20%
 
 **After Phase 1 (Documentation):**
+
 - User confusion: Medium (better docs)
 - Manual cleanup required: ~20-30% (unchanged)
 - Wait time: 24h (unchanged)
 - Manual intervention rate: ~10-15% (better understanding)
 
 **After Phase 2 (Manual + Smart Continue):**
+
 - User confusion: Low (clear docs + control)
 - Manual cleanup required: ~10-15% (faster auto)
 - Wait time: 1-4 hours (improved)
 - Manual intervention rate: ~5-10% (faster auto + manual command available)
 
 **After Phase 3 (Full Auto):**
+
 - User confusion: Minimal
 - Manual cleanup required: <5%
 - Wait time: Immediate (when safe)
@@ -709,11 +731,13 @@ jobs:
 ### Technical Metrics
 
 **Safety:**
+
 - Wrong commit revert rate: 0% (maintained)
 - Data loss incidents: 0 (maintained)
 - False positive cleanup: <1%
 
 **Performance:**
+
 - Cleanup success rate: >95%
 - Average cleanup time: <2 hours (from 24h)
 - Manual command usage: Track adoption
@@ -724,15 +748,15 @@ jobs:
 
 ### Should We Implement Each Solution?
 
-| Criterion | Weight | Sol 1 | Sol 2 | Sol 3 | Sol 4 | Sol 5 |
-|-----------|--------|-------|-------|-------|-------|-------|
-| Solves user problem | 25% | 3/10 | 7/10 | 10/10 | 8/10 | 4/10 |
-| Low risk | 20% | 10/10 | 9/10 | 4/10 | 7/10 | 9/10 |
-| Easy to implement | 15% | 10/10 | 7/10 | 2/10 | 6/10 | 9/10 |
-| Maintainable | 15% | 10/10 | 8/10 | 5/10 | 7/10 | 8/10 |
-| User value | 25% | 4/10 | 6/10 | 10/10 | 8/10 | 3/10 |
-| **Total Score** | | **6.8** | **7.4** | **6.2** | **7.5** | **5.9** |
-| **Rank** | | 3rd | 2nd | 4th | 1st | 5th |
+| Criterion           | Weight | Sol 1   | Sol 2   | Sol 3   | Sol 4   | Sol 5   |
+| ------------------- | ------ | ------- | ------- | ------- | ------- | ------- |
+| Solves user problem | 25%    | 3/10    | 7/10    | 10/10   | 8/10    | 4/10    |
+| Low risk            | 20%    | 10/10   | 9/10    | 4/10    | 7/10    | 9/10    |
+| Easy to implement   | 15%    | 10/10   | 7/10    | 2/10    | 6/10    | 9/10    |
+| Maintainable        | 15%    | 10/10   | 8/10    | 5/10    | 7/10    | 8/10    |
+| User value          | 25%    | 4/10    | 6/10    | 10/10   | 8/10    | 3/10    |
+| **Total Score**     |        | **6.8** | **7.4** | **6.2** | **7.5** | **5.9** |
+| **Rank**            |        | 3rd     | 2nd     | 4th     | 1st     | 5th     |
 
 ### Recommendation Priority
 
@@ -774,11 +798,13 @@ jobs:
 5. ⏳ **Solution 5** (Post-Merge Hook) - Optional, for specific repos
 
 **Timeline:**
+
 - **Week 1:** Solution 1 implemented and documented
 - **Weeks 2-4:** Solutions 2 and 4 implemented and tested
 - **Month 2+:** Evaluate metrics, implement Solution 3 if needed
 
 **Expected Outcome:**
+
 - User confusion reduced by ~70%
 - Average cleanup time reduced from 24h to 1-4h
 - Manual intervention reduced by ~50%
@@ -787,11 +813,13 @@ jobs:
 ## Sources
 
 ### Online Research
+
 - [Feature Request: Improve Resilience and User Experience of hive-mind Session Resume](https://github.com/ruvnet/claude-flow/issues/410)
 - [Auto-Intercept attempts of Claude to use the rm cli tool](https://github.com/anthropics/claude-code/issues/12489)
 - [Unintended File Deletion During Code Update Process](https://github.com/anthropics/claude-code/issues/4912)
 
 ### Internal References
+
 - Issue #617: Wrong commit revert bug (fixed)
 - Issue #678: PR creation failure with identical CLAUDE.md (fixed)
 - Issue #940: This case study

@@ -56,7 +56,7 @@ async function testPerModelUsageCalculation() {
       // Show per-model breakdown
       if (tokenUsage.modelUsage) {
         console.log('📊 Per-Model Usage Breakdown:');
-        console.log('=' .repeat(60));
+        console.log('='.repeat(60));
 
         for (const [modelId, usage] of Object.entries(tokenUsage.modelUsage)) {
           console.log(`\n🤖 ${usage.modelName || modelId}`);
@@ -89,12 +89,18 @@ async function testPerModelUsageCalculation() {
               console.log(`   Released: ${info.release_date}`);
             }
 
-            console.log(`   Capabilities: ${[
-              info.attachment ? 'Attachments' : null,
-              info.reasoning ? 'Reasoning' : null,
-              info.temperature ? 'Temperature' : null,
-              info.tool_call ? 'Tool calls' : null
-            ].filter(Boolean).join(', ') || 'N/A'}`);
+            console.log(
+              `   Capabilities: ${
+                [
+                  info.attachment ? 'Attachments' : null,
+                  info.reasoning ? 'Reasoning' : null,
+                  info.temperature ? 'Temperature' : null,
+                  info.tool_call ? 'Tool calls' : null
+                ]
+                  .filter(Boolean)
+                  .join(', ') || 'N/A'
+              }`
+            );
 
             console.log(`   Open weights: ${info.open_weights ? 'Yes' : 'No'}`);
             console.log('');
@@ -129,19 +135,27 @@ async function testPerModelUsageCalculation() {
             const breakdown = usage.costBreakdown;
 
             if (breakdown.input.tokens > 0) {
-              console.log(`     Input: ${breakdown.input.tokens.toLocaleString()} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`);
+              console.log(
+                `     Input: ${breakdown.input.tokens.toLocaleString()} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`
+              );
             }
 
             if (breakdown.cacheWrite.tokens > 0) {
-              console.log(`     Cache write: ${breakdown.cacheWrite.tokens.toLocaleString()} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`);
+              console.log(
+                `     Cache write: ${breakdown.cacheWrite.tokens.toLocaleString()} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`
+              );
             }
 
             if (breakdown.cacheRead.tokens > 0) {
-              console.log(`     Cache read: ${breakdown.cacheRead.tokens.toLocaleString()} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`);
+              console.log(
+                `     Cache read: ${breakdown.cacheRead.tokens.toLocaleString()} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`
+              );
             }
 
             if (breakdown.output.tokens > 0) {
-              console.log(`     Output: ${breakdown.output.tokens.toLocaleString()} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`);
+              console.log(
+                `     Output: ${breakdown.output.tokens.toLocaleString()} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`
+              );
             }
 
             console.log(`     ─────────────────────────────────`);
@@ -181,10 +195,7 @@ async function testPerModelUsageCalculation() {
 
     // Test fetchModelInfo separately
     console.log('\n\n🔍 Testing model info fetching from models.dev...\n');
-    const testModels = [
-      'claude-sonnet-4-5-20250929',
-      'claude-haiku-4-5-20251001'
-    ];
+    const testModels = ['claude-sonnet-4-5-20250929', 'claude-haiku-4-5-20251001'];
 
     for (const modelId of testModels) {
       console.log(`Fetching info for: ${modelId}`);
@@ -230,15 +241,13 @@ async function testPerModelUsageCalculation() {
     console.log(`\nCalculated cost: $${cost.toFixed(6)}`);
 
     // Manual verification:
-    const manualCost = (
+    const manualCost =
       (mockUsage.inputTokens / 1000000) * mockModelInfo.cost.input +
       (mockUsage.cacheCreationTokens / 1000000) * mockModelInfo.cost.cache_write +
       (mockUsage.cacheReadTokens / 1000000) * mockModelInfo.cost.cache_read +
-      (mockUsage.outputTokens / 1000000) * mockModelInfo.cost.output
-    );
+      (mockUsage.outputTokens / 1000000) * mockModelInfo.cost.output;
     console.log(`Manual verification: $${manualCost.toFixed(6)}`);
     console.log(cost === manualCost ? '✅ Cost calculation correct!' : '❌ Cost calculation mismatch!');
-
   } catch (error) {
     console.error('❌ Error:', error.message);
     console.error(error.stack);

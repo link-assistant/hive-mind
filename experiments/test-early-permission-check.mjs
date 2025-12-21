@@ -33,14 +33,10 @@ console.log('📋 Test 1: Repository without write access, no --fork flag');
 console.log('   Expected: Should fail with helpful error message\n');
 
 logs.length = 0;
-const test1Result = await checkRepositoryWritePermission(
-  'veb86',
-  'zcadvelecAI',
-  {
-    useFork: false,
-    issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
-  }
-);
+const test1Result = await checkRepositoryWritePermission('veb86', 'zcadvelecAI', {
+  useFork: false,
+  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
+});
 
 console.log(`\n   Result: ${test1Result ? 'PASSED ✅' : 'FAILED ❌ (expected)'}`);
 if (!test1Result) {
@@ -57,14 +53,10 @@ console.log('\n📋 Test 2: Repository without write access, WITH --fork flag');
 console.log('   Expected: Should skip check and pass\n');
 
 logs.length = 0;
-const test2Result = await checkRepositoryWritePermission(
-  'veb86',
-  'zcadvelecAI',
-  {
-    useFork: true,
-    issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
-  }
-);
+const test2Result = await checkRepositoryWritePermission('veb86', 'zcadvelecAI', {
+  useFork: true,
+  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
+});
 
 console.log(`\n   Result: ${test2Result ? 'PASSED ✅ (expected)' : 'FAILED ❌'}`);
 const skippedMessage = logs.find(l => l.message.includes('Skipped') && l.message.includes('fork mode'));
@@ -75,14 +67,10 @@ console.log('\n📋 Test 3: Repository with write access (hive-mind)');
 console.log('   Expected: Should pass with confirmation message\n');
 
 logs.length = 0;
-const test3Result = await checkRepositoryWritePermission(
-  'link-assistant',
-  'hive-mind',
-  {
-    useFork: false,
-    issueUrl: 'https://github.com/link-assistant/hive-mind/issues/439'
-  }
-);
+const test3Result = await checkRepositoryWritePermission('link-assistant', 'hive-mind', {
+  useFork: false,
+  issueUrl: 'https://github.com/link-assistant/hive-mind/issues/439'
+});
 
 console.log(`\n   Result: ${test3Result ? 'PASSED ✅ (expected)' : 'FAILED ❌'}`);
 const confirmMessage = logs.find(l => l.message.includes('write access') && l.message.includes('Confirmed'));

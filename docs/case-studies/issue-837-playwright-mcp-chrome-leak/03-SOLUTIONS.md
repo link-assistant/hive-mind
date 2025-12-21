@@ -6,12 +6,12 @@ This document provides detailed solutions for preventing and mitigating Chrome p
 
 ## Solution Categories
 
-| Category | Solutions | Implementation Time |
-|----------|-----------|---------------------|
-| Immediate Mitigations | Cron cleanup, Kill orphans | Minutes |
-| Configuration Changes | Isolated mode, Docker flags | Hours |
-| Code Improvements | Error handling, Signal handlers | Days |
-| Architecture Changes | Process recycling, Monitoring | Weeks |
+| Category              | Solutions                       | Implementation Time |
+| --------------------- | ------------------------------- | ------------------- |
+| Immediate Mitigations | Cron cleanup, Kill orphans      | Minutes             |
+| Configuration Changes | Isolated mode, Docker flags     | Hours               |
+| Code Improvements     | Error handling, Signal handlers | Days                |
+| Architecture Changes  | Process recycling, Monitoring   | Weeks               |
 
 ## Immediate Mitigations
 
@@ -35,6 +35,7 @@ crontab -e
 ```
 
 **cleanup-chrome.sh script**:
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/cleanup-chrome.sh
@@ -69,6 +70,7 @@ fi
 ```
 
 Make it executable:
+
 ```bash
 chmod +x /usr/local/bin/cleanup-chrome.sh
 ```
@@ -138,6 +140,7 @@ WantedBy=multi-user.target
 ```
 
 Enable and start:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable playwright-mcp
@@ -162,17 +165,20 @@ npx @playwright/mcp@latest --isolated
 ```
 
 **Benefits**:
+
 - Ephemeral browser contexts
 - Automatic cleanup on session end
 - No persistent profile accumulation
 - Fresh state for each session
 
 **Drawbacks**:
+
 - No persistent authentication
 - Cookies lost between sessions
 - May need to re-authenticate each time
 
 **Hybrid approach** - Use storage state for auth:
+
 ```bash
 # Save auth state once
 npx playwright codegen --save-storage=auth.json
@@ -187,17 +193,18 @@ npx @playwright/mcp@latest --isolated --storage-state=auth.json
 **Implementation Time**: 30 minutes
 
 **docker-compose.yml**:
+
 ```yaml
 version: '3.8'
 
 services:
   playwright-mcp:
     image: mcr.microsoft.com/playwright:latest
-    init: true  # Proper process reaping
-    ipc: host   # Shared memory access
+    init: true # Proper process reaping
+    ipc: host # Shared memory access
     cap_add:
-      - SYS_ADMIN  # Required for sandbox
-    shm_size: 2gb  # Adequate shared memory
+      - SYS_ADMIN # Required for sandbox
+    shm_size: 2gb # Adequate shared memory
     environment:
       - NODE_ENV=production
     command: npx @playwright/mcp@latest --isolated --headless
@@ -209,13 +216,14 @@ services:
         reservations:
           memory: 1G
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "playwright"]
+      test: ['CMD', 'pgrep', '-f', 'playwright']
       interval: 30s
       timeout: 10s
       retries: 3
 ```
 
 **Dockerfile with proper setup**:
+
 ```dockerfile
 FROM mcr.microsoft.com/playwright:latest
 
@@ -257,40 +265,40 @@ spec:
         app: playwright-mcp
     spec:
       containers:
-      - name: playwright-mcp
-        image: your-registry/playwright-mcp:latest
-        resources:
-          limits:
-            memory: "4Gi"
-            cpu: "2"
-          requests:
-            memory: "1Gi"
-            cpu: "500m"
-        securityContext:
-          capabilities:
-            add:
-              - SYS_ADMIN
-        volumeMounts:
-        - name: shm
-          mountPath: /dev/shm
-        livenessProbe:
-          exec:
-            command:
-            - pgrep
-            - -f
-            - playwright
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        # Auto-restart every 4 hours
-        lifecycle:
-          preStop:
+        - name: playwright-mcp
+          image: your-registry/playwright-mcp:latest
+          resources:
+            limits:
+              memory: '4Gi'
+              cpu: '2'
+            requests:
+              memory: '1Gi'
+              cpu: '500m'
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - name: shm
+              mountPath: /dev/shm
+          livenessProbe:
             exec:
-              command: ["/bin/sh", "-c", "pkill -9 -f chrome || true"]
+              command:
+                - pgrep
+                - -f
+                - playwright
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          # Auto-restart every 4 hours
+          lifecycle:
+            preStop:
+              exec:
+                command: ['/bin/sh', '-c', 'pkill -9 -f chrome || true']
       volumes:
-      - name: shm
-        emptyDir:
-          medium: Memory
-          sizeLimit: 2Gi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
       # Use init container pattern for zombie reaping
       shareProcessNamespace: true
 ```
@@ -420,13 +428,14 @@ module.exports = BrowserManager;
 ```
 
 **Usage**:
+
 ```javascript
 const BrowserManager = require('./lib/browserManager');
 
 async function scrapeWebsite(url) {
   const manager = new BrowserManager();
 
-  return await manager.execute(async (page) => {
+  return await manager.execute(async page => {
     await page.goto(url);
     const title = await page.title();
     return { url, title };
@@ -458,9 +467,8 @@ class BrowserPool {
 
   async acquire() {
     // Find a healthy browser
-    const healthyBrowser = this.browsers.find(b =>
-      b.useCount < this.maxUsesPerBrowser &&
-      (Date.now() - b.createdAt) < this.maxAgeMs
+    const healthyBrowser = this.browsers.find(
+      b => b.useCount < this.maxUsesPerBrowser && Date.now() - b.createdAt < this.maxAgeMs
     );
 
     if (healthyBrowser) {
@@ -482,8 +490,7 @@ class BrowserPool {
     const entry = this.browsers.find(b => b.browser === browser);
     if (entry) {
       // Check if browser needs recycling
-      if (entry.useCount >= this.maxUsesPerBrowser ||
-          (Date.now() - entry.createdAt) >= this.maxAgeMs) {
+      if (entry.useCount >= this.maxUsesPerBrowser || Date.now() - entry.createdAt >= this.maxAgeMs) {
         await this._closeBrowser(entry);
       }
     }
@@ -523,9 +530,7 @@ class BrowserPool {
   }
 
   async shutdown() {
-    await Promise.all(
-      this.browsers.map(entry => this._closeBrowser(entry))
-    );
+    await Promise.all(this.browsers.map(entry => this._closeBrowser(entry)));
     this.browsers = [];
   }
 }
@@ -539,6 +544,7 @@ module.exports = BrowserPool;
 **Implementation Location**: Server monitoring
 
 **monitor-chrome.sh**:
+
 ```bash
 #!/bin/bash
 # /usr/local/bin/monitor-chrome.sh
@@ -589,6 +595,7 @@ fi
 ```
 
 **Add to crontab for continuous monitoring**:
+
 ```bash
 # Run every 5 minutes
 */5 * * * * /usr/local/bin/monitor-chrome.sh
@@ -602,39 +609,43 @@ fi
 **Implementation Time**: 1-2 hours
 
 **ecosystem.config.js**:
+
 ```javascript
 module.exports = {
-  apps: [{
-    name: 'playwright-mcp',
-    script: 'npx',
-    args: '@playwright/mcp@latest --isolated --headless',
-    cwd: '/opt/playwright-mcp',
+  apps: [
+    {
+      name: 'playwright-mcp',
+      script: 'npx',
+      args: '@playwright/mcp@latest --isolated --headless',
+      cwd: '/opt/playwright-mcp',
 
-    // Auto-restart every 4 hours
-    cron_restart: '0 */4 * * *',
+      // Auto-restart every 4 hours
+      cron_restart: '0 */4 * * *',
 
-    // Memory limit restart
-    max_memory_restart: '2G',
+      // Memory limit restart
+      max_memory_restart: '2G',
 
-    // Graceful restart
-    kill_timeout: 10000,
-    wait_ready: true,
+      // Graceful restart
+      kill_timeout: 10000,
+      wait_ready: true,
 
-    // Logging
-    log_file: '/var/log/playwright-mcp/combined.log',
-    error_file: '/var/log/playwright-mcp/error.log',
-    out_file: '/var/log/playwright-mcp/out.log',
+      // Logging
+      log_file: '/var/log/playwright-mcp/combined.log',
+      error_file: '/var/log/playwright-mcp/error.log',
+      out_file: '/var/log/playwright-mcp/out.log',
 
-    // Environment
-    env: {
-      NODE_ENV: 'production',
-      PLAYWRIGHT_BROWSERS_PATH: '/opt/playwright/browsers'
+      // Environment
+      env: {
+        NODE_ENV: 'production',
+        PLAYWRIGHT_BROWSERS_PATH: '/opt/playwright/browsers'
+      }
     }
-  }]
+  ]
 };
 ```
 
 **Start with PM2**:
+
 ```bash
 pm2 start ecosystem.config.js
 pm2 save
@@ -656,44 +667,44 @@ spec:
     spec:
       shareProcessNamespace: true
       containers:
-      - name: playwright-mcp
-        image: playwright-mcp:latest
-        # Main container config...
+        - name: playwright-mcp
+          image: playwright-mcp:latest
+          # Main container config...
 
-      - name: cleanup-sidecar
-        image: busybox
-        command:
-        - /bin/sh
-        - -c
-        - |
-          while true; do
-            sleep 1800  # Every 30 minutes
-            echo "Running Chrome cleanup..."
-            pkill -f "chrome-headless" || true
-            pkill -f "chromium" || true
-            echo "Cleanup complete at $(date)"
-          done
-        securityContext:
-          capabilities:
-            add:
-              - SYS_PTRACE
+        - name: cleanup-sidecar
+          image: busybox
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                sleep 1800  # Every 30 minutes
+                echo "Running Chrome cleanup..."
+                pkill -f "chrome-headless" || true
+                pkill -f "chromium" || true
+                echo "Cleanup complete at $(date)"
+              done
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
 ```
 
 ## Solution Summary Table
 
-| # | Solution | Priority | Time | Complexity | Effectiveness |
-|---|----------|----------|------|------------|---------------|
-| 1 | Cron cleanup | HIGH | 5min | Low | Medium |
-| 2 | Manual recovery | HIGH | N/A | Low | High |
-| 3 | Systemd limits | MEDIUM | 30min | Medium | High |
-| 4 | Isolated mode | HIGH | 10min | Low | High |
-| 5 | Docker config | HIGH | 30min | Medium | High |
-| 6 | Kubernetes config | MEDIUM | 1hr | Medium | High |
-| 7 | Error handling | HIGH | 2hr | Medium | High |
-| 8 | Browser pool | MEDIUM | 4hr | High | Very High |
-| 9 | Monitoring | HIGH | 1hr | Medium | Medium |
-| 10 | PM2 supervisor | MEDIUM | 1hr | Medium | High |
-| 11 | K8s sidecar | LOW | 2hr | High | Medium |
+| #   | Solution          | Priority | Time  | Complexity | Effectiveness |
+| --- | ----------------- | -------- | ----- | ---------- | ------------- |
+| 1   | Cron cleanup      | HIGH     | 5min  | Low        | Medium        |
+| 2   | Manual recovery   | HIGH     | N/A   | Low        | High          |
+| 3   | Systemd limits    | MEDIUM   | 30min | Medium     | High          |
+| 4   | Isolated mode     | HIGH     | 10min | Low        | High          |
+| 5   | Docker config     | HIGH     | 30min | Medium     | High          |
+| 6   | Kubernetes config | MEDIUM   | 1hr   | Medium     | High          |
+| 7   | Error handling    | HIGH     | 2hr   | Medium     | High          |
+| 8   | Browser pool      | MEDIUM   | 4hr   | High       | Very High     |
+| 9   | Monitoring        | HIGH     | 1hr   | Medium     | Medium        |
+| 10  | PM2 supervisor    | MEDIUM   | 1hr   | Medium     | High          |
+| 11  | K8s sidecar       | LOW      | 2hr   | High       | Medium        |
 
 ## Recommended Implementation Order
 

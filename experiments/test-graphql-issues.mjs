@@ -79,7 +79,6 @@ async function testUserIssuesWithGraphQL(username, label = null, limit = 100) {
     }
 
     return { issues, totalCount, hasMore };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -148,7 +147,6 @@ async function testOrgIssuesWithGraphQL(orgName, label = null, limit = 100) {
     }
 
     return { issues, totalCount, hasMore };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -165,7 +163,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
   console.log(`   Repo limit: ${limit}`);
 
   try {
-    const graphqlQuery = isOrg ? `
+    const graphqlQuery = isOrg
+      ? `
       query($owner: String!, $repoLimit: Int!) {
         organization(login: $owner) {
           repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -192,7 +191,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
           }
         }
       }
-    ` : `
+    `
+      : `
       query($owner: String!, $repoLimit: Int!) {
         user(login: $owner) {
           repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}) {
@@ -252,7 +252,6 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
     console.log(`   Note: This approach has a limitation - can only fetch 100 issues per repo`);
 
     return { repos: repos.nodes, totalRepos, hasMoreRepos, issues: allIssues, totalIssues };
-
   } catch (error) {
     console.error(`   ❌ Error: ${error.message}`);
     throw error;
@@ -262,7 +261,7 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
 // Run tests
 async function main() {
   console.log('🚀 Starting GraphQL API experiments\n');
-  console.log('=' .repeat(80));
+  console.log('='.repeat(80));
 
   try {
     // Test 1: Fetch issues from konard user (all issues)
@@ -288,7 +287,6 @@ async function main() {
     console.log('   2. It still uses search API which is rate limited');
     console.log('   3. Alternative: Fetch repos + issues in one query, but limited to 100 issues/repo');
     console.log('   4. For comprehensive issue fetching, repository-by-repository approach is still needed');
-
   } catch (error) {
     console.error('\n❌ Tests failed:', error.message);
     process.exit(1);

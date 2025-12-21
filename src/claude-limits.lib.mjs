@@ -158,7 +158,8 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!accessToken) {
       return {
         success: false,
-        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
+        error:
+          'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
       };
     }
 
@@ -170,10 +171,10 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'claude-code/2.0.55',
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'anthropic-beta': 'oauth-2025-04-20'
       }
     });
@@ -188,7 +189,8 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (response.status === 401) {
         return {
           success: false,
-          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
+          error:
+            'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.'
         };
       }
 

@@ -4,14 +4,18 @@
  * Test script to verify improved error messages with repository and PR links
  */
 
-import { handleBranchCheckoutError, handleBranchCreationError, handleBranchVerificationError } from '../src/solve.branch-errors.lib.mjs';
+import {
+  handleBranchCheckoutError,
+  handleBranchCreationError,
+  handleBranchVerificationError
+} from '../src/solve.branch-errors.lib.mjs';
 
 // Mock dependencies - $ needs to handle cwd option
-const $ = (options) => {
+const $ = options => {
   // Return a function that can be called with template literals
   return () => Promise.resolve({ code: 0, stdout: 'mock branch output' });
 };
-const log = async (msg) => console.log(msg);
+const log = async msg => console.log(msg);
 const formatAligned = (icon, label, value) => `${icon} ${label} ${value}`.trim();
 const argv = { verbose: false };
 
@@ -21,7 +25,8 @@ async function testBranchCheckoutError() {
   await handleBranchCheckoutError({
     branchName: 'issue-9-231cfae8',
     prNumber: 10,
-    errorOutput: "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it",
+    errorOutput:
+      "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it",
     issueUrl: 'https://github.com/1dNDN/BitrotBruteforce/pull/10',
     owner: '1dNDN',
     repo: 'BitrotBruteforce',
@@ -38,7 +43,7 @@ async function testBranchCreationError() {
 
   await handleBranchCreationError({
     branchName: 'feature-test-123',
-    errorOutput: 'fatal: A branch named \'feature-test-123\' already exists.',
+    errorOutput: "fatal: A branch named 'feature-test-123' already exists.",
     tempDir: '/tmp/test-repo',
     owner: 'link-assistant',
     repo: 'hive-mind',

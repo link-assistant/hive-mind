@@ -15,13 +15,14 @@ async function log(message) {
 // Mock scenario: fork PR branch checkout failure
 async function simulateForkedPRError() {
   const isForkPR = true;
-  const issueUrl = "https://github.com/suenot/tinkoff-invest-etf-balancer-bot/pull/39";
+  const issueUrl = 'https://github.com/suenot/tinkoff-invest-etf-balancer-bot/pull/39';
   const prNumber = 39;
-  const owner = "suenot";
-  const repo = "tinkoff-invest-etf-balancer-bot";
-  const branchName = "issue-3-6da5c9ab";
-  const tempDir = "/tmp/test-directory";
-  const errorOutput = "fatal: 'origin/issue-3-6da5c9ab' is not a commit and a branch 'issue-3-6da5c9ab' cannot be created from it";
+  const owner = 'suenot';
+  const repo = 'tinkoff-invest-etf-balancer-bot';
+  const branchName = 'issue-3-6da5c9ab';
+  const tempDir = '/tmp/test-directory';
+  const errorOutput =
+    "fatal: 'origin/issue-3-6da5c9ab' is not a commit and a branch 'issue-3-6da5c9ab' cannot be created from it";
 
   console.log('🔍 Testing forked PR error message output:');
   console.log('========================================');
@@ -67,10 +68,10 @@ async function simulateForkedPRError() {
 async function simulateNormalPRError() {
   const isForkPR = false;
   const prNumber = 123;
-  const owner = "link-assistant";
-  const repo = "hive-mind";
-  const branchName = "issue-123-abcd1234";
-  const tempDir = "/tmp/test-directory";
+  const owner = 'link-assistant';
+  const repo = 'hive-mind';
+  const branchName = 'issue-123-abcd1234';
+  const tempDir = '/tmp/test-directory';
   const errorOutput = "fatal: A branch named 'issue-123-abcd1234' already exists.";
 
   console.log('🔍 Testing normal PR error message output:');

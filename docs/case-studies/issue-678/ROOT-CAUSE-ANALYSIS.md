@@ -12,6 +12,7 @@ The v0.29.8 fix only addressed Problem 1, but **did not fix** the underlying iss
 ## Problem 1: Identical Content When Reusing Branches (v0.29.5)
 
 ### Symptom
+
 ```
 [2025-11-05T10:00:15.117Z] [INFO]    CLAUDE.md already exists, appending task info...
 [2025-11-05T10:00:16.535Z] [INFO]    Push output: To https://github.com/40Think/AgogeDigitalTwin.git
@@ -20,16 +21,20 @@ The v0.29.8 fix only addressed Problem 1, but **did not fix** the underlying iss
 ```
 
 ### Evidence from Logs
+
 The push shows commits moved from `8ee8459..9d8c4fc`, proving a new commit was created and pushed successfully. However, GitHub's GraphQL API returns "No commits between branches."
 
 ### Root Cause Analysis
+
 When `--auto-continue` reuses an existing branch:
+
 1. Code appends task info to CLAUDE.md
 2. Creates commit with deterministic content
 3. Pushes successfully (git acknowledges new SHA)
 4. **BUT**: GitHub sees no meaningful diff between branches
 
 **Critical Insight**: The issue is NOT that commits don't exist. The logs prove commits exist:
+
 ```
 8ee8459..9d8c4fc  issue-1-b53fe3666f91 -> issue-1-b53fe3666f91
 ```
@@ -37,13 +42,16 @@ When `--auto-continue` reuses an existing branch:
 The problem is that **the tree/content between the branch and base is identical**.
 
 ### Why This Happens
+
 When you checkout an existing branch and append the SAME deterministic task info:
+
 - First run: Branch has commit A with "Task: #1"
 - Second run: Append "Task: #1" again → no actual content change
 - Git sees file change (different line count) → creates commit
 - GitHub compares TREES between branches → sees no diff → rejects PR
 
 ### The v0.29.8 "Fix"
+
 ```javascript
 const timestamp = new Date().toISOString();
 finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
@@ -52,9 +60,11 @@ finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${tim
 **Analysis**: This adds a timestamp to make content unique each run, but **this is treating the symptom, not the cause**.
 
 ### Real Problem
+
 The ACTUAL issue is: **Why are we appending to CLAUDE.md when the branch already has commits?**
 
 When `--auto-continue` reuses a branch:
+
 - If branch is brand new: Append is fine
 - If branch already has commits: Appending creates duplicates and confusion
 - CLAUDE.md is supposed to be temporary (removed after session)
@@ -64,6 +74,7 @@ When `--auto-continue` reuses a branch:
 ## Problem 2: Fork Mode Compare API Failure (v0.29.7 Regression)
 
 ### Symptom
+
 ```
 [2025-11-05T12:28:48.248Z] [INFO]    Push output: remote:
 remote: Create a pull request for 'issue-6-01d3f376c347' on GitHub by visiting:
@@ -75,6 +86,7 @@ To https://github.com/konard/anti-corruption.git
 ```
 
 ### Evidence
+
 - Push succeeds to fork: `konard/anti-corruption`
 - Branch exists in fork (Git confirms it)
 - Compare API call: Returns 404 across ALL 5 retry attempts
@@ -83,11 +95,15 @@ To https://github.com/konard/anti-corruption.git
 ### Root Cause: Wrong Compare API Format
 
 Looking at the code at line 507:
+
 ```javascript
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
 Where:
+
 - `owner` = `xlabtg` (upstream owner)
 - `repo` = `anti-corruption` (upstream repo)
 - `targetBranchForCompare` = `main`
@@ -100,15 +116,17 @@ Where:
 ### Why GitHub Returns 404
 
 GitHub's Compare API format:
+
 - **Same repo**: `repos/owner/repo/compare/base...head`
 - **Cross-repo (fork)**: `repos/owner/repo/compare/base...forkUser:head`
 
 The code attempts fork mode detection:
+
 ```javascript
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // e.g., "konard:issue-6-01d3f376c347"
+  headRef = `${forkUser}:${branchName}`; // e.g., "konard:issue-6-01d3f376c347"
 } else {
   headRef = branchName;
 }
@@ -126,6 +144,7 @@ if (argv.fork && forkedRepo) {
 ## Why v0.29.8 Doesn't Actually Fix Anything
 
 The logs show v0.29.5 being used:
+
 ```
 [2025-11-05T10:00:01.724Z] [INFO] 🔍 Auto-continue enabled: Checking for existing PRs for issue #1...
 [2025-11-05T10:00:02.283Z] [INFO] 📋 Found 1 existing branch(es) in main repo matching pattern 'issue-1-*':
@@ -134,6 +153,7 @@ The logs show v0.29.5 being used:
 ```
 
 The branch existed from a previous run. When checked out and CLAUDE.md is appended to:
+
 - Previous content: Task info without timestamp
 - New content: Same task info without timestamp
 - Result: No tree diff → "No commits between branches"
@@ -149,6 +169,7 @@ The branch existed from a previous run. When checked out and CLAUDE.md is append
 ### For Problem 1: Don't Append to Existing CLAUDE.md
 
 Instead of:
+
 ```javascript
 if (claudeMdExists) {
   // Append with timestamp
@@ -157,6 +178,7 @@ if (claudeMdExists) {
 ```
 
 Do:
+
 ```javascript
 if (claudeMdExists && branchHasCommits) {
   // Branch already has work, don't modify CLAUDE.md
@@ -171,6 +193,7 @@ if (claudeMdExists && branchHasCommits) {
 ### For Problem 2: Fork Mode Compare API Format
 
 The v0.29.9 fix looks correct:
+
 ```javascript
 let headRef;
 if (argv.fork && forkedRepo) {
@@ -186,6 +209,7 @@ This matches the format that `gh pr create` uses internally for forks.
 ## Testing Plan
 
 ### Test Case 1: Non-fork Mode with Branch Reuse
+
 ```bash
 # First run - create branch
 solve https://github.com/40Think/AgogeDigitalTwin/issues/1 --auto-fork
@@ -197,15 +221,18 @@ solve https://github.com/40Think/AgogeDigitalTwin/issues/1 --auto-continue --aut
 ```
 
 **Expected**: Should detect existing branch with commits and either:
+
 - Skip CLAUDE.md modification entirely, or
 - Create PR from existing commits without adding new one
 
 ### Test Case 2: Fork Mode with New Branch
+
 ```bash
 solve https://github.com/xlabtg/anti-corruption/issues/6 --auto-fork --auto-continue
 ```
 
 **Expected**:
+
 - Push to fork succeeds
 - Compare API with `konard:branch-name` format succeeds
 - PR creation succeeds with cross-repo head reference
@@ -219,6 +246,7 @@ solve https://github.com/xlabtg/anti-corruption/issues/6 --auto-fork --auto-cont
 3. ❌ The root cause is inappropriate CLAUDE.md modification on branch reuse
 
 **Recommendation**:
+
 - Keep the fork mode fix from v0.29.9
 - Replace the timestamp workaround with proper branch state detection
 - Only modify CLAUDE.md when starting fresh work on a branch

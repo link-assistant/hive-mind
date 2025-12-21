@@ -5,7 +5,8 @@
 const testCases = [
   {
     name: 'BashTool warning with "failed" word',
-    message: '⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.',
+    message:
+      '⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.',
     shouldBeError: false
   },
   {
@@ -52,7 +53,11 @@ function shouldBeDetectedAsError(message) {
   // Exclude warnings (messages starting with ⚠️) from being treated as errors
   const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
 
-  if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+  if (
+    trimmed &&
+    !isWarning &&
+    (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))
+  ) {
     return true;
   }
 

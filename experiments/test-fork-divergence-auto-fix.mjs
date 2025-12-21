@@ -10,7 +10,7 @@ console.log('==================================================\n');
 
 console.log('🔍 PROBLEM IDENTIFIED:');
 console.log('When syncing a fork with upstream, if the fork has diverged');
-console.log('(has commits that upstream doesn\'t have), git push fails with:');
+console.log("(has commits that upstream doesn't have), git push fails with:");
 console.log('  ! [rejected] master -> master (non-fast-forward)');
 console.log('  error: failed to push some refs');
 console.log('  hint: Updates were rejected because the tip of your current');
@@ -22,11 +22,13 @@ console.log('1. Upstream repository had a force push (e.g., git reset --hard)');
 console.log('2. Fork has commits that are no longer in upstream');
 console.log('3. Tool does: git reset --hard upstream/master');
 console.log('4. Tool tries: git push origin master');
-console.log('5. Push fails because fork\'s master has different commit history\n');
+console.log("5. Push fails because fork's master has different commit history\n");
 
 console.log('💡 SOLUTION IMPLEMENTED:');
 console.log('✅ Detect non-fast-forward errors during fork sync');
-console.log('✅ Require explicit --allow-fork-divergence-resolution-using-force-push-with-lease flag (disabled by default)');
+console.log(
+  '✅ Require explicit --allow-fork-divergence-resolution-using-force-push-with-lease flag (disabled by default)'
+);
 console.log('✅ When flag enabled: automatically use --force-with-lease to safely force-push');
 console.log('✅ When flag disabled: provide clear guidance with options');
 console.log('✅ Document risks and alternatives for user decision\n');
@@ -40,7 +42,9 @@ console.log('2. User Decision Required (Default Behavior):');
 console.log('   - Display clear explanation of fork divergence');
 console.log('   - Document risks of force-pushing');
 console.log('   - Provide 3 options with detailed guidance');
-console.log('   - Require user to explicitly opt-in via --allow-fork-divergence-resolution-using-force-push-with-lease');
+console.log(
+  '   - Require user to explicitly opt-in via --allow-fork-divergence-resolution-using-force-push-with-lease'
+);
 console.log('');
 console.log('3. Auto-Resolution (If --allow-fork-divergence-resolution-using-force-push-with-lease enabled):');
 console.log('   - Use: git push --force-with-lease origin <branch>');
@@ -107,7 +111,9 @@ console.log('  → Not a divergence issue');
 console.log('  → Exit immediately with error ❌\n');
 
 console.log('🛡️  SAFETY FEATURES:');
-console.log('✅ Opt-in behavior - requires explicit --allow-fork-divergence-resolution-using-force-push-with-lease flag');
+console.log(
+  '✅ Opt-in behavior - requires explicit --allow-fork-divergence-resolution-using-force-push-with-lease flag'
+);
 console.log('✅ Clear documentation of risks before user opts in');
 console.log('✅ --force-with-lease instead of --force when enabled');
 console.log('   (Prevents overwriting if someone else pushed after our fetch)');

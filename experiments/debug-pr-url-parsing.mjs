@@ -80,7 +80,9 @@ async function debugPrUrlParsing() {
 
     console.log(`   Testing: gh api repos/${owner}/${repo}/issues/${prNumber}/comments`);
     const prConversationCommentsResult = await $(`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`);
-    console.log(`   Conversation comments API result: ${prConversationCommentsResult.code === 0 ? 'SUCCESS' : 'FAILED'}`);
+    console.log(
+      `   Conversation comments API result: ${prConversationCommentsResult.code === 0 ? 'SUCCESS' : 'FAILED'}`
+    );
 
     if (prReviewCommentsResult.code !== 0) {
       console.log(`   ❌ Review comments API failed: ${prReviewCommentsResult.stderr}`);
@@ -109,9 +111,7 @@ async function debugPrUrlParsing() {
         const prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
 
         const allPrComments = [...prReviewComments, ...prConversationComments];
-        const newPrComments = allPrComments.filter(comment =>
-          new Date(comment.created_at) > lastCommitTime
-        ).length;
+        const newPrComments = allPrComments.filter(comment => new Date(comment.created_at) > lastCommitTime).length;
 
         console.log(`   📊 Total PR comments: ${allPrComments.length}`);
         console.log(`   📊 New PR comments: ${newPrComments}`);
@@ -123,7 +123,6 @@ async function debugPrUrlParsing() {
     }
 
     return false;
-
   } catch (error) {
     console.error(`\\n❌ Error: ${error.message}`);
     return false;

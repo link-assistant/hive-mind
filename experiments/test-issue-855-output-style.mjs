@@ -20,7 +20,7 @@ const mockLog = async (msg, opts) => {
   // Silent mock log
 };
 
-const mockDollar = async (command) => {
+const mockDollar = async command => {
   // Mock gh command to avoid actual API calls
   return {
     stdout: Buffer.from('https://github.com/test/repo/pull/123#issuecomment-9999999'),
@@ -58,7 +58,7 @@ const testEvent = async (eventName, eventData) => {
   const handler = createInteractiveHandler(testConfig);
 
   // Override internal postComment
-  handler.processEvent = async (data) => {
+  handler.processEvent = async data => {
     // We'll manually call the handlers and capture output
     if (data.type === 'assistant' && data.message?.content) {
       const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -97,12 +97,14 @@ const runTests = async () => {
   const bashToolUse = {
     type: 'assistant',
     message: {
-      content: [{
-        type: 'tool_use',
-        id: 'tool_bash_1',
-        name: 'Bash',
-        input: { command: 'ls -la' }
-      }]
+      content: [
+        {
+          type: 'tool_use',
+          id: 'tool_bash_1',
+          name: 'Bash',
+          input: { command: 'ls -la' }
+        }
+      ]
     }
   };
 

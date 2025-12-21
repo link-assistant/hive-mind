@@ -13,10 +13,7 @@ console.log('Testing .strict() with yargs().parse(args) pattern\n');
 
 console.log('Test 1: Valid option - should pass');
 try {
-  const argv1 = yargs()
-    .option('token', { type: 'string' })
-    .strict()
-    .parse(['--token', 'mytoken123']);
+  const argv1 = yargs().option('token', { type: 'string' }).strict().parse(['--token', 'mytoken123']);
   console.log('✅ PASS: Valid option accepted');
   console.log('   argv.token:', argv1.token);
   console.log('');
@@ -27,12 +24,12 @@ try {
 
 console.log('Test 2: Invalid option - should fail');
 try {
-  const argv2 = yargs()
-    .option('token', { type: 'string' })
-    .strict()
-    .parse(['--invalid-option', 'value']);
+  const argv2 = yargs().option('token', { type: 'string' }).strict().parse(['--invalid-option', 'value']);
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv2).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   Keys:',
+    Object.keys(argv2).filter(k => k !== '$0' && k !== '_')
+  );
   console.log('');
 } catch (error) {
   const errorStr = String(error);
@@ -55,7 +52,10 @@ try {
   console.log('✅ PASS: Valid options with special char values accepted');
   console.log('   argv.token:', argv3.token);
   console.log('   argv.chats:', argv3.chats);
-  console.log('   All keys:', Object.keys(argv3).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   All keys:',
+    Object.keys(argv3).filter(k => k !== '$0' && k !== '_')
+  );
   console.log('');
 } catch (error) {
   console.log('❌ FAIL: Valid options rejected');

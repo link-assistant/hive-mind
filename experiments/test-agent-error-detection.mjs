@@ -14,7 +14,7 @@
  */
 
 // Simplified error detection function - matches agent.lib.mjs
-const detectAgentErrors = (stdoutOutput) => {
+const detectAgentErrors = stdoutOutput => {
   const lines = stdoutOutput.split('\n');
 
   for (const line of lines) {
@@ -107,7 +107,8 @@ let failed = 0;
 
 for (const testCase of testCases) {
   const result = detectAgentErrors(testCase.input);
-  const success = result.detected === testCase.expected.detected &&
+  const success =
+    result.detected === testCase.expected.detected &&
     (!testCase.expected.type || result.type === testCase.expected.type);
 
   if (success) {

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * Issue #9: Automatic quote addition in interpolation
- * 
+ *
  * Problem: command-stream adds extra single quotes around interpolated strings when using "${variable}" syntax
- * 
- * Real-world impact: GitHub CLI commands like `gh issue create --title "${title}"` 
+ *
+ * Real-world impact: GitHub CLI commands like `gh issue create --title "${title}"`
  * result in issue titles wrapped in single quotes: 'My Title' instead of: My Title
- * 
+ *
  * Root cause: command-stream appears to automatically add shell escaping that includes
  * wrapping the entire interpolated value in single quotes when double quotes are used
- * 
+ *
  * Solution: Use Node.js child_process.execSync() for commands requiring precise string formatting
  */
 
@@ -22,7 +22,7 @@ console.log('=== Issue #9: Automatic Quote Addition in Interpolation ===\n');
 console.log('Problem: Quotes around interpolated strings can add extra quotes\n');
 
 // Test different quoting scenarios
-const testTitle = "Implement Hello World in JavaScript";
+const testTitle = 'Implement Hello World in JavaScript';
 const testFile = `/tmp/quote-test-${Date.now()}.txt`;
 
 console.log('Test string:', testTitle);
@@ -46,7 +46,7 @@ console.log('\n' + '='.repeat(60) + '\n');
 
 // Example 2: Single quotes around interpolation (THIS IS THE PROBLEM!)
 console.log('Example 2: Single quotes around interpolation');
-console.log('Command: echo \'${testTitle}\' > file.txt');
+console.log("Command: echo '${testTitle}' > file.txt");
 console.log('Note: Single quotes prevent variable expansion in shell!');
 try {
   await $`echo '${testTitle}' > ${testFile}`;
@@ -79,7 +79,7 @@ console.log('\n' + '='.repeat(60) + '\n');
 // GitHub CLI specific example
 console.log('GitHub CLI Example: Issue title with quotes\n');
 
-const issueTitle = "Implement Hello World in PureScript";
+const issueTitle = 'Implement Hello World in PureScript';
 console.log('Title to set:', issueTitle);
 
 // Show different quoting approaches
@@ -87,10 +87,10 @@ console.log('\n❌ PROBLEMATIC: Double quotes in template, single quotes in comm
 console.log('Template: await $`gh issue create --title "${issueTitle}"`');
 console.log('If the template internally adds quotes, results in:');
 console.log('  gh issue create --title \'"Implement Hello World in PureScript"\'');
-console.log('  Result: Title becomes: \'Implement Hello World in PureScript\' (with quotes!)');
+console.log("  Result: Title becomes: 'Implement Hello World in PureScript' (with quotes!)");
 
 console.log('\n❌ PROBLEMATIC: Single quotes around interpolation');
-console.log('Command: gh issue create --title \'${issueTitle}\'');
+console.log("Command: gh issue create --title '${issueTitle}'");
 console.log('Result: Title becomes literal: ${issueTitle}');
 
 console.log('\n✅ SOLUTION 1: Use double quotes only');
@@ -137,7 +137,7 @@ console.log('');
 console.log('CONFIRMED BEHAVIOR:');
 console.log('When using: await $`gh issue create --title "${issueTitle}"`');
 console.log('With value: issueTitle = "Implement Hello World in Python"');
-console.log('Results in: Title becomes \'Implement Hello World in Python\' (with quotes!)');
+console.log("Results in: Title becomes 'Implement Hello World in Python' (with quotes!)");
 console.log('');
 console.log('ROOT CAUSE:');
 console.log('command-stream appears to "over-escape" interpolated variables by:');

@@ -13,7 +13,7 @@ const projectRoot = join(__dirname, '..');
 console.log('Testing telegram-bot validation with --no-hive...\n');
 
 function runTest(testName, args, expectedSuccess) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     console.log(`\n--- Test: ${testName} ---`);
     console.log('Args:', args.join(' '));
 
@@ -25,11 +25,11 @@ function runTest(testName, args, expectedSuccess) {
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
+    proc.stdout.on('data', data => {
       stdout += data.toString();
     });
 
-    proc.stderr.on('data', (data) => {
+    proc.stderr.on('data', data => {
       stderr += data.toString();
     });
 
@@ -37,15 +37,16 @@ function runTest(testName, args, expectedSuccess) {
       proc.kill('SIGTERM');
     }, 3000);
 
-    proc.on('close', (code) => {
+    proc.on('close', code => {
       clearTimeout(timeout);
 
       const output = stdout + stderr;
-      const hasValidationError = output.includes('Not enough arguments') ||
-                                 output.includes('Expected 1 but received 0') ||
-                                 output.includes('YError');
-      const hasInvalidOverridesError = output.includes('Invalid hive-overrides') ||
-                                       output.includes('Invalid solve-overrides');
+      const hasValidationError =
+        output.includes('Not enough arguments') ||
+        output.includes('Expected 1 but received 0') ||
+        output.includes('YError');
+      const hasInvalidOverridesError =
+        output.includes('Invalid hive-overrides') || output.includes('Invalid solve-overrides');
       const isValidatingHive = output.includes('Validating hive overrides');
       const isValidatingSolve = output.includes('Validating solve overrides');
 
@@ -82,7 +83,7 @@ function runTest(testName, args, expectedSuccess) {
       resolve({ passed, reason, testName });
     });
 
-    proc.on('error', (error) => {
+    proc.on('error', error => {
       clearTimeout(timeout);
       console.log(`❌ FAILED - Process error: ${error.message}`);
       resolve({ passed: false, reason: error.message, testName });
@@ -96,10 +97,13 @@ async function main() {
     {
       name: 'Issue #484: --no-hive with solve-overrides',
       args: [
-        '--token', 'test_token',
-        '--allowed-chats', '(-1 -2)',
+        '--token',
+        'test_token',
+        '--allowed-chats',
+        '(-1 -2)',
         '--no-hive',
-        '--solve-overrides', '(--auto-continue --attach-logs --verbose --no-tool-check)'
+        '--solve-overrides',
+        '(--auto-continue --attach-logs --verbose --no-tool-check)'
       ],
       shouldPass: true
     },
@@ -108,10 +112,13 @@ async function main() {
     {
       name: '--no-solve with hive-overrides',
       args: [
-        '--token', 'test_token',
-        '--allowed-chats', '(-1 -2)',
+        '--token',
+        'test_token',
+        '--allowed-chats',
+        '(-1 -2)',
         '--no-solve',
-        '--hive-overrides', '(--verbose --all-issues)'
+        '--hive-overrides',
+        '(--verbose --all-issues)'
       ],
       shouldPass: true
     },
@@ -119,34 +126,21 @@ async function main() {
     // Test 3: --no-hive and --no-solve together
     {
       name: '--no-hive and --no-solve together',
-      args: [
-        '--token', 'test_token',
-        '--allowed-chats', '(-1 -2)',
-        '--no-hive',
-        '--no-solve'
-      ],
+      args: ['--token', 'test_token', '--allowed-chats', '(-1 -2)', '--no-hive', '--no-solve'],
       shouldPass: true
     },
 
     // Test 4: hive enabled with invalid overrides (should fail)
     {
       name: 'hive enabled with invalid overrides',
-      args: [
-        '--token', 'test_token',
-        '--allowed-chats', '(-1 -2)',
-        '--hive-overrides', '(--invalid-flag-xyz)'
-      ],
+      args: ['--token', 'test_token', '--allowed-chats', '(-1 -2)', '--hive-overrides', '(--invalid-flag-xyz)'],
       shouldPass: false
     },
 
     // Test 5: solve enabled with invalid overrides (should fail)
     {
       name: 'solve enabled with invalid overrides',
-      args: [
-        '--token', 'test_token',
-        '--allowed-chats', '(-1 -2)',
-        '--solve-overrides', '(--invalid-flag-xyz)'
-      ],
+      args: ['--token', 'test_token', '--allowed-chats', '(-1 -2)', '--solve-overrides', '(--invalid-flag-xyz)'],
       shouldPass: false
     }
   ];

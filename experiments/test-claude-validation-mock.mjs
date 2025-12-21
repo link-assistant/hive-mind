@@ -16,23 +16,23 @@ const log = async (message, options = {}) => {
   }
 };
 
-const cleanErrorMessage = (error) => {
+const cleanErrorMessage = error => {
   let message = error.message || error.toString();
   message = message.split('\n')[0];
   return message;
 };
 
 // Mock test function that simulates different claude command responses
-const testClaudeValidation = async (mockResult) => {
+const testClaudeValidation = async mockResult => {
   try {
     await log(`🔍 Testing with mock result...`);
-    
+
     const stdout = mockResult.stdout || '';
     const stderr = mockResult.stderr || '';
     const code = mockResult.code || 0;
-    
+
     // Check for JSON errors in stdout or stderr
-    const checkForJsonError = (text) => {
+    const checkForJsonError = text => {
       try {
         if (text.includes('"error"') && text.includes('"type"')) {
           const jsonMatch = text.match(/\{.*"error".*\}/);
@@ -46,9 +46,9 @@ const testClaudeValidation = async (mockResult) => {
       }
       return null;
     };
-    
+
     const jsonError = checkForJsonError(stdout) || checkForJsonError(stderr);
-    
+
     if (code !== 0) {
       // Command failed
       if (jsonError) {
@@ -57,14 +57,14 @@ const testClaudeValidation = async (mockResult) => {
         await log(`❌ Claude CLI failed with exit code ${code}`, { level: 'error' });
         if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
       }
-      
+
       if (stderr.includes('Please run /login') || (jsonError && jsonError.type === 'forbidden')) {
         await log('   💡 Please run: claude login', { level: 'error' });
       }
-      
+
       return false;
     }
-    
+
     // Check for error patterns in successful response
     if (jsonError) {
       await log(`❌ Claude CLI returned error: ${jsonError.type} - ${jsonError.message}`, { level: 'error' });
@@ -73,11 +73,10 @@ const testClaudeValidation = async (mockResult) => {
       }
       return false;
     }
-    
+
     // Success - Claude responded
     await log(`✅ Claude CLI connection validated successfully`);
     return true;
-    
   } catch (error) {
     await log(`❌ Failed to validate Claude CLI connection: ${cleanErrorMessage(error)}`, { level: 'error' });
     return false;

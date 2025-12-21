@@ -47,7 +47,6 @@ try {
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
   console.log('   All argv:', argv);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

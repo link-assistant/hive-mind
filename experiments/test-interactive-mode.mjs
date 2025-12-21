@@ -60,7 +60,7 @@ const testEvents = [
       content: [
         {
           type: 'text',
-          text: 'I\'ll start by reading the issue details and understanding the current state of the PR.\n\nLet me first check what changes need to be made.'
+          text: "I'll start by reading the issue details and understanding the current state of the PR.\n\nLet me first check what changes need to be made."
         }
       ],
       stop_reason: 'tool_use',
@@ -108,7 +108,8 @@ const testEvents = [
         {
           type: 'tool_result',
           tool_use_id: 'toolu_01ABC123',
-          content: 'title: Interactive mode\nstate: OPEN\nauthor: konard\nlabels: documentation, enhancement\ncomments: 0\nassignees:\nprojects:\nmilestone:\nnumber: 800\n--\nAdd option `--interactive-mode` for `solve` command...'
+          content:
+            'title: Interactive mode\nstate: OPEN\nauthor: konard\nlabels: documentation, enhancement\ncomments: 0\nassignees:\nprojects:\nmilestone:\nnumber: 800\n--\nAdd option `--interactive-mode` for `solve` command...'
         }
       ]
     }
@@ -222,7 +223,8 @@ const testEvents = [
     duration_ms: 727021,
     duration_api_ms: 603394,
     num_turns: 68,
-    result: 'Perfect! Let me create a final summary of what was accomplished:\n\n## Summary\n\nI\'ve successfully implemented the interactive mode feature...',
+    result:
+      "Perfect! Let me create a final summary of what was accomplished:\n\n## Summary\n\nI've successfully implemented the interactive mode feature...",
     session_id: 'faa32ca1-82fb-42ea-8e5b-04bbdfc74d25',
     total_cost_usd: 1.6043104499999998,
     usage: {
@@ -263,7 +265,9 @@ console.log('\n\n=== Testing Event Handlers ===\n');
 async function runTests() {
   for (let i = 0; i < testEvents.length; i++) {
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`Test Event ${i + 1}: ${testEvents[i].type}${testEvents[i].subtype ? '.' + testEvents[i].subtype : ''}`);
+    console.log(
+      `Test Event ${i + 1}: ${testEvents[i].type}${testEvents[i].subtype ? '.' + testEvents[i].subtype : ''}`
+    );
     console.log('='.repeat(60));
 
     await handler.processEvent(testEvents[i]);

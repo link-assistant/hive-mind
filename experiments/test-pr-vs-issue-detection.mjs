@@ -17,7 +17,7 @@ const prResult = await $`gh pr view ${number} --repo ${owner}/${repo} --json num
 const prOutput = prResult.stdout.toString() + (prResult.stderr ? prResult.stderr.toString() : '');
 
 if (prResult.code === 0 && !prOutput.includes('Could not resolve to a PullRequest')) {
-  console.log('   ✅ It\'s a PR!');
+  console.log("   ✅ It's a PR!");
   console.log('   Data:', prOutput);
 } else {
   console.log('   ❌ Not a PR (or PR does not exist)');
@@ -32,7 +32,7 @@ if (prResult.code === 0 && !prOutput.includes('Could not resolve to a PullReques
   const issueOutput = issueResult.stdout.toString();
 
   if (issueResult.code === 0 && !issueOutput.includes('Could not resolve')) {
-    console.log('   ✅ It\'s an Issue!');
+    console.log("   ✅ It's an Issue!");
     const issueData = JSON.parse(issueOutput);
     console.log('   Title:', issueData.title);
     console.log('\n3. User-friendly error message:');
@@ -45,7 +45,9 @@ if (prResult.code === 0 && !prOutput.includes('Could not resolve to a PullReques
     console.log('   🔧 Did you mean to work on the issue instead?');
     console.log('      Try this corrected command:');
     console.log('');
-    console.log(`      solve https://github.com/${owner}/${repo}/issues/${number} --auto-continue --attach-logs --verbose --model opus --think max`);
+    console.log(
+      `      solve https://github.com/${owner}/${repo}/issues/${number} --auto-continue --attach-logs --verbose --model opus --think max`
+    );
     console.log('');
     console.log('   ─────────────────────────────────────────────────────────');
   } else {

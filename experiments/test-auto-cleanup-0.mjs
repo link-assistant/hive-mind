@@ -20,13 +20,13 @@ const testUrl = 'https://github.com/nonexistent-test-user-12345';
 
 try {
   // Run with dry-run to avoid actual processing but test the flow
-  const output = execSync(`./hive.mjs "${testUrl}" --dry-run --once --auto-cleanup --verbose`, { 
-    encoding: 'utf8', 
+  const output = execSync(`./hive.mjs "${testUrl}" --dry-run --once --auto-cleanup --verbose`, {
+    encoding: 'utf8',
     timeout: 30000 // 30 second timeout
   });
-  
+
   console.log('Output:', output);
-  
+
   // Check if our test files were cleaned up
   try {
     execSync('ls /tmp/test-hive-cleanup/', { encoding: 'utf8' });
@@ -34,7 +34,6 @@ try {
   } catch (e) {
     console.log('✅ Test files were cleaned up successfully!');
   }
-  
 } catch (error) {
   console.log('⚠️  Expected error (non-existent repo):', error.message.split('\n')[0]);
   console.log('This is normal for our test - the important thing is the cleanup behavior');

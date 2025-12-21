@@ -60,13 +60,14 @@ async function rapidFireRequests() {
           const rateLimitData = JSON.parse(rateLimitCheck);
           const searchRate = rateLimitData.resources?.search;
           if (searchRate) {
-            log(`   📊 Rate limit check: ${searchRate.remaining}/${searchRate.limit} remaining, resets at ${new Date(searchRate.reset * 1000).toISOString()}`);
+            log(
+              `   📊 Rate limit check: ${searchRate.remaining}/${searchRate.limit} remaining, resets at ${new Date(searchRate.reset * 1000).toISOString()}`
+            );
           }
         } catch (rateLimitError) {
           log(`   ⚠️  Could not check rate limit: ${rateLimitError.message}`);
         }
       }
-
     } catch (error) {
       const stderr = error.stderr?.toString() || '';
       const stdout = error.stdout?.toString() || '';
@@ -135,10 +136,13 @@ async function testFallbackScenario() {
   // Test 1: Try search API (might fail due to rate limits)
   log(`\n📋 Fallback Test 1: Search API`);
   try {
-    const searchResult = execSync('gh search issues "repo:microsoft/vscode is:open" --limit 10 --json url,title,number', {
-      encoding: 'utf8',
-      stdio: 'pipe'
-    });
+    const searchResult = execSync(
+      'gh search issues "repo:microsoft/vscode is:open" --limit 10 --json url,title,number',
+      {
+        encoding: 'utf8',
+        stdio: 'pipe'
+      }
+    );
     const searchData = JSON.parse(searchResult || '[]');
     log(`   ✅ Search API: ${searchData.length} results`);
   } catch (searchError) {
@@ -148,10 +152,13 @@ async function testFallbackScenario() {
     // Test fallback to repository listing
     log(`\n📋 Fallback Test 2: Repository listing API (fallback)`);
     try {
-      const repoResult = execSync('gh issue list --repo microsoft/vscode --state open --limit 10 --json url,title,number', {
-        encoding: 'utf8',
-        stdio: 'pipe'
-      });
+      const repoResult = execSync(
+        'gh issue list --repo microsoft/vscode --state open --limit 10 --json url,title,number',
+        {
+          encoding: 'utf8',
+          stdio: 'pipe'
+        }
+      );
       const repoData = JSON.parse(repoResult || '[]');
       log(`   ✅ Repository listing (fallback): ${repoData.length} results`);
       log(`   💡 Fallback strategy would work!`);
@@ -205,7 +212,6 @@ async function checkMaxPageSizes() {
         if (data.length < limit) {
           log(`      ℹ️  Got fewer results than requested (${data.length} < ${limit}) - may have reached actual limit`);
         }
-
       } catch (error) {
         const errorText = error.stderr?.toString() || error.stdout?.toString() || '';
         log(`      ❌ Failed at limit ${limit}: ${errorText.trim()}`);

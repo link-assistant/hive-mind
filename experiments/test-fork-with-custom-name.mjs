@@ -73,7 +73,8 @@ if (hasStandardFork || hasCustomFork) {
   console.log(`Testing existing fork: ${existingForkName}`);
   console.log('-'.repeat(80));
 
-  const forkInfoResult = await $`gh api repos/${existingForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+  const forkInfoResult =
+    await $`gh api repos/${existingForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
 
   if (forkInfoResult.code === 0) {
     const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
@@ -122,7 +123,8 @@ if (hasStandardFork || hasCustomFork) {
     console.log('\nStep 5: Verifying fork properties via GitHub API...');
     console.log('-'.repeat(80));
 
-    const forkInfoResult = await $`gh api repos/${customForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+    const forkInfoResult =
+      await $`gh api repos/${customForkName} --jq '{name: .name, fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
 
     if (forkInfoResult.code === 0) {
       const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());

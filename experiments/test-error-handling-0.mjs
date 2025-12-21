@@ -29,7 +29,7 @@ try {
   console.log('✅ Error script creation simulated (would create in actual environment)');
 }
 
-// Test 2: Create a mock solve.mjs that succeeds 
+// Test 2: Create a mock solve.mjs that succeeds
 console.log('📝 Test 2: Testing success exit codes...');
 
 const mockSolveSuccessScript = `#!/usr/bin/env node

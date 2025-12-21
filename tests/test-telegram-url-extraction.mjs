@@ -136,21 +136,24 @@ const multipleLinkTests = [
     desc: 'Two issue URLs',
     text: 'Check https://github.com/owner/repo/issues/1 and https://github.com/owner/repo/issues/2',
     expectedUrl: null,
-    expectedError: 'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
+    expectedError:
+      'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
     expectedCount: 2
   },
   {
     desc: 'Three PR URLs',
     text: 'PRs: https://github.com/a/b/pull/1 https://github.com/c/d/pull/2 https://github.com/e/f/pull/3',
     expectedUrl: null,
-    expectedError: 'Found 3 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
+    expectedError:
+      'Found 3 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
     expectedCount: 3
   },
   {
     desc: 'Mixed issue and PR URLs',
     text: 'Issue: https://github.com/owner/repo/issues/10 PR: https://github.com/owner/repo/pull/20',
     expectedUrl: null,
-    expectedError: 'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
+    expectedError:
+      'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
     expectedCount: 2
   }
 ];

@@ -2,24 +2,25 @@
 
 ## Solution Comparison Matrix
 
-| Solution | Cost Prevention | User Experience | Flexibility | Implementation Effort | Risk |
-|----------|----------------|-----------------|-------------|---------------------|------|
-| **1. Basic Alias Validation** | ✅ High | ⭐⭐ Medium | ❌ Reduced | ⭐ Low | ⭐ Low |
-| **2. Pattern-Based Validation** | ✅ High | ⭐⭐⭐ Good | ✅ Maintained | ⭐⭐ Medium | ⭐ Low |
-| **3. Validation with Warning** | ⭐ Medium | ⭐⭐⭐⭐ Excellent | ✅ Maintained | ⭐⭐ Medium | ⭐ Low |
-| **4. API Model Discovery** | ✅ High | ⭐⭐⭐⭐⭐ Excellent | ✅ Maintained | ⭐⭐⭐⭐ High | ⭐⭐⭐ Medium |
-| **5. Separate Validation Flag** | ✅ High | ⭐⭐⭐ Good | ✅ Maintained | ⭐⭐ Medium | ⭐ Low |
+| Solution                        | Cost Prevention | User Experience      | Flexibility   | Implementation Effort | Risk          |
+| ------------------------------- | --------------- | -------------------- | ------------- | --------------------- | ------------- |
+| **1. Basic Alias Validation**   | ✅ High         | ⭐⭐ Medium          | ❌ Reduced    | ⭐ Low                | ⭐ Low        |
+| **2. Pattern-Based Validation** | ✅ High         | ⭐⭐⭐ Good          | ✅ Maintained | ⭐⭐ Medium           | ⭐ Low        |
+| **3. Validation with Warning**  | ⭐ Medium       | ⭐⭐⭐⭐ Excellent   | ✅ Maintained | ⭐⭐ Medium           | ⭐ Low        |
+| **4. API Model Discovery**      | ✅ High         | ⭐⭐⭐⭐⭐ Excellent | ✅ Maintained | ⭐⭐⭐⭐ High         | ⭐⭐⭐ Medium |
+| **5. Separate Validation Flag** | ✅ High         | ⭐⭐⭐ Good          | ✅ Maintained | ⭐⭐ Medium           | ⭐ Low        |
 
 ## Solution 1: Basic Alias Validation
 
 ### Description
+
 Validate that model name is either in the `availableModels` list or follows the pattern `claude-*`.
 
 ### Implementation
 
 ```javascript
 // src/claude.lib.mjs
-export const validateModelName = (model) => {
+export const validateModelName = model => {
   // Check if it's a known alias
   if (availableModels[model]) {
     return { valid: true, mapped: availableModels[model] };
@@ -34,9 +35,10 @@ export const validateModelName = (model) => {
   return {
     valid: false,
     mapped: null,
-    error: `Invalid model name: '${model}'\n` +
-           `Available aliases: ${Object.keys(availableModels).join(', ')}\n` +
-           `Or use full model ID like: claude-sonnet-4-5-20250929`
+    error:
+      `Invalid model name: '${model}'\n` +
+      `Available aliases: ${Object.keys(availableModels).join(', ')}\n` +
+      `Or use full model ID like: claude-sonnet-4-5-20250929`
   };
 };
 
@@ -49,17 +51,20 @@ if (!validation.valid) {
 ```
 
 ### Pros
+
 ✅ Simple to implement
 ✅ Prevents obvious typos
 ✅ Zero API cost for validation
 ✅ Fast feedback (immediate)
 
 ### Cons
+
 ❌ Rejects valid but unknown model IDs (e.g., new beta models)
 ❌ Pattern `claude-*` might be too permissive
 ❌ Requires code updates when model naming changes
 
 ### Use Cases
+
 - **Handles**: `oups` → Rejected ✅
 - **Handles**: `sonnet` → Accepted ✅
 - **Doesn't handle**: `claude-opus-4-5-beta-20260101` → Rejected ❌ (might be valid)
@@ -67,13 +72,14 @@ if (!validation.valid) {
 ## Solution 2: Pattern-Based Validation with Strict Regex
 
 ### Description
+
 Use regex patterns to validate model names match Anthropic's naming convention.
 
 ### Implementation
 
 ```javascript
 // src/claude.lib.mjs
-export const validateModelName = (model) => {
+export const validateModelName = model => {
   // Check if it's a known alias
   if (availableModels[model]) {
     return { valid: true, mapped: availableModels[model], isAlias: true };
@@ -99,27 +105,31 @@ export const validateModelName = (model) => {
   return {
     valid: false,
     mapped: null,
-    error: `Invalid model name: '${model}'\n\n` +
-           `Available model aliases:\n` +
-           Object.entries(availableModels)
-             .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
-             .join('\n') +
-           `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`
+    error:
+      `Invalid model name: '${model}'\n\n` +
+      `Available model aliases:\n` +
+      Object.entries(availableModels)
+        .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
+        .join('\n') +
+      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`
   };
 };
 ```
 
 ### Pros
+
 ✅ Balances strictness with flexibility
 ✅ Allows future model IDs that follow pattern
 ✅ Provides helpful error messages with examples
 ✅ Zero API cost for validation
 
 ### Cons
+
 ❌ Regex might need updates if Anthropic changes naming
 ❌ Still rejects valid models with unexpected patterns
 
 ### Use Cases
+
 - **Handles**: `oups` → Rejected ✅
 - **Handles**: `sonnet` → Accepted ✅
 - **Handles**: `claude-sonnet-5-0-20260101` → Accepted ✅
@@ -128,6 +138,7 @@ export const validateModelName = (model) => {
 ## Solution 3: Warning Instead of Error (Recommended)
 
 ### Description
+
 Show a warning for unknown models but allow execution to continue with user confirmation.
 
 ### Implementation
@@ -152,27 +163,27 @@ export const validateModelName = (model, requireConfirmation = true) => {
     known: false,
     mapped: model,
     warning: !looksLikeClaudeModel,
-    warningMessage: `⚠️  Unknown model name: '${model}'\n\n` +
-                   `Known model aliases:\n` +
-                   Object.entries(availableModels)
-                     .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
-                     .join('\n') +
-                   `\n\n` +
-                   (looksLikeClaudeModel
-                     ? `This looks like a Claude model ID. Proceeding...`
-                     : `⚠️  This doesn't match expected patterns.\n` +
-                       `This will likely fail and incur API costs ($0.02-0.03).\n` +
-                       `Did you mean: ${suggestModel(model)}?`)
+    warningMessage:
+      `⚠️  Unknown model name: '${model}'\n\n` +
+      `Known model aliases:\n` +
+      Object.entries(availableModels)
+        .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
+        .join('\n') +
+      `\n\n` +
+      (looksLikeClaudeModel
+        ? `This looks like a Claude model ID. Proceeding...`
+        : `⚠️  This doesn't match expected patterns.\n` +
+          `This will likely fail and incur API costs ($0.02-0.03).\n` +
+          `Did you mean: ${suggestModel(model)}?`)
   };
 };
 
 // Suggest similar model names
-const suggestModel = (input) => {
+const suggestModel = input => {
   const aliases = Object.keys(availableModels);
   // Simple Levenshtein distance or just check prefixes
-  const suggestions = aliases.filter(alias =>
-    alias.startsWith(input.substring(0, 2)) ||
-    input.startsWith(alias.substring(0, 2))
+  const suggestions = aliases.filter(
+    alias => alias.startsWith(input.substring(0, 2)) || input.startsWith(alias.substring(0, 2))
   );
   return suggestions.join(', ') || 'sonnet, opus, haiku';
 };
@@ -188,6 +199,7 @@ if (validation.warning && !argv.force) {
 ```
 
 ### Pros
+
 ✅ Best user experience - helpful without blocking
 ✅ Prevents accidental typos
 ✅ Allows power users to use custom models
@@ -195,10 +207,12 @@ if (validation.warning && !argv.force) {
 ✅ Suggests corrections
 
 ### Cons
+
 ❌ User might ignore warnings
 ❌ Adds delay (5 second wait)
 
 ### Use Cases
+
 - **Handles**: `oups` → Warning + suggestion + 5s delay → User can cancel ✅
 - **Handles**: `sonnet` → Silent success ✅
 - **Handles**: `claude-new-beta-model` → Proceeds with notice ✅
@@ -207,6 +221,7 @@ if (validation.warning && !argv.force) {
 ## Solution 4: Dynamic Model Discovery via API
 
 ### Description
+
 Query Anthropic API for available models instead of hardcoding the list.
 
 ### Implementation
@@ -219,7 +234,7 @@ const CACHE_TTL = 3600000; // 1 hour
 
 export const getAvailableModels = async () => {
   // Return cached if fresh
-  if (cachedModels && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_TTL)) {
+  if (cachedModels && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_TTL) {
     return cachedModels;
   }
 
@@ -242,7 +257,7 @@ export const getAvailableModels = async () => {
   return Object.values(availableModels);
 };
 
-export const validateModelName = async (model) => {
+export const validateModelName = async model => {
   const availableList = await getAvailableModels();
 
   // Check alias
@@ -259,20 +274,23 @@ export const validateModelName = async (model) => {
   return {
     valid: false,
     mapped: null,
-    error: `Model '${model}' not found.\n\n` +
-           `Available models:\n${availableList.slice(0, 10).join('\n')}` +
-           (availableList.length > 10 ? `\n... and ${availableList.length - 10} more` : '')
+    error:
+      `Model '${model}' not found.\n\n` +
+      `Available models:\n${availableList.slice(0, 10).join('\n')}` +
+      (availableList.length > 10 ? `\n... and ${availableList.length - 10} more` : '')
   };
 };
 ```
 
 ### Pros
+
 ✅ Always up-to-date with latest models
 ✅ No code changes needed for new models
 ✅ Accurate validation
 ✅ Caching reduces overhead
 
 ### Cons
+
 ❌ API call required (small cost)
 ❌ Adds latency on first call
 ❌ Depends on Claude CLI having `--list-models` feature
@@ -280,11 +298,13 @@ export const validateModelName = async (model) => {
 ❌ More complex implementation
 
 ### Feasibility Check Required
+
 Need to verify if Claude CLI supports model listing. If not, this solution is not viable without direct Anthropic API integration.
 
 ## Solution 5: Separate Validation Flag
 
 ### Description
+
 Split `--no-tool-check` into two flags: `--no-tool-check` and `--no-validation`.
 
 ### Implementation
@@ -319,12 +339,14 @@ if (!argv.noToolCheck && !argv.dryRun) {
 ```
 
 ### Pros
+
 ✅ Clear separation of concerns
 ✅ Model validation runs by default
 ✅ Can still skip validation if needed
 ✅ Backward compatible (old flag still works)
 
 ### Cons
+
 ❌ More flags to document
 ❌ Users might still use wrong flag
 
@@ -333,17 +355,20 @@ if (!argv.noToolCheck && !argv.dryRun) {
 Implement **Solution 3 (Warning) + Solution 5 (Separate flags)**:
 
 ### Phase 1: Immediate Fix
+
 1. Add `validateModelName()` with pattern-based validation
 2. Show warning for unknown models with 5-second countdown
 3. Suggest similar model names using fuzzy matching
 4. Add `--force` flag to skip countdown
 
 ### Phase 2: Enhanced Validation
+
 1. Split `--no-tool-check` into `--no-tool-check` and `--skip-model-validation`
 2. Make model validation run independently
 3. Add cost warning to help text
 
 ### Phase 3: Future Enhancement (Optional)
+
 1. Investigate if Claude CLI supports model discovery
 2. If yes, implement caching model list
 3. Keep pattern validation as fallback
@@ -351,18 +376,21 @@ Implement **Solution 3 (Warning) + Solution 5 (Separate flags)**:
 ## Implementation Priority
 
 ### Critical (This PR)
+
 - [ ] Add `validateModelName()` function
 - [ ] Integrate validation before Claude CLI execution
 - [ ] Show helpful error messages with suggestions
 - [ ] Add warnings for unknown models
 
 ### Important (Follow-up)
+
 - [ ] Split validation flags
 - [ ] Add fuzzy matching for suggestions
 - [ ] Update help text with model list
 - [ ] Add tests for validation
 
 ### Nice to Have (Future)
+
 - [ ] Dynamic model discovery
 - [ ] Cache available models
 - [ ] Metrics on failed model names

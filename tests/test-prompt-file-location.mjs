@@ -16,7 +16,7 @@ const colors = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
-  blue: '\x1b[34m',
+  blue: '\x1b[34m'
 };
 
 const log = (message, color = 'reset') => {
@@ -47,21 +47,17 @@ try {
   const codexLibContent = readFileSync(codexLibPath, 'utf-8');
 
   // Check that os module is imported
-  assert(
-    codexLibContent.includes('await use(\'os\')'),
-    'codex.lib.mjs imports os module'
-  );
+  assert(codexLibContent.includes("await use('os')"), 'codex.lib.mjs imports os module');
 
   // Check that os.tmpdir() is used for prompt file
   assert(
-    codexLibContent.includes('os.tmpdir()') &&
-    codexLibContent.includes('codex_prompt_'),
+    codexLibContent.includes('os.tmpdir()') && codexLibContent.includes('codex_prompt_'),
     'codex.lib.mjs uses os.tmpdir() for prompt file'
   );
 
   // Check that old pattern (tempDir, 'codex_prompt.txt') is NOT present
   assert(
-    !codexLibContent.includes('tempDir, \'codex_prompt.txt\''),
+    !codexLibContent.includes("tempDir, 'codex_prompt.txt'"),
     'codex.lib.mjs does NOT use repository workspace for prompt file'
   );
 
@@ -77,21 +73,17 @@ try {
   const opencodeLibContent = readFileSync(opencodeLibPath, 'utf-8');
 
   // Check that os module is imported
-  assert(
-    opencodeLibContent.includes('await use(\'os\')'),
-    'opencode.lib.mjs imports os module'
-  );
+  assert(opencodeLibContent.includes("await use('os')"), 'opencode.lib.mjs imports os module');
 
   // Check that os.tmpdir() is used for prompt file
   assert(
-    opencodeLibContent.includes('os.tmpdir()') &&
-    opencodeLibContent.includes('opencode_prompt_'),
+    opencodeLibContent.includes('os.tmpdir()') && opencodeLibContent.includes('opencode_prompt_'),
     'opencode.lib.mjs uses os.tmpdir() for prompt file'
   );
 
   // Check that old pattern (tempDir, 'opencode_prompt.txt') is NOT present
   assert(
-    !opencodeLibContent.includes('tempDir, \'opencode_prompt.txt\''),
+    !opencodeLibContent.includes("tempDir, 'opencode_prompt.txt'"),
     'opencode.lib.mjs does NOT use repository workspace for prompt file'
   );
 
@@ -108,8 +100,7 @@ try {
 
   // Check that claude does not create prompt files
   assert(
-    !claudeLibContent.includes('claude_prompt.txt') &&
-    !claudeLibContent.includes('claude_prompt_'),
+    !claudeLibContent.includes('claude_prompt.txt') && !claudeLibContent.includes('claude_prompt_'),
     'claude.lib.mjs does NOT create prompt files (as expected)'
   );
 
@@ -121,9 +112,11 @@ try {
 
     // This is informational - we don't fail if these patterns are missing
     // since the files should no longer be created in the repo workspace
-    if (gitignoreContent.includes('*_prompt.txt') ||
-        gitignoreContent.includes('codex_prompt.txt') ||
-        gitignoreContent.includes('opencode_prompt.txt')) {
+    if (
+      gitignoreContent.includes('*_prompt.txt') ||
+      gitignoreContent.includes('codex_prompt.txt') ||
+      gitignoreContent.includes('opencode_prompt.txt')
+    ) {
       log('ℹ️  Note: .gitignore contains prompt file patterns (safe but no longer necessary)', 'yellow');
     } else {
       log('ℹ️  Note: .gitignore does not contain prompt file patterns (correct - files now in OS temp)', 'yellow');
@@ -133,20 +126,14 @@ try {
   // Test 5: Verify files can be created in OS temp directory
   log('\n5️⃣  Testing OS temp directory access...', 'yellow');
   const osTmpDir = tmpdir();
-  assert(
-    existsSync(osTmpDir),
-    `OS temp directory exists: ${osTmpDir}`
-  );
+  assert(existsSync(osTmpDir), `OS temp directory exists: ${osTmpDir}`);
 
   // Try to create a test file in temp directory
   try {
     const testFilePath = join(osTmpDir, `test_prompt_${Date.now()}_${process.pid}.txt`);
     execSync(`echo "test" > "${testFilePath}"`);
     const testFileExists = existsSync(testFilePath);
-    assert(
-      testFileExists,
-      'Can create files in OS temp directory'
-    );
+    assert(testFileExists, 'Can create files in OS temp directory');
 
     // Clean up test file
     if (testFileExists) {
@@ -155,7 +142,6 @@ try {
   } catch (error) {
     assert(false, `Error testing OS temp directory access: ${error.message}`);
   }
-
 } catch (error) {
   log(`\n❌ Test error: ${error.message}`, 'red');
   log(error.stack, 'red');

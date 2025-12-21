@@ -75,7 +75,6 @@ function validateFix() {
     console.log(`\n🎯 Overall Result: ${allPassed ? 'PASS' : 'FAIL'}`);
 
     return allPassed;
-
   } catch (error) {
     console.error(`Error reading solve.mjs: ${error.message}`);
     return false;

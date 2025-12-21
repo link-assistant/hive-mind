@@ -19,7 +19,7 @@ export function buildUserMention({
   username: usernameParam,
   first_name: firstNameParam,
   last_name: lastNameParam,
-  parseMode = 'HTML',
+  parseMode = 'HTML'
 }) {
   // Derive core fields from `user` with inline overrides
   const id = idParam ?? user?.id;
@@ -34,10 +34,10 @@ export function buildUserMention({
     // Trim all string names, then filter out empty values
     const raw = [firstName, lastName];
     // Trim whitespace and Hangul filler (ㅤ) characters from names
-    const trimmedAll = raw.map((rawName) => (
+    const trimmedAll = raw.map(rawName =>
       typeof rawName === 'string' ? rawName.trim().replace(/^[\s\t\n\rㅤ]+|[\s\t\n\rㅤ]+$/g, '') : rawName
-    ));
-    const cleaned = trimmedAll.filter((name) => typeof name === 'string' && name.length > 0);
+    );
+    const cleaned = trimmedAll.filter(name => typeof name === 'string' && name.length > 0);
     // Use cleaned names or fallback to id
     if (cleaned.length > 0) {
       displayName = cleaned.join(' ');

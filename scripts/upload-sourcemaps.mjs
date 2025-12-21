@@ -49,13 +49,10 @@ try {
 
   // Create a release in Sentry
   console.log(`🔄 Creating release ${version} in Sentry...`);
-  execSync(
-    `npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`,
-    {
-      stdio: 'inherit',
-      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-    }
-  );
+  execSync(`npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`, {
+    stdio: 'inherit',
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+  });
 
   // Upload source maps for all .mjs files
   console.log('📤 Uploading source maps...');
@@ -86,24 +83,18 @@ try {
 
   // Finalize the release
   console.log('✅ Finalizing release...');
-  execSync(
-    `npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`,
-    {
-      stdio: 'inherit',
-      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-    }
-  );
+  execSync(`npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`, {
+    stdio: 'inherit',
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+  });
 
   // Set release commits (if in Git repository)
   try {
     const gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-    execSync(
-      `npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`,
-      {
-        stdio: 'inherit',
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`, {
+      stdio: 'inherit',
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+    });
     console.log(`📝 Associated commits with release ${version}`);
   } catch (err) {
     console.log('⚠️  Could not associate commits (not a git repository or no commits)');

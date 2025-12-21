@@ -3,12 +3,13 @@
 // when only the yargs configuration is needed (e.g., in telegram-bot.mjs)
 // This module has no heavy dependencies to allow fast loading for --help
 
-export const createYargsConfig = (yargsInstance) => {
+export const createYargsConfig = yargsInstance => {
   return yargsInstance
-    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', (yargs) => {
+    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', yargs => {
       yargs.positional('github-url', {
         type: 'string',
-        description: 'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)'
+        description:
+          'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)'
       });
     })
     .usage('Usage: $0 <github-url> [options]')
@@ -60,7 +61,8 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
+      description:
+        'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
       alias: 'm',
       default: 'sonnet'
     })
@@ -99,7 +101,8 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('tool-connection-check', {
       type: 'boolean',
-      description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
+      description:
+        'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
       default: true,
       hidden: true
     })
@@ -138,7 +141,7 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('fork', {
       type: 'boolean',
-      description: 'Fork the repository if you don\'t have write access',
+      description: "Fork the repository if you don't have write access",
       alias: 'f',
       default: false
     })
@@ -149,7 +152,8 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('attach-logs', {
       type: 'boolean',
-      description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
+      description:
+        'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
       default: false
     })
     .option('project-number', {
@@ -199,7 +203,8 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('auto-continue', {
       type: 'boolean',
-      description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
+      description:
+        'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
       default: true
     })
     .option('think', {
@@ -233,7 +238,8 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('prefix-fork-name-with-owner-name', {
       type: 'boolean',
-      description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
+      description:
+        'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
       default: true
     })
     .option('interactive-mode', {
@@ -243,27 +249,32 @@ export const createYargsConfig = (yargsInstance) => {
     })
     .option('prompt-explore-sub-agent', {
       type: 'boolean',
-      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      description:
+        'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
       default: false
     })
     .option('prompt-general-purpose-sub-agent', {
       type: 'boolean',
-      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      description:
+        'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
       default: false
     })
     .option('tokens-budget-stats', {
       type: 'boolean',
-      description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
+      description:
+        '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
       default: false
     })
     .option('prompt-issue-reporting', {
       type: 'boolean',
-      description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
+      description:
+        'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
       default: false
     })
     .option('prompt-case-studies', {
       type: 'boolean',
-      description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
+      description:
+        'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
       default: false
     })
     .parserConfiguration({
@@ -272,7 +283,7 @@ export const createYargsConfig = (yargsInstance) => {
       'strip-aliased': false,
       'populate--': false
     })
-    .showHelpOnFail(false)  // Don't show help on validation failures
+    .showHelpOnFail(false) // Don't show help on validation failures
     .strict()
     .help('h')
     .alias('h', 'help');

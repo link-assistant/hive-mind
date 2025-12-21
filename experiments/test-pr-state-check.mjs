@@ -20,9 +20,7 @@ const testCases = [
   },
   {
     name: 'Only OPEN PR',
-    prs: [
-      { number: 100, state: 'OPEN' }
-    ],
+    prs: [{ number: 100, state: 'OPEN' }],
     expectedReuse: true,
     expectedReason: 'Only OPEN PR'
   },
@@ -34,17 +32,13 @@ const testCases = [
   },
   {
     name: 'Only CLOSED PR',
-    prs: [
-      { number: 200, state: 'CLOSED' }
-    ],
+    prs: [{ number: 200, state: 'CLOSED' }],
     expectedReuse: false,
     expectedReason: 'Has CLOSED PR'
   },
   {
     name: 'Only MERGED PR',
-    prs: [
-      { number: 300, state: 'MERGED' }
-    ],
+    prs: [{ number: 300, state: 'MERGED' }],
     expectedReuse: false,
     expectedReason: 'Has MERGED PR'
   },

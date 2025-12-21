@@ -12,18 +12,14 @@ const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
 
 console.log('Test 1: —fork (em-dash)');
-let argv1 = yargs(['—fork'])
-  .option('fork', { type: 'boolean', default: false })
-  .parseSync();
+let argv1 = yargs(['—fork']).option('fork', { type: 'boolean', default: false }).parseSync();
 console.log('Keys:', Object.keys(argv1));
 console.log('');
 
 console.log('Test 2: --unknown-option (fresh yargs instance)');
 const yargsModule2 = await use('yargs@17.7.2');
 const yargs2 = yargsModule2.default || yargsModule2;
-let argv2 = yargs2(['--unknown-option'])
-  .option('fork', { type: 'boolean', default: false })
-  .parseSync();
+let argv2 = yargs2(['--unknown-option']).option('fork', { type: 'boolean', default: false }).parseSync();
 console.log('Keys:', Object.keys(argv2));
 console.log('');
 

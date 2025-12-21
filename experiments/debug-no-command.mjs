@@ -26,7 +26,7 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
     default: false
   })
@@ -50,7 +50,6 @@ const argv = yargs(hideBin(process.argv))
   })
   .help('h')
   .alias('h', 'help')
-  .strict()
-  .argv;
+  .strict().argv;
 
 console.log('Parsed argv:', argv);

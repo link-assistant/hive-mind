@@ -85,7 +85,7 @@ export const safeExit = async (code = 0, reason = 'Process completed') => {
  */
 export const installGlobalExitHandlers = () => {
   // Handle normal exit
-  process.on('exit', (code) => {
+  process.on('exit', code => {
     // Synchronous fallback - can't use async here
     if (!exitMessageShown && getLogPathFunction) {
       try {
@@ -149,7 +149,7 @@ export const installGlobalExitHandlers = () => {
   });
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', async (error) => {
+  process.on('uncaughtException', async error => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -173,7 +173,7 @@ export const installGlobalExitHandlers = () => {
   });
 
   // Handle unhandled rejections
-  process.on('unhandledRejection', async (reason) => {
+  process.on('unhandledRejection', async reason => {
     if (cleanupFunction) {
       try {
         await cleanupFunction();

@@ -34,14 +34,14 @@ const mockUsage = {
 };
 
 console.log('Testing /limits output with new relative time formatting\n');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 const message = formatUsageMessage(mockUsage);
 
 console.log('\nFormatted output:');
 console.log(message);
 
-console.log('\n' + '=' .repeat(60));
+console.log('\n' + '='.repeat(60));
 console.log('\nExpected behavior:');
 console.log('✅ Session reset should show: "1h 13m"');
 console.log('✅ Week reset should show: "6d 20h 13m" (not "164h 13m")');
@@ -51,7 +51,7 @@ const hasSessionTime = message.includes('1h 13m') || message.includes('1h 12m') 
 const hasWeekTime = message.includes('6d 20h') || message.includes('6d 19h') || message.includes('6d 21h');
 const hasOldFormat = message.includes('164h');
 
-console.log('\n' + '=' .repeat(60));
+console.log('\n' + '='.repeat(60));
 console.log('Verification:');
 console.log(`Session time format (1h 13m): ${hasSessionTime ? '✅ PASS' : '❌ FAIL'}`);
 console.log(`Week time format (6d 20h 13m): ${hasWeekTime ? '✅ PASS' : '❌ FAIL'}`);

@@ -24,7 +24,7 @@ try {
     })
     .option('fork', {
       type: 'boolean',
-      description: 'Fork the repository if you don\'t have write access',
+      description: "Fork the repository if you don't have write access",
       alias: 'f',
       default: false
     })
@@ -36,19 +36,17 @@ try {
     })
     .help('h')
     .alias('h', 'help')
-    .strictOptions()  // This should reject unknown options
+    .strictOptions() // This should reject unknown options
     .fail((msg, err, yargs) => {
       console.error('\n❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('\n✅ Parsing succeeded:');
   console.log('   github-url:', argv['github-url']);
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
-
 } catch (error) {
   console.error('\n❌ Caught error:', error.message);
   process.exit(1);

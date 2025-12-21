@@ -52,7 +52,15 @@ const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, form
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
-const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks, parseUrlComponents } = validation;
+const {
+  validateGitHubUrl,
+  showAttachLogsWarning,
+  initializeLogFile,
+  validateUrlRequirement,
+  validateContinueOnlyOnFeedback,
+  performSystemChecks,
+  parseUrlComponents
+} = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
@@ -186,7 +194,7 @@ const errorHandlerOptions = {
   argv,
   global,
   owner: null, // Will be set later when parsed
-  repo: null,  // Will be set later when parsed
+  repo: null, // Will be set later when parsed
   getLogFile,
   attachLogToGitHub,
   sanitizeLogContent,
@@ -247,12 +255,14 @@ if (argv.autoFork && !argv.fork) {
       if (!isPublic) {
         // Private repository without write access - cannot fork
         await log('');
-        await log('❌ --auto-fork failed: Repository is private and you don\'t have write access', { level: 'error' });
+        await log("❌ --auto-fork failed: Repository is private and you don't have write access", { level: 'error' });
         await log('');
         await log('   🔍 What happened:', { level: 'error' });
         await log(`      Repository ${owner}/${repo} is private`, { level: 'error' });
-        await log('      You don\'t have write access to this repository', { level: 'error' });
-        await log('      --auto-fork cannot create a fork of a private repository you cannot access', { level: 'error' });
+        await log("      You don't have write access to this repository", { level: 'error' });
+        await log('      --auto-fork cannot create a fork of a private repository you cannot access', {
+          level: 'error'
+        });
         await log('');
         await log('   💡 Solution:', { level: 'error' });
         await log('      • Request collaborator access from the repository owner', { level: 'error' });
@@ -267,7 +277,9 @@ if (argv.autoFork && !argv.fork) {
     } else {
       // Has write access - work directly on the repo (works for both public and private repos)
       const { isPublic } = await detectRepositoryVisibility(owner, repo);
-      await log(`✅ Auto-fork: Write access detected to ${isPublic ? 'public' : 'private'} repository, working directly on repository`);
+      await log(
+        `✅ Auto-fork: Write access detected to ${isPublic ? 'public' : 'private'} repository, working directly on repository`
+      );
     }
   } else {
     // Could not check permissions - assume no access and try to fork if public
@@ -284,7 +296,7 @@ if (argv.autoFork && !argv.fork) {
       await log('');
       await log('   💡 Solutions:', { level: 'error' });
       await log('      • Check your GitHub CLI authentication: gh auth status', { level: 'error' });
-      await log('      • Request collaborator access if you don\'t have it yet', { level: 'error' });
+      await log("      • Request collaborator access if you don't have it yet", { level: 'error' });
       await log(`        https://github.com/${owner}/${repo}/settings/access`, { level: 'error' });
       await log('');
       await safeExit(1, 'Auto-fork failed - cannot verify private repository permissions');
@@ -318,7 +330,9 @@ if (argv.autoCleanup === undefined) {
   // For private repos: clean up temp directories (default true)
   argv.autoCleanup = !isPublic;
   if (argv.verbose) {
-    await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isPublic ? 'public' : 'private'})`, { verbose: true });
+    await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isPublic ? 'public' : 'private'})`, {
+      verbose: true
+    });
   }
 }
 // Determine mode and get issue details
@@ -345,7 +359,8 @@ if (autoContinueResult.isContinueMode) {
       await log('   Checking if PR is from a fork...', { verbose: true });
     }
     try {
-      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
+      const prCheckResult =
+        await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
       if (prCheckResult.code === 0) {
         const prCheckData = JSON.parse(prCheckResult.stdout.toString());
         // Extract merge status and PR state
@@ -358,7 +373,8 @@ if (autoContinueResult.isContinueMode) {
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
           // Get actual fork repository name (may be prefixed)
-          const forkRepoName = (prCheckData.headRepository && prCheckData.headRepository.name) ? prCheckData.headRepository.name : repo;
+          const forkRepoName =
+            prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
           await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
@@ -372,10 +388,12 @@ if (autoContinueResult.isContinueMode) {
 
             if (canModify) {
               await log('✅ Maintainer can push to fork: Enabled by contributor');
-              await log('   Will push changes directly to contributor\'s fork instead of creating own fork');
+              await log("   Will push changes directly to contributor's fork instead of creating own fork");
               // Don't disable fork mode, but we'll use the contributor's fork
             } else {
-              await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', { level: 'warning' });
+              await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
+                level: 'warning'
+              });
               await log('   Posting comment to request access...', { level: 'warning' });
               await requestMaintainerAccess(owner, repo, prNumber);
               await log('   Comment posted. Proceeding with own fork instead.', { level: 'warning' });
@@ -392,7 +410,9 @@ if (autoContinueResult.isContinueMode) {
     // We have a branch but no PR - we'll use the existing branch and create a PR later
     await log(`🔄 Using existing branch: ${prBranch} (no PR yet - will create one)`);
     if (argv.verbose) {
-      await log('   Branch will be checked out and PR will be created during auto-PR creation phase', { verbose: true });
+      await log('   Branch will be checked out and PR will be created during auto-PR creation phase', {
+        verbose: true
+      });
     }
   }
 } else if (isIssueUrl) {
@@ -434,7 +454,7 @@ if (isPrUrl) {
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
       // Get actual fork repository name (may be prefixed)
-      const forkRepoName = (prData.headRepository && prData.headRepository.name) ? prData.headRepository.name : repo;
+      const forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : repo;
       await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
@@ -448,10 +468,12 @@ if (isPrUrl) {
 
         if (canModify) {
           await log('✅ Maintainer can push to fork: Enabled by contributor');
-          await log('   Will push changes directly to contributor\'s fork instead of creating own fork');
+          await log("   Will push changes directly to contributor's fork instead of creating own fork");
           // Don't disable fork mode, but we'll use the contributor's fork
         } else {
-          await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', { level: 'warning' });
+          await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
+            level: 'warning'
+          });
           await log('   Posting comment to request access...', { level: 'warning' });
           await requestMaintainerAccess(owner, repo, prNumber);
           await log('   Comment posted. Proceeding with own fork instead.', { level: 'warning' });
@@ -550,7 +572,9 @@ try {
         await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
         autoMergeFeedbackLines.push('');
         autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
-        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
+        autoMergeFeedbackLines.push(
+          `git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`
+        );
         autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
         autoMergeFeedbackLines.push('');
       }
@@ -653,7 +677,7 @@ try {
     await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
-  
+
   // Don't build the prompt yet - we'll build it after we have all the information
   // This includes PR URL (if created) and comment info (if in continue mode)
 
@@ -856,8 +880,8 @@ try {
   const { success } = toolResult;
   let sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
-  let publicPricingEstimate = toolResult.publicPricingEstimate;  // Used by agent tool
-  let pricingInfo = toolResult.pricingInfo;  // Used by agent tool for detailed pricing
+  let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
+  let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -893,10 +917,16 @@ try {
             // Mark this as a usage limit case for proper formatting
             isUsageLimit: true,
             limitResetTime: global.limitResetTime,
-            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
-                      (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                      (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
-                      (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            toolName:
+              (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
+                ? 'Claude'
+                : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
+                  ? 'Codex'
+                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
+                    ? 'OpenCode'
+                    : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
+                      ? 'Agent'
+                      : 'AI tool',
             resumeCommand,
             sessionId
           });
@@ -948,10 +978,16 @@ try {
               // Mark this as a usage limit case for proper formatting
               isUsageLimit: true,
               limitResetTime: global.limitResetTime,
-              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
-                        (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                        (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
-                        (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              toolName:
+                (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
+                  ? 'Claude'
+                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
+                    ? 'Codex'
+                    : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
+                      ? 'OpenCode'
+                      : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
+                        ? 'Agent'
+                        : 'AI tool',
               resumeCommand,
               sessionId
             });
@@ -972,7 +1008,7 @@ try {
             const { calculateWaitTime } = validation;
             const waitMs = calculateWaitTime(global.limitResetTime);
 
-            const formatWaitTime = (ms) => {
+            const formatWaitTime = ms => {
               const seconds = Math.floor(ms / 1000);
               const minutes = Math.floor(seconds / 60);
               const hours = Math.floor(minutes / 60);
@@ -1003,7 +1039,9 @@ try {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
         // Build resume command if we have session info
-        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+        const resumeCommand = sessionId
+          ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`
+          : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',
@@ -1016,10 +1054,16 @@ try {
           // For usage limit, use a dedicated comment format to make it clear and actionable
           isUsageLimit: !!limitReached,
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
-          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' :
-                    (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+          toolName:
+            (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
+              ? 'Claude'
+              : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
+                ? 'Codex'
+                : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
+                  ? 'OpenCode'
+                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
+                    ? 'Agent'
+                    : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
@@ -1044,7 +1088,16 @@ try {
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
-  const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
+  const shouldRestart = await checkForUncommittedChanges(
+    tempDir,
+    owner,
+    repo,
+    branchName,
+    $,
+    log,
+    shouldAutoCommit,
+    autoRestartEnabled
+  );
 
   // Remove CLAUDE.md now that Claude command has finished
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
@@ -1055,7 +1108,23 @@ try {
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
+  await verifyResults(
+    owner,
+    repo,
+    branchName,
+    issueNumber,
+    prNumber,
+    prUrl,
+    referenceTime,
+    argv,
+    shouldAttachLogs,
+    shouldRestart,
+    sessionId,
+    tempDir,
+    anthropicTotalCostUSD,
+    publicPricingEstimate,
+    pricingInfo
+  );
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
@@ -1093,7 +1162,7 @@ try {
     argv: {
       ...argv,
       watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
-      temporaryWatch: temporaryWatchMode  // Flag to indicate temporary watch mode
+      temporaryWatch: temporaryWatchMode // Flag to indicate temporary watch mode
     }
   });
 

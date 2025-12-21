@@ -134,10 +134,10 @@ try {
   const testMessages = [
     { input: 'Error: Invalid token: abc123def456', expected: 'Error: Invalid token: [REDACTED]' },
     { input: 'Failed with api_key=secret123', expected: 'Failed with api_key: [REDACTED]' },
-    { input: 'Password: mypassword123 is wrong', expected: 'Password: [REDACTED] is wrong' },
+    { input: 'Password: mypassword123 is wrong', expected: 'Password: [REDACTED] is wrong' }
   ];
 
-  const sanitize = (message) => {
+  const sanitize = message => {
     return message
       .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
       .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')

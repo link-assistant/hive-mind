@@ -41,16 +41,12 @@ console.log();
 console.log('🔧 Running hive-telegram-bot with --configuration option...\n');
 
 // Run the telegram-bot with --configuration and --dry-run options
-const child = spawn('node', [
-  'src/telegram-bot.mjs',
-  '--configuration', testConfiguration,
-  '--dry-run'
-], {
+const child = spawn('node', ['src/telegram-bot.mjs', '--configuration', testConfiguration, '--dry-run'], {
   stdio: 'inherit',
   cwd: process.cwd()
 });
 
-child.on('close', (code) => {
+child.on('close', code => {
   console.log();
   if (code === 0) {
     console.log('✅ Test PASSED: hive-telegram-bot successfully loaded configuration from --configuration option');
@@ -70,7 +66,7 @@ child.on('close', (code) => {
   }
 });
 
-child.on('error', (error) => {
+child.on('error', error => {
   console.error('❌ Test FAILED: Error running hive-telegram-bot:', error);
   process.exit(1);
 });

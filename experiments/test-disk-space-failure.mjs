@@ -11,8 +11,11 @@ console.log('📊 Testing disk space check with 999999MB threshold (should fail)
 
 try {
   // Test solve.mjs with high threshold - it should fail quickly
-  const result = await $`echo "https://github.com/owner/repo/issues/1" | timeout 15s ./solve.mjs https://github.com/owner/repo/issues/1 --min-disk-space 999999`.catch(e => e);
-  
+  const result =
+    await $`echo "https://github.com/owner/repo/issues/1" | timeout 15s ./solve.mjs https://github.com/owner/repo/issues/1 --min-disk-space 999999`.catch(
+      e => e
+    );
+
   if (result.code === 1) {
     console.log('✅ solve.mjs correctly failed with exit code 1 for insufficient disk space');
   } else {

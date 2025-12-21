@@ -102,7 +102,7 @@ try {
   allPassed = false;
 } catch (error) {
   const output = error.stdout || error.stderr || error.output?.join('') || '';
-  if (output.includes('Must be \'solve\' or \'hive\'')) {
+  if (output.includes("Must be 'solve' or 'hive'")) {
     console.log('  Invalid command: ✓ PASSED\n');
   } else {
     console.log('  Invalid command: ✗ FAILED - Wrong error message\n');
@@ -149,14 +149,19 @@ try {
 // Test --dry-run mode for solve command with issue URL
 console.log('Testing --dry-run mode for solve command...');
 try {
-  const output = execSync('./src/start-screen.mjs solve https://github.com/link-assistant/hive-mind/issues/539 --dry-run 2>&1', {
-    encoding: 'utf8',
-    env: { ...process.env, PATH: process.env.PATH }
-  });
+  const output = execSync(
+    './src/start-screen.mjs solve https://github.com/link-assistant/hive-mind/issues/539 --dry-run 2>&1',
+    {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH }
+    }
+  );
   // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') ||
-      output.includes('Started solve in detached screen session') ||
-      output.includes('Command sent to session')) {
+  if (
+    output.includes('Creating screen session') ||
+    output.includes('Started solve in detached screen session') ||
+    output.includes('Command sent to session')
+  ) {
     console.log('  solve --dry-run: ✓ PASSED\n');
   } else if (output.includes('Invalid GitHub URL')) {
     console.log('  solve --dry-run: ✗ FAILED - URL validation should pass for issue URLs\n');
@@ -191,9 +196,11 @@ try {
     env: { ...process.env, PATH: process.env.PATH }
   });
   // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') ||
-      output.includes('Started hive in detached screen session') ||
-      output.includes('Command sent to session')) {
+  if (
+    output.includes('Creating screen session') ||
+    output.includes('Started hive in detached screen session') ||
+    output.includes('Command sent to session')
+  ) {
     console.log('  hive --dry-run user URL: ✓ PASSED\n');
   } else if (output.includes('Invalid GitHub URL') || output.includes('missing owner/repo')) {
     console.log('  hive --dry-run user URL: ✗ FAILED - URL validation should pass for user URLs\n');
@@ -223,14 +230,19 @@ try {
 // Test --dry-run mode for hive command with repo URL
 console.log('Testing --dry-run mode for hive command with repo URL...');
 try {
-  const output = execSync('./src/start-screen.mjs hive https://github.com/link-assistant/hive-mind --dry-run --once 2>&1', {
-    encoding: 'utf8',
-    env: { ...process.env, PATH: process.env.PATH }
-  });
+  const output = execSync(
+    './src/start-screen.mjs hive https://github.com/link-assistant/hive-mind --dry-run --once 2>&1',
+    {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: process.env.PATH }
+    }
+  );
   // Success case - screen is installed and command succeeded
-  if (output.includes('Creating screen session') ||
-      output.includes('Started hive in detached screen session') ||
-      output.includes('Command sent to session')) {
+  if (
+    output.includes('Creating screen session') ||
+    output.includes('Started hive in detached screen session') ||
+    output.includes('Command sent to session')
+  ) {
     console.log('  hive --dry-run repo URL: ✓ PASSED\n');
   } else if (output.includes('Invalid GitHub URL')) {
     console.log('  hive --dry-run repo URL: ✗ FAILED - URL validation should pass for repo URLs\n');
@@ -258,7 +270,7 @@ try {
 }
 
 // Summary
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 if (allPassed) {
   console.log('All tests PASSED! ✓');
   process.exit(0);

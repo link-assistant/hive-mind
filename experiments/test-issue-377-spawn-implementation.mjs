@@ -16,7 +16,7 @@ async function findStartScreenCommand() {
 }
 
 function executeWithCommand(startScreenCmd, command, args) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const allArgs = [command, ...args];
 
     console.log(`Executing: ${startScreenCmd} ${allArgs.join(' ')}`);
@@ -29,15 +29,15 @@ function executeWithCommand(startScreenCmd, command, args) {
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       stderr += data.toString();
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       resolve({
         success: false,
         output: stdout,
@@ -45,7 +45,7 @@ function executeWithCommand(startScreenCmd, command, args) {
       });
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         resolve({
           success: true,
@@ -96,7 +96,11 @@ async function testSpawnImplementation() {
   const firstLine1 = testText1.split('\n')[0].trim();
   console.log('Input:', JSON.stringify(testText1));
   console.log('First line:', JSON.stringify(firstLine1));
-  console.log(firstLine1.includes('Ignore this line') ? '❌ Failed to extract first line only' : '✅ Correctly extracted first line');
+  console.log(
+    firstLine1.includes('Ignore this line')
+      ? '❌ Failed to extract first line only'
+      : '✅ Correctly extracted first line'
+  );
 
   console.log('\n='.repeat(60));
   console.log('Test completed');

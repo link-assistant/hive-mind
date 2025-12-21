@@ -56,4 +56,3 @@ Usage-limit detection and formatting present in:
 - src/github.lib.mjs (attachLogToGitHub)
 - src/solve.mjs (propagates limitResetTime to global + PR comments)
 ```
-

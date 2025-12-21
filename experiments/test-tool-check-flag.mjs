@@ -21,7 +21,10 @@ console.log('🧪 Testing --no-tool-check with tool-check option\n');
 // Test 1: Default - no flags (toolCheck should be true by default)
 console.log('Test 1: No flags (default)');
 try {
-  const argv1 = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse(['https://github.com/test/repo/issues/1']);
+  const argv1 = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1']);
   console.log('   toolCheck:', argv1.toolCheck);
   console.log('   skipToolCheck:', argv1.skipToolCheck);
   const skip1 = argv1.dryRun || argv1.skipToolCheck || !argv1.toolCheck;
@@ -38,7 +41,10 @@ try {
 // Test 2: With --no-tool-check (toolCheck should be false)
 console.log('Test 2: With --no-tool-check');
 try {
-  const argv2 = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse(['https://github.com/test/repo/issues/1', '--no-tool-check']);
+  const argv2 = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1', '--no-tool-check']);
   console.log('   toolCheck:', argv2.toolCheck);
   console.log('   skipToolCheck:', argv2.skipToolCheck);
   const skip2 = argv2.dryRun || argv2.skipToolCheck || !argv2.toolCheck;
@@ -55,7 +61,10 @@ try {
 // Test 3: With --skip-tool-check (should still work)
 console.log('Test 3: With --skip-tool-check');
 try {
-  const argv3 = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse(['https://github.com/test/repo/issues/1', '--skip-tool-check']);
+  const argv3 = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1', '--skip-tool-check']);
   console.log('   toolCheck:', argv3.toolCheck);
   console.log('   skipToolCheck:', argv3.skipToolCheck);
   const skip3 = argv3.dryRun || argv3.skipToolCheck || !argv3.toolCheck;
@@ -72,7 +81,10 @@ try {
 // Test 4: With --tool-check (explicit enable, should override any skip)
 console.log('Test 4: With --tool-check (explicit enable)');
 try {
-  const argv4 = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse(['https://github.com/test/repo/issues/1', '--tool-check']);
+  const argv4 = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1', '--tool-check']);
   console.log('   toolCheck:', argv4.toolCheck);
   console.log('   skipToolCheck:', argv4.skipToolCheck);
   const skip4 = argv4.dryRun || argv4.skipToolCheck || !argv4.toolCheck;

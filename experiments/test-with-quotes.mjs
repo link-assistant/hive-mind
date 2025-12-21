@@ -18,21 +18,23 @@ const argv1 = yargs(hideBin(process.argv))
   .parse();
 console.log('argv1.token:', argv1.token);
 console.log('argv1.config:', argv1.config);
-console.log('Keys:', Object.keys(argv1).filter(k => k !== '_' && k !== '$0'));
+console.log(
+  'Keys:',
+  Object.keys(argv1).filter(k => k !== '_' && k !== '$0')
+);
 
 console.log('\n\nTest 2: Without quotes, multiline string');
 process.argv = ['node', 'test.js', '--config', '(\n  a\n  b\n)'];
-const argv2 = yargs(hideBin(process.argv))
-  .option('config', { type: 'string' })
-  .parse();
+const argv2 = yargs(hideBin(process.argv)).option('config', { type: 'string' }).parse();
 console.log('argv2.config:', argv2.config);
-console.log('Keys:', Object.keys(argv2).filter(k => k !== '_' && k !== '$0'));
+console.log(
+  'Keys:',
+  Object.keys(argv2).filter(k => k !== '_' && k !== '$0')
+);
 
 console.log('\n\nTest 3: Check actual key contents');
 process.argv = ['node', 'test.js', '--token', '8490aOEM'];
-const argv3 = yargs(hideBin(process.argv))
-  .option('token', { type: 'string' })
-  .parse();
+const argv3 = yargs(hideBin(process.argv)).option('token', { type: 'string' }).parse();
 
 for (const [key, value] of Object.entries(argv3)) {
   if (key !== '_' && key !== '$0') {

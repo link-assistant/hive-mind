@@ -8,7 +8,7 @@
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
+export const buildUserPrompt = params => {
   const {
     issueUrl,
     issueNumber,
@@ -29,7 +29,9 @@ export const buildUserPrompt = (params) => {
 
   // Issue or PR reference
   if (isContinueMode) {
-    promptLines.push(`Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`);
+    promptLines.push(
+      `Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`
+    );
   } else {
     promptLines.push(`Issue to solve: ${issueUrl}`);
   }
@@ -87,7 +89,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level

@@ -100,9 +100,14 @@ function isForwardedOrReply_FIXED(message) {
     return true;
   }
   // Check if message is forwarded - OLD API (forward_from, forward_from_chat, etc.)
-  if (message.forward_from || message.forward_from_chat ||
-      message.forward_from_message_id || message.forward_signature ||
-      message.forward_sender_name || message.forward_date) {
+  if (
+    message.forward_from ||
+    message.forward_from_chat ||
+    message.forward_from_message_id ||
+    message.forward_signature ||
+    message.forward_sender_name ||
+    message.forward_date
+  ) {
     return true;
   }
   // Check if message is a reply (has reply_to_message field)

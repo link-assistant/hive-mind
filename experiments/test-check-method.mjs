@@ -26,14 +26,25 @@ try {
       alias: 'v',
       default: false
     })
-    .check((argv) => {
+    .check(argv => {
       // Get all known options (including all possible representations)
       const knownOptions = new Set([
-        'fork', 'f', '--fork', '-f',
-        'verbose', 'v', '--verbose', '-v',
-        'help', 'h', '--help', '-h',
-        'version', '--version',
-        '_', '$0'
+        'fork',
+        'f',
+        '--fork',
+        '-f',
+        'verbose',
+        'v',
+        '--verbose',
+        '-v',
+        'help',
+        'h',
+        '--help',
+        '-h',
+        'version',
+        '--version',
+        '_',
+        '$0'
       ]);
 
       // Check for unknown options
@@ -53,14 +64,12 @@ try {
       console.error('❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('✅ Parsing succeeded:');
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

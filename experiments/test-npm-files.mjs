@@ -40,14 +40,15 @@ let allFound = true;
 for (const file of requiredFiles) {
   const filePath = path.join(rootDir, file);
   const exists = fs.existsSync(filePath);
-  const inPackageJson = filesPatterns.includes(file) ||
-                         filesPatterns.some(pattern => {
-                           if (pattern.includes('*')) {
-                             const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-                             return regex.test(file);
-                           }
-                           return pattern === file;
-                         });
+  const inPackageJson =
+    filesPatterns.includes(file) ||
+    filesPatterns.some(pattern => {
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        return regex.test(file);
+      }
+      return pattern === file;
+    });
 
   if (!exists) {
     console.log(`  ❌ ${file} - File does not exist!`);

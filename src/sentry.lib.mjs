@@ -44,7 +44,7 @@ export const initializeSentry = async (options = {}) => {
       // Set user context if available
       if (process.env.USER || process.env.USERNAME) {
         sentry.setUser({
-          username: process.env.USER || process.env.USERNAME,
+          username: process.env.USER || process.env.USERNAME
         });
       }
 
@@ -53,7 +53,7 @@ export const initializeSentry = async (options = {}) => {
         node_version: process.version,
         platform: process.platform,
         arch: process.arch,
-        hive_mind_version: options.version || process.env.npm_package_version || 'unknown',
+        hive_mind_version: options.version || process.env.npm_package_version || 'unknown'
       });
 
       if (options.debug) {
@@ -86,7 +86,7 @@ export const withSentry = (fn, name, op = 'task') => {
       transaction.setStatus('internal_error');
       captureException(error, {
         operation: name,
-        args: args.length > 0 ? `${args.length} arguments` : 'no arguments',
+        args: args.length > 0 ? `${args.length} arguments` : 'no arguments'
       });
       throw error;
     } finally {
@@ -117,12 +117,15 @@ export const withSpan = async (name, callback) => {
     return callback();
   }
 
-  return sentry.startSpan({
-    name,
-    op: 'function',
-  }, async () => {
-    return callback();
-  });
+  return sentry.startSpan(
+    {
+      name,
+      op: 'function'
+    },
+    async () => {
+      return callback();
+    }
+  );
 };
 
 /**
@@ -173,7 +176,7 @@ export const reportWarning = (warning, context = {}) => {
  * Add breadcrumb for better error context
  * @param {Object} breadcrumb - Breadcrumb data
  */
-export const addBreadcrumb = async (breadcrumb) => {
+export const addBreadcrumb = async breadcrumb => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -188,7 +191,7 @@ export const addBreadcrumb = async (breadcrumb) => {
  * Set user context for Sentry
  * @param {Object} user - User data
  */
-export const setUserContext = async (user) => {
+export const setUserContext = async user => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -219,7 +222,7 @@ export const setExtraContext = async (key, value) => {
  * Set tags for Sentry
  * @param {Object} tags - Tags to set
  */
-export const setTags = async (tags) => {
+export const setTags = async tags => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }

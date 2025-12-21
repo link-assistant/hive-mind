@@ -15,7 +15,8 @@ const $silent = $({ mirror: false, capture: true });
 console.log('Testing $silent command...');
 
 try {
-  const result = await $silent`cat /proc/meminfo 2>/dev/null | grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree"`;
+  const result =
+    await $silent`cat /proc/meminfo 2>/dev/null | grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree"`;
   console.log('Result:', result);
   console.log('Stdout:', result.stdout);
   console.log('Stderr:', result.stderr);

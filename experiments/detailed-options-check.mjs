@@ -86,10 +86,7 @@ const hiveReadmeOptions = extractReadmeOptions(readmeContent, '🔧 hive Options
 console.log('\n📊 SOLVE COMMAND COMPARISON');
 console.log('='.repeat(80));
 
-const allSolveNames = new Set([
-  ...solveCodeOptions.map(o => o.name),
-  ...solveReadmeOptions.map(o => o.name)
-]);
+const allSolveNames = new Set([...solveCodeOptions.map(o => o.name), ...solveReadmeOptions.map(o => o.name)]);
 
 for (const name of allSolveNames) {
   const codeOpt = solveCodeOptions.find(o => o.name === name);
@@ -113,7 +110,7 @@ for (const name of allSolveNames) {
     }
 
     // Normalize defaults for comparison
-    const normalizeDefault = (val) => {
+    const normalizeDefault = val => {
       if (!val) return 'NO DEFAULT';
       return val.replace(/['"]/g, '').trim();
     };
@@ -131,9 +128,11 @@ for (const name of allSolveNames) {
     }
 
     // If all match
-    if (codeOpt.description === readmeOpt.description &&
-        normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
-        codeOpt.alias === readmeOpt.alias) {
+    if (
+      codeOpt.description === readmeOpt.description &&
+      normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
+      codeOpt.alias === readmeOpt.alias
+    ) {
       console.log('  ✅ OK');
     }
   }
@@ -142,10 +141,7 @@ for (const name of allSolveNames) {
 console.log('\n\n📊 HIVE COMMAND COMPARISON');
 console.log('='.repeat(80));
 
-const allHiveNames = new Set([
-  ...hiveCodeOptions.map(o => o.name),
-  ...hiveReadmeOptions.map(o => o.name)
-]);
+const allHiveNames = new Set([...hiveCodeOptions.map(o => o.name), ...hiveReadmeOptions.map(o => o.name)]);
 
 for (const name of allHiveNames) {
   const codeOpt = hiveCodeOptions.find(o => o.name === name);
@@ -168,7 +164,7 @@ for (const name of allHiveNames) {
       console.log(`      CODE:   "${codeOpt.description}"`);
     }
 
-    const normalizeDefault = (val) => {
+    const normalizeDefault = val => {
       if (!val) return 'NO DEFAULT';
       return val.replace(/['"]/g, '').trim();
     };
@@ -186,9 +182,11 @@ for (const name of allHiveNames) {
     }
 
     // If all match
-    if (codeOpt.description === readmeOpt.description &&
-        normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
-        codeOpt.alias === readmeOpt.alias) {
+    if (
+      codeOpt.description === readmeOpt.description &&
+      normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
+      codeOpt.alias === readmeOpt.alias
+    ) {
       console.log('  ✅ OK');
     }
   }

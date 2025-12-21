@@ -76,9 +76,7 @@ async function debugCommentDetection() {
 
     // Count new comments after last commit
     const allPrComments = [...prReviewComments, ...prConversationComments];
-    const newPrComments = allPrComments.filter(comment =>
-      new Date(comment.created_at) > lastCommitTime
-    ).length;
+    const newPrComments = allPrComments.filter(comment => new Date(comment.created_at) > lastCommitTime).length;
 
     console.log(`\n📈 Comment Analysis:`);
     console.log(`   Total PR comments: ${allPrComments.length}`);
@@ -105,7 +103,6 @@ async function debugCommentDetection() {
       console.log(`\n❌ Continue mode: No feedback lines would be added`);
       return false;
     }
-
   } catch (error) {
     console.error(`\n❌ Error during comment detection test: ${error.message}`);
     return false;

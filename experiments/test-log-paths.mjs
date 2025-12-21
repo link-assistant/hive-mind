@@ -13,10 +13,10 @@ const hiveProcess = spawn('node', ['src/hive.mjs', 'https://github.com/test/test
 });
 
 let hiveOutput = '';
-hiveProcess.stdout.on('data', (data) => {
+hiveProcess.stdout.on('data', data => {
   hiveOutput += data.toString();
 });
-hiveProcess.stderr.on('data', (data) => {
+hiveProcess.stderr.on('data', data => {
   hiveOutput += data.toString();
 });
 
@@ -25,7 +25,7 @@ setTimeout(1000).then(() => {
   hiveProcess.kill('SIGINT');
 });
 
-hiveProcess.on('exit', (code) => {
+hiveProcess.on('exit', code => {
   console.log('Hive process exited with code:', code);
 
   // Check if log path is shown
@@ -58,10 +58,10 @@ function testSolve() {
   });
 
   let solveOutput = '';
-  solveProcess.stdout.on('data', (data) => {
+  solveProcess.stdout.on('data', data => {
     solveOutput += data.toString();
   });
-  solveProcess.stderr.on('data', (data) => {
+  solveProcess.stderr.on('data', data => {
     solveOutput += data.toString();
   });
 
@@ -70,7 +70,7 @@ function testSolve() {
     solveProcess.kill('SIGINT');
   });
 
-  solveProcess.on('exit', (code) => {
+  solveProcess.on('exit', code => {
     console.log('Solve process exited with code:', code);
 
     // Check if log path is shown

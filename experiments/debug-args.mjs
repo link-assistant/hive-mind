@@ -19,7 +19,7 @@ const yargs = yargsModule.default || yargsModule;
 const { hideBin } = await use('yargs@17.7.2/helpers');
 
 const argv = yargs(hideBin(process.argv))
-  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', (yargs) => {
+  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', yargs => {
     yargs.positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
@@ -33,7 +33,7 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
     default: false
   })
@@ -55,7 +55,6 @@ const argv = yargs(hideBin(process.argv))
     alias: 's',
     default: false
   })
-  .strict()
-  .argv;
+  .strict().argv;
 
 console.log('Parsed argv:', argv);

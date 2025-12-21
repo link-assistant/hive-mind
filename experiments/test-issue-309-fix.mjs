@@ -63,7 +63,9 @@ const testCommentFiltering = () => {
   });
 
   console.log(`Total comments: ${mockComments.length}`);
-  console.log(`Comments after last commit: ${mockComments.filter(c => new Date(c.created_at) > lastCommitTime).length}`);
+  console.log(
+    `Comments after last commit: ${mockComments.filter(c => new Date(c.created_at) > lastCommitTime).length}`
+  );
   console.log(`Filtered comments (excluding logs and own after work start): ${filteredComments.length}`);
   console.log('');
 
@@ -97,7 +99,10 @@ const testFeedbackLinesOutput = () => {
   // Should only have one line with the filtered count
   assert.equal(feedbackLines.length, 1, 'Should only have one feedback line');
   assert.equal(feedbackLines[0], 'New comments on the pull request: 1', 'Should show filtered count');
-  assert.ok(!feedbackLines.some(line => line.includes('New non-log comments')), 'Should NOT have separate non-log comments line');
+  assert.ok(
+    !feedbackLines.some(line => line.includes('New non-log comments')),
+    'Should NOT have separate non-log comments line'
+  );
 
   console.log('✅ Test 2 passed: Feedback lines only show filtered counts\n');
 };

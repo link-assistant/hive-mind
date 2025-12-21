@@ -16,7 +16,9 @@ async function testGraphQLBatchQuery() {
   const query = `
     query GetPullRequestsForIssues {
       repository(owner: "${owner}", name: "${repo}") {
-        ${issueNumbers.map(num => `
+        ${issueNumbers
+          .map(
+            num => `
         issue${num}: issue(number: ${num}) {
           number
           title
@@ -36,7 +38,9 @@ async function testGraphQLBatchQuery() {
               }
             }
           }
-        }`).join('\n')}
+        }`
+          )
+          .join('\n')}
       }
     }
   `;
@@ -92,7 +96,6 @@ async function testGraphQLBatchQuery() {
     console.log('  - More efficient for batch processing');
     console.log('  - Less likely to hit rate limits');
     console.log('  - Can fetch up to ~100 issues in a single query (GraphQL complexity limits apply)');
-
   } catch (error) {
     console.error('❌ GraphQL query failed:', error.message);
     console.error('Error output:', error.stderr?.toString() || error.stdout?.toString());
@@ -120,7 +123,6 @@ async function testSearchAPIForPRs() {
     console.log('   - Look for patterns like "Fixes #123", "Closes #456"');
     console.log('   - Build a map of issue->PRs relationships');
     console.log('   - This approach requires only 1 API call for all PRs');
-
   } catch (error) {
     console.error('❌ Search API query failed:', error.message);
   }

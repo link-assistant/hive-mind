@@ -38,9 +38,11 @@ const testPatterns = [
 
 // Simulate the detection logic from claude.lib.mjs
 function detect503Error(text) {
-  return text.includes('API Error: 503') ||
-         (text.includes('503') && text.includes('upstream connect error')) ||
-         (text.includes('503') && text.includes('remote connection failure'));
+  return (
+    text.includes('API Error: 503') ||
+    (text.includes('503') && text.includes('upstream connect error')) ||
+    (text.includes('503') && text.includes('remote connection failure'))
+  );
 }
 
 // Test each pattern

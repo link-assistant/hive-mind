@@ -7,6 +7,7 @@
 **Location**: `src/solve.config.lib.mjs`, lines 86-94
 
 **Current Code**:
+
 ```javascript
 .option('model', {
   type: 'string',
@@ -36,7 +37,7 @@
 4. **Model Mapping** (`src/agent.lib.mjs:23-38`):
    ```javascript
    const modelMap = {
-     'sonnet': 'anthropic/claude-3-5-sonnet',  // <-- Maps here
+     sonnet: 'anthropic/claude-3-5-sonnet' // <-- Maps here
      // ... other mappings
    };
    ```
@@ -58,6 +59,7 @@ Source: `src/model-validation.lib.mjs`, lines 68-88
 ### 2. Authentication/Subscription Check Bypassed
 
 From the log (line 28):
+
 ```
 ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
 ```
@@ -67,6 +69,7 @@ The `--no-tool-check` flag bypassed the `validateAgentConnection()` function tha
 ### 3. Inconsistent with Other Tools
 
 Current defaults:
+
 - **OpenCode**: `'grok-code-fast-1'` → `'opencode/grok-code'` ✅ Free model
 - **Codex**: `'gpt-5'` → `'gpt-5'` ✅ Free model (via Codex)
 - **Claude**: `'sonnet'` → `'claude-sonnet-4-5-20250929'` ✅ Uses user's Claude subscription
@@ -81,6 +84,7 @@ The `agent` tool should default to a free model like `opencode` does.
 The `agent` tool appears to be a newer addition to the codebase, and the default model configuration in `solve.config.lib.mjs` was not updated to include it.
 
 Evidence:
+
 - OpenCode and Codex tools have explicit cases in the default model function
 - Agent tool support exists in `src/agent.lib.mjs` with proper model mapping
 - The default model function was simply not updated when agent support was added
@@ -90,17 +94,19 @@ Evidence:
 The `agent.lib.mjs` reuses the same model alias `'sonnet'` as the Claude tool:
 
 **Claude** (`src/model-validation.lib.mjs:15-28`):
+
 ```javascript
 export const CLAUDE_MODELS = {
-  'sonnet': 'claude-sonnet-4-5-20250929',
+  sonnet: 'claude-sonnet-4-5-20250929'
   // ...
 };
 ```
 
 **Agent** (`src/model-validation.lib.mjs:68-88`):
+
 ```javascript
 export const AGENT_MODELS = {
-  'sonnet': 'anthropic/claude-3-5-sonnet',  // Different mapping!
+  sonnet: 'anthropic/claude-3-5-sonnet' // Different mapping!
   // ...
 };
 ```
@@ -126,12 +132,14 @@ This documentation gap may have contributed to the oversight.
 ### OpenCode Subscription Model
 
 Based on web research:
+
 - OpenCode uses a subscription model called "OpenCode Zen" for premium models
 - Free models include `opencode/grok-code`, which is available without authentication
 - Premium models like `anthropic/claude-3-5-sonnet` require authentication via OpenCode
 - The `ProviderModelNotFoundError` occurs when trying to use a premium model without proper authentication
 
 Sources:
+
 - [OpenCode Models Documentation](https://opencode.ai/docs/models/)
 - [OpenCode Issues on GitHub](https://github.com/sst/opencode/issues/)
 

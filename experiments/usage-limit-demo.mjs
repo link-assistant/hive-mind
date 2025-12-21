@@ -28,4 +28,3 @@ for (const s of samples) {
   console.log('---');
   console.log(formatUsageLimitMessage(s).join('\n'));
 }
-

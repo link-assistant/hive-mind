@@ -90,6 +90,7 @@ The OpenCode Zen provider (`https://models.dev/api.json`) includes `grok-code` w
 ### Finding 3: Pricing calculation uses Claude-specific session files
 
 The `calculateSessionTokens` function in `claude.lib.mjs` looks for session data in:
+
 ```
 ~/.claude/projects/<project-dir>/<session-id>.jsonl
 ```
@@ -99,6 +100,7 @@ This is Claude-specific and doesn't work for the agent tool, which doesn't creat
 ### Finding 4: Agent tool doesn't return pricing data to solve.mjs
 
 Looking at `agent.lib.mjs`, the `executeAgentCommand` function returns:
+
 ```javascript
 return {
   success: true,
@@ -110,13 +112,14 @@ return {
 ```
 
 Compared to `claude.lib.mjs` which returns:
+
 ```javascript
 return {
   success: true,
   sessionId,
   limitReached,
   limitResetTime,
-  anthropicTotalCostUSD  // Captured from Claude's output
+  anthropicTotalCostUSD // Captured from Claude's output
 };
 ```
 
@@ -169,6 +172,7 @@ The pricing estimation fails because:
 ## Token Usage Summary (from log)
 
 Total tokens from log analysis:
+
 - Input tokens: ~150,000+
 - Output tokens: ~5,000+
 - Reasoning tokens: ~1,500+

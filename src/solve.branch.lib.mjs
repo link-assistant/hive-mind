@@ -15,7 +15,7 @@ const branchNameRegex = {
   // Combined pattern for both formats
   any: /^issue-(\d+)-([a-f0-9]{8}|[a-f0-9]{12})$/,
   // Pattern for prefix matching: issue-{number}-
-  prefix: (issueNumber) => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`)
+  prefix: issueNumber => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`)
 };
 
 /**
@@ -146,7 +146,7 @@ export async function createOrCheckoutBranch({
         errorOutput,
         issueUrl: argv['issue-url'] || argv._[0],
         owner: null, // Will be set later
-        repo: null,  // Will be set later
+        repo: null, // Will be set later
         tempDir,
         argv,
         formatAligned,
@@ -161,7 +161,7 @@ export async function createOrCheckoutBranch({
         errorOutput,
         tempDir,
         owner: null, // Will be set later
-        repo: null,  // Will be set later
+        repo: null, // Will be set later
         formatAligned,
         log
       });
@@ -201,7 +201,7 @@ export async function createOrCheckoutBranch({
       actualBranch,
       prNumber: null, // Will be set later
       owner: null, // Will be set later
-      repo: null,  // Will be set later
+      repo: null, // Will be set later
       tempDir,
       formatAligned,
       log,
@@ -215,14 +215,18 @@ export async function createOrCheckoutBranch({
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Checkout existing PR branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true
+      });
     }
   } else {
     await log(`${formatAligned('✅', 'Branch created:', branchName)}`);
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Create new branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true
+      });
     }
   }
 

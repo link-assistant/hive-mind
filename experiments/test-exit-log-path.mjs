@@ -32,10 +32,14 @@ const colors = {
 
 console.log(`${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}`);
 console.log(`${colors.cyan}Testing Exit Log Path Display${colors.reset}`);
-console.log(`${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}\n`);
+console.log(
+  `${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}\n`
+);
 
 // Test 1: Invalid URL (should exit with error and show log path)
-console.log(`${colors.yellow}Test 1: Testing solve.mjs with invalid URL (should show log path on error)${colors.reset}`);
+console.log(
+  `${colors.yellow}Test 1: Testing solve.mjs with invalid URL (should show log path on error)${colors.reset}`
+);
 console.log(`${colors.blue}Command: node ${solveScript} invalid-url${colors.reset}\n`);
 
 const test1 = spawn('node', [solveScript, 'invalid-url'], {
@@ -43,17 +47,17 @@ const test1 = spawn('node', [solveScript, 'invalid-url'], {
 });
 
 let test1Output = '';
-test1.stdout.on('data', (data) => {
+test1.stdout.on('data', data => {
   test1Output += data.toString();
   process.stdout.write(data);
 });
 
-test1.stderr.on('data', (data) => {
+test1.stderr.on('data', data => {
   test1Output += data.toString();
   process.stderr.write(data);
 });
 
-test1.on('close', (code) => {
+test1.on('close', code => {
   console.log(`\n${colors.bright}Exit code: ${code}${colors.reset}`);
 
   // Check if log path was displayed
@@ -63,7 +67,9 @@ test1.on('close', (code) => {
     console.log(`${colors.red}❌ Log path was NOT displayed on error exit${colors.reset}`);
   }
 
-  console.log(`\n${colors.cyan}${colors.bright}───────────────────────────────────────────────────────────${colors.reset}\n`);
+  console.log(
+    `\n${colors.cyan}${colors.bright}───────────────────────────────────────────────────────────${colors.reset}\n`
+  );
 
   // Test 2: CTRL+C simulation (SIGINT)
   console.log(`${colors.yellow}Test 2: Testing solve.mjs with SIGINT (simulating CTRL+C)${colors.reset}`);
@@ -74,12 +80,12 @@ test1.on('close', (code) => {
   });
 
   let test2Output = '';
-  test2.stdout.on('data', (data) => {
+  test2.stdout.on('data', data => {
     test2Output += data.toString();
     process.stdout.write(data);
   });
 
-  test2.stderr.on('data', (data) => {
+  test2.stderr.on('data', data => {
     test2Output += data.toString();
     process.stderr.write(data);
   });
@@ -90,7 +96,7 @@ test1.on('close', (code) => {
     test2.kill('SIGINT');
   }, 100);
 
-  test2.on('close', (code) => {
+  test2.on('close', code => {
     console.log(`\n${colors.bright}Exit code: ${code}${colors.reset}`);
 
     // Check if log path was displayed
@@ -100,7 +106,9 @@ test1.on('close', (code) => {
       console.log(`${colors.red}❌ Log path was NOT displayed on SIGINT${colors.reset}`);
     }
 
-    console.log(`\n${colors.cyan}${colors.bright}───────────────────────────────────────────────────────────${colors.reset}\n`);
+    console.log(
+      `\n${colors.cyan}${colors.bright}───────────────────────────────────────────────────────────${colors.reset}\n`
+    );
 
     // Test 3: Test hive.mjs with missing URL
     console.log(`${colors.yellow}Test 3: Testing hive.mjs with missing URL${colors.reset}`);
@@ -111,17 +119,17 @@ test1.on('close', (code) => {
     });
 
     let test3Output = '';
-    test3.stdout.on('data', (data) => {
+    test3.stdout.on('data', data => {
       test3Output += data.toString();
       process.stdout.write(data);
     });
 
-    test3.stderr.on('data', (data) => {
+    test3.stderr.on('data', data => {
       test3Output += data.toString();
       process.stderr.write(data);
     });
 
-    test3.on('close', (code) => {
+    test3.on('close', code => {
       console.log(`\n${colors.bright}Exit code: ${code}${colors.reset}`);
 
       // Check if log path was displayed
@@ -131,9 +139,13 @@ test1.on('close', (code) => {
         console.log(`${colors.red}❌ Log path was NOT displayed for hive.mjs error${colors.reset}`);
       }
 
-      console.log(`\n${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}`);
+      console.log(
+        `\n${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}`
+      );
       console.log(`${colors.cyan}Test Summary${colors.reset}`);
-      console.log(`${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}\n`);
+      console.log(
+        `${colors.cyan}${colors.bright}═══════════════════════════════════════════════════════════${colors.reset}\n`
+      );
 
       console.log(`The exit handler should ensure that the absolute log path is`);
       console.log(`always displayed when the process exits, regardless of the`);

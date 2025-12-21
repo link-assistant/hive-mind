@@ -43,7 +43,7 @@ const mock$ = async (strings, ...values) => {
   return { stdout: '', stderr: '', code: 0 };
 };
 
-const mockLog = async (msg) => {
+const mockLog = async msg => {
   console.log(`📝 [LOG] ${msg}`);
 };
 
@@ -88,12 +88,14 @@ async function simulateFlow() {
   await handler.processEvent({
     type: 'assistant',
     message: {
-      content: [{
-        type: 'tool_use',
-        id: 'toolu_test123',
-        name: 'Bash',
-        input: { command: 'echo hello' }
-      }]
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_test123',
+          name: 'Bash',
+          input: { command: 'echo hello' }
+        }
+      ]
     }
   });
 
@@ -112,12 +114,14 @@ async function simulateFlow() {
   await handler.processEvent({
     type: 'user',
     message: {
-      content: [{
-        type: 'tool_result',
-        tool_use_id: 'toolu_test123',
-        content: 'hello\n',
-        is_error: false
-      }]
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: 'toolu_test123',
+          content: 'hello\n',
+          is_error: false
+        }
+      ]
     }
   });
 

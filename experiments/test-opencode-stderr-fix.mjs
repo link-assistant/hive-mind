@@ -31,8 +31,8 @@ const mockCommandStream = (exitCode, stdout, stderr) => {
 
 // Simulate the old (broken) logic
 const oldLogic = async (exitCode, stdout, stderr) => {
-  let messageCount = 0;  // Never incremented in OpenCode!
-  let toolUseCount = 0;   // Never incremented in OpenCode!
+  let messageCount = 0; // Never incremented in OpenCode!
+  let toolUseCount = 0; // Never incremented in OpenCode!
   let stderrErrors = [];
 
   const execCommand = mockCommandStream(exitCode, stdout, stderr);
@@ -113,8 +113,12 @@ for (const scenario of testScenarios) {
   const oldResult = await oldLogic(scenario.exitCode, scenario.stdout, scenario.stderr);
   const newResult = await newLogic(scenario.exitCode, scenario.stdout, scenario.stderr);
 
-  console.log(`   Old logic result: ${oldResult ? '✅ Success' : '❌ Failed'} ${oldResult === scenario.expectedResult ? '' : '(WRONG!)'}`);
-  console.log(`   New logic result: ${newResult ? '✅ Success' : '❌ Failed'} ${newResult === scenario.expectedResult ? '✅' : '❌'}`);
+  console.log(
+    `   Old logic result: ${oldResult ? '✅ Success' : '❌ Failed'} ${oldResult === scenario.expectedResult ? '' : '(WRONG!)'}`
+  );
+  console.log(
+    `   New logic result: ${newResult ? '✅ Success' : '❌ Failed'} ${newResult === scenario.expectedResult ? '✅' : '❌'}`
+  );
   console.log('');
 }
 

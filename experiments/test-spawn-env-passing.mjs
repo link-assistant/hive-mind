@@ -28,15 +28,15 @@ const child = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!proce
 let stdout = '';
 let stderr = '';
 
-child.stdout.on('data', (data) => {
+child.stdout.on('data', data => {
   stdout += data.toString();
 });
 
-child.stderr.on('data', (data) => {
+child.stderr.on('data', data => {
   stderr += data.toString();
 });
 
-child.on('close', (code) => {
+child.on('close', code => {
   if (code === 0) {
     console.log('✓ Child process executed successfully');
     console.log(`  Output: ${stdout.trim()}`);
@@ -57,15 +57,15 @@ child.on('close', (code) => {
   let stdoutNoEnv = '';
   let stderrNoEnv = '';
 
-  childNoEnv.stdout.on('data', (data) => {
+  childNoEnv.stdout.on('data', data => {
     stdoutNoEnv += data.toString();
   });
 
-  childNoEnv.stderr.on('data', (data) => {
+  childNoEnv.stderr.on('data', data => {
     stderrNoEnv += data.toString();
   });
 
-  childNoEnv.on('close', (codeNoEnv) => {
+  childNoEnv.on('close', codeNoEnv => {
     if (codeNoEnv === 0) {
       console.log('✓ Child process executed successfully');
       console.log(`  Output: ${stdoutNoEnv.trim()}`);

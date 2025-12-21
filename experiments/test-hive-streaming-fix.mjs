@@ -47,13 +47,13 @@ async function testHiveStreaming() {
   let errorLines = [];
 
   // Simulate the exact streaming logic from hive.mjs (after fix)
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     const child = spawn('node', [mockSolvePath], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
     // Handle stdout data - stream output in real-time (WITHOUT verbose: true)
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
         if (line.trim()) {
@@ -66,7 +66,7 @@ async function testHiveStreaming() {
     });
 
     // Handle stderr data - stream errors in real-time
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
         if (line.trim()) {
@@ -79,7 +79,7 @@ async function testHiveStreaming() {
     });
 
     // Handle process completion
-    child.on('close', (code) => {
+    child.on('close', code => {
       resolve();
     });
   });

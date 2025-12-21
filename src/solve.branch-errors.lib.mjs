@@ -32,7 +32,8 @@ export async function handleBranchCheckoutError({
 
   if (prNumber) {
     try {
-      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName,headRepository 2>/dev/null`;
+      const prCheckResult =
+        await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName,headRepository 2>/dev/null`;
       if (prCheckResult.code === 0) {
         const prData = JSON.parse(prCheckResult.stdout.toString());
         if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
@@ -82,7 +83,7 @@ export async function handleBranchCheckoutError({
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
         // Determine fork name based on --prefix-fork-name-with-owner-name option
-        const userForkRepoName = (argv && argv.prefixForkNameWithOwnerName) ? `${owner}-${repo}` : repo;
+        const userForkRepoName = argv && argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
         const userForkRepo = `${currentUser}/${userForkRepoName}`;
         const forkCheckResult = await $`gh repo view ${userForkRepo} --json parent 2>/dev/null`;
         if (forkCheckResult.code === 0) {
@@ -159,7 +160,7 @@ export async function handleBranchCheckoutError({
     if (branchExistsInFork) {
       await log(`     The PR branch '${branchName}' exists in the fork repository:`);
       await log(`       https://github.com/${forkOwner}/${displayForkRepo}`);
-      await log('     but you\'re trying to access it from the main repository:');
+      await log("     but you're trying to access it from the main repository:");
       await log(`       https://github.com/${owner}/${repo}`);
       await log('     This branch does NOT exist in the main repository.');
     } else {
@@ -223,22 +224,14 @@ export async function handleBranchCheckoutError({
     await log(`     2. Check remote branches: cd ${tempDir} && git branch -r`);
     await log(`     3. Try fetching manually: cd ${tempDir} && git fetch origin`);
     await log('');
-    await log('     If you don\'t have write access to this repository,');
+    await log("     If you don't have write access to this repository,");
     await log('     consider using the --fork option:');
     const altFullUrl = prNumber ? `https://github.com/${owner}/${repo}/pull/${prNumber}` : issueUrl;
     await log(`       ./solve.mjs "${altFullUrl}" --fork`);
   }
 }
 
-export async function handleBranchCreationError({
-  branchName,
-  errorOutput,
-  tempDir,
-  owner,
-  repo,
-  formatAligned,
-  log
-}) {
+export async function handleBranchCreationError({ branchName, errorOutput, tempDir, owner, repo, formatAligned, log }) {
   await log(`${formatAligned('❌', 'BRANCH CREATION FAILED', '')}`, { level: 'error' });
   await log('');
   await log('  🔍 What happened:');
@@ -276,13 +269,15 @@ export async function handleBranchVerificationError({
   $
 }) {
   await log('');
-  await log(`${formatAligned('❌', isContinueMode ? 'BRANCH CHECKOUT FAILED' : 'BRANCH CREATION FAILED', '')}`, { level: 'error' });
+  await log(`${formatAligned('❌', isContinueMode ? 'BRANCH CHECKOUT FAILED' : 'BRANCH CREATION FAILED', '')}`, {
+    level: 'error'
+  });
   await log('');
   await log('  🔍 What happened:');
   if (isContinueMode) {
-    await log('     Git checkout command didn\'t switch to the PR branch.');
+    await log("     Git checkout command didn't switch to the PR branch.");
   } else {
-    await log('     Git checkout -b command didn\'t create or switch to the branch.');
+    await log("     Git checkout -b command didn't create or switch to the branch.");
   }
   if (owner && repo) {
     await log(`     Repository: https://github.com/${owner}/${repo}`);
@@ -308,7 +303,7 @@ export async function handleBranchVerificationError({
 
   if (isContinueMode) {
     await log('  💡 This might mean:');
-    await log('     • PR branch doesn\'t exist on remote');
+    await log("     • PR branch doesn't exist on remote");
     await log('     • Branch name mismatch');
     await log('     • Network/permission issues');
     await log('');

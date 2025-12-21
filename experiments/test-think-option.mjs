@@ -94,7 +94,7 @@ const testCases = [
 ];
 
 console.log('Testing --think option implementation\n');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 
 testCases.forEach(testCase => {
   console.log(`\nTest: ${testCase.name}`);

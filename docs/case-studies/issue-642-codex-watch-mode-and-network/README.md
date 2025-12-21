@@ -1,6 +1,7 @@
 # Case Study: Issue #642 - Codex Watch Mode and Network Issues
 
 ## Issue Reference
+
 - **Issue**: [#642](https://github.com/link-assistant/hive-mind/issues/642)
 - **Title**: Fix codex issues
 - **Date**: 2025-11-01
@@ -14,6 +15,7 @@ Two issues were reported when running the solve command with codex tool:
 2. **Codex Unable to Push to GitHub**: Codex tool couldn't push changes to the pull request it created
 
 ### Original Command
+
 ```bash
 solve https://github.com/konard/test-hello-world-019a3fde-15cf-7144-a220-5f92e04d1bb4/issues/1 \
   --tool codex \
@@ -29,7 +31,9 @@ solve https://github.com/konard/test-hello-world-019a3fde-15cf-7144-a220-5f92e04
 ### Issue 1: Watch Mode Activation Without --watch Flag
 
 #### What Happened
+
 From the log (lines 319-340):
+
 ```
 [2025-11-01T14:45:59.166Z] [INFO] 🔄 Uncommitted changes detected - entering temporary watch mode to handle them...
 [2025-11-01T14:45:59.166Z] [INFO]    Watch mode will exit automatically once changes are committed.
@@ -47,6 +51,7 @@ The behavior is **intentional by design** but may be confusing to users. Here's 
 4. **Temporary Watch Mode** (lines 327-340): To handle the uncommitted changes, the system entered "temporary watch mode"
 
 The code in `solve.mjs:825-843`:
+
 ```javascript
 // If uncommitted changes detected and auto-commit is disabled, enter temporary watch mode
 const temporaryWatchMode = shouldRestart && !argv.watch;
@@ -61,12 +66,13 @@ await startWatchMode({
   argv: {
     ...argv,
     watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
-    temporaryWatch: temporaryWatchMode  // Flag to indicate temporary watch mode
+    temporaryWatch: temporaryWatchMode // Flag to indicate temporary watch mode
   }
 });
 ```
 
 **Why This Happens:**
+
 - Codex created files but didn't commit them in its first run
 - The system detects uncommitted changes via `checkForUncommittedChanges()`
 - To preserve the work and allow codex to commit the changes, the system enters "temporary watch mode"
@@ -74,12 +80,14 @@ await startWatchMode({
 
 **Is This a Bug?**
 No, this is intentional behavior designed to:
+
 1. Preserve work when codex leaves uncommitted changes
 2. Allow codex to complete its work by committing the changes
 3. Prevent loss of generated code
 
 **Potential Improvement:**
 The messaging could be clearer. The log shows "Watch mode debug" which might confuse users into thinking `--watch` was specified. Better messaging could be:
+
 ```
 🔄 AUTO-RESTART MODE: Codex left uncommitted changes
    Starting temporary watch cycle to allow codex to commit the changes...
@@ -89,7 +97,9 @@ The messaging could be clearer. The log shows "Watch mode debug" which might con
 ### Issue 2: Codex Unable to Push Changes to GitHub
 
 #### What Happened
+
 From the log (lines 429-431):
+
 ```
 [2025-11-01T14:47:00.314Z] [INFO] {"type":"item.started",...command":"bash -lc 'git push origin issue-1-06e1c096...
 [2025-11-01T14:47:00.374Z] [INFO] {"type":"item.completed",...aggregated_output":"fatal: unable to access 'https://github.com/konard/test-hello-world-019a3fde-15cf-7144-a220-5f92e04d1bb4.git/': Could not resolve host: github.com\n"...
@@ -102,6 +112,7 @@ Codex attempted to push changes but failed with "Could not resolve host: github.
 This is a **network access limitation** in the Codex execution environment, not a bug in the solve script.
 
 **Why This Happens:**
+
 1. Codex runs in a sandboxed/containerized environment
 2. The sandbox restricts network access for security
 3. When codex tries to run `git push`, it cannot resolve github.com
@@ -109,12 +120,14 @@ This is a **network access limitation** in the Codex execution environment, not 
 
 **Expected Behavior:**
 The solve script handles this correctly:
+
 1. After codex completes, the script checks for uncommitted changes
 2. If found, it triggers a restart in temporary watch mode
 3. Codex runs again and should commit the changes locally
 4. The solve script (running outside the sandbox) then pushes changes to GitHub
 
 From the log (lines 423-426):
+
 ```javascript
 git add .gitignore main.v hello.v hello_test.v &&
 git commit -m "feat(v): implement Hello World with tests; ignore logs"
@@ -141,6 +154,7 @@ if (isTemporaryWatch && !firstIterationInTemporaryMode) {
 ```
 
 The watch mode checks if changes are committed and exits. However, **the script was interrupted** (line 452):
+
 ```
 [2025-11-01T14:47:43.601Z] [ERROR] ❌ Interrupted (CTRL+C)
 ```
@@ -149,6 +163,7 @@ The user interrupted the process before it could complete the normal flow.
 
 **Is This a Bug?**
 No, this is expected behavior:
+
 1. Codex cannot push due to sandbox network restrictions
 2. Codex commits changes locally
 3. The solve script detects the commit and should exit temporary watch mode
@@ -157,6 +172,7 @@ No, this is expected behavior:
 
 **Potential Improvement:**
 The solve script could:
+
 1. After exiting temporary watch mode, automatically push any committed changes
 2. Add clearer logging about the push happening outside of codex
 3. Document that codex cannot push directly due to network restrictions
@@ -184,7 +200,9 @@ The solve script could:
 **Recommendation**: Improve messaging to distinguish between user-requested watch mode and automatic temporary watch mode.
 
 **Proposed Changes**:
+
 1. Update log messages in `solve.mjs:826-830` to be more explicit:
+
 ```javascript
 if (temporaryWatchMode) {
   await log('');
@@ -196,6 +214,7 @@ if (temporaryWatchMode) {
 ```
 
 2. In the watch mode debug output (`solve.mjs:815-822`), add clarity:
+
 ```javascript
 await log('🔍 Watch mode debug:', { verbose: true });
 await log(`   argv.watch (user flag): ${argv.watch}`, { verbose: true });
@@ -208,6 +227,7 @@ await log(`   temporaryWatch: ${temporaryWatchMode}`, { verbose: true });
 **Recommendation**: Document the expected behavior and add automatic push after temporary watch mode exits.
 
 **Proposed Changes**:
+
 1. Add documentation explaining codex network limitations
 2. Ensure solve.mjs pushes changes after exiting temporary watch mode
 3. Add logging to clarify what's happening:
@@ -232,6 +252,7 @@ if (temporaryWatchMode) {
 ### Testing
 
 To verify these issues:
+
 1. Run solve with codex on a simple issue
 2. Observe the temporary watch mode activation
 3. Let it complete without interruption
@@ -245,6 +266,7 @@ Both reported issues are not bugs but expected behavior with unclear messaging:
 2. **Push Failure**: Expected due to codex sandbox network restrictions - needs documentation and automatic push after codex completes
 
 The main issue was that the user interrupted the process (Ctrl+C) before it could complete the normal flow, which would have:
+
 1. Exited temporary watch mode
 2. Pushed the changes to GitHub
 3. Completed successfully

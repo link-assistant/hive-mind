@@ -14,7 +14,7 @@ import { handleErrorWithIssueCreation } from './github-issue-creator.lib.mjs';
 /**
  * Handles log attachment and PR closing on failure
  */
-export const handleFailure = async (options) => {
+export const handleFailure = async options => {
   const {
     error,
     errorType,
@@ -87,13 +87,15 @@ export const handleFailure = async (options) => {
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const closeMessage = errorType === 'uncaughtException'
-        ? 'Auto-closed due to uncaught exception. Logs have been attached for debugging.'
-        : errorType === 'unhandledRejection'
-        ? 'Auto-closed due to unhandled rejection. Logs have been attached for debugging.'
-        : 'Auto-closed due to execution failure. Logs have been attached for debugging.';
+      const closeMessage =
+        errorType === 'uncaughtException'
+          ? 'Auto-closed due to uncaught exception. Logs have been attached for debugging.'
+          : errorType === 'unhandledRejection'
+            ? 'Auto-closed due to unhandled rejection. Logs have been attached for debugging.'
+            : 'Auto-closed due to execution failure. Logs have been attached for debugging.';
 
-      const result = await $`gh pr close ${global.createdPR.number} --repo ${global.owner || owner}/${global.repo || repo} --comment ${closeMessage}`;
+      const result =
+        await $`gh pr close ${global.createdPR.number} --repo ${global.owner || owner}/${global.repo || repo} --comment ${closeMessage}`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       }
@@ -113,7 +115,7 @@ export const handleFailure = async (options) => {
 /**
  * Creates an uncaught exception handler
  */
-export const createUncaughtExceptionHandler = (options) => {
+export const createUncaughtExceptionHandler = options => {
   const {
     log,
     cleanErrorMessage,
@@ -129,7 +131,7 @@ export const createUncaughtExceptionHandler = (options) => {
     $
   } = options;
 
-  return async (error) => {
+  return async error => {
     await log(`\n❌ Uncaught Exception: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -156,7 +158,7 @@ export const createUncaughtExceptionHandler = (options) => {
 /**
  * Creates an unhandled rejection handler
  */
-export const createUnhandledRejectionHandler = (options) => {
+export const createUnhandledRejectionHandler = options => {
   const {
     log,
     cleanErrorMessage,
@@ -172,7 +174,7 @@ export const createUnhandledRejectionHandler = (options) => {
     $
   } = options;
 
-  return async (reason) => {
+  return async reason => {
     await log(`\n❌ Unhandled Rejection: ${cleanErrorMessage(reason)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -199,7 +201,7 @@ export const createUnhandledRejectionHandler = (options) => {
 /**
  * Handles execution errors in the main catch block
  */
-export const handleMainExecutionError = async (options) => {
+export const handleMainExecutionError = async options => {
   const {
     error,
     log,

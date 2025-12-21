@@ -29,7 +29,7 @@ const { fetchModelInfo } = claudeLib;
  * @param {string} output - Raw stdout output from agent command
  * @returns {Object} Aggregated token usage and cost data
  */
-export const parseAgentTokenUsage = (output) => {
+export const parseAgentTokenUsage = output => {
   const usage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -151,17 +151,17 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
 // Model mapping to translate aliases to full model IDs for Agent
 // Agent uses OpenCode's JSON interface and models
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'grok': 'opencode/grok-code',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'openai/gpt-5-nano',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'haiku': 'anthropic/claude-3-5-haiku',
-    'opus': 'anthropic/claude-3-opus',
-    'gemini-3-pro': 'google/gemini-3-pro',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    haiku: 'anthropic/claude-3-5-haiku',
+    opus: 'anthropic/claude-3-opus',
+    'gemini-3-pro': 'google/gemini-3-pro'
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is
@@ -202,14 +202,17 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
 
       // Test basic Agent functionality with a simple "hi" message
       // Agent uses the same JSON interface as OpenCode
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
+      const testResult =
+        await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
 
         if (stderr.includes('auth') || stderr.includes('login')) {
           await log('❌ Agent authentication failed', { level: 'error' });
-          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', { level: 'error' });
+          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', {
+            level: 'error'
+          });
           return false;
         }
 
@@ -223,7 +226,9 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
       return true;
     } catch (error) {
       await log(`❌ Failed to validate Agent connection: ${error.message}`, { level: 'error' });
-      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', { level: 'error' });
+      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', {
+        level: 'error'
+      });
       return false;
     }
   };
@@ -240,7 +245,7 @@ export const handleAgentRuntimeSwitch = async () => {
 };
 
 // Main function to execute Agent with prompts and settings
-export const executeAgent = async (params) => {
+export const executeAgent = async params => {
   const {
     issueUrl,
     issueNumber,
@@ -335,7 +340,7 @@ export const executeAgent = async (params) => {
   });
 };
 
-export const executeAgentCommand = async (params) => {
+export const executeAgentCommand = async params => {
   const {
     tempDir,
     branchName,
@@ -458,7 +463,7 @@ export const executeAgentCommand = async (params) => {
       // 1. Non-zero exit code (agent returns 1 on errors)
       // 2. Explicit JSON error messages from agent (type: "error")
       // 3. Usage limit detection (handled separately)
-      const detectAgentErrors = (stdoutOutput) => {
+      const detectAgentErrors = stdoutOutput => {
         const lines = stdoutOutput.split('\n');
 
         for (const line of lines) {
@@ -489,7 +494,7 @@ export const executeAgentCommand = async (params) => {
           type: 'error',
           exitCode,
           errorDetectedInOutput: outputError.detected,
-          errorType: outputError.detected ? outputError.type : (exitCode !== 0 ? 'NonZeroExitCode' : null),
+          errorType: outputError.detected ? outputError.type : exitCode !== 0 ? 'NonZeroExitCode' : null,
           errorMatch: outputError.detected ? outputError.match : null,
           message: null,
           sessionId,
@@ -544,7 +549,7 @@ export const executeAgentCommand = async (params) => {
           sessionId,
           limitReached,
           limitResetTime,
-          errorInfo,  // Include structured error information
+          errorInfo, // Include structured error information
           tokenUsage,
           pricingInfo,
           publicPricingEstimate: pricingInfo.totalCostUSD
@@ -617,7 +622,16 @@ export const executeAgentCommand = async (params) => {
   return await executeWithRetry();
 };
 
-export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+export const checkForUncommittedChanges = async (
+  tempDir,
+  owner,
+  repo,
+  branchName,
+  $,
+  log,
+  autoCommit = false,
+  autoRestartEnabled = true
+) => {
   // Similar to OpenCode version, check for uncommitted changes
   await log('\n🔍 Checking for uncommitted changes...');
   try {
@@ -649,13 +663,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning'
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning'
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning'
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -679,7 +699,9 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning'
+      });
       return false;
     }
   } catch (gitError) {

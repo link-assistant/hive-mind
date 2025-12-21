@@ -44,18 +44,21 @@ export default [
       'no-undef': 'error',
       'no-unused-vars': ['error'],
       'no-console': 'off',
-      'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }],
+      semi: ['error', 'always'],
+      quotes: ['error', 'single', { avoidEscape: true }],
       'no-useless-escape': 'warn',
       'no-case-declarations': 'warn',
       'no-empty': 'error',
-      'camelcase': ['error', {
-        properties: 'never',
-        ignoreDestructuring: true,
-        ignoreImports: false,
-        ignoreGlobals: false,
-        allow: ['^[A-Z_]+$']
-      }],
+      camelcase: [
+        'error',
+        {
+          properties: 'never',
+          ignoreDestructuring: true,
+          ignoreImports: false,
+          ignoreGlobals: false,
+          allow: ['^[A-Z_]+$']
+        }
+      ],
       'prettier/prettier': 'warn'
     }
   }

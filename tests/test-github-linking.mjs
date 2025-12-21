@@ -54,11 +54,7 @@ console.log('='.repeat(60));
 console.log('\n📋 Test Suite 1: Keyword List Validation\n');
 
 const keywords = getGitHubLinkingKeywords();
-const expectedKeywords = [
-  'close', 'closes', 'closed',
-  'fix', 'fixes', 'fixed',
-  'resolve', 'resolves', 'resolved'
-];
+const expectedKeywords = ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
 
 assert(
   keywords.length === expectedKeywords.length,
@@ -67,10 +63,7 @@ assert(
 );
 
 for (const keyword of expectedKeywords) {
-  assert(
-    keywords.includes(keyword),
-    `Keyword '${keyword}' is included`
-  );
+  assert(keywords.includes(keyword), `Keyword '${keyword}' is included`);
 }
 
 // Test 2: Valid GitHub linking formats (should detect)
@@ -89,23 +82,26 @@ const validFormats = [
   { prBody: 'Closed #55', issueNumber: '55', desc: 'Closed #N' },
   { prBody: 'Resolved #44', issueNumber: '44', desc: 'Resolved #N' },
   { prBody: 'Some text here\n\nFixes #515\n\nMore text', issueNumber: '515', desc: 'Fixes #N in middle of text' },
-  { prBody: 'Fixes link-assistant/hive-mind#515', issueNumber: '515', owner: 'link-assistant', repo: 'hive-mind', desc: 'Fixes owner/repo#N' },
-  { prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515', issueNumber: '515', owner: 'link-assistant', repo: 'hive-mind', desc: 'Resolves full URL' },
-  { prBody: 'Multiple changes\n\n---\n\nResolves #568', issueNumber: '568', desc: 'Resolves #N after separator' },
+  {
+    prBody: 'Fixes link-assistant/hive-mind#515',
+    issueNumber: '515',
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+    desc: 'Fixes owner/repo#N'
+  },
+  {
+    prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515',
+    issueNumber: '515',
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+    desc: 'Resolves full URL'
+  },
+  { prBody: 'Multiple changes\n\n---\n\nResolves #568', issueNumber: '568', desc: 'Resolves #N after separator' }
 ];
 
 for (const test of validFormats) {
-  const result = hasGitHubLinkingKeyword(
-    test.prBody,
-    test.issueNumber,
-    test.owner,
-    test.repo
-  );
-  assert(
-    result === true,
-    test.desc,
-    `Should detect linking keyword in: "${test.prBody}"`
-  );
+  const result = hasGitHubLinkingKeyword(test.prBody, test.issueNumber, test.owner, test.repo);
+  assert(result === true, test.desc, `Should detect linking keyword in: "${test.prBody}"`);
 }
 
 // Test 3: Invalid formats (should NOT detect)
@@ -121,45 +117,24 @@ const invalidFormats = [
   { prBody: 'This closes#515 without space', issueNumber: '515', desc: 'closes#N without space (invalid format)' },
   { prBody: 'Issue 515 is fixed', issueNumber: '515', desc: 'Issue 515 without # (invalid format)' },
   { prBody: '', issueNumber: '515', desc: 'Empty PR body' },
-  { prBody: 'No issue reference here', issueNumber: '515', desc: 'No reference at all' },
+  { prBody: 'No issue reference here', issueNumber: '515', desc: 'No reference at all' }
 ];
 
 for (const test of invalidFormats) {
-  const result = hasGitHubLinkingKeyword(
-    test.prBody,
-    test.issueNumber,
-    test.owner,
-    test.repo
-  );
-  assert(
-    result === false,
-    test.desc,
-    `Should NOT detect linking keyword in: "${test.prBody}"`
-  );
+  const result = hasGitHubLinkingKeyword(test.prBody, test.issueNumber, test.owner, test.repo);
+  assert(result === false, test.desc, `Should NOT detect linking keyword in: "${test.prBody}"`);
 }
 
 // Test 4: Edge cases
 console.log('\n📋 Test Suite 4: Edge Cases\n');
 
-assert(
-  hasGitHubLinkingKeyword(null, '515') === false,
-  'Null PR body returns false'
-);
+assert(hasGitHubLinkingKeyword(null, '515') === false, 'Null PR body returns false');
 
-assert(
-  hasGitHubLinkingKeyword('Fixes #515', null) === false,
-  'Null issue number returns false'
-);
+assert(hasGitHubLinkingKeyword('Fixes #515', null) === false, 'Null issue number returns false');
 
-assert(
-  hasGitHubLinkingKeyword('Fixes #515', '') === false,
-  'Empty issue number returns false'
-);
+assert(hasGitHubLinkingKeyword('Fixes #515', '') === false, 'Empty issue number returns false');
 
-assert(
-  hasGitHubLinkingKeyword('Fixes #515', 515) === true,
-  'Numeric issue number is handled correctly'
-);
+assert(hasGitHubLinkingKeyword('Fixes #515', 515) === true, 'Numeric issue number is handled correctly');
 
 // Test 5: Issue extraction
 console.log('\n📋 Test Suite 5: Issue Number Extraction\n');
@@ -168,19 +143,19 @@ const extractionTests = [
   { prBody: 'Fixes #515', expected: '515', desc: 'Extract from Fixes #N' },
   { prBody: 'Closes #42', expected: '42', desc: 'Extract from Closes #N' },
   { prBody: 'Resolves link-assistant/hive-mind#568', expected: '568', desc: 'Extract from owner/repo#N' },
-  { prBody: 'Fixes https://github.com/link-assistant/hive-mind/issues/123', expected: '123', desc: 'Extract from full URL' },
+  {
+    prBody: 'Fixes https://github.com/link-assistant/hive-mind/issues/123',
+    expected: '123',
+    desc: 'Extract from full URL'
+  },
   { prBody: 'No issue here', expected: null, desc: 'Return null when no issue found' },
   { prBody: 'Implements issue #524', expected: null, desc: 'Return null for non-GitHub keyword' },
-  { prBody: '', expected: null, desc: 'Return null for empty body' },
+  { prBody: '', expected: null, desc: 'Return null for empty body' }
 ];
 
 for (const test of extractionTests) {
   const result = extractLinkedIssueNumber(test.prBody);
-  assertEquals(
-    result,
-    test.expected,
-    test.desc
-  );
+  assertEquals(result, test.expected, test.desc);
 }
 
 // Test 6: Real-world examples from issue #568

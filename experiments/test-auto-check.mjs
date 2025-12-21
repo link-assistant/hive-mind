@@ -13,8 +13,8 @@ const testArg = process.argv[2] || '--invalid-option';
 console.log(`Testing auto-check for unknown options: ${testArg}\n`);
 
 // Helper function to create a check that validates against defined options
-const createStrictOptionsCheck = (yargsInstance) => {
-  return (argv) => {
+const createStrictOptionsCheck = yargsInstance => {
+  return argv => {
     // Get the parsed options from yargs internal state
     const parsed = yargsInstance.parsed;
 
@@ -86,7 +86,6 @@ try {
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

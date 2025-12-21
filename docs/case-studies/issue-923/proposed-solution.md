@@ -17,7 +17,7 @@ if (urlBeforeQueryAndHash.includes('\\')) {
   // Try to suggest corrected URL
   const suggestedUrl = urlBeforeQueryAndHash.replace(/\\/g, '/');
   const urlAfterPath = normalizedUrl.substring(urlBeforeQueryAndHash.length);
-  
+
   return {
     valid: false,
     error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
@@ -34,6 +34,7 @@ if (urlBeforeQueryAndHash.includes('\\')) {
 **Insert before**: Line 1110 (before URL parsing with `new URL()`)
 
 This placement ensures:
+
 - URL has been normalized (protocol added, trimmed)
 - Before actual URL object creation
 - Catches backslashes in any position
@@ -41,6 +42,7 @@ This placement ensures:
 ### 3. Error Message Design
 
 Return format:
+
 ```javascript
 {
   valid: false,
@@ -50,6 +52,7 @@ Return format:
 ```
 
 This allows callers to:
+
 1. Display the error message
 2. Optionally show the suggested corrected URL
 3. In Telegram bot: offer to retry with corrected URL
@@ -57,6 +60,7 @@ This allows callers to:
 ### 4. Test Coverage
 
 Add test cases for:
+
 - Backslash at end: `https://github.com/owner/repo/issues/123\`
 - Backslash in middle: `https://github.com\owner/repo/issues/123`
 - Multiple backslashes: `https://github.com/owner\repo\issues\123`
@@ -66,6 +70,7 @@ Add test cases for:
 ### 5. Integration Points
 
 The fix will automatically benefit:
+
 - `/solve` command in Telegram bot
 - `/hive` command in Telegram bot
 - Direct `solve` CLI usage

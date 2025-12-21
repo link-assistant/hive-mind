@@ -15,7 +15,8 @@ const __dirname = dirname(__filename);
 
 // Import the module under test
 const interactiveModeLib = await import(join(__dirname, '..', 'src', 'interactive-mode.lib.mjs'));
-const { createInteractiveHandler, isInteractiveModeSupported, validateInteractiveModeConfig, utils } = interactiveModeLib;
+const { createInteractiveHandler, isInteractiveModeSupported, validateInteractiveModeConfig, utils } =
+  interactiveModeLib;
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -287,7 +288,10 @@ console.log('\n=== Testing Async Functions ===\n');
 
 await runAsyncTest('validateInteractiveModeConfig disabled', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   if (!result) {
@@ -297,7 +301,10 @@ await runAsyncTest('validateInteractiveModeConfig disabled', async () => {
 
 await runAsyncTest('validateInteractiveModeConfig enabled with claude', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog);
   if (!result) {
@@ -310,7 +317,10 @@ await runAsyncTest('validateInteractiveModeConfig enabled with claude', async ()
 
 await runAsyncTest('validateInteractiveModeConfig enabled with opencode', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   if (result) {
@@ -382,7 +392,10 @@ await runAsyncTest('handler initial state', async () => {
 await runAsyncTest('processEvent handles system.init', async () => {
   const logs = [];
   const comments = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const mock$ = (...args) => {
     // Extract the body from template literals
     const body = args[0].reduce((acc, str, i) => acc + str + (args[i + 1] || ''), '');
@@ -437,9 +450,7 @@ await runAsyncTest('processEvent handles assistant text', async () => {
     type: 'assistant',
     message: {
       model: 'claude-sonnet-4-5-20250929',
-      content: [
-        { type: 'text', text: 'This is a test response from Claude.' }
-      ],
+      content: [{ type: 'text', text: 'This is a test response from Claude.' }],
       usage: { input_tokens: 100, output_tokens: 50 }
     }
   });
@@ -503,7 +514,7 @@ await runAsyncTest('processEvent handles result', async () => {
     is_error: false,
     duration_ms: 120000,
     num_turns: 10,
-    total_cost_usd: 0.50,
+    total_cost_usd: 0.5,
     session_id: 'test-session'
   });
 
@@ -555,16 +566,19 @@ await runAsyncTest('processEvent handles null/invalid input', async () => {
 await runAsyncTest('handler does not post without PR info', async () => {
   const logs = [];
   const comments = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const mock$ = () => {
     comments.push('posted');
     return Promise.resolve();
   };
 
   const handler = createInteractiveHandler({
-    owner: '',  // Empty owner
+    owner: '', // Empty owner
     repo: 'test-repo',
-    prNumber: null,  // No PR number
+    prNumber: null, // No PR number
     $: mock$,
     log: mockLog,
     verbose: true
@@ -596,7 +610,7 @@ runTest('comment ID extraction from gh output URL', () => {
   const testOutputs = [
     'https://github.com/owner/repo/pull/123#issuecomment-1234567890\n',
     'https://github.com/owner/repo/pull/123#issuecomment-9876543210',
-    'https://github.com/some-owner/some-repo/issues/456#issuecomment-111222333\n',
+    'https://github.com/some-owner/some-repo/issues/456#issuecomment-111222333\n'
   ];
 
   const expectedIds = ['1234567890', '9876543210', '111222333'];

@@ -17,7 +17,7 @@ async function testLogFileContent() {
   });
 
   let logFilePath = '';
-  testProcess.stdout.on('data', (data) => {
+  testProcess.stdout.on('data', data => {
     const text = data.toString();
     // Look for log file path
     if (text.includes('Log file:')) {
@@ -28,7 +28,7 @@ async function testLogFileContent() {
     }
   });
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     testProcess.on('close', resolve);
   });
 

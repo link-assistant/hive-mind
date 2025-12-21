@@ -37,7 +37,9 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
       const query = `
         query GetPullRequestsForIssues {
           repository(owner: "${owner}", name: "${repo}") {
-            ${batch.map(num => `
+            ${batch
+              .map(
+                num => `
             issue${num}: issue(number: ${num}) {
               number
               title
@@ -57,7 +59,9 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
                   }
                 }
               }
-            }`).join('\n')}
+            }`
+              )
+              .join('\n')}
           }
         }
       `;
@@ -115,8 +119,10 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
           }
         }
 
-        await log(`   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(issueNumbers.length / BATCH_SIZE)} processed (${batch.length} issues)`, { verbose: true });
-
+        await log(
+          `   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(issueNumbers.length / BATCH_SIZE)} processed (${batch.length} issues)`,
+          { verbose: true }
+        );
       } catch (batchError) {
         await log(`   ⚠️  GraphQL batch query failed: ${cleanErrorMessage(batchError)}`, { level: 'warning' });
 
@@ -154,7 +160,6 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
     await log(`   📊 Batch PR check complete: ${issuesWithPRs}/${totalIssues} issues have open PRs`, { verbose: true });
 
     return results;
-
   } catch (error) {
     await log(`   ❌ Batch PR check failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     return {};
@@ -183,11 +188,15 @@ export async function batchCheckArchivedRepositories(repositories) {
       const batch = repositories.slice(i, i + BATCH_SIZE);
 
       // Build GraphQL query for this batch
-      const queryFields = batch.map((repo, index) => `
+      const queryFields = batch
+        .map(
+          (repo, index) => `
         repo${index}: repository(owner: "${repo.owner}", name: "${repo.name}") {
           nameWithOwner
           isArchived
-        }`).join('\n');
+        }`
+        )
+        .join('\n');
 
       const query = `
         query CheckArchivedStatus {
@@ -223,8 +232,10 @@ export async function batchCheckArchivedRepositories(repositories) {
           }
         });
 
-        await log(`   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(repositories.length / BATCH_SIZE)} processed (${batch.length} repositories)`, { verbose: true });
-
+        await log(
+          `   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(repositories.length / BATCH_SIZE)} processed (${batch.length} repositories)`,
+          { verbose: true }
+        );
       } catch (batchError) {
         await log(`   ⚠️  GraphQL batch query failed: ${cleanErrorMessage(batchError)}`, { level: 'warning' });
 
@@ -255,10 +266,12 @@ export async function batchCheckArchivedRepositories(repositories) {
 
     // Log summary
     const archivedCount = Object.values(results).filter(isArchived => isArchived).length;
-    await log(`   📊 Batch archived check complete: ${archivedCount}/${repositories.length} repositories are archived`, { verbose: true });
+    await log(
+      `   📊 Batch archived check complete: ${archivedCount}/${repositories.length} repositories are archived`,
+      { verbose: true }
+    );
 
     return results;
-
   } catch (error) {
     await log(`   ❌ Batch archived check failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     return {};

@@ -18,16 +18,16 @@ const argv = yargs(hideBin(['node', 'test', 'https://github.com/test/repo', '--a
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
     default: false
   })
   .option('attach-logs', {
     type: 'boolean',
-    description: 'Upload the solution log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
+    description:
+      'Upload the solution log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
     default: false
-  })
-  .argv;
+  }).argv;
 
 // Test the flag generation logic
 const issueUrl = 'https://github.com/test/repo/issues/123';

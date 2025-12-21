@@ -19,7 +19,7 @@ console.log('');
 console.log('Test 1: Using .command() with positional');
 try {
   const argv1 = yargs()
-    .command('$0 <url>', 'Test command', (yargs) => {
+    .command('$0 <url>', 'Test command', yargs => {
       yargs.positional('url', {
         type: 'string',
         description: 'URL argument',

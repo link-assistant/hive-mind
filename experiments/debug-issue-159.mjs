@@ -13,7 +13,9 @@ console.log('=================================================\n');
 console.log('Issue Details:');
 console.log('- Previous fix in PR #158 was supposed to solve fork sync');
 console.log('- User reports fork is still 45 commits behind after running the command');
-console.log('- Command used: ./solve.mjs https://github.com/suenot/tinkoff-invest-etf-balancer-bot/issues/3 --attach-logs --verbose --fork');
+console.log(
+  '- Command used: ./solve.mjs https://github.com/suenot/tinkoff-invest-etf-balancer-bot/issues/3 --attach-logs --verbose --fork'
+);
 console.log('- Fork still shows: "This branch is 45 commits behind suenot/tinkoff-invest-etf-balancer-bot:master"\n');
 
 console.log('Analysis of Current Implementation:');

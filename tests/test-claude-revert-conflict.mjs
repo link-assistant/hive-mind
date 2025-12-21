@@ -71,7 +71,9 @@ Proceed.
     await $({ cwd: tempDir })`git commit -q -m "Previous session commit"`;
 
     // Append new task info (simulate initial commit)
-    const appendedContent = initialContent + `
+    const appendedContent =
+      initialContent +
+      `
 ---
 
 Issue to solve: undefined
@@ -146,7 +148,10 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Verify CLAUDE.md was deleted
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
     assert(
@@ -190,7 +195,10 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Verify CLAUDE.md was deleted
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
     assert(

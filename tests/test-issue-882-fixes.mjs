@@ -37,7 +37,11 @@ test('Model mapping - Claude tool should not accept grok-code', () => {
 
 test('Model mapping - Agent tool should accept sonnet', () => {
   const mapped = mapModelForTool('agent', 'sonnet');
-  assert.strictEqual(mapped, 'anthropic/claude-3-5-sonnet', 'sonnet should map to anthropic/claude-3-5-sonnet for agent');
+  assert.strictEqual(
+    mapped,
+    'anthropic/claude-3-5-sonnet',
+    'sonnet should map to anthropic/claude-3-5-sonnet for agent'
+  );
 
   const isCompatible = isModelCompatibleWithTool('agent', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with agent tool');
@@ -45,7 +49,11 @@ test('Model mapping - Agent tool should accept sonnet', () => {
 
 test('Model mapping - Claude tool should accept sonnet', () => {
   const mapped = mapModelForTool('claude', 'sonnet');
-  assert.strictEqual(mapped, 'claude-sonnet-4-5-20250929', 'sonnet should map to claude-sonnet-4-5-20250929 for claude');
+  assert.strictEqual(
+    mapped,
+    'claude-sonnet-4-5-20250929',
+    'sonnet should map to claude-sonnet-4-5-20250929 for claude'
+  );
 
   const isCompatible = isModelCompatibleWithTool('claude', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with claude tool');
@@ -96,8 +104,11 @@ test('Model mapping - Each tool has distinct model maps', () => {
   const claudeSonnet = mapModelForTool('claude', 'sonnet');
   const agentSonnet = mapModelForTool('agent', 'sonnet');
 
-  assert.notStrictEqual(claudeSonnet, agentSonnet,
-    'sonnet should map differently for claude vs agent (different APIs)');
+  assert.notStrictEqual(
+    claudeSonnet,
+    agentSonnet,
+    'sonnet should map differently for claude vs agent (different APIs)'
+  );
 });
 
 test('Model mapping - Export model maps are objects', () => {

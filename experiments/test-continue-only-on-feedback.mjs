@@ -16,7 +16,8 @@ const tests = [
   },
   {
     name: 'Valid: Issue URL with --auto-continue and --continue-only-on-feedback',
-    command: './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --auto-continue --continue-only-on-feedback --dry-run',
+    command:
+      './solve.mjs https://github.com/link-assistant/hive-mind/issues/144 --auto-continue --continue-only-on-feedback --dry-run',
     shouldSucceed: true
   },
   {

@@ -7,7 +7,7 @@
  */
 
 // Mock the use function
-globalThis.use = async (module) => {
+globalThis.use = async module => {
   if (module === 'command-stream') {
     return {
       $: async (strings, ...values) => {
@@ -35,9 +35,7 @@ globalThis.use = async (module) => {
           // Simulate a branch with only OPEN PR (should be reused)
           return {
             code: 0,
-            stdout: JSON.stringify([
-              { number: 100, state: 'OPEN' }
-            ])
+            stdout: JSON.stringify([{ number: 100, state: 'OPEN' }])
           };
         }
 
@@ -53,9 +51,7 @@ globalThis.use = async (module) => {
           // Simulate a branch with only CLOSED PR (should NOT be reused)
           return {
             code: 0,
-            stdout: JSON.stringify([
-              { number: 200, state: 'CLOSED' }
-            ])
+            stdout: JSON.stringify([{ number: 200, state: 'CLOSED' }])
           };
         }
 
@@ -68,7 +64,7 @@ globalThis.use = async (module) => {
 
 // Mock log function
 const logs = [];
-globalThis.log = async (msg) => {
+globalThis.log = async msg => {
   logs.push(msg);
   console.log(msg);
 };
@@ -130,7 +126,7 @@ async function testScenario({ issueNumber, existingBranches, expectedBehavior })
 
   // Mock the branch listing to return our test branches
   const originalUse = globalThis.use;
-  globalThis.use = async (module) => {
+  globalThis.use = async module => {
     const baseResult = await originalUse(module);
     if (module === 'command-stream') {
       const original$ = baseResult.$;
@@ -157,7 +153,9 @@ async function testScenario({ issueNumber, existingBranches, expectedBehavior })
   const argv = { autoContinue: true, fork: false };
   const result = await processAutoContinueForIssue(argv, true, issueNumber, 'link-assistant', 'hive-mind');
 
-  console.log(`Result: isContinueMode=${result.isContinueMode}, prNumber=${result.prNumber}, prBranch=${result.prBranch}`);
+  console.log(
+    `Result: isContinueMode=${result.isContinueMode}, prNumber=${result.prNumber}, prBranch=${result.prBranch}`
+  );
 
   // Verify results based on scenario
   if (issueNumber === 423) {

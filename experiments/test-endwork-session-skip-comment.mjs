@@ -62,8 +62,8 @@ async function runTests() {
   });
 
   const hasCommentCommand = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasSkipMessage = logMessages.some(log =>
-    log.message.includes('Skipping') && log.message.includes('logs already attached')
+  const hasSkipMessage = logMessages.some(
+    log => log.message.includes('Skipping') && log.message.includes('logs already attached')
   );
 
   console.log('  Commands executed:', commandLog.length);
@@ -87,8 +87,8 @@ async function runTests() {
   });
 
   const hasCommentCommand2 = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasPostedMessage = logMessages.some(log =>
-    log.message.includes('Posted') && log.message.includes('Work session end comment')
+  const hasPostedMessage = logMessages.some(
+    log => log.message.includes('Posted') && log.message.includes('Work session end comment')
   );
 
   console.log('  Commands executed:', commandLog.length);
@@ -112,8 +112,8 @@ async function runTests() {
   });
 
   const hasCommentCommand3 = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasPostedMessage3 = logMessages.some(log =>
-    log.message.includes('Posted') && log.message.includes('Work session end comment')
+  const hasPostedMessage3 = logMessages.some(
+    log => log.message.includes('Posted') && log.message.includes('Work session end comment')
   );
 
   console.log('  Commands executed:', commandLog.length);

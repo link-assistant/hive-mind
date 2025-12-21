@@ -8,7 +8,7 @@
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
+export const buildUserPrompt = params => {
   const {
     issueUrl,
     issueNumber,
@@ -29,7 +29,9 @@ export const buildUserPrompt = (params) => {
 
   // Issue or PR reference
   if (isContinueMode) {
-    promptLines.push(`Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`);
+    promptLines.push(
+      `Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`
+    );
   } else {
     promptLines.push(`Issue to solve: ${issueUrl}`);
   }
@@ -93,7 +95,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -195,7 +197,6 @@ Self review.
    - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
    - When you finalize, confirm code, tests, and description are consistent.${argv && argv.promptPlaywrightMcp ? '\n\nPlaywright MCP usage (browser automation via mcp__playwright__* tools).\n   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.\n   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.\n   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.\n   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.\n   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).\n   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.\n   - When you finish using the browser, always close it with browser_close to free resources.' : ''}${argv && argv.promptPlanSubAgent ? '\n\nPlan sub-agent usage.\n   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.\n   - When using the Plan sub-agent, you can add it as the first item in your todo list.\n   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.' : ''}`;
-
 };
 
 // Export all functions as default object too

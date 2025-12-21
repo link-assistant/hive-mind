@@ -27,12 +27,7 @@ const CONTRIBUTING_PATHS = [
 /**
  * Common documentation URLs patterns
  */
-const DOCS_PATTERNS = [
-  'readthedocs.io',
-  'github.io',
-  '/docs/',
-  '/documentation/'
-];
+const DOCS_PATTERNS = ['readthedocs.io', 'github.io', '/docs/', '/documentation/'];
 
 /**
  * Detect contributing guidelines in a repository
@@ -248,7 +243,8 @@ export async function buildContributingSection(owner, repo) {
 export async function checkWorkflowApprovalStatus(owner, repo) {
   try {
     // Get workflow runs for the PR
-    const runsResult = await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();
+    const runsResult =
+      await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();
 
     if (runsResult.exitCode !== 0) {
       return { hasApprovalRequired: false, runs: [] };

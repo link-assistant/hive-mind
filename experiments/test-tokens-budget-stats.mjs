@@ -95,7 +95,7 @@ const mockUsageScenarios = [
 ];
 
 // Function to display budget stats (matching the actual implementation)
-const displayBudgetStats = (scenario) => {
+const displayBudgetStats = scenario => {
   const { modelInfo, usage } = scenario;
 
   console.log('\n      📊 Token Budget Statistics:');

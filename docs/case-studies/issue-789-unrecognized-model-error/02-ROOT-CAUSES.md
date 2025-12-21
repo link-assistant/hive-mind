@@ -11,10 +11,11 @@ There are **THREE DISTINCT ROOT CAUSES** contributing to this issue:
 ## Root Cause #1: No Early Model Name Validation
 
 ### Code Location
+
 `src/claude.lib.mjs:43-45`
 
 ```javascript
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   return availableModels[model] || model;
 };
 ```
@@ -22,6 +23,7 @@ export const mapModelToId = (model) => {
 ### Problem Description
 
 The `mapModelToId` function is a **pure pass-through** when the model name is not in the alias map:
+
 - Input: `"oups"`
 - Lookup in `availableModels`: Not found
 - Return: `"oups"` (unchanged)
@@ -35,17 +37,21 @@ The `mapModelToId` function is a **pure pass-through** when the model name is no
    - No validation at this stage
 
 2. **Model mapping** (src/claude.lib.mjs:843)
+
    ```javascript
    const mappedModel = mapModelToId(argv.model);
    ```
+
    - Maps aliases to full IDs
    - **Does not validate** if model exists
    - Unknown names pass through unchanged
 
 3. **Command execution** (src/claude.lib.mjs:844)
+
    ```javascript
    const command = `claude --model ${mappedModel} -p ...`;
    ```
+
    - Invalid model name sent to Claude CLI
    - No validation before subprocess spawn
 
@@ -57,6 +63,7 @@ The `mapModelToId` function is a **pure pass-through** when the model name is no
 ### Why This Design Exists
 
 **Intentional flexibility**: The pass-through design allows users to specify:
+
 - New model IDs not yet in the alias list
 - Beta/preview model names
 - Organization-specific model variants
@@ -97,6 +104,7 @@ Despite the error, two different models were charged:
 ### Analysis
 
 **Key observations:**
+
 1. Top-level usage shows 0 tokens
 2. Per-model usage shows ~2,000 tokens across two models
 3. Both Haiku AND Opus were invoked
@@ -113,6 +121,7 @@ The Claude CLI likely has an internal routing mechanism:
 5. **Fallback attempt**: May have tried another model (Opus) before giving up
 
 This explains:
+
 - Why two models were charged
 - Why cost was incurred before validation
 - Why "routing" tokens don't appear in main usage
@@ -131,16 +140,18 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // ... makes test API call with model ...
   result = await $`printf hi | claude --model ${mappedModel} -p`;
   // ... checks for errors ...
-}
+};
 ```
 
 ### When It's Called
 
 **Locations:**
+
 1. `src/solve.validation.lib.mjs:242` - During system checks
 2. `src/hive.mjs:1461` - Before processing issues
 
 **Conditions:**
+
 ```javascript
 if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.model, argv))) {
   // validation runs here
@@ -150,6 +161,7 @@ if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.mo
 ### The Gap: `--no-tool-check` Bypasses Validation
 
 From the timeline:
+
 ```
 [16:00:53.845Z] Skipping tool validation (dry-run mode)
 ```
@@ -159,6 +171,7 @@ The command used `--no-tool-check`, which skips ALL tool validation, including m
 ### Why This is Problematic
 
 **Validation should be two-tier:**
+
 1. **Tool availability** (can be skipped for speed)
    - Is `claude` command available?
    - Can we execute it?
@@ -172,6 +185,7 @@ The command used `--no-tool-check`, which skips ALL tool validation, including m
 ### Evidence from Code
 
 `src/solve.mjs:200`
+
 ```javascript
 if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.model, argv))) {
   process.exit(1);
@@ -179,17 +193,18 @@ if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolCheck, argv.mo
 ```
 
 When `skipToolCheck` is true:
+
 - No model validation
 - No Claude CLI connection check
 - Invalid model names proceed to execution
 
 ## Root Cause Summary
 
-| Root Cause | Location | Impact | Severity |
-|------------|----------|--------|----------|
-| No early validation | mapModelToId() | All invalid models reach API | **HIGH** |
-| Claude CLI routing costs | Claude CLI internals | Cost even for validation errors | **MEDIUM** |
-| Validation can be bypassed | --no-tool-check flag | Skip flag too broad | **HIGH** |
+| Root Cause                 | Location             | Impact                          | Severity   |
+| -------------------------- | -------------------- | ------------------------------- | ---------- |
+| No early validation        | mapModelToId()       | All invalid models reach API    | **HIGH**   |
+| Claude CLI routing costs   | Claude CLI internals | Cost even for validation errors | **MEDIUM** |
+| Validation can be bypassed | --no-tool-check flag | Skip flag too broad             | **HIGH**   |
 
 ## Contributing Factors
 
@@ -198,6 +213,7 @@ When `skipToolCheck` is true:
 The system relies on the API to validate model names instead of doing client-side checks.
 
 **Current flow:**
+
 ```
 User input → Argument parsing → Command execution → API call → Error
                                                           ↑
@@ -205,6 +221,7 @@ User input → Argument parsing → Command execution → API call → Error
 ```
 
 **Better flow:**
+
 ```
 User input → Argument parsing → Validation → API call
                                      ↑
@@ -214,17 +231,19 @@ User input → Argument parsing → Validation → API call
 ### 2. Model List is Hardcoded
 
 `src/claude.lib.mjs:35-41`
+
 ```javascript
 export const availableModels = {
-  'sonnet': 'claude-sonnet-4-5-20250929',
-  'opus': 'claude-opus-4-5-20251101',
-  'haiku': 'claude-haiku-4-5-20251001',
+  sonnet: 'claude-sonnet-4-5-20250929',
+  opus: 'claude-opus-4-5-20251101',
+  haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
-  'haiku-3': 'claude-3-haiku-20240307',
+  'haiku-3': 'claude-3-haiku-20240307'
 };
 ```
 
 **Issues:**
+
 - New models require code updates
 - No way to query available models from API
 - Users don't know what models are available without reading code
@@ -238,6 +257,7 @@ Need to verify if `--help` shows available model names. If not, discoverability 
 ### Automation Impact
 
 If this command is used in automation (e.g., Telegram bot, CI/CD), a single typo could:
+
 - Cause repeated failures
 - Accumulate costs ($0.027 per attempt)
 - 100 failed attempts = $2.71 wasted
@@ -246,6 +266,7 @@ If this command is used in automation (e.g., Telegram bot, CI/CD), a single typo
 ### User Experience Impact
 
 Users expect:
+
 1. **Fast feedback** on mistakes
 2. **Helpful error messages** with suggestions
 3. **No cost for typos**
@@ -255,6 +276,7 @@ Current behavior violates all three expectations.
 ## Conclusion
 
 The root causes are **architectural**, not bugs:
+
 1. System designed for flexibility (allow any model ID)
 2. Validation relegated to API layer
 3. Client-side checks can be skipped

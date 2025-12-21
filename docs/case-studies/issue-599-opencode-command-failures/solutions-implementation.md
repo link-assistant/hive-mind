@@ -29,8 +29,17 @@ If it doesn't exist, create it. Otherwise, update the `buildSystemPrompt` functi
 ```javascript
 // In src/opencode.prompts.lib.mjs
 
-export const buildSystemPrompt = ({ owner, repo, issueNumber, prNumber, branchName, tempDir, isContinueMode, forkedRepo, argv }) => {
-
+export const buildSystemPrompt = ({
+  owner,
+  repo,
+  issueNumber,
+  prNumber,
+  branchName,
+  tempDir,
+  isContinueMode,
+  forkedRepo,
+  argv
+}) => {
   // ... existing prompt content ...
 
   const githubCliGuidelines = `
@@ -118,7 +127,7 @@ Add validation before command execution in `executeOpenCodeCommand`:
 // In src/opencode.lib.mjs
 
 // Add this function before executeOpenCodeCommand
-const validateGhCommand = (command) => {
+const validateGhCommand = command => {
   const invalidPatterns = [
     {
       pattern: /gh\s+(pr|issue)\s+comments\b/,
@@ -133,7 +142,7 @@ const validateGhCommand = (command) => {
     {
       pattern: /gh\s+pr\s+comments\s+(\d+)\s+--repo\s+([^\s]+)/,
       error: 'Invalid command: "gh pr comments" should be "gh api"',
-      suggestion: (match) => {
+      suggestion: match => {
         const prNum = match[1];
         const repo = match[2];
         return `Use: gh api repos/${repo}/pulls/${prNum}/comments`;
@@ -144,9 +153,7 @@ const validateGhCommand = (command) => {
   for (const { pattern, error, suggestion } of invalidPatterns) {
     const match = command.match(pattern);
     if (match) {
-      const suggestionText = typeof suggestion === 'function'
-        ? suggestion(match)
-        : suggestion;
+      const suggestionText = typeof suggestion === 'function' ? suggestion(match) : suggestion;
 
       return {
         valid: false,
@@ -160,7 +167,7 @@ const validateGhCommand = (command) => {
 };
 
 // Update executeOpenCodeCommand to use validation
-export const executeOpenCodeCommand = async (params) => {
+export const executeOpenCodeCommand = async params => {
   // ... existing code ...
 
   const executeWithRetry = async () => {
@@ -200,7 +207,7 @@ Create automatic command correction:
 ```javascript
 // In src/command-correction.lib.mjs (new file)
 
-export const correctGhCommand = (command) => {
+export const correctGhCommand = command => {
   let corrected = command;
   let wasCorrected = false;
   const corrections = [];
@@ -264,7 +271,7 @@ Then use it in `opencode.lib.mjs`:
 // In src/opencode.lib.mjs
 import { correctGhCommand } from './command-correction.lib.mjs';
 
-export const executeOpenCodeCommand = async (params) => {
+export const executeOpenCodeCommand = async params => {
   // ... in the command building section ...
 
   // Before execution, try to correct the command
@@ -287,6 +294,7 @@ export const executeOpenCodeCommand = async (params) => {
 ### Testing
 
 Run with verbose mode and check that:
+
 1. Incorrect commands are detected
 2. Corrections are logged
 3. Corrected commands execute successfully
@@ -384,18 +392,22 @@ Requires multiple runs to build up learning data.
 ## Implementation Priority
 
 ### Phase 1 (Immediate) - Week 1
+
 - ✅ Solution 1: Update prompts with correct command examples
 - Test with 3-5 different issues
 
 ### Phase 2 (Short-term) - Week 2-3
+
 - Solution 2: Add validation layer
 - Create integration tests for command validation
 
 ### Phase 3 (Medium-term) - Month 2
+
 - Solution 3: Implement command correction
 - Add telemetry for tracking correction success rate
 
 ### Phase 4 (Long-term) - Month 3+
+
 - Solution 4: Build learning system
 - Analyze patterns across many solve sessions
 
@@ -421,11 +433,13 @@ For each solution:
 If any solution causes issues:
 
 1. **Git revert**: Each solution should be in its own commit
+
    ```bash
    git revert <commit-hash>
    ```
 
 2. **Feature flag**: Add environment variable to enable/disable
+
    ```javascript
    if (process.env.HIVE_MIND_COMMAND_CORRECTION === 'true') {
      // Apply corrections

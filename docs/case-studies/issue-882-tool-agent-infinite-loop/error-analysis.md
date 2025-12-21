@@ -23,40 +23,40 @@ Each failed API call returned this exact error:
 
 ### Request IDs Captured
 
-| Attempt | Request ID | Timestamp |
-|---------|------------|-----------|
-| 1 | req_011CVvcrXhXBbhFqpvm6JfEK | 06:12:29 |
-| 2 | req_011CVvcs9hUHxZN4QVDZuEmG | 06:12:34 |
-| 3 | req_011CVvcsoRr7RjGuFzxWX1kw | 06:12:43 |
-| 4 | req_011CVvctRcDFKmXaeGuJk7Tu | 06:12:52 |
-| 5 | req_011CVvcu3C7M37VWkN49QttT | 06:13:00 |
-| 6 | req_011CVvcuggrHa7ScKZWcb14M | 06:13:09 |
-| 7 | req_011CVvcvHuAzPAjUDxBCZxdE | 06:13:17 |
-| 8 | req_011CVvcvrRm4gm84jgPW9vQs | 06:13:25 |
+| Attempt | Request ID                   | Timestamp |
+| ------- | ---------------------------- | --------- |
+| 1       | req_011CVvcrXhXBbhFqpvm6JfEK | 06:12:29  |
+| 2       | req_011CVvcs9hUHxZN4QVDZuEmG | 06:12:34  |
+| 3       | req_011CVvcsoRr7RjGuFzxWX1kw | 06:12:43  |
+| 4       | req_011CVvctRcDFKmXaeGuJk7Tu | 06:12:52  |
+| 5       | req_011CVvcu3C7M37VWkN49QttT | 06:13:00  |
+| 6       | req_011CVvcuggrHa7ScKZWcb14M | 06:13:09  |
+| 7       | req_011CVvcvHuAzPAjUDxBCZxdE | 06:13:17  |
+| 8       | req_011CVvcvrRm4gm84jgPW9vQs | 06:13:25  |
 
 ## Root Cause: Model Name Confusion
 
 ### Valid Model Names by Tool
 
-| Tool | Valid Models | Provider |
-|------|--------------|----------|
-| Claude CLI | sonnet, haiku, opus, claude-3-5-sonnet, claude-3-opus, etc. | Anthropic |
-| Agent CLI | grok-code, grok-code-fast-1, big-pickle, etc. | OpenCode/Zen |
-| OpenCode CLI | Various models via their ecosystem | Multiple |
+| Tool         | Valid Models                                                | Provider     |
+| ------------ | ----------------------------------------------------------- | ------------ |
+| Claude CLI   | sonnet, haiku, opus, claude-3-5-sonnet, claude-3-opus, etc. | Anthropic    |
+| Agent CLI    | grok-code, grok-code-fast-1, big-pickle, etc.               | OpenCode/Zen |
+| OpenCode CLI | Various models via their ecosystem                          | Multiple     |
 
 ### Model Mapping Table (from agent.lib.mjs)
 
 ```javascript
 const modelMap = {
-  'grok': 'opencode/grok-code',
+  grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'openai/gpt-5-nano',
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'haiku': 'anthropic/claude-3-5-haiku',
-  'opus': 'anthropic/claude-3-opus',
-  'gemini-3-pro': 'google/gemini-3-pro',
+  sonnet: 'anthropic/claude-3-5-sonnet',
+  haiku: 'anthropic/claude-3-5-haiku',
+  opus: 'anthropic/claude-3-opus',
+  'gemini-3-pro': 'google/gemini-3-pro'
 };
 ```
 
@@ -134,14 +134,14 @@ When the API returns 404:
 
 ### Error Classification Needed
 
-| Error Type | HTTP Code | Should Retry? | Notes |
-|------------|-----------|---------------|-------|
-| Model not found | 404 | No | Model doesn't exist |
-| Authentication failed | 401 | No | Credentials invalid |
-| Rate limited | 429 | Yes | With exponential backoff |
-| Server error | 500/502/503 | Yes | With backoff, limited retries |
-| Network timeout | - | Yes | With backoff, limited retries |
-| Invalid request | 400 | No | Request malformed |
+| Error Type            | HTTP Code   | Should Retry? | Notes                         |
+| --------------------- | ----------- | ------------- | ----------------------------- |
+| Model not found       | 404         | No            | Model doesn't exist           |
+| Authentication failed | 401         | No            | Credentials invalid           |
+| Rate limited          | 429         | Yes           | With exponential backoff      |
+| Server error          | 500/502/503 | Yes           | With backoff, limited retries |
+| Network timeout       | -           | Yes           | With backoff, limited retries |
+| Invalid request       | 400         | No            | Request malformed             |
 
 ## Impact Assessment
 

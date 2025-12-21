@@ -15,4 +15,3 @@ for (const m of messages) {
   const info = detectUsageLimit(m);
   console.log(`${m} -> isUsageLimit=${info.isUsageLimit}, resetTime=${info.resetTime}`);
 }
-

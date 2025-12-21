@@ -22,7 +22,9 @@ console.log('=====================================\n');
 const testCases = [
   {
     name: 'Primary rate limit error',
-    error: new Error('HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again.'),
+    error: new Error(
+      'HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again.'
+    ),
     expectedResult: true
   },
   {
@@ -114,7 +116,6 @@ try {
     console.log('  ❌ Rate limit error patterns not found');
     allTestsPassed = false;
   }
-
 } catch (error) {
   console.log(`  ❌ Failed to read github.lib.mjs: ${error.message}`);
   allTestsPassed = false;
@@ -161,7 +162,6 @@ try {
     console.log('  ❌ Fallback not implemented for all cases');
     allTestsPassed = false;
   }
-
 } catch (error) {
   console.log(`  ❌ Failed to read hive.mjs: ${error.message}`);
   allTestsPassed = false;

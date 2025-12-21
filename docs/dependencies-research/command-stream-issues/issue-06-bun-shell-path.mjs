@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Issue #6: Bun runtime shell path issues
- * 
+ *
  * Problem: Bun has issues with /bin/sh path, especially when it's a symlink
  * Solution: Use Node.js for scripts that heavily rely on shell commands
  */
@@ -84,7 +84,7 @@ if (runtime === 'Bun') {
   console.log('  - Common on systems where /bin/sh -> dash or bash');
   console.log('');
   console.log('Error Message:');
-  console.log('  ENOENT: no such file or directory, posix_spawn \'/bin/sh\'');
+  console.log("  ENOENT: no such file or directory, posix_spawn '/bin/sh'");
   console.log('');
 } else {
   console.log('✅ Running with Node.js - No shell path issues\n');
@@ -125,7 +125,7 @@ console.log(`  if (process.versions.bun) {
   }`);
 
 console.log('\n=== SUMMARY ===');
-console.log('Problem: Bun has issues spawning /bin/sh when it\'s a symlink');
+console.log("Problem: Bun has issues spawning /bin/sh when it's a symlink");
 console.log('Impact: Shell commands fail with ENOENT error');
 console.log('Best Practice: Use Node.js for shell-heavy scripts');
 console.log('Alternative: Replace shell operations with fs operations');

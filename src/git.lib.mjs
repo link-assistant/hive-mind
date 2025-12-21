@@ -62,7 +62,7 @@ export const getCommitSha = async (execFunc = execAsync) => {
 // Helper function to get version string based on git state
 export const getGitVersion = async (execFunc = execAsync, currentVersion) => {
   // First check if we're in a git repository
-  if (!await isGitRepository(execFunc)) {
+  if (!(await isGitRepository(execFunc))) {
     return currentVersion;
   }
 

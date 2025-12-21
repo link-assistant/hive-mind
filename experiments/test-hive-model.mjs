@@ -15,20 +15,26 @@ const testModels = ['glm-4.6', 'gpt-4', 'claude-opus-4-5-20251101', 'custom-mode
 testModels.forEach(model => {
   console.log(`Testing model: ${model}`);
 
-  const child = spawn('node', [
-    join(__dirname, 'src/hive.mjs'),
-    'https://github.com/suenot/hyperliquid-c',
-    '--tool', 'claude',
-    '--model', model,
-    '--dry-run',
-    '--once',
-    '--help'  // Just show help to avoid GitHub calls
-  ], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-    timeout: 10000
-  });
+  const child = spawn(
+    'node',
+    [
+      join(__dirname, 'src/hive.mjs'),
+      'https://github.com/suenot/hyperliquid-c',
+      '--tool',
+      'claude',
+      '--model',
+      model,
+      '--dry-run',
+      '--once',
+      '--help' // Just show help to avoid GitHub calls
+    ],
+    {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 10000
+    }
+  );
 
-  child.on('close', (code) => {
+  child.on('close', code => {
     if (code === 0) {
       console.log(`✅ Model '${model}' accepted\n`);
     } else {
@@ -36,7 +42,7 @@ testModels.forEach(model => {
     }
   });
 
-  child.on('error', (error) => {
+  child.on('error', error => {
     if (error.message.includes('Invalid values')) {
       console.log(`❌ Model '${model}' rejected: ${error.message}\n`);
     } else {

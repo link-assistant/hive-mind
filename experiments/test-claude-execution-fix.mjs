@@ -11,7 +11,8 @@ async function testClaudeCommandPattern() {
   const tempDir = '/tmp';
 
   // Simulate a command similar to what Claude would run
-  const testCommand = 'echo \'{"type": "text", "text": "Hello"}\n{"type": "tool_use", "name": "bash"}\n{"type": "exit", "code": 0}\' | jq -c .';
+  const testCommand =
+    'echo \'{"type": "text", "text": "Hello"}\n{"type": "tool_use", "name": "bash"}\n{"type": "exit", "code": 0}\' | jq -c .';
 
   console.log('Running command with fixed pattern:');
   console.log(`  cwd: ${tempDir}`);
@@ -72,7 +73,6 @@ async function testClaudeCommandPattern() {
     console.log(`   Tool uses: ${toolUseCount}`);
     console.log(`   Exit code: ${exitCode}`);
     return true;
-
   } catch (error) {
     console.error(`\n❌ Test failed: ${error.message}`);
     console.error(`   Stack: ${error.stack}`);

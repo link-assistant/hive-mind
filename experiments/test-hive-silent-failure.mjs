@@ -22,7 +22,7 @@ console.log('=== Testing hive command silent failure (Issue #504) ===\n');
  * Run a command and capture its output
  */
 function runCommand(command, args, timeout = 10000) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     console.log(`\n📋 Running: ${command} ${args.join(' ')}`);
     console.log('⏱️  Waiting for output...\n');
 
@@ -35,14 +35,14 @@ function runCommand(command, args, timeout = 10000) {
     let stderr = '';
     let hasOutput = false;
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       hasOutput = true;
       const output = data.toString();
       stdout += output;
       process.stdout.write(`  [stdout] ${output}`);
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       hasOutput = true;
       const output = data.toString();
       stderr += output;
@@ -54,7 +54,7 @@ function runCommand(command, args, timeout = 10000) {
       child.kill('SIGTERM');
     }, timeout);
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       clearTimeout(timer);
       console.log(`\n✅ Process exited with code: ${code}`);
       console.log(`📊 Had output: ${hasOutput ? 'YES' : 'NO (SILENT FAILURE!)'}`);
@@ -70,7 +70,7 @@ function runCommand(command, args, timeout = 10000) {
       });
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       clearTimeout(timer);
       console.log(`\n❌ Process error: ${error.message}`);
       resolve({

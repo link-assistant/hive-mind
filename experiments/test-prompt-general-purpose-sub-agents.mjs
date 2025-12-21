@@ -32,29 +32,30 @@ const baseParams = {
 };
 
 test('prompt-general-purpose-sub-agent: Flag parsing - default disabled', async () => {
-  const argv = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse([
-    'https://github.com/test/repo/issues/1'
-  ]);
+  const argv = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1']);
 
   assert.strictEqual(argv.promptGeneralPurposeSubAgent, false, 'Default value should be false');
   console.log('✅ Test passed: Default value is false');
 });
 
 test('prompt-general-purpose-sub-agent: Flag parsing - explicitly enabled', async () => {
-  const argv = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse([
-    'https://github.com/test/repo/issues/1',
-    '--prompt-general-purpose-sub-agent'
-  ]);
+  const argv = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1', '--prompt-general-purpose-sub-agent']);
 
   assert.strictEqual(argv.promptGeneralPurposeSubAgent, true, 'Flag should be enabled when specified');
   console.log('✅ Test passed: Flag is enabled when specified');
 });
 
 test('prompt-general-purpose-sub-agent: Flag parsing - explicitly disabled', async () => {
-  const argv = await createYargsConfig(yargs()).strict(false).demandCommand(0).parse([
-    'https://github.com/test/repo/issues/1',
-    '--no-prompt-general-purpose-sub-agent'
-  ]);
+  const argv = await createYargsConfig(yargs())
+    .strict(false)
+    .demandCommand(0)
+    .parse(['https://github.com/test/repo/issues/1', '--no-prompt-general-purpose-sub-agent']);
 
   assert.strictEqual(argv.promptGeneralPurposeSubAgent, false, 'Flag should be disabled when negated');
   console.log('✅ Test passed: Flag is disabled when negated');
@@ -92,21 +93,30 @@ test('prompt-general-purpose-sub-agent: System prompt with flag enabled', async 
   // Verify the prompt is placed AFTER "When x do y" rules, not in personality section
   const personalityEndIndex = systemPrompt.indexOf('General guidelines.');
   const subAgentIndex = systemPrompt.indexOf('general-purpose');
-  assert.ok(subAgentIndex > personalityEndIndex,
-    'Sub-agent prompt should appear after personality section (after "General guidelines.")');
+  assert.ok(
+    subAgentIndex > personalityEndIndex,
+    'Sub-agent prompt should appear after personality section (after "General guidelines.")'
+  );
 
   // Verify it's in the "Initial research" section (after the "When" rules start)
   const initialResearchIndex = systemPrompt.indexOf('Initial research.');
-  assert.ok(subAgentIndex > initialResearchIndex,
-    'Sub-agent prompt should appear in or after "Initial research" section');
+  assert.ok(
+    subAgentIndex > initialResearchIndex,
+    'Sub-agent prompt should appear in or after "Initial research" section'
+  );
 
-  console.log('✅ Test passed: System prompt includes general-purpose sub-agent instructions when enabled in correct location');
+  console.log(
+    '✅ Test passed: System prompt includes general-purpose sub-agent instructions when enabled in correct location'
+  );
 });
 
 test('prompt-general-purpose-sub-agent: Verify help text', async () => {
   const helpOutput = await createYargsConfig(yargs()).getHelp();
 
-  assert.ok(helpOutput.includes('--prompt-general-purpose-sub-agent'), 'Help should include --prompt-general-purpose-sub-agent flag');
+  assert.ok(
+    helpOutput.includes('--prompt-general-purpose-sub-agent'),
+    'Help should include --prompt-general-purpose-sub-agent flag'
+  );
   assert.ok(helpOutput.includes('Prompt AI to use'), 'Help should describe the flag purpose');
   console.log('✅ Test passed: Help text includes flag description');
 });

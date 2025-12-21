@@ -14,7 +14,7 @@ const allIssues = [
   { title: 'Issue 5', url: 'https://github.com/test/repo/issues/5', hasPR: true },
   { title: 'Issue 6', url: 'https://github.com/test/repo/issues/6', hasPR: false },
   { title: 'Issue 7', url: 'https://github.com/test/repo/issues/7', hasPR: false },
-  { title: 'Issue 8', url: 'https://github.com/test/repo/issues/8', hasPR: false },
+  { title: 'Issue 8', url: 'https://github.com/test/repo/issues/8', hasPR: false }
 ];
 
 const maxIssues = 3;
@@ -69,6 +69,8 @@ console.log(`   ✅ Final issues to process: ${newIssuesToProcess.length}`);
 newIssuesToProcess.forEach(issue => console.log(`      - ${issue.title}`));
 
 console.log('\n🎯 Result:');
-console.log(`   Old logic would process: ${skipIssuesWithPrs ? allIssues.slice(0, maxIssues).filter(issue => !issue.hasPR).length : Math.min(maxIssues, allIssues.length)} issues`);
+console.log(
+  `   Old logic would process: ${skipIssuesWithPrs ? allIssues.slice(0, maxIssues).filter(issue => !issue.hasPR).length : Math.min(maxIssues, allIssues.length)} issues`
+);
 console.log(`   New logic processes: ${newIssuesToProcess.length} issues`);
 console.log('   ✨ New logic correctly excludes skipped issues from the limit count!');

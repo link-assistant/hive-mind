@@ -18,7 +18,7 @@ const tests = [
   { a: '1.0.0', b: '0.12.20', expected: 1, desc: 'major bump' },
   { a: '0.12.19', b: '0.12.20', expected: -1, desc: 'lower patch' },
   { a: '0.11.99', b: '0.12.20', expected: -1, desc: 'lower minor' },
-  { a: '0.12.21', b: '0.12.21', expected: 0, desc: 'equal (0.12.21)' },
+  { a: '0.12.21', b: '0.12.21', expected: 0, desc: 'equal (0.12.21)' }
 ];
 
 console.log('Testing semver comparison logic:\n');

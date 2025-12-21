@@ -16,18 +16,18 @@ let logFile = null;
 // Helper function to log to both console and file
 const log = async (message, options = {}) => {
   const { level = 'info', verbose = false } = options;
-  
+
   // Skip verbose logs unless --verbose is enabled
   if (verbose && !global.verboseMode) {
     return;
   }
-  
+
   // Write to file if log file is set
   if (logFile) {
     const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`;
     await fs.appendFile(logFile, logMessage + '\n').catch(() => {});
   }
-  
+
   // Write to console based on level
   switch (level) {
     case 'error':
@@ -133,8 +133,7 @@ const argv = yargs(process.argv.slice(2))
   })
   .demandCommand(1, 'GitHub URL is required')
   .help('h')
-  .alias('h', 'help')
-  .argv;
+  .alias('h', 'help').argv;
 
 const githubUrl = argv['github-url'] || argv._[0];
 
@@ -227,9 +226,7 @@ class PRQueue {
 
   // Add PR to queue if not already processed or in queue
   enqueue(prUrl) {
-    if (this.completed.has(prUrl) || 
-        this.processing.has(prUrl) || 
-        this.queue.includes(prUrl)) {
+    if (this.completed.has(prUrl) || this.processing.has(prUrl) || this.queue.includes(prUrl)) {
       return false;
     }
     this.queue.push(prUrl);
@@ -280,10 +277,10 @@ const prQueue = new PRQueue();
 // Worker function to review PRs from queue
 async function reviewer(reviewerId) {
   await log(`🔍 Reviewer ${reviewerId} started`, { verbose: true });
-  
+
   while (prQueue.isRunning) {
     const prUrl = prQueue.dequeue();
-    
+
     if (!prUrl) {
       // No work available, wait a bit
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -291,28 +288,30 @@ async function reviewer(reviewerId) {
     }
 
     await log(`\n👀 Reviewer ${reviewerId} reviewing: ${prUrl}`);
-    
+
     // Review the PR multiple times if needed (for diverse perspectives)
     for (let reviewNum = 1; reviewNum <= argv.reviewsPerPr; reviewNum++) {
       if (argv.reviewsPerPr > 1) {
         await log(`   📝 Creating review ${reviewNum}/${argv.reviewsPerPr} for PR`);
       }
-      
+
       try {
         if (argv.dryRun) {
-          await log(`   🧪 [DRY RUN] Would execute: ./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}${argv.autoApprove ? ' --approve' : ''}`);
+          await log(
+            `   🧪 [DRY RUN] Would execute: ./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}${argv.autoApprove ? ' --approve' : ''}`
+          );
           await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate work
         } else {
           // Execute review.mjs using command-stream
           await log(`   🚀 Executing review.mjs for ${prUrl}...`);
-          
+
           const startTime = Date.now();
           let reviewCommand = $`./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}`;
-          
+
           if (argv.autoApprove) {
             reviewCommand = $`./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus} --approve`;
           }
-          
+
           // Stream output and capture result
           let exitCode = 0;
           for await (const chunk of reviewCommand.stream()) {
@@ -330,16 +329,16 @@ async function reviewer(reviewerId) {
               exitCode = chunk.code;
             }
           }
-          
+
           const duration = Math.round((Date.now() - startTime) / 1000);
-          
+
           if (exitCode === 0) {
             await log(`   ✅ Reviewer ${reviewerId} completed ${prUrl} (${duration}s)`);
           } else {
             throw new Error(`review.mjs exited with code ${exitCode}`);
           }
         }
-        
+
         // Small delay between multiple reviews for same PR
         if (reviewNum < argv.reviewsPerPr) {
           await new Promise(resolve => setTimeout(resolve, 10000));
@@ -350,14 +349,16 @@ async function reviewer(reviewerId) {
         break; // Stop trying more reviews for this PR
       }
     }
-    
+
     prQueue.markCompleted(prUrl);
-    
+
     // Show queue stats
     const stats = prQueue.getStats();
-    await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} reviewing, ${stats.completed} completed, ${stats.failed} failed`);
+    await log(
+      `   📊 Queue: ${stats.queued} waiting, ${stats.processing} reviewing, ${stats.completed} completed, ${stats.failed} failed`
+    );
   }
-  
+
   await log(`🔍 Reviewer ${reviewerId} stopped`, { verbose: true });
 }
 
@@ -379,12 +380,12 @@ async function hasApprovals(prUrl) {
 
     const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
     const approvalCount = parseInt(stdout.trim()) || 0;
-    
+
     if (approvalCount > 0) {
       await log(`      ↳ Skipping (has ${approvalCount} approval${approvalCount > 1 ? 's' : ''})`, { verbose: true });
       return true;
     }
-    
+
     return false;
   } catch (error) {
     // If we can't check, assume no approvals
@@ -400,10 +401,10 @@ async function fetchPullRequests() {
   } else {
     await log(`\n🔍 Fetching pull requests with label "${argv.reviewLabel}"...`);
   }
-  
+
   try {
     let prs = [];
-    
+
     if (argv.allPrs) {
       // Fetch all open PRs without label filter
       let searchCmd;
@@ -415,7 +416,7 @@ async function fetchPullRequests() {
         // User scope
         searchCmd = `gh search prs user:${owner} is:open --limit 100 --json url,title,number,repository,isDraft`;
       }
-      
+
       await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
       // Use async exec to avoid escaping issues
@@ -424,7 +425,6 @@ async function fetchPullRequests() {
       const execAsync = promisify(exec);
       const { stdout } = await execAsync(searchCmd, { encoding: 'utf8', env: process.env });
       prs = JSON.parse(stdout || '[]');
-      
     } else {
       // Use label filter
       const { exec } = await import('child_process');
@@ -451,11 +451,11 @@ async function fetchPullRequests() {
         } else {
           baseQuery = `user:${owner} is:pr is:open`;
         }
-        
+
         // Handle label with potential spaces
         let searchQuery;
         let searchCmd;
-        
+
         if (argv.reviewLabel.includes(' ')) {
           searchQuery = `${baseQuery} label:"${argv.reviewLabel}"`;
           searchCmd = `gh search prs '${searchQuery}' --limit 100 --json url,title,number,repository,isDraft`;
@@ -463,7 +463,7 @@ async function fetchPullRequests() {
           searchQuery = `${baseQuery} label:${argv.reviewLabel}`;
           searchCmd = `gh search prs '${searchQuery}' --limit 100 --json url,title,number,repository,isDraft`;
         }
-        
+
         await log(`   🔎 Search query: ${searchQuery}`, { verbose: true });
         await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
 
@@ -476,7 +476,7 @@ async function fetchPullRequests() {
         }
       }
     }
-    
+
     if (prs.length === 0) {
       if (argv.allPrs) {
         await log('   ℹ️  No open pull requests found');
@@ -485,13 +485,13 @@ async function fetchPullRequests() {
       }
       return [];
     }
-    
+
     if (argv.allPrs) {
       await log(`   📋 Found ${prs.length} open pull request(s)`);
     } else {
       await log(`   📋 Found ${prs.length} pull request(s) with label "${argv.reviewLabel}"`);
     }
-    
+
     // Filter out draft PRs if option is enabled
     if (argv.skipDraft) {
       const nonDraftPrs = prs.filter(pr => !pr.isDraft);
@@ -501,19 +501,19 @@ async function fetchPullRequests() {
       }
       prs = nonDraftPrs;
     }
-    
+
     // Apply max PRs limit if set
     let prsToProcess = prs;
     if (argv.maxPrs > 0 && prs.length > argv.maxPrs) {
       prsToProcess = prs.slice(0, argv.maxPrs);
       await log(`   🔢 Limiting to first ${argv.maxPrs} PRs`);
     }
-    
+
     // Filter out PRs with approvals if option is enabled
     if (argv.skipApproved) {
       await log('   🔍 Checking for existing approvals...');
       const filteredPrs = [];
-      
+
       for (const pr of prsToProcess) {
         const hasApproval = await hasApprovals(pr.url);
         if (hasApproval) {
@@ -522,14 +522,14 @@ async function fetchPullRequests() {
           filteredPrs.push(pr);
         }
       }
-      
+
       const skippedCount = prsToProcess.length - filteredPrs.length;
       if (skippedCount > 0) {
         await log(`   ⏭️  Skipped ${skippedCount} PR(s) with existing approvals`);
       }
       prsToProcess = filteredPrs;
     }
-    
+
     // In dry-run mode, show the PRs that would be reviewed
     if (argv.dryRun && prsToProcess.length > 0) {
       await log('\n   📝 PRs that would be reviewed:');
@@ -537,9 +537,8 @@ async function fetchPullRequests() {
         await log(`      - ${pr.title || 'Untitled'} (${pr.url})`);
       }
     }
-    
+
     return prsToProcess.map(pr => pr.url);
-    
   } catch (error) {
     await log(`   ❌ Error fetching pull requests: ${error.message}`, { level: 'error' });
     return [];
@@ -549,22 +548,22 @@ async function fetchPullRequests() {
 // Main monitoring loop
 async function monitor() {
   await log('\n🚀 Starting Reviewers Hive Mind monitoring system...');
-  
+
   // Start reviewers
   await log(`\n👀 Starting ${argv.concurrency} reviewers...`);
   for (let i = 1; i <= argv.concurrency; i++) {
     prQueue.workers.push(reviewer(i));
   }
-  
+
   // Main monitoring loop
   let iteration = 0;
   while (true) {
     iteration++;
     await log(`\n🔄 Monitoring iteration ${iteration} at ${new Date().toISOString()}`);
-    
+
     // Fetch PRs
     const prUrls = await fetchPullRequests();
-    
+
     // Add new PRs to queue
     let newPrs = 0;
     for (const url of prUrls) {
@@ -573,13 +572,13 @@ async function monitor() {
         await log(`   ➕ Added to review queue: ${url}`);
       }
     }
-    
+
     if (newPrs > 0) {
       await log(`   📥 Added ${newPrs} new PR(s) to review queue`);
     } else {
       await log('   ℹ️  No new PRs to add (all already reviewed or in queue)');
     }
-    
+
     // Show current stats
     const stats = prQueue.getStats();
     await log('\n📊 Current Status:');
@@ -587,11 +586,11 @@ async function monitor() {
     await log(`   ⚙️  Reviewing: ${stats.processing}`);
     await log(`   ✅ Completed: ${stats.completed}`);
     await log(`   ❌ Failed: ${stats.failed}`);
-    
+
     // If running once, wait for queue to empty then exit
     if (argv.once) {
       await log('\n🏁 Single run mode - waiting for review queue to empty...');
-      
+
       while (stats.queued > 0 || stats.processing > 0) {
         await new Promise(resolve => setTimeout(resolve, 5000));
         const currentStats = prQueue.getStats();
@@ -600,22 +599,22 @@ async function monitor() {
         }
         Object.assign(stats, currentStats);
       }
-      
+
       await log('\n✅ All PRs reviewed!');
       await log(`   Completed: ${stats.completed}`);
       await log(`   Failed: ${stats.failed}`);
       break;
     }
-    
+
     // Wait for next iteration
     await log(`\n⏰ Next check in ${argv.interval} seconds...`);
     await new Promise(resolve => setTimeout(resolve, argv.interval * 1000));
   }
-  
+
   // Stop reviewers
   prQueue.stop();
   await Promise.all(prQueue.workers);
-  
+
   await log('\n👋 Reviewers Hive Mind monitoring stopped');
 }
 

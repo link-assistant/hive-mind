@@ -47,18 +47,16 @@ if (!shouldDisableSentry()) {
 
     // Dynamically import Sentry packages only when needed
     // eslint-disable-next-line quotes
-    const sentryModule = await import("@sentry/node");
+    const sentryModule = await import('@sentry/node');
     Sentry = sentryModule;
     // eslint-disable-next-line quotes
-    const profilingModule = await import("@sentry/profiling-node");
+    const profilingModule = await import('@sentry/profiling-node');
     nodeProfilingIntegration = profilingModule.nodeProfilingIntegration;
 
     // Initialize Sentry with configuration
     Sentry.init({
       dsn: sentry.dsn,
-      integrations: [
-        nodeProfilingIntegration(),
-      ],
+      integrations: [nodeProfilingIntegration()],
 
       // Application name
       environment: process.env.NODE_ENV || 'production',
@@ -68,10 +66,14 @@ if (!shouldDisableSentry()) {
       enableLogs: true,
 
       // Tracing
-      tracesSampleRate: process.env.NODE_ENV === 'development' ? sentry.tracesSampleRateDev : sentry.tracesSampleRateProd,
+      tracesSampleRate:
+        process.env.NODE_ENV === 'development' ? sentry.tracesSampleRateDev : sentry.tracesSampleRateProd,
 
       // Set sampling rate for profiling
-      profileSessionSampleRate: process.env.NODE_ENV === 'development' ? sentry.profileSessionSampleRateDev : sentry.profileSessionSampleRateProd,
+      profileSessionSampleRate:
+        process.env.NODE_ENV === 'development'
+          ? sentry.profileSessionSampleRateDev
+          : sentry.profileSessionSampleRateProd,
 
       // Trace lifecycle automatically enables profiling during active traces
       profileLifecycle: 'trace',
@@ -114,7 +116,7 @@ if (!shouldDisableSentry()) {
         'ETIMEDOUT',
         'ENOTFOUND',
         /^NetworkError/,
-        /^TimeoutError/,
+        /^TimeoutError/
       ],
 
       // Transaction name
@@ -178,7 +180,7 @@ export const startTransaction = (name, op = 'task') => {
     // Use startInactiveSpan for manual transaction control (similar to old startTransaction)
     return Sentry.startInactiveSpan({
       op,
-      name,
+      name
     });
   }
   // Return a dummy transaction object if Sentry is disabled
@@ -186,6 +188,6 @@ export const startTransaction = (name, op = 'task') => {
     finish: () => {},
     end: () => {},
     setStatus: () => {},
-    setData: () => {},
+    setData: () => {}
   };
 };

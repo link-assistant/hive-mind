@@ -11,6 +11,7 @@ This document provides a comprehensive overview of PDF-to-images conversion tool
 ## Use Cases
 
 PDF-to-images conversion is needed when:
+
 1. **Scanned PDFs**: Documents without digital text that require OCR
 2. **Visual Analysis**: Preserving exact layout and visual elements
 3. **Image-based Processing**: Feeding pages to vision models or OCR engines
@@ -26,6 +27,7 @@ PDF-to-images conversion is needed when:
 **Description**: A Node.js library designed to facilitate the conversion of PDF files into different image formats, Base64 strings, and buffer formats.
 
 **Key Features**:
+
 - Converts PDF pages to PNG, JPG, TIFF
 - Supports Base64 and Buffer output
 - Page range selection
@@ -33,10 +35,12 @@ PDF-to-images conversion is needed when:
 - Widely used in production
 
 **Dependencies**:
+
 - Requires GraphicsMagick (gm) binaries
 - System-level installation needed
 
 **Installation**:
+
 ```bash
 npm install pdf2pic
 # Also requires: apt-get install graphicsmagick (Ubuntu/Debian)
@@ -44,6 +48,7 @@ npm install pdf2pic
 ```
 
 **Example Usage**:
+
 ```javascript
 import { fromPath } from 'pdf2pic';
 
@@ -61,11 +66,13 @@ console.log(page1); // { name, size, path, page }
 ```
 
 **Best For**:
+
 - Production Node.js applications
 - Batch processing
 - When system-level dependencies are acceptable
 
 **Considerations**:
+
 - Requires GraphicsMagick installation
 - May be challenging in containerized environments
 
@@ -78,17 +85,20 @@ console.log(page1); // { name, size, path, page }
 **Description**: Advanced solution for converting PDF files into various image formats with focus on rendering quality.
 
 **Key Features**:
+
 - Superior rendering quality vs other packages
 - PNG, JPG, and other format support
 - High-quality output
 - Performance optimized
 
 **Best For**:
+
 - Quality-critical applications
 - Print-ready output
 - Visual fidelity requirements
 
 **Considerations**:
+
 - May have higher resource requirements
 - Check licensing for commercial use
 
@@ -101,17 +111,20 @@ console.log(page1); // { name, size, path, page }
 **Description**: Commercial PDF library with comprehensive conversion capabilities.
 
 **Key Features**:
+
 - `rasterizeToImageFiles` method for PDF to image
 - Converts to JPG, PNG, and other formats
 - Page selection (all pages or specific ranges)
 - Professional support available
 
 **Installation**:
+
 ```bash
 npm install @ironsoftware/ironpdf
 ```
 
 **Example Usage**:
+
 ```javascript
 import { PdfDocument } from '@ironsoftware/ironpdf';
 
@@ -123,11 +136,13 @@ await pdf.saveAsImages('./output/', 'page', {
 ```
 
 **Best For**:
+
 - Commercial applications
 - Enterprise requirements
 - When support is critical
 
 **Considerations**:
+
 - Commercial license required
 - Paid solution
 
@@ -142,17 +157,20 @@ await pdf.saveAsImages('./output/', 'page', {
 **Description**: Comprehensive SDK that doesn't rely on external tools like GraphicsMagick or Ghostscript.
 
 **Key Features**:
+
 - No external dependencies
 - Advanced document conversion
 - Professional-grade output
 - API-based solution
 
 **Best For**:
+
 - SaaS applications
 - When avoiding system dependencies
 - Advanced document workflows
 
 **Considerations**:
+
 - Commercial license required
 - May require API key
 
@@ -165,17 +183,20 @@ await pdf.saveAsImages('./output/', 'page', {
 **Description**: Pure JavaScript solution using Mozilla's PDF.js library.
 
 **Key Features**:
+
 - No Ghostscript or GraphicsMagick needed
 - Works in environments without apt packages
 - Browser-compatible library
 - Complete JavaScript solution
 
 **Installation**:
+
 ```bash
 npm install pdfjs-dist canvas
 ```
 
 **Example Usage**:
+
 ```javascript
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
 import { createCanvas } from 'canvas';
@@ -192,12 +213,14 @@ const buffer = canvas.toBuffer('image/png');
 ```
 
 **Best For**:
+
 - Restricted hosting environments
 - Serverless/cloud functions
 - Docker containers with minimal dependencies
 - When system package installation isn't allowed
 
 **Considerations**:
+
 - More code required vs simple libraries
 - May be slower for batch processing
 
@@ -212,35 +235,44 @@ const buffer = canvas.toBuffer('image/png');
 **Description**: Cloud-based conversion service with Node.js client library.
 
 **Key Features**:
+
 - Simple API integration
 - Pay-per-page pricing
 - Node.js and Python clients
 - High-quality output
 
 **Installation**:
+
 ```bash
 npm install convertapi
 ```
 
 **Example Usage**:
+
 ```javascript
 import ConvertAPI from 'convertapi';
 
 const convertapi = new ConvertAPI('your_api_secret');
 
-const result = await convertapi.convert('jpg', {
-  File: 'path/to/document.pdf'
-}, 'pdf');
+const result = await convertapi.convert(
+  'jpg',
+  {
+    File: 'path/to/document.pdf'
+  },
+  'pdf'
+);
 
 await result.saveFiles('/path/to/output');
 ```
 
 **Best For**:
+
 - Quick integration
 - Variable usage patterns
 - When avoiding infrastructure maintenance
 
 **Considerations**:
+
 - Requires API key
 - Per-page costs
 - Internet connection required
@@ -254,17 +286,20 @@ await result.saveFiles('/path/to/output');
 **Description**: Powerful REST API for converting PDFs to images programmatically.
 
 **Key Features**:
+
 - RESTful API
 - Multiple output formats
 - Page range selection
 - Resolution control
 
 **Best For**:
+
 - REST-friendly architectures
 - Multi-language environments
 - Cloud-native applications
 
 **Considerations**:
+
 - Requires API subscription
 - Network dependency
 
@@ -277,17 +312,20 @@ await result.saveFiles('/path/to/output');
 **Description**: Cloud API for Node.js developers to convert PDFs to images.
 
 **Key Features**:
+
 - REST API
 - Node.js SDK
 - Enterprise features
 - Comprehensive format support
 
 **Best For**:
+
 - Enterprise applications
 - Document management systems
 - When using other GroupDocs services
 
 **Considerations**:
+
 - Subscription required
 - Best value when using multiple services
 
@@ -302,18 +340,21 @@ await result.saveFiles('/path/to/output');
 **Description**: Python wrapper for poppler's pdftoppm and pdftocairo.
 
 **Key Features**:
+
 - Simple API
 - High-quality output
 - Widely used
 - Good documentation
 
 **Installation**:
+
 ```bash
 pip install pdf2image
 # Also requires: apt-get install poppler-utils (Ubuntu/Debian)
 ```
 
 **Example Usage**:
+
 ```python
 from pdf2image import convert_from_path
 
@@ -323,6 +364,7 @@ for i, image in enumerate(images):
 ```
 
 **Best For**:
+
 - Python-based workflows
 - Batch processing
 - Integration with Python OCR tools
@@ -336,17 +378,20 @@ for i, image in enumerate(images):
 **Description**: Fast and comprehensive PDF manipulation library.
 
 **Key Features**:
+
 - Very fast
 - No external dependencies
 - Can extract images and render pages
 - Comprehensive PDF tools
 
 **Installation**:
+
 ```bash
 pip install PyMuPDF
 ```
 
 **Example Usage**:
+
 ```python
 import fitz
 
@@ -358,6 +403,7 @@ for page_num in range(len(doc)):
 ```
 
 **Best For**:
+
 - Performance-critical applications
 - When avoiding system dependencies
 - Complex PDF manipulation
@@ -371,11 +417,13 @@ for page_num in range(len(doc)):
 **Description**: Python client for ConvertAPI service.
 
 **Installation**:
+
 ```bash
 pip install convertapi
 ```
 
 **Best For**:
+
 - Python cloud applications
 - Variable usage patterns
 - Quick prototyping
@@ -384,34 +432,37 @@ pip install convertapi
 
 ## Comparison Matrix
 
-| Tool | Language | Dependencies | Cost | Quality | Speed | Cloud/Local |
-|------|----------|--------------|------|---------|-------|-------------|
-| **pdf2pic** | Node.js | GraphicsMagick | Free | ⭐⭐⭐ | ⭐⭐ | Local |
-| **pdftopic** | Node.js | Varies | Free | ⭐⭐⭐⭐ | ⭐⭐ | Local |
-| **IronPDF** | Node.js | None | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐ | Local |
-| **Nutrient** | Node.js | None | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐ | API |
-| **pdf.js+canvas** | Node.js | None | Free | ⭐⭐⭐ | ⭐⭐ | Local |
-| **ConvertAPI** | Both | None | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐ | API |
-| **pdfRest** | REST | None | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐ | API |
-| **GroupDocs** | Both | None | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐ | API |
-| **pdf2image** | Python | Poppler | Free | ⭐⭐⭐⭐ | ⭐⭐⭐ | Local |
-| **PyMuPDF** | Python | None | Free | ⭐⭐⭐ | ⭐⭐⭐⭐ | Local |
+| Tool              | Language | Dependencies   | Cost | Quality  | Speed    | Cloud/Local |
+| ----------------- | -------- | -------------- | ---- | -------- | -------- | ----------- |
+| **pdf2pic**       | Node.js  | GraphicsMagick | Free | ⭐⭐⭐   | ⭐⭐     | Local       |
+| **pdftopic**      | Node.js  | Varies         | Free | ⭐⭐⭐⭐ | ⭐⭐     | Local       |
+| **IronPDF**       | Node.js  | None           | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐   | Local       |
+| **Nutrient**      | Node.js  | None           | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐   | API         |
+| **pdf.js+canvas** | Node.js  | None           | Free | ⭐⭐⭐   | ⭐⭐     | Local       |
+| **ConvertAPI**    | Both     | None           | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐   | API         |
+| **pdfRest**       | REST     | None           | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐   | API         |
+| **GroupDocs**     | Both     | None           | Paid | ⭐⭐⭐⭐ | ⭐⭐⭐   | API         |
+| **pdf2image**     | Python   | Poppler        | Free | ⭐⭐⭐⭐ | ⭐⭐⭐   | Local       |
+| **PyMuPDF**       | Python   | None           | Free | ⭐⭐⭐   | ⭐⭐⭐⭐ | Local       |
 
 ## Recommendations
 
 ### For Node.js Projects
 
 **Best Free Option**: **pdf.js + canvas**
+
 - No system dependencies
 - Works in restricted environments
 - Good for serverless/containers
 
 **Best Quality**: **pdftopic**
+
 - Superior rendering quality
 - Open source
 - Performance optimized
 
 **Best for Production**: **pdf2pic**
+
 - Battle-tested
 - Wide adoption
 - Good documentation
@@ -419,11 +470,13 @@ pip install convertapi
 ### For Python Projects
 
 **Best Overall**: **PyMuPDF (fitz)**
+
 - Fast performance
 - No external dependencies
 - Comprehensive features
 
 **Best for Simplicity**: **pdf2image**
+
 - Simple API
 - High quality
 - Well documented
@@ -431,6 +484,7 @@ pip install convertapi
 ### For API/Cloud Solutions
 
 **Best Value**: **ConvertAPI**
+
 - Simple pricing
 - Multiple language support
 - Reliable service
@@ -440,6 +494,7 @@ pip install convertapi
 **Recommendation**: **pdf.js + canvas** (Node.js) or **PyMuPDF** (Python)
 
 **Rationale**:
+
 1. No system dependencies (critical for diverse deployment environments)
 2. Free and open source
 3. Good quality output for OCR
@@ -473,10 +528,12 @@ async function processScannedPDF(pdfPath) {
 ### Size Considerations
 
 **Image Size Estimates**:
+
 - PDF page at 150 DPI: ~500KB - 1MB per page
 - PDF page at 300 DPI: ~2MB - 4MB per page
 
 **Recommendations**:
+
 - Use 150 DPI for OCR (sufficient for text recognition)
 - Use 300 DPI for visual analysis or print quality
 - Compress images after conversion if sending to OCR APIs

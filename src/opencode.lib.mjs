@@ -19,17 +19,17 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'gpt4': 'openai/gpt-4',
-    'gpt4o': 'openai/gpt-4o',
-    'claude': 'anthropic/claude-3-5-sonnet',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'opus': 'anthropic/claude-3-opus',
-    'gemini': 'google/gemini-pro',
-    'grok': 'opencode/grok-code',
+    gpt4: 'openai/gpt-4',
+    gpt4o: 'openai/gpt-4o',
+    claude: 'anthropic/claude-3-5-sonnet',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    opus: 'anthropic/claude-3-opus',
+    gemini: 'google/gemini-pro',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
-    'grok-code-fast-1': 'opencode/grok-code',
+    'grok-code-fast-1': 'opencode/grok-code'
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is
@@ -70,7 +70,8 @@ export const validateOpenCodeConnection = async (model = 'grok-code-fast-1') => 
 
       // Test basic OpenCode functionality with a simple "hi" message
       // Check for non-error result to validate the connection
-      const testResult = await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
+      const testResult =
+        await $`printf "hi" | timeout ${Math.floor(timeouts.opencodeCli / 1000)} opencode run --format json --model ${mappedModel}`;
 
       if (testResult.code !== 0) {
         const stderr = testResult.stderr?.toString() || '';
@@ -108,7 +109,7 @@ export const handleOpenCodeRuntimeSwitch = async () => {
 };
 
 // Main function to execute OpenCode with prompts and settings
-export const executeOpenCode = async (params) => {
+export const executeOpenCode = async params => {
   const {
     issueUrl,
     issueNumber,
@@ -203,7 +204,7 @@ export const executeOpenCode = async (params) => {
   });
 };
 
-export const executeOpenCodeCommand = async (params) => {
+export const executeOpenCodeCommand = async params => {
   const {
     tempDir,
     branchName,
@@ -393,7 +394,16 @@ export const executeOpenCodeCommand = async (params) => {
   return await executeWithRetry();
 };
 
-export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+export const checkForUncommittedChanges = async (
+  tempDir,
+  owner,
+  repo,
+  branchName,
+  $,
+  log,
+  autoCommit = false,
+  autoRestartEnabled = true
+) => {
   // Similar to Claude version, check for uncommitted changes
   await log('\n🔍 Checking for uncommitted changes...');
   try {
@@ -425,13 +435,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning'
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning'
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning'
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -455,7 +471,9 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning'
+      });
       return false;
     }
   } catch (gitError) {

@@ -33,10 +33,5 @@ console.log('argv.name:', argv.name);
 console.log('argv._:', argv._);
 
 // Check if yargs is adding extra keys
-const extraKeys = Object.keys(argv).filter(key =>
-  key !== '_' &&
-  key !== '$0' &&
-  key !== 'token' &&
-  key !== 'name'
-);
+const extraKeys = Object.keys(argv).filter(key => key !== '_' && key !== '$0' && key !== 'token' && key !== 'name');
 console.log('\nExtra keys added by yargs:', extraKeys);

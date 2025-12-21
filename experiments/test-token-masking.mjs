@@ -4,25 +4,25 @@
 console.log('🧪 Testing GitHub token masking implementation...\n');
 
 // Test the maskGitHubToken function directly
-const maskGitHubToken = (token) => {
+const maskGitHubToken = token => {
   if (!token || token.length < 12) {
     return token;
   }
-  
+
   const start = token.substring(0, 5);
   const end = token.substring(token.length - 5);
   const middle = '*'.repeat(Math.max(token.length - 10, 3));
-  
+
   return start + middle + end;
 };
 
 console.log('1. Testing token masking function...');
 const testTokens = [
-  'ghp_1234567890abcdef1234567890abcdef12345678',  // GitHub personal access token
-  'gho_1234567890abcdef1234567890abcdef12345678',  // OAuth token
-  'ghu_1234567890abcdef1234567890abcdef12345678',  // User token
-  'very_short',                                      // Too short, should not be masked
-  '1234567890abcdef1234567890abcdef1234567890',     // 40-char hex token
+  'ghp_1234567890abcdef1234567890abcdef12345678', // GitHub personal access token
+  'gho_1234567890abcdef1234567890abcdef12345678', // OAuth token
+  'ghu_1234567890abcdef1234567890abcdef12345678', // User token
+  'very_short', // Too short, should not be masked
+  '1234567890abcdef1234567890abcdef1234567890' // 40-char hex token
 ];
 
 for (const token of testTokens) {
@@ -30,7 +30,7 @@ for (const token of testTokens) {
   console.log(`   Original: ${token}`);
   console.log(`   Masked:   ${masked}`);
   console.log(`   Length:   ${token.length} -> ${masked.length}`);
-  
+
   if (token.length >= 12) {
     // Verify that we kept at least 5 characters from start and end
     const startMatch = token.substring(0, 5) === masked.substring(0, 5);
@@ -46,13 +46,13 @@ console.log('2. Testing alias support...');
 try {
   const { execSync } = await import('child_process');
   const helpOutput = execSync('node solve.mjs --help 2>&1', { encoding: 'utf8', cwd: '..' });
-  
+
   if (helpOutput.includes('--attach-logs')) {
     console.log('   ✅ --attach-logs alias found in help text');
   } else {
     console.log('   ❌ --attach-logs alias not found in help text');
   }
-  
+
   if (!helpOutput.includes('attach-solution-logs')) {
     console.log('   ✅ --attach-solution-logs option successfully removed from help text');
   } else {
@@ -72,16 +72,16 @@ Some normal log content here
 gh cli using token ghu_9876543210fedcba9876543210fedcba98765432
 `;
 
-const sanitizeLogContent = async (logContent) => {
+const sanitizeLogContent = async logContent => {
   let sanitized = logContent;
-  
+
   // Mock token patterns for testing
   const tokenPatterns = [
     /gh[pou]_[a-zA-Z0-9_]{20,}/g,
     /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm,
     /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi
   ];
-  
+
   for (const pattern of tokenPatterns) {
     sanitized = sanitized.replace(pattern, (match, token) => {
       if (token && token.length >= 20) {
@@ -90,7 +90,7 @@ const sanitizeLogContent = async (logContent) => {
       return match;
     });
   }
-  
+
   return sanitized;
 };
 

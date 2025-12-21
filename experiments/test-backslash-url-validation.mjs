@@ -102,15 +102,15 @@ let failed = 0;
 function runTest(testCase) {
   const result = parseGitHubUrl(testCase.url);
   const passedValidation = result.valid === testCase.shouldPass;
-  
+
   let errorMatch = true;
   let suggestionMatch = true;
-  
+
   if (!testCase.shouldPass) {
     errorMatch = !testCase.expectedError || result.error === testCase.expectedError;
     suggestionMatch = !testCase.expectedSuggestion || result.suggestion === testCase.expectedSuggestion;
   }
-  
+
   const success = passedValidation && errorMatch && suggestionMatch;
 
   if (success) {

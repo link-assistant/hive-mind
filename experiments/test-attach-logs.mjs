@@ -8,32 +8,30 @@ console.log('🧪 Testing --attach-logs flag passing...\n');
 // Test dry run with --attach-logs flag
 console.log('Testing: ./hive.mjs https://github.com/link-assistant/hive-mind --dry-run --once --attach-logs');
 
-const child = spawn('./hive.mjs', [
-  'https://github.com/link-assistant/hive-mind',
-  '--dry-run',
-  '--once',
-  '--attach-logs',
-  '--max-issues', '1'
-], {
-  stdio: 'pipe'
-});
+const child = spawn(
+  './hive.mjs',
+  ['https://github.com/link-assistant/hive-mind', '--dry-run', '--once', '--attach-logs', '--max-issues', '1'],
+  {
+    stdio: 'pipe'
+  }
+);
 
 let output = '';
 let errorOutput = '';
 
-child.stdout.on('data', (data) => {
+child.stdout.on('data', data => {
   const text = data.toString();
   output += text;
   process.stdout.write(text);
 });
 
-child.stderr.on('data', (data) => {
+child.stderr.on('data', data => {
   const text = data.toString();
   errorOutput += text;
   process.stderr.write(text);
 });
 
-child.on('close', (code) => {
+child.on('close', code => {
   console.log(`\n🏁 Process exited with code: ${code}`);
 
   // Check if --attach-logs appears in the command output
@@ -46,6 +44,6 @@ child.on('close', (code) => {
   }
 });
 
-child.on('error', (error) => {
+child.on('error', error => {
   console.error(`❌ Process error: ${error.message}`);
 });

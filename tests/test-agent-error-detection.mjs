@@ -17,7 +17,7 @@ import { strict as assert } from 'assert';
 
 // Simplified error detection function - matches agent.lib.mjs
 // Only detects explicit JSON error messages from agent
-const detectAgentErrors = (stdoutOutput) => {
+const detectAgentErrors = stdoutOutput => {
   const lines = stdoutOutput.split('\n');
 
   for (const line of lines) {

@@ -104,7 +104,6 @@ ${indent}});`;
     // Write back the modified content
     await fs.writeFile(filePath, lines.join('\n'));
     console.log(`  ✓ File updated successfully\n`);
-
   } catch (error) {
     console.error(`  ✗ Error processing ${filePath}: ${error.message}\n`);
   }

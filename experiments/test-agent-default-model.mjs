@@ -58,9 +58,10 @@ for (const testCase of testCases) {
     process.argv = originalArgv;
 
     // Check tool
-    const toolMatch = testCase.expected.tool === undefined
-      ? argv.tool === undefined || argv.tool === 'claude'
-      : argv.tool === testCase.expected.tool;
+    const toolMatch =
+      testCase.expected.tool === undefined
+        ? argv.tool === undefined || argv.tool === 'claude'
+        : argv.tool === testCase.expected.tool;
 
     // Check model
     const modelMatch = argv.model === testCase.expected.model;

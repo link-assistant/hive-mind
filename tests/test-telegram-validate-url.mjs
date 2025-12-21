@@ -52,7 +52,7 @@ function validateGitHubUrl(args, options = {}) {
 
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
-    const allowedTypesStr = allowedTypes.map(t => t === 'pull' ? 'pull request' : t).join(', ');
+    const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
     return {
       valid: false,
       error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`

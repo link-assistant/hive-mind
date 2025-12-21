@@ -13,7 +13,7 @@ console.log('Testing actual solve.mjs pattern...\n');
 
 // Simulate the actual command pattern
 const testDir = '/tmp';
-const claudePath = 'echo';  // Using echo as placeholder
+const claudePath = 'echo'; // Using echo as placeholder
 const claudeArgs = '"Test output" | jq -c .';
 
 console.log('Executing command like solve.mjs does:');

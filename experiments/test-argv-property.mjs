@@ -16,8 +16,10 @@ console.log('Testing with .argv property instead of .parse()...\n');
 process.argv = [
   'node',
   'hive-telegram-bot',
-  '--token', '8490testtoken',
-  '--allowed-chats', '(-1002975819706 -1002861722681)'
+  '--token',
+  '8490testtoken',
+  '--allowed-chats',
+  '(-1002975819706 -1002861722681)'
 ];
 
 const instance = yargs(hideBin(process.argv))
@@ -29,7 +31,10 @@ console.log('=== Using .argv ===');
 const argv1 = instance.argv;
 console.log('argv.token:', argv1.token);
 console.log('argv.allowedChats:', argv1.allowedChats);
-console.log('Keys with values:', Object.entries(argv1).filter(([k, v]) => v !== undefined && k !== '_' && k !== '$0'));
+console.log(
+  'Keys with values:',
+  Object.entries(argv1).filter(([k, v]) => v !== undefined && k !== '_' && k !== '$0')
+);
 
 // Try .parseSync()
 console.log('\n=== Using .parseSync() ===');
@@ -39,4 +44,7 @@ const argv2 = yargs(hideBin(process.argv))
   .parseSync();
 console.log('argv.token:', argv2.token);
 console.log('argv.allowedChats:', argv2.allowedChats);
-console.log('Keys with values:', Object.entries(argv2).filter(([k, v]) => v !== undefined && k !== '_' && k !== '$0'));
+console.log(
+  'Keys with values:',
+  Object.entries(argv2).filter(([k, v]) => v !== undefined && k !== '_' && k !== '$0')
+);

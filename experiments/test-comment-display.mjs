@@ -54,12 +54,12 @@ function testCommentDisplayLogic() {
 
   scenarios.forEach((scenario, index) => {
     console.log(`Test ${index + 1}: ${scenario.name}`);
-    
+
     // Simulate the fixed logic
     const commentLines = [];
     const { isContinueMode, autoContinue, newPrComments, newIssueComments } = scenario;
     const argv = { autoContinue };
-    
+
     // Always show comment counts when in continue or auto-continue mode
     if (isContinueMode || argv.autoContinue) {
       commentLines.push(`New comments on the pull request: ${newPrComments}`);
@@ -76,7 +76,7 @@ function testCommentDisplayLogic() {
 
     // Check if result matches expected
     const passed = JSON.stringify(commentLines) === JSON.stringify(scenario.expected);
-    
+
     console.log(`  Expected: ${JSON.stringify(scenario.expected)}`);
     console.log(`  Got:      ${JSON.stringify(commentLines)}`);
     console.log(`  Result:   ${passed ? '✅ PASS' : '❌ FAIL'}\n`);

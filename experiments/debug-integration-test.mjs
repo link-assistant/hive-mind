@@ -52,7 +52,7 @@ const patterns = [
   { name: 'System prompt marker', pattern: /System prompt:|---END SYSTEM PROMPT---/ },
   { name: 'Continue mode', pattern: /Continue mode.*ACTIVE|Continue\./ },
   { name: 'Comment counting', pattern: /Counting comments:|Comment counting conditions:/ },
-  { name: 'Issue to solve', pattern: /Issue to solve:/ },
+  { name: 'Issue to solve', pattern: /Issue to solve:/ }
 ];
 
 patterns.forEach(({ name, pattern }) => {
@@ -79,11 +79,7 @@ if (userPromptMatch) {
 
 // Check for error patterns
 console.log('\n=== Checking for errors ===\n');
-const errorPatterns = [
-  /Error:|Failed to|Could not/i,
-  /git log.*failed/i,
-  /API.*failed/i,
-];
+const errorPatterns = [/Error:|Failed to|Could not/i, /git log.*failed/i, /API.*failed/i];
 
 errorPatterns.forEach((pattern, i) => {
   if (pattern.test(result.output)) {

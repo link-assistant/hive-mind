@@ -19,7 +19,9 @@ When solve command runs and triggers auto-restart (due to uncommitted changes):
 ## Key Code Locations
 
 ### Where Anthropic Cost is Captured
+
 **File**: `src/claude.lib.mjs:931`
+
 ```javascript
 if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
   anthropicTotalCostUSD = data.total_cost_usd;
@@ -27,39 +29,49 @@ if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
 ```
 
 ### Where It's Returned
+
 **File**: `src/claude.lib.mjs:1248`
+
 ```javascript
 return {
   success: true,
   sessionId,
-  anthropicTotalCostUSD  // ✅ Returned here
+  anthropicTotalCostUSD // ✅ Returned here
 };
 ```
 
 ### Where It's Used in Main Flow
+
 **File**: `src/solve.mjs:797`
+
 ```javascript
-const { success, sessionId, anthropicTotalCostUSD } = toolResult;  // ✅ First session only
+const { success, sessionId, anthropicTotalCostUSD } = toolResult; // ✅ First session only
 ```
 
 ### Where It's Passed to Upload
+
 **File**: `src/solve.mjs:933`
+
 ```javascript
 await attachLogToGitHub({
-  sessionId,              // ❌ OLD session ID
-  anthropicTotalCostUSD   // ❌ OLD cost or undefined
+  sessionId, // ❌ OLD session ID
+  anthropicTotalCostUSD // ❌ OLD cost or undefined
 });
 ```
 
 ### Where Auto-restart Runs
+
 **File**: `src/solve.watch.lib.mjs:360`
+
 ```javascript
 toolResult = await executeClaude({ ... });  // ✅ NEW session data created
 // ❌ But NOT returned to main solve.mjs
 ```
 
 ### Where Public Pricing is Calculated
+
 **File**: `github.lib.mjs:467`
+
 ```javascript
 const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
 // ❌ Uses OLD sessionId, reads wrong file or fails
@@ -108,6 +120,7 @@ export const watchForFeedback = async (params) => {
 **File**: `src/solve.mjs`
 
 **Before** (line ~871):
+
 ```javascript
 await startWatchMode({
   issueUrl,
@@ -127,6 +140,7 @@ await startWatchMode({
 ```
 
 **After**:
+
 ```javascript
 const watchResult = await startWatchMode({
   issueUrl,
@@ -153,6 +167,7 @@ if (watchResult && watchResult.latestSessionId) {
 ```
 
 **Before** (line ~918):
+
 ```javascript
 if (temporaryWatchMode) {
   // ... push changes ...
@@ -169,15 +184,16 @@ if (temporaryWatchMode) {
       log,
       sanitizeLogContent,
       verbose: argv.verbose,
-      sessionId,  // ❌ OLD
+      sessionId, // ❌ OLD
       tempDir: argv.tempDir || process.cwd(),
-      anthropicTotalCostUSD  // ❌ OLD
+      anthropicTotalCostUSD // ❌ OLD
     });
   }
 }
 ```
 
 **After** (no change needed - already uses the updated variables from above):
+
 ```javascript
 // Variables sessionId and anthropicTotalCostUSD are now updated
 // from the watchResult above, so this will use correct values
@@ -222,14 +238,12 @@ If the above fix is complex, at minimum add validation:
 // In github.lib.mjs:attachLogToGitHub, before calculating costs
 if (sessionId && tempDir && !errorMessage) {
   // Verify session file exists
-  const sessionFile = path.join(homeDir, '.claude', 'projects',
-                                projectDirName, `${sessionId}.jsonl`);
+  const sessionFile = path.join(homeDir, '.claude', 'projects', projectDirName, `${sessionId}.jsonl`);
   try {
     await fs.access(sessionFile);
     // File exists, proceed with calculation
   } catch {
-    await log(`  ⚠️  Session file not found for ${sessionId}, skipping cost calculation`,
-              { verbose: true });
+    await log(`  ⚠️  Session file not found for ${sessionId}, skipping cost calculation`, { verbose: true });
     // Don't try to calculate - it will fail
     return null;
   }

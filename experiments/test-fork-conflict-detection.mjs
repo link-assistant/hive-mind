@@ -62,14 +62,19 @@ async function checkExistingForkOfRoot(rootRepo) {
     console.log(`   Searching for ${currentUser}'s fork of ${rootRepo}...`);
 
     // Try to find user's fork in the forks list
-    const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
+    const forksResult =
+      await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
 
     if (forksResult.code !== 0) {
       console.log(`   ❌ Failed to list forks`);
       return null;
     }
 
-    const forks = forksResult.stdout.toString().trim().split('\n').filter(f => f);
+    const forks = forksResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(f => f);
 
     if (forks.length > 0) {
       console.log(`   ✅ Found existing fork: ${forks[0]}`);

@@ -4,7 +4,7 @@
 // This simulates the relevant parts of hive.mjs to test the polling interval display logic
 
 const argv = {
-  once: true,    // Test with --once option
+  once: true, // Test with --once option
   interval: 300,
   concurrency: 2,
   pullRequestsPerIssue: 1,

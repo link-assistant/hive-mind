@@ -5,26 +5,26 @@ import { createYargsConfig } from './src/solve.config.lib.mjs';
 
 // Mock yargs instance to test configuration
 const mockYargs = {
-  option: function(name, config) {
+  option: function (name, config) {
     console.log(`Option '${name}':`, config);
     return this;
   },
-  positional: function(name, config) {
+  positional: function (name, config) {
     return this;
   },
-  usage: function(usage) {
+  usage: function (usage) {
     return this;
   },
-  alias: function(short, long) {
+  alias: function (short, long) {
     return this;
   },
-  default: function(value) {
+  default: function (value) {
     return this;
   },
-  describe: function(description) {
+  describe: function (description) {
     return this;
   },
-  choices: function(choices) {
+  choices: function (choices) {
     console.log(`❌ RESTRICTED to choices:`, choices);
     return this;
   }

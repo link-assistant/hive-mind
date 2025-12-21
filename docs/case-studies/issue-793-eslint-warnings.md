@@ -18,14 +18,14 @@ The warnings fall into two categories:
 
 In JavaScript regex character classes `[...]`, certain characters don't need to be escaped because they have no special meaning inside character classes:
 
-| File | Line | Pattern | Issue |
-|------|------|---------|-------|
-| `src/reviewers-hive.mjs` | 160 | `/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/` | `\/` inside `[^\/]` - the forward slash doesn't need escaping |
-| `src/reviewers-hive.mjs` | 370 | `/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/` | Same issue - `\/` inside `[^\/]` |
-| `src/review.mjs` | 122 | `/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/` | Same issue - `\/` inside `[^\/]` |
-| `src/contributing-guidelines.lib.mjs` | 88 | `/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi` | `\)` inside `[^\s\)]` - parenthesis doesn't need escaping in character class |
-| `src/buildUserMention.lib.mjs` | 57 | `/([_*\[\]()~`>#+\-=|{}.!])/g` | `\[` inside character class - only `]` and `\` need escaping |
-| `src/usage-limit.lib.mjs` | 109 | `/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i` | `\:` - colon never needs escaping |
+| File                                  | Line | Pattern                                                         | Issue                                                                        |
+| ------------------------------------- | ---- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/reviewers-hive.mjs`              | 160  | `/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/`              | `\/` inside `[^\/]` - the forward slash doesn't need escaping                |
+| `src/reviewers-hive.mjs`              | 370  | `/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/`                | Same issue - `\/` inside `[^\/]`                                             |
+| `src/review.mjs`                      | 122  | `/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/`          | Same issue - `\/` inside `[^\/]`                                             |
+| `src/contributing-guidelines.lib.mjs` | 88   | `/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi`                   | `\)` inside `[^\s\)]` - parenthesis doesn't need escaping in character class |
+| `src/buildUserMention.lib.mjs`        | 57   | `/([_*\[\]()~`>#+\-=                                            | {}.!])/g`                                                                    | `\[` inside character class - only `]` and `\` need escaping |
+| `src/usage-limit.lib.mjs`             | 109  | `/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i` | `\:` - colon never needs escaping                                            |
 
 ### 2. Unexpected Lexical Declarations in Case Blocks (`no-case-declarations`)
 
@@ -48,6 +48,7 @@ switch (parseMode) {
 ### Fix 1: Remove Unnecessary Escapes
 
 **reviewers-hive.mjs:160** - Change `[^\/]` to `[^/]`:
+
 ```javascript
 // Before
 const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/);
@@ -56,6 +57,7 @@ const urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^/]+)(\/([^/]+))?$/)
 ```
 
 **reviewers-hive.mjs:370** - Change `[^\/]` to `[^/]`:
+
 ```javascript
 // Before
 const urlMatch = prUrl.match(/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/);
@@ -64,6 +66,7 @@ const urlMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
 ```
 
 **review.mjs:122** - Change `[^\/]` to `[^/]`:
+
 ```javascript
 // Before
 if (!prUrl.match(/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/)) {
@@ -72,6 +75,7 @@ if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
 ```
 
 **contributing-guidelines.lib.mjs:88** - Change `[^\s\)]` to `[^\s)]`:
+
 ```javascript
 // Before
 const contributingMatch = readmeContent.match(/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi);
@@ -80,6 +84,7 @@ const contributingMatch = readmeContent.match(/https?:\/\/[^\s)]+contributing[^\
 ```
 
 **buildUserMention.lib.mjs:57** - Change `\[` to `[` inside character class:
+
 ```javascript
 // Before
 const escapedName = displayName.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
@@ -88,6 +93,7 @@ const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 ```
 
 **usage-limit.lib.mjs:109** - Change `\:` to `:`:
+
 ```javascript
 // Before
 const resetsCompact = normalized.match(/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i);
@@ -98,26 +104,27 @@ const resetsCompact = normalized.match(/resets(?:\s+at)?\s*([0-9]{1,2})(?::([0-9
 ### Fix 2: Add Block Scope to Case Declarations
 
 **buildUserMention.lib.mjs:51-68** - Wrap case block code in braces:
+
 ```javascript
 switch (parseMode) {
-    case 'Markdown':
-      // Legacy Markdown: [text](url)
-      return `[${displayName}](${link})`;
-    case 'MarkdownV2': {
-      // MarkdownV2 requires escaping special characters
-      const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
-      return `[${escapedName}](${link})`;
-    }
-    case 'HTML':
-    default: {
-      // HTML mode: <a href="url">text</a>
-      const escapedHtml = displayName
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-      return `<a href="${link}">${escapedHtml}</a>`;
-    }
+  case 'Markdown':
+    // Legacy Markdown: [text](url)
+    return `[${displayName}](${link})`;
+  case 'MarkdownV2': {
+    // MarkdownV2 requires escaping special characters
+    const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+    return `[${escapedName}](${link})`;
+  }
+  case 'HTML':
+  default: {
+    // HTML mode: <a href="url">text</a>
+    const escapedHtml = displayName
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    return `<a href="${link}">${escapedHtml}</a>`;
+  }
 }
 ```
 
@@ -126,6 +133,7 @@ switch (parseMode) {
 Downloaded CI logs from run 19849465262 (2025-12-02T06:29:33Z) to `ci-logs/ci-pipeline-19849465262.log`.
 
 The logs show the CI/CD Pipeline for main branch with the following structure:
+
 - detect-changes job
 - lint job (where warnings appear)
 - validate-docs job

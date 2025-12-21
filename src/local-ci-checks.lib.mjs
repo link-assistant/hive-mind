@@ -134,7 +134,6 @@ export async function detectCITools(workDir) {
     } catch {
       // File doesn't exist, pre-commit not configured
     }
-
   } catch (err) {
     console.error('Error detecting CI tools:', err.message);
   }
@@ -306,12 +305,14 @@ export function generateCICheckReport(results) {
 
   if (failed > 0) {
     lines.push('Failed checks:');
-    results.checks.filter(c => !c.success).forEach(check => {
-      lines.push(`  ❌ ${check.name}`);
-      if (check.output) {
-        lines.push(`     ${check.output.split('\n')[0]}`);
-      }
-    });
+    results.checks
+      .filter(c => !c.success)
+      .forEach(check => {
+        lines.push(`  ❌ ${check.name}`);
+        if (check.output) {
+          lines.push(`     ${check.output.split('\n')[0]}`);
+        }
+      });
   }
 
   if (results.success) {

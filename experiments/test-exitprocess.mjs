@@ -20,8 +20,7 @@ const argv = yargs([testArg])
     default: false
   })
   .strict()
-  .exitProcess(true)  // Ensure yargs exits the process on errors
-  .argv;
+  .exitProcess(true).argv; // Ensure yargs exits the process on errors
 
 console.log('✅ Parsing succeeded:');
 console.log('   fork:', argv.fork);

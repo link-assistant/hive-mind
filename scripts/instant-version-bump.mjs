@@ -15,9 +15,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -31,13 +29,13 @@ const config = makeConfig({
         type: 'string',
         default: getenv('BUMP_TYPE', ''),
         describe: 'Version bump type: major, minor, or patch',
-        choices: ['major', 'minor', 'patch'],
+        choices: ['major', 'minor', 'patch']
       })
       .option('description', {
         type: 'string',
         default: getenv('DESCRIPTION', ''),
-        describe: 'Description for the version bump',
-      }),
+        describe: 'Description for the version bump'
+      })
 });
 
 try {
@@ -86,16 +84,12 @@ try {
 
   if (firstVersionMatch) {
     const insertPosition = firstVersionMatch.index;
-    changelog =
-      changelog.slice(0, insertPosition) +
-      newEntry +
-      changelog.slice(insertPosition);
+    changelog = changelog.slice(0, insertPosition) + newEntry + changelog.slice(insertPosition);
   } else {
     // If no version headings exist, append after the main heading
     const mainHeadingMatch = changelog.match(/^# .+$/m);
     if (mainHeadingMatch) {
-      const insertPosition =
-        mainHeadingMatch.index + mainHeadingMatch[0].length;
+      const insertPosition = mainHeadingMatch.index + mainHeadingMatch[0].length;
       changelog = `${changelog.slice(0, insertPosition)}\n\n${newEntry}${changelog.slice(insertPosition)}`;
     } else {
       // If no headings at all, prepend

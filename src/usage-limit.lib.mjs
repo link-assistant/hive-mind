@@ -34,13 +34,13 @@ export function isUsageLimitError(message) {
     'limit has been reached',
     // Provider-specific phrasings we’ve seen in the wild
     'session limit reached', // Claude
-    'weekly limit reached',  // Claude
+    'weekly limit reached', // Claude
     'daily limit reached',
     'monthly limit reached',
     'billing hard limit',
-    'please try again at',   // Codex/OpenCode style
+    'please try again at', // Codex/OpenCode style
     'available again at',
-    'resets'                 // Claude shows: “∙ resets 5am”
+    'resets' // Claude shows: “∙ resets 5am”
   ];
 
   return patterns.some(pattern => lowerMessage.includes(pattern));
@@ -100,7 +100,8 @@ export function extractResetTime(message) {
     let hour = parseInt(resets24h[1], 10);
     const minute = resets24h[2];
     const ampm = hour >= 12 ? 'PM' : 'AM';
-    if (hour === 0) hour = 12; // 0 -> 12 AM
+    if (hour === 0)
+      hour = 12; // 0 -> 12 AM
     else if (hour > 12) hour -= 12; // 13-23 -> 1-11 PM
     return `${hour}:${minute} ${ampm}`;
   }
@@ -152,12 +153,7 @@ export function detectUsageLimit(message) {
  * @returns {string[]} - Array of formatted message lines
  */
 export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
-  const lines = [
-    '',
-    '⏳ Usage Limit Reached!',
-    '',
-    `Your ${tool || 'AI tool'} usage limit has been reached.`
-  ];
+  const lines = ['', '⏳ Usage Limit Reached!', '', `Your ${tool || 'AI tool'} usage limit has been reached.`];
 
   if (resetTime) {
     lines.push(`The limit will reset at: ${resetTime}`);

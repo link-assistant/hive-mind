@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Claude Runtime Switcher
- * 
+ *
  * Experimental tool to switch Claude CLI between Node.js and Bun runtime.
  * This modifies the Claude CLI script's shebang line to use either node or bun.
- * 
+ *
  * Usage:
  *   ./claude-runtime.mjs --to-bun    # Switch Claude to use Bun
  *   ./claude-runtime.mjs --to-node   # Switch Claude to use Node.js
@@ -43,8 +43,7 @@ const argv = yargs(hideBin(process.argv))
   })
   .help('h')
   .alias('h', 'help')
-  .strict()
-  .argv;
+  .strict().argv;
 
 // Main execution
 async function main() {
@@ -53,12 +52,12 @@ async function main() {
     'force-claude-bun-run': argv.toBun,
     'force-claude-nodejs-run': argv.toNode
   };
-  
+
   if (argv.status) {
     // Check current status
     const { execSync } = await import('child_process');
     const { $ } = await use('command-stream');
-    
+
     try {
       // Find Claude CLI location
       const whichResult = await $`which claude`;
@@ -68,21 +67,21 @@ async function main() {
           claudePath = chunk.data.toString().trim();
         }
       }
-      
+
       if (!claudePath) {
         console.log('❌ Claude CLI not found in PATH');
         process.exit(1);
       }
-      
+
       console.log(`📍 Claude CLI location: ${claudePath}`);
-      
+
       // Read the shebang line
       const fs = (await use('fs')).promises;
       const content = await fs.readFile(claudePath, 'utf8');
       const firstLine = content.split('\n')[0];
-      
+
       console.log(`📜 Shebang line: ${firstLine}`);
-      
+
       if (firstLine.includes('bun')) {
         console.log('🚀 Current runtime: Bun');
       } else if (firstLine.includes('node')) {
@@ -90,7 +89,7 @@ async function main() {
       } else {
         console.log('❓ Current runtime: Unknown');
       }
-      
+
       // Check if runtimes are available
       try {
         execSync('which bun', { stdio: 'ignore' });
@@ -98,23 +97,21 @@ async function main() {
       } catch {
         console.log('❌ Bun is not installed');
       }
-      
+
       try {
         execSync('which node', { stdio: 'ignore' });
         console.log('✅ Node.js is available');
       } catch {
         console.log('❌ Node.js is not installed');
       }
-      
     } catch (error) {
       console.error(`Error checking status: ${error.message}`);
       process.exit(1);
     }
-    
   } else if (argv.toBun || argv.toNode) {
     // Perform runtime switch
     await handleClaudeRuntimeSwitch(options);
-    
+
     if (argv.toBun) {
       console.log('\n✅ Claude CLI has been switched to Bun runtime');
       console.log('   You can now use Claude with improved performance');

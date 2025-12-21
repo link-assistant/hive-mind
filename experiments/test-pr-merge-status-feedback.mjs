@@ -34,7 +34,7 @@ function test(name, testFn) {
 }
 
 // Mock $ function that returns empty data
-const mock$ = async (command) => {
+const mock$ = async command => {
   // For user query
   if (command.join && command.join(' ').includes('gh api user')) {
     return { code: 0, stdout: 'testuser' };
@@ -68,7 +68,7 @@ const mock$ = async (command) => {
 
 const mockLog = async () => {};
 const mockFormatAligned = (icon, label, value) => `${icon} ${label} ${value}`;
-const mockCleanErrorMessage = (error) => error.message || error;
+const mockCleanErrorMessage = error => error.message || error;
 
 // Test 1: CLEAN merge status should NOT be reported
 test('CLEAN merge status should NOT be reported', async () => {
@@ -89,9 +89,7 @@ test('CLEAN merge status should NOT be reported', async () => {
     $: mock$
   });
 
-  const hasMergeStatus = result.feedbackLines.some(line =>
-    line.toLowerCase().includes('merge status')
-  );
+  const hasMergeStatus = result.feedbackLines.some(line => line.toLowerCase().includes('merge status'));
 
   if (hasMergeStatus) {
     console.log('   FAILED: CLEAN merge status was reported but should not be');
@@ -119,9 +117,7 @@ test('DIRTY merge status should be reported', async () => {
     $: mock$
   });
 
-  const hasDirtyStatus = result.feedbackLines.some(line =>
-    line.includes('Merge status is DIRTY')
-  );
+  const hasDirtyStatus = result.feedbackLines.some(line => line.includes('Merge status is DIRTY'));
 
   if (!hasDirtyStatus) {
     console.log('   FAILED: DIRTY merge status was not reported');
@@ -150,9 +146,7 @@ test('UNSTABLE merge status should be reported', async () => {
     $: mock$
   });
 
-  const hasUnstableStatus = result.feedbackLines.some(line =>
-    line.includes('Merge status is UNSTABLE')
-  );
+  const hasUnstableStatus = result.feedbackLines.some(line => line.includes('Merge status is UNSTABLE'));
 
   if (!hasUnstableStatus) {
     console.log('   FAILED: UNSTABLE merge status was not reported');
@@ -181,9 +175,7 @@ test('OPEN PR state should NOT be reported', async () => {
     $: mock$
   });
 
-  const hasPrState = result.feedbackLines.some(line =>
-    line.toLowerCase().includes('pull request state')
-  );
+  const hasPrState = result.feedbackLines.some(line => line.toLowerCase().includes('pull request state'));
 
   if (hasPrState) {
     console.log('   FAILED: OPEN PR state was reported but should not be');
@@ -211,9 +203,7 @@ test('CLOSED PR state should be reported', async () => {
     $: mock$
   });
 
-  const hasClosedState = result.feedbackLines.some(line =>
-    line.includes('Pull request state: CLOSED')
-  );
+  const hasClosedState = result.feedbackLines.some(line => line.includes('Pull request state: CLOSED'));
 
   if (!hasClosedState) {
     console.log('   FAILED: CLOSED PR state was not reported');
@@ -242,9 +232,7 @@ test('MERGED PR state should be reported', async () => {
     $: mock$
   });
 
-  const hasMergedState = result.feedbackLines.some(line =>
-    line.includes('Pull request state: MERGED')
-  );
+  const hasMergedState = result.feedbackLines.some(line => line.includes('Pull request state: MERGED'));
 
   if (!hasMergedState) {
     console.log('   FAILED: MERGED PR state was not reported');
@@ -273,12 +261,8 @@ test('Both non-clean merge status and non-open PR state should be reported', asy
     $: mock$
   });
 
-  const hasPrState = result.feedbackLines.some(line =>
-    line.includes('Pull request state: CLOSED')
-  );
-  const hasMergeStatus = result.feedbackLines.some(line =>
-    line.includes('Merge status is BLOCKED')
-  );
+  const hasPrState = result.feedbackLines.some(line => line.includes('Pull request state: CLOSED'));
+  const hasMergeStatus = result.feedbackLines.some(line => line.includes('Merge status is BLOCKED'));
 
   if (!hasPrState || !hasMergeStatus) {
     console.log('   FAILED: Both statuses should be reported');

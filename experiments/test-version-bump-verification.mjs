@@ -100,7 +100,6 @@ function testVersionBumpLogic() {
     log('✅ Proper error messages for missing version bump');
     log('✅ Proper success messages for version bump');
     log('✅ Semantic version validation working');
-
   } finally {
     // Restore original package.json
     writeFileSync('package.json', originalPackageJson);
@@ -122,7 +121,7 @@ function testWorkflowSyntax() {
       log('❌ verify-version-bump job not found in workflow');
     }
 
-    if (workflowContent.includes('github.event_name == \'pull_request\'')) {
+    if (workflowContent.includes("github.event_name == 'pull_request'")) {
       log('✅ PR condition found in verify-version-bump job');
     } else {
       log('❌ PR condition not found in verify-version-bump job');
@@ -141,7 +140,6 @@ function testWorkflowSyntax() {
     }
 
     log('✅ Workflow syntax validation completed');
-
   } catch (error) {
     log(`❌ Error reading workflow file: ${error.message}`);
   }

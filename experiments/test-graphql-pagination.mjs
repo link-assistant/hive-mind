@@ -53,7 +53,7 @@ async function testGraphQLPagination() {
       log,
       cleanErrorMessage,
       10, // Limit to 10 repos per page to test pagination
-      5   // Limit to 5 issues per page to test issue pagination
+      5 // Limit to 5 issues per page to test issue pagination
     );
 
     console.log('\n✅ Test 1 Results:');
@@ -77,7 +77,6 @@ async function testGraphQLPagination() {
         console.log(`   - ${issue.repository.owner.login}/${issue.repository.name}#${issue.number}: ${issue.title}`);
       }
     }
-
   } catch (error) {
     console.error('❌ Test 1 failed with error:', cleanErrorMessage(error));
     console.error(error.stack);

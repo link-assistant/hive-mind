@@ -14,7 +14,7 @@ async function testSwapDetection() {
   const meminfoContent = await readFile('/proc/meminfo', 'utf8');
   const lines = meminfoContent.split('\n');
 
-  const getValue = (key) => {
+  const getValue = key => {
     const line = lines.find(l => l.startsWith(key));
     if (!line) return 0;
     const match = line.match(/(\d+)/);
@@ -71,8 +71,12 @@ async function testSwapDetection() {
   console.log('\nProblem: When check fails, error message shows:');
   console.log(`  ❌ Insufficient memory: ${availableMB}MB available, ${minMemoryMB}MB required`);
   console.log('\nBut it should show swap information too!');
-  console.log(`  Suggestion: ❌ Insufficient memory: ${availableMB}MB RAM available (${swapAvailableMB}MB swap available), ${minMemoryMB}MB required`);
-  console.log(`  Or: ❌ Insufficient memory: ${availableMB}MB available (${totalAvailable}MB total with ${swapAvailableMB}MB swap), ${minMemoryMB}MB required`);
+  console.log(
+    `  Suggestion: ❌ Insufficient memory: ${availableMB}MB RAM available (${swapAvailableMB}MB swap available), ${minMemoryMB}MB required`
+  );
+  console.log(
+    `  Or: ❌ Insufficient memory: ${availableMB}MB available (${totalAvailable}MB total with ${swapAvailableMB}MB swap), ${minMemoryMB}MB required`
+  );
 }
 
 testSwapDetection().catch(console.error);

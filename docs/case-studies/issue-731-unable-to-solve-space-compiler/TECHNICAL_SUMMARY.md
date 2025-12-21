@@ -46,16 +46,16 @@
 
 #### Required Capabilities Matrix
 
-| Capability | Required | AI Solver Has | Gap |
-|------------|----------|---------------|-----|
-| Modify existing code | ❌ | ✅ | N/A |
-| Create project structure | ✅ | ⚠️ | Limited |
-| Install framework (dotnet) | ✅ | ❌ | Critical |
-| Design architecture | ✅ | ⚠️ | Limited |
-| Extract code from external repo | ✅ | ⚠️ | Limited |
-| Implement algorithms (semantic analysis) | ✅ | ✅ | None |
-| Create REST APIs | ✅ | ✅ | None |
-| Parse custom file formats | ✅ | ✅ | None |
+| Capability                               | Required | AI Solver Has | Gap      |
+| ---------------------------------------- | -------- | ------------- | -------- |
+| Modify existing code                     | ❌       | ✅            | N/A      |
+| Create project structure                 | ✅       | ⚠️            | Limited  |
+| Install framework (dotnet)               | ✅       | ❌            | Critical |
+| Design architecture                      | ✅       | ⚠️            | Limited  |
+| Extract code from external repo          | ✅       | ⚠️            | Limited  |
+| Implement algorithms (semantic analysis) | ✅       | ✅            | None     |
+| Create REST APIs                         | ✅       | ✅            | None     |
+| Parse custom file formats                | ✅       | ✅            | None     |
 
 **Conclusion**: 3 critical gaps, 3 limited capabilities = High probability of failure
 
@@ -64,21 +64,25 @@
 #### Actual Failure Sequence (From Log Analysis)
 
 **Phase 1: Pre-flight Checks** (19:04:39 - 19:04:46)
+
 - System checks: PASSED (disk space, memory)
 - Tool validation: SKIPPED (--no-tool-check flag)
 - Repository access check: Detected no write access → Enabled fork mode
 
 **Phase 2: Fork Attempt** (19:04:46 - 19:04:51)
+
 - Fork creation attempted
 - **FAILED**: Empty repository cannot be forked (GitHub limitation)
 - Error detected: Repository has no content
 
 **Phase 3: Auto-Fix Attempt** (19:04:51)
+
 - Attempted to initialize repository with README.md
 - **FAILED**: `gh: Not Found (HTTP 404)`
 - Root cause: No write access to create files in original repository
 
 **Phase 4: Exit** (19:04:51)
+
 - Logged error message with 3 options (now reduced to 2 after this PR)
 - Exited with code 1: "Repository setup failed - empty repository"
 - **Total execution time**: 12 seconds
@@ -95,6 +99,7 @@ $ gh api repos/xlab2016/space_compiler_public/commits
 ```
 
 **Why this causes failure**:
+
 1. GitHub does not allow forking repositories with zero commits
 2. Auto-fork mode is default for repositories without write access
 3. Auto-fix requires write access which solver doesn't have
@@ -103,12 +108,14 @@ $ gh api repos/xlab2016/space_compiler_public/commits
 #### Secondary Failure Point: Framework Requirements
 
 **Task requires**:
+
 - .NET 8 SDK installation
 - `dotnet new webapi` command execution
 - NuGet package management
 - C# project file structure knowledge
 
 **AI solver challenges**:
+
 - May not have .NET SDK in execution environment
 - Cannot verify compilation without SDK
 - Cannot run tests without framework
@@ -116,17 +123,20 @@ $ gh api repos/xlab2016/space_compiler_public/commits
 #### Tertiary Failure Point: Architectural Ambiguity
 
 **Issue asks for design advice**:
+
 > "здесь подскажи как делать анализ возможно эвристика или статистика слов"
 > (suggest how to do analysis, possibly heuristics or word statistics)
 
 This is a **consultation request**, not an implementation request.
 
 **AI solver typically needs**:
+
 - Clear implementation requirements
 - Existing code to modify or extend
 - Specific acceptance criteria
 
 **Issue provides**:
+
 - Open-ended design question
 - Multiple valid approaches
 - No preference specified
@@ -136,6 +146,7 @@ This is a **consultation request**, not an implementation request.
 #### Source Repository: space_db_public
 
 **Challenges**:
+
 1. Need to locate parsing code in unfamiliar codebase
 2. Understand existing architecture
 3. Identify dependencies
@@ -143,6 +154,7 @@ This is a **consultation request**, not an implementation request.
 5. Adapt to new project structure
 
 **Estimated effort**: High
+
 - Manual review: ~2-4 hours
 - Extraction and adaptation: ~4-8 hours
 - Testing and validation: ~2-4 hours
@@ -208,12 +220,14 @@ Based on available evidence and typical AI solver behavior:
 Analogy: Asking a refactoring tool to write a book from scratch.
 
 **AI Solver strengths**:
+
 - Finding and fixing bugs
 - Adding features to existing code
 - Refactoring and optimization
 - Following existing patterns
 
 **This task needs**:
+
 - Project architecture design
 - Framework setup and configuration
 - Creating patterns from scratch
@@ -250,6 +264,7 @@ Read issue → ??? → Need project structure
 ### Cause #3: Information Insufficiency
 
 **What AI solver needs to know**:
+
 - Exact project template to use
 - Which files to extract from space_db_public
 - Preferred semantic analysis approach
@@ -257,6 +272,7 @@ Read issue → ??? → Need project structure
 - Test case examples
 
 **What the issue provides**:
+
 - High-level goals
 - Service names
 - API endpoint paths
@@ -268,16 +284,16 @@ Read issue → ??? → Need project structure
 
 ### Complexity Scoring
 
-| Factor | Score (1-10) | Weight | Weighted Score |
-|--------|--------------|--------|----------------|
-| Empty repository | 10 | 0.25 | 2.50 |
-| Greenfield project | 9 | 0.20 | 1.80 |
-| Cross-repo extraction | 8 | 0.15 | 1.20 |
-| Framework-specific | 7 | 0.15 | 1.05 |
-| Design ambiguity | 8 | 0.10 | 0.80 |
-| External dependencies | 6 | 0.10 | 0.60 |
-| Language barrier | 4 | 0.05 | 0.20 |
-| **Total** | | | **8.15/10** |
+| Factor                | Score (1-10) | Weight | Weighted Score |
+| --------------------- | ------------ | ------ | -------------- |
+| Empty repository      | 10           | 0.25   | 2.50           |
+| Greenfield project    | 9            | 0.20   | 1.80           |
+| Cross-repo extraction | 8            | 0.15   | 1.20           |
+| Framework-specific    | 7            | 0.15   | 1.05           |
+| Design ambiguity      | 8            | 0.10   | 0.80           |
+| External dependencies | 6            | 0.10   | 0.60           |
+| Language barrier      | 4            | 0.05   | 0.20           |
+| **Total**             |              |        | **8.15/10**    |
 
 **Interpretation**: Extremely high complexity task
 
@@ -287,17 +303,17 @@ Read issue → ??? → Need project structure
 
 If broken into subtasks:
 
-| Subtask | Complexity | Success Probability |
-|---------|------------|---------------------|
-| 1. Create .NET 8 API project structure | 3/10 | 85% |
-| 2. Extract parsing code from space_db_public | 6/10 | 60% |
-| 3. Implement TokenizerService | 4/10 | 80% |
-| 4. Implement ParserService | 5/10 | 75% |
-| 5. Implement AnalyzerService | 7/10 | 50% |
-| 6. Create CompilerController endpoints | 4/10 | 80% |
-| 7. Implement .spaceproj parser | 6/10 | 65% |
-| **Overall (sequential)** | | **~10%** |
-| **With human scaffolding** | | **~60%** |
+| Subtask                                      | Complexity | Success Probability |
+| -------------------------------------------- | ---------- | ------------------- |
+| 1. Create .NET 8 API project structure       | 3/10       | 85%                 |
+| 2. Extract parsing code from space_db_public | 6/10       | 60%                 |
+| 3. Implement TokenizerService                | 4/10       | 80%                 |
+| 4. Implement ParserService                   | 5/10       | 75%                 |
+| 5. Implement AnalyzerService                 | 7/10       | 50%                 |
+| 6. Create CompilerController endpoints       | 4/10       | 80%                 |
+| 7. Implement .spaceproj parser               | 6/10       | 65%                 |
+| **Overall (sequential)**                     |            | **~10%**            |
+| **With human scaffolding**                   |            | **~60%**            |
 
 **Key insight**: Even with decomposition, overall success is low unless human provides initial structure.
 
@@ -340,6 +356,7 @@ If broken into subtasks:
 ```
 
 **Benefits**:
+
 - AI works with existing code (strength)
 - Clear structure to follow
 - Incremental progress
@@ -388,7 +405,7 @@ async function analyzeTask(issue, repository) {
     greenfield: await isGreenfieldProject(issue),
     crossRepo: await requiresCrossRepoWork(issue),
     frameworkSpecific: await detectFramework(issue),
-    designAmbiguity: await hasDesignQuestions(issue),
+    designAmbiguity: await hasDesignQuestions(issue)
   };
 
   const score = calculateComplexityScore(complexityFactors);
@@ -420,7 +437,7 @@ async function analyzeTask(issue, repository) {
 ```javascript
 const SCAFFOLDING_TEMPLATES = {
   'dotnet-webapi': {
-    detect: (issue) => /\.net|c#|webapi|asp\.net/i.test(issue.body),
+    detect: issue => /\.net|c#|webapi|asp\.net/i.test(issue.body),
     commands: [
       'dotnet new webapi -n {projectName}',
       'cd {projectName}',
@@ -430,10 +447,10 @@ const SCAFFOLDING_TEMPLATES = {
       'git commit -m "Initial project structure"'
     ],
     files: {
-      'README.md': (ctx) => generateReadme(ctx),
+      'README.md': ctx => generateReadme(ctx),
       '.gitignore': () => fetchGitignoreTemplate('VisualStudio')
     }
-  },
+  }
   // ... other templates
 };
 
@@ -515,11 +532,13 @@ This failure is **expected and systemic**, not a bug. The AI solver encountered 
 - **Asked to do**: Create entire project from scratch in empty repository
 
 **The fix is not a code change, but a workflow change**:
+
 - Detect these scenarios early
 - Request scaffolding or task decomposition
 - Guide users to better task formulation
 
 **Success path forward**:
+
 1. Human creates initial project structure
 2. AI implements services and endpoints incrementally
 3. Human reviews each phase
@@ -530,6 +549,7 @@ This failure is **expected and systemic**, not a bug. The AI solver encountered 
 ---
 
 **Related Files**:
+
 - Full case study: `README.md`
 - Raw data: `issue-data.md`
 - CI logs: `issue-731-run-19343831150.log`

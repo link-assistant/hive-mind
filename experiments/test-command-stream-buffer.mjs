@@ -60,7 +60,6 @@ async function testCommandStreamBuffer() {
     console.log('\nString() conversion output:', stringOutput);
     const stringMatch = stringOutput.match(/issuecomment-(\d+)/);
     console.log('String() pattern match:', stringMatch);
-
   } catch (error) {
     console.error('Error:', error.message);
     console.error('Full error:', error);

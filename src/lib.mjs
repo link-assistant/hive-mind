@@ -15,7 +15,7 @@ try {
   if (global.verboseMode) {
     console.debug('Sentry module not available:', _error?.message || 'Import failed');
   }
-  reportError = (err) => {
+  reportError = err => {
     // Silent no-op when Sentry is not available
     if (global.verboseMode) {
       console.debug('Sentry not available for error reporting:', err?.message);
@@ -44,7 +44,7 @@ export let logFile = null;
  * Set the log file path
  * @param {string} path - Path to the log file
  */
-export const setLogFile = (path) => {
+export const setLogFile = path => {
   logFile = path;
 };
 
@@ -62,7 +62,7 @@ export const getLogFile = () => {
  */
 export const getAbsoluteLogPath = async () => {
   if (!logFile) return null;
-  const path = (await use('path'));
+  const path = await use('path');
   return path.resolve(logFile);
 };
 
@@ -85,7 +85,7 @@ export const log = async (message, options = {}) => {
   // Write to file if log file is set
   if (logFile) {
     const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`;
-    await fs.appendFile(logFile, logMessage + '\n').catch((error) => {
+    await fs.appendFile(logFile, logMessage + '\n').catch(error => {
       // Silent fail for file append errors to avoid infinite loop
       // but report to Sentry in verbose mode
       if (global.verboseMode) {
@@ -97,7 +97,7 @@ export const log = async (message, options = {}) => {
       }
     });
   }
-  
+
   // Write to console based on level
   switch (level) {
     case 'error':
@@ -125,18 +125,17 @@ export const log = async (message, options = {}) => {
  */
 export const maskToken = (token, options = {}) => {
   const { minLength = 12, startChars = 5, endChars = 5 } = options;
-  
+
   if (!token || token.length < minLength) {
     return token; // Don't mask very short strings
   }
-  
+
   const start = token.substring(0, startChars);
   const end = token.substring(token.length - endChars);
   const middle = '*'.repeat(Math.max(token.length - (startChars + endChars), 3));
-  
+
   return start + middle + end;
 };
-
 
 /**
  * Format timestamps for use in filenames
@@ -152,7 +151,7 @@ export const formatTimestamp = (date = new Date()) => {
  * @param {string} name - Name to sanitize
  * @returns {string} Sanitized filename
  */
-export const sanitizeFileName = (name) => {
+export const sanitizeFileName = name => {
   return name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
 };
 
@@ -208,7 +207,7 @@ export const safeJsonParse = (text, defaultValue = null) => {
  * @param {number} ms - Milliseconds to sleep
  * @returns {Promise<void>}
  */
-export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Retry operations with exponential backoff
@@ -252,13 +251,13 @@ export const retry = async (fn, options = {}) => {
  */
 export const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  
+
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
@@ -293,15 +292,15 @@ export const measureTime = async (fn, label = 'Operation') => {
  * @param {Error|string} error - Error object or message
  * @returns {string} Cleaned error message
  */
-export const cleanErrorMessage = (error) => {
+export const cleanErrorMessage = error => {
   let message = error.message || error.toString();
-  
+
   // Remove common noise from error messages
   message = message.split('\n')[0]; // Take only first line
   message = message.replace(/^Command failed: /, ''); // Remove "Command failed: " prefix
   message = message.replace(/^Error: /, ''); // Remove redundant "Error: " prefix
   message = message.replace(/^\/bin\/sh: \d+: /, ''); // Remove shell path info
-  
+
   return message;
 };
 
@@ -333,17 +332,8 @@ export const formatAligned = (icon, label, value, indent = 0) => {
  * @param {string} [options.level='error'] - Log level
  * @returns {Promise<void>}
  */
-export const displayFormattedError = async (options) => {
-  const {
-    title,
-    what,
-    details,
-    causes,
-    fixes,
-    workDir,
-    log: logFn = log,
-    level = 'error'
-  } = options;
+export const displayFormattedError = async options => {
+  const { title, what, details, causes, fixes, workDir, log: logFn = log, level = 'error' } = options;
 
   await logFn('');
   await logFn(`❌ ${title}`, { level });
@@ -387,7 +377,7 @@ export const displayFormattedError = async (options) => {
 
   // Always show the log file path if it exists - using absolute path
   if (logFile) {
-    const path = (await use('path'));
+    const path = await use('path');
     const absoluteLogPath = path.resolve(logFile);
     await logFn(`  📁 Full log file: ${absoluteLogPath}`);
     await logFn('');
@@ -400,33 +390,34 @@ export const displayFormattedError = async (options) => {
  * @param {boolean} [argv.autoCleanup] - Whether auto-cleanup is enabled
  * @returns {Promise<void>}
  */
-export const cleanupTempDirectories = async (argv) => {
+export const cleanupTempDirectories = async argv => {
   if (!argv || !argv.autoCleanup) {
     return;
   }
-  
+
   // Dynamic import for command-stream
   const { $ } = await use('command-stream');
-  
+
   try {
     await log('\n🧹 Auto-cleanup enabled, removing temporary directories...');
     await log('   ⚠️  Executing: sudo rm -rf /tmp/* /var/tmp/*', { verbose: true });
-    
+
     // Execute cleanup command using command-stream
     const cleanupCommand = $`sudo rm -rf /tmp/* /var/tmp/*`;
-    
+
     let exitCode = 0;
     for await (const chunk of cleanupCommand.stream()) {
       if (chunk.type === 'stderr') {
         const error = chunk.data.toString().trim();
-        if (error && !error.includes('cannot remove')) { // Ignore "cannot remove" warnings for files in use
+        if (error && !error.includes('cannot remove')) {
+          // Ignore "cannot remove" warnings for files in use
           await log(`   [cleanup WARNING] ${error}`, { level: 'warn', verbose: true });
         }
       } else if (chunk.type === 'exit') {
         exitCode = chunk.code;
       }
     }
-    
+
     if (exitCode === 0) {
       await log('   ✅ Temporary directories cleaned successfully');
     } else {
@@ -469,12 +460,15 @@ export default {
  * @returns {Promise<string>} Version string
  */
 export const getVersionInfo = async () => {
-  const path = (await use('path'));
+  const path = await use('path');
   const $ = (await use('zx')).$;
   const { getGitVersionAsync } = await import('./git.lib.mjs');
 
   try {
-    const packagePath = path.join(path.dirname(path.dirname(new globalThis.URL(import.meta.url).pathname)), 'package.json');
+    const packagePath = path.join(
+      path.dirname(path.dirname(new globalThis.URL(import.meta.url).pathname)),
+      'package.json'
+    );
     const packageJson = JSON.parse(await fs.readFile(packagePath, 'utf8'));
     const currentVersion = packageJson.version;
 

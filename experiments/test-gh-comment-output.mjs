@@ -39,7 +39,8 @@ async function testCommentOutput() {
     console.log('Test 2: Using gh api directly');
     console.log(`Command: gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments -X POST -f body="..."`);
 
-    const result2 = await $`gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments -X POST -f body=${testBody + ' (API)'}`;
+    const result2 =
+      await $`gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments -X POST -f body=${testBody + ' (API)'}`;
     console.log('stdout:', result2.stdout);
 
     try {
@@ -56,7 +57,6 @@ async function testCommentOutput() {
     console.log('Test 3: Fetching last comment');
     const result3 = await $`gh api repos/${OWNER}/${REPO}/issues/${PR_NUMBER}/comments --jq '.[-1] | {id, body}'`;
     console.log('Last comment:', result3.stdout);
-
   } catch (error) {
     console.error('Error:', error.message);
     console.error('Full error:', error);

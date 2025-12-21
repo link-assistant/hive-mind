@@ -3,14 +3,7 @@
  * Handles starting and ending work sessions, PR status changes, and session comments
  */
 
-export async function startWorkSession({
-  isContinueMode,
-  prNumber,
-  argv,
-  log,
-  formatAligned,
-  $
-}) {
+export async function startWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $ }) {
   // Record work start time and convert PR to draft if in continue/watch mode
   const workStartTime = new Date();
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
@@ -18,7 +11,8 @@ export async function startWorkSession({
 
     // Convert PR back to draft if not already
     try {
-      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
+      const prStatusResult =
+        await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
       if (prStatusResult.code === 0) {
         const isDraft = prStatusResult.stdout.toString().trim() === 'true';
         if (!isDraft) {
@@ -47,7 +41,8 @@ export async function startWorkSession({
     // Post a comment marking the start of work session
     try {
       const startComment = `🤖 **AI Work Session Started**\n\nStarting automated work session at ${workStartTime.toISOString()}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._`;
-      const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
+      const commentResult =
+        await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
       if (commentResult.code === 0) {
         await log(formatAligned('💬', 'Posted:', 'Work session start comment', 2));
       }
@@ -66,15 +61,7 @@ export async function startWorkSession({
   return workStartTime;
 }
 
-export async function endWorkSession({
-  isContinueMode,
-  prNumber,
-  argv,
-  log,
-  formatAligned,
-  $,
-  logsAttached = false
-}) {
+export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false }) {
   // Post end work session comment and convert PR back to ready if in continue mode
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
     const workEndTime = new Date();
@@ -86,7 +73,8 @@ export async function endWorkSession({
       // Post a comment marking the end of work session
       try {
         const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
-        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
+        const commentResult =
+          await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
         if (commentResult.code === 0) {
           await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
         }
@@ -106,7 +94,8 @@ export async function endWorkSession({
 
     // Convert PR back to ready for review
     try {
-      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
+      const prStatusResult =
+        await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
       if (prStatusResult.code === 0) {
         const isDraft = prStatusResult.stdout.toString().trim() === 'true';
         if (isDraft) {

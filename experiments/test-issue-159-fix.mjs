@@ -61,7 +61,8 @@ try {
 
   // Test 2: Try to add upstream remote (should fail since it exists)
   console.log('Test 2: Try to add upstream remote (simulating old behavior)');
-  const addUpstreamResult = await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`.nothrow();
+  const addUpstreamResult =
+    await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`.nothrow();
   console.log(`   Result: ${addUpstreamResult.code === 0 ? '✅ Success' : '❌ Failed (expected!)'}`);
   if (addUpstreamResult.code !== 0) {
     console.log('   Error:', addUpstreamResult.stderr.toString().trim());
@@ -111,7 +112,6 @@ try {
   console.log('🔧 The key improvement:');
   console.log('   OLD: Fork sync only runs if `git remote add upstream` succeeds');
   console.log('   NEW: Fork sync runs if upstream remote exists (added or pre-existing)');
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   process.exit(1);

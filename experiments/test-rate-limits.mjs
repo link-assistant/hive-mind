@@ -130,10 +130,9 @@ async function main() {
     log(`   ✅ API call successful`);
 
     // Look for rate limit headers in the response
-    const headers = apiResult.split('\n').filter(line =>
-      line.toLowerCase().includes('rate-limit') ||
-      line.toLowerCase().includes('x-ratelimit')
-    );
+    const headers = apiResult
+      .split('\n')
+      .filter(line => line.toLowerCase().includes('rate-limit') || line.toLowerCase().includes('x-ratelimit'));
 
     if (headers.length > 0) {
       log(`   📊 Rate limit headers found:`);

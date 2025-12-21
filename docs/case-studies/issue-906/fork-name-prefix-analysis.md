@@ -38,11 +38,13 @@ POST /repos/OWNER/REPO/forks
 The `--fork-name` flag was added in [GitHub CLI PR #4886](https://github.com/cli/cli/pull/4886).
 
 **Implementation Details**:
+
 1. The CLI calls the GitHub Fork API with the `name` parameter
 2. If the API version doesn't support it, it forks first then renames
 3. Both approaches preserve fork relationships
 
 **Quote from PR #4886**:
+
 > "Since the Github API doesn't yet support this automatically via the Fork API, we fork it and later rename it via the Rename API."
 
 This was an implementation detail from when the PR was created. Modern GitHub API now supports the `name` parameter directly.
@@ -69,6 +71,7 @@ We created a comprehensive test to verify fork behavior with custom names:
 ```
 
 **Verification**: The fork was successfully created with:
+
 - ✅ Custom name: `github-gitignore` (not the default `gitignore`)
 - ✅ Fork relationship maintained: `fork: true`
 - ✅ Parent correctly set: `parent: "github/gitignore"`
@@ -77,6 +80,7 @@ We created a comprehensive test to verify fork behavior with custom names:
 #### Test Evidence
 
 Full test logs available in:
+
 - `experiments/test-fork-with-custom-name.mjs` - Test script
 - `experiments/test-fork-with-custom-name-results.log` - Test results
 - Live example: [konard/github-gitignore](https://github.com/konard/github-gitignore) (test fork)
@@ -86,6 +90,7 @@ Full test logs available in:
 **Research Finding**: Renaming a repository is a metadata operation that does NOT affect fork relationships.
 
 GitHub maintains fork relationships through internal database records, not repository names. When you rename a repository:
+
 - `fork: true` remains unchanged
 - `parent` reference remains unchanged
 - `source` reference remains unchanged
@@ -99,6 +104,7 @@ GitHub maintains fork relationships through internal database records, not repos
 **The `--prefix-fork-name-with-owner-name` option is SAFE and does NOT break fork relationships.**
 
 Forks created with this option:
+
 1. Are created via GitHub's Fork API
 2. Maintain `fork: true` status
 3. Correctly reference their parent repository
@@ -108,6 +114,7 @@ Forks created with this option:
 ### Relevance to Original Issue #906
 
 The original error in Issue #906:
+
 ```
 ❌ REPOSITORY MISMATCH: Fork is from different repository tree
 ```
@@ -115,6 +122,7 @@ The original error in Issue #906:
 **Was NOT caused by `--prefix-fork-name-with-owner-name`.**
 
 The error was caused by:
+
 - Repository `konard/VisageDvachevsky-VEIL` had `fork: false`
 - It had `parent: null` and `source: null`
 - It was created by clone+push, not via GitHub Fork button/API
@@ -125,11 +133,13 @@ The error was caused by:
 **No changes needed to error messages** related to `--prefix-fork-name-with-owner-name`.
 
 The current implementation correctly:
+
 1. Creates forks with custom names using GitHub Fork API
 2. Maintains fork relationships automatically
 3. Detects non-fork repositories (like the one in Issue #906)
 
 **User Education**: The error message should help users understand the difference between:
+
 - ✅ **GitHub Fork**: Created via Fork button/API → maintains relationships
 - ❌ **Clone+Push**: Manual clone and push → creates orphaned repository
 

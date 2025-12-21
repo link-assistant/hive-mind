@@ -4,7 +4,11 @@
  * Test script for contributing guidelines detection
  */
 
-import { detectContributingGuidelines, extractCIRequirements, buildContributingSection } from '../src/contributing-guidelines.lib.mjs';
+import {
+  detectContributingGuidelines,
+  extractCIRequirements,
+  buildContributingSection
+} from '../src/contributing-guidelines.lib.mjs';
 
 console.log('🧪 Testing Contributing Guidelines Detection\n');
 

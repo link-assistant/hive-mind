@@ -1,1 +1,17 @@
-{"author":{"id":"MDQ6VXNlcjE0MzE5MDQ=","is_bot":false,"login":"konard","name":"Konstantin Diachenko"},"body":"That should be experimental option, that in addition to cost estimation also gives stats about how much of context of was used to solve the task (in absolute values and in ratio).\n\nAlso we need to get from model.dev maximum input and output in tokens, and how much we used out of it in a working session.\n\nBut default this option should be disabled.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.","comments":[],"createdAt":"2025-12-20T20:31:29Z","labels":[{"color":"a2eeef","description":"New feature or request","id":"LA_kwDOPUU0qc8AAAACGYm6mA","name":"enhancement"}],"state":"OPEN","title":"For `--tool claude` please add option `--tokens-budget-stats`","url":"https://github.com/link-assistant/hive-mind/issues/944"}
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "That should be experimental option, that in addition to cost estimation also gives stats about how much of context of was used to solve the task (in absolute values and in ratio).\n\nAlso we need to get from model.dev maximum input and output in tokens, and how much we used out of it in a working session.\n\nBut default this option should be disabled.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.",
+  "comments": [],
+  "createdAt": "2025-12-20T20:31:29Z",
+  "labels": [
+    {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOPUU0qc8AAAACGYm6mA",
+      "name": "enhancement"
+    }
+  ],
+  "state": "OPEN",
+  "title": "For `--tool claude` please add option `--tokens-budget-stats`",
+  "url": "https://github.com/link-assistant/hive-mind/issues/944"
+}

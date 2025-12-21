@@ -11,7 +11,8 @@ console.log('🧪 Testing Usage Limit Detection\n');
 const testCases = [
   {
     name: 'Usage limit with reset time (from issue #719)',
-    message: '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}',
+    message:
+      '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}',
     expectedLimit: true,
     expectedTime: '12:16 PM'
   },

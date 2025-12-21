@@ -27,7 +27,10 @@ console.log('\n2. Testing solve-with-opencode.mjs --help output...');
 try {
   const helpOutput = execSync('./solve-with-opencode.mjs --help', { encoding: 'utf8' });
   assert(helpOutput.includes('--base-branch'), 'solve-with-opencode.mjs --help should include --base-branch option');
-  assert(helpOutput.includes('Target branch for the pull request'), 'solve-with-opencode.mjs should show base-branch description');
+  assert(
+    helpOutput.includes('Target branch for the pull request'),
+    'solve-with-opencode.mjs should show base-branch description'
+  );
   console.log('✓ solve-with-opencode.mjs --help shows --base-branch option');
 } catch (error) {
   console.error('✗ Failed to find --base-branch in solve-with-opencode.mjs --help');

@@ -83,7 +83,6 @@ try {
 
   console.log('\n🎉 All tests passed! The links-notation package is working correctly.');
   console.log('The migration from @linksplatform/protocols-lino to links-notation is successful.');
-
 } catch (error) {
   console.error('❌ Test failed with error:', error.message);
   console.error(error.stack);

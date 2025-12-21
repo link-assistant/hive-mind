@@ -98,9 +98,14 @@ function isForwardedOrReply(message, VERBOSE = true) {
     return true;
   }
   // Also check old forwarding API fields for backward compatibility
-  if (message.forward_from || message.forward_from_chat ||
-      message.forward_from_message_id || message.forward_signature ||
-      message.forward_sender_name || message.forward_date) {
+  if (
+    message.forward_from ||
+    message.forward_from_chat ||
+    message.forward_from_message_id ||
+    message.forward_signature ||
+    message.forward_sender_name ||
+    message.forward_date
+  ) {
     if (VERBOSE) {
       console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
     }
@@ -121,7 +126,10 @@ function isForwardedOrReply(message, VERBOSE = true) {
     } else {
       // This is an actual reply to another user's message
       if (VERBOSE) {
-        console.log('[VERBOSE] isForwardedOrReply: TRUE - reply_to_message.message_id exists:', message.reply_to_message.message_id);
+        console.log(
+          '[VERBOSE] isForwardedOrReply: TRUE - reply_to_message.message_id exists:',
+          message.reply_to_message.message_id
+        );
       }
       return true;
     }

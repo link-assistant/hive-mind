@@ -14,9 +14,7 @@
  */
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -30,18 +28,18 @@ const config = makeConfig({
       .option('release-version', {
         type: 'string',
         default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., 1.0.0)',
+        describe: 'Version number (e.g., 1.0.0)'
       })
       .option('repository', {
         type: 'string',
         default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)',
+        describe: 'GitHub repository (e.g., owner/repo)'
       })
       .option('commit-sha', {
         type: 'string',
         default: getenv('COMMIT_SHA', ''),
-        describe: 'Commit SHA for PR detection',
-      }),
+        describe: 'Commit SHA for PR detection'
+      })
 });
 
 const { releaseVersion: version, repository, commitSha } = config;
@@ -60,10 +58,7 @@ try {
   // Get the release ID for this version
   let releaseId = '';
   try {
-    const result =
-      await $`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`.run(
-        { capture: true }
-      );
+    const result = await $`gh api "repos/${repository}/releases/tags/${tag}" --jq '.id'`.run({ capture: true });
     releaseId = result.stdout.trim();
   } catch {
     console.log(`Could not find release for ${tag}`);

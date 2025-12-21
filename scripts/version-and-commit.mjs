@@ -15,9 +15,7 @@
 import { readFileSync, appendFileSync, readdirSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -31,18 +29,18 @@ const config = makeConfig({
         type: 'string',
         default: getenv('MODE', 'changeset'),
         describe: 'Version mode: changeset or instant',
-        choices: ['changeset', 'instant'],
+        choices: ['changeset', 'instant']
       })
       .option('bump-type', {
         type: 'string',
         default: getenv('BUMP_TYPE', ''),
-        describe: 'Version bump type for instant mode: major, minor, or patch',
+        describe: 'Version bump type for instant mode: major, minor, or patch'
       })
       .option('description', {
         type: 'string',
         default: getenv('DESCRIPTION', ''),
-        describe: 'Description for instant version bump',
-      }),
+        describe: 'Description for instant version bump'
+      })
 });
 
 const { mode, bumpType, description } = config;
@@ -51,7 +49,7 @@ const { mode, bumpType, description } = config;
 console.log('Parsed configuration:', {
   mode,
   bumpType,
-  description: description || '(none)',
+  description: description || '(none)'
 });
 
 // Detect if positional arguments were used (common mistake)
@@ -60,9 +58,7 @@ if (args.length > 0 && !args[0].startsWith('--')) {
   console.error('Error: Positional arguments detected!');
   console.error('Command line arguments:', args);
   console.error('');
-  console.error(
-    'This script requires named arguments (--mode, --bump-type, --description).'
-  );
+  console.error('This script requires named arguments (--mode, --bump-type, --description).');
   console.error('Usage:');
   console.error('  Changeset mode:');
   console.error('    node scripts/version-and-commit.mjs --mode changeset');
@@ -72,9 +68,7 @@ if (args.length > 0 && !args[0].startsWith('--')) {
   );
   console.error('');
   console.error('Examples:');
-  console.error(
-    '  node scripts/version-and-commit.mjs --mode instant --bump-type patch --description "Fix bug"'
-  );
+  console.error('  node scripts/version-and-commit.mjs --mode instant --bump-type patch --description "Fix bug"');
   console.error('  node scripts/version-and-commit.mjs --mode changeset');
   process.exit(1);
 }
@@ -114,7 +108,7 @@ function countChangesets() {
   try {
     const changesetDir = '.changeset';
     const files = readdirSync(changesetDir);
-    return files.filter((f) => f.endsWith('.md') && f !== 'README.md').length;
+    return files.filter(f => f.endsWith('.md') && f !== 'README.md').length;
   } catch {
     return 0;
   }
@@ -127,7 +121,7 @@ function countChangesets() {
 async function getVersion(source = 'local') {
   if (source === 'remote') {
     const result = await $`git show origin/main:package.json`.run({
-      capture: true,
+      capture: true
     });
     return JSON.parse(result.stdout).version;
   }
@@ -148,14 +142,12 @@ async function main() {
     const localHead = localHeadResult.stdout.trim();
 
     const remoteHeadResult = await $`git rev-parse origin/main`.run({
-      capture: true,
+      capture: true
     });
     const remoteHead = remoteHeadResult.stdout.trim();
 
     if (localHead !== remoteHead) {
-      console.log(
-        `Remote main has advanced (local: ${localHead}, remote: ${remoteHead})`
-      );
+      console.log(`Remote main has advanced (local: ${localHead}, remote: ${remoteHead})`);
       console.log('This may indicate a previous attempt partially succeeded.');
 
       // Check if the remote version is already the expected bump
@@ -167,9 +159,7 @@ async function main() {
 
       if (changesetCount === 0) {
         console.log('No changesets to process and remote has advanced.');
-        console.log(
-          'Assuming version bump was already completed in a previous attempt.'
-        );
+        console.log('Assuming version bump was already completed in a previous attempt.');
         setOutput('version_committed', 'false');
         setOutput('already_released', 'true');
         setOutput('new_version', remoteVersion);

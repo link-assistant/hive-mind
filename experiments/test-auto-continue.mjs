@@ -43,9 +43,9 @@ let selectedPR = null;
 for (const pr of mockPRs) {
   const createdAt = new Date(pr.createdAt);
   const ageHours = Math.floor((now - createdAt) / (1000 * 60 * 60));
-  
+
   console.log(`📋 PR #${pr.number}: created ${ageHours}h ago (${pr.state}, ${pr.isDraft ? 'draft' : 'ready'})`);
-  
+
   // Check if this PR is older than 24 hours and not closed
   if (createdAt < twentyFourHoursAgo && pr.state === 'OPEN') {
     console.log(`   ✅ Qualifies for auto-continue (${ageHours}h > 24h, OPEN)`);

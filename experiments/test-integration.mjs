@@ -8,28 +8,33 @@ const os = (await import('os')).default;
 const path = (await import('path')).default;
 
 // Helper function to mask GitHub tokens in text
-const maskGitHubToken = (token) => {
+const maskGitHubToken = token => {
   if (!token || token.length < 12) {
     return token;
   }
-  
+
   const start = token.substring(0, 5);
   const end = token.substring(token.length - 5);
   const middle = '*'.repeat(Math.max(token.length - 10, 3));
-  
+
   return start + middle + end;
 };
 
 // Helper function to get GitHub tokens from local config files
 const getGitHubTokensFromFiles = async () => {
   const tokens = [];
-  
+
   try {
     // Check ~/.config/gh/hosts.yml
     const hostsFile = path.join(os.homedir(), '.config/gh/hosts.yml');
-    if (await fs.access(hostsFile).then(() => true).catch(() => false)) {
+    if (
+      await fs
+        .access(hostsFile)
+        .then(() => true)
+        .catch(() => false)
+    ) {
       const hostsContent = await fs.readFile(hostsFile, 'utf8');
-      
+
       // Look for oauth_token and api_token patterns
       const oauthMatches = hostsContent.match(/oauth_token:\s*([^\s\n]+)/g);
       if (oauthMatches) {
@@ -40,7 +45,7 @@ const getGitHubTokensFromFiles = async () => {
           }
         }
       }
-      
+
       const apiMatches = hostsContent.match(/api_token:\s*([^\s\n]+)/g);
       if (apiMatches) {
         for (const match of apiMatches) {
@@ -54,19 +59,19 @@ const getGitHubTokensFromFiles = async () => {
   } catch (error) {
     // Silently ignore file access errors
   }
-  
+
   return tokens;
 };
 
 // Helper function to sanitize log content by masking GitHub tokens
-const sanitizeLogContent = async (logContent) => {
+const sanitizeLogContent = async logContent => {
   let sanitized = logContent;
-  
+
   try {
     // Get tokens from file sources
     const fileTokens = await getGitHubTokensFromFiles();
     const allTokens = [...new Set(fileTokens)];
-    
+
     // Mask each token found
     for (const token of allTokens) {
       if (token && token.length >= 12) {
@@ -74,14 +79,14 @@ const sanitizeLogContent = async (logContent) => {
         sanitized = sanitized.split(token).join(maskedToken);
       }
     }
-    
+
     // Also look for and mask common GitHub token patterns directly in the log
     const tokenPatterns = [
       /gh[pou]_[a-zA-Z0-9_]{20,}/g,
       /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm,
       /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi
     ];
-    
+
     for (const pattern of tokenPatterns) {
       sanitized = sanitized.replace(pattern, (match, token) => {
         if (token && token.length >= 20) {
@@ -90,13 +95,12 @@ const sanitizeLogContent = async (logContent) => {
         return match;
       });
     }
-    
+
     console.log(`  🔒 Sanitized ${allTokens.length} detected GitHub tokens from config files`);
-    
   } catch (error) {
     console.log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`);
   }
-  
+
   return sanitized;
 };
 
@@ -128,8 +132,9 @@ console.log('\n3. Verification...');
 const hasMaskedTokens = sanitizedLog.includes('*') && !testLog.includes('*');
 console.log(`   ✅ Tokens were masked: ${hasMaskedTokens ? 'YES' : 'NO'}`);
 
-const originalTokenPresent = tokens.some(token => sanitizedLog.includes(token)) || 
-                            sanitizedLog.includes('ghp_example1234567890abcdef1234567890abcdef123');
+const originalTokenPresent =
+  tokens.some(token => sanitizedLog.includes(token)) ||
+  sanitizedLog.includes('ghp_example1234567890abcdef1234567890abcdef123');
 console.log(`   ✅ Original tokens removed: ${!originalTokenPresent ? 'YES' : 'NO'}`);
 
 console.log('\n🧪 Integration test complete!');

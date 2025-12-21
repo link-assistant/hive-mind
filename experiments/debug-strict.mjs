@@ -15,7 +15,7 @@ console.log('hideBin(process.argv):', hideBin(process.argv));
 // Test step by step what's happening
 const y = yargs(hideBin(process.argv));
 
-y.command('$0 <github-url>', 'Monitor GitHub issues and create PRs', (yargs) => {
+y.command('$0 <github-url>', 'Monitor GitHub issues and create PRs', yargs => {
   yargs.positional('github-url', {
     type: 'string',
     description: 'GitHub organization, repository, or user URL to monitor',
@@ -33,7 +33,7 @@ y.option('once', {
 
 y.option('fork', {
   type: 'boolean',
-  description: 'Fork the repository if you don\'t have write access',
+  description: "Fork the repository if you don't have write access",
   alias: 'f',
   default: false
 });

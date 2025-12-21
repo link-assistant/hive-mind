@@ -23,8 +23,8 @@ const GITHUB_FILE_MAX_SIZE = 10 * 1024 * 1024;
  * @param {string} errorMessage - The error message to display
  * @returns {Promise<boolean>} True if user agrees, false otherwise
  */
-export const promptUserForIssueCreation = async (errorMessage) => {
-  return new Promise((resolve) => {
+export const promptUserForIssueCreation = async errorMessage => {
+  return new Promise(resolve => {
     const rl = createInterface({
       input: process.stdin,
       output: process.stdout
@@ -37,7 +37,7 @@ export const promptUserForIssueCreation = async (errorMessage) => {
       console.log('\n✅ Error reported to Sentry successfully');
     }
 
-    rl.question('\n❓ Would you like to create a GitHub issue for this error? (y/n): ', (answer) => {
+    rl.question('\n❓ Would you like to create a GitHub issue for this error? (y/n): ', answer => {
       rl.close();
       resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
     });
@@ -135,7 +135,7 @@ export const formatLogForIssue = async (logContent, logFilePath) => {
  * @param {Object} options.context - Additional context about the error
  * @returns {Promise<string|null>} Issue URL or null on failure
  */
-export const createIssueForError = async (options) => {
+export const createIssueForError = async options => {
   const { error, errorType, logFile, context = {} } = options;
 
   try {
@@ -192,7 +192,8 @@ export const createIssueForError = async (options) => {
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
     await fs.writeFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    const result =
+      await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
 
     await fs.unlink(tempBodyFile).catch(() => {});
 
@@ -225,7 +226,7 @@ export const createIssueForError = async (options) => {
  * @param {boolean} options.skipPrompt - Skip user prompt (for non-interactive mode)
  * @returns {Promise<string|null>} Issue URL if created, null otherwise
  */
-export const handleErrorWithIssueCreation = async (options) => {
+export const handleErrorWithIssueCreation = async options => {
   const { error, errorType, logFile, context = {}, skipPrompt = false } = options;
 
   if (skipPrompt) {
@@ -240,7 +241,7 @@ export const handleErrorWithIssueCreation = async (options) => {
   return await createIssueForError({
     error,
     errorType,
-    logFile: logFile || await getAbsoluteLogPath(),
+    logFile: logFile || (await getAbsoluteLogPath()),
     context
   });
 };

@@ -47,7 +47,8 @@ function findResultLine(stdout) {
 try {
   // Test 1: Extract session ID from JSON output
   console.log('1. Creating initial session and extracting ID...');
-  const result1 = await $`${claude} -p "Hello, remember this: my favorite color is blue" --output-format stream-json --verbose --model sonnet`;
+  const result1 =
+    await $`${claude} -p "Hello, remember this: my favorite color is blue" --output-format stream-json --verbose --model sonnet`;
   const sessionId = parseJsonLine(result1.stdout, 0, 'session_id');
   console.log(`   ✅ Session ID extracted: ${sessionId}\n`);
 
@@ -55,18 +56,20 @@ try {
   console.log('2. Creating session with custom ID (UUIDv7)...');
   const customId = uuidv7();
   console.log(`   Generated UUIDv7: ${customId}`);
-  const result2 = await $`${claude} --session-id ${customId} -p "My favorite number is 42" --output-format stream-json --verbose --model sonnet`;
+  const result2 =
+    await $`${claude} --session-id ${customId} -p "My favorite number is 42" --output-format stream-json --verbose --model sonnet`;
   const customSessionId = parseJsonLine(result2.stdout, 0, 'session_id');
   console.log(`   ✅ Custom session created: ${customSessionId}`);
   console.log(`   ✅ ID matches expected: ${customId === customSessionId ? 'YES' : 'NO'}\n`);
 
   // Test 3: Resume session (context restoration)
   console.log('3. Testing session restoration with --resume...');
-  const result3 = await $`${claude} --resume ${sessionId} -p "What is my favorite color?" --output-format stream-json --verbose --model sonnet`;
+  const result3 =
+    await $`${claude} --resume ${sessionId} -p "What is my favorite color?" --output-format stream-json --verbose --model sonnet`;
   const resumedSessionId = parseJsonLine(result3.stdout, 0, 'session_id');
   const resultData = findResultLine(result3.stdout);
   const response = resultData.result;
-  
+
   console.log(`   ✅ Resumed from: ${sessionId}`);
   console.log(`   ✅ New session ID: ${resumedSessionId}`);
   console.log(`   ✅ Context restored: ${response.toLowerCase().includes('blue') ? 'YES' : 'NO'}`);
@@ -76,7 +79,8 @@ try {
   console.log('4. Creating another session with new UUIDv7...');
   const anotherCustomId = uuidv7();
   console.log(`   Generated UUIDv7: ${anotherCustomId}`);
-  const result4 = await $`${claude} --session-id ${anotherCustomId} -p "Testing unique session" --output-format stream-json --verbose --model sonnet`;
+  const result4 =
+    await $`${claude} --session-id ${anotherCustomId} -p "Testing unique session" --output-format stream-json --verbose --model sonnet`;
   const anotherSessionId = parseJsonLine(result4.stdout, 0, 'session_id');
   console.log(`   ✅ Another session created: ${anotherSessionId}`);
   console.log(`   ✅ ID matches expected: ${anotherCustomId === anotherSessionId ? 'YES' : 'NO'}\n`);
@@ -88,7 +92,6 @@ try {
   console.log('✅ Session restoration works with --resume (creates new ID but keeps context)');
   console.log('✅ Context is maintained across resumed sessions');
   console.log('✅ JSON parsing is robust with proper error handling');
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   if (error.stack) {

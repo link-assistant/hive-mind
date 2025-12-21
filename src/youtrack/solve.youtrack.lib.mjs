@@ -7,12 +7,7 @@
 
 // Import YouTrack-related functions
 const youTrackLib = await import('./youtrack.lib.mjs');
-const {
-  parseYouTrackIssueId,
-  updateYouTrackIssueStage,
-  addYouTrackComment,
-  createYouTrackConfigFromEnv
-} = youTrackLib;
+const { parseYouTrackIssueId, updateYouTrackIssueStage, addYouTrackComment, createYouTrackConfigFromEnv } = youTrackLib;
 
 /**
  * Validates YouTrack URLs and extracts issue information

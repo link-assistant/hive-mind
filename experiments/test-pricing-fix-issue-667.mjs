@@ -12,7 +12,7 @@
 import { formatNumber, calculateModelCost } from '../src/claude.lib.mjs';
 
 console.log('🧪 Testing Issue #667 Pricing Calculation Fixes\n');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 // Test 1: Number Formatting
 console.log('\n📊 Test 1: Number Formatting (spaces, no commas)');
@@ -29,7 +29,7 @@ const numberTests = [
   { input: 123, expected: '123', label: 'Three digits' },
   { input: 1234, expected: '1 234', label: 'Four digits' },
   { input: 12345, expected: '12 345', label: 'Five digits' },
-  { input: 1234567890, expected: '1 234 567 890', label: 'Large number' },
+  { input: 1234567890, expected: '1 234 567 890', label: 'Large number' }
 ];
 
 let passed = 0;
@@ -53,10 +53,10 @@ console.log('-'.repeat(60));
 
 const decimalTests = [
   { input: 1.932214, label: 'Total cost' },
-  { input: 0.456360, label: 'Cache write cost' },
+  { input: 0.45636, label: 'Cache write cost' },
   { input: 1.381814, label: 'Cache read cost' },
-  { input: 0.001290, label: 'Input cost' },
-  { input: 0.084975, label: 'Output cost' },
+  { input: 0.00129, label: 'Input cost' },
+  { input: 0.084975, label: 'Output cost' }
 ];
 
 decimalTests.forEach(({ input, label }) => {
@@ -83,7 +83,7 @@ const edgeCases = [
   { input: null, expected: 'N/A', label: 'Null value' },
   { input: undefined, expected: 'N/A', label: 'Undefined value' },
   { input: 0, expected: '0', label: 'Zero' },
-  { input: -1234, expected: '-1 234', label: 'Negative number' },
+  { input: -1234, expected: '-1 234', label: 'Negative number' }
 ];
 
 edgeCases.forEach(({ input, expected, label }) => {
@@ -106,19 +106,19 @@ const formulaTests = [
   {
     tokens: 4606045,
     pricePerM: 0.3,
-    expected: 1.381814,  // Rounded to 6 decimals
+    expected: 1.381814, // Rounded to 6 decimals
     label: 'Cache read: 4 606 045 tokens × $0.3/M'
   },
   {
     tokens: 121696,
     pricePerM: 3.75,
-    expected: 0.456360,
+    expected: 0.45636,
     label: 'Cache write: 121 696 tokens × $3.75/M'
   },
   {
     tokens: 430,
     pricePerM: 3,
-    expected: 0.001290,
+    expected: 0.00129,
     label: 'Input: 430 tokens × $3/M'
   },
   {
@@ -126,7 +126,7 @@ const formulaTests = [
     pricePerM: 15,
     expected: 0.084975,
     label: 'Output: 5 665 tokens × $15/M'
-  },
+  }
 ];
 
 formulaTests.forEach(({ tokens, pricePerM, expected, label }) => {
@@ -178,13 +178,21 @@ console.log('');
 
 if (costResult && costResult.breakdown) {
   const breakdown = costResult.breakdown;
-  const expectedTotal = 1.924439;  // Sum of all costs
+  const expectedTotal = 1.924439; // Sum of all costs
 
   console.log(`  Breakdown:`);
-  console.log(`    Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`);
-  console.log(`    Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`);
-  console.log(`    Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`);
-  console.log(`    Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`);
+  console.log(
+    `    Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`
+  );
+  console.log(
+    `    Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`
+  );
+  console.log(
+    `    Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`
+  );
+  console.log(
+    `    Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`
+  );
   console.log(`    Total: $${costResult.total.toFixed(6)}`);
 
   const totalMatch = Math.abs(costResult.total - expectedTotal) < 0.000001;
@@ -193,7 +201,9 @@ if (costResult && costResult.breakdown) {
     console.log(`  ✅ Total cost calculation correct`);
   } else {
     failed++;
-    console.log(`  ❌ Total cost calculation incorrect: expected $${expectedTotal.toFixed(6)}, got $${costResult.total.toFixed(6)}`);
+    console.log(
+      `  ❌ Total cost calculation incorrect: expected $${expectedTotal.toFixed(6)}, got $${costResult.total.toFixed(6)}`
+    );
   }
 } else {
   failed++;
@@ -213,15 +223,18 @@ Context window: ${formatNumber(200000)} tokens
 `;
 
 const hasCommasInOutput = sampleOutput.includes(',') && !sampleOutput.includes('$'); // Allow commas in labels, not in numbers
-const outputClean = !(/\d,\d/.test(sampleOutput)); // Check for digit-comma-digit pattern
+const outputClean = !/\d,\d/.test(sampleOutput); // Check for digit-comma-digit pattern
 
 if (outputClean) {
   passed++;
   console.log(`  ✅ Sample output contains no numeric commas`);
   console.log(`  Sample output:`);
-  sampleOutput.split('\n').filter(l => l.trim()).forEach(line => {
-    console.log(`    ${line.trim()}`);
-  });
+  sampleOutput
+    .split('\n')
+    .filter(l => l.trim())
+    .forEach(line => {
+      console.log(`    ${line.trim()}`);
+    });
 } else {
   failed++;
   console.log(`  ❌ Sample output contains numeric commas`);

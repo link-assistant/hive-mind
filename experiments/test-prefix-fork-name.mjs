@@ -94,12 +94,7 @@ for (const testCase of testCases) {
   console.log(`\nTest: ${testCase.name}`);
   console.log('-'.repeat(80));
 
-  const result = testForkNaming(
-    testCase.argv,
-    testCase.owner,
-    testCase.repo,
-    testCase.currentUser
-  );
+  const result = testForkNaming(testCase.argv, testCase.owner, testCase.repo, testCase.currentUser);
 
   let testPassed = true;
 

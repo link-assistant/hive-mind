@@ -29,12 +29,16 @@ const testCasesDefault = [
 // Test cases with preserveCodeBlocks: true (preserving inline code)
 const testCasesWithPreserve = [
   {
-    input: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
-    expected: 'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
+    input:
+      'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+    expected:
+      'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
   },
   {
-    input: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
-    expected: 'Claude authentication expired\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
+    input:
+      'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+    expected:
+      'Claude authentication expired\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
   },
   {
     input: 'Text with `code` in the middle',

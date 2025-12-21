@@ -15,7 +15,10 @@ const testRepoOwner = 'konard';
 const testRepoName = 'test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5';
 
 try {
-  const repoInfo = execSync(`gh api repos/${testRepoOwner}/${testRepoName} --jq '{name: .name, archived: .archived, has_issues: .has_issues}'`, { encoding: 'utf8' });
+  const repoInfo = execSync(
+    `gh api repos/${testRepoOwner}/${testRepoName} --jq '{name: .name, archived: .archived, has_issues: .has_issues}'`,
+    { encoding: 'utf8' }
+  );
   const repo = JSON.parse(repoInfo);
   console.log(`  Repository: ${testRepoOwner}/${testRepoName}`);
   console.log(`  Is archived: ${repo.archived}`);
@@ -29,7 +32,10 @@ try {
 // Test case 2: Check if search API returns repository archived status
 console.log('📋 Test 2: Check if search API includes repository.isArchived field');
 try {
-  const searchResult = execSync(`gh search issues repo:${testRepoOwner}/${testRepoName} is:open --json url,title,number,repository --limit 5`, { encoding: 'utf8' });
+  const searchResult = execSync(
+    `gh search issues repo:${testRepoOwner}/${testRepoName} is:open --json url,title,number,repository --limit 5`,
+    { encoding: 'utf8' }
+  );
   const issues = JSON.parse(searchResult);
 
   if (issues.length > 0) {
@@ -62,7 +68,10 @@ try {
 } catch (error) {
   // Alternative: just try to get issues and see what fields are available
   try {
-    const searchResult = execSync(`gh search issues repo:${testRepoOwner}/${testRepoName} is:open --limit 1 --json url,title,number,repository`, { encoding: 'utf8' });
+    const searchResult = execSync(
+      `gh search issues repo:${testRepoOwner}/${testRepoName} is:open --limit 1 --json url,title,number,repository`,
+      { encoding: 'utf8' }
+    );
     const issues = JSON.parse(searchResult);
     if (issues.length > 0 && issues[0].repository) {
       console.log('  Repository object keys:', Object.keys(issues[0].repository).join(', '));

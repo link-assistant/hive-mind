@@ -86,7 +86,7 @@ console.log('The function only exits (process.exit) when:');
 console.log('- All retry attempts are exhausted (line 144)');
 console.log('- Fork exists but is not accessible after verification retries (line 175)');
 console.log('');
-console.log('This ensures workers don\'t fail unnecessarily in concurrent scenarios.');
+console.log("This ensures workers don't fail unnecessarily in concurrent scenarios.");
 console.log('');
 
 console.log('✅ Implementation complete and ready for testing in production!');

@@ -4,71 +4,18 @@
  * Validate changeset for CI - ensures exactly one valid changeset exists
  */
 
-import { readdirSync, readFileSync, existsSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
 
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 try {
   // Count changeset files (excluding README.md and config.json)
   const changesetDir = '.changeset';
-
-  // In PR context, only count NEW changesets added by this PR
-  // This prevents failures when main branch has unreleased changesets
-  let changesetFiles;
-
-  // Check if we're in a PR context by looking for base branch
-  // In GitHub Actions, GITHUB_BASE_REF contains the base branch name (e.g., "main")
-  const baseBranchName = process.env.GITHUB_BASE_REF;
-
-  if (baseBranchName) {
-    // We're in a PR context in GitHub Actions
-    console.log(`Detected PR context, base branch: ${baseBranchName}`);
-
-    try {
-      // First, ensure we have the base branch
-      // GitHub Actions checks out with fetch-depth: 0, but may not have the remote ref
-      execSync(`git fetch origin ${baseBranchName}:refs/remotes/origin/${baseBranchName}`, { stdio: 'pipe' });
-      console.log(`Fetched origin/${baseBranchName}`);
-    } catch (fetchError) {
-      // Branch might already exist, that's ok
-      console.log(`Base branch already available or fetch not needed`);
-    }
-
-    try {
-      // Get list of changeset files added in this PR
-      // Use origin/baseBranchName since we're comparing against the remote branch
-      const gitDiff = execSync(`git diff --name-only --diff-filter=A origin/${baseBranchName}...HEAD -- .changeset/`, { encoding: 'utf-8' });
-      const addedChangesets = gitDiff
-        .split('\n')
-        .filter(file => file.trim() && file.endsWith('.md') && !file.endsWith('README.md'))
-        .map(file => file.replace('.changeset/', ''));
-
-      if (addedChangesets.length > 0) {
-        console.log(`Found ${addedChangesets.length} NEW changeset file(s) added by this PR`);
-        changesetFiles = addedChangesets;
-      } else {
-        // Fallback: check all changesets (for non-PR contexts or when git diff fails)
-        console.log('No new changesets detected via git diff, checking all changesets in directory');
-        changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
-        console.log(`Found ${changesetFiles.length} total changeset file(s) in directory`);
-      }
-    } catch (gitError) {
-      // If git diff fails, fall back to checking all files
-      console.log(`Git diff failed: ${gitError.message}`);
-      console.log('Falling back to checking all changesets in directory');
-      changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
-      console.log(`Found ${changesetFiles.length} changeset file(s)`);
-    }
-  } else {
-    // Not in a PR context, check all changesets
-    console.log('Not in PR context (GITHUB_BASE_REF not set), checking all changesets');
-    changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
-    console.log(`Found ${changesetFiles.length} changeset file(s)`);
-  }
+  const changesetFiles = readdirSync(changesetDir).filter(file => file.endsWith('.md') && file !== 'README.md');
 
   const changesetCount = changesetFiles.length;
+  console.log(`Found ${changesetCount} changeset file(s)`);
 
   // Ensure exactly one changeset file exists
   if (changesetCount === 0) {

@@ -22,6 +22,7 @@ When running the Perl version check command, the following error appears:
 ## Timeline of Events
 
 ### 1. Initial Setup
+
 - The ubuntu-24-server-install.sh script installs Perlbrew (lines 1022-1097)
 - Perlbrew configuration is added to $HOME/.bashrc (lines 1030-1038)
 - The following lines are added to .bashrc:
@@ -32,10 +33,12 @@ When running the Perl version check command, the following error appears:
   ```
 
 ### 2. Perl Installation
+
 - Perlbrew installs the latest Perl version (perl-5.42.0 in this case)
 - The installation completes successfully
 
 ### 3. Version Check Execution
+
 - Script runs: `perl --version` at line 1318
 - This command is executed in a subshell (command substitution)
 - The subshell sources the user's .bashrc (interactive shell setup)
@@ -77,74 +80,92 @@ From web searches, I discovered:
 ## Code Locations
 
 ### Where the Error Occurs
+
 - **File:** `scripts/ubuntu-24-server-install.sh`
 - **Line:** 1318
 - **Code:** `log_success "Perl: $(perl --version | head -n 2 | tail -n 1 | sed 's/^[[:space:]]*//')"`
 
 ### Perlbrew Installation Code
+
 - **File:** `scripts/ubuntu-24-server-install.sh`
 - **Lines:** 1022-1097 (full Perlbrew installation section)
 - **Lines:** 1030-1038 (bashrc modification)
 - **Lines:** 1041-1043 (bashrc sourcing)
 
 ### Version Check Section
+
 - **File:** `scripts/ubuntu-24-server-install.sh`
 - **Lines:** 1317-1322 (Perl and Perlbrew version checks)
 
 ## Potential Solutions
 
 ### Option 1: Fix the Command to Avoid Sourcing .bashrc
+
 Use a non-interactive shell or prevent .bashrc sourcing during version check.
 
 **Pros:**
+
 - Minimal changes to existing code
 - Avoids triggering perlbrew initialization unnecessarily
 
 **Cons:**
+
 - May not show the correct Perl version if perlbrew environment is needed
 
 ### Option 2: Protect the Source Command
+
 Wrap the perlbrew source command in .bashrc with guards to prevent execution in non-interactive contexts.
 
 **Pros:**
+
 - Follows shell scripting best practices
 - Prevents perlbrew initialization in inappropriate contexts
 
 **Cons:**
+
 - Requires modifying .bashrc during installation
 - May affect perlbrew functionality in some edge cases
 
 ### Option 3: Source Perlbrew with Error Suppression
+
 Modify how we source the perlbrew bashrc to handle unbound variables gracefully.
 
 **Pros:**
+
 - Direct solution to the immediate problem
 - Maintains all functionality
 
 **Cons:**
+
 - May hide other legitimate errors
 
 ### Option 4: Switch from Perlbrew to Homebrew
+
 As suggested in the issue, consider using Homebrew for Perl installation instead of Perlbrew.
 
 **Pros:**
+
 - Consistent with other runtime/tool installation methods in the project
 - Homebrew has better integration with modern shell practices
 - No .bashrc modification needed for basic usage
 
 **Cons:**
+
 - Larger change to the installation process
 - Would need testing to ensure Perl modules work correctly
 - May require changes to how Perl environment is managed
 
 ### Option 5: Fix Perlbrew Bashrc Directly
+
 Modify the perlbrew bashrc file after installation to use `${1:-}` instead of `$1`.
 
 **Pros:**
+
 - Addresses the root cause directly
 - Standard bash practice for handling optional parameters
 
 **Cons:**
+
 - Modifying third-party files (perlbrew's bashrc)
 - May be overwritten by perlbrew updates
 - Need to identify exact location of the error
@@ -156,6 +177,7 @@ Based on the analysis, I recommend **Option 2** (Protect the Source Command) as 
 ### Implementation Plan:
 
 1. **Modify .bashrc additions** (lines 1032-1037 in ubuntu-24-server-install.sh):
+
    ```bash
    echo ''
    echo '# Perlbrew configuration'
@@ -178,11 +200,13 @@ Based on the analysis, I recommend **Option 2** (Protect the Source Command) as 
 ## Alternative Consideration: Homebrew Migration
 
 If the perlbrew issues persist or prove difficult to resolve, switching to Homebrew for Perl installation should be considered. This would:
+
 - Align with project practices (Homebrew is mentioned for other tools)
 - Eliminate bashrc modification requirements
 - Provide simpler, more predictable Perl installation
 
 However, this would require:
+
 - Research into Homebrew Perl package availability
 - Testing of Perl module installation with Homebrew
 - Verification that all project Perl dependencies work correctly

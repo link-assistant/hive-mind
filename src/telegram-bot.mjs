@@ -47,6 +47,9 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 // Import Claude limits library for /limits command
 const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
+// Import version info library for /version command
+const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+
 // Import Telegram markdown escaping utilities
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 
@@ -638,7 +641,8 @@ function validateGitHubUrl(args, options = {}) {
   if (!parsed.valid) {
     return {
       valid: false,
-      error: parsed.error || 'Invalid GitHub URL'
+      error: parsed.error || 'Invalid GitHub URL',
+      suggestion: parsed.suggestion
     };
   }
 
@@ -761,11 +765,9 @@ bot.command('help', async (ctx) => {
   }
 
   message += '*/limits* - Show Claude usage limits\n';
-  message += 'Usage: `/limits`\n';
-  message += 'Shows current session and weekly usage percentages\n\n';
-
+  message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive and /limits commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
   message += '• `--fork` - Fork the repository\n';
   message += '• `--auto-fork` - Automatically fork public repos without write access\n';
@@ -874,7 +876,18 @@ bot.command('limits', async (ctx) => {
     { parse_mode: 'Markdown' }
   );
 });
-
+bot.command('version', async (ctx) => {
+  VERBOSE && console.log('[VERBOSE] /version command received');
+  await addBreadcrumb({ category: 'telegram.command', message: '/version command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
+  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  const chatId = ctx.chat.id;
+  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Gathering version information...', { reply_to_message_id: ctx.message.message_id });
+  const result = await getVersionInfo(VERBOSE);
+  if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
+});
 bot.command(/^solve$/i, async (ctx) => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
@@ -987,7 +1000,12 @@ bot.command(/^solve$/i, async (ctx) => {
 
   const validation = validateGitHubUrl(userArgs);
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/solve https://github.com/owner/repo/issues/123\`\n\nOr reply to a message containing a GitHub link with \`/solve\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1136,7 +1154,12 @@ bot.command(/^hive$/i, async (ctx) => {
     exampleUrl: 'https://github.com/owner/repo'
   });
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/hive https://github.com/owner/repo\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1214,45 +1237,37 @@ bot.command(/^hive$/i, async (ctx) => {
   }
 });
 
+// Register /top command from separate module
+// This keeps telegram-bot.mjs under the 1500 line limit
+const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
+registerTopCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized
+});
+
 // Add message listener for verbose debugging
-// This helps diagnose if bot is receiving messages at all
 if (VERBOSE) {
   bot.on('message', (ctx, next) => {
-    console.log('[VERBOSE] Message received:');
-    console.log('[VERBOSE]   Chat ID:', ctx.chat?.id);
-    console.log('[VERBOSE]   Chat type:', ctx.chat?.type);
-    console.log('[VERBOSE]   Is forum:', ctx.chat?.is_forum);
-    console.log('[VERBOSE]   Is topic message:', ctx.message?.is_topic_message);
-    console.log('[VERBOSE]   Message thread ID:', ctx.message?.message_thread_id);
-    console.log('[VERBOSE]   Message date:', ctx.message?.date);
-    console.log('[VERBOSE]   Message text:', ctx.message?.text?.substring(0, 100));
-    console.log('[VERBOSE]   From user:', ctx.from?.username || ctx.from?.id);
-    console.log('[VERBOSE]   Bot start time:', BOT_START_TIME);
-    console.log('[VERBOSE]   Is old message:', isOldMessage(ctx));
-
-    // Detailed forwarding/reply detection debug info
     const msg = ctx.message;
-    const isForwarded = isForwardedOrReply(ctx);
-    console.log('[VERBOSE]   Is forwarded/reply:', isForwarded);
+    console.log('[VERBOSE] Message:', {
+      chatId: ctx.chat?.id, chatType: ctx.chat?.type, isForum: ctx.chat?.is_forum,
+      isTopicMsg: msg?.is_topic_message, threadId: msg?.message_thread_id, date: msg?.date,
+      text: msg?.text?.substring(0, 100), user: ctx.from?.username || ctx.from?.id,
+      botStartTime: BOT_START_TIME, isOld: isOldMessage(ctx), isForwarded: isForwardedOrReply(ctx),
+      isAuthorized: isChatAuthorized(ctx.chat?.id)
+    });
     if (msg) {
-      // Log ALL message fields to diagnose what Telegram is actually sending
-      console.log('[VERBOSE]   Full message object keys:', Object.keys(msg));
-      console.log('[VERBOSE]     - forward_origin:', JSON.stringify(msg.forward_origin));
-      console.log('[VERBOSE]     - forward_origin type:', typeof msg.forward_origin);
-      console.log('[VERBOSE]     - forward_origin truthy?:', !!msg.forward_origin);
-      console.log('[VERBOSE]     - forward_origin.type:', msg.forward_origin?.type);
-      console.log('[VERBOSE]     - forward_from:', JSON.stringify(msg.forward_from));
-      console.log('[VERBOSE]     - forward_from_chat:', JSON.stringify(msg.forward_from_chat));
-      console.log('[VERBOSE]     - forward_date:', msg.forward_date);
-      console.log('[VERBOSE]     - reply_to_message:', JSON.stringify(msg.reply_to_message));
-      console.log('[VERBOSE]     - reply_to_message type:', typeof msg.reply_to_message);
-      console.log('[VERBOSE]     - reply_to_message truthy?:', !!msg.reply_to_message);
-      console.log('[VERBOSE]     - reply_to_message.message_id:', msg.reply_to_message?.message_id);
-      console.log('[VERBOSE]     - reply_to_message.forum_topic_created:', JSON.stringify(msg.reply_to_message?.forum_topic_created));
+      console.log('[VERBOSE] Msg fields:', Object.keys(msg));
+      console.log('[VERBOSE] Forward/reply:', {
+        forward_origin: msg.forward_origin, forward_from: msg.forward_from,
+        forward_from_chat: msg.forward_from_chat, forward_date: msg.forward_date,
+        reply_to_message: msg.reply_to_message, reply_id: msg.reply_to_message?.message_id,
+        forum_topic_created: msg.reply_to_message?.forum_topic_created
+      });
     }
-
-    console.log('[VERBOSE]   Is authorized:', isChatAuthorized(ctx.chat?.id));
-    // Continue to next handler
     return next();
   });
 }
@@ -1261,14 +1276,12 @@ if (VERBOSE) {
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
   console.error('Error:', error);
-
   // Log detailed error information
   console.error('Error details:', {
     name: error.name,
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
-
   // Log context information for debugging
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {
@@ -1380,9 +1393,9 @@ bot.telegram.deleteWebhook({ drop_pending_updates: true })
       });
     }
     return bot.launch({
-      // Only receive message updates (commands, text messages)
-      // This ensures the bot receives all message types including commands
-      allowedUpdates: ['message'],
+      // Receive message updates (commands, text messages) and callback queries (button clicks)
+      // This ensures the bot receives all message types including commands and button interactions
+      allowedUpdates: ['message', 'callback_query'],
       // Drop any pending updates that were sent before the bot started
       // This ensures we only process new messages sent after this bot instance started
       dropPendingUpdates: true

@@ -208,6 +208,11 @@ export const createYargsConfig = (yargsInstance) => {
       choices: ['low', 'medium', 'high', 'max'],
       default: undefined
     })
+    .option('prompt-plan-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
+      default: false
+    })
     .option('sentry', {
       type: 'boolean',
       description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
@@ -236,7 +241,27 @@ export const createYargsConfig = (yargsInstance) => {
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
       default: false
     })
-    .option('enable-architecture-care-sub-prompt', {
+    .option('prompt-explore-sub-agent', {
+      type: 'boolean',
+      description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-general-purpose-sub-agent', {
+      type: 'boolean',
+      description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
+      default: false
+    })
+    .option('tokens-budget-stats', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-issue-reporting', {
+      type: 'boolean',
+      description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
+      default: false
+    })
+    .option('prompt-architecture-care', {
       type: 'boolean',
       description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
       default: false

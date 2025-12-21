@@ -2,7 +2,7 @@
  * Architecture care sub-prompt module
  * Provides guidance for managing REQUIREMENTS.md, ARCHITECTURE.md, and TODO.md files
  *
- * This is an experimental feature enabled via --enable-architecture-care-sub-prompt flag
+ * This is an experimental feature enabled via --prompt-architecture-care flag
  */
 
 /**
@@ -39,7 +39,7 @@ TODO.md Workflow Management.
  * @returns {string} The sub-prompt content or empty string if disabled
  */
 export const getArchitectureCareSubPrompt = (argv) => {
-  if (argv && argv.enableArchitectureCareSubPrompt) {
+  if (argv && argv.promptArchitectureCare) {
     return buildArchitectureCareSubPrompt();
   }
   return '';

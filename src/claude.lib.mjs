@@ -13,6 +13,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -361,6 +362,33 @@ export const handleClaudeRuntimeSwitch = async (argv) => {
   }
 };
 /**
+ * Check if Playwright MCP is available and connected to Claude
+ * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
+ */
+export const checkPlaywrightMcpAvailability = async () => {
+  try {
+    // Try to run a simple claude command that would list MCP servers if available
+    // Use a timeout to avoid hanging if Claude is not installed
+    const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
+
+    if (!result || result.code !== 0) {
+      return false;
+    }
+
+    const output = result.stdout?.toString() || '';
+
+    // Check if playwright is in the list of MCP servers
+    if (output.toLowerCase().includes('playwright')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // If any error occurs, assume Playwright MCP is not available
+    return false;
+  }
+};
+/**
  * Execute Claude with all prompts and settings
  * This is the main entry point that handles all prompt building and execution
  * @param {Object} params - Parameters for Claude execution
@@ -493,7 +521,15 @@ export const fetchModelInfo = async (modelId) => {
         res.on('end', () => {
           try {
             const apiData = JSON.parse(data);
-            // Search for the model across all providers
+            // For public pricing calculation, prefer Anthropic provider for Claude models
+            // Check Anthropic provider first
+            if (apiData.anthropic?.models?.[modelId]) {
+              const modelInfo = apiData.anthropic.models[modelId];
+              modelInfo.provider = apiData.anthropic.name || 'Anthropic';
+              resolve(modelInfo);
+              return;
+            }
+            // Search for the model across all other providers
             for (const provider of Object.values(apiData)) {
               if (provider.models && provider.models[modelId]) {
                 const modelInfo = provider.models[modelId];
@@ -1244,6 +1280,10 @@ export const executeClaudeCommand = async (params) => {
               const usage = tokenUsage.modelUsage[modelId];
               await log(`\n   📊 ${usage.modelName || modelId}:`);
               await displayModelUsage(usage, log);
+              // Display budget stats if flag is enabled
+              if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
+                await displayBudgetStats(usage, log);
+              }
             }
             // Show totals if multiple models were used
             if (modelIds.length > 1) {

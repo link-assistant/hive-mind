@@ -174,6 +174,38 @@ According to [GitHub discussions](https://github.com/rocq-prover/rocq/issues/200
 3. **CI should verify, not assume** - Optional treatment of required tools leads to broken installations
 4. **Documentation is key** - The [official Rocq docs](https://rocq-prover.org/docs/using-opam) clearly state to verify with `rocq -v`
 
+## Final Findings (from CI Diagnostics)
+
+After implementing diagnostic output in the CI, we discovered the **true root cause**:
+
+```
+Checking Rocq/Coq...
+Rocq/Coq verification: checking opam installation...
+rocq-prover package is installed in opam
+Opam bin directory contents:
+No rocq/coq binaries found in opam bin
+Trying: eval $(opam env) && rocq -v
+bash: line 336: rocq: command not found
+Still not accessible after eval opam env
+WARNING: Rocq/Coq not accessible in container
+```
+
+**Key Findings:**
+1. The `rocq-prover` package IS installed in opam
+2. But there are NO rocq/coq binaries in `~/.opam/default/bin/`
+3. Even `eval $(opam env)` doesn't make rocq accessible
+4. The `rocq-prover` is a **meta-package** that depends on `rocq-core` and `rocq-stdlib`
+5. The actual binary installation may have failed or the package structure doesn't include CLI tools
+
+**This is a deeper issue with the opam package or installation process**, not just a PATH/environment issue.
+
 ## Conclusion
 
-The Rocq installation appears successful during the build but fails at runtime because the opam environment isn't properly initialized in new shells. The fix requires ensuring proper opam environment initialization AND changing CI to treat Rocq as a required tool (since it's being installed intentionally).
+The investigation revealed that:
+
+1. **The original issue was correct** - Rocq verification was not working properly
+2. **Our fix improved verification** - We now properly source opam env and check multiple command names (rocq, rocqc, coqc)
+3. **We added diagnostic output** - The CI now provides detailed information when Rocq is not accessible
+4. **The underlying problem is deeper** - The `rocq-prover` package may not be providing the expected binaries
+
+**Recommendation**: Investigate why `rocq-prover` opam package doesn't install binaries to `~/.opam/default/bin/`. This may require checking opam installation logs during build or investigating the package dependencies.

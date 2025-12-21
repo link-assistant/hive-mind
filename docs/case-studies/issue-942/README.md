@@ -67,41 +67,65 @@ When showing the resume command, the working directory path should also be menti
 - Total cost: $9.264664 USD
 - Duration: ~25 minutes (1,489,478 ms)
 
-## Proposed Solution
+## Implemented Solution
 
 ### Fix Overview
 
-Add a console message showing:
-1. The working directory path
-2. A copyable resume command using `solve.mjs`
-3. An optional command with `--auto-continue-on-limit-reset`
+The fix adds a Claude resume command at the end of **every** session (success, failure, or usage limit reached) using the `(cd ... && claude --resume ...)` pattern. This allows users to:
 
-### Expected Console Output After Fix
+1. Investigate sessions interactively in Claude Code
+2. Resume from where they left off
+3. See full context and history
+4. Debug issues
 
+### Console Output After Fix
+
+**On Success:**
+```
+=== Session Summary ===
+✅ Session ID: 4c549ec6-3204-4312-b8e2-5f04113b2f86
+✅ Complete log file: /path/to/log.log
+
+💡 To continue this session in Claude Code interactive mode:
+
+   (cd "/tmp/gh-issue-solver-1766082400215" && claude --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86)
+
+ℹ️  Note: Temporary directory will be automatically cleaned up.
+   To keep the directory for debugging or resuming, use --no-auto-cleanup
+```
+
+**On Usage Limit Reached:**
 ```
 ❌ USAGE LIMIT REACHED!
    The AI tool has reached its usage limit.
 
 📁 Working directory: /tmp/gh-issue-solver-1766082400215
 📌 Session ID: 4c549ec6-3204-4312-b8e2-5f04113b2f86
+⏰ Limit resets at: 8:00 PM
 
-🔄 To resume manually after the limit resets, run:
-   ./solve.mjs "https://github.com/objectionary/eo2js/pull/190" --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86
+💡 To continue this session in Claude Code interactive mode:
+
+   (cd "/tmp/gh-issue-solver-1766082400215" && claude --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86)
+
+🔄 To resume via solve.mjs after the limit resets, run:
+   node src/solve.mjs "https://github.com/..." --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86
 
 💡 Or enable auto-continue-on-limit-reset to wait automatically:
-   ./solve.mjs "https://github.com/objectionary/eo2js/pull/190" --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86 --auto-continue-on-limit-reset
+   node src/solve.mjs "https://github.com/..." --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86 --auto-continue-on-limit-reset
+```
+
+**On Failure:**
+```
+💡 To continue this session in Claude Code interactive mode:
+
+   (cd "/tmp/gh-issue-solver-1766082400215" && claude --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86)
 ```
 
 ## Implementation Details
 
-**File to modify**: `src/solve.mjs`
-
-**Changes needed at line ~875-929**:
-- After logging `USAGE LIMIT REACHED`, add:
-  1. Working directory path
-  2. Session ID
-  3. Manual resume command
-  4. Auto-continue variant of the command
+**Files modified**:
+- `src/solve.mjs` - Added claude resume command in limit-reached and failure scenarios
+- `src/solve.results.lib.mjs` - Modified `showSessionSummary()` to always show claude resume command
 
 ## References
 

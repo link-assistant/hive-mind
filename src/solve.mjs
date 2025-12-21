@@ -885,7 +885,12 @@ try {
           await log(`⏰ Limit resets at: ${resetTime}`);
         }
         await log('');
-        await log('🔄 To resume manually after the limit resets, run:');
+        // Always show claude resume command for interactive investigation/resumption
+        await log('💡 To continue this session in Claude Code interactive mode:');
+        await log('');
+        await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+        await log('');
+        await log('🔄 To resume via solve.mjs after the limit resets, run:');
         await log(`   ${process.argv[0]} ${process.argv[1]} "${issueUrl}" --resume ${sessionId}`);
         await log('');
         await log('💡 Or enable auto-continue-on-limit-reset to wait automatically:');
@@ -1015,6 +1020,15 @@ try {
   }
 
   if (!success) {
+    // Always show claude resume command for interactive investigation/resumption on failure
+    if (sessionId) {
+      await log('');
+      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('');
+      await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+      await log('');
+    }
+
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
     if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');

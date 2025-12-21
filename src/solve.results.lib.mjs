@@ -342,37 +342,40 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
+    // Always show claude resume command at the end of every session
+    // This allows users to investigate, resume, see context, and more
+    await log('');
+    await log('💡 To continue this session in Claude Code interactive mode:');
+    await log('');
+    await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+    await log('');
+
     if (limitReached) {
-      await log('\n⏰ LIMIT REACHED DETECTED!');
+      await log('⏰ LIMIT REACHED DETECTED!');
 
       if (argv.autoContinueOnLimitReset && global.limitResetTime) {
         await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
-        // Only show resume recommendation if --no-auto-cleanup was passed
-        if (argv.autoCleanup === false) {
-          await log('\n🔄 To resume when limit resets, use:\n');
-          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+        await log('\n🔄 To resume via solve.mjs when limit resets, use:\n');
+        await log(`   ./solve.mjs "${issueUrl}" --resume ${sessionId}`);
 
-          if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
-          }
+        if (global.limitResetTime) {
+          await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
+          await log(`   ./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
+        }
 
-          await log('\n   This will continue from where it left off with full context.\n');
-        } else {
-          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        await log('\n   This will continue from where it left off with full context.\n');
+
+        if (argv.autoCleanup !== false) {
+          await log('⚠️  Note: Temporary directory will be automatically cleaned up.');
           await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
         }
       }
     } else {
-      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
-      if (argv.autoCleanup === false) {
-        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-        await log('');
-      } else {
-        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+      // Show note about auto-cleanup only when enabled
+      if (argv.autoCleanup !== false) {
+        await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');
         await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
       }
     }

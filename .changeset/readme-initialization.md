@@ -2,21 +2,20 @@
 "@link-assistant/hive-mind": patch
 ---
 
-Add automatic README.md initialization for repositories without README
+Enhance README.md initialization for empty repositories
 
-This release adds automatic README.md creation for repositories that don't have one after cloning. This feature ensures all repositories have proper documentation from the start and complements the existing empty repository handling.
+This release enhances the existing empty repository handling to include repository description in the auto-generated README.md file. When the solve command encounters an empty repository that cannot be forked, it now creates a more descriptive README with both the repository title and description (if available).
 
-**New Features:**
-- Automatic detection of missing README.md after cloning
-- Creates README with repository title and description (if available)
-- Commits and pushes the README to the default branch
-- Graceful handling of permission errors (commits locally if push fails)
-- Works with both direct repository access and fork workflows
+**Enhanced Features:**
+- Enhanced `tryInitializeEmptyRepository()` to include repository description
+- Creates README with repository title and description (if available) via GitHub API
+- Triggers automatically when fork creation fails due to empty repository
+- Falls back to posting a comment on the issue if write access is not available
 
 **Implementation:**
-- Added `ensureReadmeExists()` function in `src/solve.repository.lib.mjs`
-- Integrated into repository setup flow in `src/solve.repo-setup.lib.mjs`
-- Called automatically after cloning in `setupRepositoryAndClone()`
+- Modified `tryInitializeEmptyRepository()` in `src/solve.repository.lib.mjs`
+- Uses GitHub API to fetch repository description
+- Creates more informative README for empty repositories
 
 **Example README Content:**
 For a repository named `hive-mind` with description "The AI that controls AIs.", the generated README.md will be:
@@ -26,9 +25,7 @@ For a repository named `hive-mind` with description "The AI that controls AIs.",
 The AI that controls AIs.
 ```
 
-**Workflow Support:**
-- Direct access (with write permissions): README is created, committed, and pushed
-- Fork workflow: README is created in the fork and included in PRs
-- Read-only scenario: README is created locally and included in work
+**Use Case:**
+This feature only activates when attempting to fork an empty repository (which GitHub doesn't allow). The solve command will attempt to initialize the repository with a README if the user has write access, making the repository forkable and allowing work to proceed.
 
 Fixes #706

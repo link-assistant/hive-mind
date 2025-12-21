@@ -1,5 +1,20 @@
 # @link-assistant/hive-mind
 
+## 0.48.0
+
+### Minor Changes
+
+- 93ea94b: Add solution drafts listing feature to hive command. When processing completes, hive now displays all completed issues with their linked pull requests before showing the "✅ All issues processed!" message.
+
+### Patch Changes
+
+- a44ab88: Add system prompt guidance to prefer using existing code as examples
+  - Added guideline to encourage searching for similar existing implementations before implementing from scratch
+  - Applied consistently across all three prompt modules (claude, codex, opencode)
+  - Helps maintain consistency with existing patterns and reduces redundant work
+
+- 1bdc96d: Fix --base-branch option to properly create branches from the specified base branch instead of from current HEAD
+
 ## 0.47.1
 
 ### Patch Changes

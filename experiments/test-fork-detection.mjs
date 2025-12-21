@@ -9,8 +9,8 @@ const forkPRData = {
   number: 39,
   mergeStateStatus: 'CLEAN',
   headRepositoryOwner: {
-    login: 'different-user' // Different from repo owner
-  }
+    login: 'different-user', // Different from repo owner
+  },
 };
 
 // Mock GitHub CLI output for non-forked PR
@@ -20,8 +20,8 @@ const normalPRData = {
   number: 176,
   mergeStateStatus: 'CLEAN',
   headRepositoryOwner: {
-    login: 'link-assistant' // Same as repo owner
-  }
+    login: 'link-assistant', // Same as repo owner
+  },
 };
 
 // Test the fork detection logic

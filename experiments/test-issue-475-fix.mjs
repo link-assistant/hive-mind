@@ -33,10 +33,7 @@ if (autoPrLibContent.includes('prNumber,')) {
 
 // Test 2: Verify logic for continue mode without PR
 console.log('\nTest 2: Check continue mode without PR logic');
-if (
-  autoPrLibContent.includes('isContinueMode && !prNumber') ||
-  autoPrLibContent.includes('isContinueMode && prNumber')
-) {
+if (autoPrLibContent.includes('isContinueMode && !prNumber') || autoPrLibContent.includes('isContinueMode && prNumber')) {
   console.log('✅ PASS: Logic handles continue mode with/without PR');
 } else {
   console.log('❌ FAIL: Continue mode PR check not found');
@@ -59,10 +56,7 @@ if (handleCallMatch) {
 
 // Test 4: Verify validation check exists after PR creation
 console.log('\nTest 4: Check PR validation after creation');
-if (
-  solveContent.includes('CRITICAL: Validate that we have a PR number when required') ||
-  solveContent.includes('No pull request available')
-) {
+if (solveContent.includes('CRITICAL: Validate that we have a PR number when required') || solveContent.includes('No pull request available')) {
   console.log('✅ PASS: PR validation check exists');
 } else {
   console.log('❌ FAIL: PR validation check not found');
@@ -118,10 +112,7 @@ if (autoPrLibContent.includes(oldLogic)) {
 
 // Test 9: Verify explicit handling of continue mode with existing PR
 console.log('\nTest 9: Check continue mode with existing PR skip');
-if (
-  autoPrLibContent.includes('Continue mode with existing PR - skip PR creation') ||
-  autoPrLibContent.includes('isContinueMode && prNumber')
-) {
+if (autoPrLibContent.includes('Continue mode with existing PR - skip PR creation') || autoPrLibContent.includes('isContinueMode && prNumber')) {
   console.log('✅ PASS: Explicit skip for continue mode with existing PR');
 } else {
   console.log('❌ FAIL: No explicit skip for continue mode with existing PR');

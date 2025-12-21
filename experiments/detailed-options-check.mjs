@@ -33,7 +33,7 @@ function extractYargsOptions(content, command) {
       name,
       description: descMatch ? descMatch[1] : 'NO DESCRIPTION',
       default: defaultMatch ? defaultMatch[1].trim() : 'NO DEFAULT',
-      alias: aliasMatch ? aliasMatch[1] : null
+      alias: aliasMatch ? aliasMatch[1] : null,
     });
   }
 
@@ -59,7 +59,7 @@ function extractReadmeOptions(content, sectionName) {
         name: optMatch[1].replace('--', ''),
         alias: optMatch[2] || null,
         description: optMatch[3].trim(),
-        default: optMatch[4].trim()
+        default: optMatch[4].trim(),
       });
     } else {
       const optMatchNoDefault = line.match(/^\s*(--[\w-]+)(?:,\s*-(\w))?\s+(.+?)$/);
@@ -68,7 +68,7 @@ function extractReadmeOptions(content, sectionName) {
           name: optMatchNoDefault[1].replace('--', ''),
           alias: optMatchNoDefault[2] || null,
           description: optMatchNoDefault[3].trim(),
-          default: 'NO DEFAULT'
+          default: 'NO DEFAULT',
         });
       }
     }
@@ -128,11 +128,7 @@ for (const name of allSolveNames) {
     }
 
     // If all match
-    if (
-      codeOpt.description === readmeOpt.description &&
-      normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
-      codeOpt.alias === readmeOpt.alias
-    ) {
+    if (codeOpt.description === readmeOpt.description && normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) && codeOpt.alias === readmeOpt.alias) {
       console.log('  ✅ OK');
     }
   }
@@ -182,11 +178,7 @@ for (const name of allHiveNames) {
     }
 
     // If all match
-    if (
-      codeOpt.description === readmeOpt.description &&
-      normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) &&
-      codeOpt.alias === readmeOpt.alias
-    ) {
+    if (codeOpt.description === readmeOpt.description && normalizeDefault(codeOpt.default) === normalizeDefault(readmeOpt.default) && codeOpt.alias === readmeOpt.alias) {
       console.log('  ✅ OK');
     }
   }

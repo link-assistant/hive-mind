@@ -12,10 +12,7 @@ const { hideBin } = await use('yargs@17.7.2/helpers');
 
 console.log('Test 1: Without quotes (how yargs receives it from shell)');
 process.argv = ['node', 'test.js', '--token', '8490aOEM', '--config', '(a b c)'];
-const argv1 = yargs(hideBin(process.argv))
-  .option('token', { type: 'string' })
-  .option('config', { type: 'string' })
-  .parse();
+const argv1 = yargs(hideBin(process.argv)).option('token', { type: 'string' }).option('config', { type: 'string' }).parse();
 console.log('argv1.token:', argv1.token);
 console.log('argv1.config:', argv1.config);
 console.log(

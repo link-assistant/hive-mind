@@ -25,7 +25,7 @@ export const validateModelName = model => {
       valid: true,
       known: true,
       mapped: availableModels[model],
-      needsWarning: false
+      needsWarning: false,
     };
   }
 
@@ -53,7 +53,7 @@ export const validateModelName = model => {
         `Known model aliases:\n` +
         Object.entries(availableModels)
           .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
-          .join('\n')
+          .join('\n'),
     };
   }
 
@@ -73,7 +73,7 @@ export const validateModelName = model => {
       Object.entries(availableModels)
         .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
         .join('\n') +
-      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`
+      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`,
   };
 };
 
@@ -93,7 +93,7 @@ const suggestSimilarModel = input => {
     sonett: 'sonnet',
     sonne: 'sonnet',
     haiko: 'haiku',
-    haiky: 'haiku'
+    haiky: 'haiku',
   };
 
   if (typoMap[inputLower]) {

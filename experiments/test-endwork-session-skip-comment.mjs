@@ -21,7 +21,7 @@ const mockDollar = (strings, ...values) => {
   return Promise.resolve({
     code: 0,
     stdout: { toString: () => 'true' },
-    stderr: { toString: () => '' }
+    stderr: { toString: () => '' },
   });
 };
 
@@ -58,13 +58,11 @@ async function runTests() {
     log: mockLog,
     formatAligned: mockFormatAligned,
     $: mockDollar,
-    logsAttached: true
+    logsAttached: true,
   });
 
   const hasCommentCommand = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasSkipMessage = logMessages.some(
-    log => log.message.includes('Skipping') && log.message.includes('logs already attached')
-  );
+  const hasSkipMessage = logMessages.some(log => log.message.includes('Skipping') && log.message.includes('logs already attached'));
 
   console.log('  Commands executed:', commandLog.length);
   console.log('  Has comment command:', hasCommentCommand);
@@ -83,13 +81,11 @@ async function runTests() {
     log: mockLog,
     formatAligned: mockFormatAligned,
     $: mockDollar,
-    logsAttached: false
+    logsAttached: false,
   });
 
   const hasCommentCommand2 = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasPostedMessage = logMessages.some(
-    log => log.message.includes('Posted') && log.message.includes('Work session end comment')
-  );
+  const hasPostedMessage = logMessages.some(log => log.message.includes('Posted') && log.message.includes('Work session end comment'));
 
   console.log('  Commands executed:', commandLog.length);
   console.log('  Has comment command:', hasCommentCommand2);
@@ -107,14 +103,12 @@ async function runTests() {
     argv: { watch: true },
     log: mockLog,
     formatAligned: mockFormatAligned,
-    $: mockDollar
+    $: mockDollar,
     // logsAttached not provided - should default to false
   });
 
   const hasCommentCommand3 = commandLog.some(cmd => cmd.includes('gh pr comment'));
-  const hasPostedMessage3 = logMessages.some(
-    log => log.message.includes('Posted') && log.message.includes('Work session end comment')
-  );
+  const hasPostedMessage3 = logMessages.some(log => log.message.includes('Posted') && log.message.includes('Work session end comment'));
 
   console.log('  Commands executed:', commandLog.length);
   console.log('  Has comment command:', hasCommentCommand3);
@@ -133,7 +127,7 @@ async function runTests() {
     log: mockLog,
     formatAligned: mockFormatAligned,
     $: mockDollar,
-    logsAttached: false
+    logsAttached: false,
   });
 
   const hasCommentCommand4 = commandLog.some(cmd => cmd.includes('gh pr comment'));

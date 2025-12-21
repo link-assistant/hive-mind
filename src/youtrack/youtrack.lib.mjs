@@ -97,13 +97,13 @@ async function makeYouTrackRequest(endpoint, config, options = {}) {
     Authorization: `Bearer ${config.apiKey}`,
     Accept: 'application/json',
     'Content-Type': 'application/json',
-    ...headers
+    ...headers,
   };
 
   // Prepare request options
   const requestOptions = {
     method,
-    headers: requestHeaders
+    headers: requestHeaders,
   };
 
   if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -195,7 +195,7 @@ export async function fetchYouTrackIssues(config) {
       reporter: issue.reporter ? issue.reporter.fullName || issue.reporter.login : 'Unknown',
       assignee: issue.assignee ? issue.assignee.fullName || issue.assignee.login : null,
       created: issue.created ? new Date(issue.created) : new Date(),
-      updated: issue.updated ? new Date(issue.updated) : new Date()
+      updated: issue.updated ? new Date(issue.updated) : new Date(),
     }));
 
     await log(`📋 Found ${issues.length} YouTrack issue(s) in stage "${config.stage}"`);
@@ -256,7 +256,7 @@ export async function getYouTrackIssue(issueId, config) {
       reporter: issue.reporter ? issue.reporter.fullName || issue.reporter.login : 'Unknown',
       assignee: issue.assignee ? issue.assignee.fullName || issue.assignee.login : null,
       created: issue.created ? new Date(issue.created) : new Date(),
-      updated: issue.updated ? new Date(issue.updated) : new Date()
+      updated: issue.updated ? new Date(issue.updated) : new Date(),
     };
 
     await log(`✅ Retrieved YouTrack issue: ${transformedIssue.id} - ${transformedIssue.summary}`);
@@ -290,15 +290,15 @@ export async function updateYouTrackIssueStage(issueId, newStage, config) {
           name: 'Stage',
           value: {
             $type: 'StateBundleElement',
-            name: newStage
-          }
-        }
-      ]
+            name: newStage,
+          },
+        },
+      ],
     };
 
     await makeYouTrackRequest(endpoint, config, {
       method: 'POST',
-      body: updateData
+      body: updateData,
     });
 
     await log(`✅ Updated YouTrack issue ${issueId} stage to "${newStage}"`);
@@ -326,12 +326,12 @@ export async function addYouTrackComment(issueId, comment, config) {
     const endpoint = `/issues/${issueId}/comments`;
     const commentData = {
       text: comment,
-      usesMarkdown: true
+      usesMarkdown: true,
     };
 
     await makeYouTrackRequest(endpoint, config, {
       method: 'POST',
-      body: commentData
+      body: commentData,
     });
 
     await log(`✅ Added comment to YouTrack issue ${issueId}`);
@@ -352,7 +352,7 @@ export function createYouTrackConfigFromEnv() {
     apiKey: process.env.YOUTRACK_API_KEY,
     projectCode: process.env.YOUTRACK_PROJECT_CODE,
     stage: process.env.YOUTRACK_STAGE,
-    nextStage: process.env.YOUTRACK_NEXT_STAGE
+    nextStage: process.env.YOUTRACK_NEXT_STAGE,
   };
 
   // Check if basic configuration is available
@@ -381,7 +381,7 @@ export function parseYouTrackIssueId(input) {
     // URL format: https://company.youtrack.cloud/issue/PROJECT-123
     /\/issue\/([A-Z0-9][A-Z0-9]*-\d+)/i,
     // Text containing issue ID
-    /\b([A-Z0-9][A-Z0-9]*-\d+)\b/i
+    /\b([A-Z0-9][A-Z0-9]*-\d+)\b/i,
   ];
 
   for (const pattern of patterns) {
@@ -413,11 +413,11 @@ export function convertYouTrackIssueForGitHub(youTrackIssue, githubRepoUrl) {
       url: youTrackIssue.url,
       stage: youTrackIssue.stage,
       reporter: youTrackIssue.reporter,
-      assignee: youTrackIssue.assignee
+      assignee: youTrackIssue.assignee,
     },
     // Store GitHub repo info for PR creation
     github: {
-      repoUrl: githubRepoUrl
-    }
+      repoUrl: githubRepoUrl,
+    },
   };
 }

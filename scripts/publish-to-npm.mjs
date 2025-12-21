@@ -28,8 +28,8 @@ const config = makeConfig({
     yargs.option('should-pull', {
       type: 'boolean',
       default: getenv('SHOULD_PULL', false),
-      describe: 'Pull latest changes before publishing'
-    })
+      describe: 'Pull latest changes before publishing',
+    }),
 });
 
 const { shouldPull } = config;
@@ -71,7 +71,7 @@ async function main() {
     // Check if this version is already published on npm
     console.log(`Checking if version ${currentVersion} is already published...`);
     const checkResult = await $`npm view "${PACKAGE_NAME}@${currentVersion}" version`.run({
-      capture: true
+      capture: true,
     });
 
     // command-stream returns { code: 0 } on success, { code: 1 } on failure (e.g., E404)

@@ -26,8 +26,8 @@ globalThis.use = async module => {
             code: 0,
             stdout: JSON.stringify([
               { number: 425, state: 'OPEN' },
-              { number: 424, state: 'MERGED' }
-            ])
+              { number: 424, state: 'MERGED' },
+            ]),
           };
         }
 
@@ -35,7 +35,7 @@ globalThis.use = async module => {
           // Simulate a branch with only OPEN PR (should be reused)
           return {
             code: 0,
-            stdout: JSON.stringify([{ number: 100, state: 'OPEN' }])
+            stdout: JSON.stringify([{ number: 100, state: 'OPEN' }]),
           };
         }
 
@@ -43,7 +43,7 @@ globalThis.use = async module => {
           // Simulate a branch with no PRs (should be reused)
           return {
             code: 0,
-            stdout: JSON.stringify([])
+            stdout: JSON.stringify([]),
           };
         }
 
@@ -51,12 +51,12 @@ globalThis.use = async module => {
           // Simulate a branch with only CLOSED PR (should NOT be reused)
           return {
             code: 0,
-            stdout: JSON.stringify([{ number: 200, state: 'CLOSED' }])
+            stdout: JSON.stringify([{ number: 200, state: 'CLOSED' }]),
           };
         }
 
         return { code: 0, stdout: '[]' };
-      }
+      },
     };
   }
   return {};
@@ -82,7 +82,7 @@ logs.length = 0;
 const test1Result = await testScenario({
   issueNumber: 423,
   existingBranches: ['issue-423-f335e81f'],
-  expectedBehavior: 'Should NOT reuse branch (has merged PR)'
+  expectedBehavior: 'Should NOT reuse branch (has merged PR)',
 });
 
 console.log('\n=== TEST 2: Branch with only OPEN PR ===');
@@ -90,7 +90,7 @@ logs.length = 0;
 const test2Result = await testScenario({
   issueNumber: 999,
   existingBranches: ['issue-999-abc123'],
-  expectedBehavior: 'Should reuse branch and PR'
+  expectedBehavior: 'Should reuse branch and PR',
 });
 
 console.log('\n=== TEST 3: Branch with no PRs ===');
@@ -98,7 +98,7 @@ logs.length = 0;
 const test3Result = await testScenario({
   issueNumber: 888,
   existingBranches: ['issue-888-def456'],
-  expectedBehavior: 'Should reuse branch (no PR yet)'
+  expectedBehavior: 'Should reuse branch (no PR yet)',
 });
 
 console.log('\n=== TEST 4: Branch with CLOSED PR ===');
@@ -106,7 +106,7 @@ logs.length = 0;
 const test4Result = await testScenario({
   issueNumber: 777,
   existingBranches: ['issue-777-ghi789'],
-  expectedBehavior: 'Should NOT reuse branch (has closed PR)'
+  expectedBehavior: 'Should NOT reuse branch (has closed PR)',
 });
 
 // Summary
@@ -140,7 +140,7 @@ async function testScenario({ issueNumber, existingBranches, expectedBehavior })
         if (cmd.includes('gh api --paginate repos/') && cmd.includes('/branches')) {
           return {
             code: 0,
-            stdout: existingBranches.join('\n')
+            stdout: existingBranches.join('\n'),
           };
         }
 
@@ -153,9 +153,7 @@ async function testScenario({ issueNumber, existingBranches, expectedBehavior })
   const argv = { autoContinue: true, fork: false };
   const result = await processAutoContinueForIssue(argv, true, issueNumber, 'link-assistant', 'hive-mind');
 
-  console.log(
-    `Result: isContinueMode=${result.isContinueMode}, prNumber=${result.prNumber}, prBranch=${result.prBranch}`
-  );
+  console.log(`Result: isContinueMode=${result.isContinueMode}, prNumber=${result.prNumber}, prBranch=${result.prBranch}`);
 
   // Verify results based on scenario
   if (issueNumber === 423) {

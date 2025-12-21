@@ -15,9 +15,7 @@ const hiveConfigPath = path.join(process.cwd(), 'src', 'hive.config.lib.mjs');
 const hiveConfigContent = fs.readFileSync(hiveConfigPath, 'utf8');
 
 // Find the auto-continue option definition
-const hiveAutoContMatch = hiveConfigContent.match(
-  /\.option\('auto-continue',\s*\{[^}]*default:\s*(true|false)[^}]*\}/s
-);
+const hiveAutoContMatch = hiveConfigContent.match(/\.option\('auto-continue',\s*\{[^}]*default:\s*(true|false)[^}]*\}/s);
 if (hiveAutoContMatch) {
   const defaultValue = hiveAutoContMatch[1];
   console.log(`  Found: default: ${defaultValue}`);
@@ -38,9 +36,7 @@ const solveConfigPath = path.join(process.cwd(), 'src', 'solve.config.lib.mjs');
 const solveConfigContent = fs.readFileSync(solveConfigPath, 'utf8');
 
 // Find the auto-continue option definition
-const solveAutoContMatch = solveConfigContent.match(
-  /\.option\('auto-continue',\s*\{[^}]*default:\s*(true|false)[^}]*\}/s
-);
+const solveAutoContMatch = solveConfigContent.match(/\.option\('auto-continue',\s*\{[^}]*default:\s*(true|false)[^}]*\}/s);
 if (solveAutoContMatch) {
   const defaultValue = solveAutoContMatch[1];
   console.log(`  Found: default: ${defaultValue}`);

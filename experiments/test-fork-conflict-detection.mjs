@@ -62,8 +62,7 @@ async function checkExistingForkOfRoot(rootRepo) {
     console.log(`   Searching for ${currentUser}'s fork of ${rootRepo}...`);
 
     // Try to find user's fork in the forks list
-    const forksResult =
-      await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
+    const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
 
     if (forksResult.code !== 0) {
       console.log(`   ❌ Failed to list forks`);
@@ -105,13 +104,13 @@ async function testForkConflictDetection() {
     {
       name: 'Original repository (zamtmn/zcad)',
       owner: 'zamtmn',
-      repo: 'zcad'
+      repo: 'zcad',
     },
     {
       name: 'Fork of original (veb86/zcadvelecAI)',
       owner: 'veb86',
-      repo: 'zcadvelecAI'
-    }
+      repo: 'zcadvelecAI',
+    },
   ];
 
   for (const testCase of testCases) {

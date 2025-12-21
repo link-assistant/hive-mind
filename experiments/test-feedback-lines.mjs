@@ -73,8 +73,7 @@ try {
   testRepoUrl = `https://github.com/${githubUser}/${repoName}`;
 
   // Create repository
-  const createResult =
-    await $`gh repo create ${repoName} --public --description "Test repository for feedback lines feature"`;
+  const createResult = await $`gh repo create ${repoName} --public --description "Test repository for feedback lines feature"`;
   if (createResult.code !== 0) {
     throw new Error('Failed to create test repository: ' + createResult.stderr);
   }
@@ -138,7 +137,7 @@ This is a test issue to verify feedback lines functionality.`;
     const solveOutput = execSync(solveCommand, {
       encoding: 'utf8',
       cwd: '/tmp/gh-issue-solver-1758085205751',
-      timeout: 30000 // 30 second timeout for dry run
+      timeout: 30000, // 30 second timeout for dry run
     });
     await fs.writeFile(solveLogFile, solveOutput);
     console.log('✅ Initial solve.mjs run completed (dry-run)');
@@ -156,15 +155,9 @@ This is a test issue to verify feedback lines functionality.`;
   const solveContent = await fs.readFile(solveJsPath, 'utf8');
 
   // Check that the fix is in place
-  const hasOldBug = solveContent.includes(
-    "feedbackLines && feedbackLines.length > 0 ? '\\n\\n' + feedbackLines.join('\\n') + '\\n' : ''"
-  );
-  const hasCorrectPromptLogic = solveContent.includes(
-    'if (isContinueMode && feedbackLines && feedbackLines.length > 0) {'
-  );
-  const hasSystemPromptWithoutFeedback =
-    solveContent.includes('const systemPrompt = `You are AI issue solver.') &&
-    !solveContent.includes('const systemPrompt = `You are AI issue solver.${feedbackLines');
+  const hasOldBug = solveContent.includes("feedbackLines && feedbackLines.length > 0 ? '\\n\\n' + feedbackLines.join('\\n') + '\\n' : ''");
+  const hasCorrectPromptLogic = solveContent.includes('if (isContinueMode && feedbackLines && feedbackLines.length > 0) {');
+  const hasSystemPromptWithoutFeedback = solveContent.includes('const systemPrompt = `You are AI issue solver.') && !solveContent.includes('const systemPrompt = `You are AI issue solver.${feedbackLines');
 
   console.log('\n📊 Code Analysis Results:');
   console.log(`   Old bug pattern found: ${hasOldBug ? '❌ YES (BAD)' : '✅ NO (GOOD)'}`);

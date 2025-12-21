@@ -405,7 +405,7 @@ async function analyzeTask(issue, repository) {
     greenfield: await isGreenfieldProject(issue),
     crossRepo: await requiresCrossRepoWork(issue),
     frameworkSpecific: await detectFramework(issue),
-    designAmbiguity: await hasDesignQuestions(issue)
+    designAmbiguity: await hasDesignQuestions(issue),
   };
 
   const score = calculateComplexityScore(complexityFactors);
@@ -438,19 +438,12 @@ async function analyzeTask(issue, repository) {
 const SCAFFOLDING_TEMPLATES = {
   'dotnet-webapi': {
     detect: issue => /\.net|c#|webapi|asp\.net/i.test(issue.body),
-    commands: [
-      'dotnet new webapi -n {projectName}',
-      'cd {projectName}',
-      'dotnet add package Swashbuckle.AspNetCore',
-      'git init',
-      'git add .',
-      'git commit -m "Initial project structure"'
-    ],
+    commands: ['dotnet new webapi -n {projectName}', 'cd {projectName}', 'dotnet add package Swashbuckle.AspNetCore', 'git init', 'git add .', 'git commit -m "Initial project structure"'],
     files: {
       'README.md': ctx => generateReadme(ctx),
-      '.gitignore': () => fetchGitignoreTemplate('VisualStudio')
-    }
-  }
+      '.gitignore': () => fetchGitignoreTemplate('VisualStudio'),
+    },
+  },
   // ... other templates
 };
 
@@ -463,7 +456,7 @@ async function attemptScaffolding(issue) {
   try {
     await executeTemplate(template, {
       projectName: extractProjectName(issue),
-      ...extractParameters(issue)
+      ...extractParameters(issue),
     });
     return { success: true, template: template.name };
   } catch (error) {

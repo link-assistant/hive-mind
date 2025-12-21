@@ -9,19 +9,7 @@
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-export async function handleBranchCheckoutError({
-  branchName,
-  prNumber,
-  errorOutput,
-  issueUrl,
-  owner,
-  repo,
-  tempDir,
-  argv,
-  formatAligned,
-  log,
-  $
-}) {
+export async function handleBranchCheckoutError({ branchName, prNumber, errorOutput, issueUrl, owner, repo, tempDir, argv, formatAligned, log, $ }) {
   // Check if this is a PR from a fork
   let isForkPR = false;
   let forkOwner = null;
@@ -32,8 +20,7 @@ export async function handleBranchCheckoutError({
 
   if (prNumber) {
     try {
-      const prCheckResult =
-        await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName,headRepository 2>/dev/null`;
+      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRefName,headRepository 2>/dev/null`;
       if (prCheckResult.code === 0) {
         const prData = JSON.parse(prCheckResult.stdout.toString());
         if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
@@ -61,7 +48,7 @@ export async function handleBranchCheckoutError({
               forkOwner,
               forkRepoFullName,
               branchName,
-              operation: 'verify_fork_branch'
+              operation: 'verify_fork_branch',
             });
             // Branch doesn't exist in fork or can't access it
           }
@@ -72,7 +59,7 @@ export async function handleBranchCheckoutError({
         context: 'handle_branch_checkout_error',
         prNumber,
         branchName,
-        operation: 'analyze_branch_error'
+        operation: 'analyze_branch_error',
       });
       // Ignore error, proceed with default message
     }
@@ -109,7 +96,7 @@ export async function handleBranchCheckoutError({
                   userForkOwner: currentUser,
                   userForkRepoName,
                   branchName,
-                  operation: 'check_branch_in_user_fork'
+                  operation: 'check_branch_in_user_fork',
                 });
                 // Branch doesn't exist in user's fork
               }
@@ -122,7 +109,7 @@ export async function handleBranchCheckoutError({
         context: 'handle_branch_checkout_error',
         prNumber,
         branchName,
-        operation: 'analyze_branch_error'
+        operation: 'analyze_branch_error',
       });
       // Ignore error, proceed with default message
     }
@@ -256,21 +243,10 @@ export async function handleBranchCreationError({ branchName, errorOutput, tempD
   await log(`     3. View existing branches: cd ${tempDir} && git branch -a`);
 }
 
-export async function handleBranchVerificationError({
-  isContinueMode,
-  branchName,
-  actualBranch,
-  prNumber,
-  owner,
-  repo,
-  tempDir,
-  formatAligned,
-  log,
-  $
-}) {
+export async function handleBranchVerificationError({ isContinueMode, branchName, actualBranch, prNumber, owner, repo, tempDir, formatAligned, log, $ }) {
   await log('');
   await log(`${formatAligned('❌', isContinueMode ? 'BRANCH CHECKOUT FAILED' : 'BRANCH CREATION FAILED', '')}`, {
-    level: 'error'
+    level: 'error',
   });
   await log('');
   await log('  🔍 What happened:');

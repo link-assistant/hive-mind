@@ -48,7 +48,7 @@ async function testSessionReuse() {
     console.log();
 
     const { stdout } = await execAsync(`./start-screen.mjs solve https://github.com/test/repo/issues/1`, {
-      cwd: '/tmp/gh-issue-solver-1759308672555'
+      cwd: '/tmp/gh-issue-solver-1759308672555',
     });
 
     console.log('Output from start-screen:');

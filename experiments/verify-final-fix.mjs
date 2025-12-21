@@ -12,9 +12,7 @@ function verifyFinalFix() {
     const argv = { autoContinue };
     const commentLines = [];
 
-    console.log(
-      `\nTesting: isContinueMode=${isContinueMode}, autoContinue=${autoContinue}, PR=${newPrComments}, Issue=${newIssueComments}`
-    );
+    console.log(`\nTesting: isContinueMode=${isContinueMode}, autoContinue=${autoContinue}, PR=${newPrComments}, Issue=${newIssueComments}`);
 
     // Always show comment counts when in continue or auto-continue mode
     if (isContinueMode || argv.autoContinue) {

@@ -19,7 +19,7 @@ console.log('HYPOTHESIS 2: Telegram might send forward_origin: {} for some messa
 const msgWithEmptyForwardOrigin = {
   message_id: 123,
   text: '/solve test',
-  forward_origin: {}
+  forward_origin: {},
 };
 console.log('  Message with forward_origin: {}');
 console.log('  if (message.forward_origin) =>', Boolean(msgWithEmptyForwardOrigin.forward_origin));
@@ -31,7 +31,7 @@ console.log('HYPOTHESIS 3: Telegram might send reply_to_message: {} for some mes
 const msgWithEmptyReply = {
   message_id: 123,
   text: '/solve test',
-  reply_to_message: {}
+  reply_to_message: {},
 };
 console.log('  Message with reply_to_message: {}');
 console.log('  if (message.reply_to_message) =>', Boolean(msgWithEmptyReply.reply_to_message));
@@ -44,7 +44,7 @@ const msgWithNullFields = {
   message_id: 123,
   text: '/solve test',
   forward_origin: null,
-  reply_to_message: null
+  reply_to_message: null,
 };
 console.log('  Message with null fields');
 console.log('  if (message.forward_origin) =>', Boolean(msgWithNullFields.forward_origin));
@@ -56,7 +56,7 @@ const msgWithFalseFields = {
   message_id: 123,
   text: '/solve test',
   forward_origin: false,
-  reply_to_message: false
+  reply_to_message: false,
 };
 console.log('  Message with false fields');
 console.log('  if (message.forward_origin) =>', Boolean(msgWithFalseFields.forward_origin));

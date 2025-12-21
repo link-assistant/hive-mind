@@ -69,12 +69,12 @@ const getResourceSnapshot = async () => {
       timestamp: new Date().toISOString(),
       memory: memInfo.stdout.toString().trim(),
       load: loadAvg.stdout.toString().trim(),
-      uptime: uptime.stdout.toString().trim()
+      uptime: uptime.stdout.toString().trim(),
     };
   } catch (error) {
     return {
       timestamp: new Date().toISOString(),
-      error: `Failed to get resource snapshot: ${error.message}`
+      error: `Failed to get resource snapshot: ${error.message}`,
     };
   }
 };

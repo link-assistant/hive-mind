@@ -14,15 +14,7 @@ const { $ } = await use('command-stream');
 /**
  * Common paths where contributing guidelines might be found
  */
-const CONTRIBUTING_PATHS = [
-  'CONTRIBUTING.md',
-  'CONTRIBUTING',
-  'docs/CONTRIBUTING.md',
-  'docs/contributing.md',
-  '.github/CONTRIBUTING.md',
-  'CONTRIBUTE.md',
-  'docs/contribute.md'
-];
+const CONTRIBUTING_PATHS = ['CONTRIBUTING.md', 'CONTRIBUTING', 'docs/CONTRIBUTING.md', 'docs/contributing.md', '.github/CONTRIBUTING.md', 'CONTRIBUTE.md', 'docs/contribute.md'];
 
 /**
  * Common documentation URLs patterns
@@ -41,7 +33,7 @@ export async function detectContributingGuidelines(owner, repo) {
     path: null,
     url: null,
     content: null,
-    docsUrl: null
+    docsUrl: null,
   };
 
   // Try to find CONTRIBUTING file in the repo
@@ -119,7 +111,7 @@ export function extractCIRequirements(content) {
     linters: [],
     testCommands: [],
     styleGuide: [],
-    preCommitChecks: []
+    preCommitChecks: [],
   };
 
   if (!content) return requirements;
@@ -243,8 +235,7 @@ export async function buildContributingSection(owner, repo) {
 export async function checkWorkflowApprovalStatus(owner, repo) {
   try {
     // Get workflow runs for the PR
-    const runsResult =
-      await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();
+    const runsResult = await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();
 
     if (runsResult.exitCode !== 0) {
       return { hasApprovalRequired: false, runs: [] };
@@ -256,7 +247,7 @@ export async function checkWorkflowApprovalStatus(owner, repo) {
     return {
       hasApprovalRequired: approvalRequiredRuns.length > 0,
       runs: approvalRequiredRuns,
-      totalRuns: runs.length
+      totalRuns: runs.length,
     };
   } catch (err) {
     return { hasApprovalRequired: false, runs: [], error: err.message };

@@ -22,7 +22,7 @@ function $(command, options = {}) {
       success: false,
       output: error.stdout || '',
       stderr: error.stderr || error.message,
-      code: error.status || 1
+      code: error.status || 1,
     };
   }
 }
@@ -52,7 +52,7 @@ const patterns = [
   { name: 'System prompt marker', pattern: /System prompt:|---END SYSTEM PROMPT---/ },
   { name: 'Continue mode', pattern: /Continue mode.*ACTIVE|Continue\./ },
   { name: 'Comment counting', pattern: /Counting comments:|Comment counting conditions:/ },
-  { name: 'Issue to solve', pattern: /Issue to solve:/ }
+  { name: 'Issue to solve', pattern: /Issue to solve:/ },
 ];
 
 patterns.forEach(({ name, pattern }) => {

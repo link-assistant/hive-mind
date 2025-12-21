@@ -117,12 +117,7 @@ async function debugFullCommentFlow() {
         console.log(`        Body length: ${comment.body.length} chars`);
 
         // Check if this would be filtered by log patterns
-        const logPatterns = [
-          /📊.*Log file|solution.*log/i,
-          /🔗.*Link:|💻.*Session:/i,
-          /Generated with.*solve\\.mjs/i,
-          /Session ID:|Log file available:/i
-        ];
+        const logPatterns = [/📊.*Log file|solution.*log/i, /🔗.*Link:|💻.*Session:/i, /Generated with.*solve\\.mjs/i, /Session ID:|Log file available:/i];
         const wouldBeFiltered = logPatterns.some(pattern => pattern.test(comment.body || ''));
         if (wouldBeFiltered) {
           console.log(`        🚫 Would be filtered as log comment`);

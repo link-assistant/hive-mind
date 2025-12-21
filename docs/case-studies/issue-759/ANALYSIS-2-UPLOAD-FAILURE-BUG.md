@@ -68,8 +68,7 @@ This is **not a bug** in the solve tool. It's a limitation of GitHub's web inter
 **Problematic Code**:
 
 ```javascript
-const gistDetailsResult =
-  await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
+const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`.quiet();
 ```
 
 **Issue**: The code uses `.quiet()` method which is available in `zx` library but NOT in `command-stream` library that this codebase uses.

@@ -40,7 +40,7 @@ async function debugRealExecution() {
       try {
         lastCommitResult = execSync(`git log -1 --format="%aI" origin/${branchName}`, {
           encoding: 'utf8',
-          stdio: 'pipe'
+          stdio: 'pipe',
         });
         console.log(`✅ Remote branch commit access: SUCCESS`);
         console.log(`   Last commit time: ${lastCommitResult.trim()}`);
@@ -73,22 +73,22 @@ async function debugRealExecution() {
         isContinueMode: true,
         autoContinue: false,
         autoContinueOnlyOnNewComments: false,
-        comments: 0
+        comments: 0,
       },
       {
         name: 'Continue mode, with flag, 0 comments',
         isContinueMode: true,
         autoContinue: false,
         autoContinueOnlyOnNewComments: true,
-        comments: 0
+        comments: 0,
       },
       {
         name: 'Continue mode, with flag, some comments',
         isContinueMode: true,
         autoContinue: false,
         autoContinueOnlyOnNewComments: true,
-        comments: 2
-      }
+        comments: 2,
+      },
     ];
 
     scenarios.forEach(scenario => {
@@ -96,7 +96,7 @@ async function debugRealExecution() {
 
       const argv = {
         autoContinue: scenario.autoContinue,
-        autoContinueOnlyOnNewComments: scenario.autoContinueOnlyOnNewComments
+        autoContinueOnlyOnNewComments: scenario.autoContinueOnlyOnNewComments,
       };
 
       const newPrComments = scenario.comments;

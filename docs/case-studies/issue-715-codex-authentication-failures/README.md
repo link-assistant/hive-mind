@@ -345,7 +345,7 @@ if (data.type === 'error' && data.message.includes('401 Unauthorized')) {
     success: false,
     error: 'AUTHENTICATION_FAILURE',
     sessionId: null,
-    authenticationRequired: true // Special flag
+    authenticationRequired: true, // Special flag
   };
 }
 ```

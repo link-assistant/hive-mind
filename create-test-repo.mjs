@@ -17,60 +17,13 @@ function generateUUIDv7() {
   const randomBytes = crypto.randomBytes(10);
 
   // Format as UUID with version 7 (0111) and variant bits (10)
-  const uuid = [
-    timestampHex.slice(0, 8),
-    timestampHex.slice(8, 12),
-    '7' + randomBytes.toString('hex').slice(0, 3),
-    ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7),
-    randomBytes.toString('hex').slice(7, 19)
-  ].join('-');
+  const uuid = [timestampHex.slice(0, 8), timestampHex.slice(8, 12), '7' + randomBytes.toString('hex').slice(0, 3), ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7), randomBytes.toString('hex').slice(7, 19)].join('-');
 
   return uuid;
 }
 
 // List of programming languages for random selection
-const languages = [
-  'Python',
-  'JavaScript',
-  'TypeScript',
-  'Go',
-  'Rust',
-  'Ruby',
-  'Java',
-  'C++',
-  'C#',
-  'Swift',
-  'Kotlin',
-  'Scala',
-  'Haskell',
-  'Elixir',
-  'Clojure',
-  'F#',
-  'OCaml',
-  'Erlang',
-  'Julia',
-  'R',
-  'PHP',
-  'Perl',
-  'Lua',
-  'Dart',
-  'Zig',
-  'Nim',
-  'Crystal',
-  'V',
-  'D',
-  'Pascal',
-  'COBOL',
-  'Fortran',
-  'Ada',
-  'Prolog',
-  'Scheme',
-  'Racket',
-  'Common Lisp',
-  'Elm',
-  'PureScript',
-  'ReasonML'
-];
+const languages = ['Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'Ruby', 'Java', 'C++', 'C#', 'Swift', 'Kotlin', 'Scala', 'Haskell', 'Elixir', 'Clojure', 'F#', 'OCaml', 'Erlang', 'Julia', 'R', 'PHP', 'Perl', 'Lua', 'Dart', 'Zig', 'Nim', 'Crystal', 'V', 'D', 'Pascal', 'COBOL', 'Fortran', 'Ada', 'Prolog', 'Scheme', 'Racket', 'Common Lisp', 'Elm', 'PureScript', 'ReasonML'];
 
 // Select random language
 const randomLanguage = languages[Math.floor(Math.random() * languages.length)];
@@ -102,8 +55,7 @@ try {
 
   try {
     // Create the repository (will fail if it already exists, that's OK)
-    const createResult =
-      await $`gh repo create ${repoName} --public --description "Test repository for automated issue solving" --clone=false 2>&1`;
+    const createResult = await $`gh repo create ${repoName} --public --description "Test repository for automated issue solving" --clone=false 2>&1`;
     if (createResult.code === 0) {
       console.log('created new repository... ');
     } else if (createResult.stderr && createResult.stderr.toString().includes('already exists')) {
@@ -293,11 +245,11 @@ An issue will be created asking to implement a "Hello World" program in ${random
         required_pull_request_reviews: {
           dismiss_stale_reviews: false,
           require_code_owner_reviews: false,
-          required_approving_review_count: 0
+          required_approving_review_count: 0,
         },
         restrictions: null,
         allow_force_pushes: false,
-        allow_deletions: false
+        allow_deletions: false,
       };
 
       // Write rules to a temp file to avoid shell escaping issues

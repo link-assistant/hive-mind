@@ -31,31 +31,11 @@ console.log('    Path exists:', existsSync(startScreenPathFromSrc));
 
 console.log('\n3. Testing command construction:');
 const command = 'solve';
-const args = [
-  'https://github.com/veb86/zcadvelecAI/issues/55',
-  '--auto-continue',
-  '--attach-logs',
-  '--verbose',
-  '--model',
-  'sonnet',
-  '--think',
-  'max',
-  '--fork'
-];
+const args = ['https://github.com/veb86/zcadvelecAI/issues/55', '--auto-continue', '--attach-logs', '--verbose', '--model', 'sonnet', '--think', 'max', '--fork'];
 
 const quotedArgs = args
   .map(arg => {
-    if (
-      arg.includes(' ') ||
-      arg.includes('&') ||
-      arg.includes('|') ||
-      arg.includes(';') ||
-      arg.includes('$') ||
-      arg.includes('*') ||
-      arg.includes('?') ||
-      arg.includes('(') ||
-      arg.includes(')')
-    ) {
+    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
       return `'${arg.replace(/'/g, "'\\''")}'`;
     }
     return arg;

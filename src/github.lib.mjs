@@ -15,10 +15,7 @@ import { log, maskToken, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 // Import batch operations from separate module
-import {
-  batchCheckPullRequestsForIssues as batchCheckPRs,
-  batchCheckArchivedRepositories as batchCheckArchived
-} from './github.batch.lib.mjs';
+import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
 
 /**
  * Build cost estimation string for log comments
@@ -34,9 +31,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
   if (totalCostUSD !== null && totalCostUSD !== undefined) {
-    costInfo += pricingInfo?.isFreeModel
-      ? '\n- Public pricing estimate: $0.00 (Free model)'
-      : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
+    costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
   } else {
     costInfo += '\n- Public pricing estimate: unknown';
   }
@@ -44,8 +39,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
     if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
-    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0)
-      tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+    if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
     costInfo += tokenInfo;
   }
   if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
@@ -105,7 +99,7 @@ export const getGitHubTokensFromFiles = async () => {
     if (global.verboseMode) {
       reportError(error, {
         context: 'github_token_file_access',
-        level: 'debug'
+        level: 'debug',
       });
     }
   }
@@ -142,7 +136,7 @@ export const getGitHubTokensFromCommand = async () => {
     if (global.verboseMode) {
       reportError(error, {
         context: 'github_token_gh_auth',
-        level: 'debug'
+        level: 'debug',
       });
     }
   }
@@ -182,7 +176,7 @@ export const sanitizeLogContent = async logContent => {
     const tokenPatterns = [
       /gh[pou]_[a-zA-Z0-9_]{20,}/g,
       /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm, // 40-char hex tokens (like personal access tokens)
-      /(?:^|[\s:=])([a-zA-Z0-9_]{20,})(?=[\s\n]|$)/gm // General long tokens
+      /(?:^|[\s:=])([a-zA-Z0-9_]{20,})(?=[\s\n]|$)/gm, // General long tokens
     ];
 
     for (const pattern of tokenPatterns) {
@@ -198,7 +192,7 @@ export const sanitizeLogContent = async logContent => {
   } catch (error) {
     reportError(error, {
       context: 'sanitize_log_content',
-      level: 'warning'
+      level: 'warning',
     });
     await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
   }
@@ -222,7 +216,7 @@ export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
         owner,
         repo,
         fileName,
-        branchName
+        branchName,
       });
     }
     return false;
@@ -258,14 +252,14 @@ export const checkGitHubPermissions = async () => {
       warnings.push({
         scope: 'workflow',
         issue: 'Cannot push changes to .github/workflows/ directory',
-        solution: 'Run: gh auth refresh -h github.com -s workflow'
+        solution: 'Run: gh auth refresh -h github.com -s workflow',
       });
     }
     if (!scopes.includes('repo')) {
       warnings.push({
         scope: 'repo',
         issue: 'Limited repository access (may not be able to create PRs or push to private repos)',
-        solution: 'Run: gh auth refresh -h github.com -s repo'
+        solution: 'Run: gh auth refresh -h github.com -s repo',
       });
     }
     // Display warnings
@@ -277,10 +271,10 @@ export const checkGitHubPermissions = async () => {
         await log(`   Solution: ${warning.solution}`, { level: 'warning' });
       }
       await log('\n   💡 You can continue, but some operations may fail due to insufficient permissions.', {
-        level: 'warning'
+        level: 'warning',
       });
       await log("   💡 To avoid issues, it's recommended to refresh your authentication with the missing scopes.", {
-        level: 'warning'
+        level: 'warning',
       });
     } else {
       await log('✅ All required permissions: Available');
@@ -288,10 +282,10 @@ export const checkGitHubPermissions = async () => {
     return true;
   } catch (error) {
     await log(`⚠️  Warning: Could not check GitHub permissions: ${maskToken(error.message || error.toString())}`, {
-      level: 'warning'
+      level: 'warning',
     });
     await log('   Continuing anyway, but some operations may fail if permissions are insufficient', {
-      level: 'warning'
+      level: 'warning',
     });
     return true; // Continue despite permission check failure
   }
@@ -319,9 +313,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     const permResult = await $`gh api repos/${owner}/${repo} --jq .permissions`;
     if (permResult.code !== 0) {
       // API call failed - might be a private repo or network issue
-      const errorOutput =
-        (permResult.stderr ? permResult.stderr.toString() : '') +
-        (permResult.stdout ? permResult.stdout.toString() : '');
+      const errorOutput = (permResult.stderr ? permResult.stderr.toString() : '') + (permResult.stdout ? permResult.stdout.toString() : '');
       // If it's a 404, the repo doesn't exist or we don't have read access
       if (errorOutput.includes('404') || errorOutput.includes('Not Found')) {
         await log('❌ Repository not found or no access', { level: 'error' });
@@ -330,7 +322,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       }
       // For other errors, warn but continue (repo might still be accessible)
       await log(`⚠️  Warning: Could not check repository permissions: ${cleanErrorMessage(errorOutput)}`, {
-        level: 'warning'
+        level: 'warning',
       });
       return true;
     }
@@ -383,7 +375,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
       context: 'check_repository_write_permission',
       owner,
       repo,
-      operation: 'verify_write_access'
+      operation: 'verify_write_access',
     });
     // On unexpected errors, warn but allow to continue (better than blocking)
     await log(`⚠️  Warning: Error checking repository permissions: ${cleanErrorMessage(error)}`, { level: 'warning' });
@@ -404,13 +396,11 @@ export const checkMaintainerCanModifyPR = async (owner, repo, prNumber) => {
   try {
     await log('🔍 Checking if maintainer can modify PR...', { verbose: true });
     // Use GitHub API to check PR details including maintainer_can_modify
-    const prResult =
-      await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '{maintainer_can_modify: .maintainer_can_modify, head: .head}'`;
+    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '{maintainer_can_modify: .maintainer_can_modify, head: .head}'`;
     if (prResult.code !== 0) {
-      const errorOutput =
-        (prResult.stderr ? prResult.stderr.toString() : '') + (prResult.stdout ? prResult.stdout.toString() : '');
+      const errorOutput = (prResult.stderr ? prResult.stderr.toString() : '') + (prResult.stdout ? prResult.stdout.toString() : '');
       await log(`⚠️  Warning: Could not check maintainer_can_modify: ${cleanErrorMessage(errorOutput)}`, {
-        level: 'warning'
+        level: 'warning',
       });
       return { canModify: false, forkOwner: null, forkRepo: null };
     }
@@ -426,7 +416,7 @@ export const checkMaintainerCanModifyPR = async (owner, repo, prNumber) => {
       }
     } else {
       await log('ℹ️  Maintainer can modify: NO (contributor has not enabled "Allow edits by maintainers")', {
-        verbose: true
+        verbose: true,
       });
     }
     return { canModify, forkOwner, forkRepo };
@@ -436,7 +426,7 @@ export const checkMaintainerCanModifyPR = async (owner, repo, prNumber) => {
       owner,
       repo,
       prNumber,
-      operation: 'check_maintainer_modify_permission'
+      operation: 'check_maintainer_modify_permission',
     });
     await log(`⚠️  Warning: Error checking maintainer_can_modify: ${cleanErrorMessage(error)}`, { level: 'warning' });
     return { canModify: false, forkOwner: null, forkRepo: null };
@@ -466,9 +456,7 @@ Thank you! 🙏`;
       await log('✅ Comment posted successfully', { verbose: true });
       return true;
     } else {
-      const errorOutput =
-        (commentResult.stderr ? commentResult.stderr.toString() : '') +
-        (commentResult.stdout ? commentResult.stdout.toString() : '');
+      const errorOutput = (commentResult.stderr ? commentResult.stderr.toString() : '') + (commentResult.stdout ? commentResult.stdout.toString() : '');
       await log(`⚠️  Warning: Failed to post comment: ${cleanErrorMessage(errorOutput)}`, { level: 'warning' });
       return false;
     }
@@ -478,7 +466,7 @@ Thank you! 🙏`;
       owner,
       repo,
       prNumber,
-      operation: 'post_comment_request_access'
+      operation: 'post_comment_request_access',
     });
     await log(`⚠️  Warning: Error posting comment: ${cleanErrorMessage(error)}`, { level: 'warning' });
     return false;
@@ -527,7 +515,7 @@ export async function attachLogToGitHub(options) {
     resumeCommand = null,
     // New parameters for agent tool pricing support
     publicPricingEstimate = null,
-    pricingInfo = null
+    pricingInfo = null,
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -538,9 +526,7 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     } else if (logStats.size > githubLimits.fileMaxSize) {
-      await log(
-        `  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`
-      );
+      await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
       return false;
     }
     // Calculate token usage if sessionId and tempDir are provided
@@ -662,9 +648,7 @@ ${logContent}
     // Check GitHub comment size limit
     let commentResult;
     if (logComment.length > githubLimits.commentMaxSize) {
-      await log(
-        `  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`
-      );
+      await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
       await log('  📎 Uploading log as GitHub Gist instead...');
       try {
         // Check if repository is public or private
@@ -683,7 +667,7 @@ ${logContent}
             context: 'check_repo_visibility',
             level: 'warning',
             owner,
-            repo
+            repo,
           });
           // Default to public if we can't determine visibility
           await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
@@ -693,9 +677,7 @@ ${logContent}
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
         // Use the original sanitized content (before escaping) for gist since it's a text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
-        const gistCommand = isPublicRepo
-          ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`
-          : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
+        const gistCommand = isPublicRepo ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"` : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
         if (verbose) {
           await log(`  🔐 Creating ${isPublicRepo ? 'public' : 'private'} gist...`, { verbose: true });
         }
@@ -710,8 +692,7 @@ ${logContent}
           // We use gh api to get the gist details for owner and commit SHA
           let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
 
-          const gistDetailsResult =
-            await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
+          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
           if (gistDetailsResult.code === 0) {
             const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
             const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
@@ -796,26 +777,19 @@ This log file contains the complete execution trace of the AI ${targetType === '
           }
           const tempGistCommentFile = `/tmp/log-gist-comment-${targetType}-${Date.now()}.md`;
           await fs.writeFile(tempGistCommentFile, gistComment);
-          commentResult =
-            await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempGistCommentFile}"`;
+          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempGistCommentFile}"`;
           await fs.unlink(tempGistCommentFile).catch(() => {});
           if (commentResult.code === 0) {
-            await log(
-              `  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} Gist`
-            );
+            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} Gist`);
             await log(`  🔗 Gist URL: ${gistUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             return true;
           } else {
-            await log(
-              `  ❌ Failed to upload comment with gist link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`
-            );
+            await log(`  ❌ Failed to upload comment with gist link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
             return false;
           }
         } else {
-          await log(
-            `  ❌ Failed to create gist: ${gistResult.stderr ? gistResult.stderr.toString().trim() : 'unknown error'}`
-          );
+          await log(`  ❌ Failed to create gist: ${gistResult.stderr ? gistResult.stderr.toString().trim() : 'unknown error'}`);
 
           // Fallback to truncated comment
           await log('  🔄 Falling back to truncated comment...');
@@ -824,7 +798,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
       } catch (gistError) {
         reportError(gistError, {
           context: 'create_gist',
-          level: 'error'
+          level: 'error',
         });
         await log(`  ❌ Error creating gist: ${gistError.message}`);
         // Try regular comment as last resort
@@ -882,9 +856,7 @@ ${truncatedContent}
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB (truncated)`);
     return true;
   } else {
-    await log(
-      `  ❌ Failed to upload truncated log: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`
-    );
+    await log(`  ❌ Failed to upload truncated log: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`);
     return false;
   }
 }
@@ -911,9 +883,7 @@ async function attachRegularComment(options, logComment) {
     await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
     return true;
   } else {
-    await log(
-      `  ❌ Failed to upload log to ${targetName}: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`
-    );
+    await log(`  ❌ Failed to upload log to ${targetName}: ${result.stderr ? result.stderr.toString().trim() : 'unknown error'}`);
     return false;
   }
 }
@@ -925,16 +895,7 @@ async function attachRegularComment(options, logComment) {
 export function isRateLimitError(error) {
   const errorMessage = (error.message || error.toString()).toLowerCase();
   // Common rate limit error patterns
-  const rateLimitPatterns = [
-    'rate limit',
-    'secondary rate limit',
-    'exceeded.*limit',
-    'too many requests',
-    'abuse detection',
-    'wait a few minutes',
-    'http 403.*rate',
-    'api rate limit exceeded'
-  ];
+  const rateLimitPatterns = ['rate limit', 'secondary rate limit', 'exceeded.*limit', 'too many requests', 'abuse detection', 'wait a few minutes', 'http 403.*rate', 'api rate limit exceeded'];
   return rateLimitPatterns.some(pattern => {
     return new RegExp(pattern).test(errorMessage);
   });
@@ -973,19 +934,11 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     if (issues.length === maxPageSize) {
       await log(`   ⚠️  Hit the ${maxPageSize} issue limit - there may be more issues available`, { level: 'warning' });
       if (isSearchCommand) {
-        await log(
-          '   💡 GitHub Search API is limited to 1000 results max. Triggering repository fallback for complete results.',
-          { level: 'info' }
-        );
+        await log('   💡 GitHub Search API is limited to 1000 results max. Triggering repository fallback for complete results.', { level: 'info' });
         // Throw an error to trigger the fallback to fetchIssuesFromRepositories which uses GraphQL pagination
-        throw new Error(
-          `Hit search API limit of ${maxPageSize} issues - need repository-by-repository fallback for complete results`
-        );
+        throw new Error(`Hit search API limit of ${maxPageSize} issues - need repository-by-repository fallback for complete results`);
       } else if (maxPageSize >= 1000) {
-        await log(
-          `   💡 Consider filtering by labels or date ranges for repositories with >${maxPageSize} open issues`,
-          { level: 'info' }
-        );
+        await log(`   💡 Consider filtering by labels or date ranges for repositories with >${maxPageSize} open issues`, { level: 'info' });
       }
     }
     // Add a 5-second delay after the call to be extra safe with rate limits
@@ -1034,7 +987,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     } catch (error) {
       reportError(error, {
         context: 'github.lib.mjs - GitHub CLI auth status check',
-        level: 'error'
+        level: 'error',
       });
       throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
     }
@@ -1044,7 +997,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     const startTime = Date.now();
     // Fetch all project items
     await log(`   🔎 Executing: gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
-      verbose: true
+      verbose: true,
     });
     const result = await $`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`;
     const endTime = Date.now();
@@ -1073,7 +1026,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
       number: item.content.number,
       repository: item.content.repository,
       labels: item.content.labels || [],
-      state: item.content.state || 'open'
+      state: item.content.state || 'open',
     }));
     await log(`   ✅ Found ${issues.length} issues with status "${statusFilter}"`);
     if (issues.length > 0) {
@@ -1119,7 +1072,7 @@ export function parseGitHubUrl(url) {
   if (!url || typeof url !== 'string') {
     return {
       valid: false,
-      error: 'Invalid input: URL must be a non-empty string'
+      error: 'Invalid input: URL must be a non-empty string',
     };
   }
   // Trim whitespace and remove trailing slashes
@@ -1129,7 +1082,7 @@ export function parseGitHubUrl(url) {
   if (/\s/.test(normalizedUrl) || /^[!@#$%^&*()[\]{}|\\:;"'<>,?`~]/.test(normalizedUrl)) {
     return {
       valid: false,
-      error: 'Invalid GitHub URL format'
+      error: 'Invalid GitHub URL format',
     };
   }
   // Handle protocol normalization
@@ -1144,7 +1097,7 @@ export function parseGitHubUrl(url) {
       // Has github.com somewhere but not at the start - likely malformed
       return {
         valid: false,
-        error: 'Invalid GitHub URL format'
+        error: 'Invalid GitHub URL format',
       };
     }
   }
@@ -1164,7 +1117,7 @@ export function parseGitHubUrl(url) {
     return {
       valid: false,
       error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-      suggestion: suggestedUrl + urlAfterPath
+      suggestion: suggestedUrl + urlAfterPath,
     };
   }
 
@@ -1177,19 +1130,19 @@ export function parseGitHubUrl(url) {
       reportError(e, {
         context: 'github.lib.mjs - URL parsing',
         level: 'debug',
-        url: normalizedUrl
+        url: normalizedUrl,
       });
     }
     return {
       valid: false,
-      error: 'Invalid URL format'
+      error: 'Invalid URL format',
     };
   }
   // Ensure it's a GitHub URL
   if (urlObj.hostname !== 'github.com' && urlObj.hostname !== 'www.github.com') {
     return {
       valid: false,
-      error: 'Not a GitHub URL'
+      error: 'Not a GitHub URL',
     };
   }
   // Normalize hostname
@@ -1205,7 +1158,7 @@ export function parseGitHubUrl(url) {
     normalized: normalizedUrl,
     hostname: 'github.com',
     protocol: 'https',
-    path: urlObj.pathname
+    path: urlObj.pathname,
   };
   // No path - just github.com
   if (pathParts.length === 0) {
@@ -1369,12 +1322,7 @@ export function isGitHubUrlType(url, types) {
  * @param {string} [options.jsonFields='headRefName,body,number,mergeStateStatus,state,headRepositoryOwner'] - JSON fields to return
  * @returns {Promise<{code: number, stdout: string, stderr: string, data: Object|null}>}
  */
-export async function ghPrView({
-  prNumber,
-  owner,
-  repo,
-  jsonFields = 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner'
-}) {
+export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner' }) {
   try {
     const prResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = prResult.stdout.toString();
@@ -1393,7 +1341,7 @@ export async function ghPrView({
       stdout,
       stderr,
       data,
-      output: stdout + stderr
+      output: stdout + stderr,
     };
   } catch (error) {
     return {
@@ -1401,7 +1349,7 @@ export async function ghPrView({
       stdout: error.stdout?.toString() || '',
       stderr: error.stderr?.toString() || error.message || '',
       data: null,
-      output: (error.stdout?.toString() || '') + (error.stderr?.toString() || error.message || '')
+      output: (error.stdout?.toString() || '') + (error.stderr?.toString() || error.message || ''),
     };
   }
 }
@@ -1433,7 +1381,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
       stdout,
       stderr,
       data,
-      output: stdout + stderr
+      output: stdout + stderr,
     };
   } catch (error) {
     return {
@@ -1441,7 +1389,7 @@ export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'numb
       stdout: error.stdout?.toString() || '',
       stderr: error.stderr?.toString() || error.message || '',
       data: null,
-      output: (error.stdout?.toString() || '') + (error.stderr?.toString() || error.message || '')
+      output: (error.stdout?.toString() || '') + (error.stderr?.toString() || error.message || ''),
     };
   }
 }
@@ -1508,7 +1456,7 @@ export async function detectRepositoryVisibility(owner, repo) {
       context: 'detect_repository_visibility',
       owner,
       repo,
-      operation: 'get_repo_visibility'
+      operation: 'get_repo_visibility',
     });
     // Default to public (safer to keep temp directories on error)
     if (global.verboseMode) {
@@ -1541,5 +1489,5 @@ export default {
   ghIssueView,
   handlePRNotFoundError,
   detectRepositoryVisibility,
-  batchCheckArchivedRepositories
+  batchCheckArchivedRepositories,
 };

@@ -5,9 +5,7 @@
   "commits": [
     {
       "authoredDate": "2025-10-09T07:48:03Z",
-      "authors": [
-        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }
-      ],
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
       "committedDate": "2025-10-09T07:48:03Z",
       "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/reagento/dishka/issues/575",
       "messageHeadline": "Initial commit with task details for issue #575",

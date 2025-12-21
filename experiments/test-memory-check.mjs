@@ -35,18 +35,12 @@ const checkMemory = async (minMemoryMB = 256) => {
 
     if (availableMB < minMemoryMB) {
       if (effectiveAvailableMB >= minMemoryMB) {
-        await log(
-          `⚠️  Low RAM: ${availableMB}MB available, ${minMemoryMB}MB required, but ${swapFreeMB}MB swap available`,
-          { level: 'warning' }
-        );
+        await log(`⚠️  Low RAM: ${availableMB}MB available, ${minMemoryMB}MB required, but ${swapFreeMB}MB swap available`, { level: 'warning' });
         await log('   Continuing with swap support (effective memory: ' + effectiveAvailableMB + 'MB)', {
-          level: 'warning'
+          level: 'warning',
         });
       } else {
-        await log(
-          `❌ Insufficient memory: ${availableMB}MB available + ${swapFreeMB}MB swap = ${effectiveAvailableMB}MB total, ${minMemoryMB}MB required`,
-          { level: 'error' }
-        );
+        await log(`❌ Insufficient memory: ${availableMB}MB available + ${swapFreeMB}MB swap = ${effectiveAvailableMB}MB total, ${minMemoryMB}MB required`, { level: 'error' });
         await log('   This may cause Claude command to be killed by the system.', { level: 'error' });
 
         if (swapTotalMB < 1024) {

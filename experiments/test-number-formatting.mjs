@@ -32,7 +32,7 @@ const testCases = [
   { input: 121696, expected: '121 696', label: 'Cache creation tokens' },
   { input: 430, expected: '430', label: 'Input tokens' },
   { input: 5665, expected: '5 665', label: 'Output tokens' },
-  { input: 200000, expected: '200 000', label: 'Context window' }
+  { input: 200000, expected: '200 000', label: 'Context window' },
 ];
 
 console.log('Integer formatting (thousands with spaces):');
@@ -48,7 +48,7 @@ const decimalTests = [
   { input: 1.932214, expected: '1.932214', label: 'Total cost' },
   { input: 0.45636, expected: '0.456360', label: 'Cache write cost' },
   { input: 1.381814, expected: '1.381814', label: 'Cache read cost' },
-  { input: 0.00129, expected: '0.001290', label: 'Input cost' }
+  { input: 0.00129, expected: '0.001290', label: 'Input cost' },
 ];
 
 decimalTests.forEach(({ input, expected, label }) => {
@@ -65,26 +65,26 @@ const formulaTests = [
     tokens: 4606045,
     pricePerM: 0.3,
     expected: 1.381814, // Rounded to 6 decimals
-    label: 'Cache read: 4 606 045 tokens × $0.3/M'
+    label: 'Cache read: 4 606 045 tokens × $0.3/M',
   },
   {
     tokens: 121696,
     pricePerM: 3.75,
     expected: 0.45636,
-    label: 'Cache write: 121 696 tokens × $3.75/M'
+    label: 'Cache write: 121 696 tokens × $3.75/M',
   },
   {
     tokens: 430,
     pricePerM: 3,
     expected: 0.00129,
-    label: 'Input: 430 tokens × $3/M'
+    label: 'Input: 430 tokens × $3/M',
   },
   {
     tokens: 5665,
     pricePerM: 15,
     expected: 0.084975,
-    label: 'Output: 5 665 tokens × $15/M'
-  }
+    label: 'Output: 5 665 tokens × $15/M',
+  },
 ];
 
 formulaTests.forEach(({ tokens, pricePerM, expected, label }) => {

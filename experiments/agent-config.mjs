@@ -30,27 +30,27 @@ export const productionConfig = {
       priority: 'high',
       specialization: ['github-integration', 'code-generation', 'testing'],
       maxConcurrentTasks: 3,
-      timeout: 600000 // 10 minutes
+      timeout: 600000, // 10 minutes
     },
     'code-reviewer': {
       model: 'opus',
       priority: 'critical',
       specialization: ['security-analysis', 'architecture-review', 'performance'],
       maxConcurrentTasks: 2,
-      timeout: 300000 // 5 minutes
+      timeout: 300000, // 5 minutes
     },
     coordinator: {
       model: 'haiku',
       priority: 'medium',
       specialization: ['task-management', 'communication', 'monitoring'],
       maxConcurrentTasks: 10,
-      timeout: 30000 // 30 seconds
-    }
+      timeout: 30000, // 30 seconds
+    },
   },
   orchestrator: {
     consensusThreshold: 0.8,
-    conflictResolution: 'weighted'
-  }
+    conflictResolution: 'weighted',
+  },
 };
 
 /**

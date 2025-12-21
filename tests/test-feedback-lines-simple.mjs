@@ -90,9 +90,7 @@ General guidelines.
   // Check that the buggy version WOULD have feedback in system prompt
   const buggyHasFeedbackInSystem = feedbackLines.some(line => buggySystemPrompt.includes(line));
 
-  console.log(
-    `   Buggy system prompt would contain feedback: ${buggyHasFeedbackInSystem ? 'YES (THIS WAS THE BUG)' : 'NO'}`
-  );
+  console.log(`   Buggy system prompt would contain feedback: ${buggyHasFeedbackInSystem ? 'YES (THIS WAS THE BUG)' : 'NO'}`);
 
   // The test passes if we can detect the bug in the old version
   return buggyHasFeedbackInSystem;

@@ -35,7 +35,7 @@ async function testErrorWithLogPath() {
     what: 'This is a simulated error to test log path display',
     details: 'The error occurred during testing',
     causes: ['Test cause 1', 'Test cause 2'],
-    fixes: ['Check the full log file for details', 'Review error messages']
+    fixes: ['Check the full log file for details', 'Review error messages'],
   });
 
   // Test unhandled error handler

@@ -18,32 +18,32 @@ const tests = [
     name: 'telegram-bot with em-dash (—fork)',
     command: 'node src/telegram-bot.mjs —fork',
     shouldFail: true,
-    expectedError: 'Unknown option'
+    expectedError: 'Unknown option',
   },
   {
     name: 'telegram-bot with unknown option (--unknown)',
     command: 'node src/telegram-bot.mjs --unknown',
     shouldFail: true,
-    expectedError: 'Unknown option'
+    expectedError: 'Unknown option',
   },
   {
     name: 'telegram-bot with valid --no-solve',
     command: 'node src/telegram-bot.mjs --no-solve 2>&1 | head -5',
     shouldFail: true, // Will fail due to missing token, but not due to option validation
-    expectedError: 'TELEGRAM_BOT_TOKEN'
+    expectedError: 'TELEGRAM_BOT_TOKEN',
   },
   {
     name: 'start-screen with em-dash',
     command: 'node start-screen.mjs —fork',
     shouldFail: true,
-    expectedError: 'Unknown option'
+    expectedError: 'Unknown option',
   },
   {
     name: 'start-screen with unknown option before command',
     command: 'node start-screen.mjs --unknown solve https://github.com/test/test',
     shouldFail: true,
-    expectedError: 'Unknown option'
-  }
+    expectedError: 'Unknown option',
+  },
 ];
 
 let passed = 0;
@@ -55,7 +55,7 @@ for (const test of tests) {
   try {
     const { stdout, stderr } = await execAsync(test.command, {
       cwd: rootDir,
-      timeout: 5000
+      timeout: 5000,
     });
 
     const output = stdout + stderr;

@@ -14,8 +14,8 @@ async function testBatchImplementation() {
       owner: 'link-assistant',
       repo: 'hive-mind',
       issues: [186, 194, 197, 183, 184], // Mix of issues with and without PRs
-      description: 'Mixed issues from hive-mind repo'
-    }
+      description: 'Mixed issues from hive-mind repo',
+    },
   ];
 
   for (const testCase of testCases) {
@@ -66,9 +66,7 @@ async function testBatchImplementation() {
       console.log('   Individual REST API approach (estimated):');
       console.log(`      - API calls: ${testCase.issues.length}`);
       console.log(`      - Estimated time: ${testCase.issues.length * 1000}ms (with delays)`);
-      console.log(
-        `   \n   💡 Efficiency improvement: ${Math.round((1 - 1 / testCase.issues.length) * 100)}% fewer API calls`
-      );
+      console.log(`   \n   💡 Efficiency improvement: ${Math.round((1 - 1 / testCase.issues.length) * 100)}% fewer API calls`);
     } catch (error) {
       console.error('❌ Test failed:', error.message);
       if (error.stack) {

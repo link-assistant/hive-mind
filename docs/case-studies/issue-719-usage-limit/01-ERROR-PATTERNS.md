@@ -88,13 +88,7 @@ Regex pattern: `try again at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)`
  * @returns {Object} - { isUsageLimit: boolean, resetTime: string|null }
  */
 function detectUsageLimit(message) {
-  const isUsageLimit =
-    message.includes("You've hit your usage limit") ||
-    message.includes('hit your usage limit') ||
-    message.includes('You have exceeded your rate limit') ||
-    message.includes('rate_limit_exceeded') ||
-    (message.includes('rate_limit') && !message.includes('rate_limit_error')) ||
-    (message.includes('rate limit') && !message.includes('error'));
+  const isUsageLimit = message.includes("You've hit your usage limit") || message.includes('hit your usage limit') || message.includes('You have exceeded your rate limit') || message.includes('rate_limit_exceeded') || (message.includes('rate_limit') && !message.includes('rate_limit_error')) || (message.includes('rate limit') && !message.includes('error'));
 
   let resetTime = null;
   if (isUsageLimit) {
@@ -135,7 +129,7 @@ if (exitCode !== 0) {
       success: false,
       sessionId,
       limitReached: true,
-      limitResetTime: limitInfo.resetTime
+      limitResetTime: limitInfo.resetTime,
     };
   }
   // ... handle other errors
@@ -147,8 +141,7 @@ if (exitCode !== 0) {
 ### Test Case 1: Usage Limit with Reset Time
 
 ```javascript
-const message =
-  '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}';
+const message = '{"type":"error","message":"You\'ve hit your usage limit. To get more access now, send a request to your admin or try again at 12:16 PM."}';
 const result = detectUsageLimit(message);
 assert(result.isUsageLimit === true);
 assert(result.resetTime === '12:16 PM');

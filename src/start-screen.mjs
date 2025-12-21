@@ -144,17 +144,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     const quotedArgs = args
       .map(arg => {
         // If arg contains spaces or special chars, wrap in single quotes
-        if (
-          arg.includes(' ') ||
-          arg.includes('&') ||
-          arg.includes('|') ||
-          arg.includes(';') ||
-          arg.includes('$') ||
-          arg.includes('*') ||
-          arg.includes('?') ||
-          arg.includes('(') ||
-          arg.includes(')')
-        ) {
+        if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
           // Escape single quotes within the argument
           return `'${arg.replace(/'/g, "'\\''")}'`;
         }
@@ -189,17 +179,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
   const quotedArgs = args
     .map(arg => {
       // If arg contains spaces or special chars, wrap in single quotes
-      if (
-        arg.includes(' ') ||
-        arg.includes('&') ||
-        arg.includes('|') ||
-        arg.includes(';') ||
-        arg.includes('$') ||
-        arg.includes('*') ||
-        arg.includes('?') ||
-        arg.includes('(') ||
-        arg.includes(')')
-      ) {
+      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
         // Escape single quotes within the argument
         return `'${arg.replace(/'/g, "'\\''")}'`;
       }

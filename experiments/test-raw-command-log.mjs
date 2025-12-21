@@ -15,7 +15,7 @@ async function testRawCommandLogging() {
   // Test with --help to see if raw command is logged
   console.log('1. Testing with --help flag:');
   const helpProcess = spawn('node', [solvePath, '--help'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let output = '';
@@ -40,7 +40,7 @@ async function testRawCommandLogging() {
   console.log('2. Testing with mock GitHub URL:');
   const testUrl = 'https://github.com/test/repo/issues/999';
   const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let testOutput = '';

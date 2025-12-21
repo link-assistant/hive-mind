@@ -11,9 +11,7 @@ log(`📊 GitHub CLI Rate Limit Analysis - Key Findings\n`);
 
 log(`🔍 1. RATE LIMIT ERROR PATTERNS DETECTED:`);
 log(`   ✓ Primary rate limit error: "You have exceeded a secondary rate limit"`);
-log(
-  `   ✓ Error format: "HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again..."`
-);
+log(`   ✓ Error format: "HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again..."`);
 log(`   ✓ Pattern includes: Request ID and API endpoint URL`);
 log(`   ✓ Secondary rate limits trigger when making too many requests in a short period\n`);
 

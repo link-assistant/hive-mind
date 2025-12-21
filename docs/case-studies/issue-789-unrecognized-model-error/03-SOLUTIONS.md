@@ -35,10 +35,7 @@ export const validateModelName = model => {
   return {
     valid: false,
     mapped: null,
-    error:
-      `Invalid model name: '${model}'\n` +
-      `Available aliases: ${Object.keys(availableModels).join(', ')}\n` +
-      `Or use full model ID like: claude-sonnet-4-5-20250929`
+    error: `Invalid model name: '${model}'\n` + `Available aliases: ${Object.keys(availableModels).join(', ')}\n` + `Or use full model ID like: claude-sonnet-4-5-20250929`,
   };
 };
 
@@ -111,7 +108,7 @@ export const validateModelName = model => {
       Object.entries(availableModels)
         .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
         .join('\n') +
-      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`
+      `\n\nOr use a full Claude model ID like: claude-sonnet-4-5-20250929`,
   };
 };
 ```
@@ -151,7 +148,7 @@ export const validateModelName = (model, requireConfirmation = true) => {
     return {
       valid: true,
       known: true,
-      mapped: availableModels[model]
+      mapped: availableModels[model],
     };
   }
 
@@ -170,11 +167,7 @@ export const validateModelName = (model, requireConfirmation = true) => {
         .map(([alias, id]) => `  ${alias.padEnd(15)} → ${id}`)
         .join('\n') +
       `\n\n` +
-      (looksLikeClaudeModel
-        ? `This looks like a Claude model ID. Proceeding...`
-        : `⚠️  This doesn't match expected patterns.\n` +
-          `This will likely fail and incur API costs ($0.02-0.03).\n` +
-          `Did you mean: ${suggestModel(model)}?`)
+      (looksLikeClaudeModel ? `This looks like a Claude model ID. Proceeding...` : `⚠️  This doesn't match expected patterns.\n` + `This will likely fail and incur API costs ($0.02-0.03).\n` + `Did you mean: ${suggestModel(model)}?`),
   };
 };
 
@@ -182,9 +175,7 @@ export const validateModelName = (model, requireConfirmation = true) => {
 const suggestModel = input => {
   const aliases = Object.keys(availableModels);
   // Simple Levenshtein distance or just check prefixes
-  const suggestions = aliases.filter(
-    alias => alias.startsWith(input.substring(0, 2)) || input.startsWith(alias.substring(0, 2))
-  );
+  const suggestions = aliases.filter(alias => alias.startsWith(input.substring(0, 2)) || input.startsWith(alias.substring(0, 2)));
   return suggestions.join(', ') || 'sonnet, opus, haiku';
 };
 
@@ -274,10 +265,7 @@ export const validateModelName = async model => {
   return {
     valid: false,
     mapped: null,
-    error:
-      `Model '${model}' not found.\n\n` +
-      `Available models:\n${availableList.slice(0, 10).join('\n')}` +
-      (availableList.length > 10 ? `\n... and ${availableList.length - 10} more` : '')
+    error: `Model '${model}' not found.\n\n` + `Available models:\n${availableList.slice(0, 10).join('\n')}` + (availableList.length > 10 ? `\n... and ${availableList.length - 10} more` : ''),
   };
 };
 ```
@@ -315,12 +303,12 @@ yargs
   .option('no-tool-check', {
     description: 'Skip checking if tools are installed',
     type: 'boolean',
-    default: false
+    default: false,
   })
   .option('no-validation', {
     description: 'Skip model name and argument validation (use with caution)',
     type: 'boolean',
-    default: false
+    default: false,
   });
 
 // In validation

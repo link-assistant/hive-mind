@@ -8,13 +8,9 @@ console.log('🧪 Testing --attach-logs flag passing...\n');
 // Test dry run with --attach-logs flag
 console.log('Testing: ./hive.mjs https://github.com/link-assistant/hive-mind --dry-run --once --attach-logs');
 
-const child = spawn(
-  './hive.mjs',
-  ['https://github.com/link-assistant/hive-mind', '--dry-run', '--once', '--attach-logs', '--max-issues', '1'],
-  {
-    stdio: 'pipe'
-  }
-);
+const child = spawn('./hive.mjs', ['https://github.com/link-assistant/hive-mind', '--dry-run', '--once', '--attach-logs', '--max-issues', '1'], {
+  stdio: 'pipe',
+});
 
 let output = '';
 let errorOutput = '';

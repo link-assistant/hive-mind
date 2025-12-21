@@ -23,17 +23,7 @@ const args = ['https://github.com/test/repo/issues/1', '--verbose'];
 
 const quotedArgs = args
   .map(arg => {
-    if (
-      arg.includes(' ') ||
-      arg.includes('&') ||
-      arg.includes('|') ||
-      arg.includes(';') ||
-      arg.includes('$') ||
-      arg.includes('*') ||
-      arg.includes('?') ||
-      arg.includes('(') ||
-      arg.includes(')')
-    ) {
+    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
       return `'${arg.replace(/'/g, "'\\''")}'`;
     }
     return arg;

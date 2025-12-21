@@ -155,7 +155,7 @@ async function validateWorkingDirectory(dir) {
         type: 'large_pdf',
         file: pdf,
         size: stats.size,
-        recommendation: 'Extract text first using pdftotext'
+        recommendation: 'Extract text first using pdftotext',
       });
     }
   }
@@ -164,7 +164,7 @@ async function validateWorkingDirectory(dir) {
     issues.push({
       type: 'total_pdf_size',
       totalSize,
-      recommendation: 'Process PDFs sequentially instead of simultaneously'
+      recommendation: 'Process PDFs sequentially instead of simultaneously',
     });
   }
 
@@ -218,7 +218,7 @@ Specialized agent for handling PDF files safely:
    ```javascript
    Read({
      file_path: 'large.pdf',
-     pdf_pages: '1-10' // Read only pages 1-10
+     pdf_pages: '1-10', // Read only pages 1-10
    });
    ```
 
@@ -227,7 +227,7 @@ Specialized agent for handling PDF files safely:
    ```javascript
    Read({
      file_path: 'large.pdf',
-     extract_text_only: true // Skip images, formatting
+     extract_text_only: true, // Skip images, formatting
    });
    ```
 

@@ -30,16 +30,16 @@ const argv = yargs(hideBin(process.argv))
   .option('to-bun', {
     type: 'boolean',
     description: 'Switch Claude CLI to run with Bun instead of Node.js',
-    conflicts: ['to-node']
+    conflicts: ['to-node'],
   })
   .option('to-node', {
     type: 'boolean',
     description: 'Switch Claude CLI to run with Node.js instead of Bun',
-    conflicts: ['to-bun']
+    conflicts: ['to-bun'],
   })
   .option('status', {
     type: 'boolean',
-    description: 'Check current Claude runtime configuration'
+    description: 'Check current Claude runtime configuration',
   })
   .help('h')
   .alias('h', 'help')
@@ -50,7 +50,7 @@ async function main() {
   // Translate options to match what handleClaudeRuntimeSwitch expects
   const options = {
     'force-claude-bun-run': argv.toBun,
-    'force-claude-nodejs-run': argv.toNode
+    'force-claude-nodejs-run': argv.toNode,
   };
 
   if (argv.status) {

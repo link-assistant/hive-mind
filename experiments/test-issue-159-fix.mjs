@@ -61,8 +61,7 @@ try {
 
   // Test 2: Try to add upstream remote (should fail since it exists)
   console.log('Test 2: Try to add upstream remote (simulating old behavior)');
-  const addUpstreamResult =
-    await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`.nothrow();
+  const addUpstreamResult = await $`git remote add upstream https://github.com/suenot/tinkoff-invest-etf-balancer-bot.git`.nothrow();
   console.log(`   Result: ${addUpstreamResult.code === 0 ? '✅ Success' : '❌ Failed (expected!)'}`);
   if (addUpstreamResult.code !== 0) {
     console.log('   Error:', addUpstreamResult.stderr.toString().trim());

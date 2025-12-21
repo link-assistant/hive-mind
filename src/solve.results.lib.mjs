@@ -114,7 +114,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     const [firstCommitHash, firstCommitMessage] = firstCommitLine.split('|');
 
     await log(`   First commit on branch: ${firstCommitHash.substring(0, 7)} - "${firstCommitMessage}"`, {
-      verbose: true
+      verbose: true,
     });
 
     // Safety check: Verify commit message matches expected pattern
@@ -124,14 +124,14 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     if (!messageMatches) {
       await log('   First commit message does not match expected CLAUDE.md pattern', { verbose: true });
       await log('   Expected patterns: "Initial commit with task details...", "Add CLAUDE.md", etc.', {
-        verbose: true
+        verbose: true,
       });
       return null;
     }
 
     // Safety check: Verify the commit ONLY adds CLAUDE.md file (no other files)
     const filesChangedResult = await $({
-      cwd: tempDir
+      cwd: tempDir,
     })`git diff-tree --no-commit-id --name-only -r ${firstCommitHash} 2>&1`;
     if (filesChangedResult.code !== 0 || !filesChangedResult.stdout) {
       await log('   Could not get files changed in first commit', { verbose: true });
@@ -151,7 +151,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     // This prevents Issue #617 where reverting a commit deleted .gitignore, LICENSE, README.md
     if (filesChanged.length > 1) {
       await log(`   ⚠️  First commit changes more than just CLAUDE.md (${filesChanged.length} files)`, {
-        verbose: true
+        verbose: true,
       });
       await log(`   Files: ${filesChanged.join(', ')}`, { verbose: true });
       await log('   Refusing to revert to prevent data loss (Issue #617 safety)', { verbose: true });
@@ -169,7 +169,7 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
       context: 'detect_claude_md_commit',
       tempDir,
       branchName,
-      operation: 'detect_commit_from_branch_structure'
+      operation: 'detect_commit_from_branch_structure',
     });
     await log(`   Error detecting CLAUDE.md commit: ${error.message}`, { verbose: true });
     return null;
@@ -222,7 +222,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 
       // Create a manual revert commit
       const commitResult = await $({
-        cwd: tempDir
+        cwd: tempDir,
       })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit" 2>&1`;
 
       if (commitResult.code === 0) {
@@ -321,7 +321,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     reportError(e, {
       context: 'cleanup_claude_file',
       tempDir,
-      operation: 'revert_claude_md_commit'
+      operation: 'revert_claude_md_commit',
     });
     // If revert fails, that's okay - the task is still complete
     await log('   CLAUDE.md revert failed or not needed', { verbose: true });
@@ -329,14 +329,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 };
 
 // Show session summary and handle limit reached scenarios
-export const showSessionSummary = async (
-  sessionId,
-  limitReached,
-  argv,
-  issueUrl,
-  tempDir,
-  shouldAttachLogs = false
-) => {
+export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
   await log('\n=== Session Summary ===');
 
   if (sessionId) {
@@ -391,23 +384,7 @@ export const showSessionSummary = async (
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (
-  owner,
-  repo,
-  branchName,
-  issueNumber,
-  prNumber,
-  prUrl,
-  referenceTime,
-  argv,
-  shouldAttachLogs,
-  shouldRestart = false,
-  sessionId = null,
-  tempDir = null,
-  anthropicTotalCostUSD = null,
-  publicPricingEstimate = null,
-  pricingInfo = null
-) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -415,9 +392,7 @@ export const verifyResults = async (
     const userResult = await $`gh api user --jq .login`;
 
     if (userResult.code !== 0) {
-      throw new Error(
-        `Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`
-      );
+      throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
     }
 
     const currentUser = userResult.stdout.toString().trim();
@@ -429,17 +404,14 @@ export const verifyResults = async (
     await log('\n🔍 Checking for pull requests from branch ' + branchName + '...');
 
     // First, get all PRs from our branch
-    const allBranchPrsResult =
-      await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
+    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
 
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
       // Continue with empty list
     }
 
-    const allBranchPrs = allBranchPrsResult.stdout.toString().trim()
-      ? JSON.parse(allBranchPrsResult.stdout.toString().trim())
-      : [];
+    const allBranchPrs = allBranchPrsResult.stdout.toString().trim() ? JSON.parse(allBranchPrsResult.stdout.toString().trim()) : [];
 
     // Check if we have any PRs from our branch
     // If auto-PR was created, it should be the one we're working on
@@ -448,11 +420,7 @@ export const verifyResults = async (
 
       // If we created a PR earlier in this session, it would be prNumber
       // Or if the PR was updated during the session (updatedAt > referenceTime)
-      const isPrFromSession =
-        (prNumber && pr.number.toString() === prNumber) ||
-        (prUrl && pr.url === prUrl) ||
-        new Date(pr.updatedAt) > referenceTime ||
-        new Date(pr.createdAt) > referenceTime;
+      const isPrFromSession = (prNumber && pr.number.toString() === prNumber) || (prUrl && pr.url === prUrl) || new Date(pr.updatedAt) > referenceTime || new Date(pr.createdAt) > referenceTime;
 
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
@@ -467,12 +435,7 @@ export const verifyResults = async (
           // This ensures we only detect actual GitHub-recognized linking keywords
           // (fixes, closes, resolves and their variants) in proper format
           // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-          const hasLinkingKeyword = hasGitHubLinkingKeyword(
-            prBody,
-            issueNumber,
-            argv.fork ? owner : null,
-            argv.fork ? repo : null
-          );
+          const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
 
           if (!hasLinkingKeyword) {
             await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
@@ -488,8 +451,7 @@ export const verifyResults = async (
             await fs.writeFile(tempBodyFile, updatedBody);
 
             try {
-              const updateResult =
-                await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
 
               // Clean up temp file
               await fs.unlink(tempBodyFile).catch(() => {});
@@ -497,9 +459,7 @@ export const verifyResults = async (
               if (updateResult.code === 0) {
                 await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
               } else {
-                await log(
-                  `  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`
-                );
+                await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
               }
             } catch (updateError) {
               // Clean up temp file on error
@@ -518,9 +478,7 @@ export const verifyResults = async (
           if (readyResult.code === 0) {
             await log('  ✅ PR converted to ready for review');
           } else {
-            await log(
-              `  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`
-            );
+            await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
           }
         } else {
           await log('  ✅ PR is already ready for review', { verbose: true });
@@ -545,7 +503,7 @@ export const verifyResults = async (
             anthropicTotalCostUSD,
             // Pass agent tool pricing data when available
             publicPricingEstimate,
-            pricingInfo
+            pricingInfo,
           });
         }
 
@@ -583,9 +541,7 @@ export const verifyResults = async (
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
 
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(
-      comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime
-    );
+    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
@@ -609,7 +565,7 @@ export const verifyResults = async (
           anthropicTotalCostUSD,
           // Pass agent tool pricing data when available
           publicPricingEstimate,
-          pricingInfo
+          pricingInfo,
         });
       }
 
@@ -646,7 +602,7 @@ export const verifyResults = async (
     reportError(searchError, {
       context: 'verify_pr_creation',
       issueNumber,
-      operation: 'search_for_pr'
+      operation: 'search_for_pr',
     });
     await log('\n⚠️  Could not verify results:', searchError.message);
     await log('\n💡 Check the log file for details:');
@@ -684,7 +640,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
         });
 
         if (logUploadSuccess) {
@@ -694,7 +650,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_success_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -705,8 +661,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result =
-        await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {
@@ -716,7 +671,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_success_pr',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }

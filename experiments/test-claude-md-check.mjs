@@ -11,7 +11,7 @@ const mockCheckClaudeMdInBranch = async (owner, repo, branchName) => {
   const mockResults = {
     'issue-54-branch1': false, // CLAUDE.md missing - should auto-continue immediately
     'issue-54-branch2': true, // CLAUDE.md present - should wait 24h
-    'issue-54-branch3': false // CLAUDE.md missing - should auto-continue immediately
+    'issue-54-branch3': false, // CLAUDE.md missing - should auto-continue immediately
   };
 
   console.log(`   🔍 Checking CLAUDE.md in ${branchName}: ${mockResults[branchName] ? 'EXISTS' : 'MISSING'}`);
@@ -25,22 +25,22 @@ const mockPRs = [
     createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago (< 24h)
     headRefName: 'issue-54-branch1', // CLAUDE.md missing
     isDraft: true,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 2,
     createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago (< 24h)
     headRefName: 'issue-54-branch2', // CLAUDE.md present
     isDraft: false,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 3,
     createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25 hours ago (> 24h)
     headRefName: 'issue-54-branch3', // CLAUDE.md missing
     isDraft: false,
-    state: 'OPEN'
-  }
+    state: 'OPEN',
+  },
 ];
 
 // Test the new auto-continue logic

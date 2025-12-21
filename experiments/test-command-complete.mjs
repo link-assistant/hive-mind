@@ -20,7 +20,7 @@ console.log('Executing command like solve.mjs does:');
 const claudeCommand = $({
   cwd: testDir,
   shell: true,
-  exitOnError: false
+  exitOnError: false,
 })`${claudePath} ${claudeArgs}`;
 
 let commandFailed = false;
@@ -33,7 +33,7 @@ for await (const chunk of claudeCommand.stream()) {
     hasData: !!chunk.data,
     isExit: chunk.type === 'exit',
     done: chunk.done,
-    code: chunk.code
+    code: chunk.code,
   });
 
   // This is what the current code checks (WRONG!)
@@ -63,7 +63,7 @@ console.log('\n=== Testing proper pattern ===');
 const result = await $({
   cwd: testDir,
   shell: true,
-  exitOnError: false
+  exitOnError: false,
 })`${claudePath} ${claudeArgs}`;
 
 console.log('Direct await result:');

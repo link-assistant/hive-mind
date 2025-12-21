@@ -50,7 +50,7 @@ console.log('🔧 Running hive-telegram-bot with hero configuration...\n');
 // Run the telegram-bot with --configuration and --dry-run options
 const child = spawn('node', ['src/telegram-bot.mjs', '--configuration', heroConfiguration, '--dry-run'], {
   stdio: 'inherit',
-  cwd: process.cwd()
+  cwd: process.cwd(),
 });
 
 child.on('close', code => {

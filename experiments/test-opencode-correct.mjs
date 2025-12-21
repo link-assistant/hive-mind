@@ -12,7 +12,7 @@ console.log('Test 1: Message as argument with opencode/grok-code');
 try {
   const result = execSync('opencode run -m opencode/grok-code "What is 2+2? Just answer with the number."', {
     encoding: 'utf-8',
-    timeout: 30000
+    timeout: 30000,
   });
   console.log('✅ Test 1 passed');
   console.log('Response:', result);
@@ -25,13 +25,10 @@ try {
 console.log('');
 console.log('Test 2: Using piped message');
 try {
-  const result = execSync(
-    'echo "What is the capital of France? Answer in one word." | opencode run -m opencode/grok-code',
-    {
-      encoding: 'utf-8',
-      timeout: 30000
-    }
-  );
+  const result = execSync('echo "What is the capital of France? Answer in one word." | opencode run -m opencode/grok-code', {
+    encoding: 'utf-8',
+    timeout: 30000,
+  });
   console.log('✅ Test 2 passed');
   console.log('Response:', result);
 } catch (error) {

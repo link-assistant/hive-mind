@@ -29,18 +29,18 @@ const config = makeConfig({
         type: 'string',
         default: getenv('MODE', 'changeset'),
         describe: 'Version mode: changeset or instant',
-        choices: ['changeset', 'instant']
+        choices: ['changeset', 'instant'],
       })
       .option('bump-type', {
         type: 'string',
         default: getenv('BUMP_TYPE', ''),
-        describe: 'Version bump type for instant mode: major, minor, or patch'
+        describe: 'Version bump type for instant mode: major, minor, or patch',
       })
       .option('description', {
         type: 'string',
         default: getenv('DESCRIPTION', ''),
-        describe: 'Description for instant version bump'
-      })
+        describe: 'Description for instant version bump',
+      }),
 });
 
 const { mode, bumpType, description } = config;
@@ -49,7 +49,7 @@ const { mode, bumpType, description } = config;
 console.log('Parsed configuration:', {
   mode,
   bumpType,
-  description: description || '(none)'
+  description: description || '(none)',
 });
 
 // Detect if positional arguments were used (common mistake)
@@ -63,9 +63,7 @@ if (args.length > 0 && !args[0].startsWith('--')) {
   console.error('  Changeset mode:');
   console.error('    node scripts/version-and-commit.mjs --mode changeset');
   console.error('  Instant mode:');
-  console.error(
-    '    node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]'
-  );
+  console.error('    node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]');
   console.error('');
   console.error('Examples:');
   console.error('  node scripts/version-and-commit.mjs --mode instant --bump-type patch --description "Fix bug"');
@@ -83,9 +81,7 @@ if (mode !== 'changeset' && mode !== 'instant') {
 // Validation: Ensure bump type is provided for instant mode
 if (mode === 'instant' && !bumpType) {
   console.error('Error: --bump-type is required for instant mode');
-  console.error(
-    'Usage: node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]'
-  );
+  console.error('Usage: node scripts/version-and-commit.mjs --mode instant --bump-type <major|minor|patch> [--description <desc>]');
   process.exit(1);
 }
 
@@ -121,7 +117,7 @@ function countChangesets() {
 async function getVersion(source = 'local') {
   if (source === 'remote') {
     const result = await $`git show origin/main:package.json`.run({
-      capture: true
+      capture: true,
     });
     return JSON.parse(result.stdout).version;
   }
@@ -142,7 +138,7 @@ async function main() {
     const localHead = localHeadResult.stdout.trim();
 
     const remoteHeadResult = await $`git rev-parse origin/main`.run({
-      capture: true
+      capture: true,
     });
     const remoteHead = remoteHeadResult.stdout.trim();
 

@@ -13,44 +13,44 @@ const testCases = [
     name: 'Issue #423 scenario (MERGED + OPEN PR)',
     prs: [
       { number: 425, state: 'OPEN' },
-      { number: 424, state: 'MERGED' }
+      { number: 424, state: 'MERGED' },
     ],
     expectedReuse: false,
-    expectedReason: 'Has MERGED PR'
+    expectedReason: 'Has MERGED PR',
   },
   {
     name: 'Only OPEN PR',
     prs: [{ number: 100, state: 'OPEN' }],
     expectedReuse: true,
-    expectedReason: 'Only OPEN PR'
+    expectedReason: 'Only OPEN PR',
   },
   {
     name: 'No PRs',
     prs: [],
     expectedReuse: true,
-    expectedReason: 'No PRs exist'
+    expectedReason: 'No PRs exist',
   },
   {
     name: 'Only CLOSED PR',
     prs: [{ number: 200, state: 'CLOSED' }],
     expectedReuse: false,
-    expectedReason: 'Has CLOSED PR'
+    expectedReason: 'Has CLOSED PR',
   },
   {
     name: 'Only MERGED PR',
     prs: [{ number: 300, state: 'MERGED' }],
     expectedReuse: false,
-    expectedReason: 'Has MERGED PR'
+    expectedReason: 'Has MERGED PR',
   },
   {
     name: 'Multiple OPEN PRs',
     prs: [
       { number: 400, state: 'OPEN' },
-      { number: 401, state: 'OPEN' }
+      { number: 401, state: 'OPEN' },
     ],
     expectedReuse: true,
-    expectedReason: 'All PRs are OPEN'
-  }
+    expectedReason: 'All PRs are OPEN',
+  },
 ];
 
 let passed = 0;

@@ -67,7 +67,7 @@ try {
           const answer = execSync('read answer && echo $answer', {
             encoding: 'utf8',
             stdio: ['inherit', 'pipe', 'pipe'],
-            shell: '/bin/bash'
+            shell: '/bin/bash',
           }).trim();
 
           if (answer.toLowerCase() !== 'yes') {
@@ -98,7 +98,7 @@ try {
 
   // Get all repos (up to 100, adjust if needed) - include isArchived field
   const reposJson = execSync(`gh repo list ${githubUser} --limit 100 --json name,url,createdAt,isPrivate,isArchived`, {
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
   const repos = JSON.parse(reposJson);
 
@@ -193,7 +193,7 @@ try {
       const answer = execSync('read answer && echo $answer', {
         encoding: 'utf8',
         stdio: ['inherit', 'pipe', 'pipe'],
-        shell: '/bin/bash'
+        shell: '/bin/bash',
       }).trim();
 
       if (answer.toLowerCase() !== 'yes') {

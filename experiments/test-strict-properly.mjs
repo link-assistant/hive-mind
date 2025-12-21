@@ -37,11 +37,7 @@ try {
 console.log('\nTest 2: Using .parseSync() with array of args');
 try {
   const instance2 = yargs();
-  const argv2 = instance2
-    .option('token', { type: 'string' })
-    .strict()
-    .fail(false)
-    .parseSync(['--invalid-option', 'value']);
+  const argv2 = instance2.option('token', { type: 'string' }).strict().fail(false).parseSync(['--invalid-option', 'value']);
   console.log('❌ FAIL: Invalid option was accepted');
   console.log(
     '   Keys:',
@@ -59,11 +55,7 @@ try {
 
 console.log('\nTest 3: Calling yargs as function first');
 try {
-  const argv3 = yargs(['--invalid-option', 'value'])
-    .option('token', { type: 'string' })
-    .strict()
-    .fail(false)
-    .parseSync();
+  const argv3 = yargs(['--invalid-option', 'value']).option('token', { type: 'string' }).strict().fail(false).parseSync();
   console.log('❌ FAIL: Invalid option was accepted');
   console.log(
     '   Keys:',

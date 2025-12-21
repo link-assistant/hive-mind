@@ -12,13 +12,13 @@ const yargsInstance = yargs(['--invalid', '--fork'])
     type: 'boolean',
     description: 'Fork the repository',
     alias: 'f',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   });
 
 const argv = yargsInstance.argv;

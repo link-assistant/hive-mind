@@ -26,11 +26,11 @@ testModels.forEach(model => {
       model,
       '--dry-run',
       '--once',
-      '--help' // Just show help to avoid GitHub calls
+      '--help', // Just show help to avoid GitHub calls
     ],
     {
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 10000
+      timeout: 10000,
     }
   );
 

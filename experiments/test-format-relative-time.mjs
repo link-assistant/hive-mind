@@ -50,11 +50,7 @@ function runTests() {
 
   function test(description, isoDate, expectedPattern, shouldMatch = true) {
     const result = formatRelativeTime(isoDate);
-    const matches = shouldMatch
-      ? expectedPattern instanceof RegExp
-        ? expectedPattern.test(result)
-        : result === expectedPattern
-      : result === expectedPattern;
+    const matches = shouldMatch ? (expectedPattern instanceof RegExp ? expectedPattern.test(result) : result === expectedPattern) : result === expectedPattern;
 
     if (matches) {
       console.log(`✅ PASS: ${description}`);

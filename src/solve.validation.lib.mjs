@@ -21,7 +21,7 @@ const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
 const {
   log,
-  setLogFile
+  setLogFile,
   // getLogFile - not currently used
 } = lib;
 
@@ -29,7 +29,7 @@ const {
 const githubLib = await import('./github.lib.mjs');
 const {
   checkGitHubPermissions,
-  parseGitHubUrl
+  parseGitHubUrl,
   // isGitHubUrlType - not currently used
 } = githubLib;
 
@@ -98,7 +98,7 @@ export const validateGitHubUrl = issueUrl => {
     normalizedUrl: parsedUrl.normalized,
     owner: parsedUrl.owner,
     repo: parsedUrl.repo,
-    number: parsedUrl.number
+    number: parsedUrl.number,
   };
 };
 
@@ -144,7 +144,7 @@ export const initializeLogFile = async (logDir = null) => {
   } catch (error) {
     reportError(error, {
       context: 'create_log_directory',
-      operation: 'mkdir_log_dir'
+      operation: 'mkdir_log_dir',
     });
     // If directory doesn't exist, try to create it
     try {
@@ -153,7 +153,7 @@ export const initializeLogFile = async (logDir = null) => {
       reportError(mkdirError, {
         context: 'create_log_directory_fallback',
         targetDir,
-        operation: 'mkdir_recursive'
+        operation: 'mkdir_recursive',
       });
       await log(`⚠️  Unable to create log directory: ${targetDir}`, { level: 'error' });
       await log('   Falling back to current working directory', { level: 'error' });
@@ -194,10 +194,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
       await log('   This option works only with:', { level: 'error' });
       await log('   • Pull request URL, OR', { level: 'error' });
       await log('   • Issue URL with --auto-continue option', { level: 'error' });
-      await log(
-        `   Current: ${isPrUrl ? 'PR URL' : 'Issue URL'} ${argv.autoContinue ? 'with --auto-continue' : 'without --auto-continue'}`,
-        { level: 'error' }
-      );
+      await log(`   Current: ${isPrUrl ? 'PR URL' : 'Issue URL'} ${argv.autoContinue ? 'with --auto-continue' : 'without --auto-continue'}`, { level: 'error' });
       return false;
     }
   }
@@ -207,12 +204,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (
-  minDiskSpace = 500,
-  skipToolConnection = false,
-  model = 'sonnet',
-  argv = {}
-) => {
+export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -270,10 +262,10 @@ export const performSystemChecks = async (
     }
   } else {
     await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', {
-      verbose: true
+      verbose: true,
     });
     await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', {
-      verbose: true
+      verbose: true,
     });
   }
 
@@ -286,7 +278,7 @@ export const parseUrlComponents = issueUrl => {
   return {
     owner: urlParts[3],
     repo: urlParts[4],
-    urlNumber: urlParts[6] // Could be issue or PR number
+    urlNumber: urlParts[6], // Could be issue or PR number
   };
 };
 

@@ -24,7 +24,7 @@ const mockDollar = async command => {
   // Mock gh command to avoid actual API calls
   return {
     stdout: Buffer.from('https://github.com/test/repo/pull/123#issuecomment-9999999'),
-    toString: () => 'https://github.com/test/repo/pull/123#issuecomment-9999999'
+    toString: () => 'https://github.com/test/repo/pull/123#issuecomment-9999999',
   };
 };
 
@@ -35,7 +35,7 @@ const testConfig = {
   prNumber: 123,
   $: mockDollar,
   log: mockLog,
-  verbose: false
+  verbose: false,
 };
 
 // Store generated comments for verification
@@ -102,10 +102,10 @@ const runTests = async () => {
           type: 'tool_use',
           id: 'tool_bash_1',
           name: 'Bash',
-          input: { command: 'ls -la' }
-        }
-      ]
-    }
+          input: { command: 'ls -la' },
+        },
+      ],
+    },
   };
 
   const bashComment = `## 💻 Bash tool use

@@ -44,11 +44,7 @@ try {
 
 console.log('Test 3: Valid option with special char value - should pass');
 try {
-  const argv3 = yargs()
-    .option('token', { type: 'string' })
-    .option('chats', { type: 'string' })
-    .strict()
-    .parse(['--token', '8490aOEM', '--chats', '(-1002975819706 -1002861722681)']);
+  const argv3 = yargs().option('token', { type: 'string' }).option('chats', { type: 'string' }).strict().parse(['--token', '8490aOEM', '--chats', '(-1002975819706 -1002861722681)']);
   console.log('✅ PASS: Valid options with special char values accepted');
   console.log('   argv.token:', argv3.token);
   console.log('   argv.chats:', argv3.chats);

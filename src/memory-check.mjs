@@ -129,9 +129,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
       const success = totalAvailable >= minMemoryMB;
 
       if (!success) {
-        await log(
-          `❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`
-        );
+        await log(`❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`);
 
         if (!swapEnabled) {
           await log('   Swap is disabled. Consider enabling swap:');
@@ -141,9 +139,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
         return { success: false, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
       }
 
-      await log(
-        `🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`
-      );
+      await log(`🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`);
       return { success: true, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
     } catch (error) {
       await log(`❌ macOS memory check failed: ${error.message}`);
@@ -152,8 +148,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
   } else if (process.platform === 'win32') {
     // Windows memory check using PowerShell
     try {
-      const { stdout: memOutput } =
-        await $silent`powershell -Command "Get-CimInstance Win32_OperatingSystem | Select-Object @{Name='AvailableMB';Expression={[math]::Round($_.FreePhysicalMemory/1024)}}, @{Name='TotalPageFileMB';Expression={[math]::Round($_.TotalVirtualMemorySize/1024)}}, @{Name='FreePageFileMB';Expression={[math]::Round($_.FreeVirtualMemory/1024)}} | ConvertTo-Json"`;
+      const { stdout: memOutput } = await $silent`powershell -Command "Get-CimInstance Win32_OperatingSystem | Select-Object @{Name='AvailableMB';Expression={[math]::Round($_.FreePhysicalMemory/1024)}}, @{Name='TotalPageFileMB';Expression={[math]::Round($_.TotalVirtualMemorySize/1024)}}, @{Name='FreePageFileMB';Expression={[math]::Round($_.FreeVirtualMemory/1024)}} | ConvertTo-Json"`;
 
       const memInfo = JSON.parse(memOutput.toString());
       const availableMB = memInfo.AvailableMB;
@@ -175,16 +170,12 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
       const success = totalAvailable >= minMemoryMB;
 
       if (!success) {
-        await log(
-          `❌ Insufficient memory: ${availableMB}MB available, page file: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`
-        );
+        await log(`❌ Insufficient memory: ${availableMB}MB available, page file: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`);
         await log('   Consider closing some applications or increasing virtual memory.');
         return { success: false, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
       }
 
-      await log(
-        `🧠 Memory check: ${availableMB}MB available, page file: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`
-      );
+      await log(`🧠 Memory check: ${availableMB}MB available, page file: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`);
       return { success: true, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
     } catch (error) {
       await log(`❌ Windows memory check failed: ${error.message}`);
@@ -235,9 +226,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
       const success = totalAvailable >= minMemoryMB;
 
       if (!success) {
-        await log(
-          `❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`
-        );
+        await log(`❌ Insufficient memory: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required)`);
 
         if (swapTotal === 0) {
           await log('   No swap configured. Consider adding swap:');
@@ -251,9 +240,7 @@ export const checkRAM = async (minMemoryMB = 256, options = {}) => {
         return { success: false, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
       }
 
-      await log(
-        `🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`
-      );
+      await log(`🧠 Memory check: ${availableMB}MB available, swap: ${swapInfo}, total: ${totalAvailable}MB (${minMemoryMB}MB required) ✅`);
       return { success: true, availableMB, required: minMemoryMB, swap: swapInfo, totalAvailable };
     } catch (error) {
       await log(`❌ Linux memory check failed: ${error.message}`);
@@ -278,12 +265,11 @@ export const getResourceSnapshot = async () => {
         timestamp: new Date().toISOString(),
         memory: vmStat.stdout.toString().trim(),
         swap: swap.stdout.toString().trim(),
-        uptime: uptime.stdout.toString().trim()
+        uptime: uptime.stdout.toString().trim(),
       };
     } else {
       // Linux resource snapshot
-      const memInfo =
-        await $silent`grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree" /proc/meminfo 2>/dev/null`;
+      const memInfo = await $silent`grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree" /proc/meminfo 2>/dev/null`;
       const loadAvg = await $silent`cat /proc/loadavg`;
       const uptime = await $silent`uptime`;
 
@@ -291,13 +277,13 @@ export const getResourceSnapshot = async () => {
         timestamp: new Date().toISOString(),
         memory: memInfo.stdout.toString().trim(),
         load: loadAvg.stdout.toString().trim(),
-        uptime: uptime.stdout.toString().trim()
+        uptime: uptime.stdout.toString().trim(),
       };
     }
   } catch (error) {
     return {
       timestamp: new Date().toISOString(),
-      error: `Failed to get resource snapshot: ${error.message}`
+      error: `Failed to get resource snapshot: ${error.message}`,
     };
   }
 };
@@ -310,7 +296,7 @@ export const checkSystem = async (requirements = {}, options = {}) => {
   const results = {
     ram: null,
     disk: null,
-    success: true
+    success: true,
   };
 
   // Check disk space (persistent memory)
@@ -344,36 +330,36 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       alias: 'm',
       type: 'number',
       description: 'Minimum required memory in MB',
-      default: 256
+      default: 256,
     })
     .option('min-disk-space', {
       alias: 'd',
       type: 'number',
       description: 'Minimum required disk space in MB',
-      default: 500
+      default: 500,
     })
     .option('exit-on-failure', {
       alias: 'e',
       type: 'boolean',
       description: 'Exit with code 1 if any check fails',
-      default: false
+      default: false,
     })
     .option('json', {
       alias: 'j',
       type: 'boolean',
       description: 'Output results as JSON',
-      default: false
+      default: false,
     })
     .option('quiet', {
       alias: 'q',
       type: 'boolean',
       description: 'Suppress detailed output (only show final status)',
-      default: false
+      default: false,
     })
     .option('log-file', {
       alias: 'l',
       type: 'string',
-      description: 'Path to log file for output'
+      description: 'Path to log file for output',
     })
     .help('h')
     .alias('h', 'help');
@@ -399,7 +385,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     {
       minMemoryMB: argv.minMemory,
       minDiskSpaceMB: argv.minDiskSpace,
-      exitOnFailure: argv.exitOnFailure
+      exitOnFailure: argv.exitOnFailure,
     },
     { log }
   );
@@ -409,12 +395,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   } else if (!argv.quiet) {
     console.log('\n📊 System Check Summary:');
     console.log('─'.repeat(40));
-    console.log(
-      `RAM:    ${results.ram.success ? '✅' : '❌'} ${results.ram.availableMB}MB available (${results.ram.required}MB required)`
-    );
-    console.log(
-      `Disk:   ${results.disk.success ? '✅' : '❌'} ${results.disk.availableMB}MB available (${results.disk.required}MB required)`
-    );
+    console.log(`RAM:    ${results.ram.success ? '✅' : '❌'} ${results.ram.availableMB}MB available (${results.ram.required}MB required)`);
+    console.log(`Disk:   ${results.disk.success ? '✅' : '❌'} ${results.disk.availableMB}MB available (${results.disk.required}MB required)`);
     console.log(`Overall: ${results.success ? '✅ All checks passed' : '❌ Some checks failed'}`);
   }
 

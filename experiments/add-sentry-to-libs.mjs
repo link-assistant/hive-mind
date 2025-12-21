@@ -5,17 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const libFiles = [
-  'solve.branch-errors.lib.mjs',
-  'solve.claude-execution.lib.mjs',
-  'solve.error-handlers.lib.mjs',
-  'solve.execution.lib.mjs',
-  'solve.feedback.lib.mjs',
-  'solve.repository.lib.mjs',
-  'solve.results.lib.mjs',
-  'solve.validation.lib.mjs',
-  'solve.watch.lib.mjs'
-];
+const libFiles = ['solve.branch-errors.lib.mjs', 'solve.claude-execution.lib.mjs', 'solve.error-handlers.lib.mjs', 'solve.execution.lib.mjs', 'solve.feedback.lib.mjs', 'solve.repository.lib.mjs', 'solve.results.lib.mjs', 'solve.validation.lib.mjs', 'solve.watch.lib.mjs'];
 
 const sentryImport = `
 // Import Sentry integration

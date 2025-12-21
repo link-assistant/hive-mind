@@ -58,7 +58,7 @@ const converter = fromPath('document.pdf', {
   savePath: './images',
   format: 'png',
   width: 2000,
-  height: 2000
+  height: 2000,
 });
 
 const page1 = await converter(1);
@@ -131,7 +131,7 @@ import { PdfDocument } from '@ironsoftware/ironpdf';
 const pdf = await PdfDocument.fromFile('document.pdf');
 await pdf.saveAsImages('./output/', 'page', {
   imageFormat: 'JPEG',
-  dpi: 150
+  dpi: 150,
 });
 ```
 
@@ -257,7 +257,7 @@ const convertapi = new ConvertAPI('your_api_secret');
 const result = await convertapi.convert(
   'jpg',
   {
-    File: 'path/to/document.pdf'
+    File: 'path/to/document.pdf',
   },
   'pdf'
 );

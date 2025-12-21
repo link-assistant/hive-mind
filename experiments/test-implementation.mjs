@@ -22,46 +22,44 @@ console.log('=====================================\n');
 const testCases = [
   {
     name: 'Primary rate limit error',
-    error: new Error(
-      'HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again.'
-    ),
-    expectedResult: true
+    error: new Error('HTTP 403: You have exceeded a secondary rate limit. Please wait a few minutes before you try again.'),
+    expectedResult: true,
   },
   {
     name: 'Too many requests error',
     error: new Error('too many requests'),
-    expectedResult: true
+    expectedResult: true,
   },
   {
     name: 'Rate limit exceeded error',
     error: new Error('API rate limit exceeded'),
-    expectedResult: true
+    expectedResult: true,
   },
   {
     name: 'Abuse detection error',
     error: new Error('abuse detection mechanism'),
-    expectedResult: true
+    expectedResult: true,
   },
   {
     name: 'Wait message error',
     error: new Error('Please wait a few minutes'),
-    expectedResult: true
+    expectedResult: true,
   },
   {
     name: 'Regular network error',
     error: new Error('network timeout'),
-    expectedResult: false
+    expectedResult: false,
   },
   {
     name: 'Authentication error',
     error: new Error('HTTP 401: Unauthorized'),
-    expectedResult: false
+    expectedResult: false,
   },
   {
     name: 'File not found error',
     error: new Error('No such file or directory'),
-    expectedResult: false
-  }
+    expectedResult: false,
+  },
 ];
 
 let allTestsPassed = true;

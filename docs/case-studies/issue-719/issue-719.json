@@ -18,9 +18,7 @@
     }
   ],
   "createdAt": "2025-11-12T12:32:15Z",
-  "labels": [
-    { "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }
-  ],
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
   "number": 719,
   "state": "OPEN",
   "title": "Make sure we handle limit reached for all tools: claude, codex, opencode",

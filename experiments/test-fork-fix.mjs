@@ -27,7 +27,7 @@ async function simulateForkCreation(owner, repo, currentUser) {
     return {
       repoToClone: `${currentUser}/${repo}`,
       forkedRepo: `${currentUser}/${repo}`,
-      upstreamRemote: `${owner}/${repo}`
+      upstreamRemote: `${owner}/${repo}`,
     };
   } else {
     console.log("❌ Fork doesn't exist, need to create...");
@@ -66,7 +66,7 @@ async function simulateForkCreation(owner, repo, currentUser) {
     return {
       repoToClone: `${currentUser}/${repo}`,
       forkedRepo: `${currentUser}/${repo}`,
-      upstreamRemote: `${owner}/${repo}`
+      upstreamRemote: `${owner}/${repo}`,
     };
   }
 }

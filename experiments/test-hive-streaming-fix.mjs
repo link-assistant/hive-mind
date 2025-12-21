@@ -49,7 +49,7 @@ async function testHiveStreaming() {
   // Simulate the exact streaming logic from hive.mjs (after fix)
   await new Promise(resolve => {
     const child = spawn('node', [mockSolvePath], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     // Handle stdout data - stream output in real-time (WITHOUT verbose: true)

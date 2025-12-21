@@ -81,11 +81,7 @@ const sanitizeLogContent = async logContent => {
     }
 
     // Also look for and mask common GitHub token patterns directly in the log
-    const tokenPatterns = [
-      /gh[pou]_[a-zA-Z0-9_]{20,}/g,
-      /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm,
-      /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi
-    ];
+    const tokenPatterns = [/gh[pou]_[a-zA-Z0-9_]{20,}/g, /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm, /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi];
 
     for (const pattern of tokenPatterns) {
       sanitized = sanitized.replace(pattern, (match, token) => {
@@ -132,9 +128,7 @@ console.log('\n3. Verification...');
 const hasMaskedTokens = sanitizedLog.includes('*') && !testLog.includes('*');
 console.log(`   ✅ Tokens were masked: ${hasMaskedTokens ? 'YES' : 'NO'}`);
 
-const originalTokenPresent =
-  tokens.some(token => sanitizedLog.includes(token)) ||
-  sanitizedLog.includes('ghp_example1234567890abcdef1234567890abcdef123');
+const originalTokenPresent = tokens.some(token => sanitizedLog.includes(token)) || sanitizedLog.includes('ghp_example1234567890abcdef1234567890abcdef123');
 console.log(`   ✅ Original tokens removed: ${!originalTokenPresent ? 'YES' : 'NO'}`);
 
 console.log('\n🧪 Integration test complete!');

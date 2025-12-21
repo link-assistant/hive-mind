@@ -72,10 +72,7 @@ if (autoPrLibContent.includes('Checking if PR was created anyway...')) {
 }
 
 // Check for detailed error explanation when PR actually fails
-if (
-  autoPrLibContent.includes('assignee validation issue') ||
-  autoPrLibContent.includes("assignee doesn't have access")
-) {
+if (autoPrLibContent.includes('assignee validation issue') || autoPrLibContent.includes("assignee doesn't have access")) {
   console.log('✅ PASS: Detailed explanation for assignee issues provided');
 } else {
   console.log('❌ FAIL: Assignee issue explanation not found');
@@ -87,7 +84,7 @@ console.log('\nTest 3: Checking that error messages include helpful context');
 const errorMessageSections = [
   'cd ${tempDir}', // Should tell user where to go
   'gh pr create', // Should suggest manual PR creation
-  'git status' // Should suggest debugging commands
+  'git status', // Should suggest debugging commands
 ];
 
 let missingContext = false;
@@ -122,11 +119,7 @@ if (allOptionsPresent) {
 
 // Test 5: Check for PR verification after creation
 console.log('\nTest 5: Checking PR verification after creation');
-if (
-  autoPrLibContent.includes('gh pr view') &&
-  autoPrLibContent.includes('Verifying:') &&
-  autoPrLibContent.includes('PR exists on GitHub')
-) {
+if (autoPrLibContent.includes('gh pr view') && autoPrLibContent.includes('Verifying:') && autoPrLibContent.includes('PR exists on GitHub')) {
   console.log('✅ PASS: PR verification is performed after creation');
 } else {
   console.log('❌ FAIL: PR verification not found');

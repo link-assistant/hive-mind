@@ -22,7 +22,7 @@ if (process.env.GITHUB_TOKEN) {
 console.log('\nTest 2: Spawn child process with env: process.env');
 const child = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  env: process.env
+  env: process.env,
 });
 
 let stdout = '';
@@ -50,7 +50,7 @@ child.on('close', code => {
   // Test 3: Spawn without env parameter (should fail to inherit environment)
   console.log('\nTest 3: Spawn child process WITHOUT env parameter (should not inherit)');
   const childNoEnv = spawn('node', ['-e', 'console.log("GITHUB_TOKEN present:", !!process.env.GITHUB_TOKEN)'], {
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // Note: missing env parameter
   });
 

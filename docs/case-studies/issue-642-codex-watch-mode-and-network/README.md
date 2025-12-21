@@ -66,8 +66,8 @@ await startWatchMode({
   argv: {
     ...argv,
     watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
-    temporaryWatch: temporaryWatchMode // Flag to indicate temporary watch mode
-  }
+    temporaryWatch: temporaryWatchMode, // Flag to indicate temporary watch mode
+  },
 });
 ```
 

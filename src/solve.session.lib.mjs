@@ -11,8 +11,7 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
 
     // Convert PR back to draft if not already
     try {
-      const prStatusResult =
-        await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
+      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
       if (prStatusResult.code === 0) {
         const isDraft = prStatusResult.stdout.toString().trim() === 'true';
         if (!isDraft) {
@@ -33,7 +32,7 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
       reportError(error, {
         context: 'convert_pr_to_draft',
         prNumber,
-        operation: 'pr_status_change'
+        operation: 'pr_status_change',
       });
       await log('Warning: Could not check/convert PR draft status', { level: 'warning' });
     }
@@ -41,8 +40,7 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
     // Post a comment marking the start of work session
     try {
       const startComment = `🤖 **AI Work Session Started**\n\nStarting automated work session at ${workStartTime.toISOString()}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._`;
-      const commentResult =
-        await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
+      const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
       if (commentResult.code === 0) {
         await log(formatAligned('💬', 'Posted:', 'Work session start comment', 2));
       }
@@ -52,7 +50,7 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
       reportError(error, {
         context: 'post_start_comment',
         prNumber,
-        operation: 'create_pr_comment'
+        operation: 'create_pr_comment',
       });
       await log('Warning: Could not post work start comment', { level: 'warning' });
     }
@@ -73,8 +71,7 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
       // Post a comment marking the end of work session
       try {
         const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
-        const commentResult =
-          await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
+        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
         if (commentResult.code === 0) {
           await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
         }
@@ -84,7 +81,7 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
         reportError(error, {
           context: 'post_end_comment',
           prNumber,
-          operation: 'create_pr_comment'
+          operation: 'create_pr_comment',
         });
         await log('Warning: Could not post work end comment', { level: 'warning' });
       }
@@ -94,8 +91,7 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
 
     // Convert PR back to ready for review
     try {
-      const prStatusResult =
-        await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
+      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
       if (prStatusResult.code === 0) {
         const isDraft = prStatusResult.stdout.toString().trim() === 'true';
         if (isDraft) {
@@ -116,7 +112,7 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
       reportError(error, {
         context: 'convert_pr_to_ready',
         prNumber,
-        operation: 'pr_status_change'
+        operation: 'pr_status_change',
       });
       await log('Warning: Could not convert PR to ready status', { level: 'warning' });
     }

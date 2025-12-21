@@ -67,7 +67,7 @@ interface AgentConfig {
 export const defaultConfig: AgentConfig = {
   model: 'sonnet',
   priority: 'medium',
-  specialization: ['code-review', 'issue-solving']
+  specialization: ['code-review', 'issue-solving'],
 };
 ```
 
@@ -106,7 +106,7 @@ import { testAgent } from './tests/agent-testing.ts';
 await testAgent({
   scenario: 'complex-issue-solving',
   expectedOutcome: 'pull-request-created',
-  timeout: 300000 // 5 minutes
+  timeout: 300000, // 5 minutes
 });
 ```
 

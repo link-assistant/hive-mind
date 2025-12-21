@@ -53,9 +53,7 @@ for (const time of testTimes) {
     const waitMinutes = Math.round(waitMs / (1000 * 60));
     const nextTime = new Date(Date.now() + waitMs);
 
-    console.log(
-      `⏰ ${time.padEnd(8)} → ${parsed.hour.toString().padStart(2, '0')}:${parsed.minute.toString().padStart(2, '0')} → Wait: ${waitMinutes} min → Next: ${nextTime.toLocaleString()}`
-    );
+    console.log(`⏰ ${time.padEnd(8)} → ${parsed.hour.toString().padStart(2, '0')}:${parsed.minute.toString().padStart(2, '0')} → Wait: ${waitMinutes} min → Next: ${nextTime.toLocaleString()}`);
   } catch (error) {
     console.log(`❌ ${time.padEnd(8)} → Error: ${error.message}`);
   }
@@ -63,13 +61,7 @@ for (const time of testTimes) {
 
 // Test the regex pattern detection
 console.log('\n🔍 Testing limit detection pattern');
-const testMessages = [
-  '5-hour limit reached ∙ resets 5:30am',
-  '24-hour limit reached • resets 11:45pm',
-  'Your 5-hour limit reached and resets 2:15pm',
-  'limit reached',
-  'generic limit message'
-];
+const testMessages = ['5-hour limit reached ∙ resets 5:30am', '24-hour limit reached • resets 11:45pm', 'Your 5-hour limit reached and resets 2:15pm', 'limit reached', 'generic limit message'];
 
 const resetPattern = /(\d+)-hour limit reached.*?resets (\d{1,2}:\d{2}[ap]m)/i;
 

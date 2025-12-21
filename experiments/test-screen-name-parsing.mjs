@@ -12,11 +12,7 @@ console.log('='.repeat(60));
 console.log('Testing parse-github-url library behavior');
 console.log('='.repeat(60));
 
-const testUrls = [
-  'https://github.com/veb86/zcadvelecAI/issues/19',
-  'https://github.com/veb86/zcadvelecAI/pull/25',
-  'https://github.com/veb86/zcadvelecAI'
-];
+const testUrls = ['https://github.com/veb86/zcadvelecAI/issues/19', 'https://github.com/veb86/zcadvelecAI/pull/25', 'https://github.com/veb86/zcadvelecAI'];
 
 for (const url of testUrls) {
   console.log(`\nURL: ${url}`);
@@ -43,7 +39,7 @@ function parseGitHubUrlBuggy(url) {
     owner: parsed.owner,
     repo: parsed.name,
     type: 'unknown',
-    number: null
+    number: null,
   };
 
   // BUG: This checks filepath which is "19", not "issues/19"
@@ -84,7 +80,7 @@ function parseGitHubUrlFixed(url) {
     owner: parsed.owner,
     repo: parsed.name,
     type: 'unknown',
-    number: null
+    number: null,
   };
 
   // FIX: Check the branch property for "issues" or "pull"

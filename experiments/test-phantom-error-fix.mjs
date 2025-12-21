@@ -22,7 +22,7 @@ const errorPatterns = [
   { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
   { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
   { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' }
+  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
 ];
 
 // Fixed error detection function
@@ -97,13 +97,13 @@ const test1Stdout =
     tool: 'read',
     state: {
       status: 'completed',
-      output: 'Line 404: await log(`PERMISSION DENIED: Cannot push`); // error handling code'
-    }
+      output: 'Line 404: await log(`PERMISSION DENIED: Cannot push`); // error handling code',
+    },
   }) +
   '\n' +
   JSON.stringify({
     type: 'step_finish',
-    reason: 'stop'
+    reason: 'stop',
   });
 const test1Stderr = '';
 
@@ -120,7 +120,7 @@ console.log();
 console.log('Test 2: Actual permission denied error in stderr');
 const test2Stdout = JSON.stringify({
   type: 'step_finish',
-  reason: 'stop'
+  reason: 'stop',
 });
 const test2Stderr = 'Error: permission denied when accessing /etc/shadow';
 
@@ -140,8 +140,8 @@ const test3Stdout = JSON.stringify({
   tool: 'bash',
   state: {
     status: 'failed',
-    error: 'Command failed with exit code 1'
-  }
+    error: 'Command failed with exit code 1',
+  },
 });
 const test3Stderr = '';
 
@@ -158,7 +158,7 @@ console.log();
 console.log('Test 4: Explicit error message type');
 const test4Stdout = JSON.stringify({
   type: 'error',
-  message: 'Something went wrong'
+  message: 'Something went wrong',
 });
 const test4Stderr = '';
 
@@ -193,13 +193,13 @@ const test6Stdout =
     tool: 'read',
     state: {
       status: 'completed',
-      output: 'function validate() { if (!valid) throw new Error("Invalid"); }'
-    }
+      output: 'function validate() { if (!valid) throw new Error("Invalid"); }',
+    },
   }) +
   '\n' +
   JSON.stringify({
     type: 'text',
-    text: 'I found the validation code'
+    text: 'I found the validation code',
   });
 const test6Stderr = '';
 
@@ -217,13 +217,7 @@ console.log('══════════════════════�
 console.log('SUMMARY');
 console.log('═══════════════════════════════════════════════════════');
 
-const allPassed =
-  !test1New.detected &&
-  test2New.detected &&
-  test3New.detected &&
-  test4New.detected &&
-  test5New.detected &&
-  !test6New.detected;
+const allPassed = !test1New.detected && test2New.detected && test3New.detected && test4New.detected && test5New.detected && !test6New.detected;
 
 if (allPassed) {
   console.log('✅ ALL TESTS PASSED');

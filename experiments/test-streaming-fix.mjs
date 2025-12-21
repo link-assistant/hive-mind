@@ -41,7 +41,7 @@ console.log('Finishing test script...');
   // Use the same streaming logic as in hive.mjs
   await new Promise((resolve, reject) => {
     const child = spawn('node', [testScriptPath], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     // Handle stdout data - stream output in real-time

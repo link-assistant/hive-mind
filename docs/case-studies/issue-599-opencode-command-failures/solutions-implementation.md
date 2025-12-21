@@ -29,17 +29,7 @@ If it doesn't exist, create it. Otherwise, update the `buildSystemPrompt` functi
 ```javascript
 // In src/opencode.prompts.lib.mjs
 
-export const buildSystemPrompt = ({
-  owner,
-  repo,
-  issueNumber,
-  prNumber,
-  branchName,
-  tempDir,
-  isContinueMode,
-  forkedRepo,
-  argv
-}) => {
+export const buildSystemPrompt = ({ owner, repo, issueNumber, prNumber, branchName, tempDir, isContinueMode, forkedRepo, argv }) => {
   // ... existing prompt content ...
 
   const githubCliGuidelines = `
@@ -132,12 +122,12 @@ const validateGhCommand = command => {
     {
       pattern: /gh\s+(pr|issue)\s+comments\b/,
       error: 'Invalid command: use "comment" (singular) not "comments"',
-      suggestion: 'Use: gh api repos/OWNER/REPO/pulls/NUMBER/comments'
+      suggestion: 'Use: gh api repos/OWNER/REPO/pulls/NUMBER/comments',
     },
     {
       pattern: /gh\s+(pr|issue)\s+comment\s+list\b/,
       error: 'Invalid command: "gh pr comment list" does not exist',
-      suggestion: 'Use: gh api repos/OWNER/REPO/pulls/NUMBER/comments'
+      suggestion: 'Use: gh api repos/OWNER/REPO/pulls/NUMBER/comments',
     },
     {
       pattern: /gh\s+pr\s+comments\s+(\d+)\s+--repo\s+([^\s]+)/,
@@ -146,8 +136,8 @@ const validateGhCommand = command => {
         const prNum = match[1];
         const repo = match[2];
         return `Use: gh api repos/${repo}/pulls/${prNum}/comments`;
-      }
-    }
+      },
+    },
   ];
 
   for (const { pattern, error, suggestion } of invalidPatterns) {
@@ -158,7 +148,7 @@ const validateGhCommand = command => {
       return {
         valid: false,
         error,
-        suggestion: suggestionText
+        suggestion: suggestionText,
       };
     }
   }
@@ -222,7 +212,7 @@ export const correctGhCommand = command => {
     corrections.push({
       original: `gh pr comments ${prNum} --repo ${repo}`,
       fixed: corrected,
-      reason: 'Command "gh pr comments" does not exist'
+      reason: 'Command "gh pr comments" does not exist',
     });
   }
 
@@ -236,7 +226,7 @@ export const correctGhCommand = command => {
     corrections.push({
       original: `gh pr comment list ${prNum} --repo ${repo}`,
       fixed: corrected,
-      reason: 'Subcommand "list" does not exist for "gh pr comment"'
+      reason: 'Subcommand "list" does not exist for "gh pr comment"',
     });
   }
 
@@ -250,14 +240,14 @@ export const correctGhCommand = command => {
     corrections.push({
       original: `gh issue comments ${issueNum} --repo ${repo}`,
       fixed: corrected,
-      reason: 'Command "gh issue comments" does not exist'
+      reason: 'Command "gh issue comments" does not exist',
     });
   }
 
   return {
     command: corrected,
     wasCorrected,
-    corrections
+    corrections,
   };
 };
 
@@ -349,7 +339,7 @@ export class CommandLearning {
       failures: 0,
       lastError: null,
       suggestedCorrection: null,
-      lastFailure: null
+      lastFailure: null,
     };
 
     existing.failures += 1;

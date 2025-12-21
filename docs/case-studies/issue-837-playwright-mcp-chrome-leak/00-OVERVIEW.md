@@ -158,8 +158,7 @@ let operationCount = 0;
 let browserStartTime = Date.now();
 
 async function ensureHealthyBrowser() {
-  const shouldRecycle =
-    operationCount >= MAX_OPERATIONS_PER_BROWSER || Date.now() - browserStartTime >= MAX_BROWSER_LIFETIME_MS;
+  const shouldRecycle = operationCount >= MAX_OPERATIONS_PER_BROWSER || Date.now() - browserStartTime >= MAX_BROWSER_LIFETIME_MS;
 
   if (shouldRecycle && browser) {
     await browser.close();

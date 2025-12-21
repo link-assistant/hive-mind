@@ -19,9 +19,7 @@ try {
 
   // Ensure exactly one changeset file exists
   if (changesetCount === 0) {
-    console.error(
-      "::error::No changeset found. Please add a changeset by running 'npm run changeset' and commit the result."
-    );
+    console.error("::error::No changeset found. Please add a changeset by running 'npm run changeset' and commit the result.");
     process.exit(1);
   } else if (changesetCount > 1) {
     console.error(`::error::Multiple changesets found (${changesetCount}). Each PR should have exactly ONE changeset.`);
@@ -38,10 +36,7 @@ try {
   const content = readFileSync(changesetFile, 'utf-8');
 
   // Check if changeset has a valid type (major, minor, or patch)
-  const versionTypeRegex = new RegExp(
-    `^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`,
-    'm'
-  );
+  const versionTypeRegex = new RegExp(`^['"]${PACKAGE_NAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]:\\s+(major|minor|patch)`, 'm');
   if (!versionTypeRegex.test(content)) {
     console.error('::error::Changeset must specify a version type: major, minor, or patch');
     console.error(`::error::Expected format in ${changesetFile}:`);

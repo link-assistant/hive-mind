@@ -100,7 +100,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       process.argv[1], // solve.mjs path
       issueUrl,
       '--resume',
-      sessionId
+      sessionId,
     ];
 
     // Preserve auto-continue flag
@@ -120,7 +120,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const child = childProcess.spawn('node', resumeArgs, {
       stdio: 'inherit',
       cwd: process.cwd(),
-      env: process.env
+      env: process.env,
     });
 
     child.on('close', code => {
@@ -131,7 +131,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       context: 'auto_continue_with_command',
       issueUrl,
       sessionId,
-      operation: 'auto_continue_execution'
+      operation: 'auto_continue_execution',
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('\n🔄 Manual resume command:');
@@ -153,8 +153,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
 
     try {
       // Get all PRs linked to this issue
-      const prListResult =
-        await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
+      const prListResult = await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
 
       if (prListResult.code === 0) {
         const prs = JSON.parse(prListResult.stdout.toString().trim() || '[]');
@@ -178,9 +177,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
               // Branch naming convention: issue-{issueNumber}-{randomHash} (supports both 8-char legacy and 12-char new formats)
               if (!matchesIssuePattern(pr.headRefName, issueNumber)) {
                 const expectedBranchPrefix = getIssueBranchPrefix(issueNumber);
-                await log(
-                  `  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`
-                );
+                await log(`  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`);
                 continue;
               }
 
@@ -188,9 +185,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
               const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
 
               if (!claudeMdExists) {
-                await log(
-                  `✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`
-                );
+                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
 
                 // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
                 isContinueMode = true;
@@ -203,9 +198,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
                 }
                 break;
               } else if (createdAt < twentyFourHoursAgo) {
-                await log(
-                  `✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`
-                );
+                await log(`✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`);
 
                 // Switch to continue mode
                 isContinueMode = true;
@@ -237,7 +230,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
         owner,
         repo,
         issueNumber,
-        operation: 'search_issue_prs'
+        operation: 'search_issue_prs',
       });
       await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
       await log('   Continuing with normal flow...');
@@ -273,7 +266,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
         prNumber,
         owner,
         repo,
-        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner'
+        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner',
       });
 
       if (prResult.code !== 0 || !prResult.data) {
@@ -285,7 +278,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
             owner,
             repo,
             argv,
-            shouldAttachLogs: argv.attachLogs || argv['attach-logs']
+            shouldAttachLogs: argv.attachLogs || argv['attach-logs'],
           });
         } else {
           await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
@@ -322,7 +315,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       reportError(error, {
         context: 'process_pr_in_auto_continue',
         prNumber,
-        operation: 'process_pr_for_continuation'
+        operation: 'process_pr_for_continuation',
       });
       await log(`Error: Failed to process PR: ${cleanErrorMessage(error)}`, { level: 'error' });
       await safeExit(1, 'Auto-continue failed');
@@ -373,9 +366,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
             existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
             if (existingBranches.length > 0) {
-              await log(
-                `📋 Found ${existingBranches.length} existing branch(es) in fork matching pattern '${branchPattern}*':`
-              );
+              await log(`📋 Found ${existingBranches.length} existing branch(es) in fork matching pattern '${branchPattern}*':`);
               for (const branch of existingBranches) {
                 await log(`  • ${branch}`);
               }
@@ -389,10 +380,10 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_fork_branches'
+        operation: 'search_fork_branches',
       });
       await log(`⚠️  Warning: Could not check for existing branches in fork: ${forkBranchError.message}`, {
-        level: 'warning'
+        level: 'warning',
       });
     }
   } else {
@@ -413,9 +404,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
         if (existingBranches.length > 0) {
-          await log(
-            `📋 Found ${existingBranches.length} existing branch(es) in main repo matching pattern '${branchPattern}*':`
-          );
+          await log(`📋 Found ${existingBranches.length} existing branch(es) in main repo matching pattern '${branchPattern}*':`);
           for (const branch of existingBranches) {
             await log(`  • ${branch}`);
           }
@@ -427,18 +416,17 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_main_repo_branches'
+        operation: 'search_main_repo_branches',
       });
       await log(`⚠️  Warning: Could not check for existing branches in main repo: ${mainBranchError.message}`, {
-        level: 'warning'
+        level: 'warning',
       });
     }
   }
 
   try {
     // Get all PRs linked to this issue
-    const prListResult =
-      await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
+    const prListResult = await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
 
     if (prListResult.code === 0) {
       const prs = JSON.parse(prListResult.stdout.toString().trim() || '[]');
@@ -462,9 +450,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
             // Branch naming convention: issue-{issueNumber}-{randomHash} (supports both 8-char legacy and 12-char new formats)
             if (!matchesIssuePattern(pr.headRefName, issueNumber)) {
               const expectedBranchPrefix = getIssueBranchPrefix(issueNumber);
-              await log(
-                `  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`
-              );
+              await log(`  PR #${pr.number}: Branch '${pr.headRefName}' doesn't match expected pattern '${expectedBranchPrefix}*' - skipping`);
               continue;
             }
 
@@ -472,9 +458,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
             const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
 
             if (!claudeMdExists) {
-              await log(
-                `✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`
-              );
+              await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
 
               // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
               if (argv.verbose) {
@@ -487,12 +471,10 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else if (createdAt < twentyFourHoursAgo) {
-              await log(
-                `✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`
-              );
+              await log(`✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`);
 
               if (argv.verbose) {
                 await log('   Continue mode activated: Auto-continue (24h+ old PR)', { verbose: true });
@@ -505,7 +487,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else {
               await log(`  PR #${pr.number}: CLAUDE.md exists, age ${ageHours}h < 24h - skipping`);
@@ -524,7 +506,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       owner,
       repo,
       issueNumber,
-      operation: 'search_pr_with_claude_md'
+      operation: 'search_pr_with_claude_md',
     });
     await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
     await log('   Continuing with normal flow...');
@@ -542,17 +524,14 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
 
     // Check if there's a PR for this branch (including merged/closed PRs)
     try {
-      const prForBranchResult =
-        await $`gh pr list --repo ${owner}/${repo} --head ${selectedBranch} --state all --json number,state --limit 10`;
+      const prForBranchResult = await $`gh pr list --repo ${owner}/${repo} --head ${selectedBranch} --state all --json number,state --limit 10`;
       if (prForBranchResult.code === 0) {
         const prsForBranch = JSON.parse(prForBranchResult.stdout.toString().trim() || '[]');
         if (prsForBranch.length > 0) {
           // Check if any PR is MERGED or CLOSED
           const mergedOrClosedPr = prsForBranch.find(pr => pr.state === 'MERGED' || pr.state === 'CLOSED');
           if (mergedOrClosedPr) {
-            await log(
-              `   Branch ${selectedBranch} has a ${mergedOrClosedPr.state} PR #${mergedOrClosedPr.number} - cannot reuse`
-            );
+            await log(`   Branch ${selectedBranch} has a ${mergedOrClosedPr.state} PR #${mergedOrClosedPr.number} - cannot reuse`);
             await log(`   Will create a new branch for issue #${issueNumber}`);
             return { isContinueMode: false, issueNumber };
           }
@@ -565,7 +544,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
               isContinueMode: true,
               prNumber: openPr.number,
               prBranch: selectedBranch,
-              issueNumber
+              issueNumber,
             };
           }
         }
@@ -576,11 +555,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         selectedBranch,
-        operation: 'search_pr_for_branch'
+        operation: 'search_pr_for_branch',
       });
       // If we can't check for PR, still continue with the branch
       await log(`⚠️  Warning: Could not check for existing PR for branch: ${prCheckError.message}`, {
-        level: 'warning'
+        level: 'warning',
       });
     }
 
@@ -591,7 +570,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       isContinueMode: true,
       prNumber: null, // No PR yet
       prBranch: selectedBranch,
-      issueNumber
+      issueNumber,
     };
   }
 

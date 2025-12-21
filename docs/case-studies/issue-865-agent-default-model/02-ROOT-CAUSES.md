@@ -37,7 +37,7 @@
 4. **Model Mapping** (`src/agent.lib.mjs:23-38`):
    ```javascript
    const modelMap = {
-     sonnet: 'anthropic/claude-3-5-sonnet' // <-- Maps here
+     sonnet: 'anthropic/claude-3-5-sonnet', // <-- Maps here
      // ... other mappings
    };
    ```
@@ -97,7 +97,7 @@ The `agent.lib.mjs` reuses the same model alias `'sonnet'` as the Claude tool:
 
 ```javascript
 export const CLAUDE_MODELS = {
-  sonnet: 'claude-sonnet-4-5-20250929'
+  sonnet: 'claude-sonnet-4-5-20250929',
   // ...
 };
 ```
@@ -106,7 +106,7 @@ export const CLAUDE_MODELS = {
 
 ```javascript
 export const AGENT_MODELS = {
-  sonnet: 'anthropic/claude-3-5-sonnet' // Different mapping!
+  sonnet: 'anthropic/claude-3-5-sonnet', // Different mapping!
   // ...
 };
 ```

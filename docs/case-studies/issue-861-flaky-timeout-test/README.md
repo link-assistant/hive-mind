@@ -42,7 +42,7 @@ The test file `tests/test-telegram-bot-hero-links-notation.mjs` has the followin
 // Line 22: spawn() option
 const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  timeout: 10000 // spawn timeout: 10 seconds
+  timeout: 10000, // spawn timeout: 10 seconds
 });
 
 // Line 36-39: Manual timeout handler
@@ -141,7 +141,7 @@ Update spawn timeout to match new manual timeout:
 ```javascript
 const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
   stdio: ['ignore', 'pipe', 'pipe'],
-  timeout: 15000 // Align with manual timeout
+  timeout: 15000, // Align with manual timeout
 });
 ```
 

@@ -90,7 +90,7 @@ console.log('=== Test 1: Success case ===');
 let result1 = await testClaudeValidation({
   code: 0,
   stdout: 'Hello! How can I help you with your project today?',
-  stderr: ''
+  stderr: '',
 });
 console.log(`Result: ${result1 ? 'PASS' : 'FAIL'}\n`);
 
@@ -99,7 +99,7 @@ console.log('=== Test 2: 403 JSON error case ===');
 let result2 = await testClaudeValidation({
   code: 1,
   stdout: 'API Error: 403 {"error":{"type":"forbidden","message":"Request not allowed"}} · Please run /login',
-  stderr: ''
+  stderr: '',
 });
 console.log(`Result: ${result2 ? 'FAIL (should be false)' : 'PASS'}\n`);
 
@@ -108,7 +108,7 @@ console.log('=== Test 3: Generic error case ===');
 let result3 = await testClaudeValidation({
   code: 1,
   stdout: '',
-  stderr: 'claude: command not found'
+  stderr: 'claude: command not found',
 });
 console.log(`Result: ${result3 ? 'FAIL (should be false)' : 'PASS'}\n`);
 
@@ -117,7 +117,7 @@ console.log('=== Test 4: JSON error in successful response ===');
 let result4 = await testClaudeValidation({
   code: 0,
   stdout: '{"error":{"type":"rate_limit","message":"Too many requests"}}',
-  stderr: ''
+  stderr: '',
 });
 console.log(`Result: ${result4 ? 'FAIL (should be false)' : 'PASS'}\n`);
 

@@ -44,9 +44,7 @@
   "commits": [
     {
       "authoredDate": "2025-12-16T17:42:56Z",
-      "authors": [
-        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }
-      ],
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
       "committedDate": "2025-12-16T17:42:56Z",
       "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/Metanoiabot/metanoia/issues/8",
       "messageHeadline": "Initial commit with task details",

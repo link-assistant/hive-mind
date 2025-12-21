@@ -58,9 +58,7 @@ test('bot.telegram.deleteWebhook() is called before bot.launch()', () => {
 
 // Test 2: Verify drop_pending_updates is set to true
 test('deleteWebhook is called with drop_pending_updates: true', () => {
-  const deleteWebhookMatch = botCode.match(
-    /bot\.telegram\.deleteWebhook\(\{[^}]*drop_pending_updates:\s*true[^}]*\}\)/
-  );
+  const deleteWebhookMatch = botCode.match(/bot\.telegram\.deleteWebhook\(\{[^}]*drop_pending_updates:\s*true[^}]*\}\)/);
   if (!deleteWebhookMatch) {
     throw new Error('deleteWebhook must be called with { drop_pending_updates: true }');
   }

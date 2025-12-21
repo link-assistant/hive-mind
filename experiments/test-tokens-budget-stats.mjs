@@ -28,15 +28,15 @@ const mockUsageScenarios = [
       provider: 'Anthropic',
       limit: {
         context: 200000,
-        output: 64000
-      }
+        output: 64000,
+      },
     },
     usage: {
       inputTokens: 15000,
       cacheCreationTokens: 2000,
       cacheReadTokens: 500,
-      outputTokens: 3000
-    }
+      outputTokens: 3000,
+    },
   },
   {
     name: 'Medium Task (Moderate Usage)',
@@ -46,15 +46,15 @@ const mockUsageScenarios = [
       provider: 'Anthropic',
       limit: {
         context: 200000,
-        output: 64000
-      }
+        output: 64000,
+      },
     },
     usage: {
       inputTokens: 85000,
       cacheCreationTokens: 12000,
       cacheReadTokens: 8000,
-      outputTokens: 18000
-    }
+      outputTokens: 18000,
+    },
   },
   {
     name: 'Large Task (High Usage)',
@@ -64,15 +64,15 @@ const mockUsageScenarios = [
       provider: 'Anthropic',
       limit: {
         context: 200000,
-        output: 64000
-      }
+        output: 64000,
+      },
     },
     usage: {
       inputTokens: 150000,
       cacheCreationTokens: 25000,
       cacheReadTokens: 15000,
-      outputTokens: 45000
-    }
+      outputTokens: 45000,
+    },
   },
   {
     name: 'Extended Context (1M Window)',
@@ -82,16 +82,16 @@ const mockUsageScenarios = [
       provider: 'Anthropic',
       limit: {
         context: 1000000,
-        output: 64000
-      }
+        output: 64000,
+      },
     },
     usage: {
       inputTokens: 450000,
       cacheCreationTokens: 100000,
       cacheReadTokens: 50000,
-      outputTokens: 32000
-    }
-  }
+      outputTokens: 32000,
+    },
+  },
 ];
 
 // Function to display budget stats (matching the actual implementation)

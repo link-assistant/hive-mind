@@ -80,9 +80,7 @@ async function debugPrUrlParsing() {
 
     console.log(`   Testing: gh api repos/${owner}/${repo}/issues/${prNumber}/comments`);
     const prConversationCommentsResult = await $(`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`);
-    console.log(
-      `   Conversation comments API result: ${prConversationCommentsResult.code === 0 ? 'SUCCESS' : 'FAILED'}`
-    );
+    console.log(`   Conversation comments API result: ${prConversationCommentsResult.code === 0 ? 'SUCCESS' : 'FAILED'}`);
 
     if (prReviewCommentsResult.code !== 0) {
       console.log(`   ❌ Review comments API failed: ${prReviewCommentsResult.stderr}`);

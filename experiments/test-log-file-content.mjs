@@ -13,7 +13,7 @@ async function testLogFileContent() {
 
   const testUrl = 'https://github.com/test/repo/issues/888';
   const testProcess = spawn('node', [solvePath, testUrl, '--dry-run', '--skip-tool-check', '--verbose'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let logFilePath = '';

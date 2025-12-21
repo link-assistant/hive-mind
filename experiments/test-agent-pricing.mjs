@@ -39,24 +39,12 @@ const expectedCacheReadTokens = 832 + 0 + 100; // 932
 const expectedCacheWriteTokens = 0 + 0 + 50; // 50
 
 console.log('\nVerification:');
-console.log(
-  `  Step count: ${tokenUsage.stepCount} (expected: ${expectedStepCount}) ${tokenUsage.stepCount === expectedStepCount ? '✅' : '❌'}`
-);
-console.log(
-  `  Input tokens: ${tokenUsage.inputTokens} (expected: ${expectedInputTokens}) ${tokenUsage.inputTokens === expectedInputTokens ? '✅' : '❌'}`
-);
-console.log(
-  `  Output tokens: ${tokenUsage.outputTokens} (expected: ${expectedOutputTokens}) ${tokenUsage.outputTokens === expectedOutputTokens ? '✅' : '❌'}`
-);
-console.log(
-  `  Reasoning tokens: ${tokenUsage.reasoningTokens} (expected: ${expectedReasoningTokens}) ${tokenUsage.reasoningTokens === expectedReasoningTokens ? '✅' : '❌'}`
-);
-console.log(
-  `  Cache read tokens: ${tokenUsage.cacheReadTokens} (expected: ${expectedCacheReadTokens}) ${tokenUsage.cacheReadTokens === expectedCacheReadTokens ? '✅' : '❌'}`
-);
-console.log(
-  `  Cache write tokens: ${tokenUsage.cacheWriteTokens} (expected: ${expectedCacheWriteTokens}) ${tokenUsage.cacheWriteTokens === expectedCacheWriteTokens ? '✅' : '❌'}`
-);
+console.log(`  Step count: ${tokenUsage.stepCount} (expected: ${expectedStepCount}) ${tokenUsage.stepCount === expectedStepCount ? '✅' : '❌'}`);
+console.log(`  Input tokens: ${tokenUsage.inputTokens} (expected: ${expectedInputTokens}) ${tokenUsage.inputTokens === expectedInputTokens ? '✅' : '❌'}`);
+console.log(`  Output tokens: ${tokenUsage.outputTokens} (expected: ${expectedOutputTokens}) ${tokenUsage.outputTokens === expectedOutputTokens ? '✅' : '❌'}`);
+console.log(`  Reasoning tokens: ${tokenUsage.reasoningTokens} (expected: ${expectedReasoningTokens}) ${tokenUsage.reasoningTokens === expectedReasoningTokens ? '✅' : '❌'}`);
+console.log(`  Cache read tokens: ${tokenUsage.cacheReadTokens} (expected: ${expectedCacheReadTokens}) ${tokenUsage.cacheReadTokens === expectedCacheReadTokens ? '✅' : '❌'}`);
+console.log(`  Cache write tokens: ${tokenUsage.cacheWriteTokens} (expected: ${expectedCacheWriteTokens}) ${tokenUsage.cacheWriteTokens === expectedCacheWriteTokens ? '✅' : '❌'}`);
 
 // Test 2: Calculate pricing using models.dev API
 console.log('\n\nTest 2: calculateAgentPricing (requires network)');

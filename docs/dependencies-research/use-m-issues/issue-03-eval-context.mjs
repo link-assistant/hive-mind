@@ -13,9 +13,7 @@ console.log('=== Issue #3: Eval Context Failure ===\n');
 
 // Test 1: Direct use-m in eval context
 console.log('Test 1: Running use-m directly in eval context');
-console.log(
-  "Command: node -e \"globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use; await use('fs')\""
-);
+console.log("Command: node -e \"globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use; await use('fs')\"");
 console.log('Expected: Fails with ERR_INVALID_ARG_VALUE');
 console.log('');
 

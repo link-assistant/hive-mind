@@ -13,30 +13,13 @@ const { hideBin } = await use('yargs@17.7.2/helpers');
 console.log('Testing yargs .strict() mode with issue #482 command...\n');
 
 // Simulate the exact command from issue #482
-const testArgs = [
-  '--token',
-  '8490testtoken',
-  '--allowed-chats',
-  '(-1002975819706 -1002861722681)',
-  '--no-hive',
-  '--solve-overrides',
-  '(\n  --auto-continue\n  --attach-logs\n  --verbose\n  --no-tool-check\n)'
-];
+const testArgs = ['--token', '8490testtoken', '--allowed-chats', '(-1002975819706 -1002861722681)', '--no-hive', '--solve-overrides', '(\n  --auto-continue\n  --attach-logs\n  --verbose\n  --no-tool-check\n)'];
 
 console.log('Command args:', testArgs.join(' '));
 console.log('');
 
 try {
-  const argv = yargs(testArgs)
-    .option('token', { type: 'string', alias: 't' })
-    .option('allowed-chats', { type: 'string', alias: 'a' })
-    .option('solve-overrides', { type: 'string' })
-    .option('hive-overrides', { type: 'string' })
-    .option('solve', { type: 'boolean', default: true })
-    .option('hive', { type: 'boolean', default: true })
-    .parserConfiguration({ 'boolean-negation': true })
-    .strict()
-    .parseSync();
+  const argv = yargs(testArgs).option('token', { type: 'string', alias: 't' }).option('allowed-chats', { type: 'string', alias: 'a' }).option('solve-overrides', { type: 'string' }).option('hive-overrides', { type: 'string' }).option('solve', { type: 'boolean', default: true }).option('hive', { type: 'boolean', default: true }).parserConfiguration({ 'boolean-negation': true }).strict().parseSync();
 
   console.log('✅ SUCCESS: Command parsed without errors');
   console.log('');
@@ -54,12 +37,7 @@ try {
   console.log('');
 
   // Check if values are correct
-  if (
-    argv.token === '8490testtoken' &&
-    argv.allowedChats === '(-1002975819706 -1002861722681)' &&
-    argv.solveOverrides &&
-    argv.hive === false
-  ) {
+  if (argv.token === '8490testtoken' && argv.allowedChats === '(-1002975819706 -1002861722681)' && argv.solveOverrides && argv.hive === false) {
     console.log('✅ Test PASSED: .strict() mode works correctly with issue #482 command');
   } else {
     console.log('⚠️  Values not as expected - likely issue with test setup');

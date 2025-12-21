@@ -126,15 +126,7 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@0.0.49 \
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@0.0.49",
-        "--isolated",
-        "--headless",
-        "--browser=chromium",
-        "--no-sandbox",
-        "--viewport-size=1280x720",
-        "--timeout-action=30000"
-      ],
+      "args": ["@playwright/mcp@0.0.49", "--isolated", "--headless", "--browser=chromium", "--no-sandbox", "--viewport-size=1280x720", "--timeout-action=30000"],
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": "/opt/playwright/browsers"
       }
@@ -212,15 +204,7 @@ Windows requires cmd execution:
   "mcpServers": {
     "playwright": {
       "command": "cmd",
-      "args": [
-        "/c",
-        "npx",
-        "-y",
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--headless",
-        "--user-data-dir=./playwright-profile"
-      ]
+      "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--isolated", "--headless", "--user-data-dir=./playwright-profile"]
     }
   }
 }

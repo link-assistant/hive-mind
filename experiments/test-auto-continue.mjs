@@ -12,22 +12,22 @@ const mockPRs = [
     createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25 hours ago
     headRefName: 'issue-28-abc123',
     isDraft: true,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 2,
     createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
     headRefName: 'issue-28-def456',
     isDraft: false,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 3,
     createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(), // 30 hours ago
     headRefName: 'issue-28-ghi789',
     isDraft: false,
-    state: 'CLOSED'
-  }
+    state: 'CLOSED',
+  },
 ];
 
 // Test the auto-continue logic

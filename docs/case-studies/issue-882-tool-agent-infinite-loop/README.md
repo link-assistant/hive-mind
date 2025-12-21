@@ -171,7 +171,7 @@ The else branch catches all non-opencode/non-codex tools, but doesn't properly h
 export const mapModelToId = model => {
   const modelMap = {
     grok: 'opencode/grok-code',
-    'grok-code': 'opencode/grok-code'
+    'grok-code': 'opencode/grok-code',
     // ...
   };
   return modelMap[model] || model;

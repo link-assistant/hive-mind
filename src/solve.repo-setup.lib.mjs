@@ -3,25 +3,9 @@
  * Handles repository cloning, forking, and remote setup
  */
 
-export async function setupRepositoryAndClone({
-  argv,
-  owner,
-  repo,
-  forkOwner,
-  tempDir,
-  isContinueMode,
-  issueUrl,
-  log,
-  $
-}) {
+export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, tempDir, isContinueMode, issueUrl, log, $ }) {
   // Set up repository and handle forking
-  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(
-    argv,
-    owner,
-    repo,
-    forkOwner,
-    issueUrl
-  );
+  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl);
 
   // Clone repository and set up remotes
   await cloneRepository(repoToClone, tempDir, argv, owner, repo);

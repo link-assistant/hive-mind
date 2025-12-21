@@ -19,7 +19,7 @@ const limitPatterns = [
   'general limit reached without time',
   'some other message about limits',
   '5 hour limit reached', // missing hyphen
-  'limit reached resets soon'
+  'limit reached resets soon',
 ];
 
 // Current regex pattern from solve.mjs

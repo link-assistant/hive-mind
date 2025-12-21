@@ -52,15 +52,7 @@ const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, form
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
-const {
-  validateGitHubUrl,
-  showAttachLogsWarning,
-  initializeLogFile,
-  validateUrlRequirement,
-  validateContinueOnlyOnFeedback,
-  performSystemChecks,
-  parseUrlComponents
-} = validation;
+const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks, parseUrlComponents } = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
@@ -141,7 +133,7 @@ if (argv.sentry) {
   await initializeSentry({
     noSentry: !argv.sentry,
     debug: argv.verbose,
-    version: process.env.npm_package_version || '0.12.0'
+    version: process.env.npm_package_version || '0.12.0',
   });
   // Add breadcrumb for solve operation
   addBreadcrumb({
@@ -150,8 +142,8 @@ if (argv.sentry) {
     level: 'info',
     data: {
       model: argv.model,
-      issueUrl: argv['issue-url'] || argv._?.[0] || 'not-set-yet'
-    }
+      issueUrl: argv['issue-url'] || argv._?.[0] || 'not-set-yet',
+    },
   });
 }
 // Create a cleanup wrapper that will be populated with context later
@@ -198,7 +190,7 @@ const errorHandlerOptions = {
   getLogFile,
   attachLogToGitHub,
   sanitizeLogContent,
-  $
+  $,
 };
 process.on('uncaughtException', createUncaughtExceptionHandler(errorHandlerOptions));
 process.on('unhandledRejection', createUnhandledRejectionHandler(errorHandlerOptions));
@@ -261,7 +253,7 @@ if (argv.autoFork && !argv.fork) {
         await log(`      Repository ${owner}/${repo} is private`, { level: 'error' });
         await log("      You don't have write access to this repository", { level: 'error' });
         await log('      --auto-fork cannot create a fork of a private repository you cannot access', {
-          level: 'error'
+          level: 'error',
         });
         await log('');
         await log('   💡 Solution:', { level: 'error' });
@@ -277,9 +269,7 @@ if (argv.autoFork && !argv.fork) {
     } else {
       // Has write access - work directly on the repo (works for both public and private repos)
       const { isPublic } = await detectRepositoryVisibility(owner, repo);
-      await log(
-        `✅ Auto-fork: Write access detected to ${isPublic ? 'public' : 'private'} repository, working directly on repository`
-      );
+      await log(`✅ Auto-fork: Write access detected to ${isPublic ? 'public' : 'private'} repository, working directly on repository`);
     }
   } else {
     // Could not check permissions - assume no access and try to fork if public
@@ -313,7 +303,7 @@ if (argv.autoFork && !argv.fork) {
 const { checkRepositoryWritePermission } = githubLib;
 const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, {
   useFork: argv.fork,
-  issueUrl: issueUrl
+  issueUrl: issueUrl,
 });
 
 if (!hasWriteAccess) {
@@ -331,7 +321,7 @@ if (argv.autoCleanup === undefined) {
   argv.autoCleanup = !isPublic;
   if (argv.verbose) {
     await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isPublic ? 'public' : 'private'})`, {
-      verbose: true
+      verbose: true,
     });
   }
 }
@@ -359,8 +349,7 @@ if (autoContinueResult.isContinueMode) {
       await log('   Checking if PR is from a fork...', { verbose: true });
     }
     try {
-      const prCheckResult =
-        await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
+      const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
       if (prCheckResult.code === 0) {
         const prCheckData = JSON.parse(prCheckResult.stdout.toString());
         // Extract merge status and PR state
@@ -373,8 +362,7 @@ if (autoContinueResult.isContinueMode) {
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
           // Get actual fork repository name (may be prefixed)
-          const forkRepoName =
-            prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
+          const forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
           await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
@@ -392,7 +380,7 @@ if (autoContinueResult.isContinueMode) {
               // Don't disable fork mode, but we'll use the contributor's fork
             } else {
               await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
-                level: 'warning'
+                level: 'warning',
               });
               await log('   Posting comment to request access...', { level: 'warning' });
               await requestMaintainerAccess(owner, repo, prNumber);
@@ -411,7 +399,7 @@ if (autoContinueResult.isContinueMode) {
     await log(`🔄 Using existing branch: ${prBranch} (no PR yet - will create one)`);
     if (argv.verbose) {
       await log('   Branch will be checked out and PR will be created during auto-PR creation phase', {
-        verbose: true
+        verbose: true,
       });
     }
   }
@@ -435,7 +423,7 @@ if (isPrUrl) {
       prNumber,
       owner,
       repo,
-      jsonFields: 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner,headRepository'
+      jsonFields: 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner,headRepository',
     });
     if (prResult.code !== 0 || !prResult.data) {
       await log('Error: Failed to get PR details', { level: 'error' });
@@ -472,7 +460,7 @@ if (isPrUrl) {
           // Don't disable fork mode, but we'll use the contributor's fork
         } else {
           await log('⚠️  Maintainer cannot push to fork: "Allow edits by maintainers" is not enabled', {
-            level: 'warning'
+            level: 'warning',
           });
           await log('   Posting comment to request access...', { level: 'warning' });
           await requestMaintainerAccess(owner, repo, prNumber);
@@ -499,7 +487,7 @@ if (isPrUrl) {
     reportError(error, {
       context: 'pr_processing',
       prNumber,
-      operation: 'process_pull_request'
+      operation: 'process_pull_request',
     });
     await log(`Error: Failed to process PR: ${cleanErrorMessage(error)}`, { level: 'error' });
     await safeExit(1, 'Failed to process PR');
@@ -528,7 +516,7 @@ try {
     issueUrl,
     log,
     formatAligned,
-    $
+    $,
   });
 
   // Verify default branch and status using the new module
@@ -536,7 +524,7 @@ try {
     tempDir,
     log,
     formatAligned,
-    $
+    $,
   });
   // Create or checkout branch using the new module
   const branchName = await createOrCheckoutBranch({
@@ -549,7 +537,7 @@ try {
     log,
     formatAligned,
     $,
-    crypto
+    crypto,
   });
 
   // Auto-merge default branch to pull request branch if enabled
@@ -572,9 +560,7 @@ try {
         await log(`${formatAligned('⚠️', 'Merge failed:', 'Conflicts detected')}`, { level: 'warning' });
         autoMergeFeedbackLines.push('');
         autoMergeFeedbackLines.push('⚠️ AUTOMATIC MERGE FAILED:');
-        autoMergeFeedbackLines.push(
-          `git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`
-        );
+        autoMergeFeedbackLines.push(`git merge ${defaultBranch} was executed but resulted in conflicts that should be resolved first.`);
         autoMergeFeedbackLines.push('Please resolve the merge conflicts and commit the changes.');
         autoMergeFeedbackLines.push('');
       }
@@ -617,7 +603,7 @@ try {
     $,
     reportError,
     path,
-    fs
+    fs,
   });
 
   let claudeCommitHash = null;
@@ -688,7 +674,7 @@ try {
     argv,
     log,
     formatAligned,
-    $
+    $,
   });
 
   // Prepare feedback and timestamps using the new module
@@ -705,7 +691,7 @@ try {
     log,
     formatAligned,
     cleanErrorMessage,
-    $
+    $,
   });
 
   // Initialize feedback lines
@@ -732,7 +718,7 @@ try {
     tempDir,
     argv,
     log,
-    $
+    $,
   });
   if (uncommittedFeedbackLines && uncommittedFeedbackLines.length > 0) {
     if (!feedbackLines) {
@@ -748,7 +734,7 @@ try {
     branchName,
     log,
     formatAligned,
-    $
+    $,
   });
 
   // Execute tool command with all prompts and settings
@@ -779,7 +765,7 @@ try {
       formatAligned,
       getResourceSnapshot,
       opencodePath,
-      $
+      $,
     });
   } else if (argv.tool === 'codex') {
     const codexLib = await import('./codex.lib.mjs');
@@ -807,7 +793,7 @@ try {
       formatAligned,
       getResourceSnapshot,
       codexPath,
-      $
+      $,
     });
   } else if (argv.tool === 'agent') {
     const agentLib = await import('./agent.lib.mjs');
@@ -835,7 +821,7 @@ try {
       formatAligned,
       getResourceSnapshot,
       agentPath,
-      $
+      $,
     });
   } else {
     // Default to Claude
@@ -872,7 +858,7 @@ try {
       formatAligned,
       getResourceSnapshot,
       claudePath,
-      $
+      $,
     });
     toolResult = claudeResult;
   }
@@ -917,18 +903,9 @@ try {
             // Mark this as a usage limit case for proper formatting
             isUsageLimit: true,
             limitResetTime: global.limitResetTime,
-            toolName:
-              (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
-                ? 'Claude'
-                : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
-                  ? 'Codex'
-                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
-                    ? 'OpenCode'
-                    : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
-                      ? 'Agent'
-                      : 'AI tool',
+            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
             resumeCommand,
-            sessionId
+            sessionId,
           });
 
           if (logUploadSuccess) {
@@ -943,9 +920,7 @@ try {
         // Fallback: Post simple failure comment if logs are not attached
         try {
           const resetTime = global.limitResetTime;
-          const failureComment = resetTime
-            ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo automatically wait for the limit to reset and continue, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset\n\`\`\``
-            : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo resume after the limit resets, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId}\n\`\`\``;
+          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo automatically wait for the limit to reset and continue, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset\n\`\`\`` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo resume after the limit resets, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId}\n\`\`\``;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
           if (commentResult.code === 0) {
@@ -978,18 +953,9 @@ try {
               // Mark this as a usage limit case for proper formatting
               isUsageLimit: true,
               limitResetTime: global.limitResetTime,
-              toolName:
-                (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
-                  ? 'Claude'
-                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
-                    ? 'Codex'
-                    : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
-                      ? 'OpenCode'
-                      : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
-                        ? 'Agent'
-                        : 'AI tool',
+              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
               resumeCommand,
-              sessionId
+              sessionId,
             });
 
             if (logUploadSuccess) {
@@ -1039,9 +1005,7 @@ try {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
         // Build resume command if we have session info
-        const resumeCommand = sessionId
-          ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`
-          : null;
+        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',
@@ -1054,21 +1018,12 @@ try {
           // For usage limit, use a dedicated comment format to make it clear and actionable
           isUsageLimit: !!limitReached,
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
-          toolName:
-            (argv.tool || 'AI tool').toString().toLowerCase() === 'claude'
-              ? 'Claude'
-              : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex'
-                ? 'Codex'
-                : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode'
-                  ? 'OpenCode'
-                  : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent'
-                    ? 'Agent'
-                    : 'AI tool',
+          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
-          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
+          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
         });
 
         if (logUploadSuccess) {
@@ -1088,16 +1043,7 @@ try {
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
-  const shouldRestart = await checkForUncommittedChanges(
-    tempDir,
-    owner,
-    repo,
-    branchName,
-    $,
-    log,
-    shouldAutoCommit,
-    autoRestartEnabled
-  );
+  const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 
   // Remove CLAUDE.md now that Claude command has finished
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
@@ -1108,23 +1054,7 @@ try {
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  await verifyResults(
-    owner,
-    repo,
-    branchName,
-    issueNumber,
-    prNumber,
-    prUrl,
-    referenceTime,
-    argv,
-    shouldAttachLogs,
-    shouldRestart,
-    sessionId,
-    tempDir,
-    anthropicTotalCostUSD,
-    publicPricingEstimate,
-    pricingInfo
-  );
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
@@ -1162,8 +1092,8 @@ try {
     argv: {
       ...argv,
       watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
-      temporaryWatch: temporaryWatchMode // Flag to indicate temporary watch mode
-    }
+      temporaryWatch: temporaryWatchMode, // Flag to indicate temporary watch mode
+    },
   });
 
   // Update session data with latest from watch mode for accurate pricing
@@ -1226,7 +1156,7 @@ try {
           verbose: argv.verbose,
           sessionId,
           tempDir,
-          anthropicTotalCostUSD
+          anthropicTotalCostUSD,
         });
 
         if (logUploadSuccess) {
@@ -1249,14 +1179,14 @@ try {
     log,
     formatAligned,
     $,
-    logsAttached
+    logsAttached,
   });
 } catch (error) {
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {
       context: 'solve_main',
-      operation: 'main_execution'
+      operation: 'main_execution',
     });
   }
   await handleMainExecutionError({
@@ -1272,7 +1202,7 @@ try {
     getLogFile,
     attachLogToGitHub,
     sanitizeLogContent,
-    $
+    $,
   });
 } finally {
   // Clean up temporary directory using repository module

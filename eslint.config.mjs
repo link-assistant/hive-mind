@@ -7,7 +7,7 @@ export default [
   prettierConfig,
   {
     plugins: {
-      prettier
+      prettier,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -36,16 +36,14 @@ export default [
         // Custom globals
         use: 'readonly',
         fetch: 'readonly',
-        URL: 'readonly'
-      }
+        URL: 'readonly',
+      },
     },
     files: ['src/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
       'no-unused-vars': ['error'],
       'no-console': 'off',
-      semi: ['error', 'always'],
-      quotes: ['error', 'single', { avoidEscape: true }],
       'no-useless-escape': 'warn',
       'no-case-declarations': 'warn',
       'no-empty': 'error',
@@ -56,10 +54,10 @@ export default [
           ignoreDestructuring: true,
           ignoreImports: false,
           ignoreGlobals: false,
-          allow: ['^[A-Z_]+$']
-        }
+          allow: ['^[A-Z_]+$'],
+        },
       ],
-      'prettier/prettier': 'warn'
-    }
-  }
+      'prettier/prettier': 'warn',
+    },
+  },
 ];

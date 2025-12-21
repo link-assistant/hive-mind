@@ -116,7 +116,7 @@ console.log('Demonstrating the actual issue:\n');
 const commands = [
   { cmd: 'echo "${testTitle}"', desc: 'Double quotes' },
   { cmd: 'echo ${testTitle}', desc: 'No quotes' },
-  { cmd: `echo '${testTitle}'`, desc: 'Single quotes (literal)' }
+  { cmd: `echo '${testTitle}'`, desc: 'Single quotes (literal)' },
 ];
 
 for (const { cmd, desc } of commands) {

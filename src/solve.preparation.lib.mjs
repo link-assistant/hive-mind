@@ -7,21 +7,7 @@
 const feedback = await import('./solve.feedback.lib.mjs');
 const { detectAndCountFeedback } = feedback;
 
-export async function prepareFeedbackAndTimestamps({
-  prNumber,
-  branchName: _branchName,
-  owner,
-  repo,
-  issueNumber,
-  isContinueMode: _isContinueMode,
-  mergeStateStatus: _mergeStateStatus,
-  prState: _prState,
-  argv: _argv,
-  log,
-  formatAligned,
-  cleanErrorMessage: _cleanErrorMessage,
-  $
-}) {
+export async function prepareFeedbackAndTimestamps({ prNumber, branchName: _branchName, owner, repo, issueNumber, isContinueMode: _isContinueMode, mergeStateStatus: _mergeStateStatus, prState: _prState, argv: _argv, log, formatAligned, cleanErrorMessage: _cleanErrorMessage, $ }) {
   // Count new comments and detect feedback
   let { feedbackLines } = await detectAndCountFeedback({
     prNumber,
@@ -37,7 +23,7 @@ export async function prepareFeedbackAndTimestamps({
     log,
     formatAligned,
     cleanErrorMessage: _cleanErrorMessage,
-    $
+    $,
   });
 
   // Get timestamps from GitHub servers before executing the command
@@ -49,9 +35,7 @@ export async function prepareFeedbackAndTimestamps({
     const issueResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .updated_at`;
 
     if (issueResult.code !== 0) {
-      throw new Error(
-        `Failed to get issue details: ${issueResult.stderr ? issueResult.stderr.toString() : 'Unknown error'}`
-      );
+      throw new Error(`Failed to get issue details: ${issueResult.stderr ? issueResult.stderr.toString() : 'Unknown error'}`);
     }
 
     const issueUpdatedAt = new Date(issueResult.stdout.toString().trim());
@@ -61,10 +45,7 @@ export async function prepareFeedbackAndTimestamps({
     const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
 
     if (commentsResult.code !== 0) {
-      await log(
-        `Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`,
-        { level: 'warning' }
-      );
+      await log(`Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
       // Continue anyway, comments are optional
     }
 
@@ -81,7 +62,7 @@ export async function prepareFeedbackAndTimestamps({
 
     if (prsResult.code !== 0) {
       await log(`Warning: Failed to get PRs: ${prsResult.stderr ? prsResult.stderr.toString() : 'Unknown error'}`, {
-        level: 'warning'
+        level: 'warning',
       });
       // Continue anyway, PRs are optional for timestamp calculation
     }
@@ -111,7 +92,7 @@ export async function prepareFeedbackAndTimestamps({
       context: 'get_reference_timestamp',
       prNumber,
       issueNumber,
-      operation: 'fetch_github_timestamps'
+      operation: 'fetch_github_timestamps',
     });
     await log('Warning: Could not get GitHub timestamps, using current time as reference', { level: 'warning' });
     await log(`  Error: ${timestampError.message}`);
@@ -151,9 +132,7 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
           feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
           feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
           feedbackLines.push('');
-          feedbackLines.push(
-            'DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.'
-          );
+          feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
           return feedbackLines;
         } else {
           await log('✅ No uncommitted changes found');
@@ -165,7 +144,7 @@ export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
       reportError(gitError, {
         context: 'check_uncommitted_changes',
         tempDir,
-        operation: 'git_status'
+        operation: 'git_status',
       });
       await log(`⚠️ Warning: Could not check git status: ${gitError.message}`, { level: 'warning' });
     }
@@ -183,8 +162,7 @@ export async function checkForkActions({ argv, forkedRepo, branchName, log, form
       const forkRepo = forkedRepo.split('/')[1];
 
       // Check if workflows directory exists in the fork
-      const workflowsResult =
-        await $`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`;
+      const workflowsResult = await $`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`;
 
       if (workflowsResult.code === 0) {
         const workflows = workflowsResult.stdout.toString().trim();

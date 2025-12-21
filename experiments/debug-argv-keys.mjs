@@ -24,9 +24,6 @@ console.log('Values:', JSON.stringify(argv2, null, 2));
 console.log('');
 
 console.log('Test 3: --no-tool-check with boolean-negation');
-let argv3 = yargs(['--no-tool-check'])
-  .option('tool-check', { type: 'boolean', default: true })
-  .parserConfiguration({ 'boolean-negation': true })
-  .parseSync();
+let argv3 = yargs(['--no-tool-check']).option('tool-check', { type: 'boolean', default: true }).parserConfiguration({ 'boolean-negation': true }).parseSync();
 console.log('Keys:', Object.keys(argv3));
 console.log('Values:', JSON.stringify(argv3, null, 2));

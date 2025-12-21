@@ -29,7 +29,7 @@ const mock$ = async (strings, ...values) => {
     return {
       stdout: `https://github.com/test/repo/pull/1#issuecomment-${commentId}\n`,
       stderr: '',
-      code: 0
+      code: 0,
     };
   } else if (command.includes('gh api') && command.includes('-X PATCH')) {
     // Extract comment ID from the command
@@ -57,7 +57,7 @@ async function simulateFlow() {
     prNumber: 1,
     $: mock$,
     log: mockLog,
-    verbose: true
+    verbose: true,
   });
 
   // Simulate Claude events with minimal delays (like real production)
@@ -73,15 +73,15 @@ async function simulateFlow() {
     tools: ['Bash', 'Read', 'Write'],
     mcp_servers: [],
     slash_commands: [],
-    agents: []
+    agents: [],
   });
 
   console.log('\n--- Event 2: Assistant text (immediate) ---');
   await handler.processEvent({
     type: 'assistant',
     message: {
-      content: [{ type: 'text', text: "I'll help you with that. Let me start by running a command." }]
-    }
+      content: [{ type: 'text', text: "I'll help you with that. Let me start by running a command." }],
+    },
   });
 
   console.log('\n--- Event 3: Tool use - Bash (immediate) ---');
@@ -93,10 +93,10 @@ async function simulateFlow() {
           type: 'tool_use',
           id: 'toolu_test123',
           name: 'Bash',
-          input: { command: 'echo hello' }
-        }
-      ]
-    }
+          input: { command: 'echo hello' },
+        },
+      ],
+    },
   });
 
   // Check state before tool result
@@ -119,10 +119,10 @@ async function simulateFlow() {
           type: 'tool_result',
           tool_use_id: 'toolu_test123',
           content: 'hello\n',
-          is_error: false
-        }
-      ]
-    }
+          is_error: false,
+        },
+      ],
+    },
   });
 
   // Final state

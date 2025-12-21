@@ -92,7 +92,7 @@ export const log = async (message, options = {}) => {
         reportError(error, {
           context: 'log_file_append',
           level: 'debug',
-          logFile
+          logFile,
         });
       }
     });
@@ -175,7 +175,7 @@ export const getPlatformInfo = () => {
     arch: process.arch,
     runtime: getRuntime(),
     nodeVersion: process.versions?.node,
-    bunVersion: process.versions?.bun
+    bunVersion: process.versions?.bun,
   };
 };
 
@@ -195,7 +195,7 @@ export const safeJsonParse = (text, defaultValue = null) => {
       reportError(error, {
         context: 'safe_json_parse',
         level: 'debug',
-        textPreview: text?.substring(0, 100)
+        textPreview: text?.substring(0, 100),
       });
     }
     return defaultValue;
@@ -231,7 +231,7 @@ export const retry = async (fn, options = {}) => {
         context: 'retry_operation',
         attempt,
         maxAttempts,
-        willRetry: attempt < maxAttempts
+        willRetry: attempt < maxAttempts,
       });
 
       if (attempt === maxAttempts) throw error;
@@ -281,7 +281,7 @@ export const measureTime = async (fn, label = 'Operation') => {
     reportError(error, {
       context: 'measure_time',
       operation: label,
-      duration
+      duration,
     });
     throw error;
   }
@@ -426,7 +426,7 @@ export const cleanupTempDirectories = async argv => {
   } catch (error) {
     reportError(error, {
       context: 'cleanup_temp_directories',
-      autoCleanup: argv?.autoCleanup
+      autoCleanup: argv?.autoCleanup,
     });
     await log(`   ❌ Error during cleanup: ${cleanErrorMessage(error)}`, { level: 'error' });
     // Don't fail the entire process if cleanup fails
@@ -452,7 +452,7 @@ export default {
   cleanErrorMessage,
   formatAligned,
   displayFormattedError,
-  cleanupTempDirectories
+  cleanupTempDirectories,
 };
 
 /**
@@ -465,10 +465,7 @@ export const getVersionInfo = async () => {
   const { getGitVersionAsync } = await import('./git.lib.mjs');
 
   try {
-    const packagePath = path.join(
-      path.dirname(path.dirname(new globalThis.URL(import.meta.url).pathname)),
-      'package.json'
-    );
+    const packagePath = path.join(path.dirname(path.dirname(new globalThis.URL(import.meta.url).pathname)), 'package.json');
     const packageJson = JSON.parse(await fs.readFile(packagePath, 'utf8'));
     const currentVersion = packageJson.version;
 

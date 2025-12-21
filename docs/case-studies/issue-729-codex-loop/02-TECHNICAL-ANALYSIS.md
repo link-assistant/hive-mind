@@ -55,7 +55,7 @@ if (limitInfo.isUsageLimit) {
     tool: 'Codex',
     resetTime: limitInfo.resetTime,
     sessionId,
-    resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+    resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
   });
 
   for (const line of messageLines) {
@@ -89,16 +89,7 @@ The auto-restart logic is triggered in several places:
 ```javascript
 const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
 const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
-const shouldRestart = await checkForUncommittedChanges(
-  tempDir,
-  owner,
-  repo,
-  branchName,
-  $,
-  log,
-  shouldAutoCommit,
-  autoRestartEnabled
-);
+const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
 ```
 
 **Analysis**: When usage limit is hit with no uncommitted changes (tool did nothing), this returns `false`.

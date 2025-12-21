@@ -628,7 +628,7 @@ async function processPDFWithOCR(pdfPath, outputPath) {
     density: 150,
     format: 'png',
     width: 2000,
-    height: 2000
+    height: 2000,
   });
 
   // Get page count
@@ -641,7 +641,7 @@ async function processPDFWithOCR(pdfPath, outputPath) {
 
     // Perform OCR
     const {
-      data: { text }
+      data: { text },
     } = await Tesseract.recognize(page.path, 'eng', { logger: m => console.log(m) });
 
     allText.push(`--- Page ${i} ---\n${text}`);

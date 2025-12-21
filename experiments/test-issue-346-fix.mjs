@@ -27,9 +27,7 @@ async function testAutoContinuePathFix() {
 
   try {
     // This simulates the fixed line 199 in solve.mjs
-    const { stdout, stderr } = await execAsync(
-      `gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,mergeStateStatus,state`
-    );
+    const { stdout, stderr } = await execAsync(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,mergeStateStatus,state`);
 
     if (stdout) {
       const prCheckData = JSON.parse(stdout);

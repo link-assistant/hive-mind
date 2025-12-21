@@ -22,7 +22,7 @@ try {
   // Run with dry-run to avoid actual processing but test the flow
   const output = execSync(`./hive.mjs "${testUrl}" --dry-run --once --auto-cleanup --verbose`, {
     encoding: 'utf8',
-    timeout: 30000 // 30 second timeout
+    timeout: 30000, // 30 second timeout
   });
 
   console.log('Output:', output);

@@ -58,9 +58,7 @@ async function debugCommentDetection() {
       console.log(`   Found ${prConversationComments.length} total conversation comments`);
 
       // Debug: show the latest comments
-      const latestComments = prConversationComments
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 3);
+      const latestComments = prConversationComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
 
       console.log('   Latest comments:');
       latestComments.forEach((comment, i) => {

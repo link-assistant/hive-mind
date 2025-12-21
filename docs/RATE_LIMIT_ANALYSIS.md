@@ -87,16 +87,7 @@ The codebase already has `fetchAllIssuesWithPagination()` function in `/tmp/gh-i
 function isRateLimitError(error) {
   const errorText = (error.stderr?.toString() || error.stdout?.toString() || error.message || '').toLowerCase();
 
-  const rateLimitPatterns = [
-    /rate limit/i,
-    /secondary rate limit/i,
-    /exceeded.*limit/i,
-    /abuse detection/i,
-    /too many requests/i,
-    /please wait.*before/i,
-    /wait.*(?:few )?minutes?/i,
-    /http 403.*(?:rate|limit|abuse)/i
-  ];
+  const rateLimitPatterns = [/rate limit/i, /secondary rate limit/i, /exceeded.*limit/i, /abuse detection/i, /too many requests/i, /please wait.*before/i, /wait.*(?:few )?minutes?/i, /http 403.*(?:rate|limit|abuse)/i];
 
   return rateLimitPatterns.some(pattern => pattern.test(errorText));
 }

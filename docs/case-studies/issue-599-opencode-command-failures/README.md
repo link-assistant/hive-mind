@@ -227,7 +227,7 @@ const validateGhCommand = command => {
   const invalidPatterns = [
     /gh pr comments\b/, // Should be 'comment' (singular)
     /gh pr comment list\b/, // No 'list' subcommand exists
-    /gh issue comments\b/ // Should be 'comment' (singular)
+    /gh issue comments\b/, // Should be 'comment' (singular)
   ];
 
   for (const pattern of invalidPatterns) {

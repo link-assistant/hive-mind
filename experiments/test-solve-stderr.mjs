@@ -19,19 +19,10 @@ console.log('=== Testing solve command stderr output ===\n');
 console.log('Test 1: Running solve with issue URL (should show version without git errors)');
 console.log('  Command: node src/solve.mjs https://github.com/test/test/issues/1 --dry-run --skip-tool-check\n');
 
-const child = spawn(
-  'node',
-  [
-    join(projectRoot, 'src', 'solve.mjs'),
-    'https://github.com/link-assistant/hive-mind/issues/1',
-    '--dry-run',
-    '--skip-tool-check'
-  ],
-  {
-    cwd: '/tmp', // Run from /tmp (not a git repository) to simulate hive worker
-    env: { ...process.env }
-  }
-);
+const child = spawn('node', [join(projectRoot, 'src', 'solve.mjs'), 'https://github.com/link-assistant/hive-mind/issues/1', '--dry-run', '--skip-tool-check'], {
+  cwd: '/tmp', // Run from /tmp (not a git repository) to simulate hive worker
+  env: { ...process.env },
+});
 
 let stderrOutput = '';
 let stdoutOutput = '';

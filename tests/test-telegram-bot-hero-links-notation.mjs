@@ -19,7 +19,7 @@ function runTest(testName, args, expectedSuccess) {
 
     const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 15000
+      timeout: 15000,
     });
 
     let stdout = '';
@@ -43,10 +43,7 @@ function runTest(testName, args, expectedSuccess) {
 
       const output = stdout + stderr;
       const hasDryRunSuccess = output.includes('Dry-run mode: All validations passed');
-      const hasValidationFailure =
-        output.includes('❌ Invalid') ||
-        output.includes('Unknown option:') ||
-        (output.includes('Error:') && !hasDryRunSuccess);
+      const hasValidationFailure = output.includes('❌ Invalid') || output.includes('Unknown option:') || (output.includes('Error:') && !hasDryRunSuccess);
       const validatedSolve = output.includes('Validating solve overrides');
       const validatedHive = output.includes('Validating hive overrides');
 
@@ -122,9 +119,9 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --no-tool-check
 )
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 2: Verify individual options are parsed correctly
@@ -141,9 +138,9 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --auto-fork
   --verbose
 )`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 3: Verify TELEGRAM_BOT_VERBOSE works
@@ -153,9 +150,9 @@ TELEGRAM_SOLVE_OVERRIDES: (
         '--configuration',
         `TELEGRAM_BOT_TOKEN: test_token
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 4: Full hero options with all features
@@ -185,10 +182,10 @@ TELEGRAM_SOLVE_OVERRIDES: (
   --no-tool-check
 )
 TELEGRAM_BOT_VERBOSE: true`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
-    }
+      shouldPass: true,
+    },
   ];
 
   const results = [];

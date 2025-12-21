@@ -106,7 +106,7 @@ return {
   success: true,
   sessionId,
   limitReached,
-  limitResetTime
+  limitResetTime,
   // Missing: anthropicTotalCostUSD, token usage data
 };
 ```
@@ -119,7 +119,7 @@ return {
   sessionId,
   limitReached,
   limitResetTime,
-  anthropicTotalCostUSD // Captured from Claude's output
+  anthropicTotalCostUSD, // Captured from Claude's output
 };
 ```
 

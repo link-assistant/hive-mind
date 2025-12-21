@@ -51,7 +51,7 @@ try {
   console.log(`🔄 Creating release ${version} in Sentry...`);
   execSync(`npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`, {
     stdio: 'inherit',
-    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
   });
 
   // Upload source maps for all .mjs files
@@ -59,33 +59,27 @@ try {
 
   // Upload source files from src directory
   if (existsSync(join(rootDir, 'src'))) {
-    execSync(
-      `npx @sentry/cli releases files ${version} upload-sourcemaps ./src --org ${orgName} --project ${projectName} --url-prefix '~/src'`,
-      {
-        stdio: 'inherit',
-        cwd: rootDir,
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./src --org ${orgName} --project ${projectName} --url-prefix '~/src'`, {
+      stdio: 'inherit',
+      cwd: rootDir,
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+    });
   }
 
   // Upload test files (useful for debugging test failures)
   if (existsSync(join(rootDir, 'tests'))) {
-    execSync(
-      `npx @sentry/cli releases files ${version} upload-sourcemaps ./tests --org ${orgName} --project ${projectName} --url-prefix '~/tests'`,
-      {
-        stdio: 'inherit',
-        cwd: rootDir,
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./tests --org ${orgName} --project ${projectName} --url-prefix '~/tests'`, {
+      stdio: 'inherit',
+      cwd: rootDir,
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+    });
   }
 
   // Finalize the release
   console.log('✅ Finalizing release...');
   execSync(`npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`, {
     stdio: 'inherit',
-    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
   });
 
   // Set release commits (if in Git repository)
@@ -93,7 +87,7 @@ try {
     const gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
     execSync(`npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`, {
       stdio: 'inherit',
-      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
     });
     console.log(`📝 Associated commits with release ${version}`);
   } catch (err) {

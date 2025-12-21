@@ -30,9 +30,9 @@ const $ = async cmd => {
       stdout: JSON.stringify({
         parent: {
           owner: { login: '1dNDN' },
-          name: 'BitrotBruteforce'
-        }
-      })
+          name: 'BitrotBruteforce',
+        },
+      }),
     };
   }
 
@@ -40,8 +40,8 @@ const $ = async cmd => {
     return {
       code: 0,
       stdout: JSON.stringify({
-        headRepositoryOwner: { login: 'anotheruser' }
-      })
+        headRepositoryOwner: { login: 'anotheruser' },
+      }),
     };
   }
 
@@ -54,8 +54,7 @@ async function testForkPRWithExistingFork() {
 
   const isContinueMode = true;
   const isForkPR = true;
-  const errorOutput =
-    "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it";
+  const errorOutput = "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it";
 
   // Check if user has a fork that could be used
   let userHasFork = false;
@@ -65,8 +64,7 @@ async function testForkPRWithExistingFork() {
   if (isForkPR) {
     // This is already a forked PR, get the fork owner
     try {
-      const prDataResult =
-        await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner --jq .headRepositoryOwner.login`;
+      const prDataResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner --jq .headRepositoryOwner.login`;
       if (prDataResult.code === 0) {
         forkOwner = 'anotheruser';
       }

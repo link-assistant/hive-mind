@@ -243,11 +243,8 @@ When you face something extremely hard, use divide and conquer — it always hel
 
   // Check for existing comments
   const commentsResult = await $`gh issue view ${issueUrl} --json comments --jq '.comments[] | .url'`;
-  const commentUrls =
-    commentsResult.code === 0 ? commentsResult.stdout.toString().trim().split('\n').filter(Boolean) : [];
-  console.log(
-    `  ${commentUrls.length > 0 ? commentUrls : '[]'}  ${commentUrls.length > 0 ? `${commentUrls.length} comments found` : 'No comments found on issue'}`
-  );
+  const commentUrls = commentsResult.code === 0 ? commentsResult.stdout.toString().trim().split('\n').filter(Boolean) : [];
+  console.log(`  ${commentUrls.length > 0 ? commentUrls : '[]'}  ${commentUrls.length > 0 ? `${commentUrls.length} comments found` : 'No comments found on issue'}`);
 
   // Check for existing PRs
   const prsResult = await $`gh pr list --repo ${owner}/${repo} --json url --jq '.[].url'`;
@@ -299,7 +296,7 @@ When you face something extremely hard, use divide and conquer — it always hel
     const output = execSync(`cd "${tempDir}" && ${opencodeCommand}`, {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024 * 100, // 100MB buffer for large outputs
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
 
     // Try to extract session ID from output (adjust based on OpenCode's actual output format)
@@ -357,8 +354,7 @@ When you face something extremely hard, use divide and conquer — it always hel
 
   // Check for new pull requests from our branch
   process.stdout.write('  Checking for pull requests...');
-  const newPrsResult =
-    await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName --jq '.'`;
+  const newPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName --jq '.'`;
 
   if (newPrsResult.code === 0) {
     const newPrs = newPrsResult.stdout.toString().trim();

@@ -12,13 +12,7 @@ function generateUUIDv7() {
   const timestamp = Date.now();
   const timestampHex = timestamp.toString(16).padStart(12, '0');
   const randomBytes = crypto.randomBytes(10);
-  const uuid = [
-    timestampHex.slice(0, 8),
-    timestampHex.slice(8, 12),
-    '7' + randomBytes.toString('hex').slice(0, 3),
-    ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7),
-    randomBytes.toString('hex').slice(7, 19)
-  ].join('-');
+  const uuid = [timestampHex.slice(0, 8), timestampHex.slice(8, 12), '7' + randomBytes.toString('hex').slice(0, 3), ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7), randomBytes.toString('hex').slice(7, 19)].join('-');
   return uuid;
 }
 
@@ -60,8 +54,7 @@ try {
 
   // Step 3: Create an issue
   console.log('\n🐛 Step 3: Creating test issue...');
-  const issueResult =
-    await $`gh issue create --repo ${githubUser}/${repoName} --title "Test: Add greeting function" --body "Please add a greeting function that takes a name parameter."`;
+  const issueResult = await $`gh issue create --repo ${githubUser}/${repoName} --title "Test: Add greeting function" --body "Please add a greeting function that takes a name parameter."`;
   const issueUrl = issueResult.stdout.toString().trim();
   const issueNumber = issueUrl.split('/').pop();
   console.log(`   Created issue #${issueNumber}: ${issueUrl}`);
@@ -103,9 +96,7 @@ try {
   // Check if comment counts appear in the logs
   const hasNewPrComments = continueOutput.includes('New PR comments:');
   const hasNewIssueComments = continueOutput.includes('New issue comments:');
-  const hasCommentInPrompt =
-    continueOutput.includes('New comments on the pull request:') ||
-    continueOutput.includes('New comments on the issue:');
+  const hasCommentInPrompt = continueOutput.includes('New comments on the pull request:') || continueOutput.includes('New comments on the issue:');
 
   console.log('\n📊 Results:');
   console.log('='.repeat(60));

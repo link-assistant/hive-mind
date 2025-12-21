@@ -12,37 +12,33 @@ const testPatterns = [
   {
     name: 'Direct API Error 503',
     text: 'API Error: 503 upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused',
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: '503 with upstream connect error',
     text: 'Error: 503 upstream connect error or disconnect/reset before headers',
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: '503 with remote connection failure',
     text: 'Connection failed: 503 remote connection failure',
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Normal 500 overload error (should not match 503 logic)',
     text: 'API Error: 500 Overloaded api_error',
-    shouldMatch: false
+    shouldMatch: false,
   },
   {
     name: 'Normal text with 503 in it (should not match)',
     text: 'HTTP status code 503 is a server error',
-    shouldMatch: false
-  }
+    shouldMatch: false,
+  },
 ];
 
 // Simulate the detection logic from claude.lib.mjs
 function detect503Error(text) {
-  return (
-    text.includes('API Error: 503') ||
-    (text.includes('503') && text.includes('upstream connect error')) ||
-    (text.includes('503') && text.includes('remote connection failure'))
-  );
+  return text.includes('API Error: 503') || (text.includes('503') && text.includes('upstream connect error')) || (text.includes('503') && text.includes('remote connection failure'));
 }
 
 // Test each pattern

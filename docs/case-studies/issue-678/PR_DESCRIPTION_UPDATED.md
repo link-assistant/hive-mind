@@ -91,7 +91,7 @@ if (argv.fork && forkedRepo) {
   headRef = branchName; // e.g., "issue-678-abc"
 }
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
@@ -168,7 +168,7 @@ if (argv.fork && forkedRepo) {
   headRef = branchName; // e.g., "issue-678-abc"
 }
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 

@@ -38,9 +38,7 @@ if (hiveSection) {
 // Extract solve options from code
 console.log('\n💻 SOLVE COMMAND OPTIONS FROM CODE (solve.config.lib.mjs):');
 console.log('-'.repeat(80));
-const solveOptionMatches = solveConfigContent.matchAll(
-  /\.option\('([^']+)',\s*\{[^}]*description:\s*['"`]([^'"`]+)['"`][^}]*default:\s*([^,}]+)[^}]*\}/g
-);
+const solveOptionMatches = solveConfigContent.matchAll(/\.option\('([^']+)',\s*\{[^}]*description:\s*['"`]([^'"`]+)['"`][^}]*default:\s*([^,}]+)[^}]*\}/g);
 for (const match of solveOptionMatches) {
   const [, name, desc, defaultVal] = match;
   console.log(`  --${name.padEnd(30)} ${desc.substring(0, 50)}... [default: ${defaultVal.trim()}]`);
@@ -49,9 +47,7 @@ for (const match of solveOptionMatches) {
 // Extract hive options from code
 console.log('\n💻 HIVE COMMAND OPTIONS FROM CODE (hive.mjs):');
 console.log('-'.repeat(80));
-const hiveOptionMatches = hiveContent.matchAll(
-  /\.option\('([^']+)',\s*\{[^}]*description:\s*['"`]([^'"`]+)['"`][^}]*default:\s*([^,}]+)[^}]*\}/g
-);
+const hiveOptionMatches = hiveContent.matchAll(/\.option\('([^']+)',\s*\{[^}]*description:\s*['"`]([^'"`]+)['"`][^}]*default:\s*([^,}]+)[^}]*\}/g);
 for (const match of hiveOptionMatches) {
   const [, name, desc, defaultVal] = match;
   console.log(`  --${name.padEnd(30)} ${desc.substring(0, 50)}... [default: ${defaultVal.trim()}]`);

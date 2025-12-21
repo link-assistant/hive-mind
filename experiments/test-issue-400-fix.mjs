@@ -79,8 +79,7 @@ try {
       console.log(`\nChecking branch: ${branch}`);
 
       // Check if there's a PR for this branch
-      const prForBranchResult =
-        await $`gh pr list --repo ${testOwner}/${testRepo} --head ${branch} --json number,state,isDraft --limit 1`;
+      const prForBranchResult = await $`gh pr list --repo ${testOwner}/${testRepo} --head ${branch} --json number,state,isDraft --limit 1`;
 
       if (prForBranchResult.code === 0) {
         const prsForBranch = JSON.parse(prForBranchResult.stdout.toString().trim() || '[]');
@@ -109,8 +108,7 @@ try {
 
   // First check for PRs using the search query (old method)
   console.log(`\nOld method: Using gh pr list --search "linked:issue-${testIssueNumber}"`);
-  const prListResult =
-    await $`gh pr list --repo ${testOwner}/${testRepo} --search "linked:issue-${testIssueNumber}" --json number,headRefName --limit 10`;
+  const prListResult = await $`gh pr list --repo ${testOwner}/${testRepo} --search "linked:issue-${testIssueNumber}" --json number,headRefName --limit 10`;
 
   if (prListResult.code === 0) {
     const prs = JSON.parse(prListResult.stdout.toString().trim() || '[]');

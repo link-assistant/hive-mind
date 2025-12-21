@@ -21,8 +21,7 @@ async function simulateForkedPRError() {
   const repo = 'tinkoff-invest-etf-balancer-bot';
   const branchName = 'issue-3-6da5c9ab';
   const tempDir = '/tmp/test-directory';
-  const errorOutput =
-    "fatal: 'origin/issue-3-6da5c9ab' is not a commit and a branch 'issue-3-6da5c9ab' cannot be created from it";
+  const errorOutput = "fatal: 'origin/issue-3-6da5c9ab' is not a commit and a branch 'issue-3-6da5c9ab' cannot be created from it";
 
   console.log('🔍 Testing forked PR error message output:');
   console.log('========================================');

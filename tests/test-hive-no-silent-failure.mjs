@@ -32,7 +32,7 @@ let testsPassed = 0;
 function runCommandWithTimeout(args, timeoutMs = 5000) {
   return new Promise(resolve => {
     const child = spawn(hivePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'] // Ignore stdin to prevent hanging
+      stdio: ['ignore', 'pipe', 'pipe'], // Ignore stdin to prevent hanging
     });
 
     let stdout = '';
@@ -62,7 +62,7 @@ function runCommandWithTimeout(args, timeoutMs = 5000) {
         stdout,
         stderr,
         hasOutput,
-        timedOut
+        timedOut,
       });
     });
 
@@ -74,7 +74,7 @@ function runCommandWithTimeout(args, timeoutMs = 5000) {
         stderr,
         hasOutput,
         timedOut: false,
-        error: error.message
+        error: error.message,
       });
     });
   });

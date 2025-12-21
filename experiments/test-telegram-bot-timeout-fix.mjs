@@ -17,7 +17,7 @@ const { Telegraf } = telegrafModule;
 
 console.log('Test 1: Creating bot with handlerTimeout: Infinity');
 const bot = new Telegraf('test-token-12345', {
-  handlerTimeout: Infinity
+  handlerTimeout: Infinity,
 });
 
 console.log('✓ Bot created successfully');

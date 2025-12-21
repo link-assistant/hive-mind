@@ -152,7 +152,7 @@ Browser contexts created during MCP sessions are not properly tracked and cleane
 
 // Browser launched with persistent profile
 const browser = await chromium.launchPersistentContext(profilePath, {
-  headless: true
+  headless: true,
 });
 
 // On session end - profile persists, process may linger

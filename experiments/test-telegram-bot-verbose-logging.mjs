@@ -63,9 +63,7 @@ test('VERBOSE constant is properly initialized', () => {
     throw new Error('VERBOSE constant not found');
   }
 
-  const verboseConstMatch = botCode.match(
-    /const VERBOSE\s*=\s*argv\.verbose\s*\|\|\s*argv\.v\s*\|\|\s*process\.env\.TELEGRAM_BOT_VERBOSE/
-  );
+  const verboseConstMatch = botCode.match(/const VERBOSE\s*=\s*argv\.verbose\s*\|\|\s*argv\.v\s*\|\|\s*process\.env\.TELEGRAM_BOT_VERBOSE/);
   if (!verboseConstMatch) {
     throw new Error('VERBOSE constant not properly initialized from argv and env');
   }
@@ -155,9 +153,7 @@ test('All VERBOSE checks use VERBOSE constant instead of process.env', () => {
 
   // Should only appear once in the VERBOSE constant definition
   if (envVarMatches && envVarMatches.length > 1) {
-    throw new Error(
-      `Found ${envVarMatches.length} references to process.env.TELEGRAM_BOT_VERBOSE, should only be 1 (in VERBOSE constant definition)`
-    );
+    throw new Error(`Found ${envVarMatches.length} references to process.env.TELEGRAM_BOT_VERBOSE, should only be 1 (in VERBOSE constant definition)`);
   }
 });
 
@@ -179,10 +175,7 @@ test('Detailed verbose logging added to isForwardedOrReply function', () => {
   }
 
   // Check for result logging
-  if (
-    !botCode.includes('[VERBOSE] isForwardedOrReply: FALSE') ||
-    !botCode.includes('[VERBOSE] isForwardedOrReply: TRUE')
-  ) {
+  if (!botCode.includes('[VERBOSE] isForwardedOrReply: FALSE') || !botCode.includes('[VERBOSE] isForwardedOrReply: TRUE')) {
     throw new Error('Result logging not found in isForwardedOrReply');
   }
 });

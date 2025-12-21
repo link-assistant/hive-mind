@@ -64,11 +64,7 @@ runTest('Sentry packages in package.json', () => {
   const packagePath = join(projectRoot, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
 
-  return (
-    packageJson.dependencies &&
-    packageJson.dependencies['@sentry/node'] &&
-    packageJson.dependencies['@sentry/profiling-node']
-  );
+  return packageJson.dependencies && packageJson.dependencies['@sentry/node'] && packageJson.dependencies['@sentry/profiling-node'];
 });
 
 // Test 4: Test --no-sentry flag in hive.mjs
@@ -78,7 +74,7 @@ runTest('hive.mjs supports --no-sentry flag', () => {
     const output = execSync(`node ${join(projectRoot, 'src', 'hive.mjs')} --help 2>&1`, {
       encoding: 'utf8',
       cwd: projectRoot,
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     return output.includes('--no-sentry');
   } catch (error) {
@@ -97,7 +93,7 @@ runTest('solve.mjs supports --no-sentry flag', () => {
     const output = execSync(`node ${join(projectRoot, 'src', 'solve.mjs')} --help 2>&1`, {
       encoding: 'utf8',
       cwd: projectRoot,
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     return output.includes('--no-sentry');
   } catch (error) {
@@ -126,12 +122,7 @@ runTest('Sentry DSN is configured', () => {
   const configContent = fs.readFileSync(configPath, 'utf8');
 
   // DSN should be in config.lib.mjs and referenced in instrument.mjs
-  return (
-    instrumentContent.includes('dsn:') &&
-    configContent.includes(
-      'https://77b711f23c84cbf74366df82090dc389@o4510072519983104.ingest.us.sentry.io/4510072523325440'
-    )
-  );
+  return instrumentContent.includes('dsn:') && configContent.includes('https://77b711f23c84cbf74366df82090dc389@o4510072519983104.ingest.us.sentry.io/4510072523325440');
 });
 
 // Test 8: Check environment variable support
@@ -179,13 +170,7 @@ runTest('sentry.lib.mjs exports required functions', () => {
   const sentryLibPath = join(projectRoot, 'src', 'sentry.lib.mjs');
   const content = fs.readFileSync(sentryLibPath, 'utf8');
 
-  const requiredExports = [
-    'export const initializeSentry',
-    'export const withSentry',
-    'export const reportError',
-    'export const flushSentry',
-    'export const closeSentry'
-  ];
+  const requiredExports = ['export const initializeSentry', 'export const withSentry', 'export const reportError', 'export const flushSentry', 'export const closeSentry'];
 
   return requiredExports.every(exp => content.includes(exp));
 });

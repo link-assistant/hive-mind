@@ -84,7 +84,7 @@ export function registerTopCommand(bot, options) {
         console.log('[VERBOSE] /top ignored: not a group chat');
       }
       await ctx.reply('❌ The /top command only works in group chats.', {
-        reply_to_message_id: ctx.message.message_id
+        reply_to_message_id: ctx.message.message_id,
       });
       return;
     }
@@ -95,7 +95,7 @@ export function registerTopCommand(bot, options) {
         console.log('[VERBOSE] /top ignored: chat not authorized');
       }
       await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot.`, {
-        reply_to_message_id: ctx.message.message_id
+        reply_to_message_id: ctx.message.message_id,
       });
       return;
     }
@@ -108,7 +108,7 @@ export function registerTopCommand(bot, options) {
           console.log('[VERBOSE] /top ignored: user is not chat owner');
         }
         await ctx.reply('❌ This command is only available to the chat owner.', {
-          reply_to_message_id: ctx.message.message_id
+          reply_to_message_id: ctx.message.message_id,
         });
         return;
       }
@@ -123,18 +123,15 @@ export function registerTopCommand(bot, options) {
     }
 
     // Show experimental feature warning
-    await ctx.reply(
-      '🧪 *EXPERIMENTAL FEATURE*\n\nThis command is experimental and may have issues. Use with caution.',
-      {
-        parse_mode: 'Markdown',
-        reply_to_message_id: ctx.message.message_id
-      }
-    );
+    await ctx.reply('🧪 *EXPERIMENTAL FEATURE*\n\nThis command is experimental and may have issues. Use with caution.', {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message.message_id,
+    });
 
     // Check if there's already an active top session for this chat
     if (activeTopSessions.has(chatId)) {
       await ctx.reply('❌ A top session is already running for this chat. Stop it first using the button.', {
-        reply_to_message_id: ctx.message.message_id
+        reply_to_message_id: ctx.message.message_id,
       });
       return;
     }
@@ -178,26 +175,20 @@ export function registerTopCommand(bot, options) {
     const initialMessage = await ctx.reply('🧪 📊 Loading system monitor... (EXPERIMENTAL)', {
       reply_to_message_id: ctx.message.message_id,
       reply_markup: {
-        inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]]
-      }
+        inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
+      },
     });
 
     // Capture and display first output
     const firstOutput = await captureTopOutput(chatId);
     if (firstOutput) {
       try {
-        await ctx.telegram.editMessageText(
-          chatId,
-          initialMessage.message_id,
-          undefined,
-          `\`\`\`\n${firstOutput}\n\`\`\``,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]]
-            }
-          }
-        );
+        await ctx.telegram.editMessageText(chatId, initialMessage.message_id, undefined, `\`\`\`\n${firstOutput}\n\`\`\``, {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
+          },
+        });
       } catch (error) {
         console.error('[ERROR] Failed to update message:', error);
       }
@@ -208,18 +199,12 @@ export function registerTopCommand(bot, options) {
       const output = await captureTopOutput(chatId);
       if (output) {
         try {
-          await ctx.telegram.editMessageText(
-            chatId,
-            initialMessage.message_id,
-            undefined,
-            `\`\`\`\n${output}\n\`\`\``,
-            {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]]
-              }
-            }
-          );
+          await ctx.telegram.editMessageText(chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
+            },
+          });
         } catch (error) {
           // Ignore "message is not modified" errors
           if (!error.message?.includes('message is not modified')) {
@@ -233,7 +218,7 @@ export function registerTopCommand(bot, options) {
     activeTopSessions.set(chatId, {
       messageId: initialMessage.message_id,
       screenName,
-      intervalId
+      intervalId,
     });
 
     if (VERBOSE) {
@@ -301,7 +286,7 @@ export function registerTopCommand(bot, options) {
     // Update the message to show it's stopped
     try {
       await ctx.editMessageText('🛑 Top session stopped.', {
-        parse_mode: 'Markdown'
+        parse_mode: 'Markdown',
       });
     } catch (error) {
       console.error('[ERROR] Failed to edit message:', error);

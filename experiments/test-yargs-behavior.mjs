@@ -17,11 +17,11 @@ const testArgs = ['--token', 'mytoken123', '--name', 'John Doe'];
 const argv = yargs(testArgs)
   .option('token', {
     type: 'string',
-    description: 'Token value'
+    description: 'Token value',
   })
   .option('name', {
     type: 'string',
-    description: 'Name value'
+    description: 'Name value',
   })
   .parse();
 

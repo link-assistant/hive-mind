@@ -28,7 +28,7 @@ function runCommand(command, args, timeout = 10000) {
 
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: timeout
+      timeout: timeout,
     });
 
     let stdout = '';
@@ -66,7 +66,7 @@ function runCommand(command, args, timeout = 10000) {
         stdout,
         stderr,
         hasOutput,
-        command: `${command} ${args.join(' ')}`
+        command: `${command} ${args.join(' ')}`,
       });
     });
 
@@ -79,7 +79,7 @@ function runCommand(command, args, timeout = 10000) {
         stderr,
         hasOutput,
         error: error.message,
-        command: `${command} ${args.join(' ')}`
+        command: `${command} ${args.join(' ')}`,
       });
     });
   });
@@ -93,28 +93,28 @@ async function main() {
     {
       name: 'Test 1: hive --help (should work)',
       command: hivePath,
-      args: ['--help']
+      args: ['--help'],
     },
     {
       name: 'Test 2: hive --version (should work)',
       command: hivePath,
-      args: ['--version']
+      args: ['--version'],
     },
     {
       name: 'Test 3: hive github.com/konard --dry-run (reported failing)',
       command: hivePath,
-      args: ['github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1']
+      args: ['github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1'],
     },
     {
       name: 'Test 4: hive https://github.com/konard --dry-run (reported failing)',
       command: hivePath,
-      args: ['https://github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1']
+      args: ['https://github.com/konard', '--dry-run', '--skip-tool-check', '--once', '--max-issues', '1'],
     },
     {
       name: 'Test 5: hive with no arguments (should show error)',
       command: hivePath,
-      args: []
-    }
+      args: [],
+    },
   ];
 
   const results = [];

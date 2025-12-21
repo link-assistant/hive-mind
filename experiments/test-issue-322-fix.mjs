@@ -18,15 +18,14 @@ const argv = {
   verbose: true,
   model: 'opus',
   think: 'max',
-  'attach-logs': true
+  'attach-logs': true,
 };
 
 console.log('\n=== Testing Issue #322 Fix ===\n');
 console.log(`Testing PR #${prNumber} which is actually an issue\n`);
 
 try {
-  const prResult =
-    await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefName,body,number,mergeStateStatus,headRepositoryOwner`;
+  const prResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefName,body,number,mergeStateStatus,headRepositoryOwner`;
   const prOutput = prResult.stdout.toString() + (prResult.stderr ? prResult.stderr.toString() : '');
 
   console.log('Step 1: Detecting GraphQL error...');

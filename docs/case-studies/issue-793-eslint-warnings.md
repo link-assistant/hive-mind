@@ -118,11 +118,7 @@ switch (parseMode) {
   case 'HTML':
   default: {
     // HTML mode: <a href="url">text</a>
-    const escapedHtml = displayName
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    const escapedHtml = displayName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     return `<a href="${link}">${escapedHtml}</a>`;
   }
 }

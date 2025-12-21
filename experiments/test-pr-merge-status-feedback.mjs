@@ -86,7 +86,7 @@ test('CLEAN merge status should NOT be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasMergeStatus = result.feedbackLines.some(line => line.toLowerCase().includes('merge status'));
@@ -114,7 +114,7 @@ test('DIRTY merge status should be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasDirtyStatus = result.feedbackLines.some(line => line.includes('Merge status is DIRTY'));
@@ -143,7 +143,7 @@ test('UNSTABLE merge status should be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasUnstableStatus = result.feedbackLines.some(line => line.includes('Merge status is UNSTABLE'));
@@ -172,7 +172,7 @@ test('OPEN PR state should NOT be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasPrState = result.feedbackLines.some(line => line.toLowerCase().includes('pull request state'));
@@ -200,7 +200,7 @@ test('CLOSED PR state should be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasClosedState = result.feedbackLines.some(line => line.includes('Pull request state: CLOSED'));
@@ -229,7 +229,7 @@ test('MERGED PR state should be reported', async () => {
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasMergedState = result.feedbackLines.some(line => line.includes('Pull request state: MERGED'));
@@ -258,7 +258,7 @@ test('Both non-clean merge status and non-open PR state should be reported', asy
     log: mockLog,
     formatAligned: mockFormatAligned,
     cleanErrorMessage: mockCleanErrorMessage,
-    $: mock$
+    $: mock$,
   });
 
   const hasPrState = result.feedbackLines.some(line => line.includes('Pull request state: CLOSED'));

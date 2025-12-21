@@ -53,7 +53,7 @@ async function testGraphQLBatchQuery() {
     // Execute GraphQL query using gh api graphql
     const result = execSync(`gh api graphql -f query='${query}'`, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
 
     const data = JSON.parse(result);
@@ -111,10 +111,7 @@ async function testSearchAPIForPRs() {
 
   try {
     // Search for all open PRs in the repository
-    const searchResult = execSync(
-      `gh api "search/issues?q=repo:${owner}/${repo}+type:pr+state:open" --jq '.items[] | {number, title, state, body}'`,
-      { encoding: 'utf8' }
-    );
+    const searchResult = execSync(`gh api "search/issues?q=repo:${owner}/${repo}+type:pr+state:open" --jq '.items[] | {number, title, state, body}'`, { encoding: 'utf8' });
 
     console.log('✅ Search API query successful!');
     console.log('Results:', searchResult);

@@ -11,7 +11,7 @@ export const claudeModels = {
   opus: 'claude-opus-4-5-20251101', // Opus 4.5
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307' // Haiku 3
+  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
 };
 
 // Agent models (OpenCode API via agent CLI)
@@ -24,7 +24,7 @@ export const agentModels = {
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',
-  'gemini-3-pro': 'google/gemini-3-pro'
+  'gemini-3-pro': 'google/gemini-3-pro',
 };
 
 // OpenCode models (OpenCode API)
@@ -37,7 +37,7 @@ export const opencodeModels = {
   gemini: 'google/gemini-pro',
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
-  'grok-code-fast-1': 'opencode/grok-code'
+  'grok-code-fast-1': 'opencode/grok-code',
 };
 
 // Codex models (OpenAI API)
@@ -50,7 +50,7 @@ export const codexModels = {
   gpt4o: 'gpt-4o',
   claude: 'claude-3-5-sonnet',
   sonnet: 'claude-3-5-sonnet',
-  opus: 'claude-3-opus'
+  opus: 'claude-3-opus',
 };
 
 /**
@@ -96,12 +96,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
       // Codex accepts OpenAI and some Claude models
-      return (
-        Object.keys(codexModels).includes(model) ||
-        mappedModel.startsWith('gpt-') ||
-        mappedModel.startsWith('o3') ||
-        mappedModel.startsWith('claude-')
-      );
+      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-') || mappedModel.startsWith('o3') || mappedModel.startsWith('claude-');
     default:
       return true;
   }
@@ -138,10 +133,6 @@ export const validateToolModelCompatibility = (tool, model) => {
     const validModels = getValidModelsForTool(tool);
     const mappedModel = mapModelForTool(tool, model);
 
-    throw new Error(
-      `Model '${model}' (mapped to '${mappedModel}') is not compatible with --tool ${tool}.\n` +
-        `Valid models for ${tool}: ${validModels.join(', ')}\n` +
-        'Hint: Different tools use different model APIs and naming conventions.'
-    );
+    throw new Error(`Model '${model}' (mapped to '${mappedModel}') is not compatible with --tool ${tool}.\n` + `Valid models for ${tool}: ${validModels.join(', ')}\n` + 'Hint: Different tools use different model APIs and naming conventions.');
   }
 };

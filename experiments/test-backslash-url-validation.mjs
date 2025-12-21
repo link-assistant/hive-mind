@@ -19,36 +19,36 @@ const backslashTests = [
     url: 'https://github.com/konard/hh-job-application-automation/issues/124\\',
     shouldPass: false,
     expectedError: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    expectedSuggestion: 'https://github.com/konard/hh-job-application-automation/issues/124/'
+    expectedSuggestion: 'https://github.com/konard/hh-job-application-automation/issues/124/',
   },
   {
     desc: 'Backslash in path (middle)',
     url: 'https://github.com/owner\\repo/issues/123',
     shouldPass: false,
     expectedError: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    expectedSuggestion: 'https://github.com/owner/repo/issues/123'
+    expectedSuggestion: 'https://github.com/owner/repo/issues/123',
   },
   {
     desc: 'Multiple backslashes in path',
     url: 'https://github.com\\owner\\repo\\issues\\123',
     shouldPass: false,
     expectedError: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    expectedSuggestion: 'https://github.com/owner/repo/issues/123'
+    expectedSuggestion: 'https://github.com/owner/repo/issues/123',
   },
   {
     desc: 'Backslash before domain (shorthand format)',
     url: 'owner\\repo/issues/123',
     shouldPass: false,
     expectedError: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    expectedSuggestion: 'https://github.com/owner/repo/issues/123'
+    expectedSuggestion: 'https://github.com/owner/repo/issues/123',
   },
   {
     desc: 'Backslash at end with no trailing content',
     url: 'https://github.com/owner/repo\\',
     shouldPass: false,
     expectedError: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    expectedSuggestion: 'https://github.com/owner/repo/'
-  }
+    expectedSuggestion: 'https://github.com/owner/repo/',
+  },
 ];
 
 // Test cases for URLs with backslashes in query/hash (should still fail but different handling)
@@ -57,14 +57,14 @@ const queryHashBackslashTests = [
     desc: 'Backslash in query parameter',
     url: 'https://github.com/owner/repo/issues/123?q=test\\value',
     shouldPass: true, // Query params are allowed to have backslashes
-    note: 'Query params can contain backslashes'
+    note: 'Query params can contain backslashes',
   },
   {
     desc: 'Backslash in hash fragment',
     url: 'https://github.com/owner/repo/issues/123#L\\123',
     shouldPass: true, // Hash fragments are allowed to have backslashes
-    note: 'Hash fragments can contain backslashes'
-  }
+    note: 'Hash fragments can contain backslashes',
+  },
 ];
 
 // Test cases for valid URLs (should pass)
@@ -72,28 +72,28 @@ const validTests = [
   {
     desc: 'Valid issue URL',
     url: 'https://github.com/owner/repo/issues/123',
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid PR URL',
     url: 'https://github.com/owner/repo/pull/456',
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid URL with query params',
     url: 'https://github.com/owner/repo/issues/123?foo=bar',
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid URL with hash',
     url: 'https://github.com/owner/repo/issues/123#issuecomment-456',
-    shouldPass: true
+    shouldPass: true,
   },
   {
     desc: 'Valid shorthand URL',
     url: 'owner/repo/issues/123',
-    shouldPass: true
-  }
+    shouldPass: true,
+  },
 ];
 
 let passed = 0;

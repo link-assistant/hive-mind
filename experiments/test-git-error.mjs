@@ -34,7 +34,7 @@ console.log("\n3. Running: git describe with stdio: ['pipe', 'pipe', 'ignore']")
 try {
   const result = execSync('git describe --exact-match --tags HEAD', {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'ignore']
+    stdio: ['pipe', 'pipe', 'ignore'],
   });
   console.log('Success:', result);
 } catch (error) {
@@ -48,7 +48,7 @@ console.log('\n4. Checking if in git repo first');
 try {
   execSync('git rev-parse --git-dir', {
     encoding: 'utf8',
-    stdio: ['pipe', 'ignore', 'ignore']
+    stdio: ['pipe', 'ignore', 'ignore'],
   });
   console.log('We are in a git repository');
 } catch {

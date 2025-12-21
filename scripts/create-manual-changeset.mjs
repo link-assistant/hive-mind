@@ -30,13 +30,13 @@ const config = makeConfig({
         type: 'string',
         default: getenv('BUMP_TYPE', ''),
         describe: 'Version bump type: major, minor, or patch',
-        choices: ['major', 'minor', 'patch']
+        choices: ['major', 'minor', 'patch'],
       })
       .option('description', {
         type: 'string',
         default: getenv('DESCRIPTION', ''),
-        describe: 'Description for the changeset'
-      })
+        describe: 'Description for the changeset',
+      }),
 });
 
 try {
@@ -46,9 +46,7 @@ try {
   const description = descriptionArg || `Manual ${bumpType} release`;
 
   if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
-    console.error(
-      'Usage: node scripts/create-manual-changeset.mjs --bump-type <major|minor|patch> [--description <description>]'
-    );
+    console.error('Usage: node scripts/create-manual-changeset.mjs --bump-type <major|minor|patch> [--description <description>]');
     process.exit(1);
   }
 

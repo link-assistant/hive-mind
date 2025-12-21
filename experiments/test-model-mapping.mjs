@@ -12,7 +12,7 @@ const mapModelToId = model => {
     gemini: 'google/gemini-pro',
     grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
-    'grok-code-fast-1': 'opencode/grok-code'
+    'grok-code-fast-1': 'opencode/grok-code',
   };
 
   return modelMap[model] || model;
@@ -27,7 +27,7 @@ const testCases = [
   { input: 'grok-code-fast-1', expected: 'opencode/grok-code' },
   { input: 'sonnet', expected: 'anthropic/claude-3-5-sonnet' },
   { input: 'opus', expected: 'anthropic/claude-3-opus' },
-  { input: 'gpt4o', expected: 'openai/gpt-4o' }
+  { input: 'gpt4o', expected: 'openai/gpt-4o' },
 ];
 
 console.log('Model mapping tests:');

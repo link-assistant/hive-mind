@@ -52,7 +52,7 @@ async function testGraphQLBatchQuery() {
     // Execute GraphQL query using gh api graphql
     const result = execSync(`gh api graphql -f query='${query}'`, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
 
     const data = JSON.parse(result);

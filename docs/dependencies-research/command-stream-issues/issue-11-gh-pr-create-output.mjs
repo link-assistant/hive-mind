@@ -120,8 +120,7 @@ async function runTest() {
 
       console.log('1️⃣  Using command-stream $ to create PR:');
 
-      const prResult =
-        await $`cd ${repoDir} && gh pr create --draft --title "${prTitle}" --body "${prBody}" --base main --head test-branch 2>&1`;
+      const prResult = await $`cd ${repoDir} && gh pr create --draft --title "${prTitle}" --body "${prBody}" --base main --head test-branch 2>&1`;
 
       const capturedOutput = prResult.stdout.toString().trim();
 
@@ -138,7 +137,7 @@ async function runTest() {
         throw new OutputCaptureError('Output capture failed!', {
           expectedOutput: 'PR URL',
           actualOutput: capturedOutput,
-          actualPrUrl: actualPrUrl
+          actualPrUrl: actualPrUrl,
         });
       }
 

@@ -24,7 +24,7 @@ export const CLAUDE_MODELS = {
   'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
   'claude-haiku-4-5-20251001': 'claude-haiku-4-5-20251001',
   'claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
-  'claude-3-haiku-20240307': 'claude-3-haiku-20240307'
+  'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
 
 export const OPENCODE_MODELS = {
@@ -43,7 +43,7 @@ export const OPENCODE_MODELS = {
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
   'google/gemini-pro': 'google/gemini-pro',
-  'opencode/grok-code': 'opencode/grok-code'
+  'opencode/grok-code': 'opencode/grok-code',
 };
 
 export const CODEX_MODELS = {
@@ -62,7 +62,7 @@ export const CODEX_MODELS = {
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
   'claude-3-5-sonnet': 'claude-3-5-sonnet',
-  'claude-3-opus': 'claude-3-opus'
+  'claude-3-opus': 'claude-3-opus',
 };
 
 export const AGENT_MODELS = {
@@ -84,7 +84,7 @@ export const AGENT_MODELS = {
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
   'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
-  'google/gemini-3-pro': 'google/gemini-3-pro'
+  'google/gemini-3-pro': 'google/gemini-3-pro',
 };
 
 /**
@@ -184,7 +184,7 @@ export const findSimilarModels = (input, validModels, maxSuggestions = 3, maxDis
   const suggestions = validModels
     .map(model => ({
       model,
-      distance: levenshteinDistance(input, model)
+      distance: levenshteinDistance(input, model),
     }))
     .filter(({ distance }) => distance <= maxDistance)
     .sort((a, b) => a.distance - b.distance)
@@ -205,7 +205,7 @@ export const validateModelName = (model, tool = 'claude') => {
     return {
       valid: false,
       message: 'Model name is required',
-      suggestions: []
+      suggestions: [],
     };
   }
 
@@ -219,7 +219,7 @@ export const validateModelName = (model, tool = 'claude') => {
   if (matchedKey) {
     return {
       valid: true,
-      mappedModel: modelMap[matchedKey]
+      mappedModel: modelMap[matchedKey],
     };
   }
 
@@ -238,7 +238,7 @@ export const validateModelName = (model, tool = 'claude') => {
   return {
     valid: false,
     message,
-    suggestions
+    suggestions,
   };
 };
 

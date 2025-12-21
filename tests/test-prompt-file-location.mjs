@@ -16,7 +16,7 @@ const colors = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
-  blue: '\x1b[34m'
+  blue: '\x1b[34m',
 };
 
 const log = (message, color = 'reset') => {
@@ -50,22 +50,13 @@ try {
   assert(codexLibContent.includes("await use('os')"), 'codex.lib.mjs imports os module');
 
   // Check that os.tmpdir() is used for prompt file
-  assert(
-    codexLibContent.includes('os.tmpdir()') && codexLibContent.includes('codex_prompt_'),
-    'codex.lib.mjs uses os.tmpdir() for prompt file'
-  );
+  assert(codexLibContent.includes('os.tmpdir()') && codexLibContent.includes('codex_prompt_'), 'codex.lib.mjs uses os.tmpdir() for prompt file');
 
   // Check that old pattern (tempDir, 'codex_prompt.txt') is NOT present
-  assert(
-    !codexLibContent.includes("tempDir, 'codex_prompt.txt'"),
-    'codex.lib.mjs does NOT use repository workspace for prompt file'
-  );
+  assert(!codexLibContent.includes("tempDir, 'codex_prompt.txt'"), 'codex.lib.mjs does NOT use repository workspace for prompt file');
 
   // Check that prompt file has unique name (timestamp + pid)
-  assert(
-    codexLibContent.includes('Date.now()') && codexLibContent.includes('process.pid'),
-    'codex.lib.mjs creates unique prompt filename'
-  );
+  assert(codexLibContent.includes('Date.now()') && codexLibContent.includes('process.pid'), 'codex.lib.mjs creates unique prompt filename');
 
   // Test 2: Verify opencode.lib.mjs uses os.tmpdir()
   log('\n2️⃣  Testing opencode.lib.mjs...', 'yellow');
@@ -76,22 +67,13 @@ try {
   assert(opencodeLibContent.includes("await use('os')"), 'opencode.lib.mjs imports os module');
 
   // Check that os.tmpdir() is used for prompt file
-  assert(
-    opencodeLibContent.includes('os.tmpdir()') && opencodeLibContent.includes('opencode_prompt_'),
-    'opencode.lib.mjs uses os.tmpdir() for prompt file'
-  );
+  assert(opencodeLibContent.includes('os.tmpdir()') && opencodeLibContent.includes('opencode_prompt_'), 'opencode.lib.mjs uses os.tmpdir() for prompt file');
 
   // Check that old pattern (tempDir, 'opencode_prompt.txt') is NOT present
-  assert(
-    !opencodeLibContent.includes("tempDir, 'opencode_prompt.txt'"),
-    'opencode.lib.mjs does NOT use repository workspace for prompt file'
-  );
+  assert(!opencodeLibContent.includes("tempDir, 'opencode_prompt.txt'"), 'opencode.lib.mjs does NOT use repository workspace for prompt file');
 
   // Check that prompt file has unique name (timestamp + pid)
-  assert(
-    opencodeLibContent.includes('Date.now()') && opencodeLibContent.includes('process.pid'),
-    'opencode.lib.mjs creates unique prompt filename'
-  );
+  assert(opencodeLibContent.includes('Date.now()') && opencodeLibContent.includes('process.pid'), 'opencode.lib.mjs creates unique prompt filename');
 
   // Test 3: Verify claude.lib.mjs does NOT create prompt files
   log('\n3️⃣  Testing claude.lib.mjs...', 'yellow');
@@ -99,10 +81,7 @@ try {
   const claudeLibContent = readFileSync(claudeLibPath, 'utf-8');
 
   // Check that claude does not create prompt files
-  assert(
-    !claudeLibContent.includes('claude_prompt.txt') && !claudeLibContent.includes('claude_prompt_'),
-    'claude.lib.mjs does NOT create prompt files (as expected)'
-  );
+  assert(!claudeLibContent.includes('claude_prompt.txt') && !claudeLibContent.includes('claude_prompt_'), 'claude.lib.mjs does NOT create prompt files (as expected)');
 
   // Test 4: Verify .gitignore patterns (informational)
   log('\n4️⃣  Checking .gitignore patterns...', 'yellow');
@@ -112,11 +91,7 @@ try {
 
     // This is informational - we don't fail if these patterns are missing
     // since the files should no longer be created in the repo workspace
-    if (
-      gitignoreContent.includes('*_prompt.txt') ||
-      gitignoreContent.includes('codex_prompt.txt') ||
-      gitignoreContent.includes('opencode_prompt.txt')
-    ) {
+    if (gitignoreContent.includes('*_prompt.txt') || gitignoreContent.includes('codex_prompt.txt') || gitignoreContent.includes('opencode_prompt.txt')) {
       log('ℹ️  Note: .gitignore contains prompt file patterns (safe but no longer necessary)', 'yellow');
     } else {
       log('ℹ️  Note: .gitignore does not contain prompt file patterns (correct - files now in OS temp)', 'yellow');

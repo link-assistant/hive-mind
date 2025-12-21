@@ -74,8 +74,7 @@ if (standardForkExists) {
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Get fork info
-    const standardForkInfoResult =
-      await $`gh api repos/${standardForkName} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+    const standardForkInfoResult = await $`gh api repos/${standardForkName} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
     if (standardForkInfoResult.code === 0) {
       const standardForkInfo = JSON.parse(standardForkInfoResult.stdout.toString().trim());
       console.log(`\n📊 Standard Fork Properties:`);

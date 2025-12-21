@@ -9,7 +9,7 @@ console.log('Testing log path display on various exits...\n');
 // Test 1: Test hive.mjs with SIGINT
 console.log('Test 1: Testing hive.mjs with SIGINT...');
 const hiveProcess = spawn('node', ['src/hive.mjs', 'https://github.com/test/test', '--once'], {
-  stdio: 'pipe'
+  stdio: 'pipe',
 });
 
 let hiveOutput = '';
@@ -54,7 +54,7 @@ hiveProcess.on('exit', code => {
 function testSolve() {
   console.log('Test 2: Testing solve.mjs with SIGINT...');
   const solveProcess = spawn('node', ['src/solve.mjs', 'https://github.com/test/test/issues/1'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let solveOutput = '';

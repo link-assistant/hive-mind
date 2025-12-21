@@ -85,7 +85,7 @@ try {
       dismiss_stale_reviews: false,
       require_code_owner_reviews: false,
       required_approving_review_count: 0,
-      require_last_push_approval: false
+      require_last_push_approval: false,
     },
     restrictions: null,
     allow_force_pushes: false,
@@ -93,7 +93,7 @@ try {
     block_creations: false,
     required_conversation_resolution: false,
     lock_branch: false,
-    allow_fork_syncing: false
+    allow_fork_syncing: false,
   };
 
   // Apply branch protection using GitHub API
@@ -134,8 +134,7 @@ EOF`;
 
   // Verify the protection status
   console.log('\n📊 Verifying protection status...');
-  const statusResult =
-    await $`gh api repos/${owner}/${repo}/branches/${branchName}/protection --silent 2>/dev/null || echo "not-protected"`;
+  const statusResult = await $`gh api repos/${owner}/${repo}/branches/${branchName}/protection --silent 2>/dev/null || echo "not-protected"`;
 
   if (statusResult.stdout.toString().trim() === 'not-protected') {
     console.log('⚠️  Branch protection not fully active (may require admin rights or paid plan)');

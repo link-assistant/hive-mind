@@ -13,14 +13,7 @@
  * @param {'HTML'|'Markdown'|'MarkdownV2'} [options.parseMode='HTML'] - The parse mode to use.
  * @returns {string} A formatted mention link for the user.
  */
-export function buildUserMention({
-  user,
-  id: idParam,
-  username: usernameParam,
-  first_name: firstNameParam,
-  last_name: lastNameParam,
-  parseMode = 'HTML'
-}) {
+export function buildUserMention({ user, id: idParam, username: usernameParam, first_name: firstNameParam, last_name: lastNameParam, parseMode = 'HTML' }) {
   // Derive core fields from `user` with inline overrides
   const id = idParam ?? user?.id;
   const username = usernameParam ?? user?.username;
@@ -34,9 +27,7 @@ export function buildUserMention({
     // Trim all string names, then filter out empty values
     const raw = [firstName, lastName];
     // Trim whitespace and Hangul filler (ㅤ) characters from names
-    const trimmedAll = raw.map(rawName =>
-      typeof rawName === 'string' ? rawName.trim().replace(/^[\s\t\n\rㅤ]+|[\s\t\n\rㅤ]+$/g, '') : rawName
-    );
+    const trimmedAll = raw.map(rawName => (typeof rawName === 'string' ? rawName.trim().replace(/^[\s\t\n\rㅤ]+|[\s\t\n\rㅤ]+$/g, '') : rawName));
     const cleaned = trimmedAll.filter(name => typeof name === 'string' && name.length > 0);
     // Use cleaned names or fallback to id
     if (cleaned.length > 0) {
@@ -60,11 +51,7 @@ export function buildUserMention({
     case 'HTML':
     default: {
       // HTML mode: <a href="url">text</a>
-      const escapedHtml = displayName
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+      const escapedHtml = displayName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       return `<a href="${link}">${escapedHtml}</a>`;
     }
   }

@@ -2,22 +2,7 @@
 
 // Test script to validate the updated configuration module works correctly
 
-import {
-  timeouts,
-  autoContinue,
-  githubLimits,
-  systemLimits,
-  retryLimits,
-  filePaths,
-  textProcessing,
-  display,
-  sentry,
-  externalUrls,
-  modelConfig,
-  version,
-  validateConfig,
-  getAllConfigurations
-} from '../src/config.lib.mjs';
+import { timeouts, autoContinue, githubLimits, systemLimits, retryLimits, filePaths, textProcessing, display, sentry, externalUrls, modelConfig, version, validateConfig, getAllConfigurations } from '../src/config.lib.mjs';
 
 console.log('Testing updated configuration module with getenv and camelCase...\n');
 
@@ -65,17 +50,17 @@ console.log(
     {
       timeouts: {
         claudeCli: allConfigs.timeouts.claudeCli,
-        githubApiDelay: allConfigs.timeouts.githubApiDelay
+        githubApiDelay: allConfigs.timeouts.githubApiDelay,
       },
       githubLimits: {
         commentMaxSize: allConfigs.githubLimits.commentMaxSize,
-        fileMaxSize: allConfigs.githubLimits.fileMaxSize
+        fileMaxSize: allConfigs.githubLimits.fileMaxSize,
       },
       autoContinue: allConfigs.autoContinue,
       sentry: {
         tracesSampleRateDev: allConfigs.sentry.tracesSampleRateDev,
-        tracesSampleRateProd: allConfigs.sentry.tracesSampleRateProd
-      }
+        tracesSampleRateProd: allConfigs.sentry.tracesSampleRateProd,
+      },
     },
     null,
     2

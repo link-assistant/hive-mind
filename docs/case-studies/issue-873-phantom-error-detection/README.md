@@ -140,7 +140,7 @@ const errorPatterns = [
   { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
   { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
   { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' }
+  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
 ];
 ```
 
@@ -266,7 +266,7 @@ const errorPatterns = [
   { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
   { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
   { pattern: /Uncaught Exception:/i, type: 'UncaughtException' },
-  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' }
+  { pattern: /Unhandled Rejection/i, type: 'UnhandledRejection' },
 ];
 ```
 

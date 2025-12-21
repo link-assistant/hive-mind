@@ -118,8 +118,7 @@ function filterTraceLogs(output) {
   return filtered.join('\n');
 }
 
-const rawOutput =
-  '[TRACE 2025-01-14T12:34:56.789Z] Starting command\n{"status":"ok","value":42}\n[TRACE 2025-01-14T12:34:56.790Z] Command complete';
+const rawOutput = '[TRACE 2025-01-14T12:34:56.789Z] Starting command\n{"status":"ok","value":42}\n[TRACE 2025-01-14T12:34:56.790Z] Command complete';
 console.log('Raw output with trace logs:');
 console.log(rawOutput);
 console.log('');

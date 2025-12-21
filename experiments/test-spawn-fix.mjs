@@ -15,7 +15,7 @@ async function testSimpleSpawn() {
 
   return new Promise(resolve => {
     const child = spawn('sh', ['-c', 'echo "Hello from spawn"'], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -48,16 +48,12 @@ async function testSimpleSpawn() {
 async function testJqPipe() {
   console.log('Test 2: JSON through jq (simulating Claude)');
 
-  const testData = [
-    '{"type": "text", "text": "Hello from Claude"}',
-    '{"type": "tool_use", "name": "bash", "input": {"command": "ls"}}',
-    '{"type": "tool_result", "output": "file1.txt file2.txt"}'
-  ].join('\\n');
+  const testData = ['{"type": "text", "text": "Hello from Claude"}', '{"type": "tool_use", "name": "bash", "input": {"command": "ls"}}', '{"type": "tool_result", "output": "file1.txt file2.txt"}'].join('\\n');
 
   return new Promise(resolve => {
     const command = `echo '${testData}' | jq -c .`;
     const child = spawn('sh', ['-c', command], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -118,7 +114,7 @@ async function testWorkingDirectory() {
   return new Promise(resolve => {
     const child = spawn('sh', ['-c', 'pwd'], {
       cwd: '/tmp',
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -155,7 +151,7 @@ async function testStreaming() {
   return new Promise(resolve => {
     const command = 'for i in 1 2 3; do echo "Line $i"; sleep 0.1; done';
     const child = spawn('sh', ['-c', command], {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let lineCount = 0;

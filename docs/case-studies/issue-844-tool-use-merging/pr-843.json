@@ -3153,9 +3153,7 @@
   "commits": [
     {
       "authoredDate": "2025-12-05T18:32:28Z",
-      "authors": [
-        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }
-      ],
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
       "committedDate": "2025-12-05T18:32:28Z",
       "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/817",
       "messageHeadline": "Initial commit with task details for issue #817",
@@ -3185,9 +3183,7 @@
     },
     {
       "authoredDate": "2025-12-05T19:04:25Z",
-      "authors": [
-        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }
-      ],
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
       "committedDate": "2025-12-05T19:04:25Z",
       "messageBody": "This reverts commit aff61c01205d9569ea125e8b067d180601144537.",
       "messageHeadline": "Revert \"Initial commit with task details for issue #817\"",

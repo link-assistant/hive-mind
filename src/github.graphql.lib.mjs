@@ -70,16 +70,13 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
       hasNextPage = issuesData.pageInfo.hasNextPage;
       cursor = issuesData.pageInfo.endCursor;
 
-      await log(
-        `      ✅ Fetched ${issuesData.nodes.length} issues (total so far: ${allIssues.length}/${issuesData.totalCount})`,
-        { verbose: true }
-      );
+      await log(`      ✅ Fetched ${issuesData.nodes.length} issues (total so far: ${allIssues.length}/${issuesData.totalCount})`, { verbose: true });
     }
 
     return allIssues;
   } catch (error) {
     await log(`      ❌ Failed to fetch issues from ${owner}/${repoName}: ${cleanErrorMessage(error)}`, {
-      verbose: true
+      verbose: true,
     });
     // Return what we have so far
     return allIssues;
@@ -97,14 +94,7 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
  * @param {number} issueLimit - Maximum number of issues to fetch per repo query (default 100)
  * @returns {Promise<{success: boolean, issues: Array, repoCount: number}>}
  */
-export async function tryFetchIssuesWithGraphQL(
-  owner,
-  scope,
-  log,
-  cleanErrorMessage,
-  repoLimit = 100,
-  issueLimit = 100
-) {
+export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage, repoLimit = 100, issueLimit = 100) {
   const { exec } = await import('child_process');
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
@@ -197,7 +187,7 @@ export async function tryFetchIssuesWithGraphQL(
 
       const totalRepos = repos.totalCount;
       await log(`   ✅ Fetched ${repos.nodes.length} repositories (total so far: ${allRepos.length}/${totalRepos})`, {
-        verbose: true
+        verbose: true,
       });
     }
 
@@ -236,13 +226,7 @@ export async function tryFetchIssuesWithGraphQL(
       await log(`   🔍 Fetching ${issueCount} issue(s) from ${repo.owner.login}/${repo.name}...`, { verbose: true });
 
       // Fetch all issues from this repository with pagination
-      const repoIssues = await fetchRepositoryIssuesWithPagination(
-        repo.owner.login,
-        repo.name,
-        log,
-        cleanErrorMessage,
-        issueLimit
-      );
+      const repoIssues = await fetchRepositoryIssuesWithPagination(repo.owner.login, repo.name, log, cleanErrorMessage, issueLimit);
 
       // Add repository information to each issue
       for (const issue of repoIssues) {
@@ -250,23 +234,20 @@ export async function tryFetchIssuesWithGraphQL(
           ...issue,
           repository: {
             name: repo.name,
-            owner: repo.owner
-          }
+            owner: repo.owner,
+          },
         });
       }
 
       if (repoIssues.length > 0) {
         reposWithIssues++;
         await log(`   ✅ Collected ${repoIssues.length} issue(s) from ${repo.owner.login}/${repo.name}`, {
-          verbose: true
+          verbose: true,
         });
       }
     }
 
-    await log(
-      `   ✅ GraphQL pagination complete: ${nonArchivedRepos.length} non-archived repos, ${allIssues.length} issues from ${reposWithIssues} repos with issues`,
-      { verbose: true }
-    );
+    await log(`   ✅ GraphQL pagination complete: ${nonArchivedRepos.length} non-archived repos, ${allIssues.length} issues from ${reposWithIssues} repos with issues`, { verbose: true });
 
     return { success: true, issues: allIssues, repoCount: nonArchivedRepos.length };
   } catch (error) {

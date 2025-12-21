@@ -50,7 +50,7 @@ function executeWithSpawn(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
     });
 
     let stdout = '';
@@ -69,7 +69,7 @@ function executeWithSpawn(startScreenCmd, command, args) {
         success: false,
         error: error.message,
         stdout,
-        stderr
+        stderr,
       });
     });
 
@@ -78,7 +78,7 @@ function executeWithSpawn(startScreenCmd, command, args) {
         success: code === 0,
         exitCode: code,
         stdout,
-        stderr
+        stderr,
       });
     });
   });

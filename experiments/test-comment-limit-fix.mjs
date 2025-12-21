@@ -30,9 +30,7 @@ ${shortLogContent}
 
   console.log(`Test 1 - Short log:`);
   console.log(`  Comment length: ${shortLogComment.length} chars`);
-  console.log(
-    `  Expected behavior: Use regular comment (${shortLogComment.length <= GITHUB_COMMENT_LIMIT ? '✅' : '❌'})`
-  );
+  console.log(`  Expected behavior: Use regular comment (${shortLogComment.length <= GITHUB_COMMENT_LIMIT ? '✅' : '❌'})`);
   console.log();
 
   // Test case 2: Long log content (should use gist)
@@ -80,9 +78,7 @@ ${edgeLogContent}
   console.log(`Test 3 - Edge case:`);
   console.log(`  Comment length: ${edgeLogComment.length} chars`);
   console.log(`  GitHub limit: ${GITHUB_COMMENT_LIMIT} chars`);
-  console.log(
-    `  Expected behavior: ${edgeLogComment.length <= GITHUB_COMMENT_LIMIT ? 'Use regular comment ✅' : 'Use gist ✅'}`
-  );
+  console.log(`  Expected behavior: ${edgeLogComment.length <= GITHUB_COMMENT_LIMIT ? 'Use regular comment ✅' : 'Use gist ✅'}`);
   console.log();
 }
 
@@ -97,33 +93,33 @@ async function testImplementationPresence() {
       {
         name: 'GitHub comment limit constant',
         pattern: /GITHUB_COMMENT_LIMIT\s*=\s*65536/,
-        required: true
+        required: true,
       },
       {
         name: 'Comment length check for PR',
         pattern: /logComment\.length\s*>\s*GITHUB_COMMENT_LIMIT/,
-        required: true
+        required: true,
       },
       {
         name: 'Gist creation for PR',
         pattern: /gh gist create.*--desc.*PR/,
-        required: true
+        required: true,
       },
       {
         name: 'Gist creation for issue',
         pattern: /gh gist create.*--desc.*issue/,
-        required: true
+        required: true,
       },
       {
         name: 'Truncated comment fallback',
         pattern: /Log truncated due to length/,
-        required: true
+        required: true,
       },
       {
         name: 'Gist URL logging',
         pattern: /Gist URL:/,
-        required: true
-      }
+        required: true,
+      },
     ];
 
     let allPassed = true;

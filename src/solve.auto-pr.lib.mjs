@@ -3,24 +3,7 @@
  * Handles automatic creation of draft pull requests with initial commits
  */
 
-export async function handleAutoPrCreation({
-  argv,
-  tempDir,
-  branchName,
-  issueNumber,
-  owner,
-  repo,
-  defaultBranch,
-  forkedRepo,
-  isContinueMode,
-  prNumber,
-  log,
-  formatAligned,
-  $,
-  reportError,
-  path,
-  fs
-}) {
+export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
   // 1. Auto-PR creation is disabled AND we're not in continue mode with no PR
   // 2. Continue mode is active AND we already have a PR
@@ -163,7 +146,7 @@ Proceed.`;
         if (gitkeepAddResult.code !== 0) {
           await log('❌ Failed to add .gitkeep', { level: 'error' });
           await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, {
-            level: 'error'
+            level: 'error',
           });
           throw new Error('Failed to add .gitkeep');
         }
@@ -175,7 +158,7 @@ Proceed.`;
         if (!gitStatus || gitStatus.length === 0) {
           await log('');
           await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), {
-            level: 'error'
+            level: 'error',
           });
           await log('');
           await log('  🔍 What happened:');
@@ -302,9 +285,7 @@ Issue: ${issueUrl}`;
 
           // Show git status
           const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
-          await log(
-            `   Git status: ${statusResult.stdout ? statusResult.stdout.toString().trim() || 'clean' : 'clean'}`
-          );
+          await log(`   Git status: ${statusResult.stdout ? statusResult.stdout.toString().trim() || 'clean' : 'clean'}`);
 
           // Show remote info
           const remoteResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
@@ -339,16 +320,12 @@ Issue: ${issueUrl}`;
       }
 
       if (pushResult.code !== 0) {
-        const errorOutput = pushResult.stderr
-          ? pushResult.stderr.toString()
-          : pushResult.stdout
-            ? pushResult.stdout.toString()
-            : 'Unknown error';
+        const errorOutput = pushResult.stderr ? pushResult.stderr.toString() : pushResult.stdout ? pushResult.stdout.toString() : 'Unknown error';
 
         // Check for archived repository error
         if (errorOutput.includes('archived') && errorOutput.includes('read-only')) {
           await log(`\n${formatAligned('❌', 'REPOSITORY ARCHIVED:', 'Cannot push to archived repository')}`, {
-            level: 'error'
+            level: 'error',
           });
           await log('');
           await log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -413,7 +390,7 @@ Issue: ${issueUrl}`;
               context: 'fork_check',
               owner,
               repo,
-              operation: 'check_user_fork'
+              operation: 'check_user_fork',
             });
             // Ignore error - fork check is optional
           }
@@ -472,11 +449,7 @@ Issue: ${issueUrl}`;
           }
           await log('');
           throw new Error('Permission denied - need fork or collaborator access');
-        } else if (
-          errorOutput.includes('non-fast-forward') ||
-          errorOutput.includes('rejected') ||
-          errorOutput.includes('! [rejected]')
-        ) {
+        } else if (errorOutput.includes('non-fast-forward') || errorOutput.includes('rejected') || errorOutput.includes('! [rejected]')) {
           // Push rejected due to conflicts or diverged history
           await log('');
           await log(formatAligned('❌', 'PUSH REJECTED:', 'Branch has diverged from remote'), { level: 'error' });
@@ -537,9 +510,7 @@ Issue: ${issueUrl}`;
           const waitTime = Math.min(2000 * compareAttempts, 10000); // 2s, 4s, 6s, 8s, 10s
 
           if (compareAttempts > 1) {
-            await log(
-              `   Retry ${compareAttempts}/${maxCompareAttempts}: Waiting ${waitTime}ms for GitHub to index commits...`
-            );
+            await log(`   Retry ${compareAttempts}/${maxCompareAttempts}: Waiting ${waitTime}ms for GitHub to index commits...`);
           }
 
           await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -556,7 +527,7 @@ Issue: ${issueUrl}`;
             headRef = branchName;
           }
           compareResult = await $({
-            silent: true
+            silent: true,
           })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 
           if (compareResult.code === 0) {
@@ -569,17 +540,11 @@ Issue: ${issueUrl}`;
               compareReady = true;
               await log(`   GitHub compare API ready: ${aheadBy} commit(s) found`);
             } else {
-              await log(
-                `   ⚠️ GitHub compare API shows 0 commits ahead (attempt ${compareAttempts}/${maxCompareAttempts})`,
-                { level: 'warning' }
-              );
+              await log(`   ⚠️ GitHub compare API shows 0 commits ahead (attempt ${compareAttempts}/${maxCompareAttempts})`, { level: 'warning' });
             }
           } else {
             if (argv.verbose) {
-              await log(
-                `   Compare API error (attempt ${compareAttempts}/${maxCompareAttempts}): ${compareResult.stdout || compareResult.stderr || 'unknown'}`,
-                { verbose: true }
-              );
+              await log(`   Compare API error (attempt ${compareAttempts}/${maxCompareAttempts}): ${compareResult.stdout || compareResult.stderr || 'unknown'}`, { verbose: true });
             }
           }
         }
@@ -601,7 +566,7 @@ Issue: ${issueUrl}`;
             await log(formatAligned('🔍', 'Investigating:', 'Checking fork relationship...'));
 
             const forkInfoResult = await $({
-              silent: true
+              silent: true,
             })`gh api repos/${forkedRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}' 2>&1`;
 
             let isFork = false;
@@ -649,9 +614,7 @@ Issue: ${issueUrl}`;
               await log(`        Then run this command again to create a proper GitHub fork of ${owner}/${repo}`);
               await log('');
               await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid name conflicts');
-              await log(
-                `        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`
-              );
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
               await log('        This creates forks with names like "owner-repo" instead of just "repo"');
               await log('');
               await log('     Option 3: Work directly on the repository (if you have write access)');
@@ -663,7 +626,7 @@ Issue: ${issueUrl}`;
               // Repository IS a fork, but of a different repository
               await log('');
               await log(formatAligned('❌', 'WRONG FORK PARENT:', 'Fork is from different repository'), {
-                level: 'error'
+                level: 'error',
               });
               await log('');
               await log('  🔍 What happened:');
@@ -687,9 +650,7 @@ Issue: ${issueUrl}`;
               await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
               await log('');
               await log('     Option 2: Use --prefix-fork-name-with-owner-name to avoid conflicts');
-              await log(
-                `        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`
-              );
+              await log(`        ./solve.mjs "https://github.com/${owner}/${repo}/issues/${issueNumber}" --prefix-fork-name-with-owner-name`);
               await log('        This creates forks with names like "owner-repo" instead of just "repo"');
               await log('');
               await log('     Option 3: Work directly on the repository (if you have write access)');
@@ -721,9 +682,7 @@ Issue: ${issueUrl}`;
               await log('     1. Wait a minute and try creating the PR manually:');
               if (argv.fork && forkedRepo) {
                 const forkUser = forkedRepo.split('/')[0];
-                await log(
-                  `        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`
-                );
+                await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
               }
               await log('     2. Check if the issue persists - it might be a GitHub API outage');
               await log('');
@@ -734,7 +693,7 @@ Issue: ${issueUrl}`;
             // Original timeout error for other cases
             await log('');
             await log(formatAligned('❌', 'GITHUB SYNC TIMEOUT:', 'Compare API not ready after retries'), {
-              level: 'error'
+              level: 'error',
             });
             await log('');
             await log('  🔍 What happened:');
@@ -751,13 +710,9 @@ Issue: ${issueUrl}`;
             // For fork mode, use the correct head reference format
             if (argv.fork && forkedRepo) {
               const forkUser = forkedRepo.split('/')[0];
-              await log(
-                `        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`
-              );
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${forkUser}:${branchName}`);
             } else {
-              await log(
-                `        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`
-              );
+              await log(`        gh pr create --draft --repo ${owner}/${repo} --base ${targetBranchForCompare} --head ${branchName}`);
             }
             await log('     2. Check if the branch exists on GitHub:');
             // Show the correct repository where the branch was pushed
@@ -767,9 +722,7 @@ Issue: ${issueUrl}`;
             // Use the correct head reference for the compare API check
             if (argv.fork && forkedRepo) {
               const forkUser = forkedRepo.split('/')[0];
-              await log(
-                `        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`
-              );
+              await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${forkUser}:${branchName}`);
             } else {
               await log(`        gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName}`);
             }
@@ -783,14 +736,14 @@ Issue: ${issueUrl}`;
         // When using fork mode, check the fork repository; otherwise check the original repository
         const repoToCheck = argv.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
         const branchCheckResult = await $({
-          silent: true
+          silent: true,
         })`gh api repos/${repoToCheck}/branches/${branchName} --jq .name 2>&1`;
         if (branchCheckResult.code === 0 && branchCheckResult.stdout.toString().trim() === branchName) {
           await log(`   Branch verified on GitHub: ${branchName}`);
 
           // Get the commit SHA from GitHub
           const shaCheckResult = await $({
-            silent: true
+            silent: true,
           })`gh api repos/${repoToCheck}/branches/${branchName} --jq .commit.sha 2>&1`;
           if (shaCheckResult.code === 0) {
             const remoteSha = shaCheckResult.stdout.toString().trim();
@@ -805,12 +758,10 @@ Issue: ${issueUrl}`;
 
             // Show all branches on GitHub
             const allBranchesResult = await $({
-              silent: true
+              silent: true,
             })`gh api repos/${repoToCheck}/branches --jq '.[].name' 2>&1`;
             if (allBranchesResult.code === 0) {
-              await log(
-                `   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`
-              );
+              await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);
             }
           }
 
@@ -838,7 +789,7 @@ Issue: ${issueUrl}`;
         // Get issue title for PR title
         await log(formatAligned('📋', 'Getting issue:', 'Title from GitHub...'), { verbose: true });
         const issueTitleResult = await $({
-          silent: true
+          silent: true,
         })`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq .title 2>&1`;
         let issueTitle = `Fix issue #${issueNumber}`;
         if (issueTitleResult.code === 0) {
@@ -868,7 +819,7 @@ Issue: ${issueUrl}`;
             // This will throw if user doesn't have access, but won't print anything
             await execAsync(`gh api repos/${owner}/${repo}/collaborators/${currentUser} 2>/dev/null`, {
               encoding: 'utf8',
-              env: process.env
+              env: process.env,
             });
             canAssign = true;
             await log('   User has collaborator access', { verbose: true });
@@ -878,7 +829,7 @@ Issue: ${issueUrl}`;
               owner,
               repo,
               currentUser,
-              operation: 'check_collaborator_access'
+              operation: 'check_collaborator_access',
             });
             // User doesn't have permission, but that's okay - we just won't assign
             canAssign = false;
@@ -903,14 +854,14 @@ Issue: ${issueUrl}`;
         await log(formatAligned('🔄', 'Fetching:', `Latest ${targetBranch} branch...`));
         const fetchBaseResult = await $({
           cwd: tempDir,
-          silent: true
+          silent: true,
         })`git fetch origin ${targetBranch}:refs/remotes/origin/${targetBranch} 2>&1`;
 
         if (fetchBaseResult.code !== 0) {
           await log(`⚠️ Warning: Could not fetch latest ${targetBranch}`, { level: 'warning' });
           if (argv.verbose) {
             await log(`   Fetch output: ${fetchBaseResult.stdout || fetchBaseResult.stderr || 'none'}`, {
-              verbose: true
+              verbose: true,
             });
           }
         } else {
@@ -921,7 +872,7 @@ Issue: ${issueUrl}`;
         await log(formatAligned('🔍', 'Checking:', 'Commits between branches...'));
         const commitCheckResult = await $({
           cwd: tempDir,
-          silent: true
+          silent: true,
         })`git rev-list --count origin/${targetBranch}..HEAD 2>&1`;
 
         if (commitCheckResult.code === 0) {
@@ -934,7 +885,7 @@ Issue: ${issueUrl}`;
             // Check if the branch was already merged
             const mergedCheckResult = await $({
               cwd: tempDir,
-              silent: true
+              silent: true,
             })`git branch -r --merged origin/${targetBranch} | grep -q "origin/${branchName}" 2>&1`;
             const wasAlreadyMerged = mergedCheckResult.code === 0;
 
@@ -1003,7 +954,7 @@ Issue: ${issueUrl}`;
           await log('⚠️ Warning: Could not verify commit count', { level: 'warning' });
           if (argv.verbose) {
             await log(`   Check output: ${commitCheckResult.stdout || commitCheckResult.stderr || 'none'}`, {
-              verbose: true
+              verbose: true,
             });
           }
         }
@@ -1097,16 +1048,12 @@ ${prBody}`,
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
-            if (
-              (errorMsg.includes('could not assign user') || errorMsg.includes('not found')) &&
-              currentUser &&
-              canAssign
-            ) {
+            if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
               // Assignee validation failed - retry without assignee
               assigneeFailed = true;
               await log('');
               await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
-                level: 'warning'
+                level: 'warning',
               });
               await log('     Retrying PR creation without assignee...');
 
@@ -1136,14 +1083,14 @@ ${prBody}`,
             reportError(unlinkError, {
               context: 'pr_body_file_cleanup',
               prBodyFile,
-              operation: 'delete_temp_file'
+              operation: 'delete_temp_file',
             });
           });
           await fs.unlink(prTitleFile).catch(unlinkError => {
             reportError(unlinkError, {
               context: 'pr_title_file_cleanup',
               prTitleFile,
-              operation: 'delete_temp_file'
+              operation: 'delete_temp_file',
             });
           });
 
@@ -1173,7 +1120,7 @@ ${prBody}`,
               // This is essential because gh pr create can return a URL but PR creation might have failed
               await log(formatAligned('🔍', 'Verifying:', 'PR creation...'), { verbose: true });
               const verifyResult = await $({
-                silent: true
+                silent: true,
               })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
 
               if (verifyResult.code === 0) {
@@ -1204,9 +1151,7 @@ ${prBody}`,
                 await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName}`);
                 await log('     2. Try creating PR manually:');
                 await log(`        cd ${tempDir}`);
-                await log(
-                  `        gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`
-                );
+                await log(`        gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
                 await log('     3. Check GitHub authentication:');
                 await log('        gh auth status');
                 await log('');
@@ -1256,8 +1201,7 @@ ${prBody}`,
               await log(formatAligned('🔗', 'Linking:', `Issue #${issueNumber} to PR #${localPrNumber}...`));
               try {
                 // First, get the node IDs for both the issue and the PR
-                const issueNodeResult =
-                  await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { issue(number: ${issueNumber}) { id } } }' --jq .data.repository.issue.id`;
+                const issueNodeResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { issue(number: ${issueNumber}) { id } } }' --jq .data.repository.issue.id`;
 
                 if (issueNodeResult.code !== 0) {
                   throw new Error(`Failed to get issue node ID: ${issueNodeResult.stderr}`);
@@ -1266,8 +1210,7 @@ ${prBody}`,
                 const issueNodeId = issueNodeResult.stdout.toString().trim();
                 await log(`   Issue node ID: ${issueNodeId}`, { verbose: true });
 
-                const prNodeResult =
-                  await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { id } } }' --jq .data.repository.pullRequest.id`;
+                const prNodeResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { id } } }' --jq .data.repository.pullRequest.id`;
 
                 if (prNodeResult.code !== 0) {
                   throw new Error(`Failed to get PR node ID: ${prNodeResult.stderr}`);
@@ -1283,8 +1226,7 @@ ${prBody}`,
                 // 2. For cross-repo (fork) PRs, we need "Fixes owner/repo#N"
 
                 // Let's verify the link was created
-                const linkCheckResult =
-                  await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
+                const linkCheckResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
                   const linkedIssues = linkCheckResult.stdout
@@ -1298,16 +1240,16 @@ ${prBody}`,
                     // This is a problem - the link wasn't created
                     await log('');
                     await log(formatAligned('⚠️', 'ISSUE LINK MISSING:', 'PR not linked to issue'), {
-                      level: 'warning'
+                      level: 'warning',
                     });
                     await log('');
 
                     if (argv.fork) {
                       await log("   The PR was created from a fork but wasn't linked to the issue.", {
-                        level: 'warning'
+                        level: 'warning',
                       });
                       await log(`   Expected: "Fixes ${owner}/${repo}#${issueNumber}" in PR body`, {
-                        level: 'warning'
+                        level: 'warning',
                       });
                       await log('');
                       await log('   To fix manually:', { level: 'warning' });
@@ -1335,7 +1277,7 @@ ${prBody}`,
                   context: 'pr_issue_link_verification',
                   prUrl,
                   issueNumber,
-                  operation: 'verify_issue_link'
+                  operation: 'verify_issue_link',
                 });
                 const expectedRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
                 await log(`⚠️ Could not verify issue linking: ${linkError.message}`, { level: 'warning' });
@@ -1356,7 +1298,7 @@ ${prBody}`,
             context: 'pr_creation',
             issueNumber,
             branchName,
-            operation: 'create_pull_request'
+            operation: 'create_pull_request',
           });
           const errorMsg = prCreateError.message || '';
 
@@ -1433,7 +1375,7 @@ ${prBody}`,
     reportError(prError, {
       context: 'auto_pr_creation',
       issueNumber,
-      operation: 'handle_auto_pr'
+      operation: 'handle_auto_pr',
     });
 
     // CRITICAL: PR creation failure should stop the entire process

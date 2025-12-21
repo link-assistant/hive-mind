@@ -5,45 +5,44 @@
 const testCases = [
   {
     name: 'BashTool warning with "failed" word',
-    message:
-      '⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.',
-    shouldBeError: false
+    message: '⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.',
+    shouldBeError: false,
   },
   {
     name: 'BashTool warning (alternative emoji)',
     message: '⚠ [BashTool] Another warning message',
-    shouldBeError: false
+    shouldBeError: false,
   },
   {
     name: 'Real error with Error:',
     message: 'Error: Something went wrong',
-    shouldBeError: true
+    shouldBeError: true,
   },
   {
     name: 'Real error with lowercase error',
     message: 'npm error code ENOENT',
-    shouldBeError: true
+    shouldBeError: true,
   },
   {
     name: 'Real failure message',
     message: 'Command failed with exit code 1',
-    shouldBeError: true
+    shouldBeError: true,
   },
   {
     name: 'Warning without emoji but with "failed"',
     message: 'Warning: This failed to connect',
-    shouldBeError: true // Should be error since no warning emoji
+    shouldBeError: true, // Should be error since no warning emoji
   },
   {
     name: 'Empty message',
     message: '',
-    shouldBeError: false
+    shouldBeError: false,
   },
   {
     name: 'Warning with spaces before emoji',
     message: '  ⚠️  Some warning text with failed in it',
-    shouldBeError: false
-  }
+    shouldBeError: false,
+  },
 ];
 
 // Simulate the detection logic from claude.lib.mjs
@@ -53,11 +52,7 @@ function shouldBeDetectedAsError(message) {
   // Exclude warnings (messages starting with ⚠️) from being treated as errors
   const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
 
-  if (
-    trimmed &&
-    !isWarning &&
-    (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))
-  ) {
+  if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
     return true;
   }
 

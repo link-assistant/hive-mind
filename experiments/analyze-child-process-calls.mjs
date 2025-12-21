@@ -5,10 +5,7 @@ import { readFileSync } from 'fs';
 import { execSync } from 'child_process';
 
 const srcFiles = execSync('find ./src -name "*.mjs" -o -name "*.js"', { encoding: 'utf8' }).trim().split('\n');
-const testFiles = execSync('find ./tests -name "*.mjs" -o -name "*.js" 2>/dev/null || true', { encoding: 'utf8' })
-  .trim()
-  .split('\n')
-  .filter(Boolean);
+const testFiles = execSync('find ./tests -name "*.mjs" -o -name "*.js" 2>/dev/null || true', { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
 
 const allFiles = [...srcFiles, ...testFiles];
 
@@ -17,7 +14,7 @@ const results = {
   exec: [],
   execSync: [],
   execFile: [],
-  execFileSync: []
+  execFileSync: [],
 };
 
 for (const file of allFiles) {

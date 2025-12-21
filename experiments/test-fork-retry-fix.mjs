@@ -20,16 +20,16 @@ const $ = (strings, ...values) => {
         return onFulfilled({
           code: 0,
           stdout: output,
-          stderr: ''
+          stderr: '',
         });
       } catch (error) {
         return onFulfilled({
           code: error.status || 1,
           stdout: '',
-          stderr: error.stderr ? error.stderr.toString() : error.message
+          stderr: error.stderr ? error.stderr.toString() : error.message,
         });
       }
-    }
+    },
   };
 };
 
@@ -69,12 +69,7 @@ async function testForkRetryLogic() {
   } else {
     console.log('\n✨ Success! Fork was verified after retries');
     console.log(`   Total attempts: ${attemptsThatFailed + 1}`);
-    console.log(
-      `   Total wait time: ${Array.from(
-        { length: attemptsThatFailed + 1 },
-        (_, i) => baseDelay * Math.pow(2, i)
-      ).reduce((a, b) => a + b, 0)}ms`
-    );
+    console.log(`   Total wait time: ${Array.from({ length: attemptsThatFailed + 1 }, (_, i) => baseDelay * Math.pow(2, i)).reduce((a, b) => a + b, 0)}ms`);
   }
 
   // Calculate what the actual delays would be in production

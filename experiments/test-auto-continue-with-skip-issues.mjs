@@ -32,13 +32,10 @@ function runTest(testName, testFn) {
 // Test 1: -s alone should work (auto-continue disabled internally)
 runTest('hive with -s flag should work', () => {
   try {
-    const output = execSync(
-      `${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-check --once 2>&1`,
-      {
-        encoding: 'utf8',
-        timeout: 15000
-      }
-    );
+    const output = execSync(`${hivePath} https://github.com/test/test -vas --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+      encoding: 'utf8',
+      timeout: 15000,
+    });
 
     // Should not show conflict error
     if (output.includes('Conflicting options')) {
@@ -60,13 +57,10 @@ runTest('hive with -s flag should work', () => {
 // Test 2: -s with explicit --auto-continue should show error
 runTest('hive with -s and --auto-continue should error', () => {
   try {
-    const output = execSync(
-      `${hivePath} https://github.com/test/test -s --auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`,
-      {
-        encoding: 'utf8',
-        timeout: 15000
-      }
-    );
+    const output = execSync(`${hivePath} https://github.com/test/test -s --auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+      encoding: 'utf8',
+      timeout: 15000,
+    });
 
     // Should show conflict error
     if (!output.includes('Conflicting options')) {
@@ -105,13 +99,10 @@ runTest('hive with -s and --auto-continue should error', () => {
 // Test 3: -s with explicit --no-auto-continue should work
 runTest('hive with -s and --no-auto-continue should work', () => {
   try {
-    const output = execSync(
-      `${hivePath} https://github.com/test/test -s --no-auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`,
-      {
-        encoding: 'utf8',
-        timeout: 15000
-      }
-    );
+    const output = execSync(`${hivePath} https://github.com/test/test -s --no-auto-continue --dry-run --no-sentry --skip-tool-check --once 2>&1`, {
+      encoding: 'utf8',
+      timeout: 15000,
+    });
 
     // Should not show conflict error
     if (output.includes('Conflicting options')) {
@@ -133,13 +124,10 @@ runTest('hive with -s and --no-auto-continue should work', () => {
 // Test 4: Without -s, --auto-continue should be enabled by default
 runTest('hive without -s should have auto-continue enabled', () => {
   try {
-    const output = execSync(
-      `${hivePath} https://github.com/test/test --dry-run --no-sentry --skip-tool-check --once --verbose 2>&1`,
-      {
-        encoding: 'utf8',
-        timeout: 15000
-      }
-    );
+    const output = execSync(`${hivePath} https://github.com/test/test --dry-run --no-sentry --skip-tool-check --once --verbose 2>&1`, {
+      encoding: 'utf8',
+      timeout: 15000,
+    });
 
     // Should show auto-continue enabled
     if (!output.includes('Auto-Continue: ENABLED')) {

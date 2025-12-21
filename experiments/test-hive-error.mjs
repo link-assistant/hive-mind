@@ -12,7 +12,7 @@ async function testHiveError() {
     // This will create a log file and then fail on Claude validation
     const child = spawn('node', ['src/hive.mjs', 'https://github.com/test/repo'], {
       cwd: process.cwd(),
-      env: { ...process.env, CLAUDE_API_KEY: '' } // Ensure Claude check fails
+      env: { ...process.env, CLAUDE_API_KEY: '' }, // Ensure Claude check fails
     });
 
     let output = '';

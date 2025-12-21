@@ -141,9 +141,7 @@ test
 
   if (editSuccess) {
     console.log('\n✅ SUCCESS: Comment was edited to merge tool_use and tool_result');
-    console.log(
-      `Check the comment at: https://github.com/${OWNER}/${REPO}/pull/${PR_NUMBER}#issuecomment-${commentId}`
-    );
+    console.log(`Check the comment at: https://github.com/${OWNER}/${REPO}/pull/${PR_NUMBER}#issuecomment-${commentId}`);
   } else {
     console.log('\n❌ FAILED: Could not edit comment');
   }

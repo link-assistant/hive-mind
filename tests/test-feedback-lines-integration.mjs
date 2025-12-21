@@ -48,14 +48,14 @@ function $(command, options = {}) {
     const result = execSync(command, {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options
+      ...options,
     });
     return { code: 0, stdout: result };
   } catch (error) {
     return {
       code: error.status || 1,
       stderr: error.message,
-      stdout: error.stdout || ''
+      stdout: error.stdout || '',
     };
   }
 }
@@ -93,20 +93,11 @@ async function createTestRepository() {
   }
 
   // Create repository
-  const createResult = $(
-    `gh repo create ${testRepo} --public --description "Test repository for feedback lines testing"`,
-    { silent: true }
-  );
+  const createResult = $(`gh repo create ${testRepo} --public --description "Test repository for feedback lines testing"`, { silent: true });
   if (createResult.code !== 0) {
     // Check if it's a permission error
     const errorMsg = (createResult.stderr || createResult.stdout || '').toLowerCase();
-    if (
-      errorMsg.includes('resource not accessible by integration') ||
-      errorMsg.includes('not accessible') ||
-      errorMsg.includes('graphql') ||
-      errorMsg.includes('403') ||
-      errorMsg.includes('forbidden')
-    ) {
+    if (errorMsg.includes('resource not accessible by integration') || errorMsg.includes('not accessible') || errorMsg.includes('graphql') || errorMsg.includes('403') || errorMsg.includes('forbidden')) {
       // This is a permission error - skip the test gracefully
       const skipError = new Error('SKIP_TEST_NO_PERMISSIONS');
       skipError.isPermissionError = true;
@@ -167,10 +158,7 @@ async function createTestRepository() {
   console.log('   ✅ Repository initialized with initial commit');
 
   // Create test issue
-  const issueResult = $(
-    `gh issue create --title "Test feedback lines feature" --body "This issue is for testing comment detection in solve.mjs"`,
-    { silent: true }
-  );
+  const issueResult = $(`gh issue create --title "Test feedback lines feature" --body "This issue is for testing comment detection in solve.mjs"`, { silent: true });
   if (issueResult.code !== 0) {
     throw new Error(`Failed to create issue: ${issueResult.stderr}`);
   }
@@ -196,10 +184,7 @@ async function createTestRepository() {
   // Also explicitly specify the base branch since we renamed it to 'main'
   const prTitle = 'Test PR for feedback lines';
   const prBody = 'This PR is for testing comment detection';
-  const prResult = $(
-    `gh pr create --repo ${username}/${testRepo} --base main --title '${prTitle}' --body '${prBody}'`,
-    { silent: true }
-  );
+  const prResult = $(`gh pr create --repo ${username}/${testRepo} --base main --title '${prTitle}' --body '${prBody}'`, { silent: true });
   if (prResult.code !== 0) {
     throw new Error(`Failed to create PR: ${prResult.stderr}`);
   }
@@ -244,9 +229,7 @@ async function createTestRepository() {
 
   // Add more comments after the commit
   $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Third comment - this should be detected as NEW"`);
-  $(
-    `gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Fourth comment - this should also be detected as NEW"`
-  );
+  $(`gh pr comment ${prNumber} --repo ${username}/${testRepo} --body "Fourth comment - this should also be detected as NEW"`);
 
   console.log('   ✅ New comments added after baseline commit');
 
@@ -254,7 +237,7 @@ async function createTestRepository() {
     repoName: testRepo,
     prNumber: prNumber,
     prUrl: `https://github.com/${username}/${testRepo}/pull/${prNumber}`,
-    tempDir: tempDir
+    tempDir: tempDir,
   };
 }
 
@@ -269,7 +252,7 @@ function testSolveFeedbackLines(prUrl) {
   console.log(`   📝 Running: node solve.mjs "${prUrl}" --dry-run --verbose --skip-tool-connection-check`);
 
   const solveResult = $(`node ${solvePath} "${prUrl}" --dry-run --verbose --skip-tool-connection-check 2>&1`, {
-    silent: true
+    silent: true,
   });
 
   if (solveResult.code !== 0) {
@@ -336,7 +319,7 @@ function testSolveFeedbackLines(prUrl) {
     hasCommentCount,
     hasSystemPromptWithFeedback: true, // We're not checking system prompt in dry-run mode, so assume it's correct
     hasUserPromptWithFeedback,
-    output
+    output,
   };
 }
 

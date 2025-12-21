@@ -26,7 +26,7 @@ async function validateForkRelationship(forkRepo, targetOwner, targetRepo) {
     return {
       valid: false,
       error: 'NOT_A_FORK',
-      message: `Repository ${forkRepo} is not a GitHub fork. It appears to be a clone pushed as an independent repository.`
+      message: `Repository ${forkRepo} is not a GitHub fork. It appears to be a clone pushed as an independent repository.`,
     };
   }
 
@@ -34,7 +34,7 @@ async function validateForkRelationship(forkRepo, targetOwner, targetRepo) {
     return {
       valid: false,
       error: 'WRONG_PARENT',
-      message: `Repository ${forkRepo} is a fork of ${data.parent}, not ${targetOwner}/${targetRepo}.`
+      message: `Repository ${forkRepo} is a fork of ${data.parent}, not ${targetOwner}/${targetRepo}.`,
     };
   }
 

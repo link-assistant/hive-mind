@@ -103,14 +103,11 @@ const GITHUB_REPO = 'hive-mind';
 const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
 async function fetchSentryIssues() {
-  const response = await fetch(
-    `https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/issues/?query=is:unresolved`,
-    {
-      headers: {
-        Authorization: `Bearer ${SENTRY_API_TOKEN}`
-      }
-    }
-  );
+  const response = await fetch(`https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/issues/?query=is:unresolved`, {
+    headers: {
+      Authorization: `Bearer ${SENTRY_API_TOKEN}`,
+    },
+  });
   return response.json();
 }
 
@@ -136,7 +133,7 @@ ${sentryIssue.metadata?.type || 'N/A'}: ${sentryIssue.metadata?.value || 'N/A'}
 ---
 *Automatically created from Sentry*
     `.trim(),
-    labels: ['bug', 'sentry', 'automated']
+    labels: ['bug', 'sentry', 'automated'],
   });
   return data;
 }
@@ -282,7 +279,7 @@ Status: ${sentryIssue.status}
 
 ${sentryIssue.metadata?.type}: ${sentryIssue.metadata?.value}
       `.trim(),
-      labels: ['bug', 'sentry', 'automated']
+      labels: ['bug', 'sentry', 'automated'],
     });
   }
 
@@ -560,7 +557,7 @@ async function main() {
       repo: context.repo.repo,
       title: `[Sentry] ${issue.title}`,
       body: createIssueBody(issue),
-      labels: ['bug', 'sentry']
+      labels: ['bug', 'sentry'],
     });
 
     synced[issue.id] = ghIssue.data.number;

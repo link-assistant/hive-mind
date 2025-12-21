@@ -33,68 +33,68 @@ const testCases = [
   {
     name: 'URL with underscores (the exact bug from issue #580)',
     input: 'https://github.com/andchir/llm_game/issues/1',
-    expected: 'https://github.com/andchir/llm\\_game/issues/1'
+    expected: 'https://github.com/andchir/llm\\_game/issues/1',
   },
   {
     name: 'URL with multiple underscores',
     input: 'https://github.com/test_repo/test_project/issues/123',
-    expected: 'https://github.com/test\\_repo/test\\_project/issues/123'
+    expected: 'https://github.com/test\\_repo/test\\_project/issues/123',
   },
   {
     name: 'URL with asterisks',
     input: 'https://example.com/**/path/**',
-    expected: 'https://example.com/\\*\\*/path/\\*\\*'
+    expected: 'https://example.com/\\*\\*/path/\\*\\*',
   },
   {
     name: 'URL with both underscores and asterisks',
     input: 'https://example.com/test_path/**/file_name.txt',
-    expected: 'https://example.com/test\\_path/\\*\\*/file\\_name.txt'
+    expected: 'https://example.com/test\\_path/\\*\\*/file\\_name.txt',
   },
   {
     name: 'Plain URL without special characters',
     input: 'https://github.com/owner/repo/issues/1',
-    expected: 'https://github.com/owner/repo/issues/1'
+    expected: 'https://github.com/owner/repo/issues/1',
   },
   {
     name: 'URL with consecutive underscores',
     input: 'https://github.com/user__name/repo__name/issues/1',
-    expected: 'https://github.com/user\\_\\_name/repo\\_\\_name/issues/1'
+    expected: 'https://github.com/user\\_\\_name/repo\\_\\_name/issues/1',
   },
   {
     name: 'URL with underscores at different positions',
     input: 'https://github.com/_leading/trailing_/issues/1',
-    expected: 'https://github.com/\\_leading/trailing\\_/issues/1'
+    expected: 'https://github.com/\\_leading/trailing\\_/issues/1',
   },
   {
     name: 'Empty string',
     input: '',
-    expected: ''
+    expected: '',
   },
   {
     name: 'Null value',
     input: null,
-    expected: null
+    expected: null,
   },
   {
     name: 'Undefined value',
     input: undefined,
-    expected: undefined
+    expected: undefined,
   },
   {
     name: 'String with only underscores',
     input: '___',
-    expected: '\\_\\_\\_'
+    expected: '\\_\\_\\_',
   },
   {
     name: 'String with only asterisks',
     input: '***',
-    expected: '\\*\\*\\*'
+    expected: '\\*\\*\\*',
   },
   {
     name: 'Mixed text and special characters',
     input: 'Hello_World*Test',
-    expected: 'Hello\\_World\\*Test'
-  }
+    expected: 'Hello\\_World\\*Test',
+  },
 ];
 
 console.log('🧪 Running Telegram Markdown escaping unit tests...\n');

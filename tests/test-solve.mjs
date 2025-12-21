@@ -211,9 +211,7 @@ runTest('solve.mjs raw command logging', () => {
   const tempLogFile = `/tmp/test-solve-log-${Date.now()}.log`;
 
   // Run solve.mjs with a mock issue URL and capture output
-  const output = execCommand(
-    `LOG_FILE=${tempLogFile} ${solvePath} https://github.com/test/test/issues/1 --dry-run 2>&1`
-  );
+  const output = execCommand(`LOG_FILE=${tempLogFile} ${solvePath} https://github.com/test/test/issues/1 --dry-run 2>&1`);
 
   // Check that raw command is logged to console output
   if (!output.includes('Raw command executed:')) {

@@ -61,10 +61,7 @@ export async function getVersionInfo(verbose = false) {
     }
 
     // Playwright MCP (check if installed via npm)
-    const playwrightMcpVersion = execCommand(
-      "npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'",
-      verbose
-    );
+    const playwrightMcpVersion = execCommand("npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'", verbose);
     if (verbose && playwrightMcpVersion) {
       console.log(`[VERBOSE] Playwright MCP version: ${playwrightMcpVersion}`);
     }
@@ -190,8 +187,8 @@ export async function getVersionInfo(verbose = false) {
         brew: brewVersion,
 
         // Platform
-        platform: `${platform} (${arch})`
-      }
+        platform: `${platform} (${arch})`,
+      },
     };
 
     if (verbose) {
@@ -206,7 +203,7 @@ export async function getVersionInfo(verbose = false) {
 
     return {
       success: false,
-      error: error.message || 'Failed to gather version information'
+      error: error.message || 'Failed to gather version information',
     };
   }
 }
@@ -318,5 +315,5 @@ export function formatVersionMessage(versions) {
 
 export default {
   getVersionInfo,
-  formatVersionMessage
+  formatVersionMessage,
 };

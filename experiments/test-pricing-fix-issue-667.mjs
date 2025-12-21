@@ -29,7 +29,7 @@ const numberTests = [
   { input: 123, expected: '123', label: 'Three digits' },
   { input: 1234, expected: '1 234', label: 'Four digits' },
   { input: 12345, expected: '12 345', label: 'Five digits' },
-  { input: 1234567890, expected: '1 234 567 890', label: 'Large number' }
+  { input: 1234567890, expected: '1 234 567 890', label: 'Large number' },
 ];
 
 let passed = 0;
@@ -56,7 +56,7 @@ const decimalTests = [
   { input: 0.45636, label: 'Cache write cost' },
   { input: 1.381814, label: 'Cache read cost' },
   { input: 0.00129, label: 'Input cost' },
-  { input: 0.084975, label: 'Output cost' }
+  { input: 0.084975, label: 'Output cost' },
 ];
 
 decimalTests.forEach(({ input, label }) => {
@@ -83,7 +83,7 @@ const edgeCases = [
   { input: null, expected: 'N/A', label: 'Null value' },
   { input: undefined, expected: 'N/A', label: 'Undefined value' },
   { input: 0, expected: '0', label: 'Zero' },
-  { input: -1234, expected: '-1 234', label: 'Negative number' }
+  { input: -1234, expected: '-1 234', label: 'Negative number' },
 ];
 
 edgeCases.forEach(({ input, expected, label }) => {
@@ -107,26 +107,26 @@ const formulaTests = [
     tokens: 4606045,
     pricePerM: 0.3,
     expected: 1.381814, // Rounded to 6 decimals
-    label: 'Cache read: 4 606 045 tokens × $0.3/M'
+    label: 'Cache read: 4 606 045 tokens × $0.3/M',
   },
   {
     tokens: 121696,
     pricePerM: 3.75,
     expected: 0.45636,
-    label: 'Cache write: 121 696 tokens × $3.75/M'
+    label: 'Cache write: 121 696 tokens × $3.75/M',
   },
   {
     tokens: 430,
     pricePerM: 3,
     expected: 0.00129,
-    label: 'Input: 430 tokens × $3/M'
+    label: 'Input: 430 tokens × $3/M',
   },
   {
     tokens: 5665,
     pricePerM: 15,
     expected: 0.084975,
-    label: 'Output: 5 665 tokens × $15/M'
-  }
+    label: 'Output: 5 665 tokens × $15/M',
+  },
 ];
 
 formulaTests.forEach(({ tokens, pricePerM, expected, label }) => {
@@ -155,7 +155,7 @@ const mockUsage = {
   inputTokens: 430,
   cacheCreationTokens: 121696,
   cacheReadTokens: 4606045,
-  outputTokens: 5665
+  outputTokens: 5665,
 };
 
 const mockModelInfo = {
@@ -163,8 +163,8 @@ const mockModelInfo = {
     input: 3,
     cache_write: 3.75,
     cache_read: 0.3,
-    output: 15
-  }
+    output: 15,
+  },
 };
 
 const costResult = calculateModelCost(mockUsage, mockModelInfo, true);
@@ -181,18 +181,10 @@ if (costResult && costResult.breakdown) {
   const expectedTotal = 1.924439; // Sum of all costs
 
   console.log(`  Breakdown:`);
-  console.log(
-    `    Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`
-  );
-  console.log(
-    `    Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`
-  );
-  console.log(
-    `    Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`
-  );
-  console.log(
-    `    Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`
-  );
+  console.log(`    Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${breakdown.input.cost.toFixed(6)}`);
+  console.log(`    Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${breakdown.cacheWrite.cost.toFixed(6)}`);
+  console.log(`    Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${breakdown.cacheRead.cost.toFixed(6)}`);
+  console.log(`    Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${breakdown.output.cost.toFixed(6)}`);
   console.log(`    Total: $${costResult.total.toFixed(6)}`);
 
   const totalMatch = Math.abs(costResult.total - expectedTotal) < 0.000001;
@@ -201,9 +193,7 @@ if (costResult && costResult.breakdown) {
     console.log(`  ✅ Total cost calculation correct`);
   } else {
     failed++;
-    console.log(
-      `  ❌ Total cost calculation incorrect: expected $${expectedTotal.toFixed(6)}, got $${costResult.total.toFixed(6)}`
-    );
+    console.log(`  ❌ Total cost calculation incorrect: expected $${expectedTotal.toFixed(6)}, got $${costResult.total.toFixed(6)}`);
   }
 } else {
   failed++;

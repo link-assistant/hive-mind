@@ -19,7 +19,7 @@ function runTest(testName, args, expectedSuccess) {
 
     const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 10000
+      timeout: 10000,
     });
 
     let stdout = '';
@@ -43,10 +43,7 @@ function runTest(testName, args, expectedSuccess) {
 
       const output = stdout + stderr;
       const hasDryRunSuccess = output.includes('Dry-run mode: All validations passed');
-      const hasValidationFailure =
-        output.includes('❌ Invalid') ||
-        output.includes('Unknown option:') ||
-        (output.includes('Error:') && !hasDryRunSuccess);
+      const hasValidationFailure = output.includes('❌ Invalid') || output.includes('Unknown option:') || (output.includes('Error:') && !hasDryRunSuccess);
       const validatedSolve = output.includes('Validating solve overrides');
       const validatedHive = output.includes('Validating hive overrides');
 
@@ -113,58 +110,58 @@ async function main() {
   --verbose
   --no-tool-check
 )`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 2: --dry-run with valid solve-overrides
     {
       name: 'Valid solve-overrides with --dry-run',
       args: ['--token', 'test_token_123', '--solve-overrides', '(--auto-continue --attach-logs)', '--dry-run'],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 3: --dry-run with valid hive-overrides
     {
       name: 'Valid hive-overrides with --dry-run',
       args: ['--token', 'test_token_123', '--hive-overrides', '(--verbose --all-issues)', '--dry-run'],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 4: --dry-run with both commands disabled
     {
       name: 'Both commands disabled with --dry-run',
       args: ['--token', 'test_token_123', '--no-hive', '--no-solve', '--dry-run'],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 5: --dry-run with invalid solve-overrides (should fail)
     {
       name: 'Invalid solve-overrides with --dry-run (should fail)',
       args: ['--token', 'test_token_123', '--solve-overrides', '(--invalid-option-xyz)', '--dry-run'],
-      shouldPass: false
+      shouldPass: false,
     },
 
     // Test 6: --dry-run with invalid hive-overrides (should fail)
     {
       name: 'Invalid hive-overrides with --dry-run (should fail)',
       args: ['--token', 'test_token_123', '--hive-overrides', '(--invalid-option-abc)', '--dry-run'],
-      shouldPass: false
+      shouldPass: false,
     },
 
     // Test 7: --no-hive with solve-overrides (from related issue #484)
     {
       name: 'Issue #484: --no-hive with solve-overrides',
       args: ['--token', 'test_token_123', '--no-hive', '--solve-overrides', '(--auto-continue --verbose)', '--dry-run'],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 8: --no-solve with hive-overrides
     {
       name: '--no-solve with hive-overrides',
       args: ['--token', 'test_token_123', '--no-solve', '--hive-overrides', '(--verbose)', '--dry-run'],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 9: Test with allowed-chats in lino format
@@ -179,27 +176,17 @@ async function main() {
   -1009876543210
   123456789
 )`,
-        '--dry-run'
+        '--dry-run',
       ],
-      shouldPass: true
+      shouldPass: true,
     },
 
     // Test 10: All options together (realistic scenario)
     {
       name: 'Full configuration with --dry-run',
-      args: [
-        '--token',
-        'test_token_123',
-        '--allowed-chats',
-        '(-1001234567890 -1009876543210)',
-        '--solve-overrides',
-        '(--auto-continue --attach-logs --verbose)',
-        '--hive-overrides',
-        '(--verbose --all-issues)',
-        '--dry-run'
-      ],
-      shouldPass: true
-    }
+      args: ['--token', 'test_token_123', '--allowed-chats', '(-1001234567890 -1009876543210)', '--solve-overrides', '(--auto-continue --attach-logs --verbose)', '--hive-overrides', '(--verbose --all-issues)', '--dry-run'],
+      shouldPass: true,
+    },
   ];
 
   const results = [];
@@ -220,9 +207,7 @@ async function main() {
   if (passed === total) {
     console.log('\n✅ All tests passed!');
     console.log('\n📝 The command from issue #487 now works correctly with --dry-run:');
-    console.log(
-      '   hive-telegram-bot --token ... --allowed-chats "(...)" --no-hive --solve-overrides "(...)" --dry-run'
-    );
+    console.log('   hive-telegram-bot --token ... --allowed-chats "(...)" --no-hive --solve-overrides "(...)" --dry-run');
     process.exit(0);
   } else {
     console.log('\n❌ Some tests failed');

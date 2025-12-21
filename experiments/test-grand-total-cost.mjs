@@ -18,7 +18,7 @@ async function testGrandTotalCost() {
         cacheReadTokens: 10000,
         outputTokens: 2000,
         costUSD: 0.05,
-        modelName: 'Claude Sonnet 4.5'
+        modelName: 'Claude Sonnet 4.5',
       },
       'claude-haiku-4-5-20251001': {
         inputTokens: 2000,
@@ -26,15 +26,15 @@ async function testGrandTotalCost() {
         cacheReadTokens: 8000,
         outputTokens: 1500,
         costUSD: 0.02,
-        modelName: 'Claude Haiku 4.5'
-      }
+        modelName: 'Claude Haiku 4.5',
+      },
     },
     inputTokens: 3000,
     cacheCreationTokens: 8000,
     cacheReadTokens: 18000,
     outputTokens: 3500,
     totalTokens: 14500,
-    totalCostUSD: 0.07
+    totalCostUSD: 0.07,
   };
 
   console.log('📊 Mock token usage data with multiple models:');

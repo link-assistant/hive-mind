@@ -54,7 +54,7 @@ const testCommands = [
   { cmd: 'echo "Hello, World!"', desc: 'Simple echo' },
   { cmd: 'pwd', desc: 'Print working directory' },
   { cmd: 'date', desc: 'Current date' },
-  { cmd: 'which sh', desc: 'Find sh location' }
+  { cmd: 'which sh', desc: 'Find sh location' },
 ];
 
 for (const { cmd, desc } of testCommands) {

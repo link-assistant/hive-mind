@@ -27,7 +27,7 @@ const mockYargs = {
   choices: function (choices) {
     console.log(`❌ RESTRICTED to choices:`, choices);
     return this;
-  }
+  },
 };
 
 console.log('Testing hive.mjs model configuration...\n');

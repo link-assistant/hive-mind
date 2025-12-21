@@ -136,7 +136,7 @@ export class LinksNotationManager {
       parsed: this.parse(content),
       numericIds: this.parseNumericIds(content),
       stringValues: this.parseStringValues(content),
-      file: cacheFile
+      file: cacheFile,
     };
   }
 
@@ -170,7 +170,7 @@ export class LinksNotationManager {
 }
 
 export const CACHE_FILES = {
-  TELEGRAM_CHATS: 'telegram-chats.lino'
+  TELEGRAM_CHATS: 'telegram-chats.lino',
 };
 
 export const lino = new LinksNotationManager();

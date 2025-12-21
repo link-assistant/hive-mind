@@ -238,7 +238,7 @@ export const availableModels = {
   opus: 'claude-opus-4-5-20251101',
   haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
-  'haiku-3': 'claude-3-haiku-20240307'
+  'haiku-3': 'claude-3-haiku-20240307',
 };
 ```
 

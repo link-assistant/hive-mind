@@ -27,7 +27,7 @@ function findPotentialUndefinedVars(code, fileName) {
     // Check for variables that might not be defined
     { regex: /\b(?<!['"`])(undefined|null)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\b/g, name: 'undefined variable reference' },
     // Check for typos in common variable names
-    { regex: /\b(solveCmd|solveComand|sloveCommand)\b/g, name: 'possible typo' }
+    { regex: /\b(solveCmd|solveComand|sloveCommand)\b/g, name: 'possible typo' },
   ];
 
   const lines = cleanedCode.split('\n');
@@ -42,7 +42,7 @@ function findPotentialUndefinedVars(code, fileName) {
             line: lineNum + 1,
             type: pattern.name,
             match: match[0],
-            context: code.split('\n')[lineNum].trim()
+            context: code.split('\n')[lineNum].trim(),
           });
         });
       }

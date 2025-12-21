@@ -56,7 +56,7 @@ const modelMap = {
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',
-  'gemini-3-pro': 'google/gemini-3-pro'
+  'gemini-3-pro': 'google/gemini-3-pro',
 };
 ```
 

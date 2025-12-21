@@ -21,7 +21,7 @@ if (urlBeforeQueryAndHash.includes('\\')) {
   return {
     valid: false,
     error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-    suggestion: suggestedUrl + urlAfterPath
+    suggestion: suggestedUrl + urlAfterPath,
   };
 }
 ```

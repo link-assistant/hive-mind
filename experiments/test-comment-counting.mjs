@@ -82,15 +82,13 @@ try {
   console.log('\n4. Testing sorted comment commands...');
 
   // Test PR conversation comments (most common)
-  const sortedPrConversationResult =
-    await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
+  const sortedPrConversationResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
   if (sortedPrConversationResult.code === 0) {
     console.log('✅ Latest PR conversation comment sorted:', sortedPrConversationResult.stdout.toString().trim());
   }
 
   // Test PR code review comments
-  const sortedPrReviewResult =
-    await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
+  const sortedPrReviewResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'sort_by(.created_at) | reverse | .[0] | .created_at'`;
   if (sortedPrReviewResult.code === 0) {
     console.log('✅ Latest PR review comment sorted:', sortedPrReviewResult.stdout.toString().trim());
   }

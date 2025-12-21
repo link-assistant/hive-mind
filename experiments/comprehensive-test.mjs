@@ -12,7 +12,7 @@ function testCommentCountingScenario() {
   const isContinueMode = true;
   const argv = {
     autoContinue: false,
-    autoContinueOnlyOnNewComments: false
+    autoContinueOnlyOnNewComments: false,
   };
 
   console.log('Test conditions:');
@@ -84,7 +84,7 @@ function testAutoContinueOnlyOnNewCommentsScenario() {
   const isContinueMode = true;
   const argv = {
     autoContinue: false,
-    autoContinueOnlyOnNewComments: true // This flag is enabled
+    autoContinueOnlyOnNewComments: true, // This flag is enabled
   };
 
   console.log('Test conditions:');

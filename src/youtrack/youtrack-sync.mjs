@@ -25,8 +25,7 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
   try {
     // Search for both open and closed issues with the YouTrack ID in the title
     // This prevents creating duplicates even if an issue was closed
-    const searchResult =
-      await $`gh api search/issues --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
+    const searchResult = await $`gh api search/issues --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
 
     if (searchResult.code !== 0) {
       return null;
@@ -36,19 +35,12 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
 
     // Find exact match (YouTrack ID should be in brackets or at start)
     // Return the first matching issue (prefer open issues)
-    const openIssue = issues.find(
-      issue =>
-        issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const openIssue = issues.find(issue => issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     if (openIssue) return openIssue;
 
     // If no open issue, check for closed issues to prevent duplicates
-    const closedIssue = issues.find(
-      issue =>
-        issue.state === 'closed' &&
-        (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const closedIssue = issues.find(issue => issue.state === 'closed' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     return closedIssue || null;
   } catch {
@@ -106,8 +98,7 @@ ${youTrackIssue.description || 'No description provided.'}
     if (needsUpdate) {
       await log(`   📝 Updating issue #${existingIssue.number} for ${youTrackId}...`);
 
-      const updateResult =
-        await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}"`;
+      const updateResult = await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}"`;
 
       if (updateResult.code === 0) {
         await log(`   ✅ Updated issue #${existingIssue.number}`);
@@ -136,8 +127,7 @@ ${youTrackIssue.description || 'No description provided.'}
     await log(`   ➕ Creating GitHub issue for ${youTrackId}...`);
 
     try {
-      const createResult =
-        await $`gh issue create --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}" --label "help wanted"`;
+      const createResult = await $`gh issue create --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}" --label "help wanted"`;
 
       if (createResult.code === 0) {
         const issueUrl = createResult.stdout.toString().trim();
@@ -149,7 +139,7 @@ ${youTrackIssue.description || 'No description provided.'}
           number: issueNumber,
           title: ghTitle,
           body: ghBody,
-          html_url: issueUrl
+          html_url: issueUrl,
         };
       } else {
         await log(`   ❌ Failed to create issue for ${youTrackId}`, { level: 'error' });
@@ -196,7 +186,7 @@ export async function syncYouTrackToGitHub(youTrackConfig, owner, repo, $, log) 
       githubIssues.push({
         ...ghIssue,
         youtrackId: ytIssue.id,
-        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`
+        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`,
       });
     }
   }
@@ -218,6 +208,6 @@ export function formatIssuesForHive(githubIssues) {
     html_url: issue.html_url,
     labels: issue.labels || [{ name: 'help-wanted' }],
     youtrackId: issue.youtrackId,
-    youtrackUrl: issue.youtrackUrl
+    youtrackUrl: issue.youtrackUrl,
   }));
 }

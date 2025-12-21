@@ -9,29 +9,13 @@
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
   // Issue or PR reference
   if (isContinueMode) {
-    promptLines.push(
-      `Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`
-    );
+    promptLines.push(`Issue to solve: ${issueNumber ? `https://github.com/${owner}/${repo}/issues/${issueNumber}` : `Issue linked to PR #${prNumber}`}`);
   } else {
     promptLines.push(`Issue to solve: ${issueUrl}`);
   }
@@ -72,7 +56,7 @@ export const buildUserPrompt = params => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -99,7 +83,7 @@ export const buildSystemPrompt = params => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -192,5 +176,5 @@ Self review.
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

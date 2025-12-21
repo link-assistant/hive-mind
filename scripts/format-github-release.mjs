@@ -28,27 +28,25 @@ const config = makeConfig({
       .option('release-version', {
         type: 'string',
         default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., 1.0.0)'
+        describe: 'Version number (e.g., 1.0.0)',
       })
       .option('repository', {
         type: 'string',
         default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)'
+        describe: 'GitHub repository (e.g., owner/repo)',
       })
       .option('commit-sha', {
         type: 'string',
         default: getenv('COMMIT_SHA', ''),
-        describe: 'Commit SHA for PR detection'
-      })
+        describe: 'Commit SHA for PR detection',
+      }),
 });
 
 const { releaseVersion: version, repository, commitSha } = config;
 
 if (!version || !repository || !commitSha) {
   console.error('Error: Missing required arguments');
-  console.error(
-    'Usage: node scripts/format-github-release.mjs --release-version <version> --repository <repository> --commit-sha <commit_sha>'
-  );
+  console.error('Usage: node scripts/format-github-release.mjs --release-version <version> --repository <repository> --commit-sha <commit_sha>');
   process.exit(1);
 }
 

@@ -324,7 +324,7 @@ class BrowserManager {
     this.browser = await playwright.chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
-      ...options
+      ...options,
     });
 
     // Register for cleanup
@@ -467,9 +467,7 @@ class BrowserPool {
 
   async acquire() {
     // Find a healthy browser
-    const healthyBrowser = this.browsers.find(
-      b => b.useCount < this.maxUsesPerBrowser && Date.now() - b.createdAt < this.maxAgeMs
-    );
+    const healthyBrowser = this.browsers.find(b => b.useCount < this.maxUsesPerBrowser && Date.now() - b.createdAt < this.maxAgeMs);
 
     if (healthyBrowser) {
       healthyBrowser.useCount++;
@@ -499,13 +497,13 @@ class BrowserPool {
   async _createBrowser() {
     const browser = await this.playwright.chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-dev-shm-usage']
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
     });
 
     const entry = {
       browser,
       createdAt: Date.now(),
-      useCount: 1
+      useCount: 1,
     };
 
     this.browsers.push(entry);
@@ -637,10 +635,10 @@ module.exports = {
       // Environment
       env: {
         NODE_ENV: 'production',
-        PLAYWRIGHT_BROWSERS_PATH: '/opt/playwright/browsers'
-      }
-    }
-  ]
+        PLAYWRIGHT_BROWSERS_PATH: '/opt/playwright/browsers',
+      },
+    },
+  ],
 };
 ```
 

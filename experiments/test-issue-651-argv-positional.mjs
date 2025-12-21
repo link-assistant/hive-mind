@@ -15,7 +15,7 @@ const yargsInstance = yargs(hideBin(process.argv))
   .command('$0 <issue-url>', 'Solve a GitHub issue or pull request', yargs => {
     yargs.positional('issue-url', {
       type: 'string',
-      description: 'The GitHub issue URL to solve'
+      description: 'The GitHub issue URL to solve',
     });
   });
 

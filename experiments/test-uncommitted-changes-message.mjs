@@ -24,9 +24,7 @@ function generateUncommittedChangesFeedback(uncommittedFiles, autoRestartCount, 
   feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
   feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
   feedbackLines.push('');
-  feedbackLines.push(
-    'DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.'
-  );
+  feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
 
   return feedbackLines;
 }
@@ -90,15 +88,7 @@ console.log(`  Contains 'Auto-restart 2/3': ${hasRestartCounter2 ? '✅ PASS' : 
 
 // Summary
 console.log('\n' + '='.repeat(70));
-const allPassed =
-  hasCommitInstruction &&
-  hasRevertInstruction &&
-  hasGitAddCommitPush &&
-  hasGitCheckout &&
-  hasGitClean &&
-  hasNoLeaveInstruction &&
-  hasRestartCounter &&
-  hasRestartCounter2;
+const allPassed = hasCommitInstruction && hasRevertInstruction && hasGitAddCommitPush && hasGitCheckout && hasGitClean && hasNoLeaveInstruction && hasRestartCounter && hasRestartCounter2;
 
 if (allPassed) {
   console.log('✅ All tests passed!');

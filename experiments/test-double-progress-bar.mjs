@@ -49,18 +49,18 @@ const testUsage = {
   currentSession: {
     percentage: 12, // 12% used
     resetTime: 'Dec 5, 8:59pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 3.8).toISOString() // 3.8h left (24% time passed)
+    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 3.8).toISOString(), // 3.8h left (24% time passed)
   },
   allModels: {
     percentage: 16, // 16% used
     resetTime: 'Dec 11, 5:59pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString() // 6 days left (14% time passed)
+    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString(), // 6 days left (14% time passed)
   },
   sonnetOnly: {
     percentage: 15, // 15% used
     resetTime: 'Dec 11, 5:59pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString() // 6 days left (14% time passed)
-  }
+    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 6).toISOString(), // 6 days left (14% time passed)
+  },
 };
 
 const message = formatUsageMessage(testUsage);

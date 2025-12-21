@@ -45,7 +45,7 @@ function debugMissingConditions() {
     try {
       const prListResult = execSync(`gh pr list --head ${branchName} --json number,url --limit 1`, {
         encoding: 'utf8',
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
 
       const prs = JSON.parse(prListResult.trim() || '[]');

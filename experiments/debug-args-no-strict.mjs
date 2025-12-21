@@ -19,37 +19,37 @@ const argv =
       yargs.positional('github-url', {
         type: 'string',
         description: 'GitHub organization, repository, or user URL to monitor',
-        demandOption: true
+        demandOption: true,
       });
     })
     .option('once', {
       type: 'boolean',
       description: 'Run once and exit instead of continuous monitoring',
-      default: false
+      default: false,
     })
     .option('fork', {
       type: 'boolean',
       description: "Fork the repository if you don't have write access",
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .option('all-issues', {
       type: 'boolean',
       description: 'Process all open issues regardless of labels',
       alias: 'a',
-      default: false
+      default: false,
     })
     .option('skip-issues-with-prs', {
       type: 'boolean',
       description: 'Skip issues that already have open pull requests',
       alias: 's',
-      default: false
+      default: false,
     }).argv;
 
 console.log('Parsed argv:', argv);

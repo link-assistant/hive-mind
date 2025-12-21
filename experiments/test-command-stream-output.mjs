@@ -13,7 +13,7 @@ console.log('=== Testing raw gh output format ===');
 try {
   const testComment = 'Test comment - will be deleted';
   const rawResult = execSync(`gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment}"`, {
-    encoding: 'utf8'
+    encoding: 'utf8',
   });
   console.log('Raw output:', JSON.stringify(rawResult));
   console.log('Raw output length:', rawResult.length);

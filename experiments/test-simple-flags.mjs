@@ -8,7 +8,7 @@ const argv = {
   verbose: true,
   fork: false,
   attachLogs: true,
-  model: 'sonnet'
+  model: 'sonnet',
 };
 
 const issueUrl = 'https://github.com/test/repo/issues/123';
@@ -41,20 +41,10 @@ const commandHasAttachLogs = command.includes('--attach-logs');
 const commandHasVerbose = command.includes('--verbose');
 
 console.log('\n🔍 Results:');
-console.log(
-  hasAttachLogs ? '✅ SUCCESS: --attach-logs found in args array' : '❌ FAILURE: --attach-logs not found in args array'
-);
+console.log(hasAttachLogs ? '✅ SUCCESS: --attach-logs found in args array' : '❌ FAILURE: --attach-logs not found in args array');
 console.log(hasVerbose ? '✅ SUCCESS: --verbose found in args array' : '❌ FAILURE: --verbose not found in args array');
-console.log(
-  commandHasAttachLogs
-    ? '✅ SUCCESS: --attach-logs found in command string'
-    : '❌ FAILURE: --attach-logs not found in command string'
-);
-console.log(
-  commandHasVerbose
-    ? '✅ SUCCESS: --verbose found in command string'
-    : '❌ FAILURE: --verbose not found in command string'
-);
+console.log(commandHasAttachLogs ? '✅ SUCCESS: --attach-logs found in command string' : '❌ FAILURE: --attach-logs not found in command string');
+console.log(commandHasVerbose ? '✅ SUCCESS: --verbose found in command string' : '❌ FAILURE: --verbose not found in command string');
 
 if (hasAttachLogs && hasVerbose && commandHasAttachLogs && commandHasVerbose) {
   console.log('\n🎉 ALL TESTS PASSED: Both flags are working correctly!');

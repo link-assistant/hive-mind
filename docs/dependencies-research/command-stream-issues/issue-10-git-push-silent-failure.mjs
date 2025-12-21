@@ -112,8 +112,7 @@ async function demonstrateIssue(tempDir) {
 
   // Demonstrate with a dry-run (doesn't need real remote)
   console.log('\nDemonstrating with --dry-run (no remote needed):');
-  const dryRunResult =
-    await $`cd ${tempDir} && git push --dry-run origin main 2>&1 || echo "Expected to fail without remote"`;
+  const dryRunResult = await $`cd ${tempDir} && git push --dry-run origin main 2>&1 || echo "Expected to fail without remote"`;
   console.log('Command-stream output for git push --dry-run:');
   console.log('  Exit code:', dryRunResult.code);
   console.log('  Stdout length:', dryRunResult.stdout.toString().length);
@@ -150,7 +149,7 @@ async function showWorkaround(tempDir) {
   try {
     const output = execSync('git push --dry-run origin main 2>&1', {
       encoding: 'utf8',
-      cwd: tempDir
+      cwd: tempDir,
     });
     console.log('ExecSync output:', output);
   } catch (error) {

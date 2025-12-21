@@ -14,7 +14,7 @@ function testCommentDisplayLogic() {
       autoContinue: false,
       newPrComments: 0,
       newIssueComments: 0,
-      expected: ['New comments on the pull request: 0', 'New comments on the issue: 0']
+      expected: ['New comments on the pull request: 0', 'New comments on the issue: 0'],
     },
     {
       name: 'Auto-continue mode with 0 comments',
@@ -22,7 +22,7 @@ function testCommentDisplayLogic() {
       autoContinue: true,
       newPrComments: 0,
       newIssueComments: 0,
-      expected: ['New comments on the pull request: 0', 'New comments on the issue: 0']
+      expected: ['New comments on the pull request: 0', 'New comments on the issue: 0'],
     },
     {
       name: 'Continue mode with some comments',
@@ -30,7 +30,7 @@ function testCommentDisplayLogic() {
       autoContinue: false,
       newPrComments: 2,
       newIssueComments: 1,
-      expected: ['New comments on the pull request: 2', 'New comments on the issue: 1']
+      expected: ['New comments on the pull request: 2', 'New comments on the issue: 1'],
     },
     {
       name: 'Regular mode with 0 comments',
@@ -38,7 +38,7 @@ function testCommentDisplayLogic() {
       autoContinue: false,
       newPrComments: 0,
       newIssueComments: 0,
-      expected: []
+      expected: [],
     },
     {
       name: 'Regular mode with some comments',
@@ -46,8 +46,8 @@ function testCommentDisplayLogic() {
       autoContinue: false,
       newPrComments: 1,
       newIssueComments: 2,
-      expected: ['New comments on the pull request: 1', 'New comments on the issue: 2']
-    }
+      expected: ['New comments on the pull request: 1', 'New comments on the issue: 2'],
+    },
   ];
 
   let allPassed = true;

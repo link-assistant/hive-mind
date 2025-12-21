@@ -295,7 +295,7 @@ const pushResult = await $({ cwd: tempDir })`git push -f -u origin ${branchName}
 ```javascript
 // Line 507-517 in solve.auto-pr.lib.mjs
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 if (compareResult.code === 0) {
   const aheadBy = parseInt(compareResult.stdout.toString().trim(), 10);

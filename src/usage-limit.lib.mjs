@@ -40,7 +40,7 @@ export function isUsageLimitError(message) {
     'billing hard limit',
     'please try again at', // Codex/OpenCode style
     'available again at',
-    'resets' // Claude shows: “∙ resets 5am”
+    'resets', // Claude shows: “∙ resets 5am”
   ];
 
   return patterns.some(pattern => lowerMessage.includes(pattern));
@@ -138,7 +138,7 @@ export function detectUsageLimit(message) {
 
   return {
     isUsageLimit,
-    resetTime
+    resetTime,
   };
 }
 
@@ -191,7 +191,7 @@ export function parseUsageLimitJson(line) {
         return {
           type: 'error',
           message: data.message,
-          limitInfo: detectUsageLimit(data.message)
+          limitInfo: detectUsageLimit(data.message),
         };
       }
     }
@@ -202,7 +202,7 @@ export function parseUsageLimitJson(line) {
         return {
           type: 'turn.failed',
           message: data.error.message,
-          limitInfo: detectUsageLimit(data.error.message)
+          limitInfo: detectUsageLimit(data.error.message),
         };
       }
     }

@@ -23,7 +23,7 @@ try {
       yargs.positional('url', {
         type: 'string',
         description: 'URL argument',
-        demandOption: true
+        demandOption: true,
       });
     })
     .option('dry-run', { type: 'boolean' })
@@ -43,11 +43,7 @@ try {
 
 console.log('Test 2: Without .command(), just checking argv._');
 try {
-  const argv2 = yargs()
-    .option('dry-run', { type: 'boolean' })
-    .option('skip-tool-check', { type: 'boolean' })
-    .strict()
-    .parse(testArgs);
+  const argv2 = yargs().option('dry-run', { type: 'boolean' }).option('skip-tool-check', { type: 'boolean' }).strict().parse(testArgs);
 
   console.log('✅ Parsed');
   console.log('   argv._:', argv2._);

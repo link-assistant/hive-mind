@@ -46,10 +46,8 @@ if (!shouldDisableSentry()) {
     const { sentry, version } = await import('./config.lib.mjs');
 
     // Dynamically import Sentry packages only when needed
-    // eslint-disable-next-line quotes
     const sentryModule = await import('@sentry/node');
     Sentry = sentryModule;
-    // eslint-disable-next-line quotes
     const profilingModule = await import('@sentry/profiling-node');
     nodeProfilingIntegration = profilingModule.nodeProfilingIntegration;
 
@@ -66,14 +64,10 @@ if (!shouldDisableSentry()) {
       enableLogs: true,
 
       // Tracing
-      tracesSampleRate:
-        process.env.NODE_ENV === 'development' ? sentry.tracesSampleRateDev : sentry.tracesSampleRateProd,
+      tracesSampleRate: process.env.NODE_ENV === 'development' ? sentry.tracesSampleRateDev : sentry.tracesSampleRateProd,
 
       // Set sampling rate for profiling
-      profileSessionSampleRate:
-        process.env.NODE_ENV === 'development'
-          ? sentry.profileSessionSampleRateDev
-          : sentry.profileSessionSampleRateProd,
+      profileSessionSampleRate: process.env.NODE_ENV === 'development' ? sentry.profileSessionSampleRateDev : sentry.profileSessionSampleRateProd,
 
       // Trace lifecycle automatically enables profiling during active traces
       profileLifecycle: 'trace',
@@ -116,7 +110,7 @@ if (!shouldDisableSentry()) {
         'ETIMEDOUT',
         'ENOTFOUND',
         /^NetworkError/,
-        /^TimeoutError/
+        /^TimeoutError/,
       ],
 
       // Transaction name
@@ -127,7 +121,7 @@ if (!shouldDisableSentry()) {
         }
         context.name = `hive-mind.${context.name || 'unknown'}`;
         return context;
-      }
+      },
     });
 
     // Log that Sentry has been initialized
@@ -159,7 +153,7 @@ export const isSentryEnabled = () => Sentry !== null && Sentry.getClient() !== u
 export const captureException = (error, context = {}) => {
   if (isSentryEnabled()) {
     Sentry.captureException(error, {
-      extra: context
+      extra: context,
     });
   }
 };
@@ -168,7 +162,7 @@ export const captureException = (error, context = {}) => {
 export const captureMessage = (message, level = 'info', context = {}) => {
   if (isSentryEnabled()) {
     Sentry.captureMessage(message, level, {
-      extra: context
+      extra: context,
     });
   }
 };
@@ -180,7 +174,7 @@ export const startTransaction = (name, op = 'task') => {
     // Use startInactiveSpan for manual transaction control (similar to old startTransaction)
     return Sentry.startInactiveSpan({
       op,
-      name
+      name,
     });
   }
   // Return a dummy transaction object if Sentry is disabled
@@ -188,6 +182,6 @@ export const startTransaction = (name, op = 'task') => {
     finish: () => {},
     end: () => {},
     setStatus: () => {},
-    setData: () => {}
+    setData: () => {},
   };
 };

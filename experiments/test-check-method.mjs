@@ -18,34 +18,17 @@ try {
       type: 'boolean',
       description: 'Fork the repository',
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .check(argv => {
       // Get all known options (including all possible representations)
-      const knownOptions = new Set([
-        'fork',
-        'f',
-        '--fork',
-        '-f',
-        'verbose',
-        'v',
-        '--verbose',
-        '-v',
-        'help',
-        'h',
-        '--help',
-        '-h',
-        'version',
-        '--version',
-        '_',
-        '$0'
-      ]);
+      const knownOptions = new Set(['fork', 'f', '--fork', '-f', 'verbose', 'v', '--verbose', '-v', 'help', 'h', '--help', '-h', 'version', '--version', '_', '$0']);
 
       // Check for unknown options
       const unknownOptions = Object.keys(argv).filter(key => {

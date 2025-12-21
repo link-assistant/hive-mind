@@ -158,7 +158,7 @@ if (data.type === 'error' && (data.message.includes('401 Unauthorized') || data.
     success: false,
     error: 'AUTHENTICATION_FAILURE',
     authenticationRequired: true,
-    sessionId: null
+    sessionId: null,
   };
 }
 ```
@@ -175,7 +175,7 @@ if (tool === 'codex' && !argv['skip-auth-check']) {
 
   try {
     const authResult = await execPromise('codex auth status', {
-      timeout: 5000
+      timeout: 5000,
     });
 
     if (authResult.exitCode !== 0) {

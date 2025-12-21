@@ -200,7 +200,7 @@ export const mapModelToId = model => {
     sonnet: 'anthropic/claude-3-5-sonnet', // ← This mapping was used
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
-    'gemini-3-pro': 'google/gemini-3-pro'
+    'gemini-3-pro': 'google/gemini-3-pro',
   };
 
   return modelMap[model] || model;

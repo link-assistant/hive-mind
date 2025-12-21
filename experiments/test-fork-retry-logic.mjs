@@ -16,27 +16,27 @@ console.log('');
 // Mock argv object for testing
 const mockArgv = {
   fork: true,
-  verbose: true
+  verbose: true,
 };
 
 // Test cases to verify
 const testCases = [
   {
     name: 'Fork already exists',
-    description: 'Should detect and use existing fork'
+    description: 'Should detect and use existing fork',
   },
   {
     name: 'Fork created successfully on first try',
-    description: 'Should create fork without retries'
+    description: 'Should create fork without retries',
   },
   {
     name: 'Fork created by another worker during retry',
-    description: 'Should detect fork created by concurrent worker'
+    description: 'Should detect fork created by concurrent worker',
   },
   {
     name: 'Fork creation with retries',
-    description: 'Should retry with exponential backoff'
-  }
+    description: 'Should retry with exponential backoff',
+  },
 ];
 
 console.log('Test Implementation Notes:');

@@ -68,10 +68,7 @@ export function hasGitHubLinkingKeyword(prBody, issueNumber, owner = null, repo 
 
     // Pattern 3: KEYWORD https://github.com/owner/repo/issues/123
     if (owner && repo) {
-      const pattern3 = new RegExp(
-        `\\b${keyword}\\s+https://github\\.com/${owner}/${repo}/issues/${issueNumStr}\\b`,
-        'i'
-      );
+      const pattern3 = new RegExp(`\\b${keyword}\\s+https://github\\.com/${owner}/${repo}/issues/${issueNumStr}\\b`, 'i');
 
       if (pattern3.test(prBody)) {
         return true;

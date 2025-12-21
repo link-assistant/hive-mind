@@ -34,14 +34,14 @@ async function setup() {
       name: 'git command outside repository',
       command: 'git rev-parse --git-dir',
       expectedError: 'fatal: not a git repository',
-      description: 'Common in worker processes that start before repo is cloned'
+      description: 'Common in worker processes that start before repo is cloned',
     },
     {
       name: 'nonexistent file access',
       command: 'cat /tmp/does-not-exist-file-test-12345.txt',
       expectedError: 'No such file or directory',
-      description: 'Checking if file exists before creating it'
-    }
+      description: 'Checking if file exists before creating it',
+    },
   ];
 
   console.log(`   Testing ${testCases.length} commands that write to stderr`);
@@ -122,7 +122,7 @@ async function runTest() {
     // This gives complete control over stdio streams
     const result = execSync('git rev-parse --git-dir', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore'] // stdin, stdout, stderr
+      stdio: ['pipe', 'pipe', 'ignore'], // stdin, stdout, stderr
     });
 
     console.log('   ✅ ALTERNATIVE SUCCESSFUL!');

@@ -22,7 +22,7 @@ async function oldApproach(owner, repo, issueNumbers) {
       apiCalls++;
 
       results[issueNum] = {
-        openPRCount: openPrCount
+        openPRCount: openPrCount,
       };
 
       console.log(`   Issue #${issueNum}: ${openPrCount} open PR(s)`);
@@ -101,13 +101,9 @@ async function compareApproaches() {
   console.log('┌─────────────────┬──────────────────┬──────────────────┐');
   console.log('│ Metric          │ Old Approach     │ New Approach     │');
   console.log('├─────────────────┼──────────────────┼──────────────────┤');
-  console.log(
-    `│ API Calls       │ ${String(oldResults.apiCalls).padEnd(16)} │ ${String(newResults.apiCalls).padEnd(16)} │`
-  );
+  console.log(`│ API Calls       │ ${String(oldResults.apiCalls).padEnd(16)} │ ${String(newResults.apiCalls).padEnd(16)} │`);
   console.log(`│ Time (ms)       │ ${String(oldResults.time).padEnd(16)} │ ${String(newResults.time).padEnd(16)} │`);
-  console.log(
-    `│ Avg time/issue  │ ${String(Math.round(oldResults.time / issues.length)).padEnd(16)} │ ${String(Math.round(newResults.time / issues.length)).padEnd(16)} │`
-  );
+  console.log(`│ Avg time/issue  │ ${String(Math.round(oldResults.time / issues.length)).padEnd(16)} │ ${String(Math.round(newResults.time / issues.length)).padEnd(16)} │`);
   console.log('└─────────────────┴──────────────────┴──────────────────┘');
 
   const apiReduction = Math.round((1 - newResults.apiCalls / oldResults.apiCalls) * 100);

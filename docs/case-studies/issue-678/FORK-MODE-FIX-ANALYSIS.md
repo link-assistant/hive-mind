@@ -24,7 +24,7 @@ The Compare API check (added in v0.29.7 to fix sync delays) used this logic:
 ```javascript
 // BEFORE (buggy)
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --jq '.ahead_by' 2>&1`;
 ```
 
@@ -68,7 +68,7 @@ if (argv.fork && forkedRepo) {
   headRef = branchName; // e.g., "issue-6-01d3f376c347"
 }
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 

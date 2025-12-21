@@ -26,22 +26,22 @@ export async function detectCITools(workDir) {
       pytest: false,
       nox: false,
       black: false,
-      flake8: false
+      flake8: false,
     },
     javascript: {
       eslint: false,
       prettier: false,
       jest: false,
-      vitest: false
+      vitest: false,
     },
     rust: {
       rustfmt: false,
       clippy: false,
-      cargoTest: false
+      cargoTest: false,
     },
     general: {
-      preCommit: false
-    }
+      preCommit: false,
+    },
   };
 
   try {
@@ -152,7 +152,7 @@ export async function runLocalCIChecks(workDir, tools, options = {}) {
   const results = {
     success: true,
     checks: [],
-    errors: []
+    errors: [],
   };
 
   const verbose = options.verbose || false;
@@ -252,7 +252,7 @@ async function runCheck(workDir, command, name, verbose) {
     command,
     success: false,
     output: '',
-    error: ''
+    error: '',
   };
 
   try {

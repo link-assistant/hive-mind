@@ -42,8 +42,7 @@ try {
     const username = userResult.stdout.toString().trim();
     console.log(`    Current user: ${username}`);
 
-    const reposResult =
-      await $`gh repo list ${username} --json name,visibility --jq '.[] | select(.visibility == "private") | .name' --limit 1`;
+    const reposResult = await $`gh repo list ${username} --json name,visibility --jq '.[] | select(.visibility == "private") | .name' --limit 1`;
     const privateRepo = reposResult.stdout.toString().trim();
 
     if (privateRepo) {

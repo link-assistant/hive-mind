@@ -82,47 +82,47 @@ const argv = yargs()
   .usage('Usage: $0 <task-description> [options]')
   .positional('task-description', {
     type: 'string',
-    description: 'The task to clarify and decompose'
+    description: 'The task to clarify and decompose',
   })
   .option('clarify', {
     type: 'boolean',
     description: 'Enable clarification mode (asks clarifying questions about the task)',
-    default: true
+    default: true,
   })
   .option('decompose', {
     type: 'boolean',
     description: 'Enable decomposition mode (breaks down the task into subtasks)',
-    default: true
+    default: true,
   })
   .option('only-clarify', {
     type: 'boolean',
     description: 'Only run clarification mode, skip decomposition',
-    default: false
+    default: false,
   })
   .option('only-decompose', {
     type: 'boolean',
     description: 'Only run decomposition mode, skip clarification',
-    default: false
+    default: false,
   })
   .option('model', {
     type: 'string',
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('output-format', {
     type: 'string',
     description: 'Output format (text or json)',
     alias: 'o',
     default: 'text',
-    choices: ['text', 'json']
+    choices: ['text', 'json'],
   })
   .check(argv => {
     if (!argv['task-description'] && !argv._[0]) {
@@ -147,7 +147,7 @@ const argv = yargs()
     return true;
   })
   .parserConfiguration({
-    'boolean-negation': true
+    'boolean-negation': true,
   })
   .help()
   .alias('h', 'help')
@@ -198,7 +198,7 @@ const executeClaude = (prompt, model) => {
 
     const child = spawn(claudePath, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: process.env
+      env: process.env,
     });
 
     let stdout = '';
@@ -231,7 +231,7 @@ try {
     task: taskDescription,
     timestamp: new Date().toISOString(),
     clarification: null,
-    decomposition: null
+    decomposition: null,
   };
 
   // Phase 1: Clarification

@@ -49,87 +49,87 @@ const argv = yargs(process.argv.slice(2))
   .usage('Usage: $0 <github-url> [options]')
   .positional('github-url', {
     type: 'string',
-    description: 'GitHub organization, repository, or user URL to monitor for pull requests'
+    description: 'GitHub organization, repository, or user URL to monitor for pull requests',
   })
   .option('review-label', {
     type: 'string',
     description: 'GitHub label to identify PRs needing review',
     default: 'needs-review',
-    alias: 'l'
+    alias: 'l',
   })
   .option('all-prs', {
     type: 'boolean',
     description: 'Review all open pull requests regardless of labels',
     default: false,
-    alias: 'a'
+    alias: 'a',
   })
   .option('skip-draft', {
     type: 'boolean',
     description: 'Skip draft pull requests',
     default: true,
-    alias: 'd'
+    alias: 'd',
   })
   .option('skip-approved', {
     type: 'boolean',
     description: 'Skip pull requests that already have approvals',
-    default: true
+    default: true,
   })
   .option('concurrency', {
     type: 'number',
     description: 'Number of concurrent review.mjs instances',
     default: 2,
-    alias: 'c'
+    alias: 'c',
   })
   .option('reviews-per-pr', {
     type: 'number',
     description: 'Number of reviews to generate per PR (for diverse perspectives)',
     default: 1,
-    alias: 'r'
+    alias: 'r',
   })
   .option('model', {
     type: 'string',
     description: 'Model to use for review.mjs (opus or sonnet)',
     alias: 'm',
     default: 'opus',
-    choices: ['opus', 'sonnet']
+    choices: ['opus', 'sonnet'],
   })
   .option('focus', {
     type: 'string',
     description: 'Focus areas for reviews (security, performance, logic, style, tests, all)',
     default: 'all',
-    alias: 'f'
+    alias: 'f',
   })
   .option('auto-approve', {
     type: 'boolean',
     description: 'Auto-approve PRs that pass review criteria',
-    default: false
+    default: false,
   })
   .option('interval', {
     type: 'number',
     description: 'Polling interval in seconds',
     default: 300, // 5 minutes
-    alias: 'i'
+    alias: 'i',
   })
   .option('max-prs', {
     type: 'number',
     description: 'Maximum number of PRs to process (0 = unlimited)',
-    default: 0
+    default: 0,
   })
   .option('dry-run', {
     type: 'boolean',
     description: 'List PRs that would be reviewed without actually reviewing them',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('once', {
     type: 'boolean',
     description: 'Run once and exit instead of continuous monitoring',
-    default: false
+    default: false,
   })
   .demandCommand(1, 'GitHub URL is required')
   .help('h')
@@ -261,7 +261,7 @@ class PRQueue {
       queued: this.queue.length,
       processing: this.processing.size,
       completed: this.completed.size,
-      failed: this.failed.size
+      failed: this.failed.size,
     };
   }
 
@@ -297,9 +297,7 @@ async function reviewer(reviewerId) {
 
       try {
         if (argv.dryRun) {
-          await log(
-            `   🧪 [DRY RUN] Would execute: ./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}${argv.autoApprove ? ' --approve' : ''}`
-          );
+          await log(`   🧪 [DRY RUN] Would execute: ./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}${argv.autoApprove ? ' --approve' : ''}`);
           await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate work
         } else {
           // Execute review.mjs using command-stream
@@ -354,9 +352,7 @@ async function reviewer(reviewerId) {
 
     // Show queue stats
     const stats = prQueue.getStats();
-    await log(
-      `   📊 Queue: ${stats.queued} waiting, ${stats.processing} reviewing, ${stats.completed} completed, ${stats.failed} failed`
-    );
+    await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} reviewing, ${stats.completed} completed, ${stats.failed} failed`);
   }
 
   await log(`🔍 Reviewer ${reviewerId} stopped`, { verbose: true });

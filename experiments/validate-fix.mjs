@@ -18,28 +18,28 @@ function validateFix() {
       {
         name: 'Sync default branch comment',
         pattern: /Sync the default branch with upstream to avoid merge conflicts/,
-        description: 'Comment explaining the purpose of the sync'
+        description: 'Comment explaining the purpose of the sync',
       },
       {
         name: 'GitHub API call for default branch',
         pattern: /gh api repos\/\$\{owner\}\/\$\{repo\} --jq \.default_branch/,
-        description: 'Get default branch from GitHub API'
+        description: 'Get default branch from GitHub API',
       },
       {
         name: 'Git reset hard with upstream',
         pattern: /git reset --hard upstream\/\$\{upstreamDefaultBranch\}/,
-        description: 'Reset local default branch to match upstream'
+        description: 'Reset local default branch to match upstream',
       },
       {
         name: 'Push to fork origin',
         pattern: /git push origin \$\{upstreamDefaultBranch\}/,
-        description: 'Push updated default branch to fork'
+        description: 'Push updated default branch to fork',
       },
       {
         name: 'Current branch check',
         pattern: /git branch --show-current/,
-        description: 'Check current branch before syncing'
-      }
+        description: 'Check current branch before syncing',
+      },
     ];
 
     let allPassed = true;

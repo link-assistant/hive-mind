@@ -44,9 +44,7 @@ export { createYargsConfig } from './hive.config.lib.mjs';
 // 2. import.meta.url is this file's URL
 // 3. For global installs, argv[1] might be a symlink, so we check if it contains 'hive'
 import { fileURLToPath } from 'url';
-const isDirectExecution =
-  process.argv[1] === fileURLToPath(import.meta.url) ||
-  (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
+const isDirectExecution = process.argv[1] === fileURLToPath(import.meta.url) || (process.argv[1] && (process.argv[1].includes('/hive') || process.argv[1].endsWith('hive')));
 if (isDirectExecution) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
   console.log('   Initializing...');
@@ -54,20 +52,7 @@ if (isDirectExecution) {
     console.log('   Loading dependencies (this may take a moment)...');
     // Helper function to add timeout to async operations
     const withTimeout = (promise, timeoutMs, operation) => {
-      return Promise.race([
-        promise,
-        new Promise((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`
-                )
-              ),
-            timeoutMs
-          )
-        )
-      ]);
+      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs))]);
     };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
@@ -109,15 +94,7 @@ if (isDirectExecution) {
     const modelValidation = await import('./model-validation.lib.mjs');
     const { validateAndExitOnInvalidModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
-    const {
-      checkGitHubPermissions,
-      fetchAllIssuesWithPagination,
-      fetchProjectIssues,
-      isRateLimitError,
-      batchCheckPullRequestsForIssues,
-      parseGitHubUrl,
-      batchCheckArchivedRepositories
-    } = githubLib;
+    const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
     const youTrackLib = await import('./youtrack/youtrack.lib.mjs');
     const { validateYouTrackConfig, testYouTrackConnection, createYouTrackConfigFromEnv } = youTrackLib;
@@ -154,9 +131,7 @@ if (isDirectExecution) {
         if (fetchAllIssues) {
           const graphqlResult = await tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage);
           if (graphqlResult.success) {
-            await log(
-              `   ✅ GraphQL approach successful: ${graphqlResult.issues.length} issues from ${graphqlResult.repoCount} repositories`
-            );
+            await log(`   ✅ GraphQL approach successful: ${graphqlResult.issues.length} issues from ${graphqlResult.repoCount} repositories`);
             return graphqlResult.issues;
           }
         }
@@ -229,8 +204,8 @@ if (isDirectExecution) {
               ...issue,
               repository: {
                 name: repoName,
-                owner: { login: ownerName }
-              }
+                owner: { login: ownerName },
+              },
             }));
 
             collectedIssues.push(...issuesWithRepo);
@@ -243,25 +218,23 @@ if (isDirectExecution) {
             reportError(repoError, {
               context: 'fetchIssuesFromRepositories',
               repo: repo.name,
-              operation: 'fetch_repo_issues'
+              operation: 'fetch_repo_issues',
             });
             await log(`   ⚠️  Failed to fetch issues from ${repo.name}: ${cleanErrorMessage(repoError)}`, {
-              verbose: true
+              verbose: true,
             });
             // Continue with other repositories
           }
         }
 
-        await log(
-          `   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`
-        );
+        await log(`   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`);
         return collectedIssues;
       } catch (error) {
         reportError(error, {
           context: 'fetchIssuesFromRepositories',
           owner,
           scope,
-          operation: 'repository_fallback'
+          operation: 'repository_fallback',
         });
         await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(error)}`, { level: 'error' });
         return [];
@@ -394,7 +367,7 @@ if (isDirectExecution) {
       reportError(error, {
         context: 'log_directory_access',
         targetDir,
-        operation: 'check_directory_exists'
+        operation: 'check_directory_exists',
       });
       // If directory doesn't exist, try to create it
       try {
@@ -403,7 +376,7 @@ if (isDirectExecution) {
         reportError(mkdirError, {
           context: 'log_directory_creation',
           targetDir,
-          operation: 'create_directory'
+          operation: 'create_directory',
         });
         console.error(`⚠️  Unable to create log directory: ${targetDir}`);
         console.error('   Falling back to current working directory');
@@ -430,7 +403,7 @@ if (isDirectExecution) {
       await initializeSentry({
         noSentry: !argv.sentry,
         debug: argv.verbose,
-        version: process.env.npm_package_version || '0.12.0'
+        version: process.env.npm_package_version || '0.12.0',
       });
 
       // Add breadcrumb for monitoring configuration
@@ -441,8 +414,8 @@ if (isDirectExecution) {
         data: {
           mode: argv.projectMode ? 'project' : argv.allIssues ? 'all' : 'label',
           concurrency: argv.concurrency,
-          model: argv.model
-        }
+          model: argv.model,
+        },
       });
     }
 
@@ -465,7 +438,7 @@ if (isDirectExecution) {
       if (!argv.projectNumber) {
         await log('❌ Project mode requires --project-number', { level: 'error' });
         await log('   Usage: hive <github-url> --project-mode --project-number NUMBER --project-owner OWNER', {
-          level: 'error'
+          level: 'error',
         });
         await safeExit(1, 'Error occurred');
       }
@@ -473,7 +446,7 @@ if (isDirectExecution) {
       if (!argv.projectOwner) {
         await log('❌ Project mode requires --project-owner', { level: 'error' });
         await log('   Usage: hive <github-url> --project-mode --project-number NUMBER --project-owner OWNER', {
-          level: 'error'
+          level: 'error',
         });
         await safeExit(1, 'Error occurred');
       }
@@ -498,7 +471,7 @@ if (isDirectExecution) {
       // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
-          level: 'error'
+          level: 'error',
         });
         await log('   --skip-issues-with-prs: Skips issues that have any open PRs', { level: 'error' });
         await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
@@ -518,7 +491,7 @@ if (isDirectExecution) {
     // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
     if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
       await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', {
-        verbose: true
+        verbose: true,
       });
     } else {
       const hasValidAuth = await checkGitHubPermissions();
@@ -537,7 +510,7 @@ if (isDirectExecution) {
       if (!youTrackConfig) {
         await log('❌ YouTrack mode requires environment variables to be set', { level: 'error' });
         await log('   Required: YOUTRACK_URL, YOUTRACK_API_KEY, YOUTRACK_PROJECT_CODE, YOUTRACK_STAGE', {
-          level: 'error'
+          level: 'error',
         });
         await log('   Example: YOUTRACK_URL=https://mycompany.youtrack.cloud', { level: 'error' });
         process.exit(1);
@@ -602,7 +575,7 @@ if (isDirectExecution) {
           reportError(e, {
             context: 'detect_scope',
             owner,
-            operation: 'detect_account_type'
+            operation: 'detect_account_type',
           });
           // Default to user if API call fails
           scope = 'user';
@@ -617,9 +590,7 @@ if (isDirectExecution) {
       await log(`   📍 Source: YouTrack - ${youTrackConfig.url}`);
       await log(`   📋 Project: ${youTrackConfig.projectCode}`);
       await log(`   📌 Stage: "${youTrackConfig.stage}"`);
-      await log(
-        `   📍 GitHub Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`
-      );
+      await log(`   📍 GitHub Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`);
     } else {
       await log(`   📍 Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`);
       if (argv.projectMode) {
@@ -713,7 +684,7 @@ if (isDirectExecution) {
           processing: this.processing.size,
           completed: this.completed.size,
           failed: this.failed.size,
-          processingIssues: Array.from(this.processing)
+          processingIssues: Array.from(this.processing),
         };
       }
 
@@ -769,17 +740,14 @@ if (isDirectExecution) {
             const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
             const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
             const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-            const skipToolConnectionCheckFlag =
-              argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
+            const skipToolConnectionCheckFlag = argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
             const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
             const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
             const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
             const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
             const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
             const watchFlag = argv.watch ? ' --watch' : '';
-            const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName
-              ? ' --prefix-fork-name-with-owner-name'
-              : '';
+            const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
             const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
             const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
             const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
@@ -844,7 +812,7 @@ if (isDirectExecution) {
             await new Promise(resolve => {
               const child = spawn(solveCommand, args, {
                 stdio: ['pipe', 'pipe', 'pipe'],
-                env: process.env
+                env: process.env,
               });
 
               // Handle stdout data - stream output in real-time
@@ -856,7 +824,7 @@ if (isDirectExecution) {
                       reportError(logError, {
                         context: 'worker_stdout_log',
                         workerId,
-                        operation: 'log_output'
+                        operation: 'log_output',
                       });
                     });
                   }
@@ -872,7 +840,7 @@ if (isDirectExecution) {
                       reportError(logError, {
                         context: 'worker_stderr_log',
                         workerId,
-                        operation: 'log_error'
+                        operation: 'log_error',
                       });
                     });
                   }
@@ -889,12 +857,12 @@ if (isDirectExecution) {
               child.on('error', error => {
                 exitCode = 1;
                 log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
-                  level: 'error'
+                  level: 'error',
                 }).catch(logError => {
                   reportError(logError, {
                     context: 'worker_process_error_log',
                     workerId,
-                    operation: 'log_process_error'
+                    operation: 'log_process_error',
                   });
                 });
                 resolve();
@@ -918,10 +886,10 @@ if (isDirectExecution) {
               context: 'worker_process_issue',
               workerId,
               issueUrl,
-              operation: 'spawn_solve_worker'
+              operation: 'spawn_solve_worker',
             });
             await log(`   ❌ Worker ${workerId} failed on ${issueUrl}: ${cleanErrorMessage(error)}`, {
-              level: 'error'
+              level: 'error',
             });
             issueQueue.markFailed(issueUrl);
             issueFailed = true;
@@ -936,9 +904,7 @@ if (isDirectExecution) {
 
         // Show queue stats
         const stats = issueQueue.getStats();
-        await log(
-          `   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`
-        );
+        await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
         await log(`   📁 Hive log file: ${absoluteLogPath}`);
 
         // Show which issues are currently being processed
@@ -960,13 +926,9 @@ if (isDirectExecution) {
     // Function to fetch issues from GitHub
     async function fetchIssues() {
       if (argv.youtrackMode) {
-        await log(
-          `\n🔍 Fetching issues from YouTrack project ${youTrackConfig.projectCode} (stage: "${youTrackConfig.stage}")...`
-        );
+        await log(`\n🔍 Fetching issues from YouTrack project ${youTrackConfig.projectCode} (stage: "${youTrackConfig.stage}")...`);
       } else if (argv.projectMode) {
-        await log(
-          `\n🔍 Fetching issues from GitHub Project #${argv.projectNumber} (status: "${argv.projectStatus}")...`
-        );
+        await log(`\n🔍 Fetching issues from GitHub Project #${argv.projectNumber} (status: "${argv.projectStatus}")...`);
       } else if (argv.allIssues) {
         await log('\n🔍 Fetching ALL open issues...');
       } else {
@@ -994,7 +956,7 @@ if (isDirectExecution) {
           issues = formatIssuesForHive(githubIssues).map(issue => ({
             url: issue.html_url,
             title: issue.title,
-            number: issue.number
+            number: issue.number,
           }));
         } else if (argv.projectMode) {
           // Use GitHub Projects v2 mode
@@ -1025,14 +987,13 @@ if (isDirectExecution) {
               context: 'github_all_issues_search',
               scope,
               owner,
-              operation: 'search_all_issues'
+              operation: 'search_all_issues',
             });
             await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
 
             // Check if the error is due to rate limiting or search API limit and we're not in repository scope
             const errorMsg = searchError.message || searchError.toString();
-            const isSearchLimitError =
-              errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
+            const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
             if ((isRateLimitError(searchError) || isSearchLimitError) && scope !== 'repository') {
               await log('   🔍 Search limit detected - attempting repository fallback...');
               try {
@@ -1042,7 +1003,7 @@ if (isDirectExecution) {
                   context: 'github_all_issues_fallback',
                   scope,
                   owner,
-                  operation: 'fallback_all_fetch'
+                  operation: 'fallback_all_fetch',
                 });
                 await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
                 issues = [];
@@ -1069,7 +1030,7 @@ if (isDirectExecution) {
                 scope,
                 owner,
                 monitorTag: argv.monitorTag,
-                operation: 'list_repository_issues'
+                operation: 'list_repository_issues',
               });
               await log(`   ⚠️  List failed: ${cleanErrorMessage(listError)}`, { verbose: true });
               issues = [];
@@ -1107,14 +1068,13 @@ if (isDirectExecution) {
                 scope,
                 owner,
                 monitorTag: argv.monitorTag,
-                operation: 'search_labeled_issues'
+                operation: 'search_labeled_issues',
               });
               await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
 
               // Check if the error is due to rate limiting or search API limit
               const errorMsg = searchError.message || searchError.toString();
-              const isSearchLimitError =
-                errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
+              const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
               if (isRateLimitError(searchError) || isSearchLimitError) {
                 await log('   🔍 Search limit detected - attempting repository fallback...');
                 try {
@@ -1125,7 +1085,7 @@ if (isDirectExecution) {
                     scope,
                     owner,
                     monitorTag: argv.monitorTag,
-                    operation: 'fallback_labeled_fetch'
+                    operation: 'fallback_labeled_fetch',
                   });
                   await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
                   issues = [];
@@ -1162,9 +1122,7 @@ if (isDirectExecution) {
 
         // Sort issues by publication date (createdAt) based on issue-order option
         if (issues.length > 0 && issues[0].createdAt) {
-          await log(
-            `   🔄 Sorting issues by publication date (${argv.issueOrder === 'asc' ? 'oldest first' : 'newest first'})...`
-          );
+          await log(`   🔄 Sorting issues by publication date (${argv.issueOrder === 'asc' ? 'oldest first' : 'newest first'})...`);
           issues.sort((a, b) => {
             const dateA = new Date(a.createdAt);
             const dateB = new Date(b.createdAt);
@@ -1226,7 +1184,7 @@ if (isDirectExecution) {
 
               if (archivedStatusMap[repoKey] === true) {
                 await log(`      ⏭️  Skipping (archived repository): ${issue.title || 'Untitled'} (${issue.url})`, {
-                  verbose: true
+                  verbose: true,
                 });
                 archivedIssuesCount++;
               } else {
@@ -1262,13 +1220,13 @@ if (isDirectExecution) {
                 issuesByRepo[repoKey] = {
                   owner: issueOwner,
                   repo: issueRepo,
-                  issues: []
+                  issues: [],
                 };
               }
 
               issuesByRepo[repoKey].issues.push({
                 number: parseInt(issueNumber),
-                issue: issue
+                issue: issue,
               });
             }
           }
@@ -1285,10 +1243,7 @@ if (isDirectExecution) {
             for (const issueData of repoData.issues) {
               const prInfo = prResults[issueData.number];
               if (prInfo && prInfo.openPRCount > 0) {
-                await log(
-                  `      ⏭️  Skipping (has ${prInfo.openPRCount} PR${prInfo.openPRCount > 1 ? 's' : ''}): ${issueData.issue.title || 'Untitled'} (${issueData.issue.url})`,
-                  { verbose: true }
-                );
+                await log(`      ⏭️  Skipping (has ${prInfo.openPRCount} PR${prInfo.openPRCount > 1 ? 's' : ''}): ${issueData.issue.title || 'Untitled'} (${issueData.issue.url})`, { verbose: true });
                 totalSkipped++;
               } else {
                 filteredIssues.push(issueData.issue);
@@ -1323,7 +1278,7 @@ if (isDirectExecution) {
           projectMode: argv.projectMode,
           allIssues: argv.allIssues,
           monitorTag: argv.monitorTag,
-          operation: 'fetch_issues'
+          operation: 'fetch_issues',
         });
         await log(`   ❌ Error fetching issues: ${cleanErrorMessage(error)}`, { level: 'error' });
         return [];
@@ -1467,7 +1422,7 @@ if (isDirectExecution) {
       } catch (error) {
         reportError(error, {
           context: 'monitor_issues_shutdown',
-          operation: 'cleanup_and_exit'
+          operation: 'cleanup_and_exit',
         });
         await log(`   ⚠️  Error during shutdown: ${cleanErrorMessage(error)}`, { level: 'error' });
         await log(`   📁 Full log file: ${absoluteLogPath}`);
@@ -1486,17 +1441,17 @@ if (isDirectExecution) {
     // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
     if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
       await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
-        verbose: true
+        verbose: true,
       });
       await log('⏩ Skipping Claude CLI connection check (dry-run mode or skip-tool-connection-check enabled)', {
-        verbose: true
+        verbose: true,
       });
     } else {
       const systemCheck = await checkSystem(
         {
           minDiskSpaceMB: argv.minDiskSpace || 500,
           minMemoryMB: 256,
-          exitOnFailure: true
+          exitOnFailure: true,
         },
         { log }
       );
@@ -1522,7 +1477,7 @@ if (isDirectExecution) {
     } catch (error) {
       reportError(error, {
         context: 'hive_main',
-        operation: 'monitor_with_sentry'
+        operation: 'monitor_with_sentry',
       });
       await log(`\n❌ Fatal error: ${cleanErrorMessage(error)}`, { level: 'error' });
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });

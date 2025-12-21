@@ -17,7 +17,7 @@ async function log(message, options = {}) {
   const logEntry = {
     message,
     verbose: options.verbose || false,
-    level: options.level || 'info'
+    level: options.level || 'info',
   };
   logs.push(logEntry);
 

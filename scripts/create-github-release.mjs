@@ -29,13 +29,13 @@ const config = makeConfig({
       .option('release-version', {
         type: 'string',
         default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., 1.0.0)'
+        describe: 'Version number (e.g., 1.0.0)',
       })
       .option('repository', {
         type: 'string',
         default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)'
-      })
+        describe: 'GitHub repository (e.g., owner/repo)',
+      }),
 });
 
 const { releaseVersion: version, repository } = config;
@@ -75,11 +75,11 @@ try {
   const payload = JSON.stringify({
     tag_name: tag,
     name: version,
-    body: releaseNotes
+    body: releaseNotes,
   });
 
   await $`gh api repos/${repository}/releases -X POST --input -`.run({
-    stdin: payload
+    stdin: payload,
   });
 
   console.log(`Created GitHub release: ${tag}`);

@@ -20,19 +20,19 @@ try {
     .positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
-      demandOption: true
+      demandOption: true,
     })
     .option('fork', {
       type: 'boolean',
       description: "Fork the repository if you don't have write access",
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .help('h')
     .alias('h', 'help')

@@ -62,7 +62,7 @@ const tests = [
   [0, 'SUCCESS'],
   [1, 'ERROR'],
   [2, 'ERROR'],
-  [127, 'ERROR']
+  [127, 'ERROR'],
 ];
 
 let allPassed = true;

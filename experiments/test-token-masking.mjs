@@ -22,7 +22,7 @@ const testTokens = [
   'gho_1234567890abcdef1234567890abcdef12345678', // OAuth token
   'ghu_1234567890abcdef1234567890abcdef12345678', // User token
   'very_short', // Too short, should not be masked
-  '1234567890abcdef1234567890abcdef1234567890' // 40-char hex token
+  '1234567890abcdef1234567890abcdef1234567890', // 40-char hex token
 ];
 
 for (const token of testTokens) {
@@ -76,11 +76,7 @@ const sanitizeLogContent = async logContent => {
   let sanitized = logContent;
 
   // Mock token patterns for testing
-  const tokenPatterns = [
-    /gh[pou]_[a-zA-Z0-9_]{20,}/g,
-    /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm,
-    /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi
-  ];
+  const tokenPatterns = [/gh[pou]_[a-zA-Z0-9_]{20,}/g, /(?:^|[\s:="])([a-f0-9]{40})(?=[\s\n"]|$)/gm, /(?:token[:\s"]*)([a-zA-Z0-9_]{20,})/gi];
 
   for (const pattern of tokenPatterns) {
     sanitized = sanitized.replace(pattern, (match, token) => {

@@ -35,7 +35,7 @@ console.log('   Expected: Should fail with helpful error message\n');
 logs.length = 0;
 const test1Result = await checkRepositoryWritePermission('veb86', 'zcadvelecAI', {
   useFork: false,
-  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
+  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63',
 });
 
 console.log(`\n   Result: ${test1Result ? 'PASSED ✅' : 'FAILED ❌ (expected)'}`);
@@ -55,7 +55,7 @@ console.log('   Expected: Should skip check and pass\n');
 logs.length = 0;
 const test2Result = await checkRepositoryWritePermission('veb86', 'zcadvelecAI', {
   useFork: true,
-  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63'
+  issueUrl: 'https://github.com/veb86/zcadvelecAI/issues/63',
 });
 
 console.log(`\n   Result: ${test2Result ? 'PASSED ✅ (expected)' : 'FAILED ❌'}`);
@@ -69,7 +69,7 @@ console.log('   Expected: Should pass with confirmation message\n');
 logs.length = 0;
 const test3Result = await checkRepositoryWritePermission('link-assistant', 'hive-mind', {
   useFork: false,
-  issueUrl: 'https://github.com/link-assistant/hive-mind/issues/439'
+  issueUrl: 'https://github.com/link-assistant/hive-mind/issues/439',
 });
 
 console.log(`\n   Result: ${test3Result ? 'PASSED ✅ (expected)' : 'FAILED ❌'}`);

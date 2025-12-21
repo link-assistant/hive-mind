@@ -62,10 +62,7 @@ async function testUserIssuesWithGraphQL(username, label = null, limit = 100) {
     `;
 
     // Execute the query
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const issues = data.data.search.nodes;
@@ -130,10 +127,7 @@ async function testOrgIssuesWithGraphQL(orgName, label = null, limit = 100) {
     `;
 
     // Execute the query
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f queryString='${searchQuery}' -F limit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const issues = data.data.search.nodes;
@@ -221,10 +215,7 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
       }
     `;
 
-    const result = execSync(
-      `gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f owner='${owner}' -F repoLimit=${limit}`,
-      { encoding: 'utf8' }
-    );
+    const result = execSync(`gh api graphql -f query='${graphqlQuery.replace(/'/g, "'\\''")}' -f owner='${owner}' -F repoLimit=${limit}`, { encoding: 'utf8' });
 
     const data = JSON.parse(result);
     const repos = isOrg ? data.data.organization.repositories : data.data.user.repositories;
@@ -241,8 +232,8 @@ async function testReposWithIssuesGraphQL(owner, isOrg = false, limit = 10) {
           ...issue,
           repository: {
             name: repo.name,
-            owner: repo.owner
-          }
+            owner: repo.owner,
+          },
         });
       }
     }

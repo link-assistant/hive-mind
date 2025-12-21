@@ -59,60 +59,59 @@ const config = yargs(hideBin(process.argv))
     type: 'string',
     description: 'LINO configuration string for environment variables',
     alias: 'c',
-    default: getenv('TELEGRAM_CONFIGURATION', '')
+    default: getenv('TELEGRAM_CONFIGURATION', ''),
   })
   .option('token', {
     type: 'string',
     description: 'Telegram bot token from @BotFather',
     alias: 't',
-    default: getenv('TELEGRAM_BOT_TOKEN', '')
+    default: getenv('TELEGRAM_BOT_TOKEN', ''),
   })
   .option('allowedChats', {
     type: 'string',
     description: 'Allowed chat IDs in lino notation, e.g., "(\n  123456789\n  987654321\n)"',
     alias: 'allowed-chats',
-    default: getenv('TELEGRAM_ALLOWED_CHATS', '')
+    default: getenv('TELEGRAM_ALLOWED_CHATS', ''),
   })
   .option('solveOverrides', {
     type: 'string',
-    description:
-      'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
+    description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
     alias: 'solve-overrides',
-    default: getenv('TELEGRAM_SOLVE_OVERRIDES', '')
+    default: getenv('TELEGRAM_SOLVE_OVERRIDES', ''),
   })
   .option('hiveOverrides', {
     type: 'string',
     description: 'Override options for /hive command in lino notation, e.g., "(\n  --verbose\n  --all-issues\n)"',
     alias: 'hive-overrides',
-    default: getenv('TELEGRAM_HIVE_OVERRIDES', '')
+    default: getenv('TELEGRAM_HIVE_OVERRIDES', ''),
   })
   .option('solve', {
     type: 'boolean',
     description: 'Enable /solve command (use --no-solve to disable)',
-    default: getenv('TELEGRAM_SOLVE', 'true') !== 'false'
+    default: getenv('TELEGRAM_SOLVE', 'true') !== 'false',
   })
   .option('hive', {
     type: 'boolean',
     description: 'Enable /hive command (use --no-hive to disable)',
-    default: getenv('TELEGRAM_HIVE', 'true') !== 'false'
+    default: getenv('TELEGRAM_HIVE', 'true') !== 'false',
   })
   .option('dryRun', {
     type: 'boolean',
     description: 'Validate configuration and options without starting the bot',
     alias: 'dry-run',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
-    default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true'
+    default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
     'boolean-negation': true,
-    'strip-dashed': true // Remove dashed keys from argv to simplify validation
+    'strip-dashed': true, // Remove dashed keys from argv to simplify validation
   })
   .strict() // Enable strict mode to reject unknown options (consistent with solve.mjs and hive.mjs)
   .parse();
@@ -285,7 +284,7 @@ if (config.dryRun) {
 // Initialize Sentry for error tracking
 await initializeSentry({
   debug: VERBOSE,
-  environment: process.env.NODE_ENV || 'production'
+  environment: process.env.NODE_ENV || 'production',
 });
 
 const telegrafModule = await use('telegraf');
@@ -294,7 +293,7 @@ const { Telegraf } = telegrafModule;
 const bot = new Telegraf(BOT_TOKEN, {
   // Remove the default 90-second timeout for message handlers
   // This is important because command handlers (like /solve) spawn long-running processes
-  handlerTimeout: Infinity
+  handlerTimeout: Infinity,
 });
 
 // Track bot startup time to ignore messages sent before bot started
@@ -356,14 +355,7 @@ function isForwardedOrReply(ctx) {
     return true;
   }
   // Also check old forwarding API fields for backward compatibility
-  if (
-    message.forward_from ||
-    message.forward_from_chat ||
-    message.forward_from_message_id ||
-    message.forward_signature ||
-    message.forward_sender_name ||
-    message.forward_date
-  ) {
+  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
     if (VERBOSE) {
       console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
       if (message.forward_from) console.log('[VERBOSE]     Triggered by: forward_from');
@@ -392,10 +384,7 @@ function isForwardedOrReply(ctx) {
     } else {
       // This is an actual reply to another user's message
       if (VERBOSE) {
-        console.log(
-          '[VERBOSE] isForwardedOrReply: TRUE - reply_to_message.message_id exists:',
-          message.reply_to_message.message_id
-        );
+        console.log('[VERBOSE] isForwardedOrReply: TRUE - reply_to_message.message_id exists:', message.reply_to_message.message_id);
       }
       return true;
     }
@@ -422,17 +411,14 @@ async function executeStartScreen(command, args) {
     const whichPath = await findStartScreenCommand();
 
     if (!whichPath) {
-      const warningMsg =
-        '⚠️  WARNING: start-screen command not found in PATH\n' +
-        'Please ensure @link-assistant/hive-mind is properly installed\n' +
-        'You may need to run: npm install -g @link-assistant/hive-mind';
+      const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' + 'Please ensure @link-assistant/hive-mind is properly installed\n' + 'You may need to run: npm install -g @link-assistant/hive-mind';
       console.warn(warningMsg);
 
       // Still try to execute with 'start-screen' in case it's available in PATH but 'which' failed
       return {
         success: false,
         warning: warningMsg,
-        error: 'start-screen command not found in PATH'
+        error: 'start-screen command not found in PATH',
       };
     }
 
@@ -447,7 +433,7 @@ async function executeStartScreen(command, args) {
     return {
       success: false,
       output: '',
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -465,7 +451,7 @@ function executeWithCommand(startScreenCmd, command, args) {
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
-      env: process.env
+      env: process.env,
     });
 
     let stdout = '';
@@ -483,7 +469,7 @@ function executeWithCommand(startScreenCmd, command, args) {
       resolve({
         success: false,
         output: stdout,
-        error: error.message
+        error: error.message,
       });
     });
 
@@ -491,13 +477,13 @@ function executeWithCommand(startScreenCmd, command, args) {
       if (code === 0) {
         resolve({
           success: true,
-          output: stdout
+          output: stdout,
         });
       } else {
         resolve({
           success: false,
           output: stdout,
-          error: stderr || `Command exited with code ${code}`
+          error: stderr || `Command exited with code ${code}`,
         });
       }
     });
@@ -635,7 +621,7 @@ function validateGitHubUrl(args, options = {}) {
   if (args.length === 0) {
     return {
       valid: false,
-      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`
+      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`,
     };
   }
 
@@ -643,7 +629,7 @@ function validateGitHubUrl(args, options = {}) {
   if (!url.includes('github.com')) {
     return {
       valid: false,
-      error: 'First argument must be a GitHub URL'
+      error: 'First argument must be a GitHub URL',
     };
   }
 
@@ -653,7 +639,7 @@ function validateGitHubUrl(args, options = {}) {
     return {
       valid: false,
       error: parsed.error || 'Invalid GitHub URL',
-      suggestion: parsed.suggestion
+      suggestion: parsed.suggestion,
     };
   }
 
@@ -662,7 +648,7 @@ function validateGitHubUrl(args, options = {}) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
     return {
       valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`
+      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`,
     };
   }
 
@@ -713,7 +699,7 @@ function extractGitHubUrl(text) {
     return {
       url: null,
       error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length
+      linkCount: foundUrls.length,
     };
   }
 }
@@ -820,8 +806,8 @@ bot.command('limits', async ctx => {
       chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
       userId: ctx.from?.id,
-      username: ctx.from?.username
-    }
+      username: ctx.from?.username,
+    },
   });
 
   // Ignore messages sent before bot started
@@ -844,10 +830,7 @@ bot.command('limits', async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not a group chat');
     }
-    await ctx.reply(
-      '❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin.',
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply('❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -856,16 +839,13 @@ bot.command('limits', async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: chat not authorized');
     }
-    await ctx.reply(
-      `❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`,
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   // Send "fetching" message to indicate work is in progress
   const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', {
-    reply_to_message_id: ctx.message.message_id
+    reply_to_message_id: ctx.message.message_id,
   });
 
   // Get the usage limits using the library function
@@ -875,20 +855,14 @@ bot.command('limits', async ctx => {
     // Edit the fetching message to show the error
     // Escape the error message for MarkdownV2, preserving inline code blocks
     const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
-    await ctx.telegram.editMessageText(
-      fetchingMessage.chat.id,
-      fetchingMessage.message_id,
-      undefined,
-      `❌ ${escapedError}`,
-      { parse_mode: 'MarkdownV2' }
-    );
+    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
     return;
   }
 
   // Format and edit the fetching message with the results
   const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
-    parse_mode: 'Markdown'
+    parse_mode: 'Markdown',
   });
 });
 bot.command('version', async ctx => {
@@ -897,39 +871,18 @@ bot.command('version', async ctx => {
     category: 'telegram.command',
     message: '/version command received',
     level: 'info',
-    data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username }
+    data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  if (!isGroupChat(ctx))
-    return await ctx.reply(
-      '❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.',
-      { reply_to_message_id: ctx.message.message_id }
-    );
+  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
   const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId))
-    return await ctx.reply(
-      `❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`,
-      { reply_to_message_id: ctx.message.message_id }
-    );
+  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
-    reply_to_message_id: ctx.message.message_id
+    reply_to_message_id: ctx.message.message_id,
   });
   const result = await getVersionInfo(VERBOSE);
-  if (!result.success)
-    return await ctx.telegram.editMessageText(
-      fetchingMessage.chat.id,
-      fetchingMessage.message_id,
-      undefined,
-      `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`,
-      { parse_mode: 'MarkdownV2' }
-    );
-  await ctx.telegram.editMessageText(
-    fetchingMessage.chat.id,
-    fetchingMessage.message_id,
-    undefined,
-    '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions),
-    { parse_mode: 'Markdown' }
-  );
+  if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 bot.command(/^solve$/i, async ctx => {
   if (VERBOSE) {
@@ -945,8 +898,8 @@ bot.command(/^solve$/i, async ctx => {
       chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
       userId: ctx.from?.id,
-      username: ctx.from?.username
-    }
+      username: ctx.from?.username,
+    },
   });
 
   if (!solveEnabled) {
@@ -969,13 +922,7 @@ bot.command(/^solve$/i, async ctx => {
   // But allow reply messages for URL extraction feature
   const message = ctx.message;
   const isForwarded = message.forward_origin && message.forward_origin.type;
-  const isOldApiForwarded =
-    message.forward_from ||
-    message.forward_from_chat ||
-    message.forward_from_message_id ||
-    message.forward_signature ||
-    message.forward_sender_name ||
-    message.forward_date;
+  const isOldApiForwarded = message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date;
 
   if (isForwarded || isOldApiForwarded) {
     if (VERBOSE) {
@@ -988,10 +935,7 @@ bot.command(/^solve$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: not a group chat');
     }
-    await ctx.reply(
-      '❌ The /solve command only works in group chats. Please add this bot to a group and make it an admin.',
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply('❌ The /solve command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1000,10 +944,7 @@ bot.command(/^solve$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: chat not authorized');
     }
-    await ctx.reply(
-      `❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`,
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1015,8 +956,7 @@ bot.command(/^solve$/i, async ctx => {
 
   // Check if this is a reply to a message and user didn't provide URL
   // In that case, try to extract GitHub URL from the replied message
-  const isReply =
-    message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
+  const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
   if (isReply && userArgs.length === 0) {
     if (VERBOSE) {
@@ -1033,7 +973,7 @@ bot.command(/^solve$/i, async ctx => {
       }
       await ctx.reply(`❌ ${extraction.error}`, {
         parse_mode: 'Markdown',
-        reply_to_message_id: ctx.message.message_id
+        reply_to_message_id: ctx.message.message_id,
       });
       return;
     } else if (extraction.url) {
@@ -1048,10 +988,7 @@ bot.command(/^solve$/i, async ctx => {
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply(
-        '❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`',
-        { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id }
-      );
+      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -1062,8 +999,7 @@ bot.command(/^solve$/i, async ctx => {
     if (validation.suggestion) {
       errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
     }
-    errorMsg +=
-      '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
     await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
@@ -1106,7 +1042,7 @@ bot.command(/^solve$/i, async ctx => {
   } catch (error) {
     await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
       parse_mode: 'Markdown',
-      reply_to_message_id: ctx.message.message_id
+      reply_to_message_id: ctx.message.message_id,
     });
     return;
   }
@@ -1156,8 +1092,8 @@ bot.command(/^hive$/i, async ctx => {
       chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
       userId: ctx.from?.id,
-      username: ctx.from?.username
-    }
+      username: ctx.from?.username,
+    },
   });
 
   if (!hiveEnabled) {
@@ -1188,10 +1124,7 @@ bot.command(/^hive$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not a group chat');
     }
-    await ctx.reply(
-      '❌ The /hive command only works in group chats. Please add this bot to a group and make it an admin.',
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply('❌ The /hive command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1200,10 +1133,7 @@ bot.command(/^hive$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: chat not authorized');
     }
-    await ctx.reply(
-      `❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`,
-      { reply_to_message_id: ctx.message.message_id }
-    );
+    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1216,7 +1146,7 @@ bot.command(/^hive$/i, async ctx => {
   const validation = validateGitHubUrl(userArgs, {
     allowedTypes: ['repo', 'organization', 'user'],
     commandName: 'hive',
-    exampleUrl: 'https://github.com/owner/repo'
+    exampleUrl: 'https://github.com/owner/repo',
   });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
@@ -1266,7 +1196,7 @@ bot.command(/^hive$/i, async ctx => {
   } catch (error) {
     await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
       parse_mode: 'Markdown',
-      reply_to_message_id: ctx.message.message_id
+      reply_to_message_id: ctx.message.message_id,
     });
     return;
   }
@@ -1310,7 +1240,7 @@ registerTopCommand(bot, {
   isOldMessage,
   isForwardedOrReply,
   isGroupChat,
-  isChatAuthorized
+  isChatAuthorized,
 });
 
 // Add message listener for verbose debugging
@@ -1329,7 +1259,7 @@ if (VERBOSE) {
       botStartTime: BOT_START_TIME,
       isOld: isOldMessage(ctx),
       isForwarded: isForwardedOrReply(ctx),
-      isAuthorized: isChatAuthorized(ctx.chat?.id)
+      isAuthorized: isChatAuthorized(ctx.chat?.id),
     });
     if (msg) {
       console.log('[VERBOSE] Msg fields:', Object.keys(msg));
@@ -1340,7 +1270,7 @@ if (VERBOSE) {
         forward_date: msg.forward_date,
         reply_to_message: msg.reply_to_message,
         reply_id: msg.reply_to_message?.message_id,
-        forum_topic_created: msg.reply_to_message?.forum_topic_created
+        forum_topic_created: msg.reply_to_message?.forum_topic_created,
       });
     }
     return next();
@@ -1355,7 +1285,7 @@ bot.catch((error, ctx) => {
   console.error('Error details:', {
     name: error.name,
     message: error.message,
-    stack: error.stack?.split('\n').slice(0, 10).join('\n')
+    stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
   // Log context information for debugging
   if (VERBOSE) {
@@ -1364,7 +1294,7 @@ bot.catch((error, ctx) => {
       chatType: ctx.chat?.type,
       messageText: ctx.message?.text?.substring(0, 100),
       fromUser: ctx.from?.username || ctx.from?.id,
-      updateId: ctx.update.update_id
+      updateId: ctx.update.update_id,
     });
   }
 
@@ -1376,8 +1306,8 @@ bot.catch((error, ctx) => {
       updateId: ctx.update.update_id,
       command: ctx.message?.text?.split(' ')[0],
       userId: ctx.from?.id,
-      username: ctx.from?.username
-    }
+      username: ctx.from?.username,
+    },
   });
 
   // Try to notify the user about the error with more details
@@ -1413,11 +1343,9 @@ bot.catch((error, ctx) => {
     ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
       console.error('Failed to send error message to user:', replyError);
       // Try sending a simple text message without Markdown if Markdown parsing failed
-      ctx
-        .reply('❌ An error occurred while processing your request. Please try again or contact support.')
-        .catch(fallbackError => {
-          console.error('Failed to send fallback error message:', fallbackError);
-        });
+      ctx.reply('❌ An error occurred while processing your request. Please try again or contact support.').catch(fallbackError => {
+        console.error('Failed to send fallback error message:', fallbackError);
+      });
     });
   }
 });
@@ -1434,7 +1362,7 @@ if (allowedChats && allowedChats.length > 0) {
 }
 console.log('Commands enabled:', {
   solve: solveEnabled,
-  hive: hiveEnabled
+  hive: hiveEnabled,
 });
 if (solveOverrides.length > 0) {
   console.log('Solve overrides (lino):', lino.format(solveOverrides));
@@ -1465,7 +1393,7 @@ bot.telegram
     if (VERBOSE) {
       console.log('[VERBOSE] Launching bot with config:', {
         allowedUpdates: ['message'],
-        dropPendingUpdates: true
+        dropPendingUpdates: true,
       });
     }
     return bot.launch({
@@ -1474,7 +1402,7 @@ bot.telegram
       allowedUpdates: ['message', 'callback_query'],
       // Drop any pending updates that were sent before the bot started
       // This ensures we only process new messages sent after this bot instance started
-      dropPendingUpdates: true
+      dropPendingUpdates: true,
     });
   })
   .then(async () => {
@@ -1527,7 +1455,7 @@ bot.telegram
     console.error('Error details:', {
       message: error.message,
       code: error.code,
-      stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
     });
     if (VERBOSE) {
       console.error('[VERBOSE] Full error:', error);

@@ -39,11 +39,7 @@ Continue.`;
   }
 
   console.log('Test 2 - PR comments only:');
-  console.log(
-    prompt2.includes('New comments on the pull request: 3')
-      ? '✅ Added PR comment count'
-      : '❌ PR comment count missing'
-  );
+  console.log(prompt2.includes('New comments on the pull request: 3') ? '✅ Added PR comment count' : '❌ PR comment count missing');
   console.log('');
 
   // Test case 3: Both PR and issue comments
@@ -62,11 +58,7 @@ Continue.`;
   }
 
   console.log('Test 3 - Both PR and issue comments:');
-  console.log(
-    prompt3.includes('New comments on the pull request: 2') && prompt3.includes('New comments on the issue: 1')
-      ? '✅ Added both comment counts'
-      : '❌ Comment counts missing'
-  );
+  console.log(prompt3.includes('New comments on the pull request: 2') && prompt3.includes('New comments on the issue: 1') ? '✅ Added both comment counts' : '❌ Comment counts missing');
   console.log('');
 
   // Test case 4: Non-continue mode (should not be affected)
@@ -84,11 +76,7 @@ Proceed.`;
   }
 
   console.log('Test 4 - Non-continue mode:');
-  console.log(
-    !prompt4.includes('New comments') && prompt4.includes('Proceed.')
-      ? '✅ Non-continue mode unchanged (correct)'
-      : '❌ Non-continue mode incorrectly modified'
-  );
+  console.log(!prompt4.includes('New comments') && prompt4.includes('Proceed.') ? '✅ Non-continue mode unchanged (correct)' : '❌ Non-continue mode incorrectly modified');
 
   console.log('\n✅ All edge case tests passed!');
 };

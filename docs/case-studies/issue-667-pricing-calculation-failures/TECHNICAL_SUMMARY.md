@@ -36,7 +36,7 @@ if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
 return {
   success: true,
   sessionId,
-  anthropicTotalCostUSD // ✅ Returned here
+  anthropicTotalCostUSD, // ✅ Returned here
 };
 ```
 
@@ -55,7 +55,7 @@ const { success, sessionId, anthropicTotalCostUSD } = toolResult; // ✅ First s
 ```javascript
 await attachLogToGitHub({
   sessionId, // ❌ OLD session ID
-  anthropicTotalCostUSD // ❌ OLD cost or undefined
+  anthropicTotalCostUSD, // ❌ OLD cost or undefined
 });
 ```
 
@@ -134,8 +134,8 @@ await startWatchMode({
   argv: {
     ...argv,
     watch: argv.watch || shouldRestart,
-    temporaryWatch: temporaryWatchMode
-  }
+    temporaryWatch: temporaryWatchMode,
+  },
 });
 ```
 
@@ -154,8 +154,8 @@ const watchResult = await startWatchMode({
   argv: {
     ...argv,
     watch: argv.watch || shouldRestart,
-    temporaryWatch: temporaryWatchMode
-  }
+    temporaryWatch: temporaryWatchMode,
+  },
 });
 
 // ADD THIS: Update session data with latest from watch mode
@@ -186,7 +186,7 @@ if (temporaryWatchMode) {
       verbose: argv.verbose,
       sessionId, // ❌ OLD
       tempDir: argv.tempDir || process.cwd(),
-      anthropicTotalCostUSD // ❌ OLD
+      anthropicTotalCostUSD, // ❌ OLD
     });
   }
 }

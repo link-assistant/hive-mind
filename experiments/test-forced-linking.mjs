@@ -5,24 +5,22 @@
 const testCases = [
   {
     name: 'Original PR body with content',
-    prBody:
-      'This is a great feature implementation.\n\nIt adds several improvements:\n- Better performance\n- Improved UX',
+    prBody: 'This is a great feature implementation.\n\nIt adds several improvements:\n- Better performance\n- Improved UX',
     issueRef: '#10',
-    expectedOutput:
-      'This is a great feature implementation.\n\nIt adds several improvements:\n- Better performance\n- Improved UX\n\n---\n\nResolves #10'
+    expectedOutput: 'This is a great feature implementation.\n\nIt adds several improvements:\n- Better performance\n- Improved UX\n\n---\n\nResolves #10',
   },
   {
     name: 'Empty PR body',
     prBody: '',
     issueRef: '#25',
-    expectedOutput: '\n\n---\n\nResolves #25'
+    expectedOutput: '\n\n---\n\nResolves #25',
   },
   {
     name: 'Fork issue reference',
     prBody: 'Fix for the bug in the main repository',
     issueRef: 'link-assistant/hive-mind#42',
-    expectedOutput: 'Fix for the bug in the main repository\n\n---\n\nResolves link-assistant/hive-mind#42'
-  }
+    expectedOutput: 'Fix for the bug in the main repository\n\n---\n\nResolves link-assistant/hive-mind#42',
+  },
 ];
 
 console.log('🧪 Testing Forced Linking Logic\n');

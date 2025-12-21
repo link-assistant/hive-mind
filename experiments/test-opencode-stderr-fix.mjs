@@ -25,7 +25,7 @@ const mockCommandStream = (exitCode, stdout, stderr) => {
 
       // Simulate exit
       yield { type: 'exit', code: exitCode };
-    }
+    },
   };
 };
 
@@ -80,26 +80,23 @@ const testScenarios = [
     name: 'Issue #438 scenario: Success with stderr containing error keywords',
     exitCode: 0,
     stdout: ['Task completed successfully\n', 'All changes committed\n'],
-    stderr: [
-      '| Bash     node src/solve.mjs --help 2>&1 | head -50\n',
-      '| Bash     gh pr edit 437 --title "feat: add option" --body "error handling improved"\n'
-    ],
-    expectedResult: true
+    stderr: ['| Bash     node src/solve.mjs --help 2>&1 | head -50\n', '| Bash     gh pr edit 437 --title "feat: add option" --body "error handling improved"\n'],
+    expectedResult: true,
   },
   {
     name: 'Legitimate failure with exit code 1',
     exitCode: 1,
     stdout: ['Starting task...\n'],
     stderr: ['Error: Authentication failed\n'],
-    expectedResult: false
+    expectedResult: false,
   },
   {
     name: 'Success with no stderr',
     exitCode: 0,
     stdout: ['Task completed\n'],
     stderr: [],
-    expectedResult: true
-  }
+    expectedResult: true,
+  },
 ];
 
 // Run tests
@@ -113,12 +110,8 @@ for (const scenario of testScenarios) {
   const oldResult = await oldLogic(scenario.exitCode, scenario.stdout, scenario.stderr);
   const newResult = await newLogic(scenario.exitCode, scenario.stdout, scenario.stderr);
 
-  console.log(
-    `   Old logic result: ${oldResult ? '✅ Success' : '❌ Failed'} ${oldResult === scenario.expectedResult ? '' : '(WRONG!)'}`
-  );
-  console.log(
-    `   New logic result: ${newResult ? '✅ Success' : '❌ Failed'} ${newResult === scenario.expectedResult ? '✅' : '❌'}`
-  );
+  console.log(`   Old logic result: ${oldResult ? '✅ Success' : '❌ Failed'} ${oldResult === scenario.expectedResult ? '' : '(WRONG!)'}`);
+  console.log(`   New logic result: ${newResult ? '✅ Success' : '❌ Failed'} ${newResult === scenario.expectedResult ? '✅' : '❌'}`);
   console.log('');
 }
 

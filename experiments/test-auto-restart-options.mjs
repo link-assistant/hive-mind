@@ -54,14 +54,7 @@ try {
 }
 
 console.log('\nTest 4: Combined options');
-process.argv = [
-  'node',
-  'test',
-  'https://github.com/owner/repo/issues/1',
-  '--auto-restart-max-iterations',
-  '10',
-  '--no-auto-restart-on-uncommitted-changes'
-];
+process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1', '--auto-restart-max-iterations', '10', '--no-auto-restart-on-uncommitted-changes'];
 try {
   const argv4 = await parseArguments(yargs, hideBin);
   console.log('  autoRestartOnUncommittedChanges:', argv4.autoRestartOnUncommittedChanges);

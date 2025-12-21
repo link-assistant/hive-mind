@@ -28,43 +28,43 @@ const testCases = [
   {
     name: 'URL with underscores (the bug from issue #580)',
     input: 'https://github.com/andchir/llm_game/issues/1',
-    expected: 'https://github.com/andchir/llm\\_game/issues/1'
+    expected: 'https://github.com/andchir/llm\\_game/issues/1',
   },
   {
     name: 'URL with multiple underscores',
     input: 'https://github.com/test_repo/test_project/issues/123',
-    expected: 'https://github.com/test\\_repo/test\\_project/issues/123'
+    expected: 'https://github.com/test\\_repo/test\\_project/issues/123',
   },
   {
     name: 'URL with asterisks',
     input: 'https://example.com/**/path/**',
-    expected: 'https://example.com/\\*\\*/path/\\*\\*'
+    expected: 'https://example.com/\\*\\*/path/\\*\\*',
   },
   {
     name: 'URL with both underscores and asterisks',
     input: 'https://example.com/test_path/**/file_name.txt',
-    expected: 'https://example.com/test\\_path/\\*\\*/file\\_name.txt'
+    expected: 'https://example.com/test\\_path/\\*\\*/file\\_name.txt',
   },
   {
     name: 'Plain URL without special characters',
     input: 'https://github.com/owner/repo/issues/1',
-    expected: 'https://github.com/owner/repo/issues/1'
+    expected: 'https://github.com/owner/repo/issues/1',
   },
   {
     name: 'Empty string',
     input: '',
-    expected: ''
+    expected: '',
   },
   {
     name: 'Null value',
     input: null,
-    expected: null
+    expected: null,
   },
   {
     name: 'Undefined value',
     input: undefined,
-    expected: undefined
-  }
+    expected: undefined,
+  },
 ];
 
 console.log('🧪 Testing Markdown escaping function...\n');

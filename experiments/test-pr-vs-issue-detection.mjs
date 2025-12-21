@@ -45,9 +45,7 @@ if (prResult.code === 0 && !prOutput.includes('Could not resolve to a PullReques
     console.log('   🔧 Did you mean to work on the issue instead?');
     console.log('      Try this corrected command:');
     console.log('');
-    console.log(
-      `      solve https://github.com/${owner}/${repo}/issues/${number} --auto-continue --attach-logs --verbose --model opus --think max`
-    );
+    console.log(`      solve https://github.com/${owner}/${repo}/issues/${number} --auto-continue --attach-logs --verbose --model opus --think max`);
     console.log('');
     console.log('   ─────────────────────────────────────────────────────────');
   } else {

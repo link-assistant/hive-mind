@@ -80,7 +80,7 @@ if (commentId) {
     toolData: data,
     inputDisplay,
     toolName,
-    toolIcon
+    toolIcon,
   });
 }
 ```

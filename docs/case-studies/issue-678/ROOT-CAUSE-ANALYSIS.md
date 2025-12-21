@@ -98,7 +98,7 @@ Looking at the code at line 507:
 
 ```javascript
 const compareResult = await $({
-  silent: true
+  silent: true,
 })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 

@@ -55,7 +55,7 @@ export async function validateYouTrackUrl(issueUrl) {
   return {
     isYouTrackUrl: !!isYouTrackUrl,
     youTrackIssueId,
-    youTrackConfig
+    youTrackConfig,
   };
 }
 

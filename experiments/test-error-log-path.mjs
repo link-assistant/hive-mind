@@ -11,14 +11,14 @@ const testScenarios = [
     name: 'Test hive.mjs with invalid URL',
     command: 'node',
     args: ['src/hive.mjs', 'invalid-url'],
-    expectedPattern: /Full log file:.*\/hive-.*\.log/
+    expectedPattern: /Full log file:.*\/hive-.*\.log/,
   },
   {
     name: 'Test solve.mjs without arguments',
     command: 'node',
     args: ['src/solve.mjs'],
-    expectedPattern: /Missing required github issue/
-  }
+    expectedPattern: /Missing required github issue/,
+  },
 ];
 
 async function runTest(scenario) {
@@ -28,7 +28,7 @@ async function runTest(scenario) {
   return new Promise(resolve => {
     const child = spawn(scenario.command, scenario.args, {
       cwd: process.cwd(),
-      env: process.env
+      env: process.env,
     });
 
     let stdout = '';

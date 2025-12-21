@@ -3,14 +3,7 @@
 // Verify the actual behavior described in the issue
 // Test both scenarios with the exact logic from solve.mjs
 
-function testScenario(
-  scenarioName,
-  isContinueMode,
-  autoContinue,
-  autoContinueOnlyOnNewComments,
-  newPrComments,
-  newIssueComments
-) {
+function testScenario(scenarioName, isContinueMode, autoContinue, autoContinueOnlyOnNewComments, newPrComments, newIssueComments) {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`TESTING: ${scenarioName}`);
   console.log(`${'='.repeat(60)}`);
@@ -25,7 +18,7 @@ function testScenario(
   // Simulate the argv object
   const argv = {
     autoContinue: autoContinue,
-    autoContinueOnlyOnNewComments: autoContinueOnlyOnNewComments
+    autoContinueOnlyOnNewComments: autoContinueOnlyOnNewComments,
   };
 
   console.log('\nStep 1: Comment counts would be logged');

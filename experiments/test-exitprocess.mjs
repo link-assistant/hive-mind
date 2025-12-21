@@ -17,7 +17,7 @@ const argv = yargs([testArg])
     type: 'boolean',
     description: 'Fork the repository',
     alias: 'f',
-    default: false
+    default: false,
   })
   .strict()
   .exitProcess(true).argv; // Ensure yargs exits the process on errors

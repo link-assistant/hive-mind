@@ -102,11 +102,7 @@ Proceed.
     const finalContent = await fs.readFile(path.join(tempDir, 'CLAUDE.md'), 'utf-8');
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      finalContent === initialContent && statusResult.stdout.trim() === '',
-      'Conflict resolved: CLAUDE.md restored to pre-session state',
-      `Content matches: ${finalContent === initialContent}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(finalContent === initialContent && statusResult.stdout.trim() === '', 'Conflict resolved: CLAUDE.md restored to pre-session state', `Content matches: ${finalContent === initialContent}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'Conflict resolved: CLAUDE.md restored to pre-session state', error.message);
   } finally {
@@ -154,11 +150,7 @@ Proceed.
       .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      !fileExists && statusResult.stdout.trim() === '',
-      'Conflict resolved: CLAUDE.md correctly deleted',
-      `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(!fileExists && statusResult.stdout.trim() === '', 'Conflict resolved: CLAUDE.md correctly deleted', `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'Conflict resolved: CLAUDE.md correctly deleted', error.message);
   } finally {
@@ -201,11 +193,7 @@ Proceed.
       .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      !fileExists && statusResult.stdout.trim() === '',
-      'No conflict: Normal revert worked correctly',
-      `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(!fileExists && statusResult.stdout.trim() === '', 'No conflict: Normal revert worked correctly', `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'No conflict: Normal revert worked correctly', error.message);
   } finally {

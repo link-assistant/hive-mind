@@ -4,11 +4,7 @@
  * Test script to verify improved error messages with repository and PR links
  */
 
-import {
-  handleBranchCheckoutError,
-  handleBranchCreationError,
-  handleBranchVerificationError
-} from '../src/solve.branch-errors.lib.mjs';
+import { handleBranchCheckoutError, handleBranchCreationError, handleBranchVerificationError } from '../src/solve.branch-errors.lib.mjs';
 
 // Mock dependencies - $ needs to handle cwd option
 const $ = options => {
@@ -25,8 +21,7 @@ async function testBranchCheckoutError() {
   await handleBranchCheckoutError({
     branchName: 'issue-9-231cfae8',
     prNumber: 10,
-    errorOutput:
-      "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it",
+    errorOutput: "fatal: 'origin/issue-9-231cfae8' is not a commit and a branch 'issue-9-231cfae8' cannot be created from it",
     issueUrl: 'https://github.com/1dNDN/BitrotBruteforce/pull/10',
     owner: '1dNDN',
     repo: 'BitrotBruteforce',
@@ -34,7 +29,7 @@ async function testBranchCheckoutError() {
     argv,
     formatAligned,
     log,
-    $
+    $,
   });
 }
 
@@ -48,7 +43,7 @@ async function testBranchCreationError() {
     owner: 'link-assistant',
     repo: 'hive-mind',
     formatAligned,
-    log
+    log,
   });
 }
 
@@ -65,7 +60,7 @@ async function testBranchVerificationError() {
     tempDir: '/tmp/test-repo',
     formatAligned,
     log,
-    $
+    $,
   });
 }
 

@@ -27,7 +27,7 @@ async function testPRDraftConversion(prNumber, owner, repo) {
   try {
     // Check current draft status
     const isDraftResult = execSync(`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft --jq .isDraft`, {
-      encoding: 'utf8'
+      encoding: 'utf8',
     });
     const isDraft = isDraftResult.trim() === 'true';
     console.log(`📝 PR #${prNumber} draft status: ${isDraft}`);
@@ -61,10 +61,7 @@ async function testPRDraftConversion(prNumber, owner, repo) {
 async function testForkActionsDetection(forkOwner, forkRepo, branchName) {
   try {
     // Check if workflows exist
-    const workflowsResult = execSync(
-      `gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`,
-      { encoding: 'utf8' }
-    );
+    const workflowsResult = execSync(`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`, { encoding: 'utf8' });
     const workflows = workflowsResult.trim();
 
     if (workflows) {

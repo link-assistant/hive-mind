@@ -50,31 +50,23 @@ function testParsing(output) {
 
   console.log('Reset times found:', resetTimes);
   console.log('Expected: ["6pm (UTC)", "Dec 4, 6pm (UTC)", "Dec 4, 6pm (UTC)"]');
-  console.log(
-    'Match:',
-    resetTimes.length === 3 &&
-      resetTimes[0] === '6pm (UTC)' &&
-      resetTimes[1] === 'Dec 4, 6pm (UTC)' &&
-      resetTimes[2] === 'Dec 4, 6pm (UTC)'
-      ? '✅ PASS'
-      : '❌ FAIL'
-  );
+  console.log('Match:', resetTimes.length === 3 && resetTimes[0] === '6pm (UTC)' && resetTimes[1] === 'Dec 4, 6pm (UTC)' && resetTimes[2] === 'Dec 4, 6pm (UTC)' ? '✅ PASS' : '❌ FAIL');
 
   console.log('\nBuilding usage object...\n');
 
   const usage = {
     currentSession: {
       percentage: percentages[0] || null,
-      resetTime: resetTimes[0] || null
+      resetTime: resetTimes[0] || null,
     },
     allModels: {
       percentage: percentages[1] || null,
-      resetTime: resetTimes[1] || null
+      resetTime: resetTimes[1] || null,
     },
     sonnetOnly: {
       percentage: percentages[2] || null,
-      resetTime: resetTimes[2] || null
-    }
+      resetTime: resetTimes[2] || null,
+    },
   };
 
   console.log('Usage object:');

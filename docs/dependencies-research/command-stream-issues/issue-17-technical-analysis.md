@@ -168,7 +168,7 @@ For a test suite with 100 commands, this adds:
 const $silent = $({
   mirror: false,
   capture: true,
-  trace: false // New option to disable trace logs
+  trace: false, // New option to disable trace logs
 });
 ```
 

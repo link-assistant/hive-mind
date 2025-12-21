@@ -80,7 +80,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
         const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
           encoding: 'utf8',
           maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env
+          env: process.env,
         });
 
         const data = JSON.parse(stdout);
@@ -98,7 +98,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
                   number: item.source.number,
                   title: item.source.title,
                   state: item.source.state,
-                  url: item.source.url
+                  url: item.source.url,
                 });
               }
             }
@@ -107,22 +107,19 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
               title: issueData.title,
               state: issueData.state,
               openPRCount: linkedPRs.length,
-              linkedPRs: linkedPRs
+              linkedPRs: linkedPRs,
             };
           } else {
             // Issue not found or error
             results[issueNum] = {
               openPRCount: 0,
               linkedPRs: [],
-              error: 'Issue not found'
+              error: 'Issue not found',
             };
           }
         }
 
-        await log(
-          `   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(issueNumbers.length / BATCH_SIZE)} processed (${batch.length} issues)`,
-          { verbose: true }
-        );
+        await log(`   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(issueNumbers.length / BATCH_SIZE)} processed (${batch.length} issues)`, { verbose: true });
       } catch (batchError) {
         await log(`   ⚠️  GraphQL batch query failed: ${cleanErrorMessage(batchError)}`, { level: 'warning' });
 
@@ -141,13 +138,13 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
 
             results[issueNum] = {
               openPRCount: openPrCount,
-              linkedPRs: [] // REST API doesn't give us PR details easily
+              linkedPRs: [], // REST API doesn't give us PR details easily
             };
           } catch (restError) {
             results[issueNum] = {
               openPRCount: 0,
               linkedPRs: [],
-              error: cleanErrorMessage(restError)
+              error: cleanErrorMessage(restError),
             };
           }
         }
@@ -218,7 +215,7 @@ export async function batchCheckArchivedRepositories(repositories) {
         const { stdout } = await execAsync(`gh api graphql -f query='${query}'`, {
           encoding: 'utf8',
           maxBuffer: githubLimits.bufferMaxSize,
-          env: process.env
+          env: process.env,
         });
 
         const data = JSON.parse(stdout);
@@ -232,10 +229,7 @@ export async function batchCheckArchivedRepositories(repositories) {
           }
         });
 
-        await log(
-          `   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(repositories.length / BATCH_SIZE)} processed (${batch.length} repositories)`,
-          { verbose: true }
-        );
+        await log(`   ✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(repositories.length / BATCH_SIZE)} processed (${batch.length} repositories)`, { verbose: true });
       } catch (batchError) {
         await log(`   ⚠️  GraphQL batch query failed: ${cleanErrorMessage(batchError)}`, { level: 'warning' });
 
@@ -266,10 +260,7 @@ export async function batchCheckArchivedRepositories(repositories) {
 
     // Log summary
     const archivedCount = Object.values(results).filter(isArchived => isArchived).length;
-    await log(
-      `   📊 Batch archived check complete: ${archivedCount}/${repositories.length} repositories are archived`,
-      { verbose: true }
-    );
+    await log(`   📊 Batch archived check complete: ${archivedCount}/${repositories.length} repositories are archived`, { verbose: true });
 
     return results;
   } catch (error) {
@@ -281,5 +272,5 @@ export async function batchCheckArchivedRepositories(repositories) {
 // Export all functions as default object too
 export default {
   batchCheckPullRequestsForIssues,
-  batchCheckArchivedRepositories
+  batchCheckArchivedRepositories,
 };

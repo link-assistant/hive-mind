@@ -524,7 +524,7 @@ Add new config options:
 const AUTO_CONTINUE_TIMEOUTS = {
   WORK_COMPLETE_SIGNAL: 1 * 60 * 60 * 1000, // 1h after PR marked ready
   ABANDONED_DRAFT: 24 * 60 * 60 * 1000, // 24h for draft PRs
-  FORCE_CONTINUE: 4 * 60 * 60 * 1000 // 4h regardless of status
+  FORCE_CONTINUE: 4 * 60 * 60 * 1000, // 4h regardless of status
 };
 ```
 

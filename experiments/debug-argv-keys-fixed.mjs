@@ -26,10 +26,7 @@ console.log('');
 console.log('Test 3: --no-tool-check with boolean-negation (fresh instance)');
 const yargsModule3 = await use('yargs@17.7.2');
 const yargs3 = yargsModule3.default || yargsModule3;
-let argv3 = yargs3(['--no-tool-check'])
-  .option('tool-check', { type: 'boolean', default: true })
-  .parserConfiguration({ 'boolean-negation': true })
-  .parseSync();
+let argv3 = yargs3(['--no-tool-check']).option('tool-check', { type: 'boolean', default: true }).parserConfiguration({ 'boolean-negation': true }).parseSync();
 console.log('Keys:', Object.keys(argv3));
 console.log('Values - tool-check:', argv3['tool-check']);
 console.log('Values - toolCheck:', argv3.toolCheck);

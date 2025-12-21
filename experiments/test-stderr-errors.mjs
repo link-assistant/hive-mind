@@ -17,7 +17,7 @@ console.log('Test 1: Git command without stderr suppression');
 try {
   const result = execSync('git rev-parse --git-dir', {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'] // Capture stderr
+    stdio: ['pipe', 'pipe', 'pipe'], // Capture stderr
   });
   console.log('  Result:', result.trim());
 } catch (error) {
@@ -29,7 +29,7 @@ console.log('\nTest 2: Git command with stderr suppressed (stdio ignore)');
 try {
   const result = execSync('git rev-parse --git-dir', {
     encoding: 'utf8',
-    stdio: ['pipe', 'ignore', 'ignore'] // Suppress both stdout and stderr
+    stdio: ['pipe', 'ignore', 'ignore'], // Suppress both stdout and stderr
   });
   console.log('  Result:', result.trim());
 } catch (error) {
@@ -50,7 +50,7 @@ try {
     .command('$0 <issue-url>', 'Test command', yargs => {
       yargs.positional('issue-url', {
         type: 'string',
-        description: 'Test URL'
+        description: 'Test URL',
       });
     })
     .fail((msg, err, yargsInstance) => {

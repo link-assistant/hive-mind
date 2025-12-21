@@ -12,7 +12,7 @@ const argv = {
   fork: false,
   maxIssues: 0,
   dryRun: false,
-  autoCleanup: false
+  autoCleanup: false,
 };
 
 async function log(message) {

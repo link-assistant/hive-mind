@@ -33,11 +33,11 @@ async function setup() {
     description: 'A project with "quotes" and \'apostrophes\'',
     scripts: {
       test: 'echo "Running tests"',
-      build: "node build.js --env='production'"
+      build: "node build.js --env='production'",
     },
     config: {
-      special: 'Value with `backticks` and $variables'
-    }
+      special: 'Value with `backticks` and $variables',
+    },
   };
 
   const jsonString = JSON.stringify(jsonData, null, 2);

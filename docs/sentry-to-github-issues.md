@@ -59,8 +59,8 @@ Build a custom Node.js script that periodically fetches Sentry issues and create
 // Using Sentry REST API v0
 const response = await fetch('https://sentry.io/api/0/organizations/{org_slug}/issues/?query=is:unresolved', {
   headers: {
-    Authorization: 'Bearer <SENTRY_AUTH_TOKEN>'
-  }
+    Authorization: 'Bearer <SENTRY_AUTH_TOKEN>',
+  },
 });
 ```
 
@@ -83,13 +83,13 @@ const response = await fetch('https://api.github.com/repos/{owner}/{repo}/issues
   method: 'POST',
   headers: {
     Authorization: 'Bearer <GITHUB_TOKEN>',
-    Accept: 'application/vnd.github+json'
+    Accept: 'application/vnd.github+json',
   },
   body: JSON.stringify({
     title: sentryIssue.title,
     body: `**Sentry Issue:** ${sentryIssue.permalink}\n\n${sentryIssue.metadata.value}`,
-    labels: ['sentry', 'bug']
-  })
+    labels: ['sentry', 'bug'],
+  }),
 });
 ```
 

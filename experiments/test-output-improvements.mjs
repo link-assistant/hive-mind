@@ -14,7 +14,7 @@ console.log('   Starting hive.mjs with a non-existent repo to trigger quick shut
 
 const hiveProcess = spawn('node', ['./hive.mjs', 'https://github.com/nonexistent/repo', '--once', '--dry-run'], {
   stdio: ['pipe', 'pipe', 'pipe'],
-  cwd: '/tmp/gh-issue-solver-1757428526964'
+  cwd: '/tmp/gh-issue-solver-1757428526964',
 });
 
 let output = '';

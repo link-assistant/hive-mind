@@ -12,11 +12,7 @@
  * - PR #563: Used "Implements issue #524" which is NOT a GitHub keyword
  */
 
-import {
-  getGitHubLinkingKeywords,
-  hasGitHubLinkingKeyword,
-  extractLinkedIssueNumber
-} from '../src/github-linking.lib.mjs';
+import { getGitHubLinkingKeywords, hasGitHubLinkingKeyword, extractLinkedIssueNumber } from '../src/github-linking.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -56,11 +52,7 @@ console.log('\n📋 Test Suite 1: Keyword List Validation\n');
 const keywords = getGitHubLinkingKeywords();
 const expectedKeywords = ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'];
 
-assert(
-  keywords.length === expectedKeywords.length,
-  'Correct number of keywords',
-  `Expected ${expectedKeywords.length}, got ${keywords.length}`
-);
+assert(keywords.length === expectedKeywords.length, 'Correct number of keywords', `Expected ${expectedKeywords.length}, got ${keywords.length}`);
 
 for (const keyword of expectedKeywords) {
   assert(keywords.includes(keyword), `Keyword '${keyword}' is included`);
@@ -87,16 +79,16 @@ const validFormats = [
     issueNumber: '515',
     owner: 'link-assistant',
     repo: 'hive-mind',
-    desc: 'Fixes owner/repo#N'
+    desc: 'Fixes owner/repo#N',
   },
   {
     prBody: 'Resolves https://github.com/link-assistant/hive-mind/issues/515',
     issueNumber: '515',
     owner: 'link-assistant',
     repo: 'hive-mind',
-    desc: 'Resolves full URL'
+    desc: 'Resolves full URL',
   },
-  { prBody: 'Multiple changes\n\n---\n\nResolves #568', issueNumber: '568', desc: 'Resolves #N after separator' }
+  { prBody: 'Multiple changes\n\n---\n\nResolves #568', issueNumber: '568', desc: 'Resolves #N after separator' },
 ];
 
 for (const test of validFormats) {
@@ -117,7 +109,7 @@ const invalidFormats = [
   { prBody: 'This closes#515 without space', issueNumber: '515', desc: 'closes#N without space (invalid format)' },
   { prBody: 'Issue 515 is fixed', issueNumber: '515', desc: 'Issue 515 without # (invalid format)' },
   { prBody: '', issueNumber: '515', desc: 'Empty PR body' },
-  { prBody: 'No issue reference here', issueNumber: '515', desc: 'No reference at all' }
+  { prBody: 'No issue reference here', issueNumber: '515', desc: 'No reference at all' },
 ];
 
 for (const test of invalidFormats) {
@@ -146,11 +138,11 @@ const extractionTests = [
   {
     prBody: 'Fixes https://github.com/link-assistant/hive-mind/issues/123',
     expected: '123',
-    desc: 'Extract from full URL'
+    desc: 'Extract from full URL',
   },
   { prBody: 'No issue here', expected: null, desc: 'Return null when no issue found' },
   { prBody: 'Implements issue #524', expected: null, desc: 'Return null for non-GitHub keyword' },
-  { prBody: '', expected: null, desc: 'Return null for empty body' }
+  { prBody: '', expected: null, desc: 'Return null for empty body' },
 ];
 
 for (const test of extractionTests) {
@@ -166,10 +158,7 @@ const pr558Body = `## Summary
 
 This PR implements full support for **GitHub Copilot CLI** as an AI tool option...`;
 
-assert(
-  hasGitHubLinkingKeyword(pr558Body, '515') === false,
-  'PR #558: Should NOT detect linking (missing Resolves #515)'
-);
+assert(hasGitHubLinkingKeyword(pr558Body, '515') === false, 'PR #558: Should NOT detect linking (missing Resolves #515)');
 
 // PR #563 - Used "Implements issue #524" instead of GitHub keyword
 const pr563Body = `## Summary
@@ -178,24 +167,15 @@ Implements issue #524: Button to forcefully stop the command in hive-telegram-bo
 
 This PR adds a new /stop command...`;
 
-assert(
-  hasGitHubLinkingKeyword(pr563Body, '524') === false,
-  'PR #563: Should NOT detect linking (used "Implements issue" instead of GitHub keyword)'
-);
+assert(hasGitHubLinkingKeyword(pr563Body, '524') === false, 'PR #563: Should NOT detect linking (used "Implements issue" instead of GitHub keyword)');
 
 // What PR #558 SHOULD have contained
 const pr558BodyFixed = pr558Body + '\n\nResolves #515';
-assert(
-  hasGitHubLinkingKeyword(pr558BodyFixed, '515') === true,
-  'PR #558 Fixed: Should detect linking with added "Resolves #515"'
-);
+assert(hasGitHubLinkingKeyword(pr558BodyFixed, '515') === true, 'PR #558 Fixed: Should detect linking with added "Resolves #515"');
 
 // What PR #563 SHOULD have contained
 const pr563BodyFixed = pr563Body.replace('Implements issue #524', 'Resolves #524');
-assert(
-  hasGitHubLinkingKeyword(pr563BodyFixed, '524') === true,
-  'PR #563 Fixed: Should detect linking when "Implements issue" is replaced with "Resolves"'
-);
+assert(hasGitHubLinkingKeyword(pr563BodyFixed, '524') === true, 'PR #563 Fixed: Should detect linking when "Implements issue" is replaced with "Resolves"');
 
 // Summary
 console.log('\n' + '='.repeat(60));

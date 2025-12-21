@@ -91,7 +91,7 @@ return {
   limitReached,
   messageCount,
   toolUseCount,
-  anthropicTotalCostUSD // Pass Anthropic's official total cost
+  anthropicTotalCostUSD, // Pass Anthropic's official total cost
 };
 ```
 
@@ -111,7 +111,7 @@ However, this variable is scoped to the main function. When the code reaches lin
 const logUploadSuccess = await attachLogToGitHub({
   ...sessionId, // This is from the FIRST session
   tempDir: argv.tempDir || process.cwd(),
-  anthropicTotalCostUSD // This is from the FIRST session
+  anthropicTotalCostUSD, // This is from the FIRST session
 });
 ```
 

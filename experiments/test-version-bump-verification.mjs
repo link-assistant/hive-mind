@@ -13,7 +13,7 @@ function runCommand(command, options = {}) {
     const result = execSync(command, {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options
+      ...options,
     });
     return result?.trim();
   } catch (error) {

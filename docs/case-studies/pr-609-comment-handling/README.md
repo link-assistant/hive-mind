@@ -108,7 +108,7 @@ if (shouldAttachLogs && prNumber) {
       $,
       log,
       sanitizeLogContent,
-      verbose: argv.verbose
+      verbose: argv.verbose,
     });
 
     if (logUploadSuccess) {
@@ -128,7 +128,7 @@ await endWorkSession({
   argv,
   log,
   formatAligned,
-  $
+  $,
 });
 ```
 
@@ -194,7 +194,7 @@ export async function endWorkSession({
   log,
   formatAligned,
   $,
-  logsAttached = false // NEW PARAMETER
+  logsAttached = false, // NEW PARAMETER
 }) {
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
     const workEndTime = new Date();
@@ -206,8 +206,7 @@ export async function endWorkSession({
       // Post a comment marking the end of work session
       try {
         const endComment = `🤖 **AI Work Session Completed**\n\nWork session ended at ${workEndTime.toISOString()}\n\nThe PR will be converted back to ready for review.\n\n_This comment marks the end of an AI work session. New comments after this time will be considered as feedback._`;
-        const commentResult =
-          await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
+        const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${endComment}`;
         if (commentResult.code === 0) {
           await log(formatAligned('💬', 'Posted:', 'Work session end comment', 2));
         }

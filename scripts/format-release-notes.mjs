@@ -38,23 +38,23 @@ const config = makeConfig({
       .option('release-version', {
         type: 'string',
         default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., v0.8.36)'
+        describe: 'Version number (e.g., v0.8.36)',
       })
       .option('release-id', {
         type: 'string',
         default: getenv('RELEASE_ID', ''),
-        describe: 'GitHub release ID'
+        describe: 'GitHub release ID',
       })
       .option('repository', {
         type: 'string',
         default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)'
+        describe: 'GitHub repository (e.g., owner/repo)',
       })
       .option('commit-sha', {
         type: 'string',
         default: getenv('COMMIT_SHA', ''),
-        describe: 'Commit SHA for PR detection'
-      })
+        describe: 'Commit SHA for PR detection',
+      }),
 });
 
 const releaseId = config.releaseId;
@@ -63,16 +63,14 @@ const repository = config.repository;
 const passedCommitSha = config.commitSha;
 
 if (!releaseId || !version || !repository) {
-  console.error(
-    'Usage: format-release-notes.mjs --release-id <releaseId> --release-version <version> --repository <repository> [--commit-sha <sha>]'
-  );
+  console.error('Usage: format-release-notes.mjs --release-id <releaseId> --release-version <version> --repository <repository> [--commit-sha <sha>]');
   process.exit(1);
 }
 
 try {
   // Get current release body
   const result = await $`gh api repos/${repository}/releases/${releaseId}`.run({
-    capture: true
+    capture: true,
   });
   const releaseData = JSON.parse(result.stdout);
 

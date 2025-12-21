@@ -13,16 +13,12 @@ async function testCommentOutput() {
   console.log('Testing gh pr comment output format...\n');
 
   // Post a test comment to PR 852 and capture output
-  const testComment =
-    '## Test comment for ID extraction\n\nThis is a test comment to understand the output format of `gh pr comment`.\n\n_Will be deleted shortly._';
+  const testComment = '## Test comment for ID extraction\n\nThis is a test comment to understand the output format of `gh pr comment`.\n\n_Will be deleted shortly._';
 
   try {
     // Test with execSync
     console.log('=== Using execSync ===');
-    const resultSync = execSync(
-      `gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment.replace(/"/g, '\\"')}"`,
-      { encoding: 'utf8' }
-    );
+    const resultSync = execSync(`gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment.replace(/"/g, '\\"')}"`, { encoding: 'utf8' });
     console.log('Result type:', typeof resultSync);
     console.log('Result value:', resultSync);
 
@@ -41,9 +37,7 @@ async function testCommentOutput() {
     // Now test with execAsync (more similar to command-stream behavior)
     console.log('\n\n=== Using execAsync ===');
     const testComment2 = '## Test comment 2 for async\n\nSecond test.\n\n_Will be deleted shortly._';
-    const { stdout, stderr } = await execAsync(
-      `gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment2.replace(/"/g, '\\"')}"`
-    );
+    const { stdout, stderr } = await execAsync(`gh pr comment 852 --repo link-assistant/hive-mind --body "${testComment2.replace(/"/g, '\\"')}"`);
     console.log('stdout type:', typeof stdout);
     console.log('stdout value:', stdout);
     console.log('stderr type:', typeof stderr);

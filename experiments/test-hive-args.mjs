@@ -1,14 +1,7 @@
 #!/usr/bin/env node
 
 // Just test argument parsing - exit before networking
-process.argv = [
-  'node',
-  './hive.mjs',
-  'https://github.com/suenot/tinkoff-invest-etf-balancer-bot',
-  '-vas',
-  '--once',
-  '--fork'
-];
+process.argv = ['node', './hive.mjs', 'https://github.com/suenot/tinkoff-invest-etf-balancer-bot', '-vas', '--once', '--fork'];
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
 if (typeof use === 'undefined') {
@@ -25,7 +18,7 @@ const argv = yargs(hideBin(process.argv))
     yargs.positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
-      demandOption: true
+      demandOption: true,
     });
   })
   .usage('Usage: $0 <github-url> [options]')
@@ -33,36 +26,36 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'GitHub label to monitor for issues',
     default: 'help wanted',
-    alias: 't'
+    alias: 't',
   })
   .option('all-issues', {
     type: 'boolean',
     description: 'Process all open issues regardless of labels',
     default: false,
-    alias: 'a'
+    alias: 'a',
   })
   .option('skip-issues-with-prs', {
     type: 'boolean',
     description: 'Skip issues that already have open pull requests',
     default: false,
-    alias: 's'
+    alias: 's',
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('once', {
     type: 'boolean',
     description: 'Run once and exit instead of continuous monitoring',
-    default: false
+    default: false,
   })
   .option('fork', {
     type: 'boolean',
     description: "Fork the repository if you don't have write access",
     alias: 'f',
-    default: false
+    default: false,
   })
   .help('h')
   .alias('h', 'help').argv;

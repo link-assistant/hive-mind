@@ -57,7 +57,7 @@ export const setupTempDirectory = async argv => {
       reportError(err, {
         context: 'resume_session_setup',
         sessionId: argv.resume,
-        operation: 'find_session_log'
+        operation: 'find_session_log',
       });
       await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
@@ -138,9 +138,7 @@ export const setupRepository = async (argv, owner, repo) => {
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // 2s, 4s, 8s, 16s, 32s
-          await log(
-            `${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay / 1000}s)...`)}`
-          );
+          await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay / 1000}s)...`)}`);
           await new Promise(resolve => setTimeout(resolve, delay));
 
           const reCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
@@ -152,12 +150,8 @@ export const setupRepository = async (argv, owner, repo) => {
         }
 
         if (!forkVerified) {
-          await log(
-            `${formatAligned('❌', 'Error:', 'Fork reported as existing but not found after multiple retries')}`
-          );
-          await log(
-            `${formatAligned('', 'Suggestion:', 'GitHub may be experiencing delays - try running the command again in a few minutes')}`
-          );
+          await log(`${formatAligned('❌', 'Error:', 'Fork reported as existing but not found after multiple retries')}`);
+          await log(`${formatAligned('', 'Suggestion:', 'GitHub may be experiencing delays - try running the command again in a few minutes')}`);
           process.exit(1);
         }
       } else {
@@ -199,7 +193,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
         });
 
         if (logUploadSuccess) {
@@ -209,7 +203,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_error_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -220,8 +214,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
     await log('\n🔒 Auto-closing pull request due to failure...');
     try {
-      const result =
-        await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
       if (result.exitCode === 0) {
         await log('✅ Pull request closed successfully');
       } else {
@@ -231,7 +224,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_pr_on_error',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
@@ -252,7 +245,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
       reportError(cleanupError, {
         context: 'cleanup_temp_directory',
         tempDir,
-        operation: 'remove_temp_dir'
+        operation: 'remove_temp_dir',
       });
       await log(' ⚠️  (failed)');
     }

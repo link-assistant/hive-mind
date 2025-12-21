@@ -23,7 +23,7 @@ function executeWithCommand(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
     });
 
     let stdout = '';
@@ -41,7 +41,7 @@ function executeWithCommand(startScreenCmd, command, args) {
       resolve({
         success: false,
         output: stdout,
-        error: error.message
+        error: error.message,
       });
     });
 
@@ -49,13 +49,13 @@ function executeWithCommand(startScreenCmd, command, args) {
       if (code === 0) {
         resolve({
           success: true,
-          output: stdout
+          output: stdout,
         });
       } else {
         resolve({
           success: false,
           output: stdout,
-          error: stderr || `Command exited with code ${code}`
+          error: stderr || `Command exited with code ${code}`,
         });
       }
     });
@@ -96,11 +96,7 @@ async function testSpawnImplementation() {
   const firstLine1 = testText1.split('\n')[0].trim();
   console.log('Input:', JSON.stringify(testText1));
   console.log('First line:', JSON.stringify(firstLine1));
-  console.log(
-    firstLine1.includes('Ignore this line')
-      ? '❌ Failed to extract first line only'
-      : '✅ Correctly extracted first line'
-  );
+  console.log(firstLine1.includes('Ignore this line') ? '❌ Failed to extract first line only' : '✅ Correctly extracted first line');
 
   console.log('\n='.repeat(60));
   console.log('Test completed');

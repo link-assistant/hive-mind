@@ -19,18 +19,18 @@ const mockUsage = {
   currentSession: {
     percentage: 22,
     resetTime: 'Dec 4, 10:59pm UTC',
-    resetsAt: in1Hour13Min.toISOString()
+    resetsAt: in1Hour13Min.toISOString(),
   },
   allModels: {
     percentage: 3,
     resetTime: 'Dec 11, 5:59pm UTC',
-    resetsAt: in164Hours13Min.toISOString()
+    resetsAt: in164Hours13Min.toISOString(),
   },
   sonnetOnly: {
     percentage: 3,
     resetTime: 'Dec 11, 5:59pm UTC',
-    resetsAt: in164Hours13Min.toISOString()
-  }
+    resetsAt: in164Hours13Min.toISOString(),
+  },
 };
 
 console.log('Testing /limits output with new relative time formatting\n');

@@ -287,7 +287,10 @@ console.log('\n=== Testing Async Functions ===\n');
 
 await runAsyncTest('validateInteractiveModeConfig disabled', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   if (!result) {
@@ -297,7 +300,10 @@ await runAsyncTest('validateInteractiveModeConfig disabled', async () => {
 
 await runAsyncTest('validateInteractiveModeConfig enabled with claude', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog);
   if (!result) {
@@ -310,7 +316,10 @@ await runAsyncTest('validateInteractiveModeConfig enabled with claude', async ()
 
 await runAsyncTest('validateInteractiveModeConfig enabled with opencode', async () => {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
 
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   if (result) {
@@ -337,7 +346,7 @@ await runAsyncTest('createInteractiveHandler returns expected interface', async 
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   if (typeof handler.processEvent !== 'function') {
@@ -364,7 +373,7 @@ await runAsyncTest('handler initial state', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   const state = handler.getState();
@@ -382,7 +391,10 @@ await runAsyncTest('handler initial state', async () => {
 await runAsyncTest('processEvent handles system.init', async () => {
   const logs = [];
   const comments = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const mock$ = (...args) => {
     // Extract the body from template literals
     const body = args[0].reduce((acc, str, i) => acc + str + (args[i + 1] || ''), '');
@@ -396,7 +408,7 @@ await runAsyncTest('processEvent handles system.init', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: true
+    verbose: true,
   });
 
   await handler.processEvent({
@@ -404,7 +416,7 @@ await runAsyncTest('processEvent handles system.init', async () => {
     subtype: 'init',
     session_id: 'test-session-123',
     cwd: '/tmp/test',
-    tools: ['Read', 'Write', 'Bash']
+    tools: ['Read', 'Write', 'Bash'],
   });
 
   const state = handler.getState();
@@ -427,7 +439,7 @@ await runAsyncTest('processEvent handles assistant text', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   // Need to wait for rate limiting interval
@@ -437,11 +449,9 @@ await runAsyncTest('processEvent handles assistant text', async () => {
     type: 'assistant',
     message: {
       model: 'claude-sonnet-4-5-20250929',
-      content: [
-        { type: 'text', text: 'This is a test response from Claude.' }
-      ],
-      usage: { input_tokens: 100, output_tokens: 50 }
-    }
+      content: [{ type: 'text', text: 'This is a test response from Claude.' }],
+      usage: { input_tokens: 100, output_tokens: 50 },
+    },
   });
 
   const state = handler.getState();
@@ -460,7 +470,7 @@ await runAsyncTest('processEvent handles tool_use', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   await handler.processEvent({
@@ -472,10 +482,10 @@ await runAsyncTest('processEvent handles tool_use', async () => {
           type: 'tool_use',
           id: 'tool-123',
           name: 'Bash',
-          input: { command: 'ls -la' }
-        }
-      ]
-    }
+          input: { command: 'ls -la' },
+        },
+      ],
+    },
   });
 
   const state = handler.getState();
@@ -494,7 +504,7 @@ await runAsyncTest('processEvent handles result', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   await handler.processEvent({
@@ -503,8 +513,8 @@ await runAsyncTest('processEvent handles result', async () => {
     is_error: false,
     duration_ms: 120000,
     num_turns: 10,
-    total_cost_usd: 0.50,
-    session_id: 'test-session'
+    total_cost_usd: 0.5,
+    session_id: 'test-session',
   });
 
   // Result handler doesn't update counters, just posts comment
@@ -521,14 +531,14 @@ await runAsyncTest('processEvent handles unrecognized events', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   // Should not throw
   await handler.processEvent({
     type: 'custom_type',
     subtype: 'unknown',
-    data: { foo: 'bar' }
+    data: { foo: 'bar' },
   });
 });
 
@@ -542,7 +552,7 @@ await runAsyncTest('processEvent handles null/invalid input', async () => {
     prNumber: 123,
     $: mock$,
     log: mockLog,
-    verbose: false
+    verbose: false,
   });
 
   // Should not throw
@@ -555,19 +565,22 @@ await runAsyncTest('processEvent handles null/invalid input', async () => {
 await runAsyncTest('handler does not post without PR info', async () => {
   const logs = [];
   const comments = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const mock$ = () => {
     comments.push('posted');
     return Promise.resolve();
   };
 
   const handler = createInteractiveHandler({
-    owner: '',  // Empty owner
+    owner: '', // Empty owner
     repo: 'test-repo',
-    prNumber: null,  // No PR number
+    prNumber: null, // No PR number
     $: mock$,
     log: mockLog,
-    verbose: true
+    verbose: true,
   });
 
   await handler.processEvent({
@@ -575,7 +588,7 @@ await runAsyncTest('handler does not post without PR info', async () => {
     subtype: 'init',
     session_id: 'test-123',
     cwd: '/tmp',
-    tools: []
+    tools: [],
   });
 
   if (comments.length > 0) {
@@ -593,11 +606,7 @@ console.log('\n=== Testing Comment ID Extraction ===\n');
 // The regex must correctly extract comment IDs from gh pr comment output
 runTest('comment ID extraction from gh output URL', () => {
   // Simulate the output from gh pr comment
-  const testOutputs = [
-    'https://github.com/owner/repo/pull/123#issuecomment-1234567890\n',
-    'https://github.com/owner/repo/pull/123#issuecomment-9876543210',
-    'https://github.com/some-owner/some-repo/issues/456#issuecomment-111222333\n',
-  ];
+  const testOutputs = ['https://github.com/owner/repo/pull/123#issuecomment-1234567890\n', 'https://github.com/owner/repo/pull/123#issuecomment-9876543210', 'https://github.com/some-owner/some-repo/issues/456#issuecomment-111222333\n'];
 
   const expectedIds = ['1234567890', '9876543210', '111222333'];
 
@@ -628,7 +637,7 @@ runTest('comment ID extraction handles empty/invalid output', () => {
 runTest('comment ID extraction with Buffer-like objects', () => {
   // Simulate what happens if stdout is a Buffer (edge case)
   const bufferLike = {
-    toString: () => 'https://github.com/owner/repo/pull/1#issuecomment-555666777\n'
+    toString: () => 'https://github.com/owner/repo/pull/1#issuecomment-555666777\n',
   };
 
   // Test both patterns from the code

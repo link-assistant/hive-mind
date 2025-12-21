@@ -6,23 +6,8 @@
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-export const detectAndCountFeedback = async (params) => {
-  const {
-    prNumber,
-    branchName,
-    owner,
-    repo,
-    issueNumber,
-    isContinueMode,
-    argv,
-    mergeStateStatus,
-    prState,
-    workStartTime,
-    log,
-    formatAligned,
-    cleanErrorMessage,
-    $
-  } = params;
+export const detectAndCountFeedback = async params => {
+  const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $ } = params;
 
   let newPrComments = 0;
   let newIssueComments = 0;
@@ -40,7 +25,7 @@ export const detectAndCountFeedback = async (params) => {
   } catch (error) {
     reportError(error, {
       context: 'get_current_user',
-      operation: 'gh_api_user'
+      operation: 'gh_api_user',
     });
     await log('Warning: Could not get current GitHub user', { level: 'warning' });
   }
@@ -91,7 +76,7 @@ export const detectAndCountFeedback = async (params) => {
           reportError(error, {
             context: 'get_last_commit_time',
             prNumber,
-            operation: 'fetch_commit_timestamp'
+            operation: 'fetch_commit_timestamp',
           });
           await log(`Warning: Could not get last commit time: ${cleanErrorMessage(error)}`, { level: 'warning' });
         }
@@ -99,14 +84,8 @@ export const detectAndCountFeedback = async (params) => {
 
       // Only proceed if we have a last commit time
       if (lastCommitTime) {
-
         // Define log patterns to filter out comments containing logs from solve.mjs
-        const logPatterns = [
-          /📊.*Log file|solution\s+draft.*log/i,
-          /🔗.*Link:|💻.*Session:/i,
-          /Generated with.*solve\.mjs/i,
-          /Session ID:|Log file available:/i
-        ];
+        const logPatterns = [/📊.*Log file|solution\s+draft.*log/i, /🔗.*Link:|💻.*Session:/i, /Generated with.*solve\.mjs/i, /Session ID:|Log file available:/i];
 
         // Count new PR comments after last commit (both code review comments and conversation comments)
         let prReviewComments = [];
@@ -271,10 +250,12 @@ export const detectAndCountFeedback = async (params) => {
             reportError(error, {
               context: 'check_description_edits',
               prNumber,
-              operation: 'fetch_pr_timeline'
+              operation: 'fetch_pr_timeline',
             });
             if (argv.verbose) {
-              await log(`Warning: Could not check description edit times: ${cleanErrorMessage(error)}`, { level: 'warning' });
+              await log(`Warning: Could not check description edit times: ${cleanErrorMessage(error)}`, {
+                level: 'warning',
+              });
             }
           }
 
@@ -299,10 +280,12 @@ export const detectAndCountFeedback = async (params) => {
             reportError(error, {
               context: 'check_branch_commits',
               branchName,
-              operation: 'fetch_commit_messages'
+              operation: 'fetch_commit_messages',
             });
             if (argv.verbose) {
-              await log(`Warning: Could not check default branch commits: ${cleanErrorMessage(error)}`, { level: 'warning' });
+              await log(`Warning: Could not check default branch commits: ${cleanErrorMessage(error)}`, {
+                level: 'warning',
+              });
             }
           }
 
@@ -316,12 +299,12 @@ export const detectAndCountFeedback = async (params) => {
           // 5. Check merge status (non-clean indicates issues with merging)
           if (mergeStateStatus && mergeStateStatus !== 'CLEAN') {
             const statusDescriptions = {
-              'DIRTY': 'Merge status is DIRTY (conflicts detected)',
-              'UNSTABLE': 'Merge status is UNSTABLE (non-passing commit status)',
-              'BLOCKED': 'Merge status is BLOCKED',
-              'BEHIND': 'Merge status is BEHIND (head ref is out of date)',
-              'HAS_HOOKS': 'Merge status is HAS_HOOKS (has pre-receive hooks)',
-              'UNKNOWN': 'Merge status is UNKNOWN'
+              DIRTY: 'Merge status is DIRTY (conflicts detected)',
+              UNSTABLE: 'Merge status is UNSTABLE (non-passing commit status)',
+              BLOCKED: 'Merge status is BLOCKED',
+              BEHIND: 'Merge status is BEHIND (head ref is out of date)',
+              HAS_HOOKS: 'Merge status is HAS_HOOKS (has pre-receive hooks)',
+              UNKNOWN: 'Merge status is UNKNOWN',
             };
             const description = statusDescriptions[mergeStateStatus] || `Merge status is ${mergeStateStatus}`;
             feedbackLines.push(description);
@@ -334,9 +317,7 @@ export const detectAndCountFeedback = async (params) => {
             const checksResult = await $`gh api repos/${owner}/${repo}/commits/$(gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha')/check-runs`;
             if (checksResult.code === 0) {
               const checksData = JSON.parse(checksResult.stdout.toString());
-              const failedChecks = checksData.check_runs?.filter(check =>
-                check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime
-              ) || [];
+              const failedChecks = checksData.check_runs?.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime) || [];
 
               if (failedChecks.length > 0) {
                 feedbackLines.push(`Failed pull request checks: ${failedChecks.length}`);
@@ -348,7 +329,7 @@ export const detectAndCountFeedback = async (params) => {
             reportError(error, {
               context: 'check_pr_status_checks',
               prNumber,
-              operation: 'fetch_status_checks'
+              operation: 'fetch_status_checks',
             });
             if (argv.verbose) {
               await log(`Warning: Could not check PR status checks: ${cleanErrorMessage(error)}`, { level: 'warning' });
@@ -360,9 +341,7 @@ export const detectAndCountFeedback = async (params) => {
             const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
             if (reviewsResult.code === 0) {
               const reviews = JSON.parse(reviewsResult.stdout.toString());
-              const changesRequestedReviews = reviews.filter(review =>
-                review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime
-              );
+              const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);
 
               if (changesRequestedReviews.length > 0) {
                 feedbackLines.push(`Changes requested in reviews: ${changesRequestedReviews.length}`);
@@ -374,7 +353,7 @@ export const detectAndCountFeedback = async (params) => {
             reportError(error, {
               context: 'check_pr_reviews',
               prNumber,
-              operation: 'fetch_pr_reviews'
+              operation: 'fetch_pr_reviews',
             });
             if (argv.verbose) {
               await log(`Warning: Could not check PR reviews: ${cleanErrorMessage(error)}`, { level: 'warning' });
@@ -419,7 +398,7 @@ export const detectAndCountFeedback = async (params) => {
       reportError(error, {
         context: 'count_new_comments',
         prNumber,
-        operation: 'detect_and_count_feedback'
+        operation: 'detect_and_count_feedback',
       });
       await log(`Warning: Could not count new comments: ${cleanErrorMessage(error)}`, { level: 'warning' });
     }

@@ -18,7 +18,7 @@ async function testFlow() {
   console.log('5. ✅ Claude command completes');
   console.log('6. ✅ Remove CLAUDE.md');
   console.log('   🗑️ CLAUDE.md deleted AFTER Claude finishes');
-  
+
   console.log('\n✅ Test passed: CLAUDE.md is available during Claude execution');
 }
 

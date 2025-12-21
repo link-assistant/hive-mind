@@ -9,6 +9,7 @@
 **Error**: `unknown command "comments" for "gh pr"`
 
 **Correct Command**:
+
 ```bash
 # To list comments via API:
 gh api repos/veb86/zcadvelecAI/pulls/313/comments
@@ -28,6 +29,7 @@ gh pr view 313 --repo veb86/zcadvelecAI --json comments
 **Error**: `accepts at most 1 arg(s), received 2`
 
 **Correct Command**:
+
 ```bash
 # To list comments via API:
 gh api repos/veb86/zcadvelecAI/pulls/313/comments
@@ -42,11 +44,11 @@ gh api repos/veb86/zcadvelecAI/pulls/313/comments --jq '.[] | {author: .user.log
 
 ## Timeline of Errors
 
-| Timestamp | Error | Retry | Outcome |
-|-----------|-------|-------|---------|
-| 10:02:21.742Z | `gh pr comments` - unknown command | No | Agent continued |
-| 10:02:56.010Z | `gh pr comment list` - too many args | Yes | Retry at 10:02:58.778Z |
-| 10:02:58.778Z | `gh pr comment list` - too many args | No | Agent gave up, continued with task |
+| Timestamp     | Error                                | Retry | Outcome                            |
+| ------------- | ------------------------------------ | ----- | ---------------------------------- |
+| 10:02:21.742Z | `gh pr comments` - unknown command   | No    | Agent continued                    |
+| 10:02:56.010Z | `gh pr comment list` - too many args | Yes   | Retry at 10:02:58.778Z             |
+| 10:02:58.778Z | `gh pr comment list` - too many args | No    | Agent gave up, continued with task |
 
 ---
 
@@ -117,18 +119,19 @@ gh pr comments list --repo OWNER/REPO
 ## Frequency and Impact
 
 ### Frequency
+
 - **Observed**: 3 times in a single solve session
 - **Expected**: Likely to occur in every OpenCode session that needs to read comments
 - **Predictability**: High - same errors occur in predictable situations
 
 ### Impact on Different Scenarios
 
-| Scenario | Impact | Reason |
-|----------|--------|--------|
-| Simple bug fixes | Low | Comment reading is optional |
-| Continue mode | Medium | Agent may miss user feedback in comments |
+| Scenario         | Impact | Reason                                           |
+| ---------------- | ------ | ------------------------------------------------ |
+| Simple bug fixes | Low    | Comment reading is optional                      |
+| Continue mode    | Medium | Agent may miss user feedback in comments         |
 | Complex features | Medium | Missing context from comments may affect quality |
-| PR reviews | High | Agent needs to read review comments to respond |
+| PR reviews       | High   | Agent needs to read review comments to respond   |
 
 ---
 

@@ -12,10 +12,10 @@ console.log('Testing yargs positional argument behavior for issue #651\n');
 // Simulate the exact yargs configuration from solve.config.lib.mjs
 const yargsInstance = yargs(hideBin(process.argv))
   .usage('Usage: solve.mjs <issue-url> [options]')
-  .command('$0 <issue-url>', 'Solve a GitHub issue or pull request', (yargs) => {
+  .command('$0 <issue-url>', 'Solve a GitHub issue or pull request', yargs => {
     yargs.positional('issue-url', {
       type: 'string',
-      description: 'The GitHub issue URL to solve'
+      description: 'The GitHub issue URL to solve',
     });
   });
 

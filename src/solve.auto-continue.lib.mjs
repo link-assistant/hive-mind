@@ -16,26 +16,18 @@ const { $ } = await use('command-stream');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  cleanErrorMessage
-} = lib;
+const { log, cleanErrorMessage } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
 // Import branch name validation functions
 const branchLib = await import('./solve.branch.lib.mjs');
-const {
-  getIssueBranchPrefix,
-  matchesIssuePattern
-} = branchLib;
+const { getIssueBranchPrefix, matchesIssuePattern } = branchLib;
 
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
-const {
-  checkFileInBranch
-} = githubLib;
+const { checkFileInBranch } = githubLib;
 
 // Import validation functions for time parsing
 const validation = await import('./solve.validation.lib.mjs');
@@ -51,16 +43,14 @@ const { extractLinkedIssueNumber } = githubLinking;
 // Import configuration
 import { autoContinue } from './config.lib.mjs';
 
-const {
-  calculateWaitTime
-} = validation;
+const { calculateWaitTime } = validation;
 
 /**
  * Format time duration in days:hours:minutes:seconds
  * @param {number} ms - Milliseconds
  * @returns {string} - Formatted time string (e.g., "0:02:15:30")
  */
-const formatWaitTime = (ms) => {
+const formatWaitTime = ms => {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -109,7 +99,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const resumeArgs = [
       process.argv[1], // solve.mjs path
       issueUrl,
-      '--resume', sessionId
+      '--resume',
+      sessionId,
     ];
 
     // Preserve auto-continue flag
@@ -129,19 +120,18 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const child = childProcess.spawn('node', resumeArgs, {
       stdio: 'inherit',
       cwd: process.cwd(),
-      env: process.env
+      env: process.env,
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       process.exit(code);
     });
-
   } catch (error) {
     reportError(error, {
       context: 'auto_continue_with_command',
       issueUrl,
       sessionId,
-      operation: 'auto_continue_execution'
+      operation: 'auto_continue_execution',
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('\n🔄 Manual resume command:');
@@ -240,7 +230,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
         owner,
         repo,
         issueNumber,
-        operation: 'search_issue_prs'
+        operation: 'search_issue_prs',
       });
       await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
       await log('   Continuing with normal flow...');
@@ -276,14 +266,20 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
         prNumber,
         owner,
         repo,
-        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner'
+        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner',
       });
 
       if (prResult.code !== 0 || !prResult.data) {
         await log('Error: Failed to get PR details', { level: 'error' });
 
         if (prResult.output.includes('Could not resolve to a PullRequest')) {
-          await githubLib.handlePRNotFoundError({ prNumber, owner, repo, argv, shouldAttachLogs: argv.attachLogs || argv['attach-logs'] });
+          await githubLib.handlePRNotFoundError({
+            prNumber,
+            owner,
+            repo,
+            argv,
+            shouldAttachLogs: argv.attachLogs || argv['attach-logs'],
+          });
         } else {
           await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
         }
@@ -319,7 +315,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       reportError(error, {
         context: 'process_pr_in_auto_continue',
         prNumber,
-        operation: 'process_pr_for_continuation'
+        operation: 'process_pr_for_continuation',
       });
       await log(`Error: Failed to process PR: ${cleanErrorMessage(error)}`, { level: 'error' });
       await safeExit(1, 'Auto-continue failed');
@@ -362,7 +358,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
           const branchListResult = await $`gh api --paginate repos/${forkRepo}/branches --jq '.[].name'`;
 
           if (branchListResult.code === 0) {
-            const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+            const allBranches = branchListResult.stdout
+              .toString()
+              .trim()
+              .split('\n')
+              .filter(b => b);
             existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
             if (existingBranches.length > 0) {
@@ -380,9 +380,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_fork_branches'
+        operation: 'search_fork_branches',
       });
-      await log(`⚠️  Warning: Could not check for existing branches in fork: ${forkBranchError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing branches in fork: ${forkBranchError.message}`, {
+        level: 'warning',
+      });
     }
   } else {
     // NOT in fork mode - check for existing branches in the main repository
@@ -394,7 +396,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
       if (branchListResult.code === 0) {
-        const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+        const allBranches = branchListResult.stdout
+          .toString()
+          .trim()
+          .split('\n')
+          .filter(b => b);
         existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
         if (existingBranches.length > 0) {
@@ -410,9 +416,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_main_repo_branches'
+        operation: 'search_main_repo_branches',
       });
-      await log(`⚠️  Warning: Could not check for existing branches in main repo: ${mainBranchError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing branches in main repo: ${mainBranchError.message}`, {
+        level: 'warning',
+      });
     }
   }
 
@@ -463,7 +471,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else if (createdAt < twentyFourHoursAgo) {
               await log(`✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`);
@@ -479,7 +487,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else {
               await log(`  PR #${pr.number}: CLAUDE.md exists, age ${ageHours}h < 24h - skipping`);
@@ -498,7 +506,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       owner,
       repo,
       issueNumber,
-      operation: 'search_pr_with_claude_md'
+      operation: 'search_pr_with_claude_md',
     });
     await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
     await log('   Continuing with normal flow...');
@@ -536,7 +544,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
               isContinueMode: true,
               prNumber: openPr.number,
               prBranch: selectedBranch,
-              issueNumber
+              issueNumber,
             };
           }
         }
@@ -547,10 +555,12 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         selectedBranch,
-        operation: 'search_pr_for_branch'
+        operation: 'search_pr_for_branch',
       });
       // If we can't check for PR, still continue with the branch
-      await log(`⚠️  Warning: Could not check for existing PR for branch: ${prCheckError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing PR for branch: ${prCheckError.message}`, {
+        level: 'warning',
+      });
     }
 
     // No PR exists yet for this branch, but we can still use the branch
@@ -560,7 +570,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       isContinueMode: true,
       prNumber: null, // No PR yet
       prBranch: selectedBranch,
-      issueNumber
+      issueNumber,
     };
   }
 

@@ -90,10 +90,7 @@ Proceed.`;
     console.log('\n🔄 Testing revert functionality...');
 
     // Get first commit hash
-    const commits = execSync('git log --format=%H --reverse', { cwd: testDir })
-      .toString()
-      .trim()
-      .split('\n');
+    const commits = execSync('git log --format=%H --reverse', { cwd: testDir }).toString().trim().split('\n');
 
     if (commits.length < 2) {
       throw new Error('❌ Not enough commits for revert test');
@@ -120,7 +117,6 @@ Proceed.`;
     console.log('   - Existing content is preserved');
     console.log('   - Task info is appended with separator');
     console.log('   - Revert restores original state');
-
   } catch (error) {
     console.error('\n❌ TEST FAILED:', error.message);
     console.error(error.stack);

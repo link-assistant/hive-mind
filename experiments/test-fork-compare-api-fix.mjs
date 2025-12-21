@@ -29,7 +29,7 @@ const testCases = [
     baseBranch: 'main',
     branchName: 'feature-branch',
     expectedHeadRef: 'feature-branch',
-    expectedApiCall: 'repos/owner/repo/compare/main...feature-branch'
+    expectedApiCall: 'repos/owner/repo/compare/main...feature-branch',
   },
   {
     name: 'Fork mode',
@@ -40,7 +40,7 @@ const testCases = [
     baseBranch: 'main',
     branchName: 'issue-123-abc',
     expectedHeadRef: 'konard:issue-123-abc',
-    expectedApiCall: 'repos/upstream-owner/repo/compare/main...konard:issue-123-abc'
+    expectedApiCall: 'repos/upstream-owner/repo/compare/main...konard:issue-123-abc',
   },
   {
     name: 'Fork mode with custom base branch',
@@ -51,8 +51,8 @@ const testCases = [
     baseBranch: 'develop',
     branchName: 'hotfix-456',
     expectedHeadRef: 'user123:hotfix-456',
-    expectedApiCall: 'repos/original-owner/test-repo/compare/develop...user123:hotfix-456'
-  }
+    expectedApiCall: 'repos/original-owner/test-repo/compare/develop...user123:hotfix-456',
+  },
 ];
 
 console.log('Testing head reference construction logic:\n');

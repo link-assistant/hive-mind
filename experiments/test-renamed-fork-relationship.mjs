@@ -135,12 +135,12 @@ if (renamedForkExists) {
 console.log('\n' + '='.repeat(80));
 console.log('\n🔍 ANALYSIS:\n');
 console.log('To fully answer the question "Does --fork-name maintain fork relationship?",');
-console.log('we need to test with a repository where we don\'t already have a fork.\n');
+console.log("we need to test with a repository where we don't already have a fork.\n");
 
 console.log('Based on GitHub CLI documentation:');
-console.log('- `gh repo fork` creates a fork using GitHub\'s Fork API');
+console.log("- `gh repo fork` creates a fork using GitHub's Fork API");
 console.log('- The `--fork-name` flag is passed to the API as a repository name');
-console.log('- GitHub\'s Fork API maintains fork relationship regardless of name\n');
+console.log("- GitHub's Fork API maintains fork relationship regardless of name\n");
 
 console.log('⚡ EXPECTED BEHAVIOR:');
 console.log('Forks created with `gh repo fork --fork-name` SHOULD maintain fork relationship');
@@ -153,7 +153,7 @@ console.log('Alternative: Check GitHub CLI source code or GitHub API documentati
 // Step 5: Research GitHub CLI and API behavior
 console.log('Step 5: Checking GitHub CLI fork command behavior...');
 console.log('-'.repeat(80));
-console.log('\nLet\'s check what `gh repo fork --fork-name` actually does:\n');
+console.log("\nLet's check what `gh repo fork --fork-name` actually does:\n");
 
 console.log('According to GitHub CLI documentation (gh repo fork --help):');
 console.log('  --fork-name <string>');

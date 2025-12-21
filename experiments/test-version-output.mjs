@@ -17,7 +17,7 @@ console.log('Testing version output functionality...\n');
 
 // Test 1: Check --version flag outputs only version
 console.log('Test 1: --version flag output');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 try {
   const versionOutput = execSync(`${solvePath} --version`, { encoding: 'utf8' }).trim();
   console.log(`Version output: "${versionOutput}"`);
@@ -45,13 +45,13 @@ console.log('\n');
 
 // Test 2: Check version is logged at the beginning when running normally
 console.log('Test 2: Version logging at startup');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 try {
   // Run with a fake URL to trigger early exit but still see initial logs
   const output = execSync(`${solvePath} invalid-url 2>&1`, { encoding: 'utf8' });
   console.log('First few lines of output:');
   const lines = output.split('\n').slice(0, 10);
-  lines.forEach((line, i) => console.log(`  ${i+1}: ${line}`));
+  lines.forEach((line, i) => console.log(`  ${i + 1}: ${line}`));
 
   // Check if version is logged early
   const versionLineRegex = /solve v\d+\.\d+\.\d+/;
@@ -69,7 +69,7 @@ try {
   const output = error.stdout || error.stderr || '';
   console.log('First few lines of output (from error):');
   const lines = output.split('\n').slice(0, 10);
-  lines.forEach((line, i) => console.log(`  ${i+1}: ${line}`));
+  lines.forEach((line, i) => console.log(`  ${i + 1}: ${line}`));
 
   const versionLineRegex = /solve v\d+\.\d+\.\d+/;
   const hasVersionLog = lines.some(line => versionLineRegex.test(line));
@@ -87,7 +87,7 @@ console.log('\n');
 
 // Test 3: Check if dev version format works (when not on a tag)
 console.log('Test 3: Development version format');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 try {
   // Get current git state
   const currentTag = execSync('git describe --exact-match --tags HEAD 2>/dev/null', { encoding: 'utf8' }).trim();
@@ -116,5 +116,5 @@ try {
 }
 
 console.log('\n');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 console.log('Version output testing complete!');

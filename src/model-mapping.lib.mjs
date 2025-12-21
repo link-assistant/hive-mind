@@ -7,50 +7,50 @@
 
 // Claude models (Anthropic API)
 export const claudeModels = {
-  'sonnet': 'claude-sonnet-4-5-20250929',  // Sonnet 4.5
-  'opus': 'claude-opus-4-5-20251101',      // Opus 4.5
-  'haiku': 'claude-haiku-4-5-20251001',    // Haiku 4.5
+  sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
+  opus: 'claude-opus-4-5-20251101', // Opus 4.5
+  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307',     // Haiku 3
+  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
 };
 
 // Agent models (OpenCode API via agent CLI)
 export const agentModels = {
-  'grok': 'opencode/grok-code',
+  grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'openai/gpt-5-nano',
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'haiku': 'anthropic/claude-3-5-haiku',
-  'opus': 'anthropic/claude-3-opus',
+  sonnet: 'anthropic/claude-3-5-sonnet',
+  haiku: 'anthropic/claude-3-5-haiku',
+  opus: 'anthropic/claude-3-opus',
   'gemini-3-pro': 'google/gemini-3-pro',
 };
 
 // OpenCode models (OpenCode API)
 export const opencodeModels = {
-  'gpt4': 'openai/gpt-4',
-  'gpt4o': 'openai/gpt-4o',
-  'claude': 'anthropic/claude-3-5-sonnet',
-  'sonnet': 'anthropic/claude-3-5-sonnet',
-  'opus': 'anthropic/claude-3-opus',
-  'gemini': 'google/gemini-pro',
-  'grok': 'opencode/grok-code',
+  gpt4: 'openai/gpt-4',
+  gpt4o: 'openai/gpt-4o',
+  claude: 'anthropic/claude-3-5-sonnet',
+  sonnet: 'anthropic/claude-3-5-sonnet',
+  opus: 'anthropic/claude-3-opus',
+  gemini: 'google/gemini-pro',
+  grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
 };
 
 // Codex models (OpenAI API)
 export const codexModels = {
-  'gpt5': 'gpt-5',
+  gpt5: 'gpt-5',
   'gpt5-codex': 'gpt-5-codex',
-  'o3': 'o3',
+  o3: 'o3',
   'o3-mini': 'o3-mini',
-  'gpt4': 'gpt-4',
-  'gpt4o': 'gpt-4o',
-  'claude': 'claude-3-5-sonnet',
-  'sonnet': 'claude-3-5-sonnet',
-  'opus': 'claude-3-opus',
+  gpt4: 'gpt-4',
+  gpt4o: 'gpt-4o',
+  claude: 'claude-3-5-sonnet',
+  sonnet: 'claude-3-5-sonnet',
+  opus: 'claude-3-opus',
 };
 
 /**
@@ -96,10 +96,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
       // Codex accepts OpenAI and some Claude models
-      return Object.keys(codexModels).includes(model) ||
-             mappedModel.startsWith('gpt-') ||
-             mappedModel.startsWith('o3') ||
-             mappedModel.startsWith('claude-');
+      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-') || mappedModel.startsWith('o3') || mappedModel.startsWith('claude-');
     default:
       return true;
   }
@@ -110,7 +107,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
  * @param {string} tool - The tool name
  * @returns {string[]} Array of valid model names
  */
-export const getValidModelsForTool = (tool) => {
+export const getValidModelsForTool = tool => {
   switch (tool) {
     case 'claude':
       return Object.keys(claudeModels);
@@ -136,10 +133,6 @@ export const validateToolModelCompatibility = (tool, model) => {
     const validModels = getValidModelsForTool(tool);
     const mappedModel = mapModelForTool(tool, model);
 
-    throw new Error(
-      `Model '${model}' (mapped to '${mappedModel}') is not compatible with --tool ${tool}.\n` +
-      `Valid models for ${tool}: ${validModels.join(', ')}\n` +
-      'Hint: Different tools use different model APIs and naming conventions.'
-    );
+    throw new Error(`Model '${model}' (mapped to '${mappedModel}') is not compatible with --tool ${tool}.\n` + `Valid models for ${tool}: ${validModels.join(', ')}\n` + 'Hint: Different tools use different model APIs and naming conventions.');
   }
 };

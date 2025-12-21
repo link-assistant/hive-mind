@@ -36,8 +36,7 @@ try {
 
   // Test 2: Check for isOldMessage function
   console.log('Test 2: isOldMessage function exists');
-  if (content.includes('function isOldMessage(ctx)') &&
-      content.includes('messageDate < BOT_START_TIME')) {
+  if (content.includes('function isOldMessage(ctx)') && content.includes('messageDate < BOT_START_TIME')) {
     console.log('✅ PASSED: isOldMessage function is defined with proper logic\n');
     testsPassed++;
   } else {
@@ -74,7 +73,7 @@ try {
   // Test 5: Check that hive command uses isOldMessage
   console.log('Test 5: hive command filters old messages');
   const hiveStart = content.indexOf("bot.command('hive'");
-  const hiveEnd = content.indexOf("bot.catch(", hiveStart);
+  const hiveEnd = content.indexOf('bot.catch(', hiveStart);
   const hiveCommand = content.substring(hiveStart, hiveEnd);
   if (hiveCommand.includes('if (isOldMessage(ctx))')) {
     console.log('✅ PASSED: hive command filters old messages\n');
@@ -120,7 +119,6 @@ try {
   console.log('   4. Drop pending updates on startup');
   console.log('\nThis ensures the bot only processes new messages sent after');
   console.log('the current bot instance started, preventing old command execution.');
-
 } catch (error) {
   console.error('❌ Error during testing:', error.message);
   process.exit(1);

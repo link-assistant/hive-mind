@@ -31,6 +31,7 @@ npm run changeset
 ```
 
 This will prompt you to:
+
 1. Select the type of change (patch/minor/major)
 2. Provide a summary of the changes
 
@@ -43,6 +44,7 @@ The changeset will be saved as a markdown file in `.changeset/` and should be co
 - **Major**: Breaking changes that affect the public API
 
 Example changeset summary:
+
 ```markdown
 Add support for automatic fork creation with --auto-fork flag
 ```
@@ -65,13 +67,14 @@ interface AgentConfig {
 export const defaultConfig: AgentConfig = {
   model: 'sonnet',
   priority: 'medium',
-  specialization: ['code-review', 'issue-solving']
+  specialization: ['code-review', 'issue-solving'],
 };
 ```
 
 ### Quality Gates
 
 Before merging, ensure:
+
 - [ ] All tests pass
 - [ ] File size limits enforced
 - [ ] Type checking passes
@@ -81,13 +84,15 @@ Before merging, ensure:
 ### Communication Protocols
 
 #### Human → AI
+
 ```bash
 # Clear, specific instructions
 ./solve.mjs https://github.com/owner/repo/issues/123 --requirements "Security focus, maintain backward compatibility"
 ```
 
 #### AI → Human
-```bash  
+
+```bash
 # Status reports with actionable items
 echo "🤖 Analysis complete. Requires human decision on breaking changes."
 ```
@@ -101,7 +106,7 @@ import { testAgent } from './tests/agent-testing.ts';
 await testAgent({
   scenario: 'complex-issue-solving',
   expectedOutcome: 'pull-request-created',
-  timeout: 300000 // 5 minutes
+  timeout: 300000, // 5 minutes
 });
 ```
 
@@ -115,7 +120,7 @@ await testAgent({
 ### Review Checklist
 
 - [ ] Algorithm correctness verified
-- [ ] Security vulnerabilities assessed  
+- [ ] Security vulnerabilities assessed
 - [ ] Performance implications considered
 - [ ] Documentation completeness
 - [ ] Integration test coverage

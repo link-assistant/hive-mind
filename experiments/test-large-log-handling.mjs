@@ -7,7 +7,7 @@ console.log('📋 Large Log Handling Example');
 console.log('This example demonstrates how solve.mjs now handles logs that exceed GitHub comment limits.\n');
 
 console.log('🔧 Solution Summary:');
-console.log('1. Check if log comment exceeds GitHub\'s 65,536 character limit');
+console.log("1. Check if log comment exceeds GitHub's 65,536 character limit");
 console.log('2. If too long, create a GitHub Gist instead of inline comment');
 console.log('3. Post a comment with a link to the Gist');
 console.log('4. Fallback to truncated comment if Gist creation fails');

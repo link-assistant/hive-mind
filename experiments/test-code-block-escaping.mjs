@@ -25,7 +25,7 @@ function example() {
 End of log.`;
 
 // The escaping function
-const escapeCodeBlocksInLog = (logContent) => {
+const escapeCodeBlocksInLog = logContent => {
   return logContent.replace(/```/g, '\\`\\`\\`');
 };
 

@@ -84,18 +84,20 @@ From [GitHub Issue #1111](https://github.com/microsoft/playwright-mcp/issues/111
 // MCP tool handler (simplified)
 async function browser_close_page(params) {
   const page = this.currentPage;
-  await page.close();  // Only closes the page object
+  await page.close(); // Only closes the page object
   // Browser context and browser remain open
   return { success: true };
 }
 ```
 
 The issue is that `page.close()` only:
+
 1. Closes the Playwright page object
 2. Sends close command to the tab
 3. Detaches automation hooks
 
 It does NOT:
+
 1. Close the browser context
 2. Close the browser process
 3. Kill child processes
@@ -132,15 +134,16 @@ Browser contexts created during MCP sessions are not properly tracked and cleane
 
 ### Session Modes Comparison
 
-| Mode | Context Lifecycle | Cleanup Behavior | Leak Risk |
-|------|------------------|------------------|-----------|
-| Persistent (default) | Persists on disk | Manual only | HIGH |
-| Isolated | In-memory | Auto on disconnect | LOW |
-| Extension | External browser | Browser continues | MEDIUM |
+| Mode                 | Context Lifecycle | Cleanup Behavior   | Leak Risk |
+| -------------------- | ----------------- | ------------------ | --------- |
+| Persistent (default) | Persists on disk  | Manual only        | HIGH      |
+| Isolated             | In-memory         | Auto on disconnect | LOW       |
+| Extension            | External browser  | Browser continues  | MEDIUM    |
 
 ### Technical Explanation
 
 **Persistent Mode (Default)**:
+
 ```javascript
 // Profile stored at:
 // Linux: ~/.cache/ms-playwright/mcp-{channel}-profile
@@ -149,13 +152,14 @@ Browser contexts created during MCP sessions are not properly tracked and cleane
 
 // Browser launched with persistent profile
 const browser = await chromium.launchPersistentContext(profilePath, {
-  headless: true
+  headless: true,
 });
 
 // On session end - profile persists, process may linger
 ```
 
 **Isolated Mode**:
+
 ```javascript
 // Browser launched with ephemeral profile
 const browser = await chromium.launch({ headless: true });
@@ -239,7 +243,7 @@ async function execute_browser_task() {
   } catch (error) {
     // Error logged but browser NOT closed
     console.error('Task failed:', error);
-    throw error;  // Re-throw without cleanup
+    throw error; // Re-throw without cleanup
   }
   // Only reached on success
   await browser.close();
@@ -280,11 +284,11 @@ When running in containers or server environments, improper process management l
 
 Common issues when running Playwright in Docker without proper configuration:
 
-| Flag Missing | Impact |
-|-------------|--------|
-| `--init` | Zombie processes accumulate (no init to reap them) |
-| `--ipc=host` | Shared memory issues cause crashes/hangs |
-| `--cap-add=SYS_ADMIN` | Sandbox may not work properly |
+| Flag Missing          | Impact                                             |
+| --------------------- | -------------------------------------------------- |
+| `--init`              | Zombie processes accumulate (no init to reap them) |
+| `--ipc=host`          | Shared memory issues cause crashes/hangs           |
+| `--cap-add=SYS_ADMIN` | Sandbox may not work properly                      |
 
 ### Evidence
 
@@ -352,7 +356,7 @@ function registerBrowser(browser) {
 }
 
 async function cleanupAllBrowsers() {
-  const closePromises = Array.from(browsers).map(async (browser) => {
+  const closePromises = Array.from(browsers).map(async browser => {
     try {
       await browser.close();
     } catch (e) {
@@ -383,14 +387,14 @@ process.on('exit', () => {
 
 ## Summary of Root Causes
 
-| # | Root Cause | Severity | Fix Complexity |
-|---|------------|----------|----------------|
-| 1 | page.close() incomplete | High | Medium |
-| 2 | Context lifecycle not managed | High | Medium |
-| 3 | Upstream Chromium leak | Medium | High (workaround only) |
-| 4 | Missing error cleanup | High | Low |
-| 5 | Container misconfig | Medium | Low |
-| 6 | Signal handling gaps | High | Medium |
+| #   | Root Cause                    | Severity | Fix Complexity         |
+| --- | ----------------------------- | -------- | ---------------------- |
+| 1   | page.close() incomplete       | High     | Medium                 |
+| 2   | Context lifecycle not managed | High     | Medium                 |
+| 3   | Upstream Chromium leak        | Medium   | High (workaround only) |
+| 4   | Missing error cleanup         | High     | Low                    |
+| 5   | Container misconfig           | Medium   | Low                    |
+| 6   | Signal handling gaps          | High     | Medium                 |
 
 ## Recommendations Priority
 
@@ -404,12 +408,14 @@ process.on('exit', () => {
 ## Related Code Paths
 
 In Playwright MCP repository:
+
 - `src/server.ts` - MCP server initialization
 - `src/browser.ts` - Browser management
 - `src/context.ts` - Context lifecycle
 - `src/tools/*.ts` - Individual tool handlers
 
 Key functions to audit:
+
 - `createBrowser()`
 - `closeBrowser()`
 - `createContext()`

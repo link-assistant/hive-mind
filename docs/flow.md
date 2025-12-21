@@ -23,10 +23,10 @@ Hive Mind is an AI-powered collaborative development system that operates throug
 
 Hive Mind operates in two primary modes based on the entry point and human interaction patterns:
 
-| Mode | Entry Point | Primary Human Input | Secondary Input | Decision Points |
-|------|------------|-------------------|-----------------|-----------------|
-| **Default Mode** | GitHub Issue | Issue description & requirements | PR comments for refinements | Merge/Request Changes/Close |
-| **Continue Mode** | Existing PR | PR comments with feedback | Additional PR comments | Merge/Request Changes/Close |
+| Mode              | Entry Point  | Primary Human Input              | Secondary Input             | Decision Points             |
+| ----------------- | ------------ | -------------------------------- | --------------------------- | --------------------------- |
+| **Default Mode**  | GitHub Issue | Issue description & requirements | PR comments for refinements | Merge/Request Changes/Close |
+| **Continue Mode** | Existing PR  | PR comments with feedback        | Additional PR comments      | Merge/Request Changes/Close |
 
 ## Data Flow Architecture
 
@@ -139,6 +139,7 @@ graph TD
 ## Mode 1: Default Mode (Issue → Pull Request)
 
 ### Human Feedback Points
+
 - **Primary Input**: GitHub Issue description and requirements
 - **Decision Point**: Merge, request changes, or close the PR
 - **Secondary Input**: Comments on the PR for refinements
@@ -181,6 +182,7 @@ sequenceDiagram
 ```
 
 ### Data Flow Steps
+
 1. **Human creates GitHub issue** (Primary human input)
 2. Hive Mind detects and assigns issue to AI agent
 3. AI agent analyzes issue requirements
@@ -192,6 +194,7 @@ sequenceDiagram
 ## Mode 2: Continue Mode (Pull Request → Comments)
 
 ### Human Feedback Points
+
 - **Primary Input**: Comments on existing PR
 - **Decision Point**: Same as Mode 1 (merge, request changes, or close)
 - **Trigger**: New comments or feedback detection
@@ -233,6 +236,7 @@ sequenceDiagram
 ```
 
 ### Data Flow Steps
+
 1. **Human adds comment to existing PR** (Primary human input)
 2. Hive Mind detects new comment
 3. AI agent processes comment and feedback
@@ -246,18 +250,19 @@ sequenceDiagram
 
 ### Comprehensive Feedback Points Matrix
 
-| Feedback Point | Mode | Timing | Input Type | System Response | Impact Level |
-|---------------|------|---------|------------|-----------------|--------------|
-| **Issue Creation** | Default | Initial | Requirements, Description | Triggers solution development | High - Defines entire scope |
-| **Issue Comments** | Default | Ongoing | Clarifications, Updates | Updates requirements | Medium - Refines scope |
-| **PR Creation Review** | Both | After draft | Initial assessment | Determines continuation | High - Go/No-go decision |
-| **PR Comments** | Both | Iterative | Technical feedback | Triggers code updates | High - Directs changes |
-| **Code Review** | Both | Per commit | Line-by-line feedback | Precise modifications | Medium - Specific fixes |
-| **PR Approval** | Both | Final | Acceptance decision | Enables merge | Critical - Final gate |
-| **PR Rejection** | Both | Any time | Stop signal | Halts process | Critical - Full stop |
-| **Label Changes** | Both | Any time | Priority/status updates | Adjusts approach | Low - Process hints |
+| Feedback Point         | Mode    | Timing      | Input Type                | System Response               | Impact Level                |
+| ---------------------- | ------- | ----------- | ------------------------- | ----------------------------- | --------------------------- |
+| **Issue Creation**     | Default | Initial     | Requirements, Description | Triggers solution development | High - Defines entire scope |
+| **Issue Comments**     | Default | Ongoing     | Clarifications, Updates   | Updates requirements          | Medium - Refines scope      |
+| **PR Creation Review** | Both    | After draft | Initial assessment        | Determines continuation       | High - Go/No-go decision    |
+| **PR Comments**        | Both    | Iterative   | Technical feedback        | Triggers code updates         | High - Directs changes      |
+| **Code Review**        | Both    | Per commit  | Line-by-line feedback     | Precise modifications         | Medium - Specific fixes     |
+| **PR Approval**        | Both    | Final       | Acceptance decision       | Enables merge                 | Critical - Final gate       |
+| **PR Rejection**       | Both    | Any time    | Stop signal               | Halts process                 | Critical - Full stop        |
+| **Label Changes**      | Both    | Any time    | Priority/status updates   | Adjusts approach              | Low - Process hints         |
 
 ### 1. Issue Creation (Mode 1 Entry)
+
 - **Type**: Requirements specification
 - **Format**: GitHub issue description, labels, initial comments
 - **Impact**: Defines scope and requirements for AI solution
@@ -269,6 +274,7 @@ sequenceDiagram
   - Link related issues
 
 ### 2. PR Review & Decision (Both Modes)
+
 - **Type**: Approval/rejection decision
 - **Format**: PR merge, close, or comment actions
 - **Impact**: Determines if solution is acceptable or needs refinement
@@ -280,6 +286,7 @@ sequenceDiagram
   - Assign additional reviewers
 
 ### 3. PR Comments (Mode 2 Primary, Mode 1 Secondary)
+
 - **Type**: Specific feedback and change requests
 - **Format**: GitHub PR comments with technical details
 - **Impact**: Guides AI agent refinements and iterations
@@ -291,6 +298,7 @@ sequenceDiagram
   - Ask for clarification
 
 ### 4. Continuous Monitoring (Both Modes)
+
 - **Type**: Ongoing oversight
 - **Format**: PR status changes, additional comments
 - **Impact**: Enables iterative improvement cycles
@@ -302,6 +310,7 @@ sequenceDiagram
   - Provide ongoing guidance
 
 ### 5. Emergency Intervention Points
+
 - **Type**: Critical feedback
 - **Format**: Direct commands in comments
 - **Impact**: Immediate system response
@@ -343,11 +352,13 @@ stateDiagram-v2
 ## Configuration Options
 
 ### Auto-Continue Behavior
+
 - `--auto-continue`: Automatically continue with existing PRs for issues
 - `--auto-continue-only-on-new-comments`: Only continue if new comments detected
 - `--continue-only-on-feedback`: Only continue if feedback is present
 
 ### Human Interaction Controls
+
 - `--auto-pull-request-creation`: Create draft PR before human review
 - `--attach-logs`: Include detailed logs for human review
 - Manual merge requirement ensures human oversight
@@ -355,11 +366,13 @@ stateDiagram-v2
 ## Error Handling & Fallbacks
 
 ### When Human Feedback is Absent
+
 - System waits for input rather than proceeding
 - Draft PRs remain in draft state until human action
 - Auto-continue features respect feedback requirements
 
 ### When Human Feedback is Ambiguous
+
 - AI requests clarification through PR comments
 - Multiple solution proposals for human selection
 - Conservative approach when uncertainty exists
@@ -423,13 +436,13 @@ flowchart TD
 
 The system maintains state across sessions to ensure continuity:
 
-| State Element | Storage | Purpose | Persistence |
-|--------------|---------|---------|-------------|
-| Session ID | File System | Track conversation context | Until completion |
-| PR Number | Memory/Args | Link issue to PR | Runtime |
-| Comment History | GitHub API | Track new vs old feedback | Permanent |
-| Commit History | Git | Determine feedback timing | Permanent |
-| Configuration | CLI Args | Control behavior | Per execution |
+| State Element   | Storage     | Purpose                    | Persistence      |
+| --------------- | ----------- | -------------------------- | ---------------- |
+| Session ID      | File System | Track conversation context | Until completion |
+| PR Number       | Memory/Args | Link issue to PR           | Runtime          |
+| Comment History | GitHub API  | Track new vs old feedback  | Permanent        |
+| Commit History  | Git         | Determine feedback timing  | Permanent        |
+| Configuration   | CLI Args    | Control behavior           | Per execution    |
 
 ## Summary
 
@@ -453,9 +466,9 @@ The Hive Mind data flow architecture ensures comprehensive human oversight throu
 
 ### Human Feedback Integration
 
-| Mode | Primary Feedback | Secondary Feedback | Decision Authority |
-|------|-----------------|-------------------|-------------------|
-| **Default Mode** | Issue requirements | PR comments | Human merge decision |
-| **Continue Mode** | PR comments | Additional comments | Human merge decision |
+| Mode              | Primary Feedback   | Secondary Feedback  | Decision Authority   |
+| ----------------- | ------------------ | ------------------- | -------------------- |
+| **Default Mode**  | Issue requirements | PR comments         | Human merge decision |
+| **Continue Mode** | PR comments        | Additional comments | Human merge decision |
 
 Both modes maintain human authority over critical decisions while leveraging AI for implementation, ensuring that human feedback remains the cornerstone of the development process.

@@ -758,7 +758,7 @@ async function worker(workerId) {
         const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
         const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
         const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
-
+        const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
         // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
         const { spawn } = await import('child_process');
 
@@ -808,9 +808,10 @@ async function worker(workerId) {
         if (argv.interactiveMode) args.push('--interactive-mode');
         if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
         if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
+        if (argv.promptCaseStudies) args.push('--prompt-case-studies');
 
         // Log the actual command being executed so users can investigate/reproduce
-        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}`;
+        const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}`;
         await log(`   📋 Command: ${command}`);
 
         let exitCode = 0;
@@ -1497,5 +1498,4 @@ try {
   console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
   process.exit(1);
 }
-
 } // End of main execution block

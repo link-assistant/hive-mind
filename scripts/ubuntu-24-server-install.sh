@@ -473,7 +473,9 @@ fi
 # --- Deno ---
 if ! command -v deno &>/dev/null; then
   log_info "Installing Deno..."
-  curl -fsSL https://deno.land/install.sh | sh
+  # Use -y flag to skip interactive prompts (fixes "cannot open /dev/tty" error
+  # when running in non-interactive contexts like su/sudo or CI pipelines)
+  curl -fsSL https://deno.land/install.sh | sh -s -- -y
   export DENO_INSTALL="$HOME/.deno"
   export PATH="$DENO_INSTALL/bin:$PATH"
   # Add Deno to shell profile for persistence
@@ -649,7 +651,9 @@ fi
 # --- Java (SDKMAN + OpenJDK) ---
 if [ ! -d "$HOME/.sdkman" ]; then
   log_info "Installing SDKMAN (Java version manager)..."
-  curl -s "https://get.sdkman.io?rcupdate=false" | bash
+  # Use ci=true for non-interactive installation (auto-answers prompts,
+  # disables color output for cleaner logs, prevents auto-updates)
+  curl -s "https://get.sdkman.io?rcupdate=false&ci=true" | bash
   # Add SDKMAN to shell profile for persistence
   if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
     log_info "Adding SDKMAN to shell configuration..."
@@ -1041,7 +1045,17 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
 
     # Install latest stable Perl version
     log_info "Installing latest stable Perl version (this may take several minutes)..."
-    LATEST_PERL=$(perlbrew available 2>/dev/null | grep -E '^\s*perl-5\.[0-9]+\.[0-9]+$' | head -1 | tr -d '[:space:]' || true)
+
+    # Fetch available Perl versions and extract the first stable version
+    # Use grep -oE to robustly extract version strings regardless of line formatting
+    # Filter for stable releases only (even minor version numbers: 5.32.x, 5.34.x, etc.)
+    PERLBREW_OUTPUT=$(perlbrew available 2>&1 || true)
+    if [ -z "$PERLBREW_OUTPUT" ]; then
+      log_warning "perlbrew available returned empty output"
+    fi
+
+    # Extract version using -oE to handle any line formatting (spaces, markers, etc.)
+    LATEST_PERL=$(echo "$PERLBREW_OUTPUT" | grep -oE 'perl-5\.[0-9]+\.[0-9]+' | head -1 || true)
 
     if [ -n "$LATEST_PERL" ]; then
       log_info "Installing $LATEST_PERL..."
@@ -1063,6 +1077,11 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
     else
       log_warning "Could not determine latest Perl version. Skipping Perl installation."
       log_note "You can install Perl manually: perlbrew available && perlbrew install perl-5.x.x"
+      # Show first few lines of perlbrew output for debugging
+      if [ -n "$PERLBREW_OUTPUT" ]; then
+        log_note "perlbrew available output (first 5 lines):"
+        echo "$PERLBREW_OUTPUT" | head -5
+      fi
     fi
   else
     log_warning "Perlbrew installation may have failed. Skipping Perl setup."

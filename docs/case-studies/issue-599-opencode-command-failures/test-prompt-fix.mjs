@@ -11,7 +11,7 @@ const testParams = {
   issueNumber: 123,
   prNumber: 456,
   branchName: 'issue-123-test',
-  argv: {}
+  argv: {},
 };
 
 console.log('Testing OpenCode System Prompt...\n');
@@ -24,43 +24,43 @@ const checks = [
   {
     name: 'Contains correct gh api pattern for PR comments',
     pattern: /gh api repos\/.*\/pulls\/.*\/comments/,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Contains correct gh api pattern for issue comments',
     pattern: /gh api repos\/.*\/issues\/.*\/comments/,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Contains warning about "gh pr comments" being wrong',
     pattern: /WRONG:.*gh pr comments/,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Contains warning about "gh pr comment list" being wrong',
     pattern: /WRONG:.*gh pr comment list/,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Contains guidance about singular "comment"',
     pattern: /comment.*singular/i,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Does NOT use incorrect "gh pr comments" as example',
     pattern: /gh pr comments \d+ --repo/,
-    shouldMatch: false
+    shouldMatch: false,
   },
   {
     name: 'Contains GitHub CLI Command Guidelines section',
     pattern: /GitHub CLI Command Guidelines/,
-    shouldMatch: true
+    shouldMatch: true,
   },
   {
     name: 'Contains example with jq filter',
     pattern: /--jq.*reverse/,
-    shouldMatch: true
-  }
+    shouldMatch: true,
+  },
 ];
 
 let passedCount = 0;

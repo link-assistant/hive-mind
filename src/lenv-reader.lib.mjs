@@ -134,12 +134,7 @@ export class LenvReader {
    * @returns {Object} - Object with loaded variables
    */
   async config(options = {}) {
-    const {
-      path: configPath = '.lenv',
-      configuration = null,
-      override = false,
-      quiet = false
-    } = options;
+    const { path: configPath = '.lenv', configuration = null, override = false, quiet = false } = options;
 
     let envVars = {};
 

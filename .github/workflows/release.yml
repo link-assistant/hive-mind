@@ -209,6 +209,12 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Run Prettier format check
+      run: |
+        echo "Running Prettier format check..."
+        npm run format:check
+        echo "Prettier format check passed"
+
     - name: Run ESLint
       run: |
         echo "Running ESLint code quality checks..."

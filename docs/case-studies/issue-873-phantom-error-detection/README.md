@@ -15,12 +15,14 @@
 ## Timeline / Sequence of Events
 
 ### Event 1: Agent Execution Starts
+
 - **Time:** 2025-12-09T01:36:28.882Z
 - **Action:** Agent starts working on issue #692
 - **File:** PR #711 context
 - **Status:** Normal execution
 
 ### Event 2: Agent Reads Source File
+
 - **Time:** ~2025-12-09T01:37:18Z
 - **Action:** Agent uses "read" tool to read `src/solve.auto-pr.lib.mjs`
 - **Log Location:** Line 1290-1301 in full-agent-log.txt
@@ -30,6 +32,7 @@
   - Line 691: `// User doesn't have permission, but that's okay - we just won't assign`
 
 ### Event 3: Agent Tool Output Captured
+
 - **Time:** During execution
 - **Action:** The entire file content is part of the JSON tool output and sent to stdout
 - **Data Structure:**
@@ -49,12 +52,14 @@
   ```
 
 ### Event 4: Agent Completes Successfully
+
 - **Time:** 2025-12-09T01:37:53.619Z
 - **Action:** Agent completes with step_finish
 - **Exit Code:** 0 (success)
 - **Log:** Shows successful summary message
 
 ### Event 5: Error Detection Runs (BUG TRIGGERED)
+
 - **Time:** 2025-12-09T01:37:53.673Z
 - **Location:** `src/agent.lib.mjs:454-484`
 - **Action:** Error detection scans `combinedOutput = fullOutput + allStderr`
@@ -63,6 +68,7 @@
 - **Result:** False positive error detected
 
 ### Event 6: Error Reported
+
 - **Time:** 2025-12-09T01:37:53.673Z
 - **Log Output:**
   ```
@@ -72,6 +78,7 @@
   ```
 
 ### Event 7: Structured Error JSON Logged
+
 - **Time:** 2025-12-09T01:37:53.674Z
 - **Error Details:**
   ```json
@@ -106,6 +113,7 @@ This `fullOutput` includes **all JSON-formatted tool outputs** from the agent, i
 ### Why This Design Exists
 
 The error detection was implemented to catch cases where:
+
 1. The Node.js process exits with code 0 despite throwing uncaught exceptions
 2. Actual errors are reported in agent output but don't cause non-zero exit codes
 3. Reference: Line 455 comment: "Agent may exit with code 0 despite throwing errors (Node.js uncaught exception behavior)"
@@ -125,9 +133,9 @@ const errorPatterns = [
   { pattern: /ProviderModelNotFoundError/i, type: 'ProviderModelNotFoundError' },
   { pattern: /ModelNotFoundError/i, type: 'ModelNotFoundError' },
   { pattern: /\s+at\s+\S+\s+\([^)]+:\d+:\d+\)/m, type: 'StackTrace' },
-  { pattern: /throw new \w+Error/i, type: 'ThrowError' },           // ⚠️ Matches source code
-  { pattern: /authentication failed/i, type: 'AuthenticationError' },// ⚠️ Matches strings
-  { pattern: /permission denied/i, type: 'PermissionError' },        // ⚠️ THIS ONE!
+  { pattern: /throw new \w+Error/i, type: 'ThrowError' }, // ⚠️ Matches source code
+  { pattern: /authentication failed/i, type: 'AuthenticationError' }, // ⚠️ Matches strings
+  { pattern: /permission denied/i, type: 'PermissionError' }, // ⚠️ THIS ONE!
   { pattern: /ENOENT|EACCES|EPERM/i, type: 'FileSystemError' },
   { pattern: /TypeError:|ReferenceError:|SyntaxError:/i, type: 'JavaScriptError' },
   { pattern: /Cannot read propert(y|ies) of (undefined|null)/i, type: 'NullReferenceError' },
@@ -137,6 +145,7 @@ const errorPatterns = [
 ```
 
 **High-risk patterns** (likely to match source code):
+
 - `/permission denied/i` - Common in error handling code
 - `/throw new \w+Error/i` - Appears in any code with error throwing
 - `/authentication failed/i` - Common in auth-related code
@@ -148,26 +157,31 @@ const errorPatterns = [
 Based on web research, industry best practices for avoiding false positives in stdout/stderr error detection include:
 
 ### 1. **Exit Codes are Primary Source of Truth**
+
 - Logging output is not the primary output of a program
 - Stderr exists specifically to separate core program output from error/logging
 - **Source:** [How to use stdout and stderr](https://julienharbulot.com/python-cli-streams.html)
 
 ### 2. **Context-Aware Parsing**
+
 - Pattern matching should validate context, not just presence of text
 - Distinguish between keywords in the right place vs. wrong place
 - **Source:** [Regex Log Parser | Panther Docs](https://docs.panther.com/data-onboarding/custom-log-types/regex-parser)
 
 ### 3. **Structured Format Validation**
+
 - Validate that extracted data matches expected structure (e.g., starts with `{` or `[`)
 - Use structured formats over plain text when possible
 - **Source:** [AI Agent structured output parser · Issue #21174](https://github.com/n8n-io/n8n/issues/21174)
 
 ### 4. **Stream Separation**
+
 - Separating stderr from stdout allows distinguishing expected output from errors
 - Mixing streams makes debugging harder
 - **Source:** [What Are stdin, stdout, and stderr on Linux?](https://www.howtogeek.com/435903/what-are-stdin-stdout-and-stderr-on-linux/)
 
 ### 5. **Multi-layered Validation**
+
 - Combine exit codes, structured formats, and pattern matching
 - Regular testing against diverse log samples
 - **Source:** [How to avoid False Positives in Testing | BrowserStack](https://www.browserstack.com/guide/false-positives-and-false-negatives-in-testing)
@@ -181,9 +195,10 @@ Based on web research, industry best practices for avoiding false positives in s
 **Approach:** Parse agent output as structured JSON and only check specific fields for errors, not tool output content.
 
 **Implementation:**
+
 ```javascript
 // Instead of scanning all output, parse JSON messages and check specific fields
-const detectOutputErrors = (output) => {
+const detectOutputErrors = output => {
   const lines = output.split('\n');
 
   for (const line of lines) {
@@ -219,12 +234,14 @@ const detectOutputErrors = (output) => {
 ```
 
 **Pros:**
+
 - ✅ Eliminates false positives from tool output content
 - ✅ Leverages structured data format
 - ✅ More maintainable and precise
 - ✅ Can still catch non-JSON error output
 
 **Cons:**
+
 - ⚠️ Requires understanding agent's JSON message structure
 - ⚠️ May miss errors if agent changes output format
 
@@ -233,6 +250,7 @@ const detectOutputErrors = (output) => {
 **Approach:** Make regex patterns more specific to avoid matching common code patterns.
 
 **Implementation:**
+
 ```javascript
 const errorPatterns = [
   { pattern: /ProviderModelNotFoundError/i, type: 'ProviderModelNotFoundError' },
@@ -240,8 +258,8 @@ const errorPatterns = [
   { pattern: /\s+at\s+\S+\s+\([^)]+:\d+:\d+\)/m, type: 'StackTrace' },
 
   // More specific patterns with context
-  { pattern: /^Error:.*permission denied/im, type: 'PermissionError' },  // Line must start with "Error:"
-  { pattern: /^throw new \w+Error/im, type: 'ThrowError' },  // Only if at start of line (unlikely in JSON)
+  { pattern: /^Error:.*permission denied/im, type: 'PermissionError' }, // Line must start with "Error:"
+  { pattern: /^throw new \w+Error/im, type: 'ThrowError' }, // Only if at start of line (unlikely in JSON)
   { pattern: /^.*?authentication failed.*?$/im, type: 'AuthenticationError' },
 
   { pattern: /ENOENT|EACCES|EPERM/i, type: 'FileSystemError' },
@@ -253,10 +271,12 @@ const errorPatterns = [
 ```
 
 **Pros:**
+
 - ✅ Smaller code change
 - ✅ Backward compatible
 
 **Cons:**
+
 - ❌ Still prone to false positives
 - ❌ Harder to maintain
 - ❌ Doesn't address fundamental issue
@@ -266,8 +286,9 @@ const errorPatterns = [
 **Approach:** Filter out JSON tool messages with `type: "tool"` before scanning for errors.
 
 **Implementation:**
+
 ```javascript
-const detectOutputErrors = (output) => {
+const detectOutputErrors = output => {
   // Remove tool output content from error scanning
   const lines = output.split('\n');
   const filteredLines = [];
@@ -303,11 +324,13 @@ const detectOutputErrors = (output) => {
 ```
 
 **Pros:**
+
 - ✅ Directly addresses the root cause
 - ✅ Simple logic
 - ✅ Maintains existing error patterns
 
 **Cons:**
+
 - ⚠️ Requires parsing every line
 - ⚠️ May miss errors in tool outputs (but that's probably okay)
 
@@ -316,17 +339,20 @@ const detectOutputErrors = (output) => {
 **Approach:** Only scan stderr for error patterns, trust stdout is structured data.
 
 **Implementation:**
+
 ```javascript
 // Only check stderr for error patterns, not stdout
-const outputError = detectOutputErrors(allStderr);  // Remove fullOutput
+const outputError = detectOutputErrors(allStderr); // Remove fullOutput
 ```
 
 **Pros:**
+
 - ✅ Simplest change
 - ✅ Aligns with Unix conventions (stderr = errors)
 - ✅ Completely eliminates tool output false positives
 
 **Cons:**
+
 - ❌ May miss errors that only appear in stdout
 - ❌ Depends on agent properly using stderr for errors
 
@@ -337,12 +363,14 @@ const outputError = detectOutputErrors(allStderr);  // Remove fullOutput
 **Implement Solution 1 (Parse JSON Structure)** as the primary fix, with **Solution 4 (Stderr-Only)** as a fallback.
 
 ### Rationale:
+
 1. **Solution 1** addresses the root cause by understanding the structured nature of agent output
 2. It's the most robust long-term solution
 3. It aligns with 2025 best practices for error detection
 4. **Solution 4** can be used as an additional filter to further reduce false positives
 
 ### Implementation Plan:
+
 1. Implement JSON-aware error detection (Solution 1)
 2. Add stderr-priority checking (Solution 4 as supplement)
 3. Keep existing patterns but apply them only to non-JSON lines
@@ -354,24 +382,28 @@ const outputError = detectOutputErrors(allStderr);  // Remove fullOutput
 ## Testing Strategy
 
 ### Test Case 1: Current Bug Scenario
+
 - **Input:** Agent reads file containing "permission denied" in source code
 - **Expected:** No error detected (exit code 0, successful execution)
 - **Current Result:** ❌ False positive error
 - **After Fix:** ✅ No error detected
 
 ### Test Case 2: Real Permission Error
+
 - **Input:** Actual permission denied error from git push
 - **Expected:** Error detected
 - **Current Result:** ✅ Correctly detected
 - **After Fix:** ✅ Still detected (in stderr or error message type)
 
 ### Test Case 3: Tool Read Error
+
 - **Input:** File read fails with ENOENT
 - **Expected:** Error detected
 - **Current Result:** ✅ Correctly detected
 - **After Fix:** ✅ Still detected (tool status = failed)
 
 ### Test Case 4: Uncaught Exception
+
 - **Input:** JavaScript throws unhandled exception
 - **Expected:** Error detected from stack trace
 - **Current Result:** ✅ Correctly detected
@@ -389,10 +421,12 @@ const outputError = detectOutputErrors(allStderr);  // Remove fullOutput
 ## Files Involved
 
 ### Primary
+
 - `src/agent.lib.mjs:454-558` - Error detection logic
 - `src/solve.auto-pr.lib.mjs:375,404,691` - Contains false-positive-triggering text
 
 ### Supporting
+
 - Full agent log: `full-agent-log.txt` (2,727 lines)
 - PR context: `pr-711-context.txt`
 
@@ -403,6 +437,7 @@ const outputError = detectOutputErrors(allStderr);  // Remove fullOutput
 This phantom error detection is a classic false positive issue caused by overly broad pattern matching on unstructured data. The fix requires understanding the structured nature of agent output and applying error detection only to appropriate contexts (error message types, stderr, or non-JSON lines).
 
 The industry best practices from 2025 emphasize:
+
 - Exit codes as primary truth
 - Structured parsing over text pattern matching
 - Context-aware validation

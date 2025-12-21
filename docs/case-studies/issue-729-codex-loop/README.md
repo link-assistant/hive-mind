@@ -5,12 +5,14 @@
 On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while working on issue #719 using the Codex CLI tool. The loop ran for 4.5 hours, produced 140 MB of logs (81,031 lines), and performed 1,249 restarts before manual intervention.
 
 **Root Causes**:
+
 1. Codex immediately hitting usage limit on every execution
 2. Feedback detection triggering on PR timestamp updates without content validation
 3. No circuit breaker for consecutive failures
 4. No progress validation before auto-restart
 
 **Impact**:
+
 - 4.5 hours of wasted compute time
 - ~12,490 GitHub API calls
 - 140 MB of log files
@@ -19,7 +21,9 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 ## Documents
 
 ### [00-OVERVIEW.md](./00-OVERVIEW.md)
+
 **Executive summary with proposed solutions**
+
 - Timeline overview
 - Impact metrics
 - Root cause analysis
@@ -28,7 +32,9 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 - Prevention checklist
 
 ### [01-TIMELINE.md](./01-TIMELINE.md)
+
 **Detailed chronological analysis**
+
 - Phase-by-phase breakdown (5 phases)
 - Line-by-line event tracking
 - Restart frequency analysis
@@ -36,7 +42,9 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 - Statistical metrics
 
 ### [02-TECHNICAL-ANALYSIS.md](./02-TECHNICAL-ANALYSIS.md)
+
 **Deep technical investigation**
+
 - Code path analysis
 - Data flow diagrams
 - GitHub API usage breakdown
@@ -45,7 +53,9 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 - Implementation recommendations
 
 ### [complete.log](./complete.log) (140 MB)
+
 **Full execution log**
+
 - Combined from part-00 (100 MB) and part-01 (40 MB)
 - 81,031 lines total
 - Available for detailed analysis
@@ -54,6 +64,7 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 ## Quick Reference
 
 ### Key Statistics
+
 - **Duration**: 4h 33m 58s
 - **Total Restarts**: 1,249
 - **Usage Limit Hits**: 2,681
@@ -62,6 +73,7 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 - **API Calls**: ~12,490
 
 ### Timeline Highlights
+
 - `04:00:57` - Execution start
 - `04:01:49` - First usage limit hit (52s in)
 - `04:09:45` - First restart (8m 48s in)
@@ -69,6 +81,7 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 - `08:34:55` - Manual interruption (CTRL+C)
 
 ### Affected Code Files
+
 - `src/solve.feedback.lib.mjs:220-232` - False positive feedback detection
 - `src/codex.lib.mjs:321-426` - Usage limit detection (missing circuit breaker)
 - `src/solve.watch.lib.mjs` - Auto-restart loop (no progress validation)
@@ -77,7 +90,9 @@ On 2025-11-13, the Hive Mind solve script entered an infinite restart loop while
 ## Proposed Solutions
 
 ### 1. Circuit Breaker (HIGH PRIORITY)
+
 Stop after 3 consecutive usage limit errors:
+
 ```javascript
 if (consecutiveUsageLimits >= 3) {
   await log('\n❌ Usage limit reached 3 times consecutively');
@@ -86,16 +101,20 @@ if (consecutiveUsageLimits >= 3) {
 ```
 
 ### 2. Progress Validation (HIGH PRIORITY)
+
 Don't restart unless tool made progress:
+
 ```javascript
-const hasProgress = (commitCount > previousCommitCount) || hasUncommittedChanges;
+const hasProgress = commitCount > previousCommitCount || hasUncommittedChanges;
 if (!hasProgress && previouslyFailed) {
   return false; // Don't restart
 }
 ```
 
 ### 3. Smarter Feedback Detection (MEDIUM)
+
 Check content changes, not just timestamps:
+
 ```javascript
 if (prUpdatedAt > lastCommitTime && prDescriptionNow !== prDescriptionAtStart) {
   feedbackDetected = true;
@@ -103,7 +122,9 @@ if (prUpdatedAt > lastCommitTime && prDescriptionNow !== prDescriptionAtStart) {
 ```
 
 ### 4. Restart Limits (MEDIUM)
+
 Implement maximum restart count with backoff:
+
 ```javascript
 if (restartCount >= MAX_RESTARTS) {
   await log(`\n❌ Maximum restart limit reached (${MAX_RESTARTS})`);
@@ -112,7 +133,9 @@ if (restartCount >= MAX_RESTARTS) {
 ```
 
 ### 5. Auto-Continue-Limit Enforcement (HIGH)
+
 Require flag for usage limit auto-restart:
+
 ```javascript
 if (limitReached && !argv.autoContinueLimit) {
   await log('\n⏳ Usage limit reached - use --auto-continue-limit to wait');
@@ -132,6 +155,7 @@ Full logs are preserved at:
 https://github.com/konard/hive-solve-2025-11-13T04-00-57-948Z
 
 Files:
+
 - `solve-2025-11-13T04-00-57-948Z.log.part-00` (100 MB)
 - `solve-2025-11-13T04-00-57-948Z.log.part-01` (40 MB)
 

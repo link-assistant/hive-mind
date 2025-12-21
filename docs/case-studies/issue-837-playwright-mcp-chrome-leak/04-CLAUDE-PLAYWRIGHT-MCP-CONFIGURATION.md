@@ -44,6 +44,7 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@latest --isolated 
 For advanced configurations, edit the configuration file directly.
 
 **Location of config files:**
+
 - **macOS/Linux**: `~/.claude.json`
 - **Windows**: `%USERPROFILE%\.claude.json`
 
@@ -52,11 +53,7 @@ For advanced configurations, edit the configuration file directly.
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--headless"
-      ]
+      "args": ["@playwright/mcp@latest", "--isolated", "--headless"]
     }
   }
 }
@@ -71,12 +68,7 @@ Create a `.mcp.json` file in your project root:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@0.0.49",
-        "--isolated",
-        "--headless",
-        "--timeout-action=5000"
-      ]
+      "args": ["@playwright/mcp@0.0.49", "--isolated", "--headless", "--timeout-action=5000"]
     }
   }
 }
@@ -88,17 +80,17 @@ Create a `.mcp.json` file in your project root:
 
 ### Playwright MCP Command-Line Arguments
 
-| Argument | Description | Memory Impact |
-|----------|-------------|---------------|
-| `--isolated` | Keep browser profile in memory only, don't save to disk | **HIGH** - Enables ephemeral contexts |
-| `--headless` | Run browser in headless mode | **MEDIUM** - Reduces UI memory overhead |
-| `--browser <type>` | Browser to use: chrome, firefox, webkit, msedge | **VARIES** - WebKit often uses less memory |
-| `--user-data-dir <path>` | Persistent profile location | **LOW** - Allows cleanup between sessions |
-| `--storage-state <path>` | Load auth state without full profile | **MEDIUM** - Auth without profile bloat |
-| `--no-sandbox` | Disable sandbox (use cautiously) | **LOW** - Reduces memory slightly |
-| `--image-responses <mode>` | Set to "omit" to skip image responses | **MEDIUM** - Reduces bandwidth/memory |
-| `--viewport-size <size>` | Set viewport dimensions (e.g., "1280x720") | **LOW** - Affects rendering memory |
-| `--timeout-action <ms>` | Timeout for actions (default: 5000) | **N/A** - Prevents hung processes |
+| Argument                   | Description                                             | Memory Impact                              |
+| -------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| `--isolated`               | Keep browser profile in memory only, don't save to disk | **HIGH** - Enables ephemeral contexts      |
+| `--headless`               | Run browser in headless mode                            | **MEDIUM** - Reduces UI memory overhead    |
+| `--browser <type>`         | Browser to use: chrome, firefox, webkit, msedge         | **VARIES** - WebKit often uses less memory |
+| `--user-data-dir <path>`   | Persistent profile location                             | **LOW** - Allows cleanup between sessions  |
+| `--storage-state <path>`   | Load auth state without full profile                    | **MEDIUM** - Auth without profile bloat    |
+| `--no-sandbox`             | Disable sandbox (use cautiously)                        | **LOW** - Reduces memory slightly          |
+| `--image-responses <mode>` | Set to "omit" to skip image responses                   | **MEDIUM** - Reduces bandwidth/memory      |
+| `--viewport-size <size>`   | Set viewport dimensions (e.g., "1280x720")              | **LOW** - Affects rendering memory         |
+| `--timeout-action <ms>`    | Timeout for actions (default: 5000)                     | **N/A** - Prevents hung processes          |
 
 ### Claude Code MCP Environment Variables
 
@@ -128,20 +120,13 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@0.0.49 \
 ```
 
 **JSON equivalent:**
+
 ```json
 {
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@0.0.49",
-        "--isolated",
-        "--headless",
-        "--browser=chromium",
-        "--no-sandbox",
-        "--viewport-size=1280x720",
-        "--timeout-action=30000"
-      ],
+      "args": ["@playwright/mcp@0.0.49", "--isolated", "--headless", "--browser=chromium", "--no-sandbox", "--viewport-size=1280x720", "--timeout-action=30000"],
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": "/opt/playwright/browsers"
       }
@@ -151,6 +136,7 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@0.0.49 \
 ```
 
 **Why this configuration:**
+
 - `--isolated`: Ephemeral contexts that don't accumulate
 - `--headless`: No UI rendering overhead
 - `@0.0.49`: Pinned version for stability
@@ -169,17 +155,13 @@ claude mcp add playwright --scope local -- npx @playwright/mcp@latest \
 ```
 
 **JSON equivalent:**
+
 ```json
 {
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--browser=chromium",
-        "--timeout-action=60000"
-      ]
+      "args": ["@playwright/mcp@latest", "--isolated", "--browser=chromium", "--timeout-action=60000"]
     }
   }
 }
@@ -201,17 +183,13 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@latest \
 ```
 
 **JSON equivalent:**
+
 ```json
 {
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--headless",
-        "--storage-state=/home/user/.playwright-auth.json"
-      ]
+      "args": ["@playwright/mcp@latest", "--isolated", "--headless", "--storage-state=/home/user/.playwright-auth.json"]
     }
   }
 }
@@ -226,15 +204,7 @@ Windows requires cmd execution:
   "mcpServers": {
     "playwright": {
       "command": "cmd",
-      "args": [
-        "/c",
-        "npx",
-        "-y",
-        "@playwright/mcp@latest",
-        "--isolated",
-        "--headless",
-        "--user-data-dir=./playwright-profile"
-      ]
+      "args": ["/c", "npx", "-y", "@playwright/mcp@latest", "--isolated", "--headless", "--user-data-dir=./playwright-profile"]
     }
   }
 }
@@ -275,13 +245,13 @@ npx @playwright/mcp@latest --version
 
 ### Recent Version Notes (Memory-Related)
 
-| Version | Notes |
-|---------|-------|
-| v0.0.49 | Maintenance release, stable |
-| v0.0.48 | Restored `--allow-origins` flag |
-| v0.0.47 | Initial state management improvements |
+| Version | Notes                                                      |
+| ------- | ---------------------------------------------------------- |
+| v0.0.49 | Maintenance release, stable                                |
+| v0.0.48 | Restored `--allow-origins` flag                            |
+| v0.0.47 | Initial state management improvements                      |
 | v0.0.43 | Image size capping, incremental snapshots (reduces memory) |
-| v0.0.40 | Video session management improvements |
+| v0.0.40 | Video session management improvements                      |
 
 ### Updating Playwright MCP
 
@@ -307,18 +277,21 @@ claude mcp get playwright
 **Solutions:**
 
 1. **Verify isolated mode is enabled:**
+
    ```bash
    claude mcp get playwright
    # Check if --isolated flag is present
    ```
 
 2. **Reconfigure with isolated mode:**
+
    ```bash
    claude mcp remove playwright
    claude mcp add playwright -- npx @playwright/mcp@latest --isolated --headless
    ```
 
 3. **Manual cleanup:**
+
    ```bash
    # Linux/macOS
    pkill -f "chrome-headless"
@@ -334,11 +307,13 @@ claude mcp get playwright
 **Solutions:**
 
 1. **Kill existing browser processes:**
+
    ```bash
    pkill -9 -f "chrome|chromium"
    ```
 
 2. **Restart Claude Code:**
+
    ```bash
    # Close Claude Code completely
    # Restart
@@ -353,6 +328,7 @@ claude mcp get playwright
 **Solutions:**
 
 1. **Pre-install browsers manually:**
+
    ```bash
    npx playwright install chromium
    ```
@@ -368,11 +344,13 @@ claude mcp get playwright
 **Solutions:**
 
 1. **Use headless mode:**
+
    ```bash
    claude mcp add playwright -- npx @playwright/mcp@latest --isolated --headless
    ```
 
 2. **Reduce viewport size:**
+
    ```bash
    claude mcp add playwright -- npx @playwright/mcp@latest --isolated --viewport-size=1024x768
    ```
@@ -382,6 +360,7 @@ claude mcp get playwright
 ### Issue: Configuration Changes Not Taking Effect
 
 **Solution:**
+
 1. Completely close Claude Code
 2. Kill any remaining processes:
    ```bash
@@ -425,7 +404,7 @@ version: '3.8'
 services:
   claude-automation:
     image: node:20
-    init: true  # Critical for process cleanup
+    init: true # Critical for process cleanup
     ipc: host
     shm_size: 2gb
     environment:
@@ -450,12 +429,7 @@ Create `.mcp.json` in your project root and commit to version control:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@0.0.49",
-        "--isolated",
-        "--headless",
-        "--timeout-action=30000"
-      ],
+      "args": ["@playwright/mcp@0.0.49", "--isolated", "--headless", "--timeout-action=30000"],
       "env": {
         "NODE_ENV": "production"
       }
@@ -465,6 +439,7 @@ Create `.mcp.json` in your project root and commit to version control:
 ```
 
 Team members clone the repo and run:
+
 ```bash
 claude mcp add-from-file .mcp.json
 ```
@@ -541,16 +516,19 @@ taskkill /F /IM chrome.exe /T
 ## External References
 
 ### Official Documentation
+
 - [Claude Code MCP Documentation](https://code.claude.com/docs/en/mcp)
 - [Playwright MCP GitHub](https://github.com/microsoft/playwright-mcp)
 - [Playwright MCP Releases](https://github.com/microsoft/playwright-mcp/releases)
 
 ### Community Resources
+
 - [Using Playwright MCP with Claude Code - Simon Willison](https://til.simonwillison.net/claude-code/playwright-mcp-claude-code)
 - [Playwright MCP Memory Leak Fixes 2025](https://markaicode.com/playwright-mcp-memory-leak-fixes-2025/)
 - [How to Install Playwright MCP in Claude Code - GitHub Issue](https://github.com/microsoft/playwright-mcp/issues/534)
 
 ### Related Issues
+
 - [microsoft/playwright-mcp#1111](https://github.com/microsoft/playwright-mcp/issues/1111) - Close tabs/browser not working
 - [anthropics/claude-code#1383](https://github.com/anthropics/claude-code/issues/1383) - Playwright MCP frequently fails
 

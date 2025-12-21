@@ -52,7 +52,6 @@ async function testCommentOutput() {
       execSync(`gh api repos/link-assistant/hive-mind/issues/comments/${matchAsync[1]} -X DELETE`);
       console.log('Deleted successfully');
     }
-
   } catch (error) {
     console.error('Error:', error);
     console.error('Error stdout:', error.stdout);

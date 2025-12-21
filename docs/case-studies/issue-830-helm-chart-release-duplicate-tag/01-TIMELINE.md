@@ -5,12 +5,14 @@ This document provides a complete timeline of events leading to issue #830, reco
 ## 2025-12-04 21:58:00 - Initial Helm Chart Addition
 
 ### Run #19945272855 - First Attempt (FAILED)
+
 - **Trigger**: PR #695 merged (Add Helm chart support)
 - **Run URL**: https://github.com/link-assistant/hive-mind/actions/runs/19945272855
 - **Commit**: `3db638cd` - "Merge pull request #695"
 - **Result**: ❌ FAILED at lint step
 
 #### Timeline:
+
 ```
 21:58:42Z - Workflow triggered
 21:58:51Z - Checkout repository ✅
@@ -19,6 +21,7 @@ This document provides a complete timeline of events leading to issue #830, reco
 ```
 
 #### Error:
+
 ```
 Error: 1 chart(s) linted, 1 chart(s) failed
 [ERROR] templates/: template: hive-mind/templates/deployment.yaml:48:22:
@@ -33,6 +36,7 @@ nil pointer evaluating interface {}.githubToken
 ## 2025-12-04 22:33:00 - Lint Errors Fixed, gh-pages Issue Discovered
 
 ### Run #19946134787 - Second Attempt (PARTIAL SUCCESS)
+
 - **Trigger**: PR #823 merged (Fix helm chart lint errors)
 - **Run URL**: https://github.com/link-assistant/hive-mind/actions/runs/19946134787
 - **Commit**: `4b40274d` - "Merge pull request #823"
@@ -103,10 +107,12 @@ nil pointer evaluating interface {}.githubToken
 ```
 
 **Key Observation**: The chart-releaser action performs TWO operations:
+
 1. `cr upload` - Creates GitHub release and uploads chart package ✅
 2. `cr index` - Updates index.yaml on gh-pages branch ❌
 
 The first operation succeeded, the second failed. This left the system in an inconsistent state:
+
 - ✅ Release `hive-mind-1.0.0` exists
 - ✅ Tag `hive-mind-1.0.0` exists
 - ❌ No index.yaml on gh-pages
@@ -117,6 +123,7 @@ The first operation succeeded, the second failed. This left the system in an inc
 ## 2025-12-04 23:07:00 - gh-pages Fix Applied, Duplicate Tag Error
 
 ### Run #19946870854 - Third Attempt (FAILED - THIS ISSUE)
+
 - **Trigger**: PR #829 merged (Fix helm chart release by ensuring gh-pages exists)
 - **Run URL**: https://github.com/link-assistant/hive-mind/actions/runs/19946870854
 - **Commit**: `84226a5b` - "Merge pull request #829"
@@ -175,6 +182,7 @@ The first operation succeeded, the second failed. This left the system in an inc
 ```
 
 **Root Cause**:
+
 - Chart version is still `1.0.0`
 - Chart package is `hive-mind-1.0.0.tgz`
 - Release tag would be `hive-mind-1.0.0`
@@ -188,11 +196,13 @@ The first operation succeeded, the second failed. This left the system in an inc
 ### Release Creation Pattern
 
 The `helm/chart-releaser-action` uses this pattern:
+
 ```
 Release Tag = {chart-name}-{chart-version}
 ```
 
 From `Chart.yaml`:
+
 ```yaml
 name: hive-mind
 version: 1.0.0
@@ -222,21 +232,23 @@ There are THREE version fields in play:
 
 ### Progression of Failures
 
-| Run | Chart Version | App Version | Failure Point | Release Created? |
-|-----|---------------|-------------|---------------|------------------|
-| #19945272855 | 1.0.0 | 0.37.0 | Lint | ❌ No |
-| #19946134787 | 1.0.0 | 0.37.1 | cr index | ✅ Yes (hive-mind-1.0.0) |
-| #19946870854 | 1.0.0 | 0.37.2 | cr upload | ❌ No (already exists) |
+| Run          | Chart Version | App Version | Failure Point | Release Created?         |
+| ------------ | ------------- | ----------- | ------------- | ------------------------ |
+| #19945272855 | 1.0.0         | 0.37.0      | Lint          | ❌ No                    |
+| #19946134787 | 1.0.0         | 0.37.1      | cr index      | ✅ Yes (hive-mind-1.0.0) |
+| #19946870854 | 1.0.0         | 0.37.2      | cr upload     | ❌ No (already exists)   |
 
 ## Conclusion
 
 The issue manifested due to:
+
 1. A partial success in run #19946134787 that created the release before failing
 2. Static chart version that was never incremented
 3. Workflow design that assumes chart version changes with every run
 4. No mechanism to handle already-existing releases
 
 The fix requires either:
+
 - Automatically incrementing chart version
 - Using `skip_existing` parameter
 - Changing release tag naming convention

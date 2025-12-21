@@ -27,7 +27,7 @@ async function testCompareApiRetry() {
   const branchName = 'issue-1-test';
 
   // Simulate that GitHub takes 3 attempts to be ready
-  const simulateCompareApi = (attempt) => {
+  const simulateCompareApi = attempt => {
     console.log(`  Attempt ${attempt}: Checking compare API...`);
 
     // Simulate that it takes 3 attempts for GitHub to index the commits

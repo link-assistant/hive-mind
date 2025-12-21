@@ -18,11 +18,13 @@ Analyzed installation log from: https://gist.github.com/konard/b60b0b193247dccbc
 ### 1. SSH Host Key Warning (Non-Critical, Informational)
 
 **Log Line 6**:
+
 ```
 Warning: Permanently added '45.82.14.179' (ED25519) to the list of known hosts.
 ```
 
 **Analysis**:
+
 - **Category**: Informational
 - **Severity**: Low
 - **Impact**: None - This is a standard SSH first-connection warning
@@ -35,11 +37,13 @@ Warning: Permanently added '45.82.14.179' (ED25519) to the list of known hosts.
 ### 2. Pyenv Load Path Warning
 
 **Log Line 924**:
+
 ```
 WARNING: seems you still have not added 'pyenv' to the load path.
 ```
 
 **Analysis**:
+
 - **Category**: Configuration Warning
 - **Severity**: Medium
 - **Impact**: Pyenv requires shell restart to be accessible in current session
@@ -51,17 +55,21 @@ WARNING: seems you still have not added 'pyenv' to the load path.
 - **Evidence of Successful Mitigation**: Log line 947 shows "Installed Python-3.14.0" and line 950 shows "Python 3.14.0"
 
 **Recommendation**:
+
 - Add informational message after pyenv installation to clarify this warning is expected
 - Verify that the manual pyenv loading (lines 241-245) is working correctly
 - Consider suppressing the warning by redirecting stderr for the pyenv install command
 
 **Proposed Solutions**:
+
 1. **Option A (Suppress Warning)**: Redirect stderr from pyenv installer
+
    ```bash
    curl https://pyenv.run 2>&1 | grep -v "WARNING: seems you still have not added" | bash
    ```
 
 2. **Option B (Add Context)**: Add informational message
+
    ```bash
    echo "[*] Installing Pyenv..."
    echo "[i] Note: Pyenv installer may show a warning about load path - this is expected and handled automatically"
@@ -75,11 +83,13 @@ WARNING: seems you still have not added 'pyenv' to the load path.
 ### 3. Homebrew PATH Warning
 
 **Log Line 1043**:
+
 ```
 Warning: /home/linuxbrew/.linuxbrew/bin is not in your PATH.
 ```
 
 **Analysis**:
+
 - **Category**: Configuration Warning
 - **Severity**: Medium
 - **Impact**: Homebrew commands not immediately available in current session
@@ -91,18 +101,22 @@ Warning: /home/linuxbrew/.linuxbrew/bin is not in your PATH.
 - **Evidence of Successful Mitigation**: PHP 8.3 installs successfully with all dependencies (log shows extensive Homebrew package installations)
 
 **Recommendation**:
+
 - Add informational message before Homebrew installation
 - Consider suppressing or contextualizing this warning
 - Verify brew shellenv is properly sourced before attempting PHP installation
 
 **Proposed Solutions**:
+
 1. **Option A (Enhanced Logging)**: Add informational messages
+
    ```bash
    echo "[*] Installing Homebrew..."
    echo "[i] Homebrew will be available after shell restart, but will be loaded for this session"
    ```
 
 2. **Option B (Silent Warning Handling)**: Capture and suppress expected warnings
+
    ```bash
    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" 2>&1 |
      grep -v "Warning.*not in your PATH" || true
@@ -123,11 +137,13 @@ Warning: /home/linuxbrew/.linuxbrew/bin is not in your PATH.
 ### 4. Bun Postinstall Scripts Blocked
 
 **Log Line 3510**:
+
 ```
 Blocked 3 postinstalls. Run `bun pm -g untrusted` for details.
 ```
 
 **Analysis**:
+
 - **Category**: Security Warning
 - **Severity**: Low-Medium
 - **Impact**: Some packages may not complete their setup steps
@@ -136,17 +152,21 @@ Blocked 3 postinstalls. Run `bun pm -g untrusted` for details.
 - **Affected Packages**: Unknown (requires `bun pm -g untrusted` to identify)
 
 **Investigation Needed**:
+
 ```bash
 bun pm -g untrusted
 ```
 
 **Recommendation**:
+
 1. Document which packages have blocked postinstalls
 2. Evaluate if these postinstalls are necessary for functionality
 3. Add explicit trust for required postinstalls or document the limitation
 
 **Proposed Solutions**:
+
 1. **Option A (Trust All)**: Run postinstalls after installation
+
    ```bash
    echo "[*] Installing global bun packages..."
    bun install -g @link-assistant/hive-mind @link-assistant/claude-profiles ...
@@ -155,6 +175,7 @@ bun pm -g untrusted
    ```
 
 2. **Option B (Selective Trust)**: Identify and trust only necessary packages
+
    ```bash
    echo "[*] Installing global bun packages..."
    bun install -g @link-assistant/hive-mind ...
@@ -178,12 +199,14 @@ bun pm -g untrusted
 ### 5. NPM Exec Warning
 
 **Log Lines 1949-1950**:
+
 ```
 [*] Installing Playwright OS dependencies with npx (requires sudo)...
 npm warn exec The following package was not found and will be installed: playwright@1.56.1
 ```
 
 **Analysis**:
+
 - **Category**: Informational Warning
 - **Severity**: Low
 - **Impact**: None - npx downloads package as expected
@@ -192,18 +215,22 @@ npm warn exec The following package was not found and will be installed: playwri
 - **Evidence**: Installation proceeds successfully and completes
 
 **Recommendation**:
+
 - This is normal npx behavior and expected
 - Can be suppressed if desired for cleaner logs
 - Alternatively, install playwright package first, then run install-deps
 
 **Proposed Solutions**:
+
 1. **Option A (Suppress)**: Redirect npm warnings
+
    ```bash
    sudo env "PATH=$NODE_BIN_DIR:$PATH" "$NPX_PATH" playwright@latest install-deps 2>&1 |
      grep -v "npm warn exec" || true
    ```
 
 2. **Option B (Pre-install)**: Install playwright first
+
    ```bash
    echo "[*] Installing Playwright package..."
    npm install -g playwright@latest
@@ -222,12 +249,14 @@ npm warn exec The following package was not found and will be installed: playwri
 ### 6. NPM Funding Notice
 
 **Log Lines 1947-1948**:
+
 ```
 28 packages are looking for funding
   run `npm fund` for details
 ```
 
 **Analysis**:
+
 - **Category**: Informational Notice
 - **Severity**: Very Low
 - **Impact**: None - purely informational
@@ -235,6 +264,7 @@ npm warn exec The following package was not found and will be installed: playwri
 - **Recommendation**: Can be suppressed with `--no-fund` flag if desired
 
 **Proposed Solution**:
+
 ```bash
 npm install -g npm@latest --no-fund
 ```
@@ -244,6 +274,7 @@ npm install -g npm@latest --no-fund
 ## Additional Observations
 
 ### Successful Operations
+
 The following critical operations completed successfully despite warnings:
 
 1. **User Creation**: hive user created and configured ✓
@@ -279,16 +310,19 @@ The script demonstrates several good practices:
 ## Priority Recommendations
 
 ### High Priority (Improve Reliability)
+
 1. ✅ Add context messages for expected warnings (pyenv, Homebrew)
 2. ✅ Investigate and handle bun postinstall scripts
 3. ✅ Add verification steps after critical installations
 
 ### Medium Priority (Improve User Experience)
+
 1. ✅ Suppress informational warnings that might confuse users
 2. ✅ Add more progress indicators for long-running operations
 3. ✅ Add summary of installed versions at the end
 
 ### Low Priority (Polish)
+
 1. ✅ Suppress npm funding notices
 2. ✅ Add color coding for different message types
 3. ✅ Add estimated time information for major steps
@@ -298,6 +332,7 @@ The script demonstrates several good practices:
 ## Proposed Script Improvements
 
 ### 1. Enhanced Logging Function
+
 ```bash
 # Color codes for output
 RED='\033[0;31m'
@@ -328,6 +363,7 @@ log_note() {
 ```
 
 ### 2. Verification Function
+
 ```bash
 verify_installation() {
   local tool_name="$1"
@@ -345,6 +381,7 @@ verify_installation() {
 ```
 
 ### 3. Summary Report
+
 ```bash
 # At the end of the script, generate a summary
 generate_summary() {
@@ -381,17 +418,20 @@ generate_summary() {
 ## Testing Recommendations
 
 ### Pre-flight Checks
+
 1. Verify minimum disk space (recommend 20GB free)
 2. Check internet connectivity
 3. Verify Ubuntu 24 version
 
 ### Post-installation Verification
+
 1. Run all installed tools with `--version`
 2. Test playwright browser automation
 3. Verify GitHub authentication
 4. Test bun package execution
 
 ### Regression Testing
+
 - Test script on fresh Ubuntu 24 server
 - Test script on partially-configured system (idempotency check)
 - Test script with limited disk space
@@ -408,6 +448,7 @@ The `ubuntu-24-server-install.sh` script is **fundamentally sound and reliable**
 3. **Non-critical** (bun postinstalls)
 
 The script already includes many reliability features. The proposed improvements focus on:
+
 - Better user communication
 - Suppressing confusing but harmless warnings
 - Adding verification and summary reporting

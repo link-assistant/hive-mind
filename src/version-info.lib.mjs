@@ -61,7 +61,7 @@ export async function getVersionInfo(verbose = false) {
     }
 
     // Playwright MCP (check if installed via npm)
-    const playwrightMcpVersion = execCommand('npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk \'{print $2}\'', verbose);
+    const playwrightMcpVersion = execCommand("npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'", verbose);
     if (verbose && playwrightMcpVersion) {
       console.log(`[VERBOSE] Playwright MCP version: ${playwrightMcpVersion}`);
     }

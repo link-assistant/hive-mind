@@ -39,7 +39,6 @@ async function testPRCommentMessage() {
     console.log('   Old message removed: ✓');
     console.log('   New message added: ✓');
     console.log('   Message in correct context: ✓');
-
   } catch (error) {
     console.error('❌ Error during test:', error.message);
     process.exit(1);

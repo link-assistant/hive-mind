@@ -3,6 +3,7 @@
 ## Summary
 
 When running `scripts/ubuntu-24-server-install.sh` over an already installed hive-mind system, users encounter the error:
+
 ```
 sh: 105: cannot open /dev/tty: No such device or address
 ```
@@ -33,6 +34,7 @@ fi
 ```
 
 When the installer detects that stdin is not a TTY (because it's piped via `curl | sh`), it attempts to read from `/dev/tty` directly to enable interactive prompts. However, when running:
+
 - Via `su - hive -c "bash script.sh"` (as in our installation script)
 - In a non-interactive SSH session
 - In a Docker container without a TTY attached
@@ -59,6 +61,7 @@ curl -fsSL https://deno.land/install.sh | sh -s -- -y
 ```
 
 The `-y` / `--yes` flag tells the Deno installer to:
+
 - Accept all defaults
 - Skip the "Edit shell configs to add deno to the PATH?" prompt
 - Not attempt to read from `/dev/tty`
@@ -76,6 +79,7 @@ curl -s "https://get.sdkman.io?rcupdate=false&ci=true" | bash
 ```
 
 The `ci=true` parameter:
+
 - Sets `sdkman_auto_answer=true` (answers all prompts automatically)
 - Sets `sdkman_colour_enable=false` (cleaner logs)
 - Sets `sdkman_selfupdate_feature=false` (prevents unexpected updates)
@@ -88,6 +92,7 @@ The `ci=true` parameter:
 ## Evidence
 
 ### Error Log from Issue
+
 ```
 Installing Bun..
 100.
@@ -103,10 +108,12 @@ sh: 105: cannot open /dev/tty: No such device or address
 ```
 
 ### Deno Install Script Source
+
 - Repository: https://github.com/denoland/deno_install
 - Relevant code: https://github.com/denoland/deno_install/blob/master/install.sh
 
 ### Related Issues/Resources
+
 - Deno improvements for installation: https://github.com/denoland/deno/issues/24157
 - Remote installation issues: https://github.com/denoland/deno/issues/25931
 - SDKMAN CI mode: https://sdkman.io/install/
@@ -114,6 +121,7 @@ sh: 105: cannot open /dev/tty: No such device or address
 ## Testing
 
 The fix can be tested by:
+
 1. Creating a fresh Ubuntu 24.04 VM or container
 2. Running the installation script with simulated non-TTY conditions:
    ```bash

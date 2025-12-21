@@ -3,12 +3,12 @@
 // when only the yargs configuration is needed (e.g., in telegram-bot.mjs)
 // This module has no heavy dependencies to allow fast loading for --help
 
-export const createYargsConfig = (yargsInstance) => {
+export const createYargsConfig = yargsInstance => {
   return yargsInstance
-    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', (yargs) => {
+    .command('$0 [github-url]', 'Monitor GitHub issues and create PRs', yargs => {
       yargs.positional('github-url', {
         type: 'string',
-        description: 'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)'
+        description: 'GitHub organization, repository, or user URL to monitor (or GitHub repo URL when using --youtrack-mode)',
       });
     })
     .usage('Usage: $0 <github-url> [options]')
@@ -32,234 +32,239 @@ export const createYargsConfig = (yargsInstance) => {
       type: 'string',
       description: 'GitHub label to monitor for issues',
       default: 'help wanted',
-      alias: 't'
+      alias: 't',
     })
     .option('all-issues', {
       type: 'boolean',
       description: 'Process all open issues regardless of labels',
       default: false,
-      alias: 'a'
+      alias: 'a',
     })
     .option('skip-issues-with-prs', {
       type: 'boolean',
       description: 'Skip issues that already have open pull requests',
       default: false,
-      alias: 's'
+      alias: 's',
     })
     .option('concurrency', {
       type: 'number',
       description: 'Number of concurrent solve instances',
       default: 2,
-      alias: 'c'
+      alias: 'c',
     })
     .option('pull-requests-per-issue', {
       type: 'number',
       description: 'Number of pull requests to generate per issue',
       default: 1,
-      alias: 'p'
+      alias: 'p',
     })
     .option('model', {
       type: 'string',
       description: 'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
       alias: 'm',
-      default: 'sonnet'
+      default: 'sonnet',
     })
     .option('interval', {
       type: 'number',
       description: 'Polling interval in seconds',
       default: 300, // 5 minutes
-      alias: 'i'
+      alias: 'i',
     })
     .option('max-issues', {
       type: 'number',
       description: 'Maximum number of issues to process (0 = unlimited)',
-      default: 0
+      default: 0,
     })
     .option('dry-run', {
       type: 'boolean',
       description: 'List issues that would be processed without actually processing them',
-      default: false
+      default: false,
     })
     .option('skip-tool-connection-check', {
       type: 'boolean',
       description: 'Skip tool connection check (useful in CI environments). Does NOT skip model validation.',
-      default: false
+      default: false,
     })
     .option('skip-tool-check', {
       type: 'boolean',
       description: 'Alias for --skip-tool-connection-check (deprecated, use --skip-tool-connection-check instead)',
       default: false,
-      hidden: true
+      hidden: true,
     })
     .option('skip-claude-check', {
       type: 'boolean',
       description: 'Alias for --skip-tool-connection-check (deprecated)',
       default: false,
-      hidden: true
+      hidden: true,
     })
     .option('tool-connection-check', {
       type: 'boolean',
       description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
       default: true,
-      hidden: true
+      hidden: true,
     })
     .option('tool-check', {
       type: 'boolean',
       description: 'Alias for --tool-connection-check (deprecated)',
       default: true,
-      hidden: true
+      hidden: true,
     })
     .option('tool', {
       type: 'string',
       description: 'AI tool to use for solving issues',
       choices: ['claude', 'opencode', 'agent'],
-      default: 'claude'
+      default: 'claude',
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .option('once', {
       type: 'boolean',
       description: 'Run once and exit instead of continuous monitoring',
-      default: false
+      default: false,
     })
     .option('min-disk-space', {
       type: 'number',
       description: 'Minimum required disk space in MB (default: 500)',
-      default: 500
+      default: 500,
     })
     .option('auto-cleanup', {
       type: 'boolean',
       description: 'Automatically clean temporary directories (/tmp/* /var/tmp/*) when finished successfully',
-      default: false
+      default: false,
     })
     .option('fork', {
       type: 'boolean',
-      description: 'Fork the repository if you don\'t have write access',
+      description: "Fork the repository if you don't have write access",
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('auto-fork', {
       type: 'boolean',
       description: 'Automatically fork public repos without write access (passed to solve command)',
-      default: true
+      default: true,
     })
     .option('attach-logs', {
       type: 'boolean',
       description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
-      default: false
+      default: false,
     })
     .option('project-number', {
       type: 'number',
       description: 'GitHub Project number to monitor',
-      alias: 'pn'
+      alias: 'pn',
     })
     .option('project-owner', {
       type: 'string',
       description: 'GitHub Project owner (organization or user)',
-      alias: 'po'
+      alias: 'po',
     })
     .option('project-status', {
       type: 'string',
       description: 'Project status column to monitor (e.g., "Ready", "To Do")',
       alias: 'ps',
-      default: 'Ready'
+      default: 'Ready',
     })
     .option('project-mode', {
       type: 'boolean',
       description: 'Enable project-based monitoring instead of label-based',
       alias: 'pm',
-      default: false
+      default: false,
     })
     .option('youtrack-mode', {
       type: 'boolean',
       description: 'Enable YouTrack mode instead of GitHub issues',
-      default: false
+      default: false,
     })
     .option('youtrack-stage', {
       type: 'string',
-      description: 'Override YouTrack stage to monitor (overrides YOUTRACK_STAGE env var)'
+      description: 'Override YouTrack stage to monitor (overrides YOUTRACK_STAGE env var)',
     })
     .option('youtrack-project', {
       type: 'string',
-      description: 'Override YouTrack project code (overrides YOUTRACK_PROJECT_CODE env var)'
+      description: 'Override YouTrack project code (overrides YOUTRACK_PROJECT_CODE env var)',
     })
     .option('target-branch', {
       type: 'string',
       description: 'Target branch for pull requests (defaults to repository default branch)',
-      alias: 'tb'
+      alias: 'tb',
     })
     .option('log-dir', {
       type: 'string',
       description: 'Directory to save log files (defaults to current working directory)',
-      alias: 'l'
+      alias: 'l',
     })
     .option('auto-continue', {
       type: 'boolean',
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
-      default: true
+      default: true,
     })
     .option('think', {
       type: 'string',
       description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
       choices: ['low', 'medium', 'high', 'max'],
-      default: undefined
+      default: undefined,
     })
     .option('prompt-plan-sub-agent', {
       type: 'boolean',
       description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',
-      default: false
+      default: false,
     })
     .option('sentry', {
       type: 'boolean',
       description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
-      default: true
+      default: true,
     })
     .option('watch', {
       type: 'boolean',
       description: 'Monitor continuously for feedback and auto-restart when detected (stops when PR is merged)',
       alias: 'w',
-      default: false
+      default: false,
     })
     .option('issue-order', {
       type: 'string',
       description: 'Order issues by publication date: "asc" (oldest first) or "desc" (newest first)',
       alias: 'o',
       default: 'asc',
-      choices: ['asc', 'desc']
+      choices: ['asc', 'desc'],
     })
     .option('prefix-fork-name-with-owner-name', {
       type: 'boolean',
       description: 'Prefix fork name with original owner name (e.g., "owner-repo" instead of "repo"). Useful when forking repositories with same name from different owners.',
-      default: true
+      default: true,
     })
     .option('interactive-mode', {
       type: 'boolean',
       description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
-      default: false
+      default: false,
     })
     .option('prompt-explore-sub-agent', {
       type: 'boolean',
       description: 'Encourage Claude to use Explore sub-agent for codebase exploration. Only supported for --tool claude.',
-      default: false
+      default: false,
     })
     .option('prompt-general-purpose-sub-agent', {
       type: 'boolean',
       description: 'Prompt AI to use general-purpose sub agents for processing large tasks with multiple files/folders. Only supported for --tool claude.',
-      default: false
+      default: false,
     })
     .option('tokens-budget-stats', {
       type: 'boolean',
       description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
-      default: false
+      default: false,
     })
     .option('prompt-issue-reporting', {
       type: 'boolean',
       description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
-      default: false
+      default: false,
+    })
+    .option('prompt-case-studies', {
+      type: 'boolean',
+      description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
+      default: false,
     })
     .option('prompt-architecture-care', {
       type: 'boolean',
@@ -270,9 +275,9 @@ export const createYargsConfig = (yargsInstance) => {
       'boolean-negation': true,
       'strip-dashed': false,
       'strip-aliased': false,
-      'populate--': false
+      'populate--': false,
     })
-    .showHelpOnFail(false)  // Don't show help on validation failures
+    .showHelpOnFail(false) // Don't show help on validation failures
     .strict()
     .help('h')
     .alias('h', 'help');

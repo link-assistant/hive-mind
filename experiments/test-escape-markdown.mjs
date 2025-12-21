@@ -10,40 +10,40 @@ import { escapeMarkdownV2 } from '../src/telegram-markdown.lib.mjs';
 const testCasesDefault = [
   {
     input: 'Some text with special characters: . - !',
-    expected: 'Some text with special characters: \\. \\- \\!'
+    expected: 'Some text with special characters: \\. \\- \\!',
   },
   {
     input: 'Text with `code` in the middle',
-    expected: 'Text with \\`code\\` in the middle'
+    expected: 'Text with \\`code\\` in the middle',
   },
   {
     input: 'Multiple `code1` and `code2` blocks',
-    expected: 'Multiple \\`code1\\` and \\`code2\\` blocks'
+    expected: 'Multiple \\`code1\\` and \\`code2\\` blocks',
   },
   {
     input: 'Backslash \\ test',
-    expected: 'Backslash \\\\ test'
-  }
+    expected: 'Backslash \\\\ test',
+  },
 ];
 
 // Test cases with preserveCodeBlocks: true (preserving inline code)
 const testCasesWithPreserve = [
   {
     input: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
-    expected: 'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
+    expected: 'No access token found in Claude credentials\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.',
   },
   {
     input: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
-    expected: 'Claude authentication expired\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.'
+    expected: 'Claude authentication expired\\. Please use `/solve` or `/hive` commands to trigger re\\-authentication of Claude\\.',
   },
   {
     input: 'Text with `code` in the middle',
-    expected: 'Text with `code` in the middle'
+    expected: 'Text with `code` in the middle',
   },
   {
     input: 'Multiple `code1` and `code2` blocks',
-    expected: 'Multiple `code1` and `code2` blocks'
-  }
+    expected: 'Multiple `code1` and `code2` blocks',
+  },
 ];
 
 console.log('Testing escapeMarkdownV2 function:\n');

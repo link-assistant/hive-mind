@@ -6,15 +6,7 @@
  * Run: node experiments/test-model-validation.mjs
  */
 
-import {
-  validateModelName,
-  levenshteinDistance,
-  findSimilarModels,
-  getAvailableModelNames,
-  CLAUDE_MODELS,
-  OPENCODE_MODELS,
-  CODEX_MODELS
-} from '../src/model-validation.lib.mjs';
+import { validateModelName, levenshteinDistance, findSimilarModels, getAvailableModelNames, CLAUDE_MODELS, OPENCODE_MODELS, CODEX_MODELS } from '../src/model-validation.lib.mjs';
 
 let passed = 0;
 let failed = 0;

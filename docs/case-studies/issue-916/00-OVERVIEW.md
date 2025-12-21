@@ -15,6 +15,7 @@
 AI agents using `--tool claude` and `--tool agent` check for issue/PR comments during initial research but don't explicitly re-check for new feedback that may have arrived during implementation. Additionally, there's no explicit reminder to verify the working tree is clean (no uncommitted changes) before declaring work complete.
 
 This creates two workflow gaps:
+
 1. **Temporal Gap**: Feedback can arrive after work begins but before it's finished
 2. **Completeness Gap**: Work may be declared "done" with uncommitted files remaining
 
@@ -50,12 +51,14 @@ Apply to both `agent.prompts.lib.mjs` and `claude.prompts.lib.mjs` for consisten
 ## Impact Assessment
 
 ### Before Fix
+
 - Agents might miss feedback that arrived during implementation
 - PRs could be marked ready with uncommitted changes
 - Reviewers frustrated by ignored feedback
 - Follow-up PRs needed to address missed comments
 
 ### After Fix
+
 - Agents check for feedback before finalizing
 - Working tree verified clean before completion
 - Aligns with industry best practices
@@ -86,6 +89,7 @@ This case study includes:
 Research conducted on 2025-12-11 identified industry best practices:
 
 ### PR Comment Best Practices
+
 - Track comment statuses throughout review process
 - Address all feedback before merging
 - Check for unresolved issues before finalizing
@@ -93,6 +97,7 @@ Research conducted on 2025-12-11 identified industry best practices:
 - Sources: Codacy, Crystallize, Aikido, Rewind, Graph AI, Sopa
 
 ### Git Workflow Best Practices
+
 - Check `git status` before declaring work complete
 - GitHub Actions exist for automated uncommitted changes checks
 - Frequent small commits better than large updates
@@ -108,16 +113,19 @@ Research conducted on 2025-12-11 identified industry best practices:
 ## Implementation Details
 
 **Files to Modify**:
+
 1. `src/agent.prompts.lib.mjs` - Lines 153-161, 176-179
 2. `src/claude.prompts.lib.mjs` - Lines 169-177, 191-194
 
 **Style Requirements**:
+
 - Use "When x do y." format
 - Gentle hints, not commands
 - Consistent with existing prompt structure
 - Maintain alphabetical/logical ordering
 
 **Testing Strategy**:
+
 - Test comment check with real-time feedback during agent execution
 - Test git status check with scenarios involving uncommitted files
 - Verify style consistency with existing prompts

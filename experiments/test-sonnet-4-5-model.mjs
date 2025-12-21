@@ -13,7 +13,7 @@ const testCases = [
   { input: 'opus', expected: 'claude-opus-4-5-20251101' },
   { input: 'claude-sonnet-4-5-20250929', expected: 'claude-sonnet-4-5-20250929' },
   { input: 'claude-opus-4-5-20251101', expected: 'claude-opus-4-5-20251101' },
-  { input: 'custom-model-id', expected: 'custom-model-id' }
+  { input: 'custom-model-id', expected: 'custom-model-id' },
 ];
 
 let allPassed = true;

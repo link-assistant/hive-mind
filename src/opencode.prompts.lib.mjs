@@ -10,22 +10,8 @@ import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mj
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -72,7 +58,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -89,7 +75,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -99,7 +85,7 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -135,6 +121,7 @@ Initial research.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
+   - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;
@@ -192,5 +179,5 @@ GitHub CLI command patterns.
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

@@ -10,22 +10,8 @@ import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mj
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    forkedRepo,
-    feedbackLines,
-    owner,
-    repo,
-    argv,
-    contributingGuidelines
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
 
   const promptLines = [];
 
@@ -78,7 +64,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -95,7 +81,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -105,7 +91,7 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -147,10 +133,11 @@ Initial research.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
    - When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.
-   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}
+   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}${argv && argv.promptCaseStudies ? `\n   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.` : ''}
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
+   - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;
@@ -202,5 +189,5 @@ Self review.
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

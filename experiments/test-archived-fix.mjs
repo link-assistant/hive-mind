@@ -11,8 +11,8 @@ async function testArchivedCheck() {
   const testRepos = [
     {
       owner: 'konard',
-      name: 'test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5'
-    }
+      name: 'test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5',
+    },
   ];
 
   console.log('📋 Testing with repository:');
@@ -50,7 +50,7 @@ async function testUrlExtraction() {
 
   const testIssue = {
     url: 'https://github.com/konard/test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5/issues/1',
-    title: 'Test Issue'
+    title: 'Test Issue',
   };
 
   console.log('📋 Testing with issue URL:');

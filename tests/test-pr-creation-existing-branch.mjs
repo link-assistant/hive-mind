@@ -293,7 +293,7 @@ async function runTests() {
     { name: 'Existing Branch with Commits', fn: testExistingBranchWithCommits },
     { name: 'Already Merged Branch', fn: testAlreadyMergedBranch },
     { name: 'Push Strategy', fn: testPushStrategy },
-    { name: 'No Changes', fn: testNoChanges }
+    { name: 'No Changes', fn: testNoChanges },
   ];
 
   for (const test of tests) {

@@ -22,14 +22,14 @@ This is correct! The repositories have identical commit histories. However, GitH
 
 ### Repository Comparison
 
-| Attribute | VisageDvachevsky/VEIL | konard/VisageDvachevsky-VEIL |
-|-----------|----------------------|------------------------------|
-| Created | 2025-12-07T12:22:58Z | 2025-12-07T12:31:49Z |
-| Is Fork | false | false |
-| Parent | null | null |
-| Forks Count | 0 | 0 |
-| Initial Commit SHA | 51e5c03a5c44... | 51e5c03a5c44... |
-| Latest Commit SHA | 19078ee0df69... | 19078ee0df69... |
+| Attribute          | VisageDvachevsky/VEIL | konard/VisageDvachevsky-VEIL |
+| ------------------ | --------------------- | ---------------------------- |
+| Created            | 2025-12-07T12:22:58Z  | 2025-12-07T12:31:49Z         |
+| Is Fork            | false                 | false                        |
+| Parent             | null                  | null                         |
+| Forks Count        | 0                     | 0                            |
+| Initial Commit SHA | 51e5c03a5c44...       | 51e5c03a5c44...              |
+| Latest Commit SHA  | 19078ee0df69...       | 19078ee0df69...              |
 
 **Key Finding**: Despite having identical commit histories, GitHub does not recognize any relationship between these repositories.
 
@@ -42,6 +42,7 @@ GitHub's Compare API (`/repos/{owner}/{repo}/compare/{base}...{head}`) only work
 3. The forked repo gets `"fork": true` and a `"parent"` reference
 
 When a repository is created by:
+
 - Cloning and pushing to a new repo
 - Using GitHub's Import feature
 - Downloading and uploading
@@ -57,6 +58,7 @@ The `konard/VisageDvachevsky-VEIL` repository was created approximately 9 minute
 3. Pushing the cloned content to the new repository
 
 This bypassed GitHub's fork tracking system, creating an "orphaned" repository that cannot:
+
 - Create PRs to the original repository
 - Be compared with the original repository
 - Be recognized as part of the original's fork network
@@ -89,11 +91,13 @@ This bypassed GitHub's fork tracking system, creating an "orphaned" repository t
 ### For This Specific Case
 
 1. **Delete the independent clone**:
+
    ```bash
    gh repo delete konard/VisageDvachevsky-VEIL --yes
    ```
 
 2. **Create a proper fork**:
+
    ```bash
    gh repo fork VisageDvachevsky/VEIL
    ```
@@ -113,15 +117,15 @@ See [proposed-solutions.md](./proposed-solutions.md) for detailed implementation
 
 ## Files in This Case Study
 
-| File | Description |
-|------|-------------|
-| [README.md](./README.md) | This overview document |
-| [solve-log.txt](./solve-log.txt) | Full execution log from solve.mjs |
-| [timeline.md](./timeline.md) | Detailed timeline of events |
-| [root-cause-analysis.md](./root-cause-analysis.md) | Technical analysis of the problem |
-| [proposed-solutions.md](./proposed-solutions.md) | Recommended code changes |
-| [repo-original.json](./repo-original.json) | GitHub API response for original repo |
-| [repo-fork.json](./repo-fork.json) | GitHub API response for "fork" repo |
+| File                                               | Description                           |
+| -------------------------------------------------- | ------------------------------------- |
+| [README.md](./README.md)                           | This overview document                |
+| [solve-log.txt](./solve-log.txt)                   | Full execution log from solve.mjs     |
+| [timeline.md](./timeline.md)                       | Detailed timeline of events           |
+| [root-cause-analysis.md](./root-cause-analysis.md) | Technical analysis of the problem     |
+| [proposed-solutions.md](./proposed-solutions.md)   | Recommended code changes              |
+| [repo-original.json](./repo-original.json)         | GitHub API response for original repo |
+| [repo-fork.json](./repo-fork.json)                 | GitHub API response for "fork" repo   |
 
 ## References
 

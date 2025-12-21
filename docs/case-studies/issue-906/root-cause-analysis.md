@@ -11,6 +11,7 @@ The solve.mjs command failed because it detected what appeared to be a fork (`ko
 ### Evidence
 
 1. **GitHub API explicitly states it's not a fork**:
+
    ```json
    // konard/VisageDvachevsky-VEIL
    {
@@ -21,6 +22,7 @@ The solve.mjs command failed because it detected what appeared to be a fork (`ko
    ```
 
 2. **Original repository has zero forks**:
+
    ```json
    // VisageDvachevsky/VEIL
    {
@@ -38,6 +40,7 @@ The solve.mjs command failed because it detected what appeared to be a fork (`ko
 The `konard/VisageDvachevsky-VEIL` repository was likely created using one of these methods:
 
 ### Method 1: Clone + Push to New Repo
+
 ```bash
 git clone https://github.com/VisageDvachevsky/VEIL.git
 cd VEIL
@@ -47,9 +50,11 @@ git push -u origin main
 ```
 
 ### Method 2: GitHub Import
+
 Using GitHub's "Import repository" feature at https://github.com/new/import with the URL of the original repository.
 
 ### Method 3: Template or Download
+
 Downloading the ZIP and pushing to a new repository.
 
 ## Why This Matters for GitHub
@@ -69,11 +74,13 @@ When you manually clone and push:
 ## The Error Detection Was Correct But Misleading
 
 The current error message correctly identifies the problem:
+
 ```
 ❌ REPOSITORY MISMATCH: Fork is from different repository tree
 ```
 
 However, the real issue is more nuanced:
+
 - It's not that the fork is from a "different repository tree"
 - It's that **there is no fork relationship at all**
 - The repositories are completely independent in GitHub's view, despite having identical commits
@@ -81,6 +88,7 @@ However, the real issue is more nuanced:
 ## Impact on Pull Request Creation
 
 Since GitHub doesn't recognize these as related repositories:
+
 1. You cannot create a PR from `konard/VisageDvachevsky-VEIL` to `VisageDvachevsky/VEIL`
 2. The compare API returns 404 (repositories are unrelated)
 3. GitHub will not allow cross-repo PRs between unrelated repositories

@@ -7,10 +7,13 @@ This document outlines the improvements to address the confusion around automati
 ## Improvement 1: Better Messaging for Auto-Restart
 
 ### Problem
+
 Users are confused when "watch mode" is activated even though they didn't specify `--watch`.
 
 ### Solution
+
 Update messaging to clearly distinguish between:
+
 - User-requested `--watch` mode (continuous monitoring)
 - Automatic temporary watch mode (one-time restart to handle uncommitted changes)
 
@@ -19,6 +22,7 @@ Update messaging to clearly distinguish between:
 #### File: `src/solve.mjs` (lines 815-830)
 
 **Current code:**
+
 ```javascript
 if (argv.verbose) {
   await log('');
@@ -41,6 +45,7 @@ if (temporaryWatchMode) {
 ```
 
 **Improved code:**
+
 ```javascript
 if (argv.verbose) {
   await log('');
@@ -69,6 +74,7 @@ if (temporaryWatchMode) {
 #### File: `src/solve.watch.lib.mjs` (lines 94-106)
 
 **Current code:**
+
 ```javascript
 await log('');
 await log(formatAligned('👁️', 'WATCH MODE ACTIVATED', ''));
@@ -86,6 +92,7 @@ await log('');
 ```
 
 **Improved code:**
+
 ```javascript
 await log('');
 if (isTemporaryWatch) {
@@ -109,9 +116,11 @@ await log('');
 ## Improvement 2: Automatic Push After Temporary Watch Mode
 
 ### Problem
+
 When codex commits changes but cannot push (due to network restrictions), the solve script should push them.
 
 ### Solution
+
 Add automatic push logic after temporary watch mode exits successfully.
 
 ### Implementation
@@ -153,9 +162,11 @@ if (temporaryWatchMode) {
 ## Improvement 3: Documentation
 
 ### Problem
+
 Users don't understand why codex can't push directly.
 
 ### Solution
+
 Add documentation explaining the codex sandbox environment and network restrictions.
 
 ### Implementation
@@ -185,19 +196,20 @@ The solve script works around these limitations:
 4. **Final Push**: After codex completes, solve.mjs pushes changes to GitHub (outside sandbox)
 
 ### Expected Workflow
-
 ```
+
 [solve.mjs] Clone repo and create branch
-            ↓
-[codex]     Make changes and commit locally
-            ↓
+↓
+[codex] Make changes and commit locally
+↓
 [solve.mjs] Detect uncommitted changes? → Restart codex
-            ↓
-[codex]     Commit remaining changes
-            ↓
+↓
+[codex] Commit remaining changes
+↓
 [solve.mjs] Push all commits to GitHub
-            ↓
+↓
 [solve.mjs] Exit successfully
+
 ```
 
 ### Troubleshooting
@@ -237,6 +249,7 @@ The `--tool codex` option uses OpenAI's Codex CLI for solving issues.
 4. Verify the log clearly states it's not user-requested watch mode
 
 **Expected Output:**
+
 ```
 🔄 AUTO-RESTART: Uncommitted changes detected
    Starting temporary monitoring cycle (NOT --watch mode)
@@ -256,6 +269,7 @@ The `--tool codex` option uses OpenAI's Codex CLI for solving issues.
 4. Check that the remote branch is updated
 
 **Expected Output:**
+
 ```
 📤 Pushing committed changes to GitHub...
    (Tool cannot push directly due to network restrictions)
@@ -271,6 +285,7 @@ The `--tool codex` option uses OpenAI's Codex CLI for solving issues.
 3. Verify clear error message and manual push instructions
 
 **Expected Output:**
+
 ```
 ⚠️  Push failed:
    [error details]
@@ -294,6 +309,7 @@ The `--tool codex` option uses OpenAI's Codex CLI for solving issues.
 ## Summary
 
 These improvements address the user confusion by:
+
 1. **Clearer Messaging**: Distinguishing auto-restart from user-requested watch mode
 2. **Automatic Push**: Handling the push after codex commits changes
 3. **Better Documentation**: Explaining codex limitations and expected behavior

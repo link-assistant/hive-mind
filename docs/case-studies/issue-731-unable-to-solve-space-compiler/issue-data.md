@@ -10,6 +10,7 @@
 **URL:** https://github.com/link-assistant/hive-mind/issues/731
 
 ### Description
+
 ```
 Full log: https://gist.github.com/konard/d14c8c68bad8d8339db760d1a685eb54
 Issue: https://github.com/xlab2016/space_compiler_public/issues/1
@@ -18,6 +19,7 @@ Please download all logs and data related about the issue to this repository, ma
 ```
 
 ### Comments
+
 No comments on the issue.
 
 ---
@@ -31,6 +33,7 @@ No comments on the issue.
 **URL:** https://github.com/xlab2016/space_compiler_public/issues/1
 
 ### Original Description (Russian)
+
 ```
 Есть основа проекта: https://github.com/xlab2016/space_db_public
 Я хочу выделить парсинг документов как новую методологию: компиляция файлов.
@@ -63,6 +66,7 @@ Project1.spaceproj:
 ```
 
 ### English Translation Summary
+
 The issue requests creation of a new .NET 8 API project that extracts file parsing functionality from an existing project (space_db_public) and reorganizes it into a compiler architecture with three main services:
 
 1. **TokenizerService** - Splits text into fragments
@@ -70,6 +74,7 @@ The issue requests creation of a new .NET 8 API project that extracts file parsi
 3. **AnalyzerService** - Performs semantic analysis on AST nodes
 
 The API should expose three endpoints via CompilerController:
+
 - `/api/v1/compiler/compile/file` - Compile a single file
 - `/api/v1/compiler/compile/files` - Compile multiple files as a unified tree
 - `/api/v1/compiler/compile/project/zip` - Compile a ZIP project with a `.spaceproj` description file
@@ -77,13 +82,16 @@ The API should expose three endpoints via CompilerController:
 The `.spaceproj` file format is based on link notation and defines file structure as a graph.
 
 ### Related Resources
+
 - Foundation project: https://github.com/xlab2016/space_db_public
 - Link notation standard: https://github.com/link-foundation/links-notation
 
 ### Comments
+
 No comments on the issue.
 
 ### Timeline Events
+
 - 2025-11-13T19:43:39Z - Cross-referenced by konard (Issue #731 in hive-mind)
 
 ---
@@ -100,9 +108,11 @@ No comments on the issue.
 **State:** Git Repository is empty (HTTP 409)
 
 ### Pull Requests
+
 No pull requests.
 
 ### Commits
+
 No commits (empty repository).
 
 ---
@@ -118,6 +128,7 @@ No commits (empty repository).
 ## CI/CD Information
 
 ### Failed CI Run for Issue #731 Branch
+
 **Run ID:** 19343831150
 **Branch:** issue-731-96dccdd78062
 **Conclusion:** failure
@@ -126,6 +137,7 @@ No commits (empty repository).
 **Head SHA:** 7187a05097c1ef5b73a353c5878fbcd9ac1f8ff4
 
 **Failure Reason:** Version bump verification failed
+
 - Current version in PR: 0.33.4
 - Base version in main: 0.33.4
 - Error: Version has not been bumped

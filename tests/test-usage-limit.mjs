@@ -6,13 +6,7 @@
  * Related issue: https://github.com/link-assistant/hive-mind/issues/942
  */
 
-import {
-  isUsageLimitError,
-  extractResetTime,
-  detectUsageLimit,
-  formatUsageLimitMessage,
-  parseUsageLimitJson
-} from '../src/usage-limit.lib.mjs';
+import { isUsageLimitError, extractResetTime, detectUsageLimit, formatUsageLimitMessage, parseUsageLimitJson } from '../src/usage-limit.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -54,8 +48,7 @@ runTest('isUsageLimitError: detects "limit reached"', () => {
 });
 
 runTest('isUsageLimitError: detects Claude-style "resets" message', () => {
-  assertTrue(isUsageLimitError('Limit reached · resets 8pm (Europe/Berlin) · turn on /extra-usage'),
-    'Should detect Claude resets message');
+  assertTrue(isUsageLimitError('Limit reached · resets 8pm (Europe/Berlin) · turn on /extra-usage'), 'Should detect Claude resets message');
 });
 
 runTest('isUsageLimitError: detects usage limit exceeded', () => {
@@ -130,7 +123,7 @@ runTest('formatUsageLimitMessage: includes session ID and resume command', () =>
     tool: 'Claude',
     resetTime: '8:00 PM',
     sessionId: '4c549ec6-3204-4312-b8e2-5f04113b2f86',
-    resumeCommand: './solve.mjs "https://example.com" --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86'
+    resumeCommand: './solve.mjs "https://example.com" --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86',
   });
 
   const message = lines.join('\n');
@@ -146,7 +139,7 @@ runTest('formatUsageLimitMessage: handles missing reset time', () => {
     tool: 'Claude',
     resetTime: null,
     sessionId: 'test-session',
-    resumeCommand: './solve.mjs --resume test-session'
+    resumeCommand: './solve.mjs --resume test-session',
   });
 
   const message = lines.join('\n');
@@ -158,7 +151,7 @@ runTest('formatUsageLimitMessage: handles missing session ID', () => {
     tool: 'Claude',
     resetTime: '5:00 AM',
     sessionId: null,
-    resumeCommand: null
+    resumeCommand: null,
   });
 
   const message = lines.join('\n');
@@ -170,7 +163,7 @@ runTest('formatUsageLimitMessage: handles missing session ID', () => {
 runTest('parseUsageLimitJson: parses error type JSON', () => {
   const json = JSON.stringify({
     type: 'error',
-    message: 'Limit reached · resets 8pm'
+    message: 'Limit reached · resets 8pm',
   });
   const result = parseUsageLimitJson(json);
   assertEqual(result.type, 'error', 'Should parse error type');
@@ -181,8 +174,8 @@ runTest('parseUsageLimitJson: parses turn.failed type JSON', () => {
   const json = JSON.stringify({
     type: 'turn.failed',
     error: {
-      message: 'Usage limit exceeded'
-    }
+      message: 'Usage limit exceeded',
+    },
   });
   const result = parseUsageLimitJson(json);
   assertEqual(result.type, 'turn.failed', 'Should parse turn.failed type');
@@ -192,7 +185,7 @@ runTest('parseUsageLimitJson: parses turn.failed type JSON', () => {
 runTest('parseUsageLimitJson: returns null for non-limit errors', () => {
   const json = JSON.stringify({
     type: 'error',
-    message: 'File not found'
+    message: 'File not found',
   });
   const result = parseUsageLimitJson(json);
   assertEqual(result, null, 'Should return null for non-limit error');

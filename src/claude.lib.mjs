@@ -13,6 +13,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -1279,6 +1280,10 @@ export const executeClaudeCommand = async (params) => {
               const usage = tokenUsage.modelUsage[modelId];
               await log(`\n   📊 ${usage.modelName || modelId}:`);
               await displayModelUsage(usage, log);
+              // Display budget stats if flag is enabled
+              if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
+                await displayBudgetStats(usage, log);
+              }
             }
             // Show totals if multiple models were used
             if (modelIds.length > 1) {

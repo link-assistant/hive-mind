@@ -11,10 +11,7 @@ const yargs = yargsModule.default || yargsModule;
 
 console.log('Test 1: Valid options - should pass');
 try {
-  const argv1 = yargs(['--token', 'mytoken'])
-    .option('token', { type: 'string' })
-    .strict()
-    .parseSync();
+  const argv1 = yargs(['--token', 'mytoken']).option('token', { type: 'string' }).strict().parseSync();
   console.log('✅ PASS: Valid option accepted');
   console.log('   argv.token:', argv1.token);
 } catch (error) {
@@ -24,10 +21,7 @@ try {
 
 console.log('\nTest 2: Invalid option - should fail');
 try {
-  const argv2 = yargs(['--invalid-option', 'value'])
-    .option('token', { type: 'string' })
-    .strict()
-    .parseSync();
+  const argv2 = yargs(['--invalid-option', 'value']).option('token', { type: 'string' }).strict().parseSync();
   console.log('❌ FAIL: Invalid option was accepted');
   console.log('   Keys:', Object.keys(argv2));
 } catch (error) {
@@ -37,18 +31,16 @@ try {
 
 console.log('\nTest 3: Option with special character value - check behavior');
 try {
-  const argv3 = yargs(['--token', '(test value)'])
-    .option('token', { type: 'string' })
-    .strict()
-    .parseSync();
+  const argv3 = yargs(['--token', '(test value)']).option('token', { type: 'string' }).strict().parseSync();
   console.log('Result: Command accepted');
   console.log('   argv.token:', argv3.token);
-  console.log('   All keys:', Object.keys(argv3).filter(k => k !== '$0' && k !== '_'));
+  console.log(
+    '   All keys:',
+    Object.keys(argv3).filter(k => k !== '$0' && k !== '_')
+  );
 
   // Check if yargs created extra keys
-  const extraKeys = Object.keys(argv3).filter(k =>
-    k !== '$0' && k !== '_' && k !== 'token'
-  );
+  const extraKeys = Object.keys(argv3).filter(k => k !== '$0' && k !== '_' && k !== 'token');
   if (extraKeys.length > 0) {
     console.log('⚠️  WARNING: Yargs created extra keys:', extraKeys);
   } else {

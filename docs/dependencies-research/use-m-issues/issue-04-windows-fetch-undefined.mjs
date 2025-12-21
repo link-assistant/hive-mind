@@ -29,13 +29,13 @@ try {
   if (typeof fetch === 'undefined') {
     throw new Error('fetch is not defined - cannot load use-m from CDN');
   }
-  
+
   const useScript = await (await fetch('https://unpkg.com/use-m/use.js')).text();
   const { use } = eval(useScript);
   console.log('   ✅ use-m loaded successfully');
 } catch (error) {
   console.log('   ❌ Failed to load use-m:', error.message);
-  
+
   if (error.message.includes('fetch is not defined')) {
     console.log('\n   Stack trace shows the error originates from:');
     console.log('   globalThis.use = (await eval(await (await fetch(...)).text())).use;');

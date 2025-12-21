@@ -13,7 +13,7 @@ const testArgs = process.argv.slice(2);
 console.log(`Testing strict validation with tracking: ${testArgs.join(' ')}\n`);
 
 // Helper to check if a string looks like it was meant to be an option
-const looksLikeOption = (str) => {
+const looksLikeOption = str => {
   return /^[\u002D\u2010\u2011\u2012\u2013\u2014]+[a-zA-Z]/.test(str);
 };
 
@@ -25,13 +25,13 @@ const yargsInstance = yargs(testArgs)
     type: 'boolean',
     description: 'Fork the repository',
     alias: 'f',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   });
 
 // Add defined options and their aliases
@@ -41,7 +41,7 @@ definedOptions.add('verbose');
 definedOptions.add('v');
 
 yargsInstance
-  .check((argv) => {
+  .check(argv => {
     const errors = [];
 
     // Get initial aliases before yargs adds auto-aliases for unknown options

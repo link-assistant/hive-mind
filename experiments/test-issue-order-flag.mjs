@@ -6,7 +6,7 @@ console.log('Test 1: Verify that issue-order flag accepts "asc" and "desc" value
 const testIssues = [
   { url: 'https://github.com/test/repo/issues/3', title: 'Third issue', createdAt: '2025-01-03T00:00:00Z' },
   { url: 'https://github.com/test/repo/issues/1', title: 'First issue', createdAt: '2025-01-01T00:00:00Z' },
-  { url: 'https://github.com/test/repo/issues/2', title: 'Second issue', createdAt: '2025-01-02T00:00:00Z' }
+  { url: 'https://github.com/test/repo/issues/2', title: 'Second issue', createdAt: '2025-01-02T00:00:00Z' },
 ];
 
 console.log('Original order (unsorted):');

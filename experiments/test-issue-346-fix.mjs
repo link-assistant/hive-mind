@@ -22,7 +22,7 @@ async function testAutoContinuePathFix() {
   // Test with an actual PR from this repository
   // We'll use PR #334 which should exist based on the issue logs
   const prNumber = 334;
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
 
   try {

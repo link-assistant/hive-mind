@@ -20,7 +20,7 @@ const testCases = [
   { input: 'haiku-3-5', expected: 'claude-3-5-haiku-20241022' },
   { input: 'haiku-3', expected: 'claude-3-haiku-20240307' },
   { input: 'sonnet', expected: 'claude-sonnet-4-5-20250929' },
-  { input: 'opus', expected: 'claude-opus-4-1-20250805' },
+  { input: 'opus', expected: 'claude-opus-4-5-20251101' },
   { input: 'haiku', expected: 'claude-haiku-4-5-20251001' },
   { input: 'claude-custom-model', expected: 'claude-custom-model' }, // Unknown model should pass through
 ];

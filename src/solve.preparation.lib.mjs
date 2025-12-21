@@ -7,23 +7,7 @@
 const feedback = await import('./solve.feedback.lib.mjs');
 const { detectAndCountFeedback } = feedback;
 
-
-
-export async function prepareFeedbackAndTimestamps({
-  prNumber,
-  branchName: _branchName,
-  owner,
-  repo,
-  issueNumber,
-  isContinueMode: _isContinueMode,
-  mergeStateStatus: _mergeStateStatus,
-  prState: _prState,
-  argv: _argv,
-  log,
-  formatAligned,
-  cleanErrorMessage: _cleanErrorMessage,
-  $
-}) {
+export async function prepareFeedbackAndTimestamps({ prNumber, branchName: _branchName, owner, repo, issueNumber, isContinueMode: _isContinueMode, mergeStateStatus: _mergeStateStatus, prState: _prState, argv: _argv, log, formatAligned, cleanErrorMessage: _cleanErrorMessage, $ }) {
   // Count new comments and detect feedback
   let { feedbackLines } = await detectAndCountFeedback({
     prNumber,
@@ -39,7 +23,7 @@ export async function prepareFeedbackAndTimestamps({
     log,
     formatAligned,
     cleanErrorMessage: _cleanErrorMessage,
-    $
+    $,
   });
 
   // Get timestamps from GitHub servers before executing the command
@@ -77,7 +61,9 @@ export async function prepareFeedbackAndTimestamps({
     const prsResult = await $`gh pr list --repo ${owner}/${repo} --limit 1 --json createdAt`;
 
     if (prsResult.code !== 0) {
-      await log(`Warning: Failed to get PRs: ${prsResult.stderr ? prsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });
+      await log(`Warning: Failed to get PRs: ${prsResult.stderr ? prsResult.stderr.toString() : 'Unknown error'}`, {
+        level: 'warning',
+      });
       // Continue anyway, PRs are optional for timestamp calculation
     }
 
@@ -106,7 +92,7 @@ export async function prepareFeedbackAndTimestamps({
       context: 'get_reference_timestamp',
       prNumber,
       issueNumber,
-      operation: 'fetch_github_timestamps'
+      operation: 'fetch_github_timestamps',
     });
     await log('Warning: Could not get GitHub timestamps, using current time as reference', { level: 'warning' });
     await log(`  Error: ${timestampError.message}`);
@@ -117,12 +103,7 @@ export async function prepareFeedbackAndTimestamps({
   return { feedbackLines, referenceTime };
 }
 
-export async function checkUncommittedChanges({
-  tempDir,
-  argv,
-  log,
-  $
-}) {
+export async function checkUncommittedChanges({ tempDir, argv, log, $ }) {
   // Check for uncommitted changes before running Claude
   // Only add to feedback if auto-commit is disabled
   if (!argv['auto-commit-uncommitted-changes']) {
@@ -147,8 +128,11 @@ export async function checkUncommittedChanges({
           }
 
           feedbackLines.push('');
-          feedbackLines.push('Please review and handle these changes appropriately.');
-          feedbackLines.push('Consider committing important changes or cleaning up unnecessary files.');
+          feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+          feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
+          feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
+          feedbackLines.push('');
+          feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
           return feedbackLines;
         } else {
           await log('✅ No uncommitted changes found');
@@ -160,7 +144,7 @@ export async function checkUncommittedChanges({
       reportError(gitError, {
         context: 'check_uncommitted_changes',
         tempDir,
-        operation: 'git_status'
+        operation: 'git_status',
       });
       await log(`⚠️ Warning: Could not check git status: ${gitError.message}`, { level: 'warning' });
     }
@@ -168,14 +152,7 @@ export async function checkUncommittedChanges({
   return [];
 }
 
-export async function checkForkActions({
-  argv,
-  forkedRepo,
-  branchName,
-  log,
-  formatAligned,
-  $
-}) {
+export async function checkForkActions({ argv, forkedRepo, branchName, log, formatAligned, $ }) {
   // Check for GitHub Actions on fork repository if applicable
   let forkActionsUrl = null;
   if (argv.fork && forkedRepo) {

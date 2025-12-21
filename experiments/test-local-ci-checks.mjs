@@ -40,9 +40,7 @@ async function testCurrentRepo() {
   console.log('    - pre-commit:', tools.general.preCommit);
 
   // Only run checks if any are detected
-  const hasAnyTool = Object.values(tools).some(category =>
-    Object.values(category).some(value => value === true)
-  );
+  const hasAnyTool = Object.values(tools).some(category => Object.values(category).some(value => value === true));
 
   if (hasAnyTool) {
     console.log('\n--- Running Local CI Checks (dry run - will show what would run) ---');

@@ -43,7 +43,7 @@ function extractGitHubUrl(text) {
     return {
       url: null,
       error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length
+      linkCount: foundUrls.length,
     };
   }
 }
@@ -56,46 +56,46 @@ console.log('===========================================\n');
 const singleLinkTests = [
   {
     desc: 'Plain issue URL',
-    text: 'https://github.com/deep-assistant/hive-mind/issues/603',
-    expectedUrl: 'https://github.com/deep-assistant/hive-mind/issues/603',
+    text: 'https://github.com/link-assistant/hive-mind/issues/603',
+    expectedUrl: 'https://github.com/link-assistant/hive-mind/issues/603',
     expectedError: null,
-    expectedCount: 1
+    expectedCount: 1,
   },
   {
     desc: 'Issue URL in a sentence',
     text: 'Check out this issue https://github.com/owner/repo/issues/123 please',
     expectedUrl: 'https://github.com/owner/repo/issues/123',
     expectedError: null,
-    expectedCount: 1
+    expectedCount: 1,
   },
   {
     desc: 'Pull request URL',
     text: 'Here is the PR: https://github.com/owner/repo/pull/456',
     expectedUrl: 'https://github.com/owner/repo/pull/456',
     expectedError: null,
-    expectedCount: 1
+    expectedCount: 1,
   },
   {
     desc: 'Shorthand issue format',
     text: 'owner/repo/issues/789',
     expectedUrl: 'https://github.com/owner/repo/issues/789',
     expectedError: null,
-    expectedCount: 1
+    expectedCount: 1,
   },
   {
     desc: 'Issue URL with query params',
     text: 'https://github.com/owner/repo/issues/100?foo=bar',
     expectedUrl: 'https://github.com/owner/repo/issues/100?foo=bar',
     expectedError: null,
-    expectedCount: 1
+    expectedCount: 1,
   },
   {
     desc: 'HTTP protocol (should normalize to HTTPS)',
     text: 'http://github.com/owner/repo/issues/200',
     expectedUrl: 'https://github.com/owner/repo/issues/200',
     expectedError: null,
-    expectedCount: 1
-  }
+    expectedCount: 1,
+  },
 ];
 
 // Test cases for no URL
@@ -105,29 +105,29 @@ const noLinkTests = [
     text: 'This is just a regular message without any links',
     expectedUrl: null,
     expectedError: null,
-    expectedCount: 0
+    expectedCount: 0,
   },
   {
     desc: 'GitHub repo URL (not issue/PR)',
     text: 'https://github.com/owner/repo',
     expectedUrl: null,
     expectedError: null,
-    expectedCount: 0
+    expectedCount: 0,
   },
   {
     desc: 'Empty text',
     text: '',
     expectedUrl: null,
     expectedError: null,
-    expectedCount: 0
+    expectedCount: 0,
   },
   {
     desc: 'Null text',
     text: null,
     expectedUrl: null,
     expectedError: null,
-    expectedCount: 0
-  }
+    expectedCount: 0,
+  },
 ];
 
 // Test cases for multiple URLs (should return error)
@@ -137,22 +137,22 @@ const multipleLinkTests = [
     text: 'Check https://github.com/owner/repo/issues/1 and https://github.com/owner/repo/issues/2',
     expectedUrl: null,
     expectedError: 'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
-    expectedCount: 2
+    expectedCount: 2,
   },
   {
     desc: 'Three PR URLs',
     text: 'PRs: https://github.com/a/b/pull/1 https://github.com/c/d/pull/2 https://github.com/e/f/pull/3',
     expectedUrl: null,
     expectedError: 'Found 3 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
-    expectedCount: 3
+    expectedCount: 3,
   },
   {
     desc: 'Mixed issue and PR URLs',
     text: 'Issue: https://github.com/owner/repo/issues/10 PR: https://github.com/owner/repo/pull/20',
     expectedUrl: null,
     expectedError: 'Found 2 GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.',
-    expectedCount: 2
-  }
+    expectedCount: 2,
+  },
 ];
 
 let passed = 0;

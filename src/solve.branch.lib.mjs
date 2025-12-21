@@ -15,7 +15,7 @@ const branchNameRegex = {
   // Combined pattern for both formats
   any: /^issue-(\d+)-([a-f0-9]{8}|[a-f0-9]{12})$/,
   // Pattern for prefix matching: issue-{number}-
-  prefix: (issueNumber) => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`)
+  prefix: issueNumber => new RegExp(`^issue-${issueNumber}-([a-f0-9]{8}|[a-f0-9]{12})$`),
 };
 
 /**
@@ -56,7 +56,7 @@ export function parseIssueBranchName(branchName) {
 
   return {
     issueNumber: match[1],
-    randomId: match[2]
+    randomId: match[2],
   };
 }
 
@@ -100,18 +100,7 @@ export function detectBranchFormat(branchName) {
   return null;
 }
 
-export async function createOrCheckoutBranch({
-  isContinueMode,
-  prBranch,
-  issueNumber,
-  tempDir,
-  defaultBranch,
-  argv,
-  log,
-  formatAligned,
-  $,
-  crypto
-}) {
+export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -146,12 +135,12 @@ export async function createOrCheckoutBranch({
         errorOutput,
         issueUrl: argv['issue-url'] || argv._[0],
         owner: null, // Will be set later
-        repo: null,  // Will be set later
+        repo: null, // Will be set later
         tempDir,
         argv,
         formatAligned,
         log,
-        $
+        $,
       });
     } else {
       const branchErrors = await import('./solve.branch-errors.lib.mjs');
@@ -161,9 +150,9 @@ export async function createOrCheckoutBranch({
         errorOutput,
         tempDir,
         owner: null, // Will be set later
-        repo: null,  // Will be set later
+        repo: null, // Will be set later
         formatAligned,
-        log
+        log,
       });
     }
 
@@ -201,11 +190,11 @@ export async function createOrCheckoutBranch({
       actualBranch,
       prNumber: null, // Will be set later
       owner: null, // Will be set later
-      repo: null,  // Will be set later
+      repo: null, // Will be set later
       tempDir,
       formatAligned,
       log,
-      $
+      $,
     });
     throw new Error('Branch verification mismatch');
   }
@@ -215,14 +204,18 @@ export async function createOrCheckoutBranch({
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Checkout existing PR branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true,
+      });
     }
   } else {
     await log(`${formatAligned('✅', 'Branch created:', branchName)}`);
     await log(`${formatAligned('✅', 'Current branch:', actualBranch)}`);
     if (argv.verbose) {
       await log('   Branch operation: Create new branch', { verbose: true });
-      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, { verbose: true });
+      await log(`   Branch verification: ${actualBranch === branchName ? 'Matches expected' : 'MISMATCH!'}`, {
+        verbose: true,
+      });
     }
   }
 

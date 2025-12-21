@@ -33,14 +33,14 @@ console.log('\n3. Testing command construction:');
 const command = 'solve';
 const args = ['https://github.com/veb86/zcadvelecAI/issues/55', '--auto-continue', '--attach-logs', '--verbose', '--model', 'sonnet', '--think', 'max', '--fork'];
 
-const quotedArgs = args.map(arg => {
-  if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-      arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-      arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-    return `'${arg.replace(/'/g, "'\\''")}'`;
-  }
-  return arg;
-}).join(' ');
+const quotedArgs = args
+  .map(arg => {
+    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+      return `'${arg.replace(/'/g, "'\\''")}'`;
+    }
+    return arg;
+  })
+  .join(' ');
 
 const fullCommandOld = `start-screen ${command} ${quotedArgs}`;
 const fullCommandNew = `node ${startScreenPathFromSrc} ${command} ${quotedArgs}`;

@@ -151,6 +151,13 @@ Update the CI workflow to:
 
 > "To ensure that installation was successful, check that `rocq -v` prints the expected version of Rocq."
 
+### Rocq 9.0+ Command Names
+
+According to [GitHub discussions](https://github.com/rocq-prover/rocq/issues/20031), Rocq 9.0+ provides multiple command names:
+- `rocq` - CLI tool with subcommands (e.g., `rocq compile`, `rocq repl`)
+- `rocqc` - Compiler alias for Rocq
+- `coqc` - Legacy Coq compiler (backward compatible)
+
 ## Files in This Case Study
 
 | File | Description |

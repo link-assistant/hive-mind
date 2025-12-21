@@ -339,13 +339,16 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    // Always show claude resume command at the end of every session
+    // Show claude resume command only for --tool claude (or default)
     // This allows users to investigate, resume, see context, and more
-    await log('');
-    await log('💡 To continue this session in Claude Code interactive mode:');
-    await log('');
-    await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
-    await log('');
+    const tool = argv.tool || 'claude';
+    if (tool === 'claude') {
+      await log('');
+      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('');
+      await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+      await log('');
+    }
 
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');

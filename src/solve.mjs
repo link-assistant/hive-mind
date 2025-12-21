@@ -895,11 +895,14 @@ try {
           await log(`⏰ Limit resets at: ${resetTime}`);
         }
         await log('');
-        // Always show claude resume command for interactive investigation/resumption
-        await log('💡 To continue this session in Claude Code interactive mode:');
-        await log('');
-        await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
-        await log('');
+        // Show claude resume command only for --tool claude (or default)
+        const toolForResume = argv.tool || 'claude';
+        if (toolForResume === 'claude') {
+          await log('💡 To continue this session in Claude Code interactive mode:');
+          await log('');
+          await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+          await log('');
+        }
         await log('🔄 To resume via solve.mjs after the limit resets, run:');
         await log(`   ${process.argv[0]} ${process.argv[1]} "${issueUrl}" --resume ${sessionId}`);
         await log('');
@@ -1022,8 +1025,9 @@ try {
   }
 
   if (!success) {
-    // Always show claude resume command for interactive investigation/resumption on failure
-    if (sessionId) {
+    // Show claude resume command only for --tool claude (or default) on failure
+    const toolForFailure = argv.tool || 'claude';
+    if (sessionId && toolForFailure === 'claude') {
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');
       await log('');

@@ -9,21 +9,21 @@
 
 ## Timeline of Events
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
-| 2025-12-05 13:52:21 | GitHub Actions workflow `Release Helm Chart` started |
-| 2025-12-05 13:52:25 | Repository checkout completed successfully |
-| 2025-12-05 13:52:29 | Helm lint completed: "1 chart(s) linted, 0 chart(s) failed" |
-| 2025-12-05 13:52:29 | Helm package completed: "Successfully packaged chart and saved it to: .cr-release-packages/hive-mind-1.0.0.tgz" |
-| 2025-12-05 13:52:30 | gh-pages branch check: "gh-pages branch already exists" |
-| 2025-12-05 13:52:30 | chart-releaser-action v1.7.0 started with `skip_packaging: true` |
-| 2025-12-05 13:52:31 | chart-releaser v1.7.0 installed |
-| 2025-12-05 13:52:31 | "Releasing charts..." |
-| 2025-12-05 13:52:31 | "Updating charts repo index..." |
-| 2025-12-05 13:52:32 | "Found hive-mind-1.0.0.tgz" |
-| 2025-12-05 13:52:32 | "Index .cr-index/index.yaml did not change" (chart already released) |
+| Timestamp (UTC)     | Event                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 2025-12-05 13:52:21 | GitHub Actions workflow `Release Helm Chart` started                                                                    |
+| 2025-12-05 13:52:25 | Repository checkout completed successfully                                                                              |
+| 2025-12-05 13:52:29 | Helm lint completed: "1 chart(s) linted, 0 chart(s) failed"                                                             |
+| 2025-12-05 13:52:29 | Helm package completed: "Successfully packaged chart and saved it to: .cr-release-packages/hive-mind-1.0.0.tgz"         |
+| 2025-12-05 13:52:30 | gh-pages branch check: "gh-pages branch already exists"                                                                 |
+| 2025-12-05 13:52:30 | chart-releaser-action v1.7.0 started with `skip_packaging: true`                                                        |
+| 2025-12-05 13:52:31 | chart-releaser v1.7.0 installed                                                                                         |
+| 2025-12-05 13:52:31 | "Releasing charts..."                                                                                                   |
+| 2025-12-05 13:52:31 | "Updating charts repo index..."                                                                                         |
+| 2025-12-05 13:52:32 | "Found hive-mind-1.0.0.tgz"                                                                                             |
+| 2025-12-05 13:52:32 | "Index .cr-index/index.yaml did not change" (chart already released)                                                    |
 | 2025-12-05 13:52:32 | **ERROR:** `/home/runner/work/_actions/helm/chart-releaser-action/v1.7.0/cr.sh: line 111: latest_tag: unbound variable` |
-| 2025-12-05 13:52:32 | Process completed with exit code 1 |
+| 2025-12-05 13:52:32 | Process completed with exit code 1                                                                                      |
 
 ## Error Details
 
@@ -42,10 +42,10 @@ From `.github/workflows/helm-release.yml`:
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.7.0
   env:
-    CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   with:
     charts_dir: helm
-    skip_packaging: true   # <-- This flag triggers the bug
+    skip_packaging: true # <-- This flag triggers the bug
     skip_existing: true
 ```
 
@@ -138,7 +138,7 @@ fi
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@main
   env:
-    CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   with:
     charts_dir: helm
     skip_packaging: true
@@ -154,7 +154,7 @@ fi
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.7.0
   env:
-    CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    CR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   with:
     charts_dir: helm
     skip_existing: true
@@ -213,7 +213,7 @@ Based on the analysis, **Solution 2** was implemented with enhancements:
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.7.0
   with:
-    skip_packaging: true  # <-- This triggered the bug
+    skip_packaging: true # <-- This triggered the bug
 
 # AFTER (fixed)
 - name: Update Chart versions
@@ -225,7 +225,7 @@ Based on the analysis, **Solution 2** was implemented with enhancements:
 - name: Run chart-releaser
   uses: helm/chart-releaser-action@v1.7.0
   with:
-    skip_existing: true  # No skip_packaging - action handles packaging
+    skip_existing: true # No skip_packaging - action handles packaging
 ```
 
 ### Benefits of This Solution

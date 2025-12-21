@@ -15,9 +15,7 @@
 import { readFileSync } from 'fs';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -44,9 +42,7 @@ const { releaseVersion: version, repository } = config;
 
 if (!version || !repository) {
   console.error('Error: Missing required arguments');
-  console.error(
-    'Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>'
-  );
+  console.error('Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>');
   process.exit(1);
 }
 

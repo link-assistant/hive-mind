@@ -3,6 +3,7 @@
 ## Problem Statement
 
 User runs:
+
 ```bash
 solve https://github.com/netkeep80/jsonRVM/issues/1 --auto-continue --fork --verbose --model opus --think max
 ```
@@ -12,11 +13,13 @@ The command fails to access the fork and checkout the correct branch.
 ## What Previous Fixes Did
 
 ### PR #315 (Merged)
+
 - Added fork detection for auto-continue mode
 - Extracted `forkOwner` from PR metadata
 - Passed `forkOwner` to `setupRepository()`
 
 ### PR #316 (Current - Still Broken)
+
 - Swapped priority in `setupRepository()`:
   - Check `argv.fork` FIRST
   - Check `forkOwner` SECOND
@@ -27,6 +30,7 @@ The command fails to access the fork and checkout the correct branch.
 The problem is NOT about fork priority. The problem is about **branch location**!
 
 ### Scenario:
+
 1. User A creates PR #123 from their fork: `userA/jsonRVM`, branch: `issue-1-abc123`
 2. User B runs: `solve <issue-url> --auto-continue --fork`
 3. System correctly detects:
@@ -60,6 +64,7 @@ else if (forkOwner) {
 ```
 
 Later in `solve.mjs`, when checking out the branch:
+
 ```javascript
 // This fails because branch is in forkOwner's repo, not current user's!
 await $`git checkout ${prBranch}`;

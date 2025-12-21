@@ -10,7 +10,7 @@ console.log('==================================================\n');
 
 console.log('🔍 PROBLEM IDENTIFIED:');
 console.log('When syncing a fork with upstream, if the fork has diverged');
-console.log('(has commits that upstream doesn\'t have), git push fails with:');
+console.log("(has commits that upstream doesn't have), git push fails with:");
 console.log('  ! [rejected] master -> master (non-fast-forward)');
 console.log('  error: failed to push some refs');
 console.log('  hint: Updates were rejected because the tip of your current');
@@ -22,7 +22,7 @@ console.log('1. Upstream repository had a force push (e.g., git reset --hard)');
 console.log('2. Fork has commits that are no longer in upstream');
 console.log('3. Tool does: git reset --hard upstream/master');
 console.log('4. Tool tries: git push origin master');
-console.log('5. Push fails because fork\'s master has different commit history\n');
+console.log("5. Push fails because fork's master has different commit history\n");
 
 console.log('💡 SOLUTION IMPLEMENTED:');
 console.log('✅ Detect non-fast-forward errors during fork sync');

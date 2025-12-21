@@ -8,7 +8,7 @@ console.log('📋 Problem (from issue #18):');
 console.log('   Before: Multiple duplicate interrupt messages when pressing CTRL+C:');
 console.log('   ^C');
 console.log('   🛑 Received interrupt signal, shutting down gracefully...');
-console.log('   ^C');  
+console.log('   ^C');
 console.log('   🛑 Received interrupt signal, shutting down gracefully...');
 console.log('');
 
@@ -27,7 +27,7 @@ console.log('   • Enhanced `gracefulShutdown()` function');
 console.log('   • Now shows only one clean shutdown message');
 console.log('');
 
-console.log('2️⃣  Improved error message formatting:');  
+console.log('2️⃣  Improved error message formatting:');
 console.log('   • Added `cleanErrorMessage()` helper function');
 console.log('   • Removes noise: "Command failed: ", "/bin/sh: 1: ", etc.');
 console.log('   • Applied to all error reporting locations');

@@ -39,7 +39,7 @@ const CONFIG = {
   // Lines to keep at end when truncating
   LINES_TO_KEEP_END: 20,
   // Maximum JSON depth for raw JSON display
-  MAX_JSON_DEPTH: 10
+  MAX_JSON_DEPTH: 10,
 };
 
 /**
@@ -54,11 +54,7 @@ const CONFIG = {
  * @returns {string} Truncated content with ellipsis indicator
  */
 const truncateMiddle = (content, options = {}) => {
-  const {
-    maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION,
-    keepStart = CONFIG.LINES_TO_KEEP_START,
-    keepEnd = CONFIG.LINES_TO_KEEP_END
-  } = options;
+  const { maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION, keepStart = CONFIG.LINES_TO_KEEP_START, keepEnd = CONFIG.LINES_TO_KEEP_END } = options;
 
   if (!content || typeof content !== 'string') {
     return content || '';
@@ -73,13 +69,7 @@ const truncateMiddle = (content, options = {}) => {
   const endLines = lines.slice(-keepEnd);
   const removedCount = lines.length - keepStart - keepEnd;
 
-  return [
-    ...startLines,
-    '',
-    `... [${removedCount} lines truncated] ...`,
-    '',
-    ...endLines
-  ].join('\n');
+  return [...startLines, '', `... [${removedCount} lines truncated] ...`, '', ...endLines].join('\n');
 };
 
 /**
@@ -91,15 +81,19 @@ const truncateMiddle = (content, options = {}) => {
  */
 const safeJsonStringify = (obj, indent = 2) => {
   const seen = new WeakSet();
-  return JSON.stringify(obj, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (seen.has(value)) {
-        return '[Circular]';
+  return JSON.stringify(
+    obj,
+    (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]';
+        }
+        seen.add(value);
       }
-      seen.add(value);
-    }
-    return value;
-  }, indent);
+      return value;
+    },
+    indent
+  );
 };
 
 /**
@@ -127,18 +121,15 @@ ${content}
  * @param {Object|Array} data - JSON data to display (will be wrapped in array if not already)
  * @returns {string} Collapsible JSON block
  */
-const createRawJsonSection = (data) => {
+const createRawJsonSection = data => {
   // Ensure data is always an array at root level for easier merging
   const dataArray = Array.isArray(data) ? data : [data];
   const jsonContent = truncateMiddle(safeJsonStringify(dataArray, 2), {
     maxLines: 100,
     keepStart: 40,
-    keepEnd: 40
+    keepEnd: 40,
   });
-  return createCollapsible(
-    '📄 Raw JSON',
-    '```json\n' + jsonContent + '\n```'
-  );
+  return createCollapsible('📄 Raw JSON', '```json\n' + jsonContent + '\n```');
 };
 
 /**
@@ -147,7 +138,7 @@ const createRawJsonSection = (data) => {
  * @param {number} ms - Duration in milliseconds
  * @returns {string} Formatted duration (e.g., "12m 7s")
  */
-const formatDuration = (ms) => {
+const formatDuration = ms => {
   if (!ms || ms < 0) return 'unknown';
 
   const seconds = Math.floor(ms / 1000);
@@ -169,7 +160,7 @@ const formatDuration = (ms) => {
  * @param {number} cost - Cost in USD
  * @returns {string} Formatted cost (e.g., "$1.60")
  */
-const formatCost = (cost) => {
+const formatCost = cost => {
   if (typeof cost !== 'number' || isNaN(cost)) return 'unknown';
   return `$${cost.toFixed(2)}`;
 };
@@ -180,7 +171,7 @@ const formatCost = (cost) => {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text
  */
-const escapeMarkdown = (text) => {
+const escapeMarkdown = text => {
   if (!text || typeof text !== 'string') return '';
   // Escape backticks that would break code blocks
   return text.replace(/```/g, '\\`\\`\\`');
@@ -192,20 +183,20 @@ const escapeMarkdown = (text) => {
  * @param {string} toolName - Name of the tool
  * @returns {string} Emoji icon
  */
-const getToolIcon = (toolName) => {
+const getToolIcon = toolName => {
   const icons = {
-    'Bash': '💻',
-    'Read': '📖',
-    'Write': '✏️',
-    'Edit': '📝',
-    'Glob': '🔍',
-    'Grep': '🔎',
-    'WebFetch': '🌐',
-    'WebSearch': '🔍',
-    'TodoWrite': '📋',
-    'Task': '🎯',
-    'NotebookEdit': '📓',
-    'default': '🔧'
+    Bash: '💻',
+    Read: '📖',
+    Write: '✏️',
+    Edit: '📝',
+    Glob: '🔍',
+    Grep: '🔎',
+    WebFetch: '🌐',
+    WebSearch: '🔍',
+    TodoWrite: '📋',
+    Task: '🎯',
+    NotebookEdit: '📓',
+    default: '🔧',
   };
   return icons[toolName] || icons.default;
 };
@@ -222,7 +213,7 @@ const getToolIcon = (toolName) => {
  * @param {boolean} [options.verbose=false] - Enable verbose logging
  * @returns {Object} Handler object with event processing methods
  */
-export const createInteractiveHandler = (options) => {
+export const createInteractiveHandler = options => {
   const { owner, repo, prNumber, $, log, verbose = false } = options;
 
   // State tracking for the handler
@@ -243,7 +234,7 @@ export const createInteractiveHandler = (options) => {
     pendingToolCalls: new Map(),
     // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
     // This is preserved even after pendingToolCalls entry is deleted
-    toolUseRegistry: new Map()
+    toolUseRegistry: new Map(),
   };
 
   /**
@@ -364,7 +355,9 @@ export const createInteractiveHandler = (options) => {
               pendingCall.resolveCommentId(commentId);
             }
             if (verbose) {
-              await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, { verbose: true });
+              await log(`📋 Interactive mode: Updated pending tool call ${toolId} with comment ID ${commentId}`, {
+                verbose: true,
+              });
             }
           }
         }
@@ -378,32 +371,24 @@ export const createInteractiveHandler = (options) => {
    * Handle system.init event
    * @param {Object} data - Event data
    */
-  const handleSystemInit = async (data) => {
+  const handleSystemInit = async data => {
     state.sessionId = data.session_id;
     state.startTime = Date.now();
 
     const tools = data.tools || [];
-    const toolsList = tools.length > 0
-      ? tools.map(t => `\`${t}\``).join(', ')
-      : '_No tools available_';
+    const toolsList = tools.length > 0 ? tools.map(t => `\`${t}\``).join(', ') : '_No tools available_';
 
     // Format MCP servers
     const mcpServers = data.mcp_servers || [];
-    const mcpServersList = mcpServers.length > 0
-      ? mcpServers.map(s => `\`${s.name}\` (${s.status || 'unknown'})`).join(', ')
-      : '_None_';
+    const mcpServersList = mcpServers.length > 0 ? mcpServers.map(s => `\`${s.name}\` (${s.status || 'unknown'})`).join(', ') : '_None_';
 
     // Format slash commands
     const slashCommands = data.slash_commands || [];
-    const slashCommandsList = slashCommands.length > 0
-      ? slashCommands.map(c => `\`/${c}\``).join(', ')
-      : '_None_';
+    const slashCommandsList = slashCommands.length > 0 ? slashCommands.map(c => `\`/${c}\``).join(', ') : '_None_';
 
     // Format agents
     const agents = data.agents || [];
-    const agentsList = agents.length > 0
-      ? agents.map(a => `\`${a}\``).join(', ')
-      : '_None_';
+    const agentsList = agents.length > 0 ? agents.map(a => `\`${a}\``).join(', ') : '_None_';
 
     const comment = `## 🚀 Interactive session started
 
@@ -442,7 +427,7 @@ ${createRawJsonSection(data)}`;
     const displayText = truncateMiddle(text, {
       maxLines: 80,
       keepStart: 35,
-      keepEnd: 35
+      keepEnd: 35,
     });
 
     // Simple format: just the message and collapsed Raw JSON
@@ -482,13 +467,9 @@ ${createRawJsonSection(data)}`;
       const truncatedCommand = truncateMiddle(input.command, {
         maxLines: 30,
         keepStart: 12,
-        keepEnd: 12
+        keepEnd: 12,
       });
-      inputDisplay = createCollapsible(
-        '📋 Executed command',
-        '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```',
-        true
-      );
+      inputDisplay = createCollapsible('📋 Executed command', '```bash\n' + escapeMarkdown(truncatedCommand) + '\n```', true);
     } else if (toolName === 'Read' && input.file_path) {
       inputDisplay = `**File:** \`${input.file_path}\``;
       if (input.offset || input.limit) {
@@ -500,14 +481,14 @@ ${createRawJsonSection(data)}`;
         const truncatedContent = truncateMiddle(input.content, {
           maxLines: 30,
           keepStart: 12,
-          keepEnd: 12
+          keepEnd: 12,
         });
         // Format content as diff with + prefix for added lines
-        const diffContent = truncatedContent.split('\n').map(line => `+ ${line}`).join('\n');
-        inputDisplay += '\n\n' + createCollapsible(
-          '📄 Content',
-          '```diff\n' + escapeMarkdown(diffContent) + '\n```'
-        );
+        const diffContent = truncatedContent
+          .split('\n')
+          .map(line => `+ ${line}`)
+          .join('\n');
+        inputDisplay += '\n\n' + createCollapsible('📄 Content', '```diff\n' + escapeMarkdown(diffContent) + '\n```');
       }
     } else if (toolName === 'Edit' && input.file_path) {
       inputDisplay = `**File:** \`${input.file_path}\``;
@@ -515,13 +496,15 @@ ${createRawJsonSection(data)}`;
         const truncatedOld = truncateMiddle(input.old_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
         const truncatedNew = truncateMiddle(input.new_string, { maxLines: 15, keepStart: 6, keepEnd: 6 });
         // Format as unified diff with - for removed lines and + for added lines
-        const diffOld = truncatedOld.split('\n').map(line => `- ${line}`).join('\n');
-        const diffNew = truncatedNew.split('\n').map(line => `+ ${line}`).join('\n');
-        inputDisplay += '\n\n' + createCollapsible(
-          '🔄 Change',
-          '```diff\n' + escapeMarkdown(diffOld + '\n' + diffNew) + '\n```',
-          true
-        );
+        const diffOld = truncatedOld
+          .split('\n')
+          .map(line => `- ${line}`)
+          .join('\n');
+        const diffNew = truncatedNew
+          .split('\n')
+          .map(line => `+ ${line}`)
+          .join('\n');
+        inputDisplay += '\n\n' + createCollapsible('🔄 Change', '```diff\n' + escapeMarkdown(diffOld + '\n' + diffNew) + '\n```', true);
       }
     } else if ((toolName === 'Glob' || toolName === 'Grep') && input.pattern) {
       inputDisplay = `**Pattern:** \`${input.pattern}\``;
@@ -549,18 +532,10 @@ ${createRawJsonSection(data)}`;
         const startTodos = todos.slice(0, KEEP_START).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
         const endTodos = todos.slice(-KEEP_END).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
 
-        todosPreview = [
-          ...startTodos,
-          `- _...and ${skipped} more_`,
-          ...endTodos
-        ].join('\n');
+        todosPreview = [...startTodos, `- _...and ${skipped} more_`, ...endTodos].join('\n');
       }
 
-      inputDisplay = createCollapsible(
-        `📋 Todos (${todos.length} items)`,
-        todosPreview,
-        true
-      );
+      inputDisplay = createCollapsible(`📋 Todos (${todos.length} items)`, todosPreview, true);
     } else if (toolName === 'Task') {
       inputDisplay = `**Description:** ${input.description || 'N/A'}`;
       if (input.prompt) {
@@ -572,12 +547,9 @@ ${createRawJsonSection(data)}`;
       const inputJson = truncateMiddle(safeJsonStringify(input, 2), {
         maxLines: 30,
         keepStart: 12,
-        keepEnd: 12
+        keepEnd: 12,
       });
-      inputDisplay = createCollapsible(
-        '📥 Input',
-        '```json\n' + inputJson + '\n```'
-      );
+      inputDisplay = createCollapsible('📥 Input', '```json\n' + inputJson + '\n```');
     }
 
     // Post the tool use comment and store info for merging with result later
@@ -594,7 +566,7 @@ ${createRawJsonSection(data)}`;
     // Create a promise that will resolve with the comment ID
     // This handles both immediate posting and queued posting
     let resolveCommentId;
-    const commentIdPromise = new Promise((resolve) => {
+    const commentIdPromise = new Promise(resolve => {
       resolveCommentId = resolve;
     });
 
@@ -607,7 +579,7 @@ ${createRawJsonSection(data)}`;
       toolData: data,
       inputDisplay,
       toolName,
-      toolIcon
+      toolIcon,
     });
 
     // Post the comment, passing toolId for queue tracking
@@ -624,7 +596,9 @@ ${createRawJsonSection(data)}`;
     // If queued (commentId is null), processQueue will update it later
 
     if (verbose) {
-      await log(`🔧 Interactive mode: Tool use - ${toolName}${commentId ? ` (comment: ${commentId})` : ' (queued)'}`, { verbose: true });
+      await log(`🔧 Interactive mode: Tool use - ${toolName}${commentId ? ` (comment: ${commentId})` : ' (queued)'}`, {
+        verbose: true,
+      });
     }
   };
 
@@ -646,18 +620,20 @@ ${createRawJsonSection(data)}`;
     if (typeof toolResult.content === 'string') {
       content = toolResult.content;
     } else if (Array.isArray(toolResult.content)) {
-      content = toolResult.content.map(c => {
-        if (typeof c === 'string') return c;
-        if (c.type === 'text') return c.text || '';
-        return safeJsonStringify(c);
-      }).join('\n');
+      content = toolResult.content
+        .map(c => {
+          if (typeof c === 'string') return c;
+          if (c.type === 'text') return c.text || '';
+          return safeJsonStringify(c);
+        })
+        .join('\n');
     }
 
     // Truncate large outputs
     const truncatedContent = truncateMiddle(content, {
       maxLines: 60,
       keepStart: 25,
-      keepEnd: 25
+      keepEnd: 25,
     });
 
     // Check if we have a pending tool call to merge with
@@ -671,15 +647,19 @@ ${createRawJsonSection(data)}`;
       // But use a timeout to avoid blocking forever
       if (!commentId && commentIdPromise) {
         if (verbose) {
-          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, { verbose: true });
+          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
+            verbose: true,
+          });
         }
         // Wait for the comment to be posted (with 30 second timeout)
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 30000));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
         commentId = await Promise.race([commentIdPromise, timeoutPromise]);
 
         if (!commentId) {
           if (verbose) {
-            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', { verbose: true });
+            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+              verbose: true,
+            });
           }
         }
       }
@@ -690,11 +670,7 @@ ${createRawJsonSection(data)}`;
 
 ${inputDisplay}
 
-${createCollapsible(
-  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
-  '```\n' + escapeMarkdown(truncatedContent) + '\n```',
-  true
-)}
+${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
 ---
 
@@ -706,13 +682,17 @@ ${createRawJsonSection([toolData, data])}`;
         if (editSuccess) {
           state.pendingToolCalls.delete(toolUseId);
           if (verbose) {
-            await log(`📋 Interactive mode: Tool result merged into comment ${commentId} (${content.length} chars)`, { verbose: true });
+            await log(`📋 Interactive mode: Tool result merged into comment ${commentId} (${content.length} chars)`, {
+              verbose: true,
+            });
           }
           return;
         }
         // If edit failed, fall through to posting new comment
         if (verbose) {
-          await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}, posting result separately`, { verbose: true });
+          await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}, posting result separately`, {
+            verbose: true,
+          });
         }
       }
 
@@ -725,17 +705,11 @@ ${createRawJsonSection([toolData, data])}`;
     const registryEntry = state.toolUseRegistry.get(toolUseId);
     const standaloneToolName = registryEntry?.toolName;
     const standaloneToolIcon = registryEntry?.toolIcon || '🔧';
-    const standaloneHeader = standaloneToolName
-      ? `${standaloneToolIcon} ${standaloneToolName} tool result`
-      : 'Tool result';
+    const standaloneHeader = standaloneToolName ? `${standaloneToolIcon} ${standaloneToolName} tool result` : 'Tool result';
 
     const comment = `## ${standaloneHeader}
 
-${createCollapsible(
-  `📤 Output (${statusIcon} ${statusText.toLowerCase()})`,
-  '```\n' + escapeMarkdown(truncatedContent) + '\n```',
-  true
-)}
+${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
 ---
 
@@ -745,7 +719,9 @@ ${createRawJsonSection(data)}`;
 
     if (verbose) {
       const contentLength = content.length;
-      await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars)`, { verbose: true });
+      await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars)`, {
+        verbose: true,
+      });
     }
   };
 
@@ -753,7 +729,7 @@ ${createRawJsonSection(data)}`;
    * Handle result event (session complete)
    * @param {Object} data - Event data
    */
-  const handleResult = async (data) => {
+  const handleResult = async data => {
     const isError = data.is_error || false;
     const statusIcon = isError ? '❌' : '✅';
     const statusText = isError ? 'Session Failed' : 'Session Complete';
@@ -763,7 +739,7 @@ ${createRawJsonSection(data)}`;
     const truncatedResult = truncateMiddle(resultText, {
       maxLines: 50,
       keepStart: 20,
-      keepEnd: 20
+      keepEnd: 20,
     });
 
     // Build stats table
@@ -819,7 +795,7 @@ ${createRawJsonSection(data)}`;
    * Handle unrecognized event types
    * @param {Object} data - Event data
    */
-  const handleUnrecognized = async (data) => {
+  const handleUnrecognized = async data => {
     const eventType = data.type || 'unknown';
     const subtype = data.subtype ? `.${data.subtype}` : '';
 
@@ -842,7 +818,7 @@ ${createRawJsonSection(data)}`;
    * @param {Object} data - Parsed JSON object from Claude CLI output
    * @returns {Promise<void>}
    */
-  const processEvent = async (data) => {
+  const processEvent = async data => {
     if (!data || typeof data !== 'object') {
       return;
     }
@@ -865,9 +841,7 @@ ${createRawJsonSection(data)}`;
 
       case 'assistant':
         if (data.message && data.message.content) {
-          const content = Array.isArray(data.message.content)
-            ? data.message.content
-            : [data.message.content];
+          const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
 
           for (const item of content) {
             if (item.type === 'text' && item.text) {
@@ -881,9 +855,7 @@ ${createRawJsonSection(data)}`;
 
       case 'user':
         if (data.message && data.message.content) {
-          const content = Array.isArray(data.message.content)
-            ? data.message.content
-            : [data.message.content];
+          const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
 
           for (const item of content) {
             if (item.type === 'tool_result') {
@@ -933,8 +905,8 @@ ${createRawJsonSection(data)}`;
       handleToolUse,
       handleToolResult,
       handleResult,
-      handleUnrecognized
-    }
+      handleUnrecognized,
+    },
   };
 };
 
@@ -944,7 +916,7 @@ ${createRawJsonSection(data)}`;
  * @param {string} tool - Tool name (claude, opencode, codex)
  * @returns {boolean} Whether interactive mode is supported
  */
-export const isInteractiveModeSupported = (tool) => {
+export const isInteractiveModeSupported = tool => {
   // Currently only supported for Claude
   return tool === 'claude';
 };
@@ -963,7 +935,9 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 
   // Check tool support
   if (!isInteractiveModeSupported(argv.tool)) {
-    await log(`⚠️ --interactive-mode is only supported for --tool claude (current: ${argv.tool})`, { level: 'warning' });
+    await log(`⚠️ --interactive-mode is only supported for --tool claude (current: ${argv.tool})`, {
+      level: 'warning',
+    });
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
     return false;
   }
@@ -988,7 +962,7 @@ export const utils = {
   formatCost,
   escapeMarkdown,
   getToolIcon,
-  CONFIG
+  CONFIG,
 };
 
 // Export all functions
@@ -996,5 +970,5 @@ export default {
   createInteractiveHandler,
   isInteractiveModeSupported,
   validateInteractiveModeConfig,
-  utils
+  utils,
 };

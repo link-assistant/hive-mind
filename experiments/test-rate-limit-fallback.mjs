@@ -45,7 +45,6 @@ async function testRateLimitHandling() {
     console.log('\nThe fix ensures that when fetchAllIssuesWithPagination encounters a rate limit error,');
     console.log('it will throw the error instead of returning an empty array.');
     console.log('This allows hive.mjs to detect the rate limit and fall back to repository-by-repository fetching.');
-
   } catch (error) {
     console.error('❌ Test failed:', error.message);
     process.exit(1);

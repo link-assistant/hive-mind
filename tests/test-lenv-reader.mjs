@@ -175,7 +175,7 @@ TEST_CONFIG_VAR2: value2`;
     const result = await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_CONFIG_VAR1 !== 'value1') {
@@ -220,7 +220,7 @@ runTest('config() with file', async () => {
     const result = await reader.config({
       path: testFile,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_FILE_VAR !== 'file_value') {
@@ -257,7 +257,7 @@ runTest('config() respects override flag', async () => {
     await reader.config({
       configuration: config,
       override: false,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'original') {
@@ -268,7 +268,7 @@ runTest('config() respects override flag', async () => {
     await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'new_value') {
@@ -351,7 +351,7 @@ runTest('loadLenvConfig function', async () => {
     const result = await loadLenvConfig({
       configuration: 'TEST_LOAD_VAR: loaded',
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_LOAD_VAR !== 'loaded') {

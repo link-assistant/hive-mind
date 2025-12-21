@@ -14,12 +14,11 @@ try {
   const result1 = await $`echo '{"message": "hi", "number": 42}' | jq .`;
   console.log('Result:');
   console.log(result1.stdout);
-  
+
   // Test 2: Extract specific field
   console.log('\n2. Extracting message field with jq...');
   const result2 = await $`echo '{"message": "hi", "number": 42}' | jq -r .message`;
   console.log('Extracted message:', result2.stdout.trim());
-  
 } catch (error) {
   console.error('❌ Test failed:', error.message);
 }

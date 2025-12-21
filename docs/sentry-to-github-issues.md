@@ -7,6 +7,7 @@ This document explores all available options for automatically converting Sentry
 ## Current Integration Status
 
 The project currently has Sentry integrated for error tracking:
+
 - **Sentry SDK**: `@sentry/node` (v10.15.0) and `@sentry/profiling-node` (v10.15.0)
 - **Implementation**: Comprehensive Sentry library at `src/sentry.lib.mjs` with error tracking, breadcrumbs, and performance monitoring
 - **No existing GitHub issue creation automation**
@@ -18,6 +19,7 @@ The project currently has Sentry integrated for error tracking:
 Sentry provides a built-in GitHub integration that can be configured through the Sentry web interface.
 
 #### Features:
+
 - **Automatic Issue Creation**: Create GitHub issues automatically via Alert Rules
 - **Manual Issue Creation**: Create and link GitHub issues from the Sentry UI
 - **Bidirectional Linking**: Link Sentry issues to existing GitHub issues/PRs
@@ -26,18 +28,21 @@ Sentry provides a built-in GitHub integration that can be configured through the
 - **PR Comments**: Automatic comments on merged PRs suspected of causing issues
 
 #### Setup:
+
 1. Navigate to **Settings > Integrations > GitHub** in Sentry
 2. Install the GitHub integration (recommended to install from Sentry, not GitHub)
 3. Configure Issue Alerts to automatically create GitHub issues
 4. Set up alert rules with "Create a new GitHub issue" action
 
 #### Limitations:
+
 - **Requires manual UI configuration** for alert rules
 - **Not programmatically controllable** - limited API access to built-in integration
 - **Requires Business or Enterprise plan** for automatic issue creation
 - **Team plan or higher** required for manual issue management
 
 #### Pricing Impact:
+
 - May require plan upgrade depending on current Sentry subscription
 
 ---
@@ -49,19 +54,18 @@ Build a custom Node.js script that periodically fetches Sentry issues and create
 #### Implementation Approach:
 
 **Step 1: Fetch Sentry Issues**
+
 ```javascript
 // Using Sentry REST API v0
-const response = await fetch(
-  'https://sentry.io/api/0/organizations/{org_slug}/issues/?query=is:unresolved',
-  {
-    headers: {
-      'Authorization': 'Bearer <SENTRY_AUTH_TOKEN>'
-    }
-  }
-);
+const response = await fetch('https://sentry.io/api/0/organizations/{org_slug}/issues/?query=is:unresolved', {
+  headers: {
+    Authorization: 'Bearer <SENTRY_AUTH_TOKEN>',
+  },
+});
 ```
 
 **Endpoint Details:**
+
 - **URL**: `GET /api/0/organizations/{organization_id_or_slug}/issues/`
 - **Authentication**: Bearer token with `event:read` scope
 - **Query Parameters**:
@@ -72,26 +76,25 @@ const response = await fetch(
   - `limit`: Max 100 per request
 
 **Step 2: Create GitHub Issues**
+
 ```javascript
 // Using GitHub REST API
-const response = await fetch(
-  'https://api.github.com/repos/{owner}/{repo}/issues',
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer <GITHUB_TOKEN>',
-      'Accept': 'application/vnd.github+json'
-    },
-    body: JSON.stringify({
-      title: sentryIssue.title,
-      body: `**Sentry Issue:** ${sentryIssue.permalink}\n\n${sentryIssue.metadata.value}`,
-      labels: ['sentry', 'bug']
-    })
-  }
-);
+const response = await fetch('https://api.github.com/repos/{owner}/{repo}/issues', {
+  method: 'POST',
+  headers: {
+    Authorization: 'Bearer <GITHUB_TOKEN>',
+    Accept: 'application/vnd.github+json',
+  },
+  body: JSON.stringify({
+    title: sentryIssue.title,
+    body: `**Sentry Issue:** ${sentryIssue.permalink}\n\n${sentryIssue.metadata.value}`,
+    labels: ['sentry', 'bug'],
+  }),
+});
 ```
 
 **Step 3: Track Synced Issues**
+
 - Store mapping between Sentry issue IDs and GitHub issue numbers
 - Prevent duplicate issue creation
 - Options for storage:
@@ -101,12 +104,14 @@ const response = await fetch(
   - Sentry tags
 
 #### Scheduling Options:
+
 1. **Cron Job**: Run script periodically (e.g., every hour)
 2. **GitHub Actions**: Use scheduled workflow
 3. **systemd timer**: For server deployments
 4. **Docker container**: With scheduler
 
 #### Advantages:
+
 - ✅ Full control over issue format and content
 - ✅ No additional service dependencies
 - ✅ Can customize filtering and priority logic
@@ -115,6 +120,7 @@ const response = await fetch(
 - ✅ Easily integrated into existing codebase
 
 #### Disadvantages:
+
 - ❌ Requires maintenance
 - ❌ Not real-time (depends on polling interval)
 - ❌ Need to handle rate limiting for both APIs
@@ -122,6 +128,7 @@ const response = await fetch(
 - ❌ Requires secure token storage
 
 #### Implementation Estimate:
+
 - **Initial Development**: 4-6 hours
 - **Testing & Refinement**: 2-3 hours
 - **Total**: 6-9 hours
@@ -133,6 +140,7 @@ const response = await fetch(
 Use Sentry webhooks to trigger GitHub Actions workflows that create issues in real-time.
 
 #### Architecture:
+
 ```
 Sentry Issue Event → Webhook → GitHub Actions Workflow → Create GitHub Issue
 ```
@@ -140,12 +148,14 @@ Sentry Issue Event → Webhook → GitHub Actions Workflow → Create GitHub Iss
 #### Implementation Steps:
 
 **Step 1: Create Sentry Internal Integration**
+
 1. Go to **Settings > Developer Settings > Internal Integrations** in Sentry
 2. Create new internal integration
 3. Subscribe to webhook events: `issue.created`, `issue.updated`
 4. Set webhook URL to GitHub Actions webhook receiver
 
 **Step 2: Set Up GitHub Actions Webhook Receiver**
+
 - Use repository dispatch events or webhook proxy
 - Options:
   - **Webhook proxy service** (e.g., smee.io for development)
@@ -153,6 +163,7 @@ Sentry Issue Event → Webhook → GitHub Actions Workflow → Create GitHub Iss
   - **Cloud function** (AWS Lambda, Google Cloud Functions)
 
 **Step 3: GitHub Actions Workflow**
+
 ```yaml
 name: Create GitHub Issue from Sentry
 on:
@@ -178,6 +189,7 @@ jobs:
 ```
 
 #### Webhook Payload Structure:
+
 ```json
 {
   "action": "created",
@@ -202,6 +214,7 @@ jobs:
 ```
 
 #### Advantages:
+
 - ✅ Real-time issue creation
 - ✅ Event-driven (no polling required)
 - ✅ No additional infrastructure if using cloud functions
@@ -209,6 +222,7 @@ jobs:
 - ✅ Works with any Sentry plan
 
 #### Disadvantages:
+
 - ❌ Requires webhook endpoint setup
 - ❌ More complex initial setup
 - ❌ Need to handle webhook authentication and verification
@@ -216,6 +230,7 @@ jobs:
 - ❌ GitHub Actions has usage limits
 
 #### Implementation Estimate:
+
 - **Initial Development**: 6-8 hours
 - **Testing & Deployment**: 3-4 hours
 - **Total**: 9-12 hours
@@ -229,6 +244,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 #### Available Platforms:
 
 ##### **Pipedream** (Recommended for simplicity)
+
 - **Pre-built Integration**: "Create Issue with GitHub API on New Issue Event (Instant) from Sentry API"
 - **URL**: https://pipedream.com/apps/sentry/integrations/github
 - **Features**:
@@ -241,6 +257,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 **Setup Time**: 15-30 minutes
 
 ##### **n8n** (Best for self-hosting)
+
 - **Integration**: GitHub + Sentry.io workflow automation
 - **URL**: https://n8n.io/integrations/github/and/sentryio/
 - **Features**:
@@ -253,6 +270,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 **Setup Time**: 30-60 minutes (plus hosting setup if self-hosted)
 
 ##### **Zapier**
+
 - **Status**: No native Sentry integration (must use webhooks)
 - **Limitations**: Requires manual webhook configuration
 - **Pricing**: Paid plans required for premium features
@@ -260,6 +278,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 **Not recommended due to lack of native support**
 
 ##### **Make** (formerly Integromat)
+
 - **Integration**: Available but requires manual setup
 - **Features**: Visual workflow design
 - **Pricing**: Free tier available with limitations
@@ -268,14 +287,15 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 
 #### Comparison Matrix:
 
-| Platform | Setup Time | Cost | Self-Hosted | Ease of Use | Recommendation |
-|----------|-----------|------|-------------|-------------|----------------|
-| Pipedream | 15-30 min | Free tier | No | ⭐⭐⭐⭐⭐ | ✅ Best for quick setup |
-| n8n | 30-60 min | Free (OSS) | Yes | ⭐⭐⭐⭐ | ✅ Best for data privacy |
-| Make | 45-60 min | Paid | No | ⭐⭐⭐⭐ | ⚠️ Consider if already using |
-| Zapier | 60+ min | Paid | No | ⭐⭐⭐ | ❌ Not recommended |
+| Platform  | Setup Time | Cost       | Self-Hosted | Ease of Use | Recommendation               |
+| --------- | ---------- | ---------- | ----------- | ----------- | ---------------------------- |
+| Pipedream | 15-30 min  | Free tier  | No          | ⭐⭐⭐⭐⭐  | ✅ Best for quick setup      |
+| n8n       | 30-60 min  | Free (OSS) | Yes         | ⭐⭐⭐⭐    | ✅ Best for data privacy     |
+| Make      | 45-60 min  | Paid       | No          | ⭐⭐⭐⭐    | ⚠️ Consider if already using |
+| Zapier    | 60+ min    | Paid       | No          | ⭐⭐⭐      | ❌ Not recommended           |
 
 #### Advantages:
+
 - ✅ Fastest time to deployment (especially Pipedream)
 - ✅ No code/minimal code required
 - ✅ Built-in error handling and retry logic
@@ -284,6 +304,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 - ✅ Free tiers available
 
 #### Disadvantages:
+
 - ❌ External service dependency
 - ❌ May have usage limits on free tiers
 - ❌ Less control over implementation details
@@ -297,6 +318,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 ### For Immediate Implementation: **Pipedream**
 
 **Why:**
+
 1. ✅ Fastest setup (15-30 minutes)
 2. ✅ Pre-built integration ready to use
 3. ✅ Free tier sufficient for most use cases
@@ -304,6 +326,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 5. ✅ Easy to test and iterate
 
 **Setup Steps:**
+
 1. Sign up for Pipedream account
 2. Navigate to https://pipedream.com/apps/sentry/integrations/github
 3. Click "Create Issue with GitHub API on New Issue Event (Instant) from Sentry API"
@@ -315,6 +338,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 ### For Long-Term Flexibility: **Custom Script (Option 2)**
 
 **Why:**
+
 1. ✅ Full control and customization
 2. ✅ No external dependencies
 3. ✅ Can integrate with existing codebase
@@ -322,6 +346,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 5. ✅ No vendor lock-in
 
 **Implementation Path:**
+
 1. Create script in `scripts/sentry-to-github.mjs`
 2. Add configuration file for issue mapping rules
 3. Implement GitHub Actions workflow for scheduling
@@ -330,6 +355,7 @@ Use no-code/low-code automation platforms to connect Sentry and GitHub.
 6. Document usage and configuration
 
 **Example File Structure:**
+
 ```
 scripts/
   sentry-to-github.mjs          # Main script
@@ -343,6 +369,7 @@ scripts/
 ### For Enterprise/Privacy Requirements: **Self-Hosted n8n**
 
 **Why:**
+
 1. ✅ Full data control (self-hosted)
 2. ✅ Visual workflow management
 3. ✅ No external data sharing
@@ -354,12 +381,14 @@ scripts/
 ## Implementation Roadmap
 
 ### Phase 1: Quick Win (1-2 days)
+
 1. Set up Pipedream integration for immediate issue sync
 2. Test with a subset of Sentry issues
 3. Refine GitHub issue template and labels
 4. Document the process
 
 ### Phase 2: Custom Solution (1-2 weeks)
+
 1. Develop custom script with full feature set
 2. Implement comprehensive state tracking
 3. Add filtering rules (priority, project, etc.)
@@ -368,6 +397,7 @@ scripts/
 6. Migrate from Pipedream to custom solution
 
 ### Phase 3: Optimization (Ongoing)
+
 1. Add ML-based issue deduplication
 2. Implement automatic assignee detection based on stack traces
 3. Add issue lifecycle management (auto-close when Sentry issue resolved)
@@ -381,12 +411,14 @@ scripts/
 ### Sentry API
 
 **List Organization Issues:**
+
 ```
 GET https://sentry.io/api/0/organizations/{org_slug}/issues/
 Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
+
 - `query`: Filter query (e.g., `is:unresolved issue.priority:high`)
 - `statsPeriod`: Time period (`24h`, `7d`, `14d`)
 - `project`: Project IDs to filter
@@ -394,6 +426,7 @@ Authorization: Bearer <token>
 - `limit`: Max 100 results
 
 **Response:**
+
 ```json
 [
   {
@@ -417,6 +450,7 @@ Authorization: Bearer <token>
 ### GitHub API
 
 **Create Issue:**
+
 ```
 POST https://api.github.com/repos/{owner}/{repo}/issues
 Authorization: Bearer <token>
@@ -424,6 +458,7 @@ Accept: application/vnd.github+json
 ```
 
 **Request Body:**
+
 ```json
 {
   "title": "Issue title",
@@ -434,6 +469,7 @@ Accept: application/vnd.github+json
 ```
 
 **Response:**
+
 ```json
 {
   "id": 123,
@@ -449,18 +485,21 @@ Accept: application/vnd.github+json
 ## Security Considerations
 
 ### Authentication Tokens
+
 1. **Sentry Auth Token**: Create with minimal scopes (`event:read`)
 2. **GitHub Token**: Use fine-grained PAT with `issues:write` permission
 3. **Storage**: Use environment variables or secure secret management
 4. **Rotation**: Implement token rotation policy
 
 ### Webhook Security
+
 1. **Signature Verification**: Validate webhook signatures from Sentry
 2. **HTTPS Only**: Always use HTTPS for webhook endpoints
 3. **IP Allowlisting**: Restrict webhook sources to Sentry IPs if possible
 4. **Rate Limiting**: Implement rate limiting on webhook endpoints
 
 ### Data Privacy
+
 1. **PII Handling**: Be cautious with stack traces containing sensitive data
 2. **Error Messages**: Sanitize error messages before creating GitHub issues
 3. **Access Control**: Ensure GitHub repository has appropriate access restrictions
@@ -471,18 +510,21 @@ Accept: application/vnd.github+json
 ## Cost Analysis
 
 ### Option 1: Native Sentry Integration
+
 - **Cost**: Depends on Sentry plan (may require upgrade)
 - **Business Plan**: Starting at $80/month
 - **Setup**: Free
 - **Maintenance**: Minimal
 
 ### Option 2: Custom Script
+
 - **Development**: 6-9 hours (one-time)
 - **Infrastructure**: Free (using GitHub Actions)
 - **Maintenance**: ~2-4 hours/month
 - **Total First Year**: ~$0 (assuming internal development)
 
 ### Option 3: Webhook + GitHub Actions
+
 - **Development**: 9-12 hours (one-time)
 - **Infrastructure**: Free (within GitHub Actions limits)
 - **Maintenance**: ~1-2 hours/month
@@ -491,16 +533,19 @@ Accept: application/vnd.github+json
 ### Option 4: Third-Party Platforms
 
 **Pipedream:**
+
 - **Free Tier**: 100K credits/month (sufficient for most use cases)
 - **Paid Tier**: $19/month for 1M credits
 - **Setup**: Free
 - **Maintenance**: Minimal
 
 **n8n (Cloud):**
+
 - **Starter**: $20/month
 - **Pro**: $50/month
 
 **n8n (Self-Hosted):**
+
 - **Software**: Free (open-source)
 - **Infrastructure**: ~$5-20/month (small VPS)
 - **Setup**: 2-4 hours
@@ -511,6 +556,7 @@ Accept: application/vnd.github+json
 ## Monitoring and Maintenance
 
 ### Key Metrics to Track
+
 1. **Sync Success Rate**: Percentage of Sentry issues successfully converted
 2. **Sync Latency**: Time between Sentry issue creation and GitHub issue creation
 3. **Duplicate Rate**: Percentage of duplicate issues created
@@ -518,6 +564,7 @@ Accept: application/vnd.github+json
 5. **Error Rate**: Failed syncs due to API errors or validation issues
 
 ### Recommended Monitoring Tools
+
 1. **Logging**: Use structured logging (JSON format)
 2. **Alerting**: Set up alerts for sync failures
 3. **Dashboard**: Create status dashboard for sync health
@@ -568,6 +615,6 @@ This approach balances time-to-value with long-term sustainability and control.
 
 ---
 
-*Report generated: 2025-10-01*
-*Author: AI Issue Solver*
-*Issue: #357*
+_Report generated: 2025-10-01_
+_Author: AI Issue Solver_
+_Issue: #357_

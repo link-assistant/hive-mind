@@ -47,7 +47,7 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
       `;
 
       // Execute GraphQL query
-      const escapedQuery = graphqlQuery.replace(/'/g, '\'\\\'\'');
+      const escapedQuery = graphqlQuery.replace(/'/g, "'\\''");
       let graphqlCmd = `gh api graphql -f query='${escapedQuery}' -f owner='${owner}' -f repo='${repoName}' -F issueLimit=${issueLimit}`;
 
       if (cursor) {
@@ -74,9 +74,10 @@ async function fetchRepositoryIssuesWithPagination(owner, repoName, log, cleanEr
     }
 
     return allIssues;
-
   } catch (error) {
-    await log(`      ❌ Failed to fetch issues from ${owner}/${repoName}: ${cleanErrorMessage(error)}`, { verbose: true });
+    await log(`      ❌ Failed to fetch issues from ${owner}/${repoName}: ${cleanErrorMessage(error)}`, {
+      verbose: true,
+    });
     // Return what we have so far
     return allIssues;
   }
@@ -112,7 +113,8 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       repoPageNum++;
 
       // Build GraphQL query to fetch repos
-      const graphqlQuery = isOrg ? `
+      const graphqlQuery = isOrg
+        ? `
         query($owner: String!, $repoLimit: Int!, $cursor: String) {
           organization(login: $owner) {
             repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}, after: $cursor) {
@@ -134,7 +136,8 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
             }
           }
         }
-      ` : `
+      `
+        : `
         query($owner: String!, $repoLimit: Int!, $cursor: String) {
           user(login: $owner) {
             repositories(first: $repoLimit, orderBy: {field: UPDATED_AT, direction: DESC}, after: $cursor) {
@@ -159,7 +162,7 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       `;
 
       // Execute GraphQL query
-      const escapedQuery = graphqlQuery.replace(/'/g, '\'\\\'\'');
+      const escapedQuery = graphqlQuery.replace(/'/g, "'\\''");
       let graphqlCmd = `gh api graphql -f query='${escapedQuery}' -f owner='${owner}' -F repoLimit=${repoLimit}`;
 
       if (repoCursor) {
@@ -183,7 +186,9 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       repoCursor = repos.pageInfo.endCursor;
 
       const totalRepos = repos.totalCount;
-      await log(`   ✅ Fetched ${repos.nodes.length} repositories (total so far: ${allRepos.length}/${totalRepos})`, { verbose: true });
+      await log(`   ✅ Fetched ${repos.nodes.length} repositories (total so far: ${allRepos.length}/${totalRepos})`, {
+        verbose: true,
+      });
     }
 
     await log(`   📊 Fetched all ${allRepos.length} repositories`, { verbose: true });
@@ -221,13 +226,7 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
       await log(`   🔍 Fetching ${issueCount} issue(s) from ${repo.owner.login}/${repo.name}...`, { verbose: true });
 
       // Fetch all issues from this repository with pagination
-      const repoIssues = await fetchRepositoryIssuesWithPagination(
-        repo.owner.login,
-        repo.name,
-        log,
-        cleanErrorMessage,
-        issueLimit
-      );
+      const repoIssues = await fetchRepositoryIssuesWithPagination(repo.owner.login, repo.name, log, cleanErrorMessage, issueLimit);
 
       // Add repository information to each issue
       for (const issue of repoIssues) {
@@ -235,21 +234,22 @@ export async function tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMes
           ...issue,
           repository: {
             name: repo.name,
-            owner: repo.owner
-          }
+            owner: repo.owner,
+          },
         });
       }
 
       if (repoIssues.length > 0) {
         reposWithIssues++;
-        await log(`   ✅ Collected ${repoIssues.length} issue(s) from ${repo.owner.login}/${repo.name}`, { verbose: true });
+        await log(`   ✅ Collected ${repoIssues.length} issue(s) from ${repo.owner.login}/${repo.name}`, {
+          verbose: true,
+        });
       }
     }
 
     await log(`   ✅ GraphQL pagination complete: ${nonArchivedRepos.length} non-archived repos, ${allIssues.length} issues from ${reposWithIssues} repos with issues`, { verbose: true });
 
     return { success: true, issues: allIssues, repoCount: nonArchivedRepos.length };
-
   } catch (error) {
     await log(`   ❌ GraphQL approach failed: ${cleanErrorMessage(error)}`, { verbose: true });
     await log('   💡 Falling back to gh api --paginate approach...', { verbose: true });

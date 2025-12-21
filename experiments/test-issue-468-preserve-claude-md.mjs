@@ -44,7 +44,7 @@ Do not delete this content!`;
     console.log('✅ Existing CLAUDE.md created and committed');
 
     // Simulate what the fix should do: append task info with separator
-    const taskInfo = `Issue to solve: https://github.com/deep-assistant/hive-mind/issues/468
+    const taskInfo = `Issue to solve: https://github.com/link-assistant/hive-mind/issues/468
 Your prepared branch: issue-468-test
 Your prepared working directory: ${testDir}
 
@@ -73,7 +73,7 @@ Proceed.`;
     }
 
     // Check that task info was added
-    if (!finalContent.includes('Issue to solve: https://github.com/deep-assistant/hive-mind/issues/468')) {
+    if (!finalContent.includes('Issue to solve: https://github.com/link-assistant/hive-mind/issues/468')) {
       throw new Error('❌ Task info not added!');
     }
 
@@ -90,10 +90,7 @@ Proceed.`;
     console.log('\n🔄 Testing revert functionality...');
 
     // Get first commit hash
-    const commits = execSync('git log --format=%H --reverse', { cwd: testDir })
-      .toString()
-      .trim()
-      .split('\n');
+    const commits = execSync('git log --format=%H --reverse', { cwd: testDir }).toString().trim().split('\n');
 
     if (commits.length < 2) {
       throw new Error('❌ Not enough commits for revert test');
@@ -120,7 +117,6 @@ Proceed.`;
     console.log('   - Existing content is preserved');
     console.log('   - Task info is appended with separator');
     console.log('   - Revert restores original state');
-
   } catch (error) {
     console.error('\n❌ TEST FAILED:', error.message);
     console.error(error.stack);

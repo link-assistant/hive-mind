@@ -8,23 +8,8 @@
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -71,7 +56,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -88,7 +73,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -98,7 +83,7 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -192,5 +177,5 @@ Self review.
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

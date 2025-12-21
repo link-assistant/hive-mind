@@ -37,7 +37,6 @@ const linoModule = await use('links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
-const path = await import('path');
 
 /**
  * LenvReader - Reads and parses .lenv files using LINO notation
@@ -109,15 +108,17 @@ export class LenvReader {
    * @param {string} filePath - Path to .lenv file
    * @returns {Object} - Object with environment variable key-value pairs
    */
-  readFile(filePath) {
+  async readFile(filePath) {
     try {
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
+      // Check if file exists using access
+      await fs.promises.access(filePath);
 
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = await fs.promises.readFile(filePath, 'utf8');
       return this.parse(content);
     } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null;
+      }
       console.error(`Error reading .lenv file ${filePath}: ${error.message}`);
       return null;
     }
@@ -132,13 +133,8 @@ export class LenvReader {
    * @param {boolean} options.quiet - Whether to suppress log messages (default: false)
    * @returns {Object} - Object with loaded variables
    */
-  config(options = {}) {
-    const {
-      path: configPath = '.lenv',
-      configuration = null,
-      override = false,
-      quiet = false
-    } = options;
+  async config(options = {}) {
+    const { path: configPath = '.lenv', configuration = null, override = false, quiet = false } = options;
 
     let envVars = {};
 
@@ -151,7 +147,7 @@ export class LenvReader {
     }
     // Priority 2: .lenv file
     else if (configPath) {
-      const fileVars = this.readFile(configPath);
+      const fileVars = await this.readFile(configPath);
       if (fileVars) {
         envVars = fileVars;
         if (!quiet && Object.keys(envVars).length > 0) {
@@ -173,15 +169,16 @@ export class LenvReader {
   /**
    * Check if .lenv file exists and has priority over .env
    * @param {string} lenvPath - Path to .lenv file
-   * @param {string} envPath - Path to .env file
    * @returns {boolean} - True if .lenv should be used
    */
-  shouldUseLenv(lenvPath = '.lenv', envPath = '.env') {
+  async shouldUseLenv(lenvPath = '.lenv') {
     // If .lenv exists, use it (has priority)
-    if (fs.existsSync(lenvPath)) {
+    try {
+      await fs.promises.access(lenvPath);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }
 }
 
@@ -199,6 +196,6 @@ export const lenvReader = new LenvReader();
  * @param {Object} options - Configuration options
  * @returns {Object} - Loaded environment variables
  */
-export function loadLenvConfig(options = {}) {
-  return lenvReader.config(options);
+export async function loadLenvConfig(options = {}) {
+  return await lenvReader.config(options);
 }

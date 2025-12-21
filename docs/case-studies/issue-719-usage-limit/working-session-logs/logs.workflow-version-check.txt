@@ -1,0 +1,98 @@
+  verify-version-bump:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Verify version bump
+      run: |
+        echo "=== Version Bump Verification ==="
+
+        # Get base and head refs
+        BASE_REF="${{ github.event.pull_request.base.ref }}"
+        HEAD_REF="${{ github.event.pull_request.head.ref }}"
+        BASE_SHA="${{ github.event.pull_request.base.sha }}"
+        HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+        echo "Base branch: $BASE_REF ($BASE_SHA)"
+        echo "Head branch: $HEAD_REF ($HEAD_SHA)"
+
+        # Fetch the base branch
+        git fetch origin $BASE_REF:$BASE_REF
+
+        # Get current version from package.json
+        if [ ! -f "package.json" ]; then
+          echo "❌ No package.json found in PR"
+          exit 1
+        fi
+
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        echo "Current version in PR: $CURRENT_VERSION"
+
+        # Get base version from package.json
+        git checkout $BASE_SHA -- package.json 2>/dev/null || {
+          echo "❌ Could not get package.json from base branch"
+          exit 1
+        }
+
+        if [ ! -f "package.json" ]; then
+          echo "❌ No package.json found in base branch"
+          exit 1
+        fi
+
+        BASE_VERSION=$(node -p "require('./package.json').version")
+        echo "Base version: $BASE_VERSION"
+
+        # Restore current package.json
+        git checkout $HEAD_SHA -- package.json
+
+        # Compare versions using semver (Node.js native comparison)
+        COMPARISON=$(node -e "
+          function compareSemver(a, b) {
+            const aParts = a.split('.').map(Number);
+            const bParts = b.split('.').map(Number);
+
+            for (let i = 0; i < 3; i++) {
+              if (aParts[i] > bParts[i]) return 1;
+              if (aParts[i] < bParts[i]) return -1;
+            }
+            return 0;
+          }
+
+          const current = '$CURRENT_VERSION';
+          const base = '$BASE_VERSION';
+          console.log(compareSemver(current, base));
+        ")
+
+        echo "Comparing versions: $CURRENT_VERSION vs $BASE_VERSION (result: $COMPARISON)"
+
+        if [ "$COMPARISON" -le 0 ]; then
+          if [ "$COMPARISON" -eq 0 ]; then
+            echo "❌ Version has not been bumped!"
+          else
+            echo "❌ Version in PR ($CURRENT_VERSION) is LOWER than base version ($BASE_VERSION)!"
+          fi
+          echo "   Current version in PR: $CURRENT_VERSION"
+          echo "   Base version in main: $BASE_VERSION"
+          echo ""
+          echo "💡 Please bump the version in package.json to be strictly greater than $BASE_VERSION."
+          echo "   You can use semantic versioning:"
+          echo "   - Patch (bug fixes): npm version patch"
+          echo "   - Minor (new features): npm version minor"
+          echo "   - Major (breaking changes): npm version major"
+          exit 1
+        else
+          echo "✅ Version has been bumped from $BASE_VERSION to $CURRENT_VERSION"
+        fi
+
+  # === COMPILATION & SYNTAX CHECKS ===
+  test-compilation:

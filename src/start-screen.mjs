@@ -52,7 +52,7 @@ async function screenSessionExists(sessionName) {
   try {
     const { stdout } = await execAsync('screen -ls');
     return stdout.includes(sessionName);
-  } catch (error) {
+  } catch {
     // screen -ls returns non-zero exit code when no sessions exist
     return false;
   }
@@ -88,10 +88,10 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
           if (code === 0) {
             // Marker file exists, session is ready!
             // Clean up the marker file
-            await execAsync(`rm -f ${markerFile}`).catch(() => { });
+            await execAsync(`rm -f ${markerFile}`).catch(() => {});
             return true;
           }
-        } catch (error) {
+        } catch {
           // Marker file doesn't exist yet
         }
 
@@ -101,8 +101,8 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
 
       // Marker file didn't appear, session is still busy
       // Clean up any leftover marker file from the queued command
-      await execAsync(`rm -f ${markerFile}`).catch(() => { });
-    } catch (error) {
+      await execAsync(`rm -f ${markerFile}`).catch(() => {});
+    } catch {
       // Error sending test command or checking marker
     }
 
@@ -126,31 +126,31 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 
   if (sessionExists) {
     console.log(`Screen session '${sessionName}' already exists.`);
-    console.log(`Checking if session is ready to accept commands...`);
+    console.log('Checking if session is ready to accept commands...');
 
     // Wait for the session to be ready (at a prompt)
     const isReady = await waitForSessionReady(sessionName);
 
     if (isReady) {
-      console.log(`Session is ready.`);
+      console.log('Session is ready.');
     } else {
-      console.log(`Session might still be running a command. Will attempt to send command anyway.`);
-      console.log(`Note: The command will execute once the current operation completes.`);
+      console.log('Session might still be running a command. Will attempt to send command anyway.');
+      console.log('Note: The command will execute once the current operation completes.');
     }
 
-    console.log(`Sending command to existing session...`);
+    console.log('Sending command to existing session...');
 
     // Build the full command to send to the existing session
-    const quotedArgs = args.map(arg => {
-      // If arg contains spaces or special chars, wrap in single quotes
-      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-          arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-          arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-        // Escape single quotes within the argument
-        return `'${arg.replace(/'/g, "'\\''")}'`;
-      }
-      return arg;
-    }).join(' ');
+    const quotedArgs = args
+      .map(arg => {
+        // If arg contains spaces or special chars, wrap in single quotes
+        if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+          // Escape single quotes within the argument
+          return `'${arg.replace(/'/g, "'\\''")}'`;
+        }
+        return arg;
+      })
+      .join(' ');
 
     const fullCommand = `${command} ${quotedArgs}`;
 
@@ -176,16 +176,16 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 
   // Create a detached session with the command
   // Quote arguments properly to preserve spaces and special characters
-  const quotedArgs = args.map(arg => {
-    // If arg contains spaces or special chars, wrap in single quotes
-    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-        arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-        arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-      // Escape single quotes within the argument
-      return `'${arg.replace(/'/g, "'\\''")}'`;
-    }
-    return arg;
-  }).join(' ');
+  const quotedArgs = args
+    .map(arg => {
+      // If arg contains spaces or special chars, wrap in single quotes
+      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+        // Escape single quotes within the argument
+        return `'${arg.replace(/'/g, "'\\''")}'`;
+      }
+      return arg;
+    })
+    .join(' ');
 
   let screenCommand;
   if (autoTerminate) {
@@ -204,9 +204,9 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     await execAsync(screenCommand);
     console.log(`Started ${command} in detached screen session: ${sessionName}`);
     if (autoTerminate) {
-      console.log(`Note: Session will terminate after command completes (--auto-terminate mode)`);
+      console.log('Note: Session will terminate after command completes (--auto-terminate mode)');
     } else {
-      console.log(`Session will remain active after command completes`);
+      console.log('Session will remain active after command completes');
     }
     console.log(`To attach to this session, run: screen -r ${sessionName}`);
   } catch (error) {
@@ -301,7 +301,7 @@ async function main() {
   // Check for screen availability
   try {
     await execAsync('which screen');
-  } catch (error) {
+  } catch {
     console.error('Error: GNU Screen is not installed or not in PATH.');
     console.error('Please install it using your package manager:');
     console.error('  Ubuntu/Debian: sudo apt-get install screen');
@@ -318,7 +318,7 @@ async function main() {
 }
 
 // Run the main function
-main().catch((error) => {
+main().catch(error => {
   console.error('Unexpected error:', error);
   process.exit(1);
 });

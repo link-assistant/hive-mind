@@ -52,7 +52,8 @@ console.log('Test: Analyze chunk structure');
 const testCommand = $({ shell: true, exitOnError: false })`echo "test"`;
 for await (const chunk of testCommand.stream()) {
   console.log('Chunk keys:', Object.keys(chunk));
-  console.log('Full chunk:', JSON.stringify(chunk, (key, value) =>
-    value instanceof Buffer ? `Buffer(${value.toString()})` : value
-  ));
+  console.log(
+    'Full chunk:',
+    JSON.stringify(chunk, (key, value) => (value instanceof Buffer ? `Buffer(${value.toString()})` : value))
+  );
 }

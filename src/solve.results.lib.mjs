@@ -18,27 +18,18 @@ const path = (await use('path')).default;
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  getLogFile,
-  formatAligned
-} = lib;
+const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
-const {
-  sanitizeLogContent,
-  attachLogToGitHub
-} = githubLib;
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import auto-continue functions
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
-const {
-  autoContinueWhenLimitResets
-} = autoContinue;
+const { autoContinueWhenLimitResets } = autoContinue;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -50,14 +41,155 @@ const { reportError } = sentryLib;
 const githubLinking = await import('./github-linking.lib.mjs');
 const { hasGitHubLinkingKeyword } = githubLinking;
 
+/**
+ * Detect the CLAUDE.md commit hash from branch structure when not available in session
+ * This handles continue mode where the commit hash was lost between sessions
+ *
+ * Safety checks to prevent Issue #617 (wrong commit revert):
+ * 1. Only look at commits on the PR branch (not default branch commits)
+ * 2. Verify the commit message matches our expected pattern
+ * 3. Verify the commit ONLY adds CLAUDE.md (no other files changed)
+ * 4. Verify there are additional commits after it (actual work was done)
+ *
+ * @param {string} tempDir - The temporary directory with the git repo
+ * @param {string} branchName - The PR branch name
+ * @returns {string|null} - The detected commit hash or null if not found/safe
+ */
+const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
+  try {
+    await log('   Attempting to detect CLAUDE.md commit from branch structure...', { verbose: true });
+
+    // First check if CLAUDE.md exists in current branch
+    const claudeMdExistsResult = await $({ cwd: tempDir })`git ls-files CLAUDE.md 2>&1`;
+    if (claudeMdExistsResult.code !== 0 || !claudeMdExistsResult.stdout || !claudeMdExistsResult.stdout.trim()) {
+      await log('   CLAUDE.md does not exist in current branch', { verbose: true });
+      return null;
+    }
+
+    // Get the default branch to find the fork point
+    const defaultBranchResult = await $({ cwd: tempDir })`git symbolic-ref refs/remotes/origin/HEAD 2>&1`;
+    let defaultBranch = 'main';
+    if (defaultBranchResult.code === 0 && defaultBranchResult.stdout) {
+      const match = defaultBranchResult.stdout.toString().match(/refs\/remotes\/origin\/(.+)/);
+      if (match) {
+        defaultBranch = match[1].trim();
+      }
+    }
+    await log(`   Using default branch: ${defaultBranch}`, { verbose: true });
+
+    // Find the merge base (fork point) between current branch and default branch
+    const mergeBaseResult = await $({ cwd: tempDir })`git merge-base origin/${defaultBranch} HEAD 2>&1`;
+    if (mergeBaseResult.code !== 0 || !mergeBaseResult.stdout) {
+      await log('   Could not find merge base, cannot safely detect CLAUDE.md commit', { verbose: true });
+      return null;
+    }
+    const mergeBase = mergeBaseResult.stdout.toString().trim();
+    await log(`   Merge base: ${mergeBase.substring(0, 7)}`, { verbose: true });
+
+    // Get all commits on the PR branch (commits after the merge base)
+    // Format: hash|message|files_changed
+    const branchCommitsResult = await $({ cwd: tempDir })`git log ${mergeBase}..HEAD --reverse --format="%H|%s" 2>&1`;
+    if (branchCommitsResult.code !== 0 || !branchCommitsResult.stdout) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+
+    const branchCommits = branchCommitsResult.stdout.toString().trim().split('\n').filter(Boolean);
+    if (branchCommits.length === 0) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+
+    await log(`   Found ${branchCommits.length} commit(s) on PR branch`, { verbose: true });
+
+    // Safety check: Must have at least 2 commits (CLAUDE.md commit + actual work)
+    if (branchCommits.length < 2) {
+      await log('   Only 1 commit on branch - not enough commits to safely revert CLAUDE.md', { verbose: true });
+      await log('   (Need at least 2 commits: CLAUDE.md initial + actual work)', { verbose: true });
+      return null;
+    }
+
+    // Get the first commit on the PR branch
+    const firstCommitLine = branchCommits[0];
+    const [firstCommitHash, firstCommitMessage] = firstCommitLine.split('|');
+
+    await log(`   First commit on branch: ${firstCommitHash.substring(0, 7)} - "${firstCommitMessage}"`, {
+      verbose: true,
+    });
+
+    // Safety check: Verify commit message matches expected pattern
+    const expectedMessagePatterns = [/^Initial commit with task details/i, /^Add CLAUDE\.md/i, /^CLAUDE\.md/i];
+
+    const messageMatches = expectedMessagePatterns.some(pattern => pattern.test(firstCommitMessage));
+    if (!messageMatches) {
+      await log('   First commit message does not match expected CLAUDE.md pattern', { verbose: true });
+      await log('   Expected patterns: "Initial commit with task details...", "Add CLAUDE.md", etc.', {
+        verbose: true,
+      });
+      return null;
+    }
+
+    // Safety check: Verify the commit ONLY adds CLAUDE.md file (no other files)
+    const filesChangedResult = await $({
+      cwd: tempDir,
+    })`git diff-tree --no-commit-id --name-only -r ${firstCommitHash} 2>&1`;
+    if (filesChangedResult.code !== 0 || !filesChangedResult.stdout) {
+      await log('   Could not get files changed in first commit', { verbose: true });
+      return null;
+    }
+
+    const filesChanged = filesChangedResult.stdout.toString().trim().split('\n').filter(Boolean);
+    await log(`   Files changed in first commit: ${filesChanged.join(', ')}`, { verbose: true });
+
+    // Check if CLAUDE.md is in the files changed
+    if (!filesChanged.includes('CLAUDE.md')) {
+      await log('   First commit does not include CLAUDE.md', { verbose: true });
+      return null;
+    }
+
+    // CRITICAL SAFETY CHECK: Only allow revert if CLAUDE.md is the ONLY file changed
+    // This prevents Issue #617 where reverting a commit deleted .gitignore, LICENSE, README.md
+    if (filesChanged.length > 1) {
+      await log(`   ⚠️  First commit changes more than just CLAUDE.md (${filesChanged.length} files)`, {
+        verbose: true,
+      });
+      await log(`   Files: ${filesChanged.join(', ')}`, { verbose: true });
+      await log('   Refusing to revert to prevent data loss (Issue #617 safety)', { verbose: true });
+      return null;
+    }
+
+    // All safety checks passed!
+    await log(`   ✅ Detected CLAUDE.md commit: ${firstCommitHash.substring(0, 7)}`, { verbose: true });
+    await log('   ✅ Commit only contains CLAUDE.md (safe to revert)', { verbose: true });
+    await log(`   ✅ Branch has ${branchCommits.length - 1} additional commit(s) (work was done)`, { verbose: true });
+
+    return firstCommitHash;
+  } catch (error) {
+    reportError(error, {
+      context: 'detect_claude_md_commit',
+      tempDir,
+      branchName,
+      operation: 'detect_commit_from_branch_structure',
+    });
+    await log(`   Error detecting CLAUDE.md commit: ${error.message}`, { verbose: true });
+    return null;
+  }
+};
+
 // Revert the CLAUDE.md commit to restore original state
 export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
   try {
-    // Only revert if we have the commit hash from this session
-    // This prevents reverting the wrong commit in continue mode
+    // If no commit hash provided, try to detect it from branch structure
+    // This handles continue mode where the hash was lost between sessions
     if (!claudeCommitHash) {
-      await log('   No CLAUDE.md commit to revert (not created in this session)', { verbose: true });
-      return;
+      await log('   No CLAUDE.md commit hash from session, attempting to detect from branch...', { verbose: true });
+      claudeCommitHash = await detectClaudeMdCommitFromBranch(tempDir, branchName);
+
+      if (!claudeCommitHash) {
+        await log('   Could not safely detect CLAUDE.md commit to revert', { verbose: true });
+        return;
+      }
+      await log(`   Detected CLAUDE.md commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
     }
 
     await log(formatAligned('🔄', 'Cleanup:', 'Reverting CLAUDE.md commit'));
@@ -89,7 +221,9 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       }
 
       // Create a manual revert commit
-      const commitResult = await $({ cwd: tempDir })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit" 2>&1`;
+      const commitResult = await $({
+        cwd: tempDir,
+      })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit" 2>&1`;
 
       if (commitResult.code === 0) {
         await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert (manual)'));
@@ -187,7 +321,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     reportError(e, {
       context: 'cleanup_claude_file',
       tempDir,
-      operation: 'revert_claude_md_commit'
+      operation: 'revert_claude_md_commit',
     });
     // If revert fails, that's okay - the task is still complete
     await log('   CLAUDE.md revert failed or not needed', { verbose: true });
@@ -201,15 +335,15 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = (await use('path'));
+    const path = await use('path');
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
     if (limitReached) {
       await log('\n⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoContinueLimit && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
         // Only show resume recommendation if --no-auto-cleanup was passed
@@ -218,8 +352,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
           await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
 
           if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
+            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
           }
 
           await log('\n   This will continue from where it left off with full context.\n');
@@ -250,7 +384,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -286,10 +420,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
       // If we created a PR earlier in this session, it would be prNumber
       // Or if the PR was updated during the session (updatedAt > referenceTime)
-      const isPrFromSession = (prNumber && pr.number.toString() === prNumber) ||
-                              (prUrl && pr.url === prUrl) ||
-                              new Date(pr.updatedAt) > referenceTime ||
-                              new Date(pr.createdAt) > referenceTime;
+      const isPrFromSession = (prNumber && pr.number.toString() === prNumber) || (prUrl && pr.url === prUrl) || new Date(pr.updatedAt) > referenceTime || new Date(pr.createdAt) > referenceTime;
 
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
@@ -304,12 +435,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           // This ensures we only detect actual GitHub-recognized linking keywords
           // (fixes, closes, resolves and their variants) in proper format
           // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-          const hasLinkingKeyword = hasGitHubLinkingKeyword(
-            prBody,
-            issueNumber,
-            argv.fork ? owner : null,
-            argv.fork ? repo : null
-          );
+          const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
 
           if (!hasLinkingKeyword) {
             await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
@@ -371,7 +497,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             $,
             log,
             sanitizeLogContent,
-            verbose: argv.verbose
+            verbose: argv.verbose,
+            sessionId,
+            tempDir,
+            anthropicTotalCostUSD,
+            // Pass agent tool pricing data when available
+            publicPricingEstimate,
+            pricingInfo,
           });
         }
 
@@ -409,9 +541,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
 
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(comment =>
-      comment.user.login === currentUser && new Date(comment.created_at) > referenceTime
-    );
+    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
@@ -429,7 +559,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           $,
           log,
           sanitizeLogContent,
-          verbose: argv.verbose
+          verbose: argv.verbose,
+          sessionId,
+          tempDir,
+          anthropicTotalCostUSD,
+          // Pass agent tool pricing data when available
+          publicPricingEstimate,
+          pricingInfo,
         });
       }
 
@@ -462,12 +598,11 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       await safeExit(0, 'Process completed successfully');
     }
     return; // Return normally for watch mode
-
   } catch (searchError) {
     reportError(searchError, {
       context: 'verify_pr_creation',
       issueNumber,
-      operation: 'search_for_pr'
+      operation: 'search_for_pr',
     });
     await log('\n⚠️  Could not verify results:', searchError.message);
     await log('\n💡 Check the log file for details:');
@@ -505,7 +640,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
         });
 
         if (logUploadSuccess) {
@@ -515,7 +650,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_success_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -536,7 +671,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_success_pr',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }

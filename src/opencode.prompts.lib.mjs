@@ -8,23 +8,8 @@
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -71,7 +56,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -88,7 +73,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -98,7 +83,7 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -120,7 +105,7 @@ General guidelines.
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.
@@ -192,5 +177,5 @@ GitHub CLI command patterns.
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

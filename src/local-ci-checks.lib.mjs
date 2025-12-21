@@ -26,22 +26,22 @@ export async function detectCITools(workDir) {
       pytest: false,
       nox: false,
       black: false,
-      flake8: false
+      flake8: false,
     },
     javascript: {
       eslint: false,
       prettier: false,
       jest: false,
-      vitest: false
+      vitest: false,
     },
     rust: {
       rustfmt: false,
       clippy: false,
-      cargoTest: false
+      cargoTest: false,
     },
     general: {
-      preCommit: false
-    }
+      preCommit: false,
+    },
   };
 
   try {
@@ -56,7 +56,9 @@ export async function detectCITools(workDir) {
     try {
       await fs.access(ruffConfigPath);
       tools.python.ruff = true;
-    } catch {}
+    } catch {
+      // File doesn't exist, ruff not configured
+    }
 
     try {
       const pyproject = await fs.readFile(pyprojectPath, 'utf-8');
@@ -64,25 +66,33 @@ export async function detectCITools(workDir) {
       if (pyproject.includes('[tool.mypy]')) tools.python.mypy = true;
       if (pyproject.includes('[tool.black]')) tools.python.black = true;
       if (pyproject.includes('[tool.pytest]')) tools.python.pytest = true;
-    } catch {}
+    } catch {
+      // File doesn't exist or can't be read, tools not configured in pyproject.toml
+    }
 
     // Check mypy
     try {
       await fs.access(mypyConfigPath);
       tools.python.mypy = true;
-    } catch {}
+    } catch {
+      // File doesn't exist, mypy not configured
+    }
 
     // Check nox
     try {
       await fs.access(noxfilePath);
       tools.python.nox = true;
-    } catch {}
+    } catch {
+      // File doesn't exist, nox not configured
+    }
 
     // Check flake8
     try {
       await fs.access(flake8ConfigPath);
       tools.python.flake8 = true;
-    } catch {}
+    } catch {
+      // File doesn't exist, flake8 not configured
+    }
 
     // Check for JavaScript tools
     const packageJsonPath = path.join(workDir, 'package.json');
@@ -101,7 +111,9 @@ export async function detectCITools(workDir) {
       if (packageJson.devDependencies?.vitest || packageJson.dependencies?.vitest) {
         tools.javascript.vitest = true;
       }
-    } catch {}
+    } catch {
+      // File doesn't exist or can't be parsed, JavaScript tools not configured
+    }
 
     // Check for Rust tools
     const cargoTomlPath = path.join(workDir, 'Cargo.toml');
@@ -110,15 +122,18 @@ export async function detectCITools(workDir) {
       tools.rust.rustfmt = true;
       tools.rust.clippy = true;
       tools.rust.cargoTest = true;
-    } catch {}
+    } catch {
+      // File doesn't exist, Rust tools not configured
+    }
 
     // Check for pre-commit
     const preCommitPath = path.join(workDir, '.pre-commit-config.yaml');
     try {
       await fs.access(preCommitPath);
       tools.general.preCommit = true;
-    } catch {}
-
+    } catch {
+      // File doesn't exist, pre-commit not configured
+    }
   } catch (err) {
     console.error('Error detecting CI tools:', err.message);
   }
@@ -137,7 +152,7 @@ export async function runLocalCIChecks(workDir, tools, options = {}) {
   const results = {
     success: true,
     checks: [],
-    errors: []
+    errors: [],
   };
 
   const verbose = options.verbose || false;
@@ -237,7 +252,7 @@ async function runCheck(workDir, command, name, verbose) {
     command,
     success: false,
     output: '',
-    error: ''
+    error: '',
   };
 
   try {
@@ -290,12 +305,14 @@ export function generateCICheckReport(results) {
 
   if (failed > 0) {
     lines.push('Failed checks:');
-    results.checks.filter(c => !c.success).forEach(check => {
-      lines.push(`  ❌ ${check.name}`);
-      if (check.output) {
-        lines.push(`     ${check.output.split('\n')[0]}`);
-      }
-    });
+    results.checks
+      .filter(c => !c.success)
+      .forEach(check => {
+        lines.push(`  ❌ ${check.name}`);
+        if (check.output) {
+          lines.push(`     ${check.output.split('\n')[0]}`);
+        }
+      });
   }
 
   if (results.success) {

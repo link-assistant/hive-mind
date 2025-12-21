@@ -11,26 +11,25 @@ import { log, formatAligned } from '../lib.mjs';
 
 // Mock the $ function for testing
 const $ = (strings, ...values) => {
-  const command = strings.reduce((acc, str, i) =>
-    acc + str + (values[i] || ''), '');
+  const command = strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '');
 
   return {
-    then: (onFulfilled) => {
+    then: onFulfilled => {
       try {
         const output = execSync(command, { encoding: 'utf8', stdio: 'pipe' });
         return onFulfilled({
           code: 0,
           stdout: output,
-          stderr: ''
+          stderr: '',
         });
       } catch (error) {
         return onFulfilled({
           code: error.status || 1,
           stdout: '',
-          stderr: error.stderr ? error.stderr.toString() : error.message
+          stderr: error.stderr ? error.stderr.toString() : error.message,
         });
       }
-    }
+    },
   };
 };
 
@@ -70,8 +69,7 @@ async function testForkRetryLogic() {
   } else {
     console.log('\n✨ Success! Fork was verified after retries');
     console.log(`   Total attempts: ${attemptsThatFailed + 1}`);
-    console.log(`   Total wait time: ${Array.from({length: attemptsThatFailed + 1}, (_, i) =>
-      baseDelay * Math.pow(2, i)).reduce((a, b) => a + b, 0)}ms`);
+    console.log(`   Total wait time: ${Array.from({ length: attemptsThatFailed + 1 }, (_, i) => baseDelay * Math.pow(2, i)).reduce((a, b) => a + b, 0)}ms`);
   }
 
   // Calculate what the actual delays would be in production
@@ -81,7 +79,7 @@ async function testForkRetryLogic() {
   for (let i = 1; i <= 5; i++) {
     const delay = prodBaseDelay * Math.pow(2, i - 1);
     totalDelay += delay;
-    console.log(`   Attempt ${i}: ${delay/1000}s delay (cumulative: ${totalDelay/1000}s)`);
+    console.log(`   Attempt ${i}: ${delay / 1000}s delay (cumulative: ${totalDelay / 1000}s)`);
   }
 
   console.log('\n✅ Test completed successfully!\n');

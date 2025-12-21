@@ -13,7 +13,7 @@ async function testGetDefaultBranch() {
 
   try {
     // Test with the hive-mind repository
-    const repoInfoResult = await $`gh api repos/deep-assistant/hive-mind --jq .default_branch`;
+    const repoInfoResult = await $`gh api repos/link-assistant/hive-mind --jq .default_branch`;
     if (repoInfoResult.code === 0) {
       const defaultBranch = repoInfoResult.stdout.toString().trim();
       console.log(`✅ Default branch detected: ${defaultBranch}`);

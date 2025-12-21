@@ -1,8 +1,14 @@
 import js from '@eslint/js';
+import prettier from 'eslint-plugin-prettier';
+import prettierConfig from 'eslint-config-prettier';
 
 export default [
   js.configs.recommended,
+  prettierConfig,
   {
+    plugins: {
+      prettier,
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -29,16 +35,29 @@ export default [
 
         // Custom globals
         use: 'readonly',
-        fetch: 'readonly'
-      }
+        fetch: 'readonly',
+        URL: 'readonly',
+      },
     },
-    files: ['**/*.mjs', '**/*.js'],
+    files: ['src/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': ['error'],
       'no-console': 'off',
-      'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }]
-    }
-  }
+      'no-useless-escape': 'warn',
+      'no-case-declarations': 'warn',
+      'no-empty': 'error',
+      camelcase: [
+        'error',
+        {
+          properties: 'never',
+          ignoreDestructuring: true,
+          ignoreImports: false,
+          ignoreGlobals: false,
+          allow: ['^[A-Z_]+$'],
+        },
+      ],
+      'prettier/prettier': 'warn',
+    },
+  },
 ];

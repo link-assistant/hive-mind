@@ -3,26 +3,16 @@
  * Handles repository cloning, forking, and remote setup
  */
 
-export async function setupRepositoryAndClone({
-  argv,
-  owner,
-  repo,
-  forkOwner,
-  tempDir,
-  isContinueMode,
-  log,
-  formatAligned: _formatAligned,
-  $
-}) {
+export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, tempDir, isContinueMode, issueUrl, log, $ }) {
   // Set up repository and handle forking
-  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner);
+  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl);
 
   // Clone repository and set up remotes
   await cloneRepository(repoToClone, tempDir, argv, owner, repo);
   // Set up upstream remote and sync fork if needed
   await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
   // Set up pr-fork remote if we're continuing someone else's fork PR with --fork flag
-  const prForkRemote = await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode);
+  const prForkRemote = await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 
   // Set up git authentication using gh
   const authSetupResult = await $({ cwd: tempDir })`gh auth setup-git 2>&1`;
@@ -33,10 +23,10 @@ export async function setupRepositoryAndClone({
   return { repoToClone, forkedRepo, upstreamRemote, prForkRemote, prForkOwner };
 }
 
-async function setupRepository(argv, owner, repo, forkOwner) {
+async function setupRepository(argv, owner, repo, forkOwner, issueUrl) {
   const repository = await import('./solve.repository.lib.mjs');
   const { setupRepository: setupRepoFn } = repository;
-  return await setupRepoFn(argv, owner, repo, forkOwner);
+  return await setupRepoFn(argv, owner, repo, forkOwner, issueUrl);
 }
 
 async function cloneRepository(repoToClone, tempDir, argv, owner, repo) {
@@ -51,18 +41,13 @@ async function setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, 
   return await setupUpstreamFn(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
 }
 
-async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode) {
+async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner) {
   const repository = await import('./solve.repository.lib.mjs');
   const { setupPrForkRemote: setupPrForkFn } = repository;
-  return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode);
+  return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({
-  tempDir,
-  log,
-  formatAligned,
-  $
-}) {
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $ }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -78,7 +63,7 @@ export async function verifyDefaultBranchAndStatus({
     await log(`${formatAligned('❌', 'DEFAULT BRANCH DETECTION FAILED', '')}`, { level: 'error' });
     await log('');
     await log('  🔍 What happened:');
-    await log('     Unable to determine the repository\'s default branch.');
+    await log("     Unable to determine the repository's default branch.");
     await log('');
     await log('  💡 This might mean:');
     await log('     • Repository is empty (no commits)');

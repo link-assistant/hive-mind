@@ -13,7 +13,7 @@
 
 console.log('🧪 Testing Telegraf polling issues...\n');
 
-console.log('Common reasons Telegraf bots don\'t receive messages:\n');
+console.log("Common reasons Telegraf bots don't receive messages:\n");
 
 console.log('1. Webhook still active (most common):');
 console.log('   - If bot previously used webhooks, need to delete webhook first');

@@ -9,14 +9,14 @@ console.log('Testing log path display on various exits...\n');
 // Test 1: Test hive.mjs with SIGINT
 console.log('Test 1: Testing hive.mjs with SIGINT...');
 const hiveProcess = spawn('node', ['src/hive.mjs', 'https://github.com/test/test', '--once'], {
-  stdio: 'pipe'
+  stdio: 'pipe',
 });
 
 let hiveOutput = '';
-hiveProcess.stdout.on('data', (data) => {
+hiveProcess.stdout.on('data', data => {
   hiveOutput += data.toString();
 });
-hiveProcess.stderr.on('data', (data) => {
+hiveProcess.stderr.on('data', data => {
   hiveOutput += data.toString();
 });
 
@@ -25,7 +25,7 @@ setTimeout(1000).then(() => {
   hiveProcess.kill('SIGINT');
 });
 
-hiveProcess.on('exit', (code) => {
+hiveProcess.on('exit', code => {
   console.log('Hive process exited with code:', code);
 
   // Check if log path is shown
@@ -54,14 +54,14 @@ hiveProcess.on('exit', (code) => {
 function testSolve() {
   console.log('Test 2: Testing solve.mjs with SIGINT...');
   const solveProcess = spawn('node', ['src/solve.mjs', 'https://github.com/test/test/issues/1'], {
-    stdio: 'pipe'
+    stdio: 'pipe',
   });
 
   let solveOutput = '';
-  solveProcess.stdout.on('data', (data) => {
+  solveProcess.stdout.on('data', data => {
     solveOutput += data.toString();
   });
-  solveProcess.stderr.on('data', (data) => {
+  solveProcess.stderr.on('data', data => {
     solveOutput += data.toString();
   });
 
@@ -70,7 +70,7 @@ function testSolve() {
     solveProcess.kill('SIGINT');
   });
 
-  solveProcess.on('exit', (code) => {
+  solveProcess.on('exit', code => {
     console.log('Solve process exited with code:', code);
 
     // Check if log path is shown

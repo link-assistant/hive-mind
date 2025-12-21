@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 0.47.1
+
+### Patch Changes
+
+- 68c0417: Fix Rocq installation verification by sourcing opam environment
+  - Source opam environment before verifying Rocq in installation summary
+  - Use `rocq -v` for verification as recommended by official documentation
+  - Update CI workflow to require Rocq to be accessible (not optional)
+  - Add case study documenting the issue and solution
+
 ## 0.47.0
 
 ### Minor Changes

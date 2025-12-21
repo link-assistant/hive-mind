@@ -111,7 +111,8 @@ runTest('instrument.mjs has correct imports', () => {
   const content = fs.readFileSync(instrumentPath, 'utf8');
 
   // Check for lazy/conditional imports (dynamic imports)
-  return content.includes('import("@sentry/node")') && content.includes('import("@sentry/profiling-node")');
+  // Accept both single and double quotes (Prettier uses single quotes)
+  return (content.includes('import("@sentry/node")') || content.includes("import('@sentry/node')")) && (content.includes('import("@sentry/profiling-node")') || content.includes("import('@sentry/profiling-node')"));
 });
 
 // Test 7: Check if DSN is configured

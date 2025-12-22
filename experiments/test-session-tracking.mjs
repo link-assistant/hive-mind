@@ -16,7 +16,7 @@ const testSessionTracking = () => {
   const firstToolResult = {
     success: true,
     sessionId: 'session-abc-123',
-    anthropicTotalCostUSD: 0.964416
+    anthropicTotalCostUSD: 0.964416,
   };
 
   console.log('1. First execution:');
@@ -38,7 +38,7 @@ const testSessionTracking = () => {
   const secondToolResult = {
     success: true,
     sessionId: 'session-xyz-789',
-    anthropicTotalCostUSD: 1.234567
+    anthropicTotalCostUSD: 1.234567,
   };
 
   console.log(`\n3. Auto-restart execution:`);
@@ -59,7 +59,7 @@ const testSessionTracking = () => {
   // Simulate return value
   const returnValue = {
     latestSessionId,
-    latestAnthropicCost
+    latestAnthropicCost,
   };
 
   console.log(`\n5. Return value from watchForFeedback:`);

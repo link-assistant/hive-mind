@@ -34,6 +34,7 @@ for script in issue-*.mjs; do echo "=== $script ==="; node "$script"; done
 ## Workarounds and Best Practices
 
 ### 1. Subpath Imports
+
 ```javascript
 // DON'T: This fails with @latest
 const { hideBin } = await use('yargs@latest/helpers');
@@ -48,11 +49,12 @@ try {
   hideBin = helpers.hideBin;
 } catch (e) {
   // Fallback implementation
-  hideBin = (argv) => argv.slice(2);
+  hideBin = argv => argv.slice(2);
 }
 ```
 
 ### 2. Module Format Detection
+
 ```javascript
 // DON'T: Assume module format
 const yargs = await use('yargs@latest');
@@ -67,6 +69,7 @@ const module = moduleImport.default || moduleImport;
 ```
 
 ### 3. Eval Context Handling
+
 ```javascript
 // DON'T: Test imports with node -e
 node -e "import('./lib.mjs').then(() => console.log('OK'))"
@@ -91,6 +94,7 @@ try {
 ```
 
 ### 4. Conditional Loading
+
 ```javascript
 // Pattern for modules that might already be loaded
 if (typeof use === 'undefined') {
@@ -99,6 +103,7 @@ if (typeof use === 'undefined') {
 ```
 
 ### 5. Cross-Runtime Compatibility
+
 ```javascript
 // Shebang for both Node and Bun
 #!/usr/bin/env sh
@@ -108,6 +113,7 @@ if (typeof use === 'undefined') {
 ## Impact on Development
 
 These issues affect:
+
 - Module reusability across projects
 - Consistency in import patterns
 - Runtime reliability when versions change
@@ -125,6 +131,7 @@ These issues affect:
 ## Alternative Approaches
 
 If use-m issues become blockers:
+
 1. Use specific versions instead of @latest
 2. Create wrapper modules that handle imports
 3. Use traditional package.json with npm/yarn/bun

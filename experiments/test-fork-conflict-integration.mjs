@@ -18,7 +18,7 @@ console.log('='.repeat(70) + '\n');
 
 const argv = {
   fork: true,
-  autoCleanup: false
+  autoCleanup: false,
 };
 
 const owner = 'veb86';

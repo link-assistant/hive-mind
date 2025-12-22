@@ -14,25 +14,12 @@ const { $ } = await use('command-stream');
 /**
  * Common paths where contributing guidelines might be found
  */
-const CONTRIBUTING_PATHS = [
-  'CONTRIBUTING.md',
-  'CONTRIBUTING',
-  'docs/CONTRIBUTING.md',
-  'docs/contributing.md',
-  '.github/CONTRIBUTING.md',
-  'CONTRIBUTE.md',
-  'docs/contribute.md'
-];
+const CONTRIBUTING_PATHS = ['CONTRIBUTING.md', 'CONTRIBUTING', 'docs/CONTRIBUTING.md', 'docs/contributing.md', '.github/CONTRIBUTING.md', 'CONTRIBUTE.md', 'docs/contribute.md'];
 
 /**
  * Common documentation URLs patterns
  */
-const DOCS_PATTERNS = [
-  'readthedocs.io',
-  'github.io',
-  '/docs/',
-  '/documentation/'
-];
+const DOCS_PATTERNS = ['readthedocs.io', 'github.io', '/docs/', '/documentation/'];
 
 /**
  * Detect contributing guidelines in a repository
@@ -46,7 +33,7 @@ export async function detectContributingGuidelines(owner, repo) {
     path: null,
     url: null,
     content: null,
-    docsUrl: null
+    docsUrl: null,
   };
 
   // Try to find CONTRIBUTING file in the repo
@@ -85,7 +72,7 @@ export async function detectContributingGuidelines(owner, repo) {
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');
 
         // Look for contributing documentation URL
-        const contributingMatch = readmeContent.match(/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi);
+        const contributingMatch = readmeContent.match(/https?:\/\/[^\s)]+contributing[^\s)]*/gi);
         if (contributingMatch && contributingMatch[0]) {
           result.found = true;
           result.docsUrl = contributingMatch[0];
@@ -124,7 +111,7 @@ export function extractCIRequirements(content) {
     linters: [],
     testCommands: [],
     styleGuide: [],
-    preCommitChecks: []
+    preCommitChecks: [],
   };
 
   if (!content) return requirements;
@@ -260,7 +247,7 @@ export async function checkWorkflowApprovalStatus(owner, repo) {
     return {
       hasApprovalRequired: approvalRequiredRuns.length > 0,
       runs: approvalRequiredRuns,
-      totalRuns: runs.length
+      totalRuns: runs.length,
     };
   } catch (err) {
     return { hasApprovalRequired: false, runs: [], error: err.message };

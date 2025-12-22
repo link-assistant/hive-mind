@@ -24,10 +24,7 @@ const lib = await import('./lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-const {
-  log,
-  formatAligned
-} = lib;
+const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
@@ -58,14 +55,14 @@ export const getRootRepository = async (owner, repo) => {
       context: 'get_root_repository',
       owner,
       repo,
-      operation: 'determine_fork_root'
+      operation: 'determine_fork_root',
     });
     return null;
   }
 };
 
 // Check if current user has a fork of the given root repository
-export const checkExistingForkOfRoot = async (rootRepo) => {
+export const checkExistingForkOfRoot = async rootRepo => {
   try {
     const userResult = await $`gh api user --jq .login`;
     if (userResult.code !== 0) {
@@ -79,7 +76,11 @@ export const checkExistingForkOfRoot = async (rootRepo) => {
       return null;
     }
 
-    const forks = forksResult.stdout.toString().trim().split('\n').filter(f => f);
+    const forks = forksResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(f => f);
 
     if (forks.length > 0) {
       return forks[0];
@@ -90,14 +91,14 @@ export const checkExistingForkOfRoot = async (rootRepo) => {
     reportError(error, {
       context: 'check_existing_fork_of_root',
       rootRepo,
-      operation: 'search_user_forks'
+      operation: 'search_user_forks',
     });
     return null;
   }
 };
 
 // Create or find temporary directory for cloning the repository
-export const setupTempDirectory = async (argv) => {
+export const setupTempDirectory = async argv => {
   let tempDir;
   let isResuming = argv.resume;
 
@@ -119,7 +120,7 @@ export const setupTempDirectory = async (argv) => {
       reportError(err, {
         context: 'resume_session_lookup',
         sessionId: argv.resume,
-        operation: 'find_session_log'
+        operation: 'find_session_log',
       });
       await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
@@ -153,8 +154,23 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
 
     await log(`${formatAligned('', '', 'Creating a simple README.md to make repository forkable')}`);
 
-    // Create simple README content with just the repository name
-    const readmeContent = `# ${repo}\n`;
+    // Get repository description to include in README
+    const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq '{description: .description}'`;
+    let description = '';
+    if (repoInfoResult.code === 0) {
+      try {
+        const repoInfo = JSON.parse(repoInfoResult.stdout.toString().trim());
+        description = repoInfo.description || '';
+      } catch {
+        // If parsing fails, continue with empty description
+      }
+    }
+
+    // Create README content with repository name and description (if available)
+    let readmeContent = `# ${repo}\n`;
+    if (description) {
+      readmeContent += `\n${description}\n`;
+    }
     const base64Content = Buffer.from(readmeContent).toString('base64');
 
     // Try to create README.md using GitHub API
@@ -169,8 +185,7 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
     } else {
       const errorOutput = createResult.stdout.toString() + createResult.stderr.toString();
       // Check if it's a permission error
-      if (errorOutput.includes('403') || errorOutput.includes('Forbidden') ||
-          errorOutput.includes('not have permission') || errorOutput.includes('Resource not accessible')) {
+      if (errorOutput.includes('403') || errorOutput.includes('Forbidden') || errorOutput.includes('not have permission') || errorOutput.includes('Resource not accessible')) {
         await log(`${formatAligned('❌', 'No access:', 'You do not have write access to this repository')}`);
         return false;
       } else {
@@ -184,7 +199,7 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
       context: 'initialize_empty_repository',
       owner,
       repo,
-      operation: 'create_readme'
+      operation: 'create_readme',
     });
     await log(`${formatAligned('❌', 'Error:', 'Failed to initialize repository')}`);
     return false;
@@ -225,7 +240,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
 
         if (existingForkOwner === currentUser) {
           const targetRepo = `${owner}/${repo}`;
-          const targetIsRoot = (targetRepo === rootRepo);
+          const targetIsRoot = targetRepo === rootRepo;
 
           if (!targetIsRoot) {
             await log('');
@@ -234,7 +249,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log('  🔍 What happened:');
             await log(`     You are trying to fork ${targetRepo}`);
             await log(`     But you already have a fork of ${rootRepo}: ${existingFork}`);
-            await log('     GitHub doesn\'t allow multiple forks of the same root repository');
+            await log("     GitHub doesn't allow multiple forks of the same root repository");
             await log('');
             await log('  📦 Root repository analysis:');
             await log(`     • Target repository: ${targetRepo}`);
@@ -330,8 +345,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         }
 
         // Always capture output to parse actual fork name
-        const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') +
-                          (forkResult.stdout ? forkResult.stdout.toString() : '');
+        const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') + (forkResult.stdout ? forkResult.stdout.toString() : '');
 
         // Parse actual fork name from output (e.g., "konard/netkeep80-jsonRVM already exists")
         // GitHub may create forks with modified names to avoid conflicts
@@ -354,10 +368,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
           break;
         } else {
           // Fork creation failed - check if it's because fork already exists
-          if (forkOutput.includes('already exists') ||
-              forkOutput.includes('Name already exists') ||
-              forkOutput.includes('fork of') ||
-              forkOutput.includes('HTTP 422')) {
+          if (forkOutput.includes('already exists') || forkOutput.includes('Name already exists') || forkOutput.includes('fork of') || forkOutput.includes('HTTP 422')) {
             // Fork already exists (likely created by another concurrent worker)
             await log(`${formatAligned('ℹ️', 'Fork exists:', actualForkName)}`);
             forkExists = true;
@@ -365,9 +376,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
           }
 
           // Check if it's an empty repository (HTTP 403) - try to auto-fix
-          if (forkOutput.includes('HTTP 403') &&
-              (forkOutput.includes('Empty repositories cannot be forked') ||
-               forkOutput.includes('contains no Git content'))) {
+          if (forkOutput.includes('HTTP 403') && (forkOutput.includes('Empty repositories cannot be forked') || forkOutput.includes('contains no Git content'))) {
             // Empty repository detected - try to initialize it
             await log('');
             await log(`${formatAligned('⚠️', 'EMPTY REPOSITORY', 'detected')}`, { level: 'warn' });
@@ -388,11 +397,13 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             } else {
               // Failed to initialize - provide helpful suggestions
               await log('');
-              await log(`${formatAligned('❌', 'Cannot proceed:', 'Unable to initialize empty repository')}`, { level: 'error' });
+              await log(`${formatAligned('❌', 'Cannot proceed:', 'Unable to initialize empty repository')}`, {
+                level: 'error',
+              });
               await log('');
               await log('  🔍 What happened:');
               await log(`     The repository ${owner}/${repo} is empty and cannot be forked.`);
-              await log('     GitHub doesn\'t allow forking repositories with no content.');
+              await log("     GitHub doesn't allow forking repositories with no content.");
               await log('     Auto-fix failed: You need write access to initialize the repository.');
               await log('');
               await log('  💡 How to fix:');
@@ -462,7 +473,7 @@ Thank you!`;
           // Fork still doesn't exist and creation failed
           if (attempt < maxForkRetries) {
             const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
-            await log(`${formatAligned('⏳', 'Retry:', `Attempt ${attempt}/${maxForkRetries} failed, waiting ${delay/1000}s before retry...`)}`);
+            await log(`${formatAligned('⏳', 'Retry:', `Attempt ${attempt}/${maxForkRetries} failed, waiting ${delay / 1000}s before retry...`)}`);
             await log(`   Error: ${forkOutput.split('\n')[0]}`); // Show first line of error
             await new Promise(resolve => setTimeout(resolve, delay));
           } else {
@@ -485,7 +496,7 @@ Thank you!`;
         for (let attempt = 1; attempt <= maxVerifyRetries; attempt++) {
           const delay = baseDelay * Math.pow(2, attempt - 1);
           if (attempt > 1) {
-            await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxVerifyRetries} (waiting ${delay/1000}s)...`)}`);
+            await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxVerifyRetries} (waiting ${delay / 1000}s)...`)}`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
 
@@ -582,7 +593,7 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     }
     await log('');
     await log('  💡 Common causes:');
-    await log('     • Repository doesn\'t exist or is private');
+    await log("     • Repository doesn't exist or is private");
     await log('     • No GitHub authentication');
     await log('     • Network connectivity issues');
     if (argv.fork) {
@@ -688,9 +699,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
               } else {
                 // Check if it's a non-fast-forward error (fork has diverged from upstream)
                 const errorMsg = pushResult.stderr ? pushResult.stderr.toString().trim() : '';
-                const isNonFastForward = errorMsg.includes('non-fast-forward') ||
-                                        errorMsg.includes('rejected') ||
-                                        errorMsg.includes('tip of your current branch is behind');
+                const isNonFastForward = errorMsg.includes('non-fast-forward') || errorMsg.includes('rejected') || errorMsg.includes('tip of your current branch is behind');
 
                 if (isNonFastForward) {
                   // Fork has diverged from upstream
@@ -716,7 +725,9 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                     // Use --force-with-lease for safer force push
                     // This will only force push if the remote hasn't changed since our last fetch
                     await log(`${formatAligned('🔄', 'Force pushing:', 'Syncing fork with upstream (--force-with-lease)')}`);
-                    const forcePushResult = await $({ cwd: tempDir })`git push --force-with-lease origin ${upstreamDefaultBranch}`;
+                    const forcePushResult = await $({
+                      cwd: tempDir,
+                    })`git push --force-with-lease origin ${upstreamDefaultBranch}`;
 
                     if (forcePushResult.code === 0) {
                       await log(`${formatAligned('✅', 'Fork synced:', 'Successfully force-pushed to align with upstream')}`);
@@ -724,7 +735,9 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                     } else {
                       // Force push also failed - this is a more serious issue
                       await log('');
-                      await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`, { level: 'error' });
+                      await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`, {
+                        level: 'error',
+                      });
                       await log('');
                       await log('  🔍 What happened:');
                       await log(`     Fork branch ${upstreamDefaultBranch} has diverged from upstream`);
@@ -862,12 +875,14 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     prForkRepoName = `${owner}-${repo}`;
   }
 
-  await log(`${formatAligned('🔗', 'Setting up pr-fork:', 'Branch exists in another user\'s fork')}`);
+  await log(`${formatAligned('🔗', 'Setting up pr-fork:', "Branch exists in another user's fork")}`);
   await log(`${formatAligned('', 'PR fork owner:', prForkOwner)}`);
   await log(`${formatAligned('', 'Current user:', currentUser)}`);
   await log(`${formatAligned('', 'Action:', `Adding ${prForkOwner}/${prForkRepoName} as pr-fork remote`)}`);
 
-  const addRemoteResult = await $({ cwd: tempDir })`git remote add pr-fork https://github.com/${prForkOwner}/${prForkRepoName}.git`;
+  const addRemoteResult = await $({
+    cwd: tempDir,
+  })`git remote add pr-fork https://github.com/${prForkOwner}/${prForkRepoName}.git`;
   if (addRemoteResult.code !== 0) {
     await log(`${formatAligned('❌', 'Error:', 'Failed to add pr-fork remote')}`);
     if (addRemoteResult.stderr) {
@@ -945,7 +960,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
       reportError(cleanupError, {
         context: 'cleanup_temp_directory',
         tempDir,
-        operation: 'remove_temp_dir'
+        operation: 'remove_temp_dir',
       });
       await log(' ⚠️  (failed)');
     }

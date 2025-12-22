@@ -19,15 +19,15 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'gpt4': 'openai/gpt-4',
-    'gpt4o': 'openai/gpt-4o',
-    'claude': 'anthropic/claude-3-5-sonnet',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'opus': 'anthropic/claude-3-opus',
-    'gemini': 'google/gemini-pro',
-    'grok': 'opencode/grok-code',
+    gpt4: 'openai/gpt-4',
+    gpt4o: 'openai/gpt-4o',
+    claude: 'anthropic/claude-3-5-sonnet',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    opus: 'anthropic/claude-3-opus',
+    gemini: 'google/gemini-pro',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
   };
@@ -108,28 +108,8 @@ export const handleOpenCodeRuntimeSwitch = async () => {
 };
 
 // Main function to execute OpenCode with prompts and settings
-export const executeOpenCode = async (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    opencodePath = 'opencode',
-    $
-  } = params;
+export const executeOpenCode = async params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, opencodePath = 'opencode', $ } = params;
 
   // Import prompt building functions from opencode.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./opencode.prompts.lib.mjs');
@@ -149,7 +129,7 @@ export const executeOpenCode = async (params) => {
     forkActionsUrl,
     owner,
     repo,
-    argv
+    argv,
   });
 
   // Build the system prompt
@@ -162,7 +142,7 @@ export const executeOpenCode = async (params) => {
     tempDir,
     isContinueMode,
     forkedRepo,
-    argv
+    argv,
   });
 
   // Log prompt details in verbose mode
@@ -199,25 +179,12 @@ export const executeOpenCode = async (params) => {
     forkedRepo,
     feedbackLines,
     opencodePath,
-    $
+    $,
   });
 };
 
-export const executeOpenCodeCommand = async (params) => {
-  const {
-    tempDir,
-    branchName,
-    prompt,
-    systemPrompt,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    forkedRepo,
-    feedbackLines,
-    opencodePath,
-    $
-  } = params;
+export const executeOpenCodeCommand = async params => {
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, opencodePath, $ } = params;
 
   // Retry configuration
   const maxRetries = 3;
@@ -309,12 +276,12 @@ export const executeOpenCodeCommand = async (params) => {
       if (argv.resume) {
         execCommand = $({
           cwd: tempDir,
-          mirror: false
+          mirror: false,
         })`cat ${promptFile} | ${opencodePath} run --format json --resume ${argv.resume} --model ${mappedModel}`;
       } else {
         execCommand = $({
           cwd: tempDir,
-          mirror: false
+          mirror: false,
         })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
       }
 
@@ -376,7 +343,7 @@ export const executeOpenCodeCommand = async (params) => {
             tool: 'OpenCode',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
           });
 
           for (const line of messageLines) {
@@ -395,7 +362,7 @@ export const executeOpenCodeCommand = async (params) => {
           success: false,
           sessionId,
           limitReached,
-          limitResetTime
+          limitResetTime,
         };
       }
 
@@ -405,7 +372,7 @@ export const executeOpenCodeCommand = async (params) => {
         success: true,
         sessionId,
         limitReached,
-        limitResetTime
+        limitResetTime,
       };
     } catch (error) {
       // Clean up the opencode.json config file even on error
@@ -419,7 +386,7 @@ export const executeOpenCodeCommand = async (params) => {
         context: 'execute_opencode',
         command: params.command,
         opencodePath: params.opencodePath,
-        operation: 'run_opencode_command'
+        operation: 'run_opencode_command',
       });
 
       await log(`\n\n❌ Error executing OpenCode command: ${error.message}`, { level: 'error' });
@@ -427,7 +394,7 @@ export const executeOpenCodeCommand = async (params) => {
         success: false,
         sessionId: null,
         limitReached: false,
-        limitResetTime: null
+        limitResetTime: null,
       };
     }
   };
@@ -468,13 +435,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning',
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning',
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning',
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -498,14 +471,16 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning',
+      });
       return false;
     }
   } catch (gitError) {
     reportError(gitError, {
       context: 'check_uncommitted_changes_opencode',
       tempDir,
-      operation: 'git_status_check'
+      operation: 'git_status_check',
     });
     await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
     return false;
@@ -518,5 +493,5 @@ export default {
   handleOpenCodeRuntimeSwitch,
   executeOpenCode,
   executeOpenCodeCommand,
-  checkForUncommittedChanges
+  checkForUncommittedChanges,
 };

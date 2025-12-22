@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Issue #7: Stream output handling
- * 
+ *
  * Problem: Iterating over command.stream() for real-time output requires proper chunk handling
  * Solution: Handle chunk types (stdout, stderr, exit) and parse JSON carefully
  */
@@ -21,7 +21,7 @@ console.log('\nStreaming output:');
 
 try {
   const command = $`sh -c 'echo "Line 1"; sleep 1; echo "Line 2" >&2; sleep 1; echo "Line 3"'`;
-  
+
   for await (const chunk of command.stream()) {
     if (chunk.type === 'stdout') {
       console.log(`  [STDOUT]: ${chunk.data.toString().trim()}`);
@@ -57,10 +57,13 @@ await $`chmod +x ${testScript}`;
 console.log('Streaming and parsing JSON:');
 try {
   const command = $`${testScript}`;
-  
+
   for await (const chunk of command.stream()) {
     if (chunk.type === 'stdout') {
-      const lines = chunk.data.toString().split('\n').filter(line => line.trim());
+      const lines = chunk.data
+        .toString()
+        .split('\n')
+        .filter(line => line.trim());
       for (const line of lines) {
         try {
           const json = JSON.parse(line);
@@ -89,7 +92,7 @@ console.log(`Log file: ${logFile}\n`);
 
 try {
   const command = $`sh -c 'for i in 1 2 3 4 5; do echo "Processing item $i"; sleep 0.5; done'`;
-  
+
   let lineCount = 0;
   for await (const chunk of command.stream()) {
     if (chunk.type === 'stdout') {
@@ -104,11 +107,11 @@ try {
       console.log(`  Complete: Exit code ${chunk.code}`);
     }
   }
-  
+
   console.log(`\nLog file contents:`);
   const logContents = await fs.readFile(logFile, 'utf8');
   console.log(logContents);
-  
+
   await fs.unlink(logFile);
 } catch (error) {
   console.log('Error:', error.message);

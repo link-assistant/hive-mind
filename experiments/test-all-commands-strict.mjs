@@ -12,59 +12,59 @@ const tests = [
   {
     name: 'solve.mjs with valid --fork',
     command: './src/solve.mjs https://github.com/test/repo/issues/1 --fork --dry-run',
-    shouldFail: false
+    shouldFail: false,
   },
   {
     name: 'solve.mjs with em-dash —fork',
     command: './src/solve.mjs https://github.com/test/repo/issues/1 —fork',
     shouldFail: true,
-    errorPattern: /fork/
+    errorPattern: /fork/,
   },
   {
     name: 'solve.mjs with invalid --invalid-option',
     command: './src/solve.mjs https://github.com/test/repo/issues/1 --invalid-option',
     shouldFail: true,
-    errorPattern: /invalid-option/
+    errorPattern: /invalid-option/,
   },
   {
     name: 'hive.mjs with valid --fork',
     command: './src/hive.mjs https://github.com/test/repo --fork --once --dry-run',
-    shouldFail: false
+    shouldFail: false,
   },
   {
     name: 'hive.mjs with em-dash —fork',
     command: './src/hive.mjs https://github.com/test/repo —fork',
     shouldFail: true,
-    errorPattern: /fork/
+    errorPattern: /fork/,
   },
   {
     name: 'hive.mjs with invalid --bad-option',
     command: './src/hive.mjs https://github.com/test/repo --bad-option',
     shouldFail: true,
-    errorPattern: /bad-option/
+    errorPattern: /bad-option/,
   },
   {
     name: 'task.mjs with valid --verbose',
     command: './src/task.mjs "test task" --verbose --only-clarify',
-    shouldFail: false
+    shouldFail: false,
   },
   {
     name: 'task.mjs with em-dash —verbose',
     command: './src/task.mjs "test task" —verbose',
     shouldFail: true,
-    errorPattern: /verbose/
+    errorPattern: /verbose/,
   },
   {
     name: 'review.mjs with valid --verbose',
     command: './src/review.mjs https://github.com/test/repo/pull/1 --verbose --dry-run',
-    shouldFail: false
+    shouldFail: false,
   },
   {
     name: 'review.mjs with em-dash —verbose',
     command: './src/review.mjs https://github.com/test/repo/pull/1 —verbose',
     shouldFail: true,
-    errorPattern: /verbose/
-  }
+    errorPattern: /verbose/,
+  },
 ];
 
 console.log('🧪 Running comprehensive strict options validation tests...\n');
@@ -78,7 +78,7 @@ for (const test of tests) {
   try {
     const result = await execAsync(test.command, {
       timeout: 10000,
-      cwd: process.cwd()
+      cwd: process.cwd(),
     });
 
     if (test.shouldFail) {

@@ -129,6 +129,11 @@ jobs:
         run: npm install
 
       - name: Check for changesets
+        env:
+          # Pass PR context to the validation script
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Skip changeset check for automated version PRs
           if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
@@ -137,6 +142,8 @@ jobs:
           fi
 
           # Run changeset validation script
+          # This validates that exactly ONE changeset was ADDED by this PR
+          # Pre-existing changesets from other merged PRs are ignored
           node scripts/validate-changeset.mjs
 
   # === FAST CHECKS (FAIL FAST) ===
@@ -1521,6 +1528,13 @@ jobs:
           CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
           echo "Found $CHANGESET_COUNT changeset file(s)"
           echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "changeset_count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Merge multiple changesets
+        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+        run: |
+          echo "Multiple changesets detected, merging..."
+          node scripts/merge-changesets.mjs
 
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'

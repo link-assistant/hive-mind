@@ -290,25 +290,8 @@ Proceed.`;
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
 
     // Determine commit message based on which file is being committed
-    let commitMessage;
-    if (commitFileName === 'CLAUDE.md') {
-      commitMessage = `Initial commit with task details
-
-Adding CLAUDE.md with task information for AI processing.
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`;
-    } else {
-      // .gitkeep file - distinguish between fallback and explicit mode
-      const reason = useGitkeepFile ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore';
-
-      commitMessage = `Initial commit with task details
-
-Adding .gitkeep for PR creation (${reason}).
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`;
-    }
+    const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${useGitkeepFile ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore'})`;
+    const commitMessage = `Initial commit with task details\n\nAdding ${fileDesc}.\nThis file will be removed when the task is complete.\n\nIssue: ${issueUrl}`;
 
     // Use explicit cwd option for better reliability
     const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;

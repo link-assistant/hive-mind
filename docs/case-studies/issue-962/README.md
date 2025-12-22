@@ -3,7 +3,7 @@
 **Date**: 2025-12-22
 **Issue**: [#962](https://github.com/link-assistant/hive-mind/issues/962)
 **Pull Request**: [#963](https://github.com/link-assistant/hive-mind/pull/963)
-**Status**: Analysis Complete - Multi-platform build recommended
+**Status**: Implemented - Multi-platform build enabled (amd64 + arm64)
 
 ---
 
@@ -334,6 +334,72 @@ Building locally on Apple Silicon will produce a native ARM64 image.
 5. **Industry Standard**: Used by most major Docker projects
 
 **Secondary Recommendation**: Document **Solution 3** (user workarounds) in `docs/DOCKER.md` as an immediate mitigation for users on Apple Silicon.
+
+---
+
+## Implementation
+
+The recommended Solution 1 (QEMU-based multi-platform builds) has been implemented in PR [#963](https://github.com/link-assistant/hive-mind/pull/963).
+
+### Changes Made
+
+**1. Docker Publish Job (`docker-publish`)**
+
+Added QEMU setup and updated platforms:
+
+```yaml
+# Added before docker/setup-buildx-action
+- name: Set up QEMU
+  uses: docker/setup-qemu-action@v3
+
+# Updated platforms parameter
+- name: Build and push Docker image
+  uses: docker/build-push-action@v5
+  with:
+    # ... existing configuration ...
+    platforms: linux/amd64,linux/arm64 # Previously: linux/amd64
+```
+
+**2. Docker PR Check Job (`docker-pr-check`)**
+
+Added multi-platform build testing to catch issues before release:
+
+```yaml
+- name: Set up QEMU
+  uses: docker/setup-qemu-action@v3
+
+- name: Set up Docker Buildx
+  uses: docker/setup-buildx-action@v3
+
+- name: Build Docker image with log capture (amd64)
+  run: |
+    docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+- name: Test multi-platform build (amd64 + arm64)
+  run: |
+    docker buildx build --progress=plain --platform linux/amd64,linux/arm64 -t ${{ env.IMAGE_NAME }}:multiplatform-test .
+```
+
+### Expected Results After Merge
+
+Once this PR is merged and a new release is published:
+
+1. **Docker Hub images** will contain manifests for both `linux/amd64` and `linux/arm64`
+2. **Apple Silicon users** can run `docker pull konard/hive-mind:latest` without errors
+3. **ARM-based Linux systems** (Raspberry Pi, AWS Graviton) will also be supported
+4. **PR checks** will validate multi-platform builds before any release
+
+### Verification
+
+After the next release, users can verify multi-platform support:
+
+```bash
+# Check manifest (should show both amd64 and arm64)
+docker manifest inspect konard/hive-mind:latest
+
+# Pull on Apple Silicon (should work without --platform flag)
+docker pull konard/hive-mind:latest
+```
 
 ---
 

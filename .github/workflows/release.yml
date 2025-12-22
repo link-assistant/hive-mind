@@ -686,14 +686,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image with log capture
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image with log capture (amd64)
         run: |
-          echo "Building Docker image with log capture..."
-          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+          echo "Building Docker image for amd64 with log capture..."
+          docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
           echo ""
-          echo "Docker image built successfully"
+          echo "Docker amd64 image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Test multi-platform build (amd64 + arm64)
+        run: |
+          echo "Testing multi-platform build for amd64 and arm64..."
+          docker buildx build --progress=plain --platform linux/amd64,linux/arm64 -t ${{ env.IMAGE_NAME }}:multiplatform-test . 2>&1 | tee multiplatform-build.log
+          echo ""
+          echo "Multi-platform Docker image build completed successfully"
 
       - name: Verify system & development tools installation in build logs
         run: |
@@ -1598,6 +1611,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -1626,7 +1642,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
 
       - name: Verify published image
         run: |

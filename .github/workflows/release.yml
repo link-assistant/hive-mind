@@ -708,15 +708,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image with log capture (amd64)
+      - name: Build Docker image with log capture
         run: |
-          echo "Building Docker image for amd64 with log capture..."
+          echo "Building Docker image with log capture..."
           # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
-          # PR checks only validate amd64 to avoid disk space issues on runners
-          docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+          # PR checks only validate amd64 using standard docker build (not buildx) to ensure
+          # the image is properly loaded into Docker daemon for container verification
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
           echo ""
-          echo "Docker amd64 image built successfully"
+          echo "Docker image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
 
       - name: Verify system & development tools installation in build logs

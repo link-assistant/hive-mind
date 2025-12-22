@@ -154,8 +154,23 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
 
     await log(`${formatAligned('', '', 'Creating a simple README.md to make repository forkable')}`);
 
-    // Create simple README content with just the repository name
-    const readmeContent = `# ${repo}\n`;
+    // Get repository description to include in README
+    const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq '{description: .description}'`;
+    let description = '';
+    if (repoInfoResult.code === 0) {
+      try {
+        const repoInfo = JSON.parse(repoInfoResult.stdout.toString().trim());
+        description = repoInfo.description || '';
+      } catch {
+        // If parsing fails, continue with empty description
+      }
+    }
+
+    // Create README content with repository name and description (if available)
+    let readmeContent = `# ${repo}\n`;
+    if (description) {
+      readmeContent += `\n${description}\n`;
+    }
     const base64Content = Buffer.from(readmeContent).toString('base64');
 
     // Try to create README.md using GitHub API

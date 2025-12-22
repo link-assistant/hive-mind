@@ -127,6 +127,7 @@ Initial research.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
+   - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;

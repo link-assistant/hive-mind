@@ -1032,15 +1032,21 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
     {
       echo ''
       echo '# Perlbrew configuration'
-      echo 'export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
-      echo 'source "$PERLBREW_ROOT/etc/bashrc"'
+      echo '# Only load perlbrew in interactive shells to avoid unbound variable errors'
+      echo 'if [ -n "$PS1" ]; then'
+      echo '  export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo '  [ -f "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"'
+      echo 'fi'
     } >> "$HOME/.bashrc"
   fi
 
   # Load Perlbrew for current session
   export PERLBREW_ROOT="$HOME/perl5/perlbrew"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Temporarily disable unset variable check to avoid perlbrew bashrc errors
+    set +u
     source "$PERLBREW_ROOT/etc/bashrc"
+    set -u
     log_success "Perlbrew installed and configured"
 
     # Install latest stable Perl version
@@ -1091,7 +1097,10 @@ else
   # Load Perlbrew for current session if available
   export PERLBREW_ROOT="$HOME/perl5/perlbrew"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Temporarily disable unset variable check to avoid perlbrew bashrc errors
+    set +u
     source "$PERLBREW_ROOT/etc/bashrc"
+    set -u
     log_success "Perlbrew loaded for current session"
   fi
 fi

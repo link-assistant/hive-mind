@@ -1,0 +1,49 @@
+{
+  "analysis_date": "2025-12-22",
+  "upstream": {
+    "full_name": "zamtmn/zcad",
+    "created_at": "2018-05-24T06:03:13Z",
+    "default_branch": "master",
+    "is_fork": false
+  },
+  "intermediate_fork": {
+    "full_name": "veb86/zcadvelecAI",
+    "created_at": "2025-09-30T11:31:25Z",
+    "parent_name": "zamtmn/zcad",
+    "source_name": "zamtmn/zcad",
+    "default_branch": "master",
+    "comparison_with_upstream": {
+      "status": "diverged",
+      "ahead_by": 1678,
+      "behind_by": 18
+    }
+  },
+  "problematic_fork": {
+    "full_name": "konard/zamtmn-zcad",
+    "aliases": ["konard/veb86-zcadvelecAI"],
+    "created_at": "2025-12-10T18:44:29Z",
+    "parent_name": "veb86/zcadvelecAI",
+    "source_name": "zamtmn/zcad",
+    "default_branch": "master",
+    "comparison_with_upstream": {
+      "status": "diverged",
+      "ahead_by": 1678,
+      "behind_by": 18
+    },
+    "note": "Parent is veb86/zcadvelecAI (intermediate fork), not zamtmn/zcad (upstream)"
+  },
+  "pull_request": {
+    "number": 213,
+    "repository": "zamtmn/zcad",
+    "head_branch": "issue-212-8a7e95614c82",
+    "head_repository": "konard/zamtmn-zcad",
+    "commits": 1681,
+    "additions": 100615,
+    "deletions": 63,
+    "changed_files": 446,
+    "expected_commits": "2-5",
+    "expected_additions": "~200",
+    "url": "https://github.com/zamtmn/zcad/pull/213"
+  },
+  "root_cause": "Fork created from intermediate fork (veb86/zcadvelecAI) instead of upstream (zamtmn/zcad), inheriting 1678 divergent commits"
+}

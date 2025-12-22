@@ -17,6 +17,9 @@ build/
 # Git
 .git/
 
+# Claude Code instructions (may contain system-specific formatting)
+CLAUDE.md
+
 # Case study logs (some .json files are actually log files)
 docs/case-studies/**/working-session-logs/**/*.json
 docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json

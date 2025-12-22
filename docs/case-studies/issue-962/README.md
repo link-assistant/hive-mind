@@ -362,7 +362,7 @@ Added QEMU setup and updated platforms:
 
 **2. Docker PR Check Job (`docker-pr-check`)**
 
-Added multi-platform build testing to catch issues before release:
+Added QEMU and Buildx setup for consistency, but only runs amd64 build to avoid disk space issues:
 
 ```yaml
 - name: Set up QEMU
@@ -373,12 +373,15 @@ Added multi-platform build testing to catch issues before release:
 
 - name: Build Docker image with log capture (amd64)
   run: |
-    docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
-
-- name: Test multi-platform build (amd64 + arm64)
-  run: |
-    docker buildx build --progress=plain --platform linux/amd64,linux/arm64 -t ${{ env.IMAGE_NAME }}:multiplatform-test .
+    # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
+    # PR checks only validate amd64 to avoid disk space issues on runners
+    docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test .
 ```
+
+Note: Full multi-platform builds are not run during PR checks because the Docker image
+is very large (~6GB+ with all development tools), and building for both architectures
+would exceed the GitHub runner disk space limits. The multi-platform build is tested
+during the actual release in the `docker-publish` job.
 
 ### Expected Results After Merge
 
@@ -387,7 +390,6 @@ Once this PR is merged and a new release is published:
 1. **Docker Hub images** will contain manifests for both `linux/amd64` and `linux/arm64`
 2. **Apple Silicon users** can run `docker pull konard/hive-mind:latest` without errors
 3. **ARM-based Linux systems** (Raspberry Pi, AWS Graviton) will also be supported
-4. **PR checks** will validate multi-platform builds before any release
 
 ### Verification
 

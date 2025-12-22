@@ -695,18 +695,13 @@ jobs:
       - name: Build Docker image with log capture (amd64)
         run: |
           echo "Building Docker image for amd64 with log capture..."
+          # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
+          # PR checks only validate amd64 to avoid disk space issues on runners
           docker buildx build --progress=plain --platform linux/amd64 --load -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
 
           echo ""
           echo "Docker amd64 image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
-
-      - name: Test multi-platform build (amd64 + arm64)
-        run: |
-          echo "Testing multi-platform build for amd64 and arm64..."
-          docker buildx build --progress=plain --platform linux/amd64,linux/arm64 -t ${{ env.IMAGE_NAME }}:multiplatform-test . 2>&1 | tee multiplatform-build.log
-          echo ""
-          echo "Multi-platform Docker image build completed successfully"
 
       - name: Verify system & development tools installation in build logs
         run: |

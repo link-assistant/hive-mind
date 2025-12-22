@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Script to upload source maps to Sentry for each release
- * This should be run in CI/CD after a new version is published
+ * Script to upload source maps to Sentry for each release.
+ * This should be run in CI/CD after a new version is published.
+ *
+ * Updated for sentry-cli v3.0.0+ which removed the `releases files` command.
+ * @see https://github.com/link-assistant/hive-mind/issues/969
  */
 
 import { execSync } from 'child_process';

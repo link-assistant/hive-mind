@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 0.50.1
+
+### Patch Changes
+
+- 8fdf8dd: Fix Sentry CLI 3.x compatibility to restore Docker image publishing
+  - Update `scripts/upload-sourcemaps.mjs` to use `sourcemaps upload` command instead of deprecated `releases files` command
+  - Add case study documentation for issue #962 investigation
+
 ## 0.50.0
 
 ### Minor Changes

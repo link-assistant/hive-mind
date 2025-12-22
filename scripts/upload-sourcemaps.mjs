@@ -55,11 +55,13 @@ try {
   });
 
   // Upload source maps for all .mjs files
+  // Note: In Sentry CLI 3.x, `releases files` was removed.
+  // Use `sourcemaps upload` instead (see: https://github.com/getsentry/sentry-cli/releases)
   console.log('📤 Uploading source maps...');
 
   // Upload source files from src directory
   if (existsSync(join(rootDir, 'src'))) {
-    execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./src --org ${orgName} --project ${projectName} --url-prefix '~/src'`, {
+    execSync(`npx @sentry/cli sourcemaps upload ./src --org ${orgName} --project ${projectName} --release ${version} --url-prefix '~/src'`, {
       stdio: 'inherit',
       cwd: rootDir,
       env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
@@ -68,7 +70,7 @@ try {
 
   // Upload test files (useful for debugging test failures)
   if (existsSync(join(rootDir, 'tests'))) {
-    execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./tests --org ${orgName} --project ${projectName} --url-prefix '~/tests'`, {
+    execSync(`npx @sentry/cli sourcemaps upload ./tests --org ${orgName} --project ${projectName} --release ${version} --url-prefix '~/tests'`, {
       stdio: 'inherit',
       cwd: rootDir,
       env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },

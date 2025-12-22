@@ -2,8 +2,11 @@
 
 **Date**: 2025-12-22
 **Issue**: [#962](https://github.com/link-assistant/hive-mind/issues/962)
-**Pull Request**: [#963](https://github.com/link-assistant/hive-mind/pull/963)
-**Status**: Implemented - Multi-platform build enabled (amd64 + arm64)
+**Pull Requests**:
+
+- [#963](https://github.com/link-assistant/hive-mind/pull/963) - Multi-platform build enabled (amd64 + arm64)
+- [#966](https://github.com/link-assistant/hive-mind/pull/966) - Fix Sentry CLI breaking Docker publish
+  **Status**: Investigating - Two issues identified
 
 ---
 
@@ -11,7 +14,13 @@
 
 The Docker image `konard/hive-mind:latest` fails to pull on macOS with Apple Silicon (M1/M2/M3) processors because the image is built only for the `linux/amd64` architecture. Apple Silicon uses the ARM64 architecture (`linux/arm64/v8`), and when Docker attempts to pull an image without a matching platform manifest, it returns the error: "no matching manifest for linux/arm64/v8 in the manifest list entries."
 
-This is a **configuration limitation**, not a bug in the code. The solution is to enable multi-platform builds in the CI/CD pipeline.
+**Critical Finding**: Investigation revealed **two separate but related issues**:
+
+1. **Primary Issue (Blocking)**: Docker images have not been published since v0.38.1 (Dec 9, 2025) due to a broken Sentry CLI command in the release workflow. The `sentry-cli releases files` command was removed in Sentry CLI 3.x, causing the Release job to fail and skip Docker publishing.
+
+2. **Secondary Issue (Configuration)**: Multi-platform ARM64 support was added in PR #963 but never took effect because Docker publishing was blocked by Issue #1.
+
+**Current Gap**: 10+ releases (0.38.2 through 0.48.3) have npm packages but NO Docker images.
 
 ---
 
@@ -55,10 +64,10 @@ Inspecting the available tags on Docker Hub reveals that all published images on
 
 ### CI/CD Configuration Analysis
 
-The current release workflow (`/.github/workflows/release.yml`) explicitly builds for `linux/amd64` only:
+The current release workflow (`/.github/workflows/release.yml`) was updated in PR #963 to build for both architectures:
 
 ```yaml
-# Line 1619-1629 in release.yml
+# Line 1647-1657 in release.yml
 - name: Build and push Docker image
   uses: docker/build-push-action@v5
   with:
@@ -69,8 +78,35 @@ The current release workflow (`/.github/workflows/release.yml`) explicitly build
     labels: ${{ steps.meta.outputs.labels }}
     cache-from: type=gha
     cache-to: type=gha,mode=max
-    platforms: linux/amd64 # <-- Only AMD64 is built
+    platforms: linux/amd64,linux/arm64 # <-- Both architectures configured
 ```
+
+**However**, Docker images have not been published since Dec 9, 2025 (v0.38.1) due to the Sentry CLI issue.
+
+### Release Gap Analysis
+
+| Source          | Latest Version | Last Updated |
+| --------------- | -------------- | ------------ |
+| npm Registry    | 0.48.3         | 2025-12-22   |
+| Docker Hub      | 0.38.1         | 2025-12-09   |
+| GitHub Releases | v0.48.3        | 2025-12-22   |
+
+**Missing Docker Images**: 0.38.2, 0.38.3, 0.38.4, 0.38.5, 0.38.6, 0.38.7, 0.38.8, 0.38.9, 0.39.0, 0.40.0, 0.40.1, 0.40.3, 0.41.0, 0.41.2, 0.41.3, 0.41.5, 0.41.7, 0.41.8, 0.41.9, 0.41.10, 0.42.0, 0.42.1, 0.42.2, 0.42.3, 0.43.0, 0.44.0, 0.45.0, 0.46.0, 0.46.1, 0.47.0, 0.47.1, 0.47.2, 0.48.0, 0.48.1, 0.48.2, 0.48.3
+
+### Sentry CLI Error Analysis
+
+The Release job fails at the "Post-publish - Upload Source Maps to Sentry" step:
+
+```
+error: unrecognized subcommand 'files'
+
+Usage: sentry-cli releases [OPTIONS] <COMMAND>
+
+For more information, try '--help'.
+❌ Failed to upload source maps: Command failed: npx @sentry/cli releases files 0.48.3 upload-sourcemaps ./src --org deepassistant --project hive-mind --url-prefix '~/src'
+```
+
+This is caused by the `sentry-cli releases files` command being removed in Sentry CLI 3.x. The correct command is now `sentry-cli sourcemaps upload`.
 
 ---
 
@@ -117,28 +153,50 @@ The current release workflow (`/.github/workflows/release.yml`) explicitly build
 
 ## Root Cause Analysis
 
-### Primary Root Cause
+### Primary Root Cause: Sentry CLI 3.x Breaking Change
 
-The Docker image is built exclusively for `linux/amd64` architecture. Apple Silicon Macs use ARM64 processors, which require images built for `linux/arm64/v8` (or a multi-architecture manifest that includes ARM64).
+The **immediate cause** of Docker images not being published is a breaking change in Sentry CLI 3.x.
+
+The `scripts/upload-sourcemaps.mjs` file uses the deprecated command:
+
+```javascript
+// OLD (broken in Sentry CLI 3.x)
+execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./src ...`);
+```
+
+This was removed in Sentry CLI 3.x (see [Sentry CLI Releases](https://github.com/getsentry/sentry-cli/releases)). The new command is:
+
+```javascript
+// NEW (Sentry CLI 3.x compatible)
+execSync(`npx @sentry/cli sourcemaps upload ./src --release ${version} ...`);
+```
+
+**Consequence**: When the Release job fails at Sentry sourcemap upload, the `docker-publish` job is skipped because it depends on `release.outputs.published == 'true'`, which is only set on successful release completion.
+
+### Secondary Root Cause: Missing ARM64 Support (Historical)
+
+Before PR #963, the Docker image was built exclusively for `linux/amd64` architecture. Apple Silicon Macs use ARM64 processors, which require images built for `linux/arm64/v8`.
+
+This was **already fixed** in PR #963 by adding:
+
+- QEMU setup for cross-platform emulation
+- `platforms: linux/amd64,linux/arm64` to build both architectures
+
+However, this fix never took effect because Docker publishing was blocked by the Sentry CLI issue.
 
 ### Contributing Factors
 
-1. **Default GitHub Actions Runners**: Ubuntu runners on GitHub Actions are `x86_64` (amd64), so builds without explicit platform specification only produce amd64 images.
+1. **Silent Failure Propagation**: The Sentry sourcemap upload step fails the Release job, but npm publish succeeds first. This creates a state where npm has the new version but Docker does not.
 
-2. **Explicit Single-Platform Configuration**: The workflow explicitly specifies `platforms: linux/amd64`, which prevents multi-platform builds.
+2. **Job Dependency Chain**: The workflow uses `needs: [release]` for docker-publish, meaning any failure in the release job blocks Docker publishing.
 
-3. **No QEMU/Buildx Multi-Platform Setup**: The workflow uses `docker/setup-buildx-action@v3` but doesn't use `docker/setup-qemu-action@v3` for cross-platform emulation.
+3. **No Alerting**: There was no alert or notification when Docker publishing stopped working. The issue was only discovered when a user tried to pull the image.
 
-4. **Historical Design Decision**: Docker support was initially designed for server deployments (typically Intel-based), with local development on macOS as a secondary use case.
+### Impact Assessment
 
-### Why This Wasn't a Bug in Code
-
-This is a **CI/CD configuration limitation**, not a code bug:
-
-- The Dockerfile itself is architecture-agnostic
-- The base image (`ubuntu:24.04`) supports multi-architecture
-- All installed tools (Node.js, Homebrew, etc.) are available for ARM64
-- The limitation is purely in how the image is built and published
+- **13 days** without Docker image updates (Dec 9 - Dec 22, 2025)
+- **36+ releases** published to npm without corresponding Docker images
+- **All Apple Silicon users** affected (plus ARM-based Linux systems)
 
 ---
 
@@ -339,9 +397,29 @@ Building locally on Apple Silicon will produce a native ARM64 image.
 
 ## Implementation
 
-The recommended Solution 1 (QEMU-based multi-platform builds) has been implemented in PR [#963](https://github.com/link-assistant/hive-mind/pull/963).
+### Fix 1: Sentry CLI Update (PR #966)
 
-### Changes Made
+The Sentry sourcemap upload script needs to be updated to use the new Sentry CLI 3.x command syntax.
+
+**File**: `scripts/upload-sourcemaps.mjs`
+
+**Before** (lines 62, 71):
+
+```javascript
+execSync(`npx @sentry/cli releases files ${version} upload-sourcemaps ./src --org ${orgName} --project ${projectName} --url-prefix '~/src'`, ...);
+```
+
+**After**:
+
+```javascript
+execSync(`npx @sentry/cli sourcemaps upload ./src --org ${orgName} --project ${projectName} --release ${version} --url-prefix '~/src'`, ...);
+```
+
+Reference: [Sentry CLI 3.x Release Notes](https://github.com/getsentry/sentry-cli/releases) - "The `releases files` command has been removed. Use `sourcemaps upload` instead."
+
+### Fix 2: Multi-Platform Docker Builds (PR #963 - Already Merged)
+
+The multi-platform build support was already added in PR [#963](https://github.com/link-assistant/hive-mind/pull/963):
 
 **1. Docker Publish Job (`docker-publish`)**
 

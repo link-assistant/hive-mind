@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.48.4
+
+### Patch Changes
+
+- b010ce6: Increase minimum disk space requirement from 512 MB to 2 GB to provide more room for commands to gracefully finish before running out of disk space and prevent potential OS issues
+
 ## 0.48.3
 
 ### Patch Changes

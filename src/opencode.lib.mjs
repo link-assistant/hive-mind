@@ -216,13 +216,13 @@ export const executeOpenCodeCommand = async params => {
     // Fixes issue #755: "Permission required to run: Access file outside working directory"
     const opencodeConfigPath = path.join(tempDir, 'opencode.json');
     const opencodeConfig = {
-      '$schema': 'https://opencode.ai/config.json',
-      'permission': {
-        'edit': 'allow',
-        'bash': 'allow',
-        'webfetch': 'allow',
-        'external_directory': 'allow'
-      }
+      $schema: 'https://opencode.ai/config.json',
+      permission: {
+        edit: 'allow',
+        bash: 'allow',
+        webfetch: 'allow',
+        external_directory: 'allow',
+      },
     };
     try {
       await fs.writeFile(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2));
@@ -300,18 +300,21 @@ export const executeOpenCodeCommand = async params => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
+      let allOutput = ''; // Collect all output for error detection
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           await log(output);
           lastMessage = output;
+          allOutput += output;
         }
 
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
+            allOutput += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -329,6 +332,37 @@ export const executeOpenCodeCommand = async params => {
         if (argv.verbose) {
           await log(`   Note: Could not clean up OpenCode config: ${cleanupError.message}`, { verbose: true });
         }
+      }
+
+      // Check for permission prompt errors (these can hang the process)
+      // Pattern: "Permission required to run:" or "Access file outside working directory"
+      const hasPermissionPrompt = allOutput.includes('Permission required to run:') || allOutput.includes('Access file outside working directory') || allOutput.includes('● Allow once') || allOutput.includes('○ Always allow') || allOutput.includes('○ Reject');
+
+      if (hasPermissionPrompt) {
+        await log('\n\n❌ OpenCode encountered a permission prompt', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('OpenCode CLI does not support autonomous agents in its full potential.', { level: 'error' });
+        await log('Interactive permission prompts block automated execution.', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('💡 Recommendation: Use Agent CLI instead for autonomous workflow', { level: 'error' });
+        await log('   Run with: --tool agent', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   Agent CLI is specifically designed for autonomous agents and', { level: 'error' });
+        await log('   does not have interactive prompts that block execution.', { level: 'error' });
+        await log('', { level: 'error' });
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          permissionPromptDetected: true,
+        };
       }
 
       if (exitCode !== 0) {

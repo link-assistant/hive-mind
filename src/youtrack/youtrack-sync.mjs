@@ -11,9 +11,7 @@
 
 // Import YouTrack functions
 const youTrackLib = await import('./youtrack.lib.mjs');
-const {
-  fetchYouTrackIssues
-} = youTrackLib;
+const { fetchYouTrackIssues } = youTrackLib;
 
 /**
  * Find existing GitHub issue for a YouTrack issue
@@ -37,16 +35,12 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
 
     // Find exact match (YouTrack ID should be in brackets or at start)
     // Return the first matching issue (prefer open issues)
-    const openIssue = issues.find(issue =>
-      issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const openIssue = issues.find(issue => issue.state === 'open' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     if (openIssue) return openIssue;
 
     // If no open issue, check for closed issues to prevent duplicates
-    const closedIssue = issues.find(issue =>
-      issue.state === 'closed' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`))
-    );
+    const closedIssue = issues.find(issue => issue.state === 'closed' && (issue.title.includes(`[${youTrackId}]`) || issue.title.startsWith(`${youTrackId}:`)));
 
     return closedIssue || null;
   } catch {
@@ -123,7 +117,7 @@ ${youTrackIssue.description || 'No description provided.'}
         await log(`   🏷️ Added 'help wanted' label to #${existingIssue.number}`);
       } catch {
         // Silently skip if label doesn't exist
-        await log('   ⚠️ Could not add \'help wanted\' label (may not exist in repo)', { verbose: true });
+        await log("   ⚠️ Could not add 'help wanted' label (may not exist in repo)", { verbose: true });
       }
     }
 
@@ -145,7 +139,7 @@ ${youTrackIssue.description || 'No description provided.'}
           number: issueNumber,
           title: ghTitle,
           body: ghBody,
-          html_url: issueUrl
+          html_url: issueUrl,
         };
       } else {
         await log(`   ❌ Failed to create issue for ${youTrackId}`, { level: 'error' });
@@ -192,7 +186,7 @@ export async function syncYouTrackToGitHub(youTrackConfig, owner, repo, $, log) 
       githubIssues.push({
         ...ghIssue,
         youtrackId: ytIssue.id,
-        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`
+        youtrackUrl: `${youTrackConfig.url}/issue/${ytIssue.idReadable}`,
       });
     }
   }
@@ -214,6 +208,6 @@ export function formatIssuesForHive(githubIssues) {
     html_url: issue.html_url,
     labels: issue.labels || [{ name: 'help-wanted' }],
     youtrackId: issue.youtrackId,
-    youtrackUrl: issue.youtrackUrl
+    youtrackUrl: issue.youtrackUrl,
   }));
 }

@@ -15,18 +15,18 @@ const testUsage = {
   currentSession: {
     percentage: 100,
     resetTime: 'Dec 3, 10:59pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 94).toISOString() // 1h 34m from now
+    resetsAt: new Date(Date.now() + 1000 * 60 * 94).toISOString(), // 1h 34m from now
   },
   allModels: {
     percentage: 97,
     resetTime: 'Dec 4, 5:00pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString() // 24h from now
+    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // 24h from now
   },
   sonnetOnly: {
     percentage: 44,
     resetTime: 'Dec 4, 5:00pm UTC',
-    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString() // 24h from now
-  }
+    resetsAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(), // 24h from now
+  },
 };
 
 console.log('Testing formatUsageMessage:');

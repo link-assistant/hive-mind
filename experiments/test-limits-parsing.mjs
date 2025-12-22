@@ -36,9 +36,7 @@ function testParsing(output) {
 
   // Extract percentages from output
   const percentageMatches = output.match(/(\d+)%\s*used/g);
-  const percentages = percentageMatches
-    ? percentageMatches.map(m => parseInt(m.match(/(\d+)/)[1]))
-    : [];
+  const percentages = percentageMatches ? percentageMatches.map(m => parseInt(m.match(/(\d+)/)[1])) : [];
 
   console.log('Percentages found:', percentages);
   console.log('Expected: [53, 80, 34]');
@@ -48,34 +46,27 @@ function testParsing(output) {
 
   // Extract reset times - look for "Resets" followed by time info
   const resetMatches = output.match(/Resets\s+([^\n]+)/g);
-  const resetTimes = resetMatches
-    ? resetMatches.map(m => m.replace(/Resets\s+/, '').trim())
-    : [];
+  const resetTimes = resetMatches ? resetMatches.map(m => m.replace(/Resets\s+/, '').trim()) : [];
 
   console.log('Reset times found:', resetTimes);
   console.log('Expected: ["6pm (UTC)", "Dec 4, 6pm (UTC)", "Dec 4, 6pm (UTC)"]');
-  console.log('Match:',
-    resetTimes.length === 3 &&
-    resetTimes[0] === '6pm (UTC)' &&
-    resetTimes[1] === 'Dec 4, 6pm (UTC)' &&
-    resetTimes[2] === 'Dec 4, 6pm (UTC)'
-      ? '✅ PASS' : '❌ FAIL');
+  console.log('Match:', resetTimes.length === 3 && resetTimes[0] === '6pm (UTC)' && resetTimes[1] === 'Dec 4, 6pm (UTC)' && resetTimes[2] === 'Dec 4, 6pm (UTC)' ? '✅ PASS' : '❌ FAIL');
 
   console.log('\nBuilding usage object...\n');
 
   const usage = {
     currentSession: {
       percentage: percentages[0] || null,
-      resetTime: resetTimes[0] || null
+      resetTime: resetTimes[0] || null,
     },
     allModels: {
       percentage: percentages[1] || null,
-      resetTime: resetTimes[1] || null
+      resetTime: resetTimes[1] || null,
     },
     sonnetOnly: {
       percentage: percentages[2] || null,
-      resetTime: resetTimes[2] || null
-    }
+      resetTime: resetTimes[2] || null,
+    },
   };
 
   console.log('Usage object:');

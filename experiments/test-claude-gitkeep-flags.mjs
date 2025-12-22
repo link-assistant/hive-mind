@@ -21,7 +21,7 @@ async function test(description, argv, expectedClaudeFile, expectedGitkeepFile, 
     try {
       const { stdout, stderr } = await execFile('node', ['src/solve.mjs', ...testArgs], {
         cwd: '/tmp/gh-issue-solver-1764808073828',
-        timeout: 5000
+        timeout: 5000,
       });
 
       if (expectError) {
@@ -56,53 +56,25 @@ async function runTests() {
   const results = [];
 
   // Test 1: Default behavior (claude-file enabled by default)
-  results.push(await test(
-    'Default behavior',
-    ['https://github.com/test/test/issues/1'],
-    true, false, false
-  ));
+  results.push(await test('Default behavior', ['https://github.com/test/test/issues/1'], true, false, false));
 
   // Test 2: Explicit --claude-file
-  results.push(await test(
-    'Explicit --claude-file',
-    ['https://github.com/test/test/issues/1', '--claude-file'],
-    true, false, false
-  ));
+  results.push(await test('Explicit --claude-file', ['https://github.com/test/test/issues/1', '--claude-file'], true, false, false));
 
   // Test 3: Explicit --gitkeep-file
-  results.push(await test(
-    'Explicit --gitkeep-file',
-    ['https://github.com/test/test/issues/1', '--gitkeep-file'],
-    false, true, false
-  ));
+  results.push(await test('Explicit --gitkeep-file', ['https://github.com/test/test/issues/1', '--gitkeep-file'], false, true, false));
 
   // Test 4: Both flags (should error)
-  results.push(await test(
-    'Both --claude-file and --gitkeep-file (should error)',
-    ['https://github.com/test/test/issues/1', '--claude-file', '--gitkeep-file'],
-    null, null, true
-  ));
+  results.push(await test('Both --claude-file and --gitkeep-file (should error)', ['https://github.com/test/test/issues/1', '--claude-file', '--gitkeep-file'], null, null, true));
 
   // Test 5: --no-claude-file (should enable gitkeep)
-  results.push(await test(
-    '--no-claude-file (should enable gitkeep)',
-    ['https://github.com/test/test/issues/1', '--no-claude-file'],
-    false, true, false
-  ));
+  results.push(await test('--no-claude-file (should enable gitkeep)', ['https://github.com/test/test/issues/1', '--no-claude-file'], false, true, false));
 
   // Test 6: --no-gitkeep-file (should keep claude-file)
-  results.push(await test(
-    '--no-gitkeep-file (should keep claude-file)',
-    ['https://github.com/test/test/issues/1', '--no-gitkeep-file'],
-    true, false, false
-  ));
+  results.push(await test('--no-gitkeep-file (should keep claude-file)', ['https://github.com/test/test/issues/1', '--no-gitkeep-file'], true, false, false));
 
   // Test 7: Both disabled (should error)
-  results.push(await test(
-    'Both --no-claude-file and --no-gitkeep-file (should error)',
-    ['https://github.com/test/test/issues/1', '--no-claude-file', '--no-gitkeep-file'],
-    null, null, true
-  ));
+  results.push(await test('Both --no-claude-file and --no-gitkeep-file (should error)', ['https://github.com/test/test/issues/1', '--no-claude-file', '--no-gitkeep-file'], null, null, true));
 
   console.log('\n' + '='.repeat(60));
   console.log(`\nResults: ${results.filter(r => r).length}/${results.length} tests passed`);

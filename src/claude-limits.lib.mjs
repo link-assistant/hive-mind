@@ -76,7 +76,7 @@ function formatResetTime(isoDate, includeTimezone = true) {
  * Format relative time from now to a future date
  *
  * @param {string} isoDate - ISO date string
- * @returns {string|null} Relative time string (e.g., "1h 34m") or null if date is in the past
+ * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
  */
 function formatRelativeTime(isoDate) {
   if (!isoDate) return null;
@@ -86,12 +86,22 @@ function formatRelativeTime(isoDate) {
     const target = new Date(isoDate);
     const diffMs = target - now;
 
+    // Check for invalid date (NaN)
+    if (isNaN(diffMs)) return null;
+
     if (diffMs < 0) return null; // Past date
 
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    return `${hours}h ${minutes}m`;
+    // If hours >= 24, show days
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      const hours = totalHours % 24;
+      return `${days}d ${hours}h ${minutes}m`;
+    }
+
+    return `${totalHours}h ${minutes}m`;
   } catch {
     return null;
   }
@@ -139,7 +149,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!credentials) {
       return {
         success: false,
-        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.'
+        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.',
       };
     }
 
@@ -148,7 +158,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!accessToken) {
       return {
         success: false,
-        error: 'No access token found in Claude credentials. Please re-authenticate with Claude.'
+        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
       };
     }
 
@@ -160,12 +170,12 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'claude-code/2.0.55',
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20',
+      },
     });
 
     if (!response.ok) {
@@ -178,13 +188,13 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (response.status === 401) {
         return {
           success: false,
-          error: 'Claude authentication expired. Please re-authenticate with Claude.'
+          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
         };
       }
 
       return {
         success: false,
-        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`
+        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`,
       };
     }
 
@@ -204,23 +214,23 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       currentSession: {
         percentage: data.five_hour?.utilization ?? null,
         resetTime: formatResetTime(data.five_hour?.resets_at),
-        resetsAt: data.five_hour?.resets_at ?? null
+        resetsAt: data.five_hour?.resets_at ?? null,
       },
       allModels: {
         percentage: data.seven_day?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day?.resets_at),
-        resetsAt: data.seven_day?.resets_at ?? null
+        resetsAt: data.seven_day?.resets_at ?? null,
       },
       sonnetOnly: {
         percentage: data.seven_day_sonnet?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day_sonnet?.resets_at),
-        resetsAt: data.seven_day_sonnet?.resets_at ?? null
-      }
+        resetsAt: data.seven_day_sonnet?.resets_at ?? null,
+      },
     };
 
     return {
       success: true,
-      usage
+      usage,
     };
   } catch (error) {
     if (verbose) {
@@ -228,7 +238,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     }
     return {
       success: false,
-      error: `Failed to get usage limits: ${error.message}`
+      error: `Failed to get usage limits: ${error.message}`,
     };
   }
 }
@@ -239,10 +249,37 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
  * @returns {string} Text-based progress bar
  */
 export function getProgressBar(percentage) {
-  const totalBlocks = 20;
+  const totalBlocks = 30;
   const filledBlocks = Math.round((percentage / 100) * totalBlocks);
   const emptyBlocks = totalBlocks - filledBlocks;
   return '\u2593'.repeat(filledBlocks) + '\u2591'.repeat(emptyBlocks);
+}
+
+/**
+ * Calculate the percentage of time that has passed in a period
+ * @param {string} resetsAt - ISO date string when the period resets
+ * @param {number} periodHours - Total duration of the period in hours (5 for session, 168 for week)
+ * @returns {number|null} Percentage of time passed (0-100) or null if unable to calculate
+ */
+export function calculateTimePassedPercentage(resetsAt, periodHours) {
+  if (!resetsAt) return null;
+
+  try {
+    const now = new Date();
+    const resetTime = new Date(resetsAt);
+    const periodMs = periodHours * 60 * 60 * 1000; // Convert hours to milliseconds
+
+    // Calculate when the period started
+    const startTime = new Date(resetTime.getTime() - periodMs);
+
+    // Calculate time passed and total duration
+    const timePassed = now.getTime() - startTime.getTime();
+    const percentage = Math.max(0, Math.min(100, (timePassed / periodMs) * 100));
+
+    return Math.round(percentage);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -260,9 +297,18 @@ export function formatUsageMessage(usage) {
   // Current session (five_hour)
   message += 'Current session\n';
   if (usage.currentSession.percentage !== null) {
+    // Add time passed progress bar first
+    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.currentSession.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
       if (relativeTime) {
@@ -279,9 +325,18 @@ export function formatUsageMessage(usage) {
   // Current week (all models / seven_day)
   message += 'Current week (all models)\n';
   if (usage.allModels.percentage !== null) {
+    // Add time passed progress bar first (168 hours = 7 days)
+    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.allModels.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
       if (relativeTime) {
@@ -298,9 +353,18 @@ export function formatUsageMessage(usage) {
   // Current week (Sonnet only / seven_day_sonnet)
   message += 'Current week (Sonnet only)\n';
   if (usage.sonnetOnly.percentage !== null) {
+    // Add time passed progress bar first (168 hours = 7 days)
+    const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
+    if (timePassed !== null) {
+      const timeBar = getProgressBar(timePassed);
+      message += `${timeBar} ${timePassed}% passed\n`;
+    }
+
+    // Add usage progress bar second
     const pct = usage.sonnetOnly.percentage;
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
+
     if (usage.sonnetOnly.resetTime) {
       const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
       if (relativeTime) {
@@ -320,5 +384,6 @@ export function formatUsageMessage(usage) {
 export default {
   getClaudeUsageLimits,
   getProgressBar,
-  formatUsageMessage
+  calculateTimePassedPercentage,
+  formatUsageMessage,
 };

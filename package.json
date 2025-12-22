@@ -1,6 +1,6 @@
 {
-  "name": "@deep-assistant/hive-mind",
-  "version": "0.37.0",
+  "name": "@link-assistant/hive-mind",
+  "version": "0.48.4",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -15,11 +15,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
-    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix"
+    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
+    "format": "prettier --write \"**/*.{js,mjs,json,md}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md}\"",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "npm run build:pre && changeset publish",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/deep-assistant/hive-mind.git"
+    "url": "git+https://github.com/link-assistant/hive-mind.git"
   },
   "keywords": [
     "ai",
@@ -29,12 +36,12 @@
     "hive-mind",
     "collaborative"
   ],
-  "author": "deep-assistant",
+  "author": "link-assistant",
   "license": "Unlicense",
   "bugs": {
-    "url": "https://github.com/deep-assistant/hive-mind/issues"
+    "url": "https://github.com/link-assistant/hive-mind/issues"
   },
-  "homepage": "https://github.com/deep-assistant/hive-mind#readme",
+  "homepage": "https://github.com/link-assistant/hive-mind#readme",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -43,11 +50,22 @@
     "*.md"
   ],
   "devDependencies": {
+    "@changesets/cli": "^2.27.0",
     "@eslint/js": "^9.35.0",
-    "eslint": "^9.35.0"
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.6.2"
   },
   "dependencies": {
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0"
+  },
+  "lint-staged": {
+    "*.{js,mjs,json,md}": [
+      "prettier --write"
+    ]
   }
 }

@@ -211,7 +211,7 @@ await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 // Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
 // Note: This does NOT skip model validation which is performed above
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
-if (!(await performSystemChecks(argv.minDiskSpace || 500, skipToolConnectionCheck, argv.model, argv))) {
+if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
 // URL validation debug logging

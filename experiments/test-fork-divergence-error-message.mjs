@@ -11,7 +11,7 @@ const argv = {
   url: 'https://github.com/andchir/PersonaLive/issues/24',
 };
 
-const log = async (message) => {
+const log = async message => {
   console.log(message);
 };
 

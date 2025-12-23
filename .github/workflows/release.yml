@@ -1608,34 +1608,11 @@ jobs:
       IMAGE_NAME: konard/hive-mind
 
     steps:
-      - name: Wait for NPM package availability
-        run: |
-          VERSION="${{ needs.release.outputs.published_version }}"
-          PACKAGE_NAME="@link-assistant/hive-mind"
-          MAX_ATTEMPTS=30
-          SLEEP_TIME=10
-
-          echo "Waiting for NPM package ${PACKAGE_NAME}@${VERSION} to become available..."
-
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "Attempt $i/$MAX_ATTEMPTS: Checking NPM registry..."
-
-            if npm view "${PACKAGE_NAME}@${VERSION}" version 2>/dev/null; then
-              echo "Package ${PACKAGE_NAME}@${VERSION} is now available on NPM!"
-              exit 0
-            fi
-
-            if [ $i -lt $MAX_ATTEMPTS ]; then
-              echo "Package not yet available, waiting ${SLEEP_TIME} seconds..."
-              sleep $SLEEP_TIME
-            fi
-          done
-
-          echo "Package ${PACKAGE_NAME}@${VERSION} did not become available after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Wait for NPM package availability
+        run: ./scripts/wait-for-npm.sh "${{ needs.release.outputs.published_version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -1694,64 +1671,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
-      - name: Update Chart versions
-        id: chart-version
-        run: |
-          VERSION="${{ needs.release.outputs.published_version }}"
-          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" helm/hive-mind/Chart.yaml
-          sed -i "s/^version: .*/version: $VERSION/" helm/hive-mind/Chart.yaml
-          echo "Updated Chart.yaml to version $VERSION"
-          cat helm/hive-mind/Chart.yaml
-
-      - name: Lint Helm chart
-        run: helm lint helm/hive-mind
-
-      - name: Package Helm chart
-        run: |
-          mkdir -p .helm-packages
-          helm package helm/hive-mind -d .helm-packages
-          ls -la .helm-packages/
-
-      - name: Ensure gh-pages branch exists
-        run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            echo "Creating gh-pages branch..."
-            git checkout --orphan gh-pages
-            git reset --hard
-            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
-            git push origin gh-pages
-            git checkout -
-          fi
-
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages:gh-pages
-          git checkout gh-pages
-
-      - name: Update Helm repository index
-        run: |
-          cp .helm-packages/*.tgz .
-          helm repo index . --url https://link-assistant.github.io/hive-mind
-          cat index.yaml
-
-      - name: Commit and push to gh-pages
-        run: |
-          git add -f *.tgz index.yaml
-          git commit -m "Release Helm chart version ${{ needs.release.outputs.published_version }}" || echo "No changes to commit"
-          git push origin gh-pages
-
-      - name: Switch back to main branch
-        run: git checkout -
+      - name: Release Helm chart
+        run: ./scripts/helm-release.sh "${{ needs.release.outputs.published_version }}"
 
       - name: Upload chart to release
         uses: softprops/action-gh-release@v2
@@ -1824,34 +1750,11 @@ jobs:
       IMAGE_NAME: konard/hive-mind
 
     steps:
-      - name: Wait for NPM package availability
-        run: |
-          VERSION="${{ needs.instant-release.outputs.published_version }}"
-          PACKAGE_NAME="@link-assistant/hive-mind"
-          MAX_ATTEMPTS=30
-          SLEEP_TIME=10
-
-          echo "Waiting for NPM package ${PACKAGE_NAME}@${VERSION} to become available..."
-
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "Attempt $i/$MAX_ATTEMPTS: Checking NPM registry..."
-
-            if npm view "${PACKAGE_NAME}@${VERSION}" version 2>/dev/null; then
-              echo "Package ${PACKAGE_NAME}@${VERSION} is now available on NPM!"
-              exit 0
-            fi
-
-            if [ $i -lt $MAX_ATTEMPTS ]; then
-              echo "Package not yet available, waiting ${SLEEP_TIME} seconds..."
-              sleep $SLEEP_TIME
-            fi
-          done
-
-          echo "Package ${PACKAGE_NAME}@${VERSION} did not become available after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Wait for NPM package availability
+        run: ./scripts/wait-for-npm.sh "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -1910,64 +1813,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
-      - name: Update Chart versions
-        id: chart-version
-        run: |
-          VERSION="${{ needs.instant-release.outputs.published_version }}"
-          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" helm/hive-mind/Chart.yaml
-          sed -i "s/^version: .*/version: $VERSION/" helm/hive-mind/Chart.yaml
-          echo "Updated Chart.yaml to version $VERSION"
-          cat helm/hive-mind/Chart.yaml
-
-      - name: Lint Helm chart
-        run: helm lint helm/hive-mind
-
-      - name: Package Helm chart
-        run: |
-          mkdir -p .helm-packages
-          helm package helm/hive-mind -d .helm-packages
-          ls -la .helm-packages/
-
-      - name: Ensure gh-pages branch exists
-        run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            echo "Creating gh-pages branch..."
-            git checkout --orphan gh-pages
-            git reset --hard
-            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
-            git push origin gh-pages
-            git checkout -
-          fi
-
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages:gh-pages
-          git checkout gh-pages
-
-      - name: Update Helm repository index
-        run: |
-          cp .helm-packages/*.tgz .
-          helm repo index . --url https://link-assistant.github.io/hive-mind
-          cat index.yaml
-
-      - name: Commit and push to gh-pages
-        run: |
-          git add -f *.tgz index.yaml
-          git commit -m "Release Helm chart version ${{ needs.instant-release.outputs.published_version }}" || echo "No changes to commit"
-          git push origin gh-pages
-
-      - name: Switch back to main branch
-        run: git checkout -
+      - name: Release Helm chart
+        run: ./scripts/helm-release.sh "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Upload chart to release
         uses: softprops/action-gh-release@v2

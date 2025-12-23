@@ -1612,7 +1612,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Wait for NPM package availability
-        run: ./scripts/wait-for-npm.sh "${{ needs.release.outputs.published_version }}"
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -1677,7 +1677,7 @@ jobs:
           version: v3.14.0
 
       - name: Release Helm chart
-        run: ./scripts/helm-release.sh "${{ needs.release.outputs.published_version }}"
+        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
       - name: Upload chart to release
         uses: softprops/action-gh-release@v2
@@ -1754,7 +1754,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Wait for NPM package availability
-        run: ./scripts/wait-for-npm.sh "${{ needs.instant-release.outputs.published_version }}"
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -1819,7 +1819,7 @@ jobs:
           version: v3.14.0
 
       - name: Release Helm chart
-        run: ./scripts/helm-release.sh "${{ needs.instant-release.outputs.published_version }}"
+        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Upload chart to release
         uses: softprops/action-gh-release@v2

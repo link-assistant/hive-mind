@@ -1,5 +1,30 @@
 # @link-assistant/hive-mind
 
+## 0.50.2
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.1
+
+### Patch Changes
+
+- 8fdf8dd: Fix Sentry CLI 3.x compatibility to restore Docker image publishing
+  - Update `scripts/upload-sourcemaps.mjs` to use `sourcemaps upload` command instead of deprecated `releases files` command
+  - Add case study documentation for issue #962 investigation
+
+## 0.50.0
+
+### Minor Changes
+
+- 8934ed6: Improve changeset CI/CD robustness for multiple concurrent PRs
+  - Update validate-changeset.mjs to only check changesets ADDED by the current PR (not pre-existing ones)
+  - Add merge-changesets.mjs script to combine multiple pending changesets during release
+  - Merged changesets use highest version bump type (major > minor > patch) and combine descriptions chronologically
+  - Update release workflow to merge multiple changesets before version bump
+  - This prevents PR failures when multiple PRs merge before a release cycle completes
+
 ## 0.49.0
 
 ### Minor Changes

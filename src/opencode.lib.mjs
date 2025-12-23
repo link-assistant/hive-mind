@@ -214,21 +214,26 @@ export const executeOpenCodeCommand = async params => {
     // Create OpenCode configuration file with unrestricted permissions
     // This allows OpenCode to access files outside the working directory without prompting
     // Fixes issue #755: "Permission required to run: Access file outside working directory"
+    // Reference: https://opencode.ai/docs/config - see permissions documentation
     const opencodeConfigPath = path.join(tempDir, 'opencode.json');
     const opencodeConfig = {
       $schema: 'https://opencode.ai/config.json',
       permission: {
-        edit: 'allow',
-        bash: 'allow',
-        webfetch: 'allow',
-        external_directory: 'allow',
+        // All tool permissions set to 'allow' for unrestricted autonomous execution
+        // See: https://github.com/sst/opencode - permission options: "allow", "ask", "deny"
+        edit: 'allow', // File modification operations
+        bash: 'allow', // Command execution
+        webfetch: 'allow', // Web page retrieval
+        skill: 'allow', // Custom skills execution
+        doom_loop: 'allow', // Allow repeated identical tool calls (default: ask)
+        external_directory: 'allow', // File operations outside working directory (default: ask)
       },
     };
     try {
       await fs.writeFile(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2));
       if (argv.verbose) {
         await log(`   Created OpenCode config: ${opencodeConfigPath}`, { verbose: true });
-        await log('   Permissions set: edit=allow, bash=allow, webfetch=allow, external_directory=allow', { verbose: true });
+        await log('   Permissions set: edit=allow, bash=allow, webfetch=allow, skill=allow, doom_loop=allow, external_directory=allow', { verbose: true });
       }
     } catch (configError) {
       await log(`⚠️  Warning: Could not create OpenCode config file: ${configError.message}`, { level: 'warning' });
@@ -342,13 +347,18 @@ export const executeOpenCodeCommand = async params => {
         await log('\n\n❌ OpenCode encountered a permission prompt', { level: 'error' });
         await log('', { level: 'error' });
         await log('OpenCode CLI does not support autonomous agents in its full potential.', { level: 'error' });
-        await log('Interactive permission prompts block automated execution.', { level: 'error' });
+        await log('Interactive permission prompts block automated execution, even with', { level: 'error' });
+        await log('all permissions set to "allow" in opencode.json configuration.', { level: 'error' });
         await log('', { level: 'error' });
-        await log('💡 Recommendation: Use Agent CLI instead for autonomous workflow', { level: 'error' });
+        await log('💡 Recommendation: Use @link-assistant/agent instead', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   @link-assistant/agent is a 100% unrestricted fork of OpenCode', { level: 'error' });
+        await log('   specifically designed for autonomous agents in isolated environments.', { level: 'error' });
+        await log('', { level: 'error' });
+        await log('   Install: bun install -g @link-assistant/agent', { level: 'error' });
         await log('   Run with: --tool agent', { level: 'error' });
         await log('', { level: 'error' });
-        await log('   Agent CLI is specifically designed for autonomous agents and', { level: 'error' });
-        await log('   does not have interactive prompts that block execution.', { level: 'error' });
+        await log('   More info: https://github.com/link-assistant/agent', { level: 'error' });
         await log('', { level: 'error' });
 
         const resourcesAfter = await getResourceSnapshot();

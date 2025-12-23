@@ -1608,6 +1608,22 @@ jobs:
       IMAGE_NAME: konard/hive-mind
 
     steps:
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h /
+          echo ""
+          echo "Removing unnecessary packages to free disk space..."
+          # Remove large pre-installed packages that we don't need
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          echo ""
+          echo "Disk space after cleanup:"
+          df -h /
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -1750,6 +1766,22 @@ jobs:
       IMAGE_NAME: konard/hive-mind
 
     steps:
+      - name: Free up disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h /
+          echo ""
+          echo "Removing unnecessary packages to free disk space..."
+          # Remove large pre-installed packages that we don't need
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          echo ""
+          echo "Disk space after cleanup:"
+          df -h /
+
       - name: Checkout repository
         uses: actions/checkout@v4
 

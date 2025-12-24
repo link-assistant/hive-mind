@@ -1,5 +1,42 @@
 # @link-assistant/hive-mind
 
+## 0.50.9
+
+### Patch Changes
+
+- Fix stuck Docker multi-platform builds by using native ARM64 runners
+
+  The Docker publish workflow was getting stuck for hours when building ARM64 images using QEMU emulation on x86_64 runners. QEMU emulation introduces 10-100x slowdown, especially for complex Dockerfiles that compile native packages.
+
+  **Solution**: Refactored docker-publish jobs to use GitHub's native ARM64 runners (`ubuntu-24.04-arm`) with a matrix strategy:
+  - Each platform (amd64, arm64) builds natively in parallel on dedicated runners
+  - Build artifacts (digests) are uploaded and merged into a multi-platform manifest
+  - Eliminates QEMU emulation overhead entirely
+  - Build times should now be similar for both platforms (~10-15 minutes each)
+
+  This fix applies to both:
+  - `docker-publish` job (triggered by regular releases)
+  - `docker-publish-instant` job (triggered by manual instant releases)
+
+  Fixes #982
+
+  Fix Docker Publish jobs being skipped after npm publish
+
+  Added explicit shell-based output passthrough step for `published` output in both `release` and `instant-release` jobs. This ensures reliable output propagation to dependent jobs (`docker-publish` and `docker-publish-instant`).
+
+  Root cause: Node.js `appendFileSync` to `GITHUB_OUTPUT` was not reliably propagating outputs to dependent jobs. The fix uses a dedicated shell step to echo outputs, which is proven to work correctly.
+
+  Also added debug logging to `setOutput` function in `publish-to-npm.mjs` and `version-and-commit.mjs` scripts.
+
+  Add case study for harmful prompts and resource exhaustion attacks
+
+  Documents analysis of LLM resource exhaustion attacks including:
+  - Timeline and root cause analysis
+  - OWASP LLM Top 10 (2025) attack classification
+  - Attack patterns database with detection rules
+  - Five proposed solution approaches
+  - Raw attack samples for research
+
 ## 0.50.8
 
 ### Patch Changes

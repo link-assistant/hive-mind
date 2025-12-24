@@ -1556,8 +1556,18 @@ jobs:
       - name: Publish to npm
         # Run if version was committed OR if a previous attempt already committed (for re-runs)
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
+        id: publish_npm
         run: node scripts/publish-to-npm.mjs --should-pull
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        # It runs after npm publish and reads the script's outputs to pass them along
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
@@ -1710,8 +1720,17 @@ jobs:
 
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
+        id: publish_npm
         run: node scripts/publish-to-npm.mjs
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'

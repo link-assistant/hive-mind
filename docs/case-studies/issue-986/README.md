@@ -32,6 +32,7 @@ sudo apt install -y screen
 ```
 
 While this workaround functions correctly, it is:
+
 - **Not persistent:** Must be repeated each time a new container is started
 - **Inefficient:** Requires manual intervention for each developer
 - **Inconsistent:** Not all users may be aware of this requirement
@@ -84,6 +85,7 @@ screen -r session-name
 The project uses a multi-stage Docker setup based on Ubuntu 24.04 LTS:
 
 **Dockerfile structure:**
+
 ```dockerfile
 FROM ubuntu:24.04
 
@@ -113,12 +115,14 @@ CMD ["/bin/bash"]
 The `scripts/ubuntu-24-server-install.sh` script is responsible for setting up the development environment. Current analysis shows:
 
 **Packages Currently Installed (Line 301):**
+
 ```bash
 maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates \
     gnupg dotnet-sdk-8.0 build-essential expect
 ```
 
 **Notable observations:**
+
 1. The script installs numerous development tools and language runtimes
 2. C/C++ development tools (cmake, clang, llvm, lld) are installed separately
 3. Python build dependencies are installed
@@ -132,11 +136,13 @@ The root cause of this issue is straightforward:
 **Primary Cause:** The `screen` package was never added to the list of packages to be installed during Docker image build.
 
 **Contributing Factors:**
+
 1. **Package Selection:** The installation script focuses on language runtimes and build tools, potentially overlooking terminal multiplexers
 2. **Minimal Base Image:** Ubuntu 24.04 LTS base image does not include `screen` by default
 3. **User Expectations:** Developers familiar with some Linux distributions (where `screen` comes pre-installed) may expect it to be available
 
 **Why This Was Not Detected Earlier:**
+
 1. The project may not have had explicit requirements for terminal multiplexers in its documentation
 2. Different developers use different tools (`tmux` vs `screen` vs terminal tabs)
 3. Screen usage may have been a personal preference not captured in requirements
@@ -153,26 +159,31 @@ The root cause of this issue is straightforward:
 ### Issue Discovery Timeline
 
 **2025-12-24 21:18:42 UTC** - Issue #986 reported
+
 - User attempts to run `screen -S bot` in Docker container
 - Encounters "command not found" error
 - Provides workaround using `apt install`
 
 **2025-12-24 21:18:54 UTC** - Automated PR #987 created
+
 - AI issue solver begins analysis
 - Initial commit (c3b672f) with task details
 
 **2025-12-24 21:19:01 UTC** - CI Pipeline Execution
+
 - Changeset check fails (expected for WIP PR)
 - No code changes to test yet
 
 ### Analysis Phase
 
 **Web Research Conducted:**
+
 - GNU Screen documentation and usage patterns reviewed
 - Ubuntu 24.04 package availability confirmed
 - Installation method verified (`sudo apt install screen`)
 
 **Code Analysis:**
+
 - Dockerfile examined (1,680 bytes)
 - Installation script analyzed (1,421 lines)
 - Current package list reviewed
@@ -191,6 +202,7 @@ maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates \
 ```
 
 **Advantages:**
+
 - ✅ Simple one-word addition
 - ✅ Installed during image build
 - ✅ Available in all containers by default
@@ -199,11 +211,13 @@ maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates \
 - ✅ No changes to Dockerfile needed
 
 **Disadvantages:**
+
 - ❌ Slightly increases Docker image size (negligible)
 - ❌ Adds a package not everyone may use
 
 **Rationale:**
 This is the recommended approach because:
+
 1. `screen` is a standard Unix development tool
 2. The overhead is minimal (~1.5 MB)
 3. It matches the pattern of other utilities already installed
@@ -213,17 +227,20 @@ This is the recommended approach because:
 ### Option 2: Add Both `screen` and `tmux`
 
 **Implementation:**
+
 ```bash
 maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates \
     gnupg dotnet-sdk-8.0 build-essential expect screen tmux
 ```
 
 **Advantages:**
+
 - ✅ Provides choice between two popular terminal multiplexers
 - ✅ Covers preferences of different developers
 - ✅ Both are standard development tools
 
 **Disadvantages:**
+
 - ❌ Slightly larger image size (~3 MB total)
 - ❌ May be seen as redundant
 
@@ -243,11 +260,13 @@ log_success "Terminal multiplexers installed"
 ```
 
 **Advantages:**
+
 - ✅ Clear documentation of purpose
 - ✅ Easy to find and modify
 - ✅ Follows existing pattern in the script
 
 **Disadvantages:**
+
 - ❌ More verbose
 - ❌ Adds minimal value over Option 1 or 2
 
@@ -256,14 +275,17 @@ log_success "Terminal multiplexers installed"
 **Implementation:**
 Add to documentation/README:
 
-```markdown
+````markdown
 ## Optional Tools
 
 Some developers may want to install terminal multiplexers:
+
 ```bash
 sudo apt install screen tmux
 ```
-```
+````
+
+````
 
 **Advantages:**
 - ✅ No change to Docker image
@@ -348,7 +370,7 @@ docker run --rm hive-mind:test screen --version
 
 # Expected output:
 # Screen version 4.09.01 (GNU) 20-Aug-23
-```
+````
 
 ### Functional Testing
 
@@ -376,6 +398,7 @@ docker rm test-session
 ### CI/CD Verification
 
 The CI/CD pipeline will automatically:
+
 1. Build the Docker image
 2. Verify all packages install successfully
 3. Run any existing tests
@@ -481,16 +504,17 @@ Maintainer: Ubuntu Developers
 
 ### Appendix B: Alternative Terminal Multiplexers
 
-| Tool | Size | First Release | Active Development | Serial Support |
-|------|------|---------------|-------------------|----------------|
-| GNU Screen | ~1.5 MB | 1987 | Moderate | Yes |
-| tmux | ~1.7 MB | 2007 | Active | No |
-| byobu | ~0.5 MB | 2008 | Active | Via screen/tmux |
-| zellij | ~15 MB | 2020 | Very Active | No |
+| Tool       | Size    | First Release | Active Development | Serial Support  |
+| ---------- | ------- | ------------- | ------------------ | --------------- |
+| GNU Screen | ~1.5 MB | 1987          | Moderate           | Yes             |
+| tmux       | ~1.7 MB | 2007          | Active             | No              |
+| byobu      | ~0.5 MB | 2008          | Active             | Via screen/tmux |
+| zellij     | ~15 MB  | 2020          | Very Active        | No              |
 
 ### Appendix C: Installation Script Package Categories
 
 Current categories in `ubuntu-24-server-install.sh`:
+
 1. System Prerequisites (line 297-302)
 2. C/C++ Development Tools (line 304-307)
 3. Python Build Dependencies (line 309-324)

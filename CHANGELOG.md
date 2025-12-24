@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.50.10
+
+### Patch Changes
+
+- Test patch release
+
 ## 0.50.9
 
 ### Patch Changes

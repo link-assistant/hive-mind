@@ -1591,11 +1591,22 @@ jobs:
           node scripts/upload-sourcemaps.mjs
 
   # === DOCKER PUBLISH ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
   docker-publish:
-    name: Docker Publish
+    name: Docker Publish (${{ matrix.platform }})
     needs: [release]
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -1603,6 +1614,10 @@ jobs:
     env:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
+
+    outputs:
+      digest-amd64: ${{ steps.build.outputs.digest }}
+      digest-arm64: ${{ steps.build.outputs.digest }}
 
     steps:
       - name: Checkout repository
@@ -1612,10 +1627,72 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete
+  docker-publish-merge:
+    name: Docker Publish (Merge)
+    needs: [release, docker-publish]
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -1635,17 +1712,20 @@ jobs:
             type=raw,value=${{ needs.release.outputs.published_version }}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
 
       - name: Verify published image
         run: |
@@ -1656,7 +1736,7 @@ jobs:
   # === HELM CHART RELEASE ===
   helm-release:
     name: Helm Release
-    needs: [release, docker-publish]
+    needs: [release, docker-publish-merge]
     if: needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -1745,11 +1825,22 @@ jobs:
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
 
   # === DOCKER PUBLISH FOR INSTANT RELEASE ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
   docker-publish-instant:
-    name: Docker Publish (Instant)
+    name: Docker Publish Instant (${{ matrix.platform }})
     needs: [instant-release]
     if: needs.instant-release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -1766,10 +1857,72 @@ jobs:
         run: node scripts/free-disk-space.mjs
 
       - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete (instant release)
+  docker-publish-instant-merge:
+    name: Docker Publish Instant (Merge)
+    needs: [instant-release, docker-publish-instant]
+    if: needs.instant-release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-instant-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -1789,17 +1942,20 @@ jobs:
             type=raw,value=${{ needs.instant-release.outputs.published_version }}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
 
       - name: Verify published image
         run: |
@@ -1810,7 +1966,7 @@ jobs:
   # === HELM CHART RELEASE FOR INSTANT RELEASE ===
   helm-release-instant:
     name: Helm Release (Instant)
-    needs: [instant-release, docker-publish-instant]
+    needs: [instant-release, docker-publish-instant-merge]
     if: needs.instant-release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:

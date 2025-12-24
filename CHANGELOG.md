@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 0.50.7
+
+### Patch Changes
+
+- 9eea96a: Fix Docker publish jobs failing with "No space left on device" error
+
+  Added disk space cleanup step to both `docker-publish` and `docker-publish-instant` jobs in the release workflow. This step removes large pre-installed packages (dotnet, android SDK, GHC, CodeQL) and prunes unused Docker images before building multi-platform Docker images.
+
+  This fixes issue #975 where instant releases failed during arm64 build due to insufficient disk space when installing Rust toolchain.
+
 ## 0.50.6
 
 ### Patch Changes

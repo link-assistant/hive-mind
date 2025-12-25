@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildResumeCommand } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -896,28 +896,24 @@ try {
         }
         await log('');
         // Show claude resume command only for --tool claude (or default)
+        // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
         const toolForResume = argv.tool || 'claude';
         if (toolForResume === 'claude') {
+          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
           await log('💡 To continue this session in Claude Code interactive mode:');
           await log('');
-          await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+          await log(`   ${claudeResumeCmd}`);
           await log('');
         }
-        // Build the full resume command with all options preserved
-        const fullResumeCommand = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
-        await log('🔄 To resume via solve.mjs after the limit resets, run:');
-        await log(`   ./${fullResumeCommand}`);
-        await log('');
-        await log('💡 Or enable auto-continue-on-limit-reset to wait automatically:');
-        await log(`   ./${fullResumeCommand} --auto-continue-on-limit-reset`);
       }
 
       // If --attach-logs is enabled and we have a PR, attach logs with usage limit details
       if (shouldAttachLogs && sessionId && prNumber) {
         await log('\n📄 Attaching logs to Pull Request...');
         try {
-          // Build resume command with all options preserved
-          const resumeCommand = `./${buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs })}`;
+          // Build Claude CLI resume command
+          const tool = argv.tool || 'claude';
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -947,9 +943,11 @@ try {
         // Fallback: Post simple failure comment if logs are not attached
         try {
           const resetTime = global.limitResetTime;
-          // Build resume command with all options preserved
-          const resumeCmd = `./${buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs })}`;
-          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo automatically wait for the limit to reset and continue, use:\n\`\`\`bash\n${resumeCmd} --auto-continue-on-limit-reset\n\`\`\`` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\``;
+          // Build Claude CLI resume command
+          const tool = argv.tool || 'claude';
+          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+          const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
+          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
           if (commentResult.code === 0) {
@@ -968,8 +966,9 @@ try {
         if (shouldAttachLogs && sessionId) {
           await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
           try {
-            // Build resume command with all options preserved
-            const resumeCommand = `./${buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs })}`;
+            // Build Claude CLI resume command
+            const tool = argv.tool || 'claude';
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -1014,9 +1013,10 @@ try {
               return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
 
-            // Build resume command with all options preserved
-            const resumeCmd = `./${buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs })}`;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\``;
+            // Build Claude CLI resume command
+            const tool = argv.tool || 'claude';
+            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1032,21 +1032,14 @@ try {
 
   if (!success) {
     // Show claude resume command only for --tool claude (or default) on failure
+    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const toolForFailure = argv.tool || 'claude';
     if (sessionId && toolForFailure === 'claude') {
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');
       await log('');
-      await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
-      await log('');
-    }
-
-    // Show full solve.mjs resume command on failure (for any tool)
-    if (sessionId) {
-      const fullResumeCommand = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
-      await log('🔄 To resume this session via solve.mjs, use:');
-      await log('');
-      await log(`   ./${fullResumeCommand}`);
+      await log(`   ${claudeResumeCmd}`);
       await log('');
     }
 
@@ -1054,8 +1047,9 @@ try {
     if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
-        // Build resume command with all options preserved
-        const resumeCommand = sessionId ? `./${buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs })}` : null;
+        // Build Claude CLI resume command
+        const tool = argv.tool || 'claude';
+        const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',

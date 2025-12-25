@@ -32,9 +32,10 @@ const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
 
 // Import Claude-specific command builders
-// These are used to generate copy-pasteable resume commands for users
+// These are used to generate copy-pasteable Claude CLI resume commands for users
+// Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
-export const { buildResumeCommand, buildInitialCommand, isClaudeTool } = claudeCommandBuilder;
+export const { buildClaudeResumeCommand, buildClaudeInitialCommand, isClaudeTool } = claudeCommandBuilder;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -346,17 +347,18 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
     // Show claude resume command only for --tool claude (or default)
     // This allows users to investigate, resume, see context, and more
+    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const tool = argv.tool || 'claude';
     if (tool === 'claude') {
+      // Build the Claude CLI resume command using the command builder
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
+
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');
       await log('');
-      await log(`   (cd "${tempDir}" && claude --resume ${sessionId})`);
+      await log(`   ${claudeResumeCmd}`);
       await log('');
     }
-
-    // Build the full resume command with all options preserved
-    const fullResumeCommand = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
 
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
@@ -365,29 +367,19 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
         await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
-        await log('\n🔄 To resume via solve.mjs when limit resets, use:\n');
-        await log(`   ./${fullResumeCommand}`);
-
         if (global.limitResetTime) {
-          await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
-          await log(`   ./${fullResumeCommand} --auto-continue-on-limit-reset`);
+          await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
         }
 
-        await log('\n   This will continue from where it left off with full context.\n');
+        await log('\n💡 After the limit resets, resume using the Claude command above.');
 
         if (argv.autoCleanup !== false) {
+          await log('');
           await log('⚠️  Note: Temporary directory will be automatically cleaned up.');
           await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
         }
       }
     } else {
-      // Show the full resume command for successful sessions too
-      await log('');
-      await log('🔄 To resume this session via solve.mjs, use:');
-      await log('');
-      await log(`   ./${fullResumeCommand}`);
-      await log('');
-
       // Show note about auto-cleanup only when enabled
       if (argv.autoCleanup !== false) {
         await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');

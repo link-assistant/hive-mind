@@ -2,14 +2,16 @@
 
 /**
  * Test suite for command builder functions in claude.command-builder.lib.mjs
- * Tests that the resume and initial commands properly preserve all relevant options
+ * Tests that the Claude CLI resume and initial commands are generated correctly
+ * using the (cd ... && claude ...) pattern
+ *
  * Related issue: https://github.com/link-assistant/hive-mind/issues/942
  *
  * Note: These command builders are specifically designed for Claude CLI (--tool claude)
  * and are placed in the claude.command-builder.lib.mjs file as per user requirements.
  */
 
-import { buildResumeCommand, buildInitialCommand, isClaudeTool, getDefaultModelForTool } from '../src/claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeInitialCommand, isClaudeTool, getDefaultModelForTool } from '../src/claude.command-builder.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -50,314 +52,142 @@ function assertNotContains(haystack, needle, message) {
   }
 }
 
-// === Basic command structure tests ===
+// === buildClaudeResumeCommand tests ===
 
-runTest('buildResumeCommand: generates basic command with session ID', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet' },
-    shouldAttachLogs: false,
+runTest('buildClaudeResumeCommand: generates command with (cd ... && claude --resume ...) pattern', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123-def456-ghi789',
   });
 
-  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
-  assertContains(cmd, '"https://github.com/owner/repo/issues/123"', 'Should contain issue URL');
-  assertContains(cmd, '--resume', 'Should contain --resume flag');
-  assertContains(cmd, 'abc123', 'Should contain session ID');
+  assertEqual(cmd, '(cd "/tmp/gh-issue-solver-1234567890" && claude --resume abc123-def456-ghi789)', 'Should generate exact command pattern');
 });
 
-runTest('buildResumeCommand: does not include default model (sonnet for claude)', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
+runTest('buildClaudeResumeCommand: contains cd command', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
     sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet' },
-    shouldAttachLogs: false,
   });
 
-  assertNotContains(cmd, '--model', 'Should not include --model for default sonnet');
+  assertContains(cmd, 'cd ', 'Should contain cd command');
 });
 
-runTest('buildResumeCommand: includes non-default model', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
+runTest('buildClaudeResumeCommand: contains quoted tempDir', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
     sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'opus' },
-    shouldAttachLogs: false,
   });
 
-  assertContains(cmd, '--model opus', 'Should include --model opus');
+  assertContains(cmd, '"/tmp/gh-issue-solver-1234567890"', 'Should contain quoted tempDir');
 });
 
-// === Flag preservation tests ===
-
-runTest('buildResumeCommand: includes --verbose when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
+runTest('buildClaudeResumeCommand: contains claude --resume', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
     sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', verbose: true },
-    shouldAttachLogs: false,
+  });
+
+  assertContains(cmd, 'claude --resume', 'Should contain claude --resume');
+});
+
+runTest('buildClaudeResumeCommand: contains session ID', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: '4c549ec6-3204-4312-b8e2-5f04113b2f86',
+  });
+
+  assertContains(cmd, '4c549ec6-3204-4312-b8e2-5f04113b2f86', 'Should contain session ID');
+});
+
+runTest('buildClaudeResumeCommand: uses subshell parentheses', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertTrue(cmd.startsWith('('), 'Should start with opening parenthesis');
+  assertTrue(cmd.endsWith(')'), 'Should end with closing parenthesis');
+});
+
+runTest('buildClaudeResumeCommand: uses && to chain commands', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertContains(cmd, ' && ', 'Should contain && to chain commands');
+});
+
+runTest('buildClaudeResumeCommand: handles paths with spaces', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/path with spaces/work-dir',
+    sessionId: 'abc123',
+  });
+
+  assertContains(cmd, '"/tmp/path with spaces/work-dir"', 'Should properly quote path with spaces');
+});
+
+// === buildClaudeInitialCommand tests ===
+
+runTest('buildClaudeInitialCommand: generates command with (cd ... && claude ...) pattern', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+  });
+
+  assertContains(cmd, '(cd "/tmp/gh-issue-solver-1234567890" && claude ', 'Should generate correct pattern');
+  assertNotContains(cmd, '--resume', 'Should NOT contain --resume');
+});
+
+runTest('buildClaudeInitialCommand: includes default output format', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+  });
+
+  assertContains(cmd, '--output-format stream-json', 'Should include --output-format stream-json');
+});
+
+runTest('buildClaudeInitialCommand: includes dangerously-skip-permissions', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+  });
+
+  assertContains(cmd, '--dangerously-skip-permissions', 'Should include --dangerously-skip-permissions');
+});
+
+runTest('buildClaudeInitialCommand: includes verbose when set', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    verbose: true,
   });
 
   assertContains(cmd, '--verbose', 'Should include --verbose');
 });
 
-runTest('buildResumeCommand: does not include --verbose when false', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', verbose: false },
-    shouldAttachLogs: false,
+runTest('buildClaudeInitialCommand: does not include verbose when false', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    verbose: false,
   });
 
-  assertNotContains(cmd, '--verbose', 'Should not include --verbose when false');
+  assertNotContains(cmd, '--verbose', 'Should NOT include --verbose when false');
 });
 
-runTest('buildResumeCommand: includes --fork when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', fork: true },
-    shouldAttachLogs: false,
+runTest('buildClaudeInitialCommand: includes model when specified', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    model: 'claude-opus-4-5-20251101',
   });
 
-  assertContains(cmd, '--fork', 'Should include --fork');
+  assertContains(cmd, '--model claude-opus-4-5-20251101', 'Should include --model');
 });
 
-runTest('buildResumeCommand: includes --attach-logs from shouldAttachLogs param', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet' },
-    shouldAttachLogs: true,
+runTest('buildClaudeInitialCommand: uses custom claude path', () => {
+  const cmd = buildClaudeInitialCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    claudePath: '/usr/local/bin/claude',
   });
 
-  assertContains(cmd, '--attach-logs', 'Should include --attach-logs');
-});
-
-runTest('buildResumeCommand: includes --attach-logs from argv.attachLogs', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', attachLogs: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--attach-logs', 'Should include --attach-logs from argv');
-});
-
-runTest('buildResumeCommand: includes --auto-continue-on-limit-reset when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', autoContinueOnLimitReset: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--auto-continue-on-limit-reset', 'Should include --auto-continue-on-limit-reset');
-});
-
-runTest('buildResumeCommand: includes --no-auto-cleanup when autoCleanup is false', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', autoCleanup: false },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--no-auto-cleanup', 'Should include --no-auto-cleanup');
-});
-
-runTest('buildResumeCommand: does not include --no-auto-cleanup when autoCleanup is true', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', autoCleanup: true },
-    shouldAttachLogs: false,
-  });
-
-  assertNotContains(cmd, '--no-auto-cleanup', 'Should not include --no-auto-cleanup when true');
-  assertNotContains(cmd, '--auto-cleanup', 'Should not include --auto-cleanup flag at all');
-});
-
-runTest('buildResumeCommand: includes --watch when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', watch: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--watch', 'Should include --watch');
-});
-
-runTest('buildResumeCommand: includes --think level when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', think: 'high' },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--think high', 'Should include --think high');
-});
-
-runTest('buildResumeCommand: includes --auto-resume-on-errors when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', autoResumeOnErrors: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--auto-resume-on-errors', 'Should include --auto-resume-on-errors');
-});
-
-runTest('buildResumeCommand: includes --auto-commit-uncommitted-changes when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', autoCommitUncommittedChanges: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--auto-commit-uncommitted-changes', 'Should include --auto-commit-uncommitted-changes');
-});
-
-// === Tool-specific tests ===
-
-runTest('buildResumeCommand: does not include --tool for default (claude)', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet' },
-    shouldAttachLogs: false,
-  });
-
-  assertNotContains(cmd, '--tool', 'Should not include --tool for default claude');
-});
-
-runTest('buildResumeCommand: includes --tool for non-default tool', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'opencode', model: 'grok-code-fast-1' },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--tool opencode', 'Should include --tool opencode');
-});
-
-runTest('buildResumeCommand: uses correct default model for opencode', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'opencode', model: 'grok-code-fast-1' },
-    shouldAttachLogs: false,
-  });
-
-  assertNotContains(cmd, '--model', 'Should not include --model for default opencode model');
-});
-
-runTest('buildResumeCommand: includes non-default model for opencode', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'opencode', model: 'grok' },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--model grok', 'Should include --model grok for non-default');
-});
-
-// === Complex command with multiple options ===
-
-runTest('buildResumeCommand: preserves all options in complex scenario', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: {
-      tool: 'claude',
-      model: 'opus',
-      verbose: true,
-      fork: true,
-      watch: true,
-      think: 'max',
-      autoCleanup: false,
-      autoContinueOnLimitReset: true,
-      autoResumeOnErrors: true,
-    },
-    shouldAttachLogs: true,
-  });
-
-  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
-  assertContains(cmd, '--resume abc123', 'Should contain resume flag');
-  assertContains(cmd, '--model opus', 'Should contain non-default model');
-  assertContains(cmd, '--verbose', 'Should contain verbose');
-  assertContains(cmd, '--fork', 'Should contain fork');
-  assertContains(cmd, '--attach-logs', 'Should contain attach-logs');
-  assertContains(cmd, '--watch', 'Should contain watch');
-  assertContains(cmd, '--think max', 'Should contain think level');
-  assertContains(cmd, '--no-auto-cleanup', 'Should contain no-auto-cleanup');
-  assertContains(cmd, '--auto-continue-on-limit-reset', 'Should contain auto-continue');
-  assertContains(cmd, '--auto-resume-on-errors', 'Should contain auto-resume');
-});
-
-// === buildInitialCommand tests ===
-
-runTest('buildInitialCommand: generates basic command without session ID', () => {
-  const cmd = buildInitialCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    argv: { tool: 'claude', model: 'sonnet' },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
-  assertContains(cmd, '"https://github.com/owner/repo/issues/123"', 'Should contain issue URL');
-  assertNotContains(cmd, '--resume', 'Should NOT contain --resume flag');
-});
-
-runTest('buildInitialCommand: includes non-default model', () => {
-  const cmd = buildInitialCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    argv: { tool: 'claude', model: 'opus' },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--model opus', 'Should include --model opus');
-});
-
-runTest('buildInitialCommand: preserves all options in complex scenario', () => {
-  const cmd = buildInitialCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    argv: {
-      tool: 'claude',
-      model: 'opus',
-      verbose: true,
-      fork: true,
-      watch: true,
-      think: 'max',
-      autoCleanup: false,
-      autoContinueOnLimitReset: true,
-      autoResumeOnErrors: true,
-      interactiveMode: true,
-      tokensBudgetStats: true,
-    },
-    shouldAttachLogs: true,
-  });
-
-  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
-  assertNotContains(cmd, '--resume', 'Should NOT contain resume flag');
-  assertContains(cmd, '--model opus', 'Should contain non-default model');
-  assertContains(cmd, '--verbose', 'Should contain verbose');
-  assertContains(cmd, '--fork', 'Should contain fork');
-  assertContains(cmd, '--attach-logs', 'Should contain attach-logs');
-  assertContains(cmd, '--watch', 'Should contain watch');
-  assertContains(cmd, '--think max', 'Should contain think level');
-  assertContains(cmd, '--no-auto-cleanup', 'Should contain no-auto-cleanup');
-  assertContains(cmd, '--auto-continue-on-limit-reset', 'Should contain auto-continue');
-  assertContains(cmd, '--auto-resume-on-errors', 'Should contain auto-resume');
-  assertContains(cmd, '--interactive-mode', 'Should contain interactive-mode');
-  assertContains(cmd, '--tokens-budget-stats', 'Should contain tokens-budget-stats');
+  assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
 });
 
 // === isClaudeTool tests ===
@@ -402,30 +232,6 @@ runTest('getDefaultModelForTool: returns grok-code for agent', () => {
 
 runTest('getDefaultModelForTool: returns sonnet for undefined tool', () => {
   assertEqual(getDefaultModelForTool(undefined), 'sonnet', 'Undefined tool should default to sonnet');
-});
-
-// === Additional option tests ===
-
-runTest('buildResumeCommand: includes --interactive-mode when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', interactiveMode: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--interactive-mode', 'Should include --interactive-mode');
-});
-
-runTest('buildResumeCommand: includes --tokens-budget-stats when set', () => {
-  const cmd = buildResumeCommand({
-    issueUrl: 'https://github.com/owner/repo/issues/123',
-    sessionId: 'abc123',
-    argv: { tool: 'claude', model: 'sonnet', tokensBudgetStats: true },
-    shouldAttachLogs: false,
-  });
-
-  assertContains(cmd, '--tokens-budget-stats', 'Should include --tokens-budget-stats');
 });
 
 // === Summary ===

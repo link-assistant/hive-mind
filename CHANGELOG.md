@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 0.51.5
+
+### Patch Changes
+
+- 1a17f74: feat: add disk space information to /limits command
+
+  Adds free disk space percentage and size information to the Telegram bot's /limits command output, allowing users to monitor disk usage alongside Claude API limits and plan issue execution accordingly.
+
 ## 0.51.4
 
 ### Patch Changes

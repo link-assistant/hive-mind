@@ -35,6 +35,12 @@ ENV CARGO_HOME="/home/hive/.cargo"
 # Include Lean/elan paths
 # Include Opam paths for Rocq/Coq theorem prover
 ENV PATH="/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
+# Opam environment variables for Rocq/Coq theorem prover
+# Reference: https://rocq-prover.org/docs/using-opam (issue #952)
+# These are needed in addition to PATH for opam-installed tools to work properly
+ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
 
 # Load NVM, Pyenv, and other tools in shell sessions
 SHELL ["/bin/bash", "-c"]

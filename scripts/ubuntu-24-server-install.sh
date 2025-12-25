@@ -775,28 +775,68 @@ if command -v opam &>/dev/null; then
   eval "$(opam env --switch=default 2>/dev/null)" || true
 
   # Install Rocq (the proof assistant formerly known as Coq)
-  if ! opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  # Reference: https://rocq-prover.org/docs/using-opam
+  # Note: We check for binary accessibility, not just package installation,
+  # because the package might be listed but binaries may not be available
+
+  # First, ensure opam environment is fully loaded
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Check if Rocq binaries are actually accessible (not just if package is installed)
+  ROCQ_ACCESSIBLE=false
+  if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v rocqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v coqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  fi
+
+  if [ "$ROCQ_ACCESSIBLE" = false ]; then
     log_info "Installing Rocq Prover (this may take several minutes)..."
     log_note "Rocq is the new name for the Coq theorem prover"
+    log_note "Reference: https://rocq-prover.org/docs/using-opam"
 
     # Add Rocq package repository
     opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
 
-    # Install Rocq prover
-    opam install rocq-prover -y || {
+    # Update opam to get latest package info
+    opam update 2>/dev/null || true
+
+    # Install Rocq prover using pin (recommended by official docs)
+    # This ensures all dependencies including rocq-runtime are properly installed
+    if opam pin add rocq-prover --yes 2>/dev/null; then
+      log_success "Rocq Prover pinned and installed"
+    elif opam install rocq-prover -y 2>/dev/null; then
+      log_success "Rocq Prover installed via opam install"
+    else
       log_warning "Rocq installation failed. Trying to install Coq as fallback..."
       opam install coq -y || {
         log_warning "Coq installation also failed."
       }
-    }
+    fi
 
-    if opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
-      log_success "Rocq Prover installed successfully"
-    elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
-      log_success "Coq installed successfully (fallback)"
+    # Re-source opam environment after installation
+    eval "$(opam env --switch=default 2>/dev/null)" || true
+
+    # Verify installation was successful by checking binary accessibility
+    if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+      ROCQ_VERSION=$(rocq -v 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v rocqc &>/dev/null; then
+      ROCQ_VERSION=$(rocqc --version 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v coqc &>/dev/null; then
+      COQ_VERSION=$(coqc --version 2>&1 | head -n1)
+      log_success "Coq verified (fallback): $COQ_VERSION"
+    elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_warning "Rocq package installed but binaries not in PATH"
+      log_note "This may indicate a partial installation. Try: eval \$(opam env)"
+    else
+      log_warning "Rocq/Coq installation could not be verified"
     fi
   else
-    log_info "Rocq Prover already installed."
+    log_info "Rocq Prover already installed and accessible."
   fi
 
   # Add opam environment to shell profile for persistence

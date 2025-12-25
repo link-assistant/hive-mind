@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.51.3
+
+### Patch Changes
+
+- 2fdb8b8: Fix Docker publish jobs being skipped after successful npm releases by adding always() to job conditions and explicit result checks
+
 ## 0.51.2
 
 ### Patch Changes

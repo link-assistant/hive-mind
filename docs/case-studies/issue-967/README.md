@@ -7,6 +7,7 @@ Pull Request [#213 in zamtmn/zcad](https://github.com/zamtmn/zcad/pull/213) was 
 ## Problem Statement
 
 The issue reporter ([konard](https://github.com/konard)) noticed that PR #213 contained far more changes than expected. The PR description mentioned:
+
 - 446 changed files
 - 100,615 additions
 - 1,681 commits
@@ -17,32 +18,33 @@ For a simple `TextExplode` command that should only add one new Pascal file and 
 
 ### Phase 1: Fork Creation and Divergence
 
-| Date | Event |
-|------|-------|
-| 2018-05-24 | `zamtmn/zcad` (upstream) created |
-| 2025-09-30 | `veb86/zcadvelecAI` fork created from `zamtmn/zcad` |
-| 2025-09-30 to 2025-12-22 | `veb86/zcadvelecAI` accumulated 1,678 commits NOT present in upstream |
-| 2025-12-10 | `konard/zamtmn-zcad` created - **crucially, forked from `veb86/zcadvelecAI`** |
+| Date                     | Event                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| 2018-05-24               | `zamtmn/zcad` (upstream) created                                              |
+| 2025-09-30               | `veb86/zcadvelecAI` fork created from `zamtmn/zcad`                           |
+| 2025-09-30 to 2025-12-22 | `veb86/zcadvelecAI` accumulated 1,678 commits NOT present in upstream         |
+| 2025-12-10               | `konard/zamtmn-zcad` created - **crucially, forked from `veb86/zcadvelecAI`** |
 
 ### Phase 2: Issue Solver Execution (2025-12-22)
 
-| Time (UTC) | Event |
-|------------|-------|
-| 17:35:57 | solve.mjs script started for issue #212 |
-| 17:36:03 | Auto-fork mode enabled (no write access to upstream) |
-| 17:36:05 | Fork conflict detection passed (incorrectly deemed safe) |
-| 17:36:08 | Existing fork identified: `konard/veb86-zcadvelecAI` |
-| 17:36:16 | Repository cloned from fork |
-| 17:36:16 | Upstream remote set to `zamtmn/zcad` |
-| 17:36:17 | Default branch synced with upstream/master |
-| 17:36:18 | Branch `issue-212-8a7e95614c82` created |
-| 17:36:23 | **CRITICAL**: Compare API showed **1,679 commits ahead of master** |
-| 17:36:26 | PR #213 created with all divergent commits included |
-| 17:45:11 | Solution draft completed, log posted |
+| Time (UTC) | Event                                                              |
+| ---------- | ------------------------------------------------------------------ |
+| 17:35:57   | solve.mjs script started for issue #212                            |
+| 17:36:03   | Auto-fork mode enabled (no write access to upstream)               |
+| 17:36:05   | Fork conflict detection passed (incorrectly deemed safe)           |
+| 17:36:08   | Existing fork identified: `konard/veb86-zcadvelecAI`               |
+| 17:36:16   | Repository cloned from fork                                        |
+| 17:36:16   | Upstream remote set to `zamtmn/zcad`                               |
+| 17:36:17   | Default branch synced with upstream/master                         |
+| 17:36:18   | Branch `issue-212-8a7e95614c82` created                            |
+| 17:36:23   | **CRITICAL**: Compare API showed **1,679 commits ahead of master** |
+| 17:36:26   | PR #213 created with all divergent commits included                |
+| 17:45:11   | Solution draft completed, log posted                               |
 
 ### Key Log Evidence
 
 From the solution draft log at line 117-118:
+
 ```
 [2025-12-22T17:36:23.701Z] [INFO]    Compare API check: 1679 commit(s) ahead of master
 [2025-12-22T17:36:23.702Z] [INFO]    GitHub compare API ready: 1679 commit(s) found
@@ -61,13 +63,14 @@ zamtmn/zcad (upstream)
 ```
 
 The GitHub API confirms this:
+
 ```json
 // konard/zamtmn-zcad repository info
 {
   "full_name": "konard/zamtmn-zcad",
   "fork": true,
-  "parent_name": "veb86/zcadvelecAI",  // <-- Parent is NOT zamtmn/zcad!
-  "source_name": "zamtmn/zcad"          // <-- Source is correct but irrelevant for git operations
+  "parent_name": "veb86/zcadvelecAI", // <-- Parent is NOT zamtmn/zcad!
+  "source_name": "zamtmn/zcad" // <-- Source is correct but irrelevant for git operations
 }
 ```
 
@@ -83,11 +86,11 @@ The GitHub API confirms this:
 
 ### Current State (as of analysis)
 
-| Repository | Status vs zamtmn/zcad master |
-|------------|------------------------------|
-| `veb86/zcadvelecAI` | 1678 commits ahead, 18 behind |
+| Repository           | Status vs zamtmn/zcad master  |
+| -------------------- | ----------------------------- |
+| `veb86/zcadvelecAI`  | 1678 commits ahead, 18 behind |
 | `konard/zamtmn-zcad` | 1678 commits ahead, 18 behind |
-| `zamtmn/zcad` | (upstream - baseline) |
+| `zamtmn/zcad`        | (upstream - baseline)         |
 
 ## Impact
 
@@ -113,6 +116,7 @@ The GitHub API confirms this:
 ### Long-Term Fixes for solve.mjs
 
 1. **Add Fork Parent Validation**: Before using an existing fork, verify that `parent.full_name` equals the intended upstream repository:
+
    ```javascript
    const forkInfo = await gh.repos.get({ owner: forkOwner, repo: forkRepo });
    if (forkInfo.data.parent?.full_name !== upstreamRepo) {
@@ -121,12 +125,13 @@ The GitHub API confirms this:
    ```
 
 2. **Compare Commit Count Before PR**: Add a safety check that warns/aborts if the branch is significantly ahead of upstream before creating PR:
+
    ```javascript
    const comparison = await gh.repos.compareCommits({
      owner: upstreamOwner,
      repo: upstreamRepo,
      base: 'master',
-     head: `${forkOwner}:${branchName}`
+     head: `${forkOwner}:${branchName}`,
    });
    if (comparison.data.ahead_by > expectedMaxCommits) {
      throw new Error(`Branch has ${comparison.data.ahead_by} commits, expected <= ${expectedMaxCommits}`);

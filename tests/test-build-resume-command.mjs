@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Test suite for buildResumeCommand function in solve.results.lib.mjs
- * Tests that the resume command properly preserves all relevant options
+ * Test suite for command builder functions in claude.command-builder.lib.mjs
+ * Tests that the resume and initial commands properly preserve all relevant options
  * Related issue: https://github.com/link-assistant/hive-mind/issues/942
+ *
+ * Note: These command builders are specifically designed for Claude CLI (--tool claude)
+ * and are placed in the claude.command-builder.lib.mjs file as per user requirements.
  */
 
-import { buildResumeCommand } from '../src/solve.results.lib.mjs';
+import { buildResumeCommand, buildInitialCommand, isClaudeTool, getDefaultModelForTool } from '../src/claude.command-builder.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -297,6 +300,132 @@ runTest('buildResumeCommand: preserves all options in complex scenario', () => {
   assertContains(cmd, '--no-auto-cleanup', 'Should contain no-auto-cleanup');
   assertContains(cmd, '--auto-continue-on-limit-reset', 'Should contain auto-continue');
   assertContains(cmd, '--auto-resume-on-errors', 'Should contain auto-resume');
+});
+
+// === buildInitialCommand tests ===
+
+runTest('buildInitialCommand: generates basic command without session ID', () => {
+  const cmd = buildInitialCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/123',
+    argv: { tool: 'claude', model: 'sonnet' },
+    shouldAttachLogs: false,
+  });
+
+  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
+  assertContains(cmd, '"https://github.com/owner/repo/issues/123"', 'Should contain issue URL');
+  assertNotContains(cmd, '--resume', 'Should NOT contain --resume flag');
+});
+
+runTest('buildInitialCommand: includes non-default model', () => {
+  const cmd = buildInitialCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/123',
+    argv: { tool: 'claude', model: 'opus' },
+    shouldAttachLogs: false,
+  });
+
+  assertContains(cmd, '--model opus', 'Should include --model opus');
+});
+
+runTest('buildInitialCommand: preserves all options in complex scenario', () => {
+  const cmd = buildInitialCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/123',
+    argv: {
+      tool: 'claude',
+      model: 'opus',
+      verbose: true,
+      fork: true,
+      watch: true,
+      think: 'max',
+      autoCleanup: false,
+      autoContinueOnLimitReset: true,
+      autoResumeOnErrors: true,
+      interactiveMode: true,
+      tokensBudgetStats: true,
+    },
+    shouldAttachLogs: true,
+  });
+
+  assertContains(cmd, 'solve.mjs', 'Should contain solve.mjs');
+  assertNotContains(cmd, '--resume', 'Should NOT contain resume flag');
+  assertContains(cmd, '--model opus', 'Should contain non-default model');
+  assertContains(cmd, '--verbose', 'Should contain verbose');
+  assertContains(cmd, '--fork', 'Should contain fork');
+  assertContains(cmd, '--attach-logs', 'Should contain attach-logs');
+  assertContains(cmd, '--watch', 'Should contain watch');
+  assertContains(cmd, '--think max', 'Should contain think level');
+  assertContains(cmd, '--no-auto-cleanup', 'Should contain no-auto-cleanup');
+  assertContains(cmd, '--auto-continue-on-limit-reset', 'Should contain auto-continue');
+  assertContains(cmd, '--auto-resume-on-errors', 'Should contain auto-resume');
+  assertContains(cmd, '--interactive-mode', 'Should contain interactive-mode');
+  assertContains(cmd, '--tokens-budget-stats', 'Should contain tokens-budget-stats');
+});
+
+// === isClaudeTool tests ===
+
+runTest('isClaudeTool: returns true for claude tool', () => {
+  const result = isClaudeTool({ tool: 'claude' });
+  assertTrue(result, 'Should return true for claude tool');
+});
+
+runTest('isClaudeTool: returns true when tool is undefined (defaults to claude)', () => {
+  const result = isClaudeTool({});
+  assertTrue(result, 'Should return true when tool is undefined');
+});
+
+runTest('isClaudeTool: returns false for non-claude tools', () => {
+  const opencode = isClaudeTool({ tool: 'opencode' });
+  const codex = isClaudeTool({ tool: 'codex' });
+  const agent = isClaudeTool({ tool: 'agent' });
+
+  assertTrue(!opencode, 'Should return false for opencode');
+  assertTrue(!codex, 'Should return false for codex');
+  assertTrue(!agent, 'Should return false for agent');
+});
+
+// === getDefaultModelForTool tests ===
+
+runTest('getDefaultModelForTool: returns sonnet for claude', () => {
+  assertEqual(getDefaultModelForTool('claude'), 'sonnet', 'Claude default model should be sonnet');
+});
+
+runTest('getDefaultModelForTool: returns grok-code-fast-1 for opencode', () => {
+  assertEqual(getDefaultModelForTool('opencode'), 'grok-code-fast-1', 'OpenCode default model should be grok-code-fast-1');
+});
+
+runTest('getDefaultModelForTool: returns gpt-5 for codex', () => {
+  assertEqual(getDefaultModelForTool('codex'), 'gpt-5', 'Codex default model should be gpt-5');
+});
+
+runTest('getDefaultModelForTool: returns grok-code for agent', () => {
+  assertEqual(getDefaultModelForTool('agent'), 'grok-code', 'Agent default model should be grok-code');
+});
+
+runTest('getDefaultModelForTool: returns sonnet for undefined tool', () => {
+  assertEqual(getDefaultModelForTool(undefined), 'sonnet', 'Undefined tool should default to sonnet');
+});
+
+// === Additional option tests ===
+
+runTest('buildResumeCommand: includes --interactive-mode when set', () => {
+  const cmd = buildResumeCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/123',
+    sessionId: 'abc123',
+    argv: { tool: 'claude', model: 'sonnet', interactiveMode: true },
+    shouldAttachLogs: false,
+  });
+
+  assertContains(cmd, '--interactive-mode', 'Should include --interactive-mode');
+});
+
+runTest('buildResumeCommand: includes --tokens-budget-stats when set', () => {
+  const cmd = buildResumeCommand({
+    issueUrl: 'https://github.com/owner/repo/issues/123',
+    sessionId: 'abc123',
+    argv: { tool: 'claude', model: 'sonnet', tokensBudgetStats: true },
+    shouldAttachLogs: false,
+  });
+
+  assertContains(cmd, '--tokens-budget-stats', 'Should include --tokens-budget-stats');
 });
 
 // === Summary ===

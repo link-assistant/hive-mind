@@ -43,6 +43,10 @@ const { extractLinkedIssueNumber } = githubLinking;
 // Import configuration
 import { autoContinue } from './config.lib.mjs';
 
+// Import Claude-specific command builders
+const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+const { buildResumeCommand } = claudeCommandBuilder;
+
 const { calculateWaitTime } = validation;
 
 /**
@@ -92,29 +96,36 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Recursively call the solve script with --resume
-    // We need to reconstruct the command with appropriate flags
+    // Use the shared command builder to ensure all options are preserved
     const childProcess = await import('child_process');
 
-    // Build the resume command
-    const resumeArgs = [
-      process.argv[1], // solve.mjs path
-      issueUrl,
-      '--resume',
-      sessionId,
-    ];
+    // Build the resume command using the shared command builder
+    // This ensures consistency with the displayed resume commands
+    const resumeCommandStr = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Parse the command string into an array for spawn
+    // The command looks like: solve.mjs "url" --resume id --option1 --option2 value
+    const resumeArgs = [process.argv[1]]; // Start with solve.mjs path
+
+    // Parse remaining args from the generated command (skip 'solve.mjs' prefix)
+    const cmdParts = resumeCommandStr.split(' ').slice(1);
+    for (let i = 0; i < cmdParts.length; i++) {
+      let part = cmdParts[i];
+      // Handle quoted URL
+      if (part.startsWith('"')) {
+        // Find the end quote
+        let quoted = part;
+        while (!quoted.endsWith('"') && i + 1 < cmdParts.length) {
+          i++;
+          quoted += ' ' + cmdParts[i];
+        }
+        // Remove quotes
+        part = quoted.slice(1, -1);
+      }
+      resumeArgs.push(part);
     }
 
-    // Preserve other flags from original invocation
-    if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
-    if (argv.verbose) resumeArgs.push('--verbose');
-    if (argv.fork) resumeArgs.push('--fork');
-    if (shouldAttachLogs) resumeArgs.push('--attach-logs');
-
-    await log(`\n🔄 Executing: ${resumeArgs.join(' ')}`);
+    await log(`\n🔄 Executing: node ${resumeArgs.join(' ')}`);
 
     // Execute the resume command
     const child = childProcess.spawn('node', resumeArgs, {
@@ -134,8 +145,10 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       operation: 'auto_continue_execution',
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
+    // Use the shared command builder for the manual resume command too
+    const manualResumeCmd = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
     await log('\n🔄 Manual resume command:');
-    await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    await log(`./${manualResumeCmd}`);
     await safeExit(1, 'Auto-continue failed');
   }
 };

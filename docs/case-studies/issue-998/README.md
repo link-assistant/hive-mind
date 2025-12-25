@@ -3,7 +3,7 @@
 **Date**: 2025-12-25
 **Issue**: [#998](https://github.com/link-assistant/hive-mind/issues/998)
 **Pull Request**: [#999](https://github.com/link-assistant/hive-mind/pull/999)
-**Status**: Investigating - ARM64 runner performance issues with Homebrew bottle downloads
+**Status**: In Progress - Adding Homebrew verbose diagnostics and pre-fetch caching
 
 ---
 
@@ -128,7 +128,51 @@ The installation script installs ~25+ development tools including:
 
 ## Proposed Solutions
 
-### Solution 1: Add Build Timeout with Retry (Short-term)
+### Solution 0: Add Homebrew Verbose Diagnostics and Pre-fetch Caching (Current Focus)
+
+Before implementing larger architectural changes, we need to understand exactly what's happening during the slow downloads. This involves:
+
+1. **Homebrew verbose mode** (`HOMEBREW_VERBOSE=1`) to see detailed download progress
+2. **Pre-fetch bottles** with `brew fetch --deps --retry` before installation
+3. **Timing information** (`HOMEBREW_DISPLAY_INSTALL_TIMES=1`) to measure each step
+
+**Pros**:
+
+- Provides detailed diagnostics to understand the root cause
+- Pre-fetch can potentially use cached bottles on retries
+- No architectural changes required
+- Timing data helps identify specific bottlenecks
+
+**Cons**:
+
+- Doesn't directly solve the slowness issue
+- Adds some output verbosity to logs
+
+**Implementation** (added to `scripts/ubuntu-24-server-install.sh`):
+
+```bash
+# Set HOMEBREW_VERBOSE for detailed output during fetch
+export HOMEBREW_VERBOSE=1
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+
+# Fetch bottles first - this downloads to cache without installing
+log_info "Fetching PHP 8.3 and all dependencies..."
+brew fetch --deps --retry shivammathur/php/php@8.3
+
+# Then install (should use cached bottles)
+brew install --verbose shivammathur/php/php@8.3
+```
+
+**References**:
+
+- [Homebrew Manpage - fetch options](https://docs.brew.sh/Manpage#fetch-options-formulacask-)
+- [Homebrew Tips and Tricks](https://docs.brew.sh/Tips-and-Tricks)
+- [Homebrew ARM64 Linux Support](https://github.com/Homebrew/brew/issues/19208)
+
+---
+
+### Solution 1: Add Build Timeout with Retry (Short-term) ✅ Implemented
 
 Add a reasonable timeout to the arm64 build and implement retry logic.
 
@@ -236,14 +280,22 @@ Optimize the installation script to use parallel downloads and better caching.
 
 ## Recommendation
 
-**Recommended Approach**: Implement **Solution 2** (Pre-build Base Image) combined with **Solution 1** (Build Timeout).
+**Current Approach**: First gather diagnostics with **Solution 0** (Verbose Diagnostics), while keeping **Solution 1** (Build Timeout) as a safety net.
 
-**Immediate Action**:
+**Immediate Action** (PR #999):
 
-1. Add timeout to arm64 build (Solution 1) to prevent indefinite hangs
-2. Cancel the currently stuck workflow run
+1. ✅ Add timeout to arm64 build (Solution 1) to prevent indefinite hangs
+2. ✅ Switch to ubuntu-22.04-arm for potentially better performance
+3. 🆕 Add Homebrew verbose mode and pre-fetch caching for diagnostics
+4. Observe the next ARM64 build to understand the exact bottleneck
 
-**Short-term**:
+**Next Steps Based on Diagnostics**:
+
+- If downloads are slow from specific CDN/mirror → Consider Homebrew mirror configuration
+- If specific bottles are missing → Consider building from source or using alternative packages
+- If overall network is slow → Consider **Solution 2** (Pre-build Base Image)
+
+**Long-term** (if diagnostics confirm persistent issues):
 
 1. Create a base image build workflow that runs weekly
 2. Push base images for both amd64 and arm64
@@ -251,18 +303,24 @@ Optimize the installation script to use parallel downloads and better caching.
 
 **Rationale**:
 
-1. Separates slow package installation from fast app deployment
-2. Base image builds can run overnight/weekly without blocking releases
-3. Main builds become fast (seconds instead of hours)
-4. Industry-standard approach for complex Docker images
+1. Understand the problem before implementing major architectural changes
+2. Verbose mode and timing data will reveal the exact bottleneck
+3. Pre-fetch with retry can help with transient network issues
+4. If pre-fetch completes, the actual install should use cached bottles
 
 ---
 
 ## Implementation Plan
 
-1. **Immediate**: Cancel stuck workflow run #20506901536
-2. **PR #999**: Add build timeout and case study documentation
-3. **Future PR**: Implement base image solution
+1. ✅ **Completed**: Cancel stuck workflow run #20506901536
+2. ✅ **PR #999 - Phase 1**: Add build timeout and case study documentation
+3. 🔄 **PR #999 - Phase 2 (Current)**: Add Homebrew verbose diagnostics and pre-fetch caching
+   - Added `HOMEBREW_VERBOSE=1` environment variable
+   - Added `HOMEBREW_DISPLAY_INSTALL_TIMES=1` for timing information
+   - Added `brew fetch --deps --retry` before installation
+   - Added timing measurements for fetch and install steps
+4. **Pending**: Observe ARM64 build logs to understand the bottleneck
+5. **Future PR**: Implement base image solution (if diagnostics confirm need)
 
 ---
 

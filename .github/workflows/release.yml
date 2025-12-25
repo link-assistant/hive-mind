@@ -1624,7 +1624,9 @@ jobs:
   docker-publish:
     name: Docker Publish (${{ matrix.platform }})
     needs: [release]
-    if: needs.release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
+    # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1704,7 +1706,8 @@ jobs:
   docker-publish-merge:
     name: Docker Publish (Merge)
     needs: [release, docker-publish]
-    if: needs.release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1764,7 +1767,8 @@ jobs:
   helm-release:
     name: Helm Release
     needs: [release, docker-publish-merge]
-    if: needs.release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1858,7 +1862,8 @@ jobs:
   docker-publish-instant:
     name: Docker Publish Instant (${{ matrix.platform }})
     needs: [instant-release]
-    if: needs.instant-release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated properly
+    if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1934,7 +1939,8 @@ jobs:
   docker-publish-instant-merge:
     name: Docker Publish Instant (Merge)
     needs: [instant-release, docker-publish-instant]
-    if: needs.instant-release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1994,7 +2000,8 @@ jobs:
   helm-release-instant:
     name: Helm Release (Instant)
     needs: [instant-release, docker-publish-instant-merge]
-    if: needs.instant-release.outputs.published == 'true'
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

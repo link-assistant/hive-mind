@@ -4,9 +4,13 @@
  * Provides functions to fetch and parse Claude usage limits via OAuth API
  */
 
+import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(exec);
 
 /**
  * Default path to Claude credentials file
@@ -125,6 +129,101 @@ function formatCurrentTime() {
   const ampm = hours >= 12 ? 'pm' : 'am';
 
   return `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm} UTC`;
+}
+
+/**
+ * Format bytes into human-readable size
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Formatted size (e.g., "19.3 GB")
+ */
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  // Use 1 decimal place for GB and above, none for smaller units
+  const decimals = i >= 3 ? 1 : 0;
+  return `${value.toFixed(decimals)} ${sizes[i]}`;
+}
+
+/**
+ * Get disk space information for the current filesystem
+ * Returns total, used, available space and usage percentage
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either disk space data or error message
+ */
+export async function getDiskSpaceInfo(verbose = false) {
+  try {
+    let totalMB, usedMB, availableMB, usedPercentage;
+
+    if (process.platform === 'darwin') {
+      // macOS: use df with 1024-byte blocks and parse
+      const { stdout } = await execAsync("df -k . 2>/dev/null | tail -1 | awk '{print $2, $3, $4}'");
+      const [totalKB, usedKB, availableKB] = stdout.trim().split(/\s+/).map(Number);
+      totalMB = Math.round(totalKB / 1024);
+      usedMB = Math.round(usedKB / 1024);
+      availableMB = Math.round(availableKB / 1024);
+    } else if (process.platform === 'win32') {
+      // Windows: use PowerShell to get drive info
+      const { stdout } = await execAsync('powershell -Command "$drive = (Get-Location).Drive; $info = Get-PSDrive -Name $drive.Name; Write-Output \\"$($info.Used) $($info.Free)\\""');
+      const [usedBytes, freeBytes] = stdout.trim().split(/\s+/).map(Number);
+      const totalBytes = usedBytes + freeBytes;
+      totalMB = Math.round(totalBytes / (1024 * 1024));
+      usedMB = Math.round(usedBytes / (1024 * 1024));
+      availableMB = Math.round(freeBytes / (1024 * 1024));
+    } else {
+      // Linux: use df with megabyte blocks
+      const { stdout } = await execAsync("df -BM . 2>/dev/null | tail -1 | awk '{print $2, $3, $4}'");
+      const parts = stdout
+        .trim()
+        .split(/\s+/)
+        .map(s => parseInt(s.replace('M', '')));
+      [totalMB, usedMB, availableMB] = parts;
+    }
+
+    if (isNaN(totalMB) || isNaN(usedMB) || isNaN(availableMB)) {
+      return {
+        success: false,
+        error: 'Failed to parse disk space information',
+      };
+    }
+
+    // Calculate used percentage (rounded to nearest integer)
+    usedPercentage = Math.round((usedMB / totalMB) * 100);
+    // Free percentage is the inverse
+    const freePercentage = 100 - usedPercentage;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits disk space: ${availableMB}MB free of ${totalMB}MB total (${freePercentage}% free)`);
+    }
+
+    return {
+      success: true,
+      diskSpace: {
+        totalMB,
+        usedMB,
+        availableMB,
+        totalBytes: totalMB * 1024 * 1024,
+        usedBytes: usedMB * 1024 * 1024,
+        availableBytes: availableMB * 1024 * 1024,
+        usedPercentage,
+        freePercentage,
+        totalFormatted: formatBytes(totalMB * 1024 * 1024),
+        usedFormatted: formatBytes(usedMB * 1024 * 1024),
+        availableFormatted: formatBytes(availableMB * 1024 * 1024),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits disk space error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get disk space info: ${error.message}`,
+    };
+  }
 }
 
 /**
@@ -285,14 +384,24 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
 /**
  * Format Claude usage data into a Telegram-friendly message
  * @param {Object} usage - The usage object from getClaudeUsageLimits
+ * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
  * @returns {string} Formatted message
  */
-export function formatUsageMessage(usage) {
+export function formatUsageMessage(usage, diskSpace = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
   // Show current time
   message += `Current time: ${formatCurrentTime()}\n\n`;
+
+  // Disk space section (if provided)
+  if (diskSpace) {
+    message += 'Disk space\n';
+    // Show free percentage with progress bar (inverted - showing free space)
+    const freeBar = getProgressBar(diskSpace.freePercentage);
+    message += `${freeBar} ${diskSpace.freePercentage}% free\n`;
+    message += `${diskSpace.availableFormatted} free of ${diskSpace.totalFormatted}\n\n`;
+  }
 
   // Current session (five_hour)
   message += 'Current session\n';
@@ -383,6 +492,7 @@ export function formatUsageMessage(usage) {
 
 export default {
   getClaudeUsageLimits,
+  getDiskSpaceInfo,
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,

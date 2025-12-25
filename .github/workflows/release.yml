@@ -876,6 +876,15 @@ jobs:
             exit 1
           fi
 
+          # Check for unbound variable errors (issue #989)
+          # These indicate shell scripts using $1 or other variables without protection under set -u
+          if grep -E 'unbound variable' build-output.log; then
+            echo "ERROR: Unbound variable error detected in Docker build"
+            echo "This typically indicates a shell script issue with set -u compatibility"
+            grep -E 'unbound variable' build-output.log || true
+            exit 1
+          fi
+
           # Verify successful installations - alphabetical order
           echo ""
           echo "Verifying successful installations..."

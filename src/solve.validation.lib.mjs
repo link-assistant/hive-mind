@@ -273,8 +273,15 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
 };
 
 // Parse URL components
+// Note: This function is a simpler alternative to parseGitHubUrl for cases where
+// you only need owner, repo, and urlNumber without full validation.
+// For full validation, use validateGitHubUrl() which internally uses parseGitHubUrl().
 export const parseUrlComponents = issueUrl => {
-  const urlParts = issueUrl.split('/');
+  // Remove hash fragment before parsing (e.g., #issuecomment-123, #discussion_r456)
+  // This fixes the bug where URLs like /pull/9#issuecomment-123 would incorrectly
+  // return urlNumber as "9#issuecomment-123" instead of "9"
+  const urlWithoutHash = issueUrl.split('#')[0];
+  const urlParts = urlWithoutHash.split('/');
   return {
     owner: urlParts[3],
     repo: urlParts[4],

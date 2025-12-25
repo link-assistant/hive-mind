@@ -1083,6 +1083,15 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
   # Load Perlbrew for current session
   export PERLBREW_ROOT="$HOME/perl5/perlbrew"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Patch all unprotected positional parameters and variables that cause unbound variable errors
+    # See: https://github.com/gugod/App-perlbrew/pull/850
+    log_info "Patching perlbrew bashrc for set -u compatibility..."
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    # Also fix $outsep in __perlbrew_purify function
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
     # Temporarily disable unset variable check to avoid perlbrew bashrc errors
     set +u
     source "$PERLBREW_ROOT/etc/bashrc"
@@ -1137,6 +1146,12 @@ else
   # Load Perlbrew for current session if available
   export PERLBREW_ROOT="$HOME/perl5/perlbrew"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Apply patch even for existing installations to ensure consistency
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
     # Temporarily disable unset variable check to avoid perlbrew bashrc errors
     set +u
     source "$PERLBREW_ROOT/etc/bashrc"

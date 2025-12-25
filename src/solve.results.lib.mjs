@@ -31,6 +31,80 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
 
+/**
+ * Build the full solve.mjs resume command with all relevant options preserved
+ * This matches the command that would be used by --auto-continue-on-limit-reset
+ *
+ * @param {Object} options - Options for building the command
+ * @param {string} options.issueUrl - The issue/PR URL
+ * @param {string} options.sessionId - The session ID to resume
+ * @param {Object} options.argv - The parsed command line arguments
+ * @param {boolean} [options.shouldAttachLogs] - Whether --attach-logs was used
+ * @returns {string} - The full resume command
+ */
+export const buildResumeCommand = ({ issueUrl, sessionId, argv, shouldAttachLogs = false }) => {
+  const resumeArgs = ['solve.mjs', `"${issueUrl}"`, '--resume', sessionId];
+
+  // Preserve auto-continue flag
+  if (argv.autoContinueOnLimitReset) {
+    resumeArgs.push('--auto-continue-on-limit-reset');
+  }
+
+  // Preserve other flags from original invocation
+  // Model: only add if not default for the tool
+  const defaultModel = argv.tool === 'opencode' ? 'grok-code-fast-1' : argv.tool === 'codex' ? 'gpt-5' : argv.tool === 'agent' ? 'grok-code' : 'sonnet';
+  if (argv.model && argv.model !== defaultModel) {
+    resumeArgs.push('--model', argv.model);
+  }
+
+  // Verbose mode
+  if (argv.verbose) {
+    resumeArgs.push('--verbose');
+  }
+
+  // Fork mode
+  if (argv.fork) {
+    resumeArgs.push('--fork');
+  }
+
+  // Attach logs
+  if (shouldAttachLogs || argv.attachLogs || argv['attach-logs']) {
+    resumeArgs.push('--attach-logs');
+  }
+
+  // Tool: only add if not default (claude)
+  if (argv.tool && argv.tool !== 'claude') {
+    resumeArgs.push('--tool', argv.tool);
+  }
+
+  // Auto-cleanup: only add if explicitly set to false
+  if (argv.autoCleanup === false) {
+    resumeArgs.push('--no-auto-cleanup');
+  }
+
+  // Watch mode
+  if (argv.watch) {
+    resumeArgs.push('--watch');
+  }
+
+  // Think level
+  if (argv.think) {
+    resumeArgs.push('--think', argv.think);
+  }
+
+  // Auto-resume on errors
+  if (argv.autoResumeOnErrors) {
+    resumeArgs.push('--auto-resume-on-errors');
+  }
+
+  // Auto-commit uncommitted changes
+  if (argv.autoCommitUncommittedChanges) {
+    resumeArgs.push('--auto-commit-uncommitted-changes');
+  }
+
+  return resumeArgs.join(' ');
+};
+
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
 // Import Sentry integration
@@ -350,6 +424,9 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
       await log('');
     }
 
+    // Build the full resume command with all options preserved
+    const fullResumeCommand = buildResumeCommand({ issueUrl, sessionId, argv, shouldAttachLogs });
+
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
 
@@ -358,11 +435,11 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
         await log('\n🔄 To resume via solve.mjs when limit resets, use:\n');
-        await log(`   ./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+        await log(`   ./${fullResumeCommand}`);
 
         if (global.limitResetTime) {
           await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
-          await log(`   ./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
+          await log(`   ./${fullResumeCommand} --auto-continue-on-limit-reset`);
         }
 
         await log('\n   This will continue from where it left off with full context.\n');
@@ -373,6 +450,13 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
         }
       }
     } else {
+      // Show the full resume command for successful sessions too
+      await log('');
+      await log('🔄 To resume this session via solve.mjs, use:');
+      await log('');
+      await log(`   ./${fullResumeCommand}`);
+      await log('');
+
       // Show note about auto-cleanup only when enabled
       if (argv.autoCleanup !== false) {
         await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');

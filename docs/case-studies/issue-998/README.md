@@ -3,7 +3,7 @@
 **Date**: 2025-12-25
 **Issue**: [#998](https://github.com/link-assistant/hive-mind/issues/998)
 **Pull Request**: [#999](https://github.com/link-assistant/hive-mind/pull/999)
-**Status**: In Progress - Adding Homebrew verbose diagnostics and pre-fetch caching
+**Status**: In Progress - Diagnostic-first approach with verbose mode and caching
 
 ---
 
@@ -151,10 +151,14 @@ Before implementing larger architectural changes, we need to understand exactly 
 **Implementation** (added to `scripts/ubuntu-24-server-install.sh`):
 
 ```bash
-# Set HOMEBREW_VERBOSE for detailed output during fetch
-export HOMEBREW_VERBOSE=1
-export HOMEBREW_NO_ANALYTICS=1
-export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+# Configure Homebrew for optimal diagnostics and network resilience
+# Reference: https://docs.brew.sh/Manpage (Environment section)
+export HOMEBREW_VERBOSE=1              # Detailed output
+export HOMEBREW_DISPLAY_INSTALL_TIMES=1 # Timing for each step
+export HOMEBREW_CURL_VERBOSE=1          # Curl download debugging
+export HOMEBREW_NO_ANALYTICS=1          # Reduce network overhead
+export HOMEBREW_NO_AUTO_UPDATE=1        # Skip update checks
+export HOMEBREW_CURL_RETRIES=5          # Increase retry count
 
 # Fetch bottles first - this downloads to cache without installing
 log_info "Fetching PHP 8.3 and all dependencies..."
@@ -172,14 +176,14 @@ brew install --verbose shivammathur/php/php@8.3
 
 ---
 
-### Solution 1: Add Build Timeout with Retry (Short-term) ✅ Implemented
+### Solution 1: Add Build Timeout (Short-term) ✅ Implemented
 
-Add a reasonable timeout to the arm64 build and implement retry logic.
+Add a reasonable timeout to prevent indefinite hangs.
 
 **Pros**:
 
 - Prevents indefinite hangs
-- Allows automatic retry on transient issues
+- Provides a clear failure point if builds are too slow
 
 **Cons**:
 
@@ -190,7 +194,7 @@ Add a reasonable timeout to the arm64 build and implement retry logic.
 
 ```yaml
 docker-publish:
-  timeout-minutes: 90 # 1.5 hours max
+  timeout-minutes: 60 # 1 hour max for diagnostic builds
   # ... existing config
 ```
 
@@ -238,7 +242,7 @@ PHP is installed via Homebrew and is the heaviest component causing the slowdown
 # Lines 929-1060
 ```
 
-### Solution 4: Use ubuntu-22.04-arm Instead
+### Solution 4: Use ubuntu-22.04-arm Instead (Not Recommended Yet)
 
 Some users report better performance on Ubuntu 22.04 ARM runners.
 
@@ -251,16 +255,9 @@ Some users report better performance on Ubuntu 22.04 ARM runners.
 
 - Older Ubuntu version
 - May have different tool compatibility
-- Temporary workaround
+- Jumping to conclusions without evidence
 
-**Implementation**:
-
-```yaml
-matrix:
-  include:
-    - platform: linux/arm64
-      runner: ubuntu-22.04-arm # Changed from ubuntu-24.04-arm
-```
+**Status**: Not implemented. We should first gather diagnostic data from `ubuntu-24.04-arm` to understand the actual bottleneck before switching runners.
 
 ### Solution 5: Parallel Base Tool Installation with Caching
 
@@ -280,20 +277,28 @@ Optimize the installation script to use parallel downloads and better caching.
 
 ## Recommendation
 
-**Current Approach**: First gather diagnostics with **Solution 0** (Verbose Diagnostics), while keeping **Solution 1** (Build Timeout) as a safety net.
+**Current Approach**: Diagnostic-first methodology - gather evidence before making changes.
+
+**Key Principle**: Before jumping to conclusions about root causes, we need solid evidence from logs and diagnostics. The current approach focuses on understanding what exactly is happening during slow builds.
 
 **Immediate Action** (PR #999):
 
-1. ✅ Add timeout to arm64 build (Solution 1) to prevent indefinite hangs
-2. ✅ Switch to ubuntu-22.04-arm for potentially better performance
-3. 🆕 Add Homebrew verbose mode and pre-fetch caching for diagnostics
-4. Observe the next ARM64 build to understand the exact bottleneck
+1. ✅ Add 60-minute timeout to arm64 build (Solution 1) to prevent indefinite hangs
+2. ✅ Keep `ubuntu-24.04-arm` runner (no change until we have evidence)
+3. ✅ Add comprehensive Homebrew diagnostics:
+   - `HOMEBREW_VERBOSE=1` for detailed output
+   - `HOMEBREW_DISPLAY_INSTALL_TIMES=1` for timing
+   - `HOMEBREW_CURL_VERBOSE=1` for download debugging
+   - `HOMEBREW_CURL_RETRIES=5` for network resilience
+4. ✅ Add pre-fetch caching with `brew fetch --deps --retry`
+5. Observe the next ARM64 build logs to understand the exact bottleneck
 
 **Next Steps Based on Diagnostics**:
 
 - If downloads are slow from specific CDN/mirror → Consider Homebrew mirror configuration
 - If specific bottles are missing → Consider building from source or using alternative packages
 - If overall network is slow → Consider **Solution 2** (Pre-build Base Image)
+- If `ubuntu-24.04-arm` is the culprit → Then consider switching to `ubuntu-22.04-arm`
 
 **Long-term** (if diagnostics confirm persistent issues):
 
@@ -307,6 +312,7 @@ Optimize the installation script to use parallel downloads and better caching.
 2. Verbose mode and timing data will reveal the exact bottleneck
 3. Pre-fetch with retry can help with transient network issues
 4. If pre-fetch completes, the actual install should use cached bottles
+5. Avoid premature optimization based on assumptions
 
 ---
 
@@ -314,13 +320,18 @@ Optimize the installation script to use parallel downloads and better caching.
 
 1. ✅ **Completed**: Cancel stuck workflow run #20506901536
 2. ✅ **PR #999 - Phase 1**: Add build timeout and case study documentation
-3. 🔄 **PR #999 - Phase 2 (Current)**: Add Homebrew verbose diagnostics and pre-fetch caching
-   - Added `HOMEBREW_VERBOSE=1` environment variable
-   - Added `HOMEBREW_DISPLAY_INSTALL_TIMES=1` for timing information
+3. 🔄 **PR #999 - Phase 2 (Current)**: Diagnostic-first approach
+   - Keep `ubuntu-24.04-arm` runner (gathering evidence first)
+   - Set timeout to 60 minutes
+   - Added comprehensive Homebrew diagnostics:
+     - `HOMEBREW_VERBOSE=1` for detailed output
+     - `HOMEBREW_DISPLAY_INSTALL_TIMES=1` for timing
+     - `HOMEBREW_CURL_VERBOSE=1` for download debugging
+     - `HOMEBREW_CURL_RETRIES=5` for network resilience
    - Added `brew fetch --deps --retry` before installation
    - Added timing measurements for fetch and install steps
 4. **Pending**: Observe ARM64 build logs to understand the bottleneck
-5. **Future PR**: Implement base image solution (if diagnostics confirm need)
+5. **Future PR**: Implement targeted solution based on diagnostic findings
 
 ---
 

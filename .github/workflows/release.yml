@@ -1633,9 +1633,9 @@ jobs:
     # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
     # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
     if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
-    # Timeout after 90 minutes to prevent indefinite hangs on ARM builds
-    # ARM64 builds can take 60+ minutes due to slow Homebrew bottle downloads
-    timeout-minutes: 90
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -1643,9 +1643,9 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
-            # Using ubuntu-22.04-arm for better network performance
-            # ubuntu-24.04-arm has known slowness issues (actions/runner-images#11790)
-            runner: ubuntu-22.04-arm
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -1881,9 +1881,9 @@ jobs:
     needs: [instant-release]
     # Use always() to ensure the condition is evaluated properly
     if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
-    # Timeout after 90 minutes to prevent indefinite hangs on ARM builds
-    # ARM64 builds can take 60+ minutes due to slow Homebrew bottle downloads
-    timeout-minutes: 90
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -1891,9 +1891,9 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
-            # Using ubuntu-22.04-arm for better network performance
-            # ubuntu-24.04-arm has known slowness issues (actions/runner-images#11790)
-            runner: ubuntu-22.04-arm
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read

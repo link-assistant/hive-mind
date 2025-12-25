@@ -951,12 +951,31 @@ if command -v brew &>/dev/null; then
       log_note "This step downloads bottles to cache before installation"
       log_note "If downloads are slow, check: https://github.com/Homebrew/brew/issues/19208"
 
-      # Set HOMEBREW_VERBOSE for detailed output during fetch
-      # Set HOMEBREW_NO_ANALYTICS to reduce overhead
-      # Set HOMEBREW_DISPLAY_INSTALL_TIMES to show timing information
+      # Configure Homebrew for optimal diagnostics and network resilience
+      # Reference: https://docs.brew.sh/Manpage (Environment section)
+      #
+      # Diagnostics:
+      # - HOMEBREW_VERBOSE: Detailed output during operations
+      # - HOMEBREW_DISPLAY_INSTALL_TIMES: Show timing for each install step
+      # - HOMEBREW_CURL_VERBOSE: Verbose curl output for download debugging
+      #
+      # Performance & Resilience:
+      # - HOMEBREW_NO_ANALYTICS: Reduce network overhead
+      # - HOMEBREW_NO_AUTO_UPDATE: Prevent update checks during install
+      # - HOMEBREW_CURL_RETRIES: Number of curl retries (default 3)
       export HOMEBREW_VERBOSE=1
-      export HOMEBREW_NO_ANALYTICS=1
       export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+      export HOMEBREW_CURL_VERBOSE=1
+      export HOMEBREW_NO_ANALYTICS=1
+      export HOMEBREW_NO_AUTO_UPDATE=1
+      export HOMEBREW_CURL_RETRIES=5
+
+      log_info "Homebrew diagnostics enabled:"
+      log_note "  HOMEBREW_VERBOSE=1 (detailed output)"
+      log_note "  HOMEBREW_DISPLAY_INSTALL_TIMES=1 (timing info)"
+      log_note "  HOMEBREW_CURL_VERBOSE=1 (curl debugging)"
+      log_note "  HOMEBREW_CURL_RETRIES=5 (retry count)"
+      log_note "  HOMEBREW_NO_AUTO_UPDATE=1 (skip update checks)"
 
       # Fetch bottles first - this downloads to cache without installing
       # Using --retry to handle transient network issues (up to 5 retries with backoff)
@@ -983,8 +1002,12 @@ if command -v brew &>/dev/null; then
         log_warning "PHP 8.3 installation failed after ${INSTALL_DURATION} seconds."
       }
 
-      # Unset verbose mode after PHP installation
+      # Unset diagnostic environment variables after PHP installation
       unset HOMEBREW_VERBOSE
+      unset HOMEBREW_DISPLAY_INSTALL_TIMES
+      unset HOMEBREW_CURL_VERBOSE
+      unset HOMEBREW_NO_AUTO_UPDATE
+      unset HOMEBREW_CURL_RETRIES
 
       # Link PHP 8.3 as the active version if installation succeeded
       # Check for php@8.3 in brew list (formula name, not tap prefix)

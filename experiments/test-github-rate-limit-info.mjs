@@ -18,9 +18,9 @@ async function main() {
 
     // Test progress bar
     console.log('\n📊 Progress bar test:');
-    const bar = getProgressBar(result.githubRateLimit.remainingPercentage);
-    console.log(`${bar} ${result.githubRateLimit.remainingPercentage}% available`);
-    console.log(`${result.githubRateLimit.remaining}/${result.githubRateLimit.limit} requests remaining`);
+    const bar = getProgressBar(result.githubRateLimit.usedPercentage);
+    console.log(`${bar} ${result.githubRateLimit.usedPercentage}% used`);
+    console.log(`${result.githubRateLimit.used}/${result.githubRateLimit.limit} requests used`);
     if (result.githubRateLimit.relativeReset) {
       console.log(`Resets in ${result.githubRateLimit.relativeReset} (${result.githubRateLimit.resetTime})`);
     }

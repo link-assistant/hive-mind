@@ -475,19 +475,19 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Disk space section (if provided)
   if (diskSpace) {
     message += 'Disk space\n';
-    // Show free percentage with progress bar (inverted - showing free space)
-    const freeBar = getProgressBar(diskSpace.freePercentage);
-    message += `${freeBar} ${diskSpace.freePercentage}% free\n`;
-    message += `${diskSpace.availableFormatted} free of ${diskSpace.totalFormatted}\n\n`;
+    // Show used percentage with progress bar
+    const usedBar = getProgressBar(diskSpace.usedPercentage);
+    message += `${usedBar} ${diskSpace.usedPercentage}% used\n`;
+    message += `${diskSpace.usedFormatted} used of ${diskSpace.totalFormatted}\n\n`;
   }
 
   // GitHub API rate limits section (if provided)
   if (githubRateLimit) {
     message += 'GitHub API\n';
-    // Show remaining percentage with progress bar (showing available capacity)
-    const remainingBar = getProgressBar(githubRateLimit.remainingPercentage);
-    message += `${remainingBar} ${githubRateLimit.remainingPercentage}% available\n`;
-    message += `${githubRateLimit.remaining}/${githubRateLimit.limit} requests remaining\n`;
+    // Show used percentage with progress bar
+    const usedBar = getProgressBar(githubRateLimit.usedPercentage);
+    message += `${usedBar} ${githubRateLimit.usedPercentage}% used\n`;
+    message += `${githubRateLimit.used}/${githubRateLimit.limit} requests used\n`;
     if (githubRateLimit.relativeReset) {
       message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
     } else if (githubRateLimit.resetTime) {

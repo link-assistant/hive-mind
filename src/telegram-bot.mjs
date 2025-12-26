@@ -859,11 +859,8 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  // Format and edit the fetching message with the results
-  // Pass disk space and GitHub limits info if available (non-critical if they fail)
-  const diskSpace = diskSpaceResult.success ? diskSpaceResult.diskSpace : null;
-  const githubRateLimit = githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null;
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpace, githubRateLimit);
+  // Format and edit the fetching message with the results (pass disk space and GitHub limits if available)
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
     parse_mode: 'Markdown',
   });

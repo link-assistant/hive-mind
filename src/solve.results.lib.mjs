@@ -364,7 +364,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const tool = argv.tool || 'claude';
     if (tool === 'claude') {
       // Build the Claude CLI resume command using the command builder
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
 
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');

@@ -899,7 +899,7 @@ try {
         // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
         const toolForResume = argv.tool || 'claude';
         if (toolForResume === 'claude') {
-          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
+          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
           await log('💡 To continue this session in Claude Code interactive mode:');
           await log('');
           await log(`   ${claudeResumeCmd}`);
@@ -913,7 +913,7 @@ try {
         try {
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -945,7 +945,7 @@ try {
           const resetTime = global.limitResetTime;
           // Build Claude CLI resume command
           const tool = argv.tool || 'claude';
-          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
           const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
           const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
@@ -968,7 +968,7 @@ try {
           try {
             // Build Claude CLI resume command
             const tool = argv.tool || 'claude';
-            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -1015,7 +1015,7 @@ try {
 
             // Build Claude CLI resume command
             const tool = argv.tool || 'claude';
-            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
             const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
@@ -1035,7 +1035,7 @@ try {
     // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const toolForFailure = argv.tool || 'claude';
     if (sessionId && toolForFailure === 'claude') {
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId });
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
       await log('');
       await log('💡 To continue this session in Claude Code interactive mode:');
       await log('');
@@ -1049,7 +1049,7 @@ try {
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
-        const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId }) : null;
+        const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',

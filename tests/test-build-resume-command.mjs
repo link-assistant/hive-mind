@@ -127,6 +127,46 @@ runTest('buildClaudeResumeCommand: handles paths with spaces', () => {
   assertContains(cmd, '"/tmp/path with spaces/work-dir"', 'Should properly quote path with spaces');
 });
 
+runTest('buildClaudeResumeCommand: includes model when specified', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+    model: 'sonnet',
+  });
+
+  assertContains(cmd, '--model sonnet', 'Should include --model');
+});
+
+runTest('buildClaudeResumeCommand: does not include model when not specified', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+  });
+
+  assertNotContains(cmd, '--model', 'Should NOT include --model when not specified');
+});
+
+runTest('buildClaudeResumeCommand: uses custom claude path', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+    claudePath: '/usr/local/bin/claude',
+  });
+
+  assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
+});
+
+runTest('buildClaudeResumeCommand: includes both model and custom path', () => {
+  const cmd = buildClaudeResumeCommand({
+    tempDir: '/tmp/gh-issue-solver-1234567890',
+    sessionId: 'abc123',
+    claudePath: '/usr/local/bin/claude',
+    model: 'opus',
+  });
+
+  assertEqual(cmd, '(cd "/tmp/gh-issue-solver-1234567890" && /usr/local/bin/claude --resume abc123 --model opus)', 'Should include both custom path and model');
+});
+
 // === buildClaudeInitialCommand tests ===
 
 runTest('buildClaudeInitialCommand: generates command with (cd ... && claude ...) pattern', () => {

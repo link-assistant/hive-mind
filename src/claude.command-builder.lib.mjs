@@ -59,16 +59,28 @@ export const isClaudeTool = argv => {
  * to resume a Claude session in interactive mode. This is the same pattern
  * used by --auto-continue-on-limit-reset.
  *
+ * The command includes all necessary flags to match how the original session was run:
+ * - --resume <sessionId>: Resume from the specified session
+ * - --model <model>: Use the same model as the original session (optional)
+ *
  * Note: This function is specifically designed for Claude CLI (--tool claude)
  * and should only be used when the tool is 'claude' or undefined (defaults to claude).
  *
  * @param {Object} options - Options for building the command
  * @param {string} options.tempDir - The working directory (e.g., /tmp/gh-issue-solver-...)
  * @param {string} options.sessionId - The session ID to resume
+ * @param {string} options.claudePath - Path to the claude CLI binary (defaults to 'claude')
+ * @param {string} [options.model] - The model to use (e.g., 'sonnet', 'opus', 'claude-sonnet-4-20250514')
  * @returns {string} - The full resume command with (cd ... && claude --resume ...) pattern
  */
-export const buildClaudeResumeCommand = ({ tempDir, sessionId }) => {
-  return `(cd "${tempDir}" && claude --resume ${sessionId})`;
+export const buildClaudeResumeCommand = ({ tempDir, sessionId, claudePath = 'claude', model }) => {
+  let args = `--resume ${sessionId}`;
+
+  if (model) {
+    args += ` --model ${model}`;
+  }
+
+  return `(cd "${tempDir}" && ${claudePath} ${args})`;
 };
 
 /**

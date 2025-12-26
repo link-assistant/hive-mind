@@ -148,6 +148,83 @@ function formatBytes(bytes) {
 }
 
 /**
+ * Get GitHub API rate limits by calling gh api rate_limit
+ * Returns rate limit info for core, search, graphql, and other resources
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either rate limit data or error message
+ */
+export async function getGitHubRateLimits(verbose = false) {
+  try {
+    const { stdout } = await execAsync('gh api rate_limit 2>/dev/null');
+    const data = JSON.parse(stdout);
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits GitHub rate limit response:', JSON.stringify(data, null, 2));
+    }
+
+    // Extract the core rate limit (most important for general API usage)
+    const core = data.resources?.core;
+    if (!core) {
+      return {
+        success: false,
+        error: 'Could not parse GitHub rate limit response',
+      };
+    }
+
+    // Calculate remaining percentage
+    const usedPercentage = core.limit > 0 ? Math.round((core.used / core.limit) * 100) : 0;
+    const remainingPercentage = 100 - usedPercentage;
+
+    // Format reset time from Unix timestamp
+    const resetDate = new Date(core.reset * 1000);
+    const resetTimeFormatted = formatResetTime(resetDate.toISOString());
+
+    // Calculate relative time until reset
+    const now = new Date();
+    const diffMs = resetDate - now;
+    let relativeReset = null;
+    if (diffMs > 0) {
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours > 0) {
+        relativeReset = `${hours}h ${minutes}m`;
+      } else {
+        relativeReset = `${minutes}m`;
+      }
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits GitHub API: ${core.remaining}/${core.limit} remaining (${remainingPercentage}% available)`);
+    }
+
+    return {
+      success: true,
+      githubRateLimit: {
+        limit: core.limit,
+        used: core.used,
+        remaining: core.remaining,
+        usedPercentage,
+        remainingPercentage,
+        resetTimestamp: core.reset,
+        resetTime: resetTimeFormatted,
+        relativeReset,
+        resetsAt: resetDate.toISOString(),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits GitHub rate limit error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get GitHub rate limits: ${error.message}`,
+    };
+  }
+}
+
+/**
  * Get disk space information for the current filesystem
  * Returns total, used, available space and usage percentage
  *
@@ -385,9 +462,10 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * Format Claude usage data into a Telegram-friendly message
  * @param {Object} usage - The usage object from getClaudeUsageLimits
  * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
+ * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
  * @returns {string} Formatted message
  */
-export function formatUsageMessage(usage, diskSpace = null) {
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
@@ -401,6 +479,21 @@ export function formatUsageMessage(usage, diskSpace = null) {
     const freeBar = getProgressBar(diskSpace.freePercentage);
     message += `${freeBar} ${diskSpace.freePercentage}% free\n`;
     message += `${diskSpace.availableFormatted} free of ${diskSpace.totalFormatted}\n\n`;
+  }
+
+  // GitHub API rate limits section (if provided)
+  if (githubRateLimit) {
+    message += 'GitHub API\n';
+    // Show remaining percentage with progress bar (showing available capacity)
+    const remainingBar = getProgressBar(githubRateLimit.remainingPercentage);
+    message += `${remainingBar} ${githubRateLimit.remainingPercentage}% available\n`;
+    message += `${githubRateLimit.remaining}/${githubRateLimit.limit} requests remaining\n`;
+    if (githubRateLimit.relativeReset) {
+      message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
+    } else if (githubRateLimit.resetTime) {
+      message += `Resets ${githubRateLimit.resetTime}\n`;
+    }
+    message += '\n';
   }
 
   // Current session (five_hour)
@@ -493,6 +586,7 @@ export function formatUsageMessage(usage, diskSpace = null) {
 export default {
   getClaudeUsageLimits,
   getDiskSpaceInfo,
+  getGitHubRateLimits,
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,

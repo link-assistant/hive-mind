@@ -45,7 +45,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
 // Import Claude limits library for /limits command
-const { getClaudeUsageLimits, getDiskSpaceInfo, formatUsageMessage } = await import('./claude-limits.lib.mjs');
+const { getClaudeUsageLimits, getDiskSpaceInfo, getGitHubRateLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
 // Import version info library for /version command
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -848,8 +848,8 @@ bot.command('limits', async ctx => {
     reply_to_message_id: ctx.message.message_id,
   });
 
-  // Get the usage limits and disk space info in parallel
-  const [result, diskSpaceResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getDiskSpaceInfo(VERBOSE)]);
+  // Get the usage limits, disk space info, and GitHub rate limits in parallel
+  const [result, diskSpaceResult, githubLimitsResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getDiskSpaceInfo(VERBOSE), getGitHubRateLimits(VERBOSE)]);
 
   if (!result.success) {
     // Edit the fetching message to show the error
@@ -860,9 +860,10 @@ bot.command('limits', async ctx => {
   }
 
   // Format and edit the fetching message with the results
-  // Pass disk space info if available (non-critical if it fails)
+  // Pass disk space and GitHub limits info if available (non-critical if they fail)
   const diskSpace = diskSpaceResult.success ? diskSpaceResult.diskSpace : null;
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpace);
+  const githubRateLimit = githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null;
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpace, githubRateLimit);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
     parse_mode: 'Markdown',
   });

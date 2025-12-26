@@ -1621,12 +1621,21 @@ jobs:
   # Multi-platform Docker builds using native runners (no QEMU emulation)
   # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
   # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
   docker-publish:
     name: Docker Publish (${{ matrix.platform }})
     needs: [release]
     # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
     # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
     if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -1634,6 +1643,8 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -1859,11 +1870,20 @@ jobs:
   # Multi-platform Docker builds using native runners (no QEMU emulation)
   # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
   # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
   docker-publish-instant:
     name: Docker Publish Instant (${{ matrix.platform }})
     needs: [instant-release]
     # Use always() to ensure the condition is evaluated properly
     if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -1871,6 +1891,8 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:

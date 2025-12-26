@@ -944,10 +944,70 @@ if command -v brew &>/dev/null; then
 
     # Install PHP 8.3 if tap was successfully added
     if brew tap | grep -q "shivammathur/php"; then
+      # Pre-fetch PHP bottle and dependencies to cache them
+      # This helps diagnose download issues and can improve future installs
+      # Reference: https://docs.brew.sh/Manpage#fetch-options-formulacask-
+      log_info "Pre-fetching PHP 8.3 bottles (verbose mode for diagnostics)..."
+      log_note "This step downloads bottles to cache before installation"
+      log_note "If downloads are slow, check: https://github.com/Homebrew/brew/issues/19208"
+
+      # Configure Homebrew for optimal diagnostics and network resilience
+      # Reference: https://docs.brew.sh/Manpage (Environment section)
+      #
+      # Diagnostics:
+      # - HOMEBREW_VERBOSE: Detailed output during operations
+      # - HOMEBREW_DISPLAY_INSTALL_TIMES: Show timing for each install step
+      # - HOMEBREW_CURL_VERBOSE: Verbose curl output for download debugging
+      #
+      # Performance & Resilience:
+      # - HOMEBREW_NO_ANALYTICS: Reduce network overhead
+      # - HOMEBREW_NO_AUTO_UPDATE: Prevent update checks during install
+      # - HOMEBREW_CURL_RETRIES: Number of curl retries (default 3)
+      export HOMEBREW_VERBOSE=1
+      export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+      export HOMEBREW_CURL_VERBOSE=1
+      export HOMEBREW_NO_ANALYTICS=1
+      export HOMEBREW_NO_AUTO_UPDATE=1
+      export HOMEBREW_CURL_RETRIES=5
+
+      log_info "Homebrew diagnostics enabled:"
+      log_note "  HOMEBREW_VERBOSE=1 (detailed output)"
+      log_note "  HOMEBREW_DISPLAY_INSTALL_TIMES=1 (timing info)"
+      log_note "  HOMEBREW_CURL_VERBOSE=1 (curl debugging)"
+      log_note "  HOMEBREW_CURL_RETRIES=5 (retry count)"
+      log_note "  HOMEBREW_NO_AUTO_UPDATE=1 (skip update checks)"
+
+      # Fetch bottles first - this downloads to cache without installing
+      # Using --retry to handle transient network issues (up to 5 retries with backoff)
+      # Using --deps to also fetch all dependencies
+      log_info "Fetching PHP 8.3 and all dependencies..."
+      FETCH_START=$(date +%s)
+      if brew fetch --deps --retry shivammathur/php/php@8.3 2>&1; then
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_success "Bottles fetched successfully in ${FETCH_DURATION} seconds"
+        log_note "Bottles are now cached at: $(brew --cache)"
+      else
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_warning "Bottle fetch failed or timed out after ${FETCH_DURATION} seconds"
+        log_note "Will attempt installation anyway (may use source compile as fallback)"
+      fi
+
       log_info "Installing PHP 8.3 (this may take several minutes)..."
-      brew install shivammathur/php/php@8.3 || {
-        log_warning "PHP 8.3 installation failed."
+      INSTALL_START=$(date +%s)
+      brew install --verbose shivammathur/php/php@8.3 || {
+        INSTALL_END=$(date +%s)
+        INSTALL_DURATION=$((INSTALL_END - INSTALL_START))
+        log_warning "PHP 8.3 installation failed after ${INSTALL_DURATION} seconds."
       }
+
+      # Unset diagnostic environment variables after PHP installation
+      unset HOMEBREW_VERBOSE
+      unset HOMEBREW_DISPLAY_INSTALL_TIMES
+      unset HOMEBREW_CURL_VERBOSE
+      unset HOMEBREW_NO_AUTO_UPDATE
+      unset HOMEBREW_CURL_RETRIES
 
       # Link PHP 8.3 as the active version if installation succeeded
       # Check for php@8.3 in brew list (formula name, not tap prefix)

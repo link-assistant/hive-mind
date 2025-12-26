@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 0.51.7
+
+### Patch Changes
+
+- b7c7a2c: feat: add GitHub API rate limits to /limits command
+
+  Adds GitHub API core rate limit information to the Telegram bot's /limits command output, allowing users to monitor GitHub API usage alongside Claude usage limits and disk space. This helps plan issue execution when GitHub API limits are approaching.
+
 ## 0.51.6
 
 ### Patch Changes

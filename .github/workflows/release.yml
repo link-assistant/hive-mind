@@ -129,6 +129,11 @@ jobs:
         run: npm install
 
       - name: Check for changesets
+        env:
+          # Pass PR context to the validation script
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Skip changeset check for automated version PRs
           if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
@@ -137,6 +142,8 @@ jobs:
           fi
 
           # Run changeset validation script
+          # This validates that exactly ONE changeset was ADDED by this PR
+          # Pre-existing changesets from other merged PRs are ignored
           node scripts/validate-changeset.mjs
 
   # === FAST CHECKS (FAIL FAST) ===
@@ -683,24 +690,11 @@ jobs:
       IMAGE_NAME: konard/hive-mind
 
     steps:
-      - name: Free up disk space
-        run: |
-          echo "Disk space before cleanup:"
-          df -h /
-          echo ""
-          echo "Removing unnecessary packages to free disk space..."
-          # Remove large pre-installed packages that we don't need
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          echo ""
-          echo "Disk space after cleanup:"
-          df -h /
-
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -882,6 +876,15 @@ jobs:
             exit 1
           fi
 
+          # Check for unbound variable errors (issue #989)
+          # These indicate shell scripts using $1 or other variables without protection under set -u
+          if grep -E 'unbound variable' build-output.log; then
+            echo "ERROR: Unbound variable error detected in Docker build"
+            echo "This typically indicates a shell script issue with set -u compatibility"
+            grep -E 'unbound variable' build-output.log || true
+            exit 1
+          fi
+
           # Verify successful installations - alphabetical order
           echo ""
           echo "Verifying successful installations..."
@@ -1054,13 +1057,19 @@ jobs:
             echo "WARNING: Pyenv success message not found in logs"
           fi
 
-          if grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
+          if grep -E '\[✓\] Rocq verified:|\[✓\] Coq verified' build-output.log; then
             echo "Rocq/Coq installation verified in build logs"
+          elif grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
+            echo "Rocq/Coq installation verified in build logs (legacy format)"
+          elif grep -E '\[!\] Rocq package installed but binaries not in PATH' build-output.log; then
+            echo "WARNING: Rocq package installed but binaries not accessible - will verify in container step"
+            echo "This may indicate the opam environment wasn't properly sourced during installation"
           elif grep -E '\[!\] Rocq:.*not in current PATH' build-output.log; then
             echo "WARNING: Rocq installed but not in PATH during build (will be verified in container step)"
           else
             echo "ERROR: Rocq/Coq installation failed in build logs"
-            grep -i "rocq\|coq\|opam" build-output.log | tail -20 || true
+            echo "Showing relevant log lines:"
+            grep -i "rocq\|coq\|opam" build-output.log | tail -30 || true
             exit 1
           fi
 
@@ -1395,37 +1404,49 @@ jobs:
             echo ''
             echo 'Checking Rocq/Coq...'
             # Source opam environment for Rocq/Coq access
+            # Reference: https://rocq-prover.org/docs/using-opam
             if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
               source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
             fi
+            # Also try eval opam env for full environment setup
+            eval \"\$(opam env --switch=default 2>/dev/null)\" || true
+
             # Verify Rocq installation
             # Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)
-            # Reference: https://rocq-prover.org/docs/using-opam
-            # Note: Rocq requires proper opam environment initialization which may not persist
-            # in Docker containers. This is documented in issue #952.
+            ROCQ_VERIFIED=false
             if rocq -v &>/dev/null; then
               rocq -v | head -n1
               echo 'Rocq is accessible (verified with rocq -v)'
-            elif command -v rocqc &>/dev/null; then
+              ROCQ_VERIFIED=true
+            elif command -v rocqc &>/dev/null && rocqc --version &>/dev/null; then
               rocqc --version | head -n1
               echo 'Rocq is accessible (verified with rocqc)'
-            elif command -v coqc &>/dev/null; then
+              ROCQ_VERIFIED=true
+            elif command -v coqc &>/dev/null && coqc --version &>/dev/null; then
               coqc --version | head -n1
               echo 'Coq is accessible (legacy compiler)'
-            else
-              echo 'Rocq/Coq verification: checking opam installation...'
+              ROCQ_VERIFIED=true
+            fi
+
+            if [ \"\$ROCQ_VERIFIED\" = false ]; then
+              echo 'Rocq/Coq verification failed: checking opam installation...'
               # Show diagnostic information
               if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
                 echo 'rocq-prover package is installed in opam'
                 echo 'Opam bin directory contents:'
                 ls -la \"\$HOME/.opam/default/bin/\" 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq binaries found in opam bin'
-                echo 'Trying: eval \$(opam env) && rocq -v'
-                eval \"\$(opam env)\" && rocq -v || echo 'Still not accessible after eval opam env'
+                echo 'Installed opam packages:'
+                opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq packages found'
               else
                 echo 'rocq-prover package NOT installed in opam'
+                echo 'Available opam packages:'
+                opam list 2>/dev/null | head -20 || echo 'Could not list opam packages'
               fi
-              echo 'WARNING: Rocq/Coq not accessible in container'
-              echo 'Users should run: eval \$(opam env) before using Rocq commands'
+              echo ''
+              echo 'ERROR: Rocq/Coq not accessible in container'
+              echo 'This indicates the Rocq installation failed or binaries were not properly installed'
+              echo 'See issue #952 for more details: https://github.com/link-assistant/hive-mind/issues/952'
+              exit 1
             fi
 
             echo ''
@@ -1546,6 +1567,13 @@ jobs:
           CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
           echo "Found $CHANGESET_COUNT changeset file(s)"
           echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "changeset_count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Merge multiple changesets
+        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+        run: |
+          echo "Multiple changesets detected, merging..."
+          node scripts/merge-changesets.mjs
 
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
@@ -1555,8 +1583,18 @@ jobs:
       - name: Publish to npm
         # Run if version was committed OR if a previous attempt already committed (for re-runs)
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
+        id: publish_npm
         run: node scripts/publish-to-npm.mjs --should-pull
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        # It runs after npm publish and reads the script's outputs to pass them along
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
@@ -1580,11 +1618,35 @@ jobs:
           node scripts/upload-sourcemaps.mjs
 
   # === DOCKER PUBLISH ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
   docker-publish:
-    name: Docker Publish
+    name: Docker Publish (${{ matrix.platform }})
     needs: [release]
-    if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
+    # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
+    # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -1593,38 +1655,85 @@ jobs:
       REGISTRY: docker.io
       IMAGE_NAME: konard/hive-mind
 
+    outputs:
+      digest-amd64: ${{ steps.build.outputs.digest }}
+      digest-arm64: ${{ steps.build.outputs.digest }}
+
     steps:
-      - name: Wait for NPM package availability
-        run: |
-          VERSION="${{ needs.release.outputs.published_version }}"
-          PACKAGE_NAME="@link-assistant/hive-mind"
-          MAX_ATTEMPTS=30
-          SLEEP_TIME=10
-
-          echo "Waiting for NPM package ${PACKAGE_NAME}@${VERSION} to become available..."
-
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            echo "Attempt $i/$MAX_ATTEMPTS: Checking NPM registry..."
-
-            if npm view "${PACKAGE_NAME}@${VERSION}" version 2>/dev/null; then
-              echo "Package ${PACKAGE_NAME}@${VERSION} is now available on NPM!"
-              exit 0
-            fi
-
-            if [ $i -lt $MAX_ATTEMPTS ]; then
-              echo "Package not yet available, waiting ${SLEEP_TIME} seconds..."
-              sleep $SLEEP_TIME
-            fi
-          done
-
-          echo "Package ${PACKAGE_NAME}@${VERSION} did not become available after $((MAX_ATTEMPTS * SLEEP_TIME)) seconds"
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete
+  docker-publish-merge:
+    name: Docker Publish (Merge)
+    needs: [release, docker-publish]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -1644,17 +1753,20 @@ jobs:
             type=raw,value=${{ needs.release.outputs.published_version }}
             type=raw,value=latest
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
 
       - name: Verify published image
         run: |
@@ -1665,8 +1777,9 @@ jobs:
   # === HELM CHART RELEASE ===
   helm-release:
     name: Helm Release
-    needs: [release, docker-publish]
-    if: needs.release.outputs.published == 'true'
+    needs: [release, docker-publish-merge]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1680,64 +1793,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure Git
-        run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
-      - name: Update Chart versions
-        id: chart-version
-        run: |
-          VERSION="${{ needs.release.outputs.published_version }}"
-          sed -i "s/^appVersion: .*/appVersion: \"$VERSION\"/" helm/hive-mind/Chart.yaml
-          sed -i "s/^version: .*/version: $VERSION/" helm/hive-mind/Chart.yaml
-          echo "Updated Chart.yaml to version $VERSION"
-          cat helm/hive-mind/Chart.yaml
-
-      - name: Lint Helm chart
-        run: helm lint helm/hive-mind
-
-      - name: Package Helm chart
-        run: |
-          mkdir -p .helm-packages
-          helm package helm/hive-mind -d .helm-packages
-          ls -la .helm-packages/
-
-      - name: Ensure gh-pages branch exists
-        run: |
-          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
-            echo "Creating gh-pages branch..."
-            git checkout --orphan gh-pages
-            git reset --hard
-            git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"
-            git push origin gh-pages
-            git checkout -
-          fi
-
-      - name: Checkout gh-pages branch
-        run: |
-          git fetch origin gh-pages:gh-pages
-          git checkout gh-pages
-
-      - name: Update Helm repository index
-        run: |
-          cp .helm-packages/*.tgz .
-          helm repo index . --url https://link-assistant.github.io/hive-mind
-          cat index.yaml
-
-      - name: Commit and push to gh-pages
-        run: |
-          git add -f *.tgz index.yaml
-          git commit -m "Release Helm chart version ${{ needs.release.outputs.published_version }}" || echo "No changes to commit"
-          git push origin gh-pages
-
-      - name: Switch back to main branch
-        run: git checkout -
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
       - name: Upload chart to release
         uses: softprops/action-gh-release@v2
@@ -1780,8 +1842,17 @@ jobs:
 
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
+        id: publish_npm
         run: node scripts/publish-to-npm.mjs
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
@@ -1794,6 +1865,191 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+  # === DOCKER PUBLISH FOR INSTANT RELEASE ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
+  docker-publish-instant:
+    name: Docker Publish Instant (${{ matrix.platform }})
+    needs: [instant-release]
+    # Use always() to ensure the condition is evaluated properly
+    if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete (instant release)
+  docker-publish-instant-merge:
+    name: Docker Publish Instant (Merge)
+    needs: [instant-release, docker-publish-instant]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-instant-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.instant-release.outputs.published_version }}
+            type=raw,value=latest
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
+  # === HELM CHART RELEASE FOR INSTANT RELEASE ===
+  helm-release-instant:
+    name: Helm Release (Instant)
+    needs: [instant-release, docker-publish-instant-merge]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.instant-release.outputs.published_version }}
+          files: .helm-packages/*.tgz
 
   # === MANUAL CHANGESET PR ===
   changeset-pr:

@@ -15,6 +15,7 @@ Automatically generated CLAUDE.md files and prompt strings lack trailing newline
 **File:** `src/solve.auto-pr.lib.mjs`
 
 **Before (Lines 103-113):**
+
 ```javascript
 const taskInfo = `Issue to solve: ${issueUrl}
 Your prepared branch: ${branchName}
@@ -30,6 +31,7 @@ Proceed.`;
 ```
 
 **After:**
+
 ```javascript
 const taskInfo = `Issue to solve: ${issueUrl}
 Your prepared branch: ${branchName}
@@ -42,16 +44,18 @@ Original repository (upstream): ${owner}/${repo}`
 }
 
 Proceed.
-`;  // ← Added newline here
+`; // ← Added newline here
 ```
 
 **Pros:**
+
 - Minimal code change
 - Fixes the issue at the source
 - Consistent with POSIX standards
 - Matches the manual fixes from PRs #97 and #970
 
 **Cons:**
+
 - None identified
 
 ---
@@ -65,11 +69,13 @@ Proceed.
 **File:** `src/solve.auto-pr.lib.mjs`
 
 **Before (Line 144):**
+
 ```javascript
 await fs.writeFile(filePath, finalContent);
 ```
 
 **After:**
+
 ```javascript
 // Ensure POSIX compliance - text files must end with newline
 const contentWithNewline = finalContent.endsWith('\n') ? finalContent : finalContent + '\n';
@@ -77,11 +83,13 @@ await fs.writeFile(filePath, contentWithNewline);
 ```
 
 **Pros:**
+
 - Defensive programming - ensures newline regardless of content source
 - Single location handles all cases (new files and appended content)
 - Prevents future issues if content sources change
 
 **Cons:**
+
 - Adds runtime check
 - Doesn't fix the root cause in template literals
 - May be redundant if templates are fixed
@@ -95,6 +103,7 @@ await fs.writeFile(filePath, contentWithNewline);
 **Changes Required:**
 
 **Files to Update:**
+
 1. `src/agent.prompts.lib.mjs`
 2. `src/claude.prompts.lib.mjs`
 3. `src/codex.prompts.lib.mjs`
@@ -103,23 +112,27 @@ await fs.writeFile(filePath, contentWithNewline);
 **Pattern (for all files):**
 
 **Before:**
+
 ```javascript
 promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 return promptLines.join('\n');
 ```
 
 **After:**
+
 ```javascript
 promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
-return promptLines.join('\n') + '\n';  // ← Add trailing newline
+return promptLines.join('\n') + '\n'; // ← Add trailing newline
 ```
 
 **Pros:**
+
 - Fixes prompt generation at the source
 - Ensures all prompts are POSIX-compliant
 - Simple one-line change per file
 
 **Cons:**
+
 - Requires changes in multiple files
 - Need to verify this doesn't break existing functionality
 
@@ -141,12 +154,14 @@ return promptLines.join('\n') + '\n';  // ← Add trailing newline
    - Add newline check before file writes as a safety net
 
 **Pros:**
+
 - Most robust solution
 - Fixes current issues and prevents future ones
 - Maintains POSIX compliance at multiple levels
 - Defensive programming approach
 
 **Cons:**
+
 - More code changes
 - Slightly more complex
 - May be considered over-engineering
@@ -158,12 +173,14 @@ return promptLines.join('\n') + '\n';  // ← Add trailing newline
 ### Primary Recommendation: Solution 1 + Solution 3
 
 **Rationale:**
+
 1. **Solution 1** fixes the immediate CLAUDE.md generation issue
 2. **Solution 3** ensures all prompt strings are POSIX-compliant
 3. Together they address the root causes without adding defensive overhead
 4. Follows the "fix at source" principle
 
 **Implementation Order:**
+
 1. Fix `src/solve.auto-pr.lib.mjs` template literal (Solution 1)
 2. Fix all four prompt builder files (Solution 3)
 3. Test with local linters
@@ -172,6 +189,7 @@ return promptLines.join('\n') + '\n';  // ← Add trailing newline
 ### Optional Enhancement: Solution 2
 
 Add Solution 2 as a defensive measure if:
+
 - The team wants extra safety
 - There are other file generation paths not yet identified
 - Future-proofing is a priority
@@ -183,14 +201,17 @@ Add Solution 2 as a defensive measure if:
 ### Manual Testing
 
 1. **Generate a CLAUDE.md file:**
+
    ```bash
    node solve.mjs "https://github.com/link-assistant/hive-mind/issues/971"
    ```
 
 2. **Check for trailing newline:**
+
    ```bash
    od -c CLAUDE.md | tail -n 2
    ```
+
    Should show `\n` at the end.
 
 3. **Verify with file command:**
@@ -253,7 +274,7 @@ Proceed.
 // src/opencode.prompts.lib.mjs:68
 
 // Build the final prompt
-return promptLines.join('\n') + '\n';  // Add trailing newline for POSIX compliance
+return promptLines.join('\n') + '\n'; // Add trailing newline for POSIX compliance
 ```
 
 ---
@@ -261,15 +282,18 @@ return promptLines.join('\n') + '\n';  // Add trailing newline for POSIX complia
 ## Risk Assessment
 
 ### Low Risk Changes
+
 - ✅ Adding trailing newline to template literals
 - ✅ Appending `\n` to joined prompt strings
 
 ### Potential Concerns
+
 - ⚠️ Check if any code expects prompts without trailing newlines
 - ⚠️ Verify file append logic handles newlines correctly (line 122)
 - ⚠️ Ensure existing CLAUDE.md files aren't broken by changes
 
 ### Mitigation
+
 - Test with existing branches
 - Review file append logic (lines 117-125)
 - Run full test suite
@@ -291,6 +315,7 @@ return promptLines.join('\n') + '\n';  // Add trailing newline for POSIX complia
 ## Conclusion
 
 The recommended approach is to implement **Solution 1 + Solution 3**:
+
 - Fix the template literal in `src/solve.auto-pr.lib.mjs`
 - Fix all prompt builder return statements in the four prompt files
 

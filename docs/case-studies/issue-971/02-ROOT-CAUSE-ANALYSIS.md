@@ -23,10 +23,11 @@ Original repository (upstream): ${owner}/${repo}`
     : ''
 }
 
-Proceed.`;  // ← Missing trailing \n here
+Proceed.`; // ← Missing trailing \n here
 ```
 
 When this content is written to the file at line 144:
+
 ```javascript
 await fs.writeFile(filePath, finalContent);
 ```
@@ -38,6 +39,7 @@ The resulting file ends without a newline, creating a file that violates POSIX t
 Both manual fixes show identical patterns:
 
 **Agent PR #97 (fb31234):**
+
 ```diff
 -Proceed.
 \ No newline at end of file
@@ -46,6 +48,7 @@ Both manual fixes show identical patterns:
 ```
 
 **Hive-Mind PR #970 (830d072):**
+
 ```diff
 -Proceed.
 \ No newline at end of file
@@ -60,11 +63,13 @@ The `\ No newline at end of file` indicator is Git's way of showing that the fil
 ### POSIX Standards Violation
 
 According to the POSIX standard:
+
 - A **line** is defined as "a sequence of zero or more non-newline characters plus a terminating newline character"
 - A **text file** is defined as "a file that contains characters organized into zero or more lines"
 - Therefore, by definition, every line in a text file (including the last one) must end with a newline
 
 When a file doesn't end with a newline:
+
 - It's technically not a complete "line" according to POSIX
 - The file is not strictly a "text file" by POSIX definition
 - Various Unix tools may behave unexpectedly
@@ -104,6 +109,7 @@ When a file doesn't end with a newline:
 ### Why The Bug Exists
 
 The code uses a template literal for readability:
+
 ```javascript
 const taskInfo = `Issue to solve: ${issueUrl}
 Your prepared branch: ${branchName}
@@ -113,6 +119,7 @@ Proceed.`;
 ```
 
 The developer naturally ended the template at the end of the word "Proceed." without realizing that POSIX requires a trailing newline. This is an easy mistake because:
+
 - Template literals preserve exact formatting
 - Humans read "Proceed." as the end of content
 - The newline requirement is a technical standard, not a visual one
@@ -123,50 +130,58 @@ The developer naturally ended the template at the end of the word "Proceed." wit
 The same pattern exists in prompt-building code:
 
 1. **src/agent.prompts.lib.mjs:65-68**
+
    ```javascript
    promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
-   return promptLines.join('\n');  // ← No final \n added
+   return promptLines.join('\n'); // ← No final \n added
    ```
 
 2. **src/claude.prompts.lib.mjs:71-74**
+
    ```javascript
    promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
-   return promptLines.join('\n');  // ← No final \n added
+   return promptLines.join('\n'); // ← No final \n added
    ```
 
 3. **src/codex.prompts.lib.mjs:65-68**
+
    ```javascript
    promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
-   return promptLines.join('\n');  // ← No final \n added
+   return promptLines.join('\n'); // ← No final \n added
    ```
 
 4. **src/opencode.prompts.lib.mjs:65-68**
    ```javascript
    promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
-   return promptLines.join('\n');  // ← No final \n added
+   return promptLines.join('\n'); // ← No final \n added
    ```
 
-**Note:** The prompt files (2-4 above) use `join('\n')` which creates newlines *between* elements but not *after* the last element. This is standard JavaScript array behavior but results in files without trailing newlines.
+**Note:** The prompt files (2-4 above) use `join('\n')` which creates newlines _between_ elements but not _after_ the last element. This is standard JavaScript array behavior but results in files without trailing newlines.
 
 ## Industry Standards and Best Practices
 
 ### POSIX Definition
+
 From the POSIX.1-2017 standard:
+
 - **3.206 Line:** A sequence of zero or more non-<newline> characters plus a terminating <newline> character.
 - **3.403 Text File:** A file that contains characters organized into zero or more lines. The lines do not contain NUL characters and none can exceed {LINE_MAX} bytes in length, including the <newline> character.
 
 ### Linter Rules
 
 **Python (PEP 8):**
+
 - Rule W292: "No newline at end of file"
 
 **EditorConfig:**
+
 ```ini
 [*]
 insert_final_newline = true
 ```
 
 **ESLint:**
+
 ```json
 {
   "rules": {
@@ -181,6 +196,7 @@ Automatically adds trailing newlines to all files.
 ### Why This Convention Exists
 
 Historical and practical reasons:
+
 1. **Unix Philosophy:** Files are streams of lines, each line terminates with newline
 2. **Shell Processing:** Many shell commands expect line-terminated input
 3. **Compiler Behavior:** C compilers may warn about unterminated source files

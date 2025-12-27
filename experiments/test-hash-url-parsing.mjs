@@ -76,6 +76,9 @@ for (const url of edgeCases) {
 }
 
 console.log('\n=== Conclusion ===');
-console.log('The fix is simple: strip hash fragment before parsing.');
-console.log('Option 1: url.split("#")[0] before split("/")');
-console.log('Option 2: Use URL object which handles fragments correctly');
+console.log('The fix uses Node.js URL API (https://nodejs.org/api/url.html) for stable parsing.');
+console.log('This approach:');
+console.log('  - Automatically handles hash fragments, query params, and edge cases');
+console.log('  - Is more robust than manual string splitting');
+console.log('  - Follows the same pattern used in parseGitHubUrl (github.lib.mjs)');
+console.log('  - Leverages well-tested browser/Node.js URL parsing standards');

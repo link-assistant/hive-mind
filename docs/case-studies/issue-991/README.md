@@ -108,23 +108,34 @@ const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = u
 // parseUrlComponents call removed - values already available
 ```
 
-### Fix 2: Update parseUrlComponents for Safety
+### Fix 2: Update parseUrlComponents to Use Node.js URL API
 
-The `parseUrlComponents` function was also fixed to handle hash fragments correctly for any future use:
+The `parseUrlComponents` function was refactored to use the Node.js URL API (https://nodejs.org/api/url.html) for stable parsing, following the same pattern used in `parseGitHubUrl`:
 
 ```javascript
-// FIXED CODE
+// FIXED CODE - Using Node.js URL API
 export const parseUrlComponents = issueUrl => {
-  // Remove hash fragment before parsing (e.g., #issuecomment-123, #discussion_r456)
-  const urlWithoutHash = issueUrl.split('#')[0];
-  const urlParts = urlWithoutHash.split('/');
+  // Use Node.js URL API for reliable parsing
+  // This automatically handles hash fragments, query params, and edge cases
+  const urlObj = new globalThis.URL(issueUrl);
+
+  // Extract path segments, filtering out empty strings from leading/trailing slashes
+  const pathParts = urlObj.pathname.split('/').filter(p => p);
+
   return {
-    owner: urlParts[3],
-    repo: urlParts[4],
-    urlNumber: urlParts[6],
+    owner: pathParts[0],
+    repo: pathParts[1],
+    urlNumber: pathParts[3], // Could be issue or PR number (pathParts[2] is 'issues' or 'pull')
   };
 };
 ```
+
+This approach:
+
+- Automatically handles hash fragments, query params, and edge cases
+- Is more robust than manual string splitting
+- Follows the same pattern used in `parseGitHubUrl` (github.lib.mjs)
+- Leverages well-tested browser/Node.js URL parsing standards
 
 ## Common GitHub URL Hash Fragments
 
@@ -166,19 +177,22 @@ All tests passed!
 
 2. **URL Specification Awareness**: Hash fragments in URLs are separated from the path and should always be stripped before path-based parsing.
 
-3. **Defense in Depth**: Even though `parseUrlComponents` is no longer called in the main flow, it was fixed anyway to prevent future bugs if it's used elsewhere.
+3. **Defense in Depth**: Even though `parseUrlComponents` is no longer called in the main flow, it was refactored anyway to prevent future bugs if it's used elsewhere.
+
+4. **Use Standard APIs**: The Node.js URL API (https://nodejs.org/api/url.html) provides robust, well-tested URL parsing that handles edge cases automatically. Prefer using standard APIs over manual string manipulation for URL parsing.
 
 ## Files Changed
 
 | File                                    | Change Description                                                                       |
 | --------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `src/solve.mjs`                         | Extract owner, repo, number from validateGitHubUrl instead of calling parseUrlComponents |
-| `src/solve.validation.lib.mjs`          | Fix parseUrlComponents to strip hash fragment before parsing                             |
+| `src/solve.validation.lib.mjs`          | Refactor parseUrlComponents to use Node.js URL API for stable parsing                    |
 | `tests/test-url-hash-fragment.mjs`      | New test file with 15 test cases                                                         |
 | `experiments/test-hash-url-parsing.mjs` | Experiment script for bug reproduction and verification                                  |
 
 ## References
 
 - [RFC 3986 - URI Generic Syntax](https://datatracker.ietf.org/doc/html/rfc3986#section-3.5) - Definition of fragment component
+- [Node.js URL API](https://nodejs.org/api/url.html) - Node.js URL module documentation (used for the fix)
 - [MDN URL API](https://developer.mozilla.org/en-US/docs/Web/API/URL) - JavaScript URL object documentation
 - [GitHub Deep Links](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls) - GitHub URL fragment documentation

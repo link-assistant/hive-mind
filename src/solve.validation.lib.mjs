@@ -272,20 +272,23 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
   return true;
 };
 
-// Parse URL components
+// Parse URL components using Node.js URL API
 // Note: This function is a simpler alternative to parseGitHubUrl for cases where
 // you only need owner, repo, and urlNumber without full validation.
 // For full validation, use validateGitHubUrl() which internally uses parseGitHubUrl().
+// Uses Node.js URL API (https://nodejs.org/api/url.html) for stable parsing.
 export const parseUrlComponents = issueUrl => {
-  // Remove hash fragment before parsing (e.g., #issuecomment-123, #discussion_r456)
-  // This fixes the bug where URLs like /pull/9#issuecomment-123 would incorrectly
-  // return urlNumber as "9#issuecomment-123" instead of "9"
-  const urlWithoutHash = issueUrl.split('#')[0];
-  const urlParts = urlWithoutHash.split('/');
+  // Use Node.js URL API for reliable parsing
+  // This automatically handles hash fragments, query params, and edge cases
+  const urlObj = new globalThis.URL(issueUrl);
+
+  // Extract path segments, filtering out empty strings from leading/trailing slashes
+  const pathParts = urlObj.pathname.split('/').filter(p => p);
+
   return {
-    owner: urlParts[3],
-    repo: urlParts[4],
-    urlNumber: urlParts[6], // Could be issue or PR number
+    owner: pathParts[0],
+    repo: pathParts[1],
+    urlNumber: pathParts[3], // Could be issue or PR number (pathParts[2] is 'issues' or 'pull')
   };
 };
 

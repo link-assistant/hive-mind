@@ -20,7 +20,8 @@ echo "Test 1: Old behavior (unconditional perlbrew loading)"
 echo "---------------------------------------------------"
 cat > "$TEST_BASHRC" << 'EOF'
 # Old perlbrew configuration (problematic)
-export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+# Note: PERLBREW_ROOT moved to $HOME/.perl5 in issue #1004
+export PERLBREW_ROOT="$HOME/.perl5"
 # This would fail with: source "$PERLBREW_ROOT/etc/bashrc"
 # We'll simulate the error instead
 if [ -z "${1:-}" ]; then
@@ -43,8 +44,9 @@ echo "-------------------------------------------------------"
 cat > "$TEST_BASHRC" << 'EOF'
 # New perlbrew configuration (fixed)
 # Only load perlbrew in interactive shells to avoid unbound variable errors
+# Note: PERLBREW_ROOT moved to $HOME/.perl5 in issue #1004
 if [ -n "$PS1" ]; then
-  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  export PERLBREW_ROOT="$HOME/.perl5"
   # Would source: [ -f "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"
   echo "Perlbrew loaded (interactive shell)"
 else

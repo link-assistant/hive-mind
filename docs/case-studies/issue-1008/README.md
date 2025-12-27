@@ -8,28 +8,28 @@ This case study documents a bug where log files are not attached to pull request
 
 ### Issue #88 in ideav/orbits (Failed Case)
 
-| Time (UTC) | Event |
-|------------|-------|
-| 15:39:04 | Solve.mjs started with `--attach-logs` flag |
-| 15:39:31 | PR #89 created (draft) |
-| 15:39:43 | Claude execution started |
-| 15:46:11 | **PR #89 merged** by repository owner |
-| 15:46:34 | Claude execution completed |
-| 15:46:37 | `verifyResults()` started searching for PRs |
-| 15:46:38 | **FAILURE**: `gh pr list --head issue-88-a46bad708fee` returned empty array |
-| 15:46:38 | Process completed WITHOUT attaching logs |
+| Time (UTC) | Event                                                                       |
+| ---------- | --------------------------------------------------------------------------- |
+| 15:39:04   | Solve.mjs started with `--attach-logs` flag                                 |
+| 15:39:31   | PR #89 created (draft)                                                      |
+| 15:39:43   | Claude execution started                                                    |
+| 15:46:11   | **PR #89 merged** by repository owner                                       |
+| 15:46:34   | Claude execution completed                                                  |
+| 15:46:37   | `verifyResults()` started searching for PRs                                 |
+| 15:46:38   | **FAILURE**: `gh pr list --head issue-88-a46bad708fee` returned empty array |
+| 15:46:38   | Process completed WITHOUT attaching logs                                    |
 
 ### Issue #123 in andchir/install_scripts (Working Case)
 
-| Time (UTC) | Event |
-|------------|-------|
-| 15:38:10 | Solve.mjs started with `--attach-logs` flag |
-| 15:38:36 | PR #124 created (draft) |
-| 15:38:43 | Claude execution started |
-| 15:44:09 | Claude execution completed |
-| 15:44:12 | `verifyResults()` found PR #124 (still OPEN) |
-| 15:44:13 | **SUCCESS**: Log uploaded to PR as comment |
-| 15:45:13 | PR #124 merged by repository owner (AFTER log was attached) |
+| Time (UTC) | Event                                                       |
+| ---------- | ----------------------------------------------------------- |
+| 15:38:10   | Solve.mjs started with `--attach-logs` flag                 |
+| 15:38:36   | PR #124 created (draft)                                     |
+| 15:38:43   | Claude execution started                                    |
+| 15:44:09   | Claude execution completed                                  |
+| 15:44:12   | `verifyResults()` found PR #124 (still OPEN)                |
+| 15:44:13   | **SUCCESS**: Log uploaded to PR as comment                  |
+| 15:45:13   | PR #124 merged by repository owner (AFTER log was attached) |
 
 ## Root Cause Analysis
 
@@ -69,6 +69,7 @@ $ gh pr list --repo ideav/orbits --head issue-88-a46bad708fee --state all
 ### Key Log Lines (Failed Case)
 
 From gist line 7126:
+
 ```
 [2025-12-27T15:46:38.179Z] [INFO]   ℹ️  No pull requests found from branch issue-88-a46bad708fee
 ```
@@ -76,6 +77,7 @@ From gist line 7126:
 ### Key Log Lines (Working Case)
 
 From gist ending:
+
 ```
 [2025-12-27T15:44:12.850Z] [INFO]   ✅ Found pull request #124: "Исправить ошибку PHP-FPM при неограниченной памяти (-1)"
 ```
@@ -95,6 +97,7 @@ const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${b
 ## Impact
 
 This bug affects all cases where:
+
 1. The `--attach-logs` flag is enabled
 2. The PR is merged during the AI solving session (before `verifyResults()` runs)
 3. The AI agent itself calls `gh pr merge` or the repository owner merges quickly

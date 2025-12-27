@@ -2,25 +2,14 @@
 // Test script for YouTrack integration
 
 // Import YouTrack library
-import {
-  parseYouTrackIssueId,
-  createYouTrackConfigFromEnv,
-  validateYouTrackConfig,
-  convertYouTrackIssueForGitHub
-} from '../youtrack.lib.mjs';
+import { parseYouTrackIssueId, createYouTrackConfigFromEnv, validateYouTrackConfig, convertYouTrackIssueForGitHub } from '../youtrack.lib.mjs';
 
 async function testYouTrackIntegration() {
   console.log('🧪 Testing YouTrack Integration...\n');
 
   // Test 1: Parse YouTrack issue IDs
   console.log('1. Testing YouTrack issue ID parsing:');
-  const testInputs = [
-    'PROJECT-123',
-    'youtrack://PROJECT-456',
-    'https://company.youtrack.cloud/issue/ABC-789',
-    'invalid-input',
-    null
-  ];
+  const testInputs = ['PROJECT-123', 'youtrack://PROJECT-456', 'https://company.youtrack.cloud/issue/ABC-789', 'invalid-input', null];
 
   for (const input of testInputs) {
     const parsed = parseYouTrackIssueId(input);
@@ -45,7 +34,7 @@ async function testYouTrackIntegration() {
     url: 'https://test.youtrack.cloud',
     apiKey: 'test-key',
     projectCode: 'TEST',
-    stage: 'Ready'
+    stage: 'Ready',
   };
 
   try {
@@ -72,7 +61,7 @@ async function testYouTrackIntegration() {
     stage: 'Ready',
     url: 'https://test.youtrack.cloud/issue/TEST-123',
     reporter: 'Test User',
-    assignee: null
+    assignee: null,
   };
 
   const convertedIssue = convertYouTrackIssueForGitHub(mockYouTrackIssue, 'https://github.com/test/repo');

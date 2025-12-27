@@ -10,14 +10,14 @@ function testCommentCountingScenario() {
   const prNumber = 109; // From the user's log
   const branchName = 'issue-108-33029b6d'; // From the user's log
   const isContinueMode = true;
-  const argv = { 
-    autoContinue: false, 
-    autoContinueOnlyOnNewComments: false 
+  const argv = {
+    autoContinue: false,
+    autoContinueOnlyOnNewComments: false,
   };
 
   console.log('Test conditions:');
   console.log(`- prNumber: ${prNumber}`);
-  console.log(`- branchName: ${branchName}`);  
+  console.log(`- branchName: ${branchName}`);
   console.log(`- isContinueMode: ${isContinueMode}`);
   console.log(`- argv.autoContinue: ${argv.autoContinue}`);
   console.log(`- argv.autoContinueOnlyOnNewComments: ${argv.autoContinueOnlyOnNewComments}`);
@@ -26,7 +26,7 @@ function testCommentCountingScenario() {
   // Check if the comment counting block would execute
   const shouldCountComments = prNumber && branchName;
   console.log(`Should comment counting block execute? ${shouldCountComments ? '✅ YES' : '❌ NO'}`);
-  
+
   if (!shouldCountComments) {
     console.log('❌ PROBLEM IDENTIFIED: Comment counting block would not execute!');
     console.log('   This means prNumber or branchName is falsy.');
@@ -36,14 +36,14 @@ function testCommentCountingScenario() {
   // Simulate comment counting results
   const newPrComments = 0;
   const newIssueComments = 0;
-  
+
   console.log('\nSimulated comment counting results:');
   console.log(`- newPrComments: ${newPrComments}`);
   console.log(`- newIssueComments: ${newIssueComments}`);
 
   // Test the comment display logic
   const commentLines = [];
-  
+
   // Always show comment counts when in continue or auto-continue mode
   if (isContinueMode || argv.autoContinue) {
     commentLines.push(`New comments on the pull request: ${newPrComments}`);
@@ -59,18 +59,18 @@ function testCommentCountingScenario() {
     }
     console.log('\n⚠️  Comment lines only added if > 0 (regular mode)');
   }
-  
+
   console.log(`commentLines: ${JSON.stringify(commentLines)}`);
   console.log(`commentLines.length: ${commentLines.length}`);
-  
+
   // Check if logs would be shown
   const wouldLog = commentLines.length > 0;
   console.log(`\nWould logs show comment counts? ${wouldLog ? '✅ YES' : '❌ NO'}`);
-  
+
   // Check if prompt would be modified
   const wouldModifyPrompt = commentLines.length > 0 && isContinueMode;
   console.log(`Would prompt be modified with comment info? ${wouldModifyPrompt ? '✅ YES' : '❌ NO'}`);
-  
+
   return wouldLog && wouldModifyPrompt;
 }
 
@@ -82,14 +82,14 @@ function testAutoContinueOnlyOnNewCommentsScenario() {
   const prNumber = 109;
   const branchName = 'issue-108-33029b6d';
   const isContinueMode = true;
-  const argv = { 
-    autoContinue: false, 
-    autoContinueOnlyOnNewComments: true  // This flag is enabled
+  const argv = {
+    autoContinue: false,
+    autoContinueOnlyOnNewComments: true, // This flag is enabled
   };
 
   console.log('Test conditions:');
   console.log(`- prNumber: ${prNumber}`);
-  console.log(`- branchName: ${branchName}`);  
+  console.log(`- branchName: ${branchName}`);
   console.log(`- isContinueMode: ${isContinueMode}`);
   console.log(`- argv.autoContinue: ${argv.autoContinue}`);
   console.log(`- argv.autoContinueOnlyOnNewComments: ${argv.autoContinueOnlyOnNewComments}`);
@@ -97,21 +97,21 @@ function testAutoContinueOnlyOnNewCommentsScenario() {
   // Comment counting would happen the same way
   const newPrComments = 0;
   const newIssueComments = 0;
-  
+
   console.log('\nSimulated comment counting results:');
   console.log(`- newPrComments: ${newPrComments}`);
   console.log(`- newIssueComments: ${newIssueComments}`);
 
   // The comment display logic should be the same
   const commentLines = [];
-  
+
   if (isContinueMode || argv.autoContinue) {
     commentLines.push(`New comments on the pull request: ${newPrComments}`);
     commentLines.push(`New comments on the issue: ${newIssueComments}`);
   }
-  
+
   console.log(`commentLines: ${JSON.stringify(commentLines)}`);
-  
+
   // The difference would be in the autoContinueOnlyOnNewComments check
   if (argv.autoContinueOnlyOnNewComments && (isContinueMode || argv.autoContinue)) {
     const totalNewComments = newPrComments + newIssueComments;
@@ -121,13 +121,13 @@ function testAutoContinueOnlyOnNewCommentsScenario() {
       return false;
     }
   }
-  
+
   return true;
 }
 
 // Run both tests
 console.log('COMPREHENSIVE COMMENT COUNTING TEST');
-console.log('=' .repeat(60));
+console.log('='.repeat(60));
 
 const regularResult = testCommentCountingScenario();
 const autoOnlyResult = testAutoContinueOnlyOnNewCommentsScenario();

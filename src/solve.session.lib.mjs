@@ -3,14 +3,7 @@
  * Handles starting and ending work sessions, PR status changes, and session comments
  */
 
-export async function startWorkSession({
-  isContinueMode,
-  prNumber,
-  argv,
-  log,
-  formatAligned,
-  $
-}) {
+export async function startWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $ }) {
   // Record work start time and convert PR to draft if in continue/watch mode
   const workStartTime = new Date();
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
@@ -39,7 +32,7 @@ export async function startWorkSession({
       reportError(error, {
         context: 'convert_pr_to_draft',
         prNumber,
-        operation: 'pr_status_change'
+        operation: 'pr_status_change',
       });
       await log('Warning: Could not check/convert PR draft status', { level: 'warning' });
     }
@@ -57,7 +50,7 @@ export async function startWorkSession({
       reportError(error, {
         context: 'post_start_comment',
         prNumber,
-        operation: 'create_pr_comment'
+        operation: 'create_pr_comment',
       });
       await log('Warning: Could not post work start comment', { level: 'warning' });
     }
@@ -66,15 +59,7 @@ export async function startWorkSession({
   return workStartTime;
 }
 
-export async function endWorkSession({
-  isContinueMode,
-  prNumber,
-  argv,
-  log,
-  formatAligned,
-  $,
-  logsAttached = false
-}) {
+export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false }) {
   // Post end work session comment and convert PR back to ready if in continue mode
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
     const workEndTime = new Date();
@@ -96,7 +81,7 @@ export async function endWorkSession({
         reportError(error, {
           context: 'post_end_comment',
           prNumber,
-          operation: 'create_pr_comment'
+          operation: 'create_pr_comment',
         });
         await log('Warning: Could not post work end comment', { level: 'warning' });
       }
@@ -127,7 +112,7 @@ export async function endWorkSession({
       reportError(error, {
         context: 'convert_pr_to_ready',
         prNumber,
-        operation: 'pr_status_change'
+        operation: 'pr_status_change',
       });
       await log('Warning: Could not convert PR to ready status', { level: 'warning' });
     }

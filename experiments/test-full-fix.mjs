@@ -17,11 +17,11 @@ process.argv = ['node', './hive.mjs', 'https://github.com/suenot/tinkoff-invest-
 
 // Replicate the exact configuration from hive.mjs (without strict mode)
 const argv = yargs(hideBin(process.argv))
-  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', (yargs) => {
+  .command('$0 <github-url>', 'Monitor GitHub issues and create PRs', yargs => {
     yargs.positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
-      demandOption: true
+      demandOption: true,
     });
   })
   .usage('Usage: $0 <github-url> [options]')
@@ -29,58 +29,57 @@ const argv = yargs(hideBin(process.argv))
     type: 'string',
     description: 'GitHub label to monitor for issues',
     default: 'help wanted',
-    alias: 't'
+    alias: 't',
   })
   .option('all-issues', {
     type: 'boolean',
     description: 'Process all open issues regardless of labels',
     default: false,
-    alias: 'a'
+    alias: 'a',
   })
   .option('skip-issues-with-prs', {
     type: 'boolean',
     description: 'Skip issues that already have open pull requests',
     default: false,
-    alias: 's'
+    alias: 's',
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('once', {
     type: 'boolean',
     description: 'Run once and exit instead of continuous monitoring',
-    default: false
+    default: false,
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
-    default: false
+    default: false,
   })
   .option('model', {
     type: 'string',
     description: 'Model to use for solve.mjs (opus or sonnet)',
     alias: 'm',
     default: 'sonnet',
-    choices: ['opus', 'sonnet']
+    choices: ['opus', 'sonnet'],
   })
   .help('h')
-  .alias('h', 'help')
-  .argv;
+  .alias('h', 'help').argv;
 
 console.log('✅ Step 1: Arguments parsed successfully:');
 console.log('  github-url:', argv['github-url']);
 console.log('  verbose:', argv.verbose);
-console.log('  all-issues:', argv.allIssues);  
+console.log('  all-issues:', argv.allIssues);
 console.log('  skip-issues-with-prs:', argv.skipIssuesWithPrs);
 console.log('  once:', argv.once);
 console.log('  fork:', argv.fork);
 
 // Test the command construction
-const issueUrl = "https://github.com/suenot/tinkoff-invest-etf-balancer-bot/issues/14";
+const issueUrl = 'https://github.com/suenot/tinkoff-invest-etf-balancer-bot/issues/14';
 const forkFlag = argv.fork ? ' --fork' : '';
 const command = `./solve.mjs "${issueUrl}" --model ${argv.model || 'sonnet'}${forkFlag}`;
 

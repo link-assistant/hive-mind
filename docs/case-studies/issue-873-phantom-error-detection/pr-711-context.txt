@@ -1,0 +1,57 @@
+title:	Don't mention the issue in the first comment, so less noise will be in the issue timeline
+state:	DRAFT
+author:	konard
+labels:	
+assignees:	konard
+reviewers:	
+projects:	
+milestone:	
+number:	711
+url:	https://github.com/link-assistant/hive-mind/pull/711
+additions:	12
+deletions:	12
+auto-merge:	disabled
+--
+## 🤖 AI-Powered Solution
+
+This pull request solves issue #692 by reducing noise in the issue timeline.
+
+### 📋 Issue Reference
+Fixes #692
+
+### 🚧 Status
+**Ready for Review** - The solution has been implemented and tested.
+
+### 📝 Implementation Details
+
+The change modifies the auto-generated initial commit message to avoid mentioning the issue number in the subject line, which reduces unnecessary notifications in the issue timeline.
+
+**What was changed:**
+- Modified `src/solve.auto-pr.lib.mjs` lines 215 and 221
+- Changed the initial commit message subject line from:
+  - `"Initial commit with task details for issue #${issueNumber}"`
+  - to: `"Initial commit with task details"`
+- Updated test files to match the new format:
+  - `tests/test-claude-revert-conflict.mjs`
+  - `experiments/test-cleanup-fix-issue-617.mjs`
+  - `experiments/test-issue-625-revert-fix.mjs`
+
+**Why this matters:**
+- When the initial commit message mentions the issue (e.g., "issue #692"), GitHub creates a reference link in the issue's timeline
+- This creates noise for issue followers who get notifications about the commit
+- The issue URL is still kept in the commit body (`Issue: ${issueUrl}`) for reference purposes
+- The "Fixes #692" line in PR description is kept because it's necessary for automatic GitHub issue linking
+
+**Testing:**
+- All existing tests pass with the new commit message format
+- Verified the change was applied correctly in the source code
+- The fix only affects the initial commit's subject line, not the body
+- All functionality for git revert operations remains unchanged
+
+### 🎯 Impact
+- Cleaner issue timelines with less noise
+- Issue followers receive fewer unnecessary notifications about commits
+- All existing functionality preserved
+
+---
+*This PR was created automatically by the AI issue solver*

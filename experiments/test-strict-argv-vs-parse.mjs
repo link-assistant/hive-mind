@@ -39,7 +39,11 @@ try {
     });
   const argv2 = instance2.argv;
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv2).filter(k => k !== '$0' && k !== '_'), '\n');
+  console.log(
+    '   Keys:',
+    Object.keys(argv2).filter(k => k !== '$0' && k !== '_'),
+    '\n'
+  );
 } catch (error) {
   console.log('✅ PASS: Invalid option rejected');
   console.log('   Error:', error.message, '\n');
@@ -55,7 +59,11 @@ try {
     });
   const argv3 = instance3.parseSync();
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv3).filter(k => k !== '$0' && k !== '_'), '\n');
+  console.log(
+    '   Keys:',
+    Object.keys(argv3).filter(k => k !== '$0' && k !== '_'),
+    '\n'
+  );
 } catch (error) {
   console.log('✅ PASS: Invalid option rejected');
   console.log('   Error:', error.message, '\n');
@@ -71,7 +79,11 @@ try {
     });
   const argv4 = instance4.parse();
   console.log('❌ FAIL: Invalid option was accepted');
-  console.log('   Keys:', Object.keys(argv4).filter(k => k !== '$0' && k !== '_'), '\n');
+  console.log(
+    '   Keys:',
+    Object.keys(argv4).filter(k => k !== '$0' && k !== '_'),
+    '\n'
+  );
 } catch (error) {
   console.log('✅ PASS: Invalid option rejected');
   console.log('   Error:', error.message, '\n');

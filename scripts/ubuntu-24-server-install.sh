@@ -593,20 +593,22 @@ if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
       rm -rf "$TEMP_DIR"
 
       # Add Go to shell profile for persistence
+      # Note: GOPATH is set to $HOME/.go/path to keep everything under the hidden .go directory
+      # This keeps the user's home directory clean (issue #1004)
       if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
         log_info "Adding Go to shell configuration..."
         {
           echo ''
           echo '# Go configuration'
           echo 'export GOROOT="$HOME/.go"'
-          echo 'export GOPATH="$HOME/go"'
+          echo 'export GOPATH="$HOME/.go/path"'
           echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
         } >> "$HOME/.bashrc"
       fi
 
       # Load Go for current session
       export GOROOT="$HOME/.go"
-      export GOPATH="$HOME/go"
+      export GOPATH="$HOME/.go/path"
       export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 
       # Create GOPATH directory
@@ -627,7 +629,7 @@ else
   # Ensure Go is in PATH for current session
   if [ -d "$HOME/.go/bin" ]; then
     export GOROOT="$HOME/.go"
-    export GOPATH="$HOME/go"
+    export GOPATH="$HOME/.go/path"
     export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
   elif [ -d "/usr/local/go/bin" ]; then
     export PATH="/usr/local/go/bin:$PATH"
@@ -1120,10 +1122,14 @@ else
 fi
 
 # --- Perl (via Perlbrew) ---
-if [ ! -d "$HOME/perl5/perlbrew" ]; then
+# Note: PERLBREW_ROOT is set to $HOME/.perl5 to keep the home directory clean (issue #1004)
+if [ ! -d "$HOME/.perl5" ]; then
   log_info "Installing Perlbrew (Perl version manager)..."
 
-  # Install Perlbrew
+  # Set PERLBREW_ROOT before installation to use hidden directory
+  export PERLBREW_ROOT="$HOME/.perl5"
+
+  # Install Perlbrew (it will use PERLBREW_ROOT if set)
   curl -L https://install.perlbrew.pl | bash
 
   # Add Perlbrew to shell profile for persistence
@@ -1134,14 +1140,13 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
       echo '# Perlbrew configuration'
       echo '# Only load perlbrew in interactive shells to avoid unbound variable errors'
       echo 'if [ -n "$PS1" ]; then'
-      echo '  export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo '  export PERLBREW_ROOT="$HOME/.perl5"'
       echo '  [ -f "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"'
       echo 'fi'
     } >> "$HOME/.bashrc"
   fi
 
-  # Load Perlbrew for current session
-  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  # Load Perlbrew for current session (already set above)
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
     # Fix perlbrew bashrc for set -u compatibility (issue #989)
     # Patch all unprotected positional parameters and variables that cause unbound variable errors
@@ -1204,7 +1209,7 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
 else
   log_info "Perlbrew already installed."
   # Load Perlbrew for current session if available
-  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  export PERLBREW_ROOT="$HOME/.perl5"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
     # Fix perlbrew bashrc for set -u compatibility (issue #989)
     # Apply patch even for existing installations to ensure consistency
@@ -1371,19 +1376,12 @@ else
   log_note "After authentication, Git will be auto-configured with your GitHub identity"
 fi
 
-# --- Clone or update hive-mind repo (idempotent, no fatal logs) ---
-REPO_DIR="$HOME/hive-mind"
-if [ -d "$REPO_DIR/.git" ]; then
-  log_info "Updating existing hive-mind repository..."
-  git -C "$REPO_DIR" fetch --all --prune || log_warning "fetch failed (continuing)."
-  git -C "$REPO_DIR" pull --ff-only || log_warning "pull failed (continuing)."
-elif [ -d "$REPO_DIR" ]; then
-  log_warning "Directory '$REPO_DIR' exists but is not a git repo; skipping clone."
-else
-  log_info "Cloning hive-mind repository..."
-  (cd "$HOME" && git clone https://github.com/link-assistant/hive-mind) || log_warning "clone failed (continuing)."
-  log_success "hive-mind repository cloned"
-fi
+# --- hive-mind repository cloning removed (issue #1004) ---
+# The hive-mind repository is no longer cloned to the user's home directory.
+# Users who need the source code should clone it manually:
+#   git clone https://github.com/link-assistant/hive-mind
+# This keeps the user's home directory clean and gives users freedom to
+# organize their workspace as they prefer.
 
 # --- Generate Installation Summary ---
 log_step "Installation Summary"
@@ -1505,7 +1503,6 @@ log_note "1. Authenticate with GitHub: gh auth login -h github.com -s repo,workf
 log_note "2. Authenticate with Claude: Run 'claude' command and follow the prompts"
 log_note "3. Restart your shell or run: source ~/.bashrc"
 log_note "4. Verify installations with: <tool> --version"
-log_note "5. Navigate to ~/hive-mind to start working"
 
 echo ""
 

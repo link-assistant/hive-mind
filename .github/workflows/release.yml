@@ -1105,14 +1105,15 @@ jobs:
             if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
             export SDKMAN_DIR=\"\$HOME/.sdkman\"
             if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
-            # Source Go environment
+            # Source Go environment (GOPATH moved to .go/path in issue #1004)
             if [ -d \"\$HOME/.go\" ]; then
               export GOROOT=\"\$HOME/.go\"
-              export GOPATH=\"\$HOME/go\"
+              export GOPATH=\"\$HOME/.go/path\"
               export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
             fi
 
-            export PERLBREW_ROOT=\"\$HOME/perl5/perlbrew\"
+            # Perlbrew moved to .perl5 in issue #1004
+            export PERLBREW_ROOT=\"\$HOME/.perl5\"
             [ -s \"\$PERLBREW_ROOT/etc/bashrc\" ] && source \"\$PERLBREW_ROOT/etc/bashrc\"
 
 

@@ -114,8 +114,8 @@ Initial research.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments.
-   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments.
+   - When you need latest comments on pull request, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate.
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -167,12 +167,13 @@ Self review.
    - When you finalize, confirm code, tests, and description are consistent.
 
 GitHub CLI command patterns.
-   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments.
-   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments.
+   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'reverse | .[0:5]'.`;
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.`;
 };
 
 // Export all functions as default object too

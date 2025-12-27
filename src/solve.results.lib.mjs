@@ -544,7 +544,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
 
     // Get all comments and filter them
-    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+    // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');

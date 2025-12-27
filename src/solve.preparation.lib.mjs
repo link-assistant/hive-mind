@@ -42,7 +42,8 @@ export async function prepareFeedbackAndTimestamps({ prNumber, branchName: _bran
     await log(formatAligned('📝', 'Issue updated:', issueUpdatedAt.toISOString(), 2));
 
     // Get the last comment's timestamp (if any)
-    const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+    // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+    const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (commentsResult.code !== 0) {
       await log(`Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });

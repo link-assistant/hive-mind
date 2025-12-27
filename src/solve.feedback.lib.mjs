@@ -91,14 +91,15 @@ export const detectAndCountFeedback = async params => {
         let prReviewComments = [];
         let prConversationComments = [];
 
-        // Get PR code review comments
-        const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`;
+        // Get PR code review comments (use --paginate to get all comments, not just first page)
+        const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
         if (prReviewCommentsResult.code === 0) {
           prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString());
         }
 
         // Get PR conversation comments (PR is also an issue)
-        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`;
+        // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
         if (prConversationCommentsResult.code === 0) {
           prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
         }
@@ -125,7 +126,8 @@ export const detectAndCountFeedback = async params => {
         newPrComments = filteredPrComments.length;
 
         // Count new issue comments after last commit
-        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+        // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
         if (issueCommentsResult.code === 0) {
           const issueComments = JSON.parse(issueCommentsResult.stdout.toString());
           const filteredIssueComments = issueComments.filter(comment => {

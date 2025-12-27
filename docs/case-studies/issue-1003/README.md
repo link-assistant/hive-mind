@@ -6,13 +6,13 @@ A user feedback comment posted on PR #943 was not detected by the AI system's fe
 
 ## Timeline of Events
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
+| Timestamp (UTC)      | Event                                                 |
+| -------------------- | ----------------------------------------------------- |
 | 2025-12-26T22:17:04Z | Last commit pushed to branch `issue-942-c3dae6d69844` |
 | 2025-12-26T22:24:46Z | User feedback comment posted (comment ID: 3693428277) |
-| 2025-12-26T22:25:18Z | AI work session started (solve.mjs) |
-| 2025-12-26T22:25:32Z | Feedback detection ran, found 0 new comments |
-| 2025-12-26T22:25:33Z | Log shows: "PR conversation comments fetched: 30" |
+| 2025-12-26T22:25:18Z | AI work session started (solve.mjs)                   |
+| 2025-12-26T22:25:32Z | Feedback detection ran, found 0 new comments          |
+| 2025-12-26T22:25:33Z | Log shows: "PR conversation comments fetched: 30"     |
 
 ## Root Cause Analysis
 
@@ -25,6 +25,7 @@ The GitHub API endpoint for fetching issue comments (`/repos/{owner}/{repo}/issu
 - **Feedback comment position**: #37 in chronological order
 
 The code in `src/solve.feedback.lib.mjs` at line 101:
+
 ```javascript
 const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`;
 ```
@@ -50,6 +51,7 @@ PR review comments fetched: 0
 ```
 
 The PR review comments endpoint is being called, but it returned 0. This could be because:
+
 1. There are no inline code review comments on this PR
 2. Or there's a separate bug with how review comments are fetched
 
@@ -80,6 +82,7 @@ Based on the issue description and analysis:
 ## Verification
 
 After fix implementation, verify:
+
 1. Comments beyond the 30th are properly detected
 2. All three comment types are counted correctly:
    - PR conversation comments (issue comments on PR)

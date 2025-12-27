@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.51.11
+
+### Patch Changes
+
+- 001dcdb: Fix missing comment detection when PRs have more than 30 comments by adding --paginate flag to GitHub API calls
+
 ## 0.51.10
 
 ### Patch Changes

@@ -130,7 +130,11 @@ Initial research.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate.
+   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+      1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
+      2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
+      3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
+      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
    - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}${argv && argv.promptCaseStudies ? `\n   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.` : ''}
 
 Solution development and testing.
@@ -185,7 +189,9 @@ Self review.
 
 GitHub CLI command patterns.
    - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
-   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
    - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.

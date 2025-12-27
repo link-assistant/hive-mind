@@ -312,11 +312,79 @@ This comment was on README.md at line 4, requesting changes to the documentation
 - This is a previously undocumented bug in the hive-mind feedback system
 - Similar issues may exist for other feedback types (issue comments, etc.)
 
+## Implemented Fix (PR #965)
+
+### Changes Implemented
+
+Based on this case study analysis, the following changes were implemented in PR #965:
+
+#### 1. Separate Review Comments Count in Feedback System
+
+**File**: `src/solve.feedback.lib.mjs`
+
+The feedback system now tracks and reports PR review comments (inline code comments) separately from regular PR conversation comments:
+
+```javascript
+// New separate counters
+let newPrComments = 0; // PR conversation comments
+let newPrReviewComments = 0; // PR review comments (inline code)
+let newIssueComments = 0; // Issue comments
+
+// Separate feedback lines for each type
+if (newPrComments > 0) {
+  feedbackLines.push(`New comments on the pull request: ${newPrComments}`);
+}
+if (newPrReviewComments > 0) {
+  feedbackLines.push(`New review comments on the pull request: ${newPrReviewComments}`);
+}
+```
+
+This change ensures the AI is explicitly informed when there are **review comments** (the type that was missed in the original bug), making it clear that these require special attention and the correct API endpoint to fetch.
+
+#### 2. Updated AI Prompts with GitHub Comment API Instructions
+
+**Files**: `src/claude.prompts.lib.mjs`, `src/codex.prompts.lib.mjs`, `src/opencode.prompts.lib.mjs`, `src/agent.prompts.lib.mjs`
+
+All AI prompts now include explicit documentation about GitHub's three PR comment types:
+
+```markdown
+When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+
+1.  PR review comments (inline code comments): gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate
+2.  PR conversation comments (general discussion): gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate
+3.  PR reviews (approve/request changes): gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate
+    IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+```
+
+The "GitHub CLI command patterns" section was also updated to be more explicit:
+
+- `When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.`
+- `When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.`
+- `When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.`
+
+### Why These Changes Help
+
+1. **Visibility**: When the AI sees "New review comments on the pull request: 1", it knows these are inline code comments that need the `/pulls/NUMBER/comments` API
+2. **Education**: The AI prompts now explicitly warn about the `gh pr view --json comments` limitation
+3. **Correct API Usage**: Clear instructions on which endpoint to use for each comment type
+
+### Future Improvements (Not in This PR)
+
+The user requested that full comment content loading be addressed in a separate PR (see issue comment about `gh-download-issue` and `gh-download-pull-request` tools). This PR focuses only on:
+
+- Separate counting/reporting of review comments
+- AI prompt instructions for correct API usage
+
 ## Conclusion
 
 This case study documents a critical gap in the hive-mind solve command's feedback handling. The system correctly detects new comments but fails to communicate their content to the AI. Combined with the AI's use of an incomplete command to fetch comments, this resulted in repository owner feedback being completely ignored.
 
 The recommended fix is to include actual comment content in the feedback passed to the AI (Solution 1), supplemented by improved documentation about GitHub's comment API structure (Solution 2).
+
+**Update**: PR #965 implements a partial fix by:
+
+1. Reporting review comments count separately from conversation comments
+2. Adding explicit instructions to all AI prompts about GitHub's three comment types and correct API endpoints
 
 ## Sources
 

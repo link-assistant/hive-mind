@@ -10,6 +10,7 @@ export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $ } = params;
 
   let newPrComments = 0;
+  let newPrReviewComments = 0;
   let newIssueComments = 0;
   let commentInfo = '';
   let feedbackLines = [];
@@ -104,10 +105,8 @@ export const detectAndCountFeedback = async params => {
           prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
         }
 
-        // Combine and count all PR comments after last commit
-        // Filter out comments from current user if made after work started AND filter out log comments
-        const allPrComments = [...prReviewComments, ...prConversationComments];
-        const filteredPrComments = allPrComments.filter(comment => {
+        // Helper function to filter comments based on time and log patterns
+        const filterComment = comment => {
           const commentTime = new Date(comment.created_at);
           const isAfterCommit = commentTime > lastCommitTime;
           const isNotLogPattern = !logPatterns.some(pattern => pattern.test(comment.body || ''));
@@ -122,8 +121,18 @@ export const detectAndCountFeedback = async params => {
           }
 
           return isAfterCommit && isNotLogPattern;
-        });
-        newPrComments = filteredPrComments.length;
+        };
+
+        // Filter and count PR review comments (inline code comments) separately
+        const filteredPrReviewComments = prReviewComments.filter(filterComment);
+        newPrReviewComments = filteredPrReviewComments.length;
+
+        // Filter and count PR conversation comments separately
+        const filteredPrConversationComments = prConversationComments.filter(filterComment);
+        newPrComments = filteredPrConversationComments.length;
+
+        // Combined count for logging purposes
+        const allPrComments = [...prReviewComments, ...prConversationComments];
 
         // Count new issue comments after last commit
         // Use --paginate to get all comments - GitHub API returns max 30 per page by default
@@ -150,11 +159,12 @@ export const detectAndCountFeedback = async params => {
         }
 
         await log(formatAligned('💬', 'New PR comments:', newPrComments.toString(), 2));
+        await log(formatAligned('💬', 'New PR review comments:', newPrReviewComments.toString(), 2));
         await log(formatAligned('💬', 'New issue comments:', newIssueComments.toString(), 2));
 
         if (argv.verbose) {
-          await log(`   Total new comments: ${newPrComments + newIssueComments}`, { verbose: true });
-          await log(`   Comment lines to add: ${newPrComments > 0 || newIssueComments > 0 ? 'Yes' : 'No (saving tokens)'}`, { verbose: true });
+          await log(`   Total new comments: ${newPrComments + newPrReviewComments + newIssueComments}`, { verbose: true });
+          await log(`   Comment lines to add: ${newPrComments > 0 || newPrReviewComments > 0 || newIssueComments > 0 ? 'Yes' : 'No (saving tokens)'}`, { verbose: true });
           await log(`   PR review comments fetched: ${prReviewComments.length}`, { verbose: true });
           await log(`   PR conversation comments fetched: ${prConversationComments.length}`, { verbose: true });
           await log(`   Total PR comments checked: ${allPrComments.length}`, { verbose: true });
@@ -162,7 +172,7 @@ export const detectAndCountFeedback = async params => {
 
         // Check if --auto-continue-only-on-new-comments is enabled and fail if no new comments
         if (argv.autoContinueOnlyOnNewComments && (isContinueMode || argv.autoContinue)) {
-          const totalNewComments = newPrComments + newIssueComments;
+          const totalNewComments = newPrComments + newPrReviewComments + newIssueComments;
           if (totalNewComments === 0) {
             await log('❌ auto-continue-only-on-new-comments: No new comments found since last commit');
             await log('   This option requires new comments to proceed with auto-continue or continue mode.');
@@ -181,6 +191,9 @@ export const detectAndCountFeedback = async params => {
         if (newPrComments > 0) {
           feedbackLines.push(`New comments on the pull request: ${newPrComments}`);
         }
+        if (newPrReviewComments > 0) {
+          feedbackLines.push(`New review comments on the pull request: ${newPrReviewComments}`);
+        }
         if (newIssueComments > 0) {
           feedbackLines.push(`New comments on the issue: ${newIssueComments}`);
         }
@@ -192,7 +205,7 @@ export const detectAndCountFeedback = async params => {
           }
 
           // 1. Check for new comments (already filtered above)
-          const totalNewComments = newPrComments + newIssueComments;
+          const totalNewComments = newPrComments + newPrReviewComments + newIssueComments;
           if (totalNewComments > 0) {
             feedbackDetected = true;
             feedbackSources.push(`New comments (${totalNewComments})`);
@@ -413,5 +426,5 @@ export const detectAndCountFeedback = async params => {
     }
   }
 
-  return { newPrComments, newIssueComments, commentInfo, feedbackLines };
+  return { newPrComments, newPrReviewComments, newIssueComments, commentInfo, feedbackLines };
 };

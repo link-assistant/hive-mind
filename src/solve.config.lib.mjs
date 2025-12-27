@@ -294,7 +294,7 @@ export const createYargsConfig = yargsInstance => {
       .strict()
       .help('h')
       .alias('h', 'help')
-  )
+  );
 };
 
 // Parse command line arguments - now needs yargs and hideBin passed in

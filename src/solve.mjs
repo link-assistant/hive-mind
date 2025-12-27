@@ -499,9 +499,7 @@ if (isPrUrl) {
 }
 // Create or find temporary directory for cloning the repository
 // Pass workspace info for --enable-workspaces mode with --tool opencode
-const workspaceInfo = argv.enableWorkspaces && argv.tool === 'opencode'
-  ? { owner, repo, issueNumber }
-  : null;
+const workspaceInfo = argv.enableWorkspaces && argv.tool === 'opencode' ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir } = await setupTempDirectory(argv, workspaceInfo);
 // Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;

@@ -64,8 +64,8 @@ export const buildUserPrompt = params => {
   // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt
-  return promptLines.join('\n');
+  // Build the final prompt with trailing newline for POSIX compliance
+  return promptLines.join('\n') + '\n';
 };
 
 /**

@@ -110,7 +110,8 @@ Original repository (upstream): ${owner}/${repo}`
           : ''
       }
 
-Proceed.`;
+Proceed.
+`;
 
       // If file already exists, append the task info with separator and timestamp
       // Otherwise, create new file with just the task info (no timestamp needed for new files)

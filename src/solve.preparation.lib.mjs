@@ -163,7 +163,7 @@ export async function checkForkActions({ argv, forkedRepo, branchName, log, form
       const forkRepo = forkedRepo.split('/')[1];
 
       // Check if workflows directory exists in the fork
-      const workflowsResult = await $`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --jq '.[].name' 2>/dev/null`;
+      const workflowsResult = await $`gh api repos/${forkOwner}/${forkRepo}/contents/.github/workflows --paginate --jq '.[].name' 2>/dev/null`;
 
       if (workflowsResult.code === 0) {
         const workflows = workflowsResult.stdout.toString().trim();

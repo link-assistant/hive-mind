@@ -835,7 +835,7 @@ Proceed.`;
             // Show all branches on GitHub
             const allBranchesResult = await $({
               silent: true,
-            })`gh api repos/${repoToCheck}/branches --jq '.[].name' 2>&1`;
+            })`gh api repos/${repoToCheck}/branches --paginate --jq '.[].name' 2>&1`;
             if (allBranchesResult.code === 0) {
               await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);
             }

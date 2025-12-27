@@ -116,6 +116,55 @@ export async function getVersionInfo(verbose = false) {
       console.log(`[VERBOSE] .NET version: ${dotnetVersion}`);
     }
 
+    // Deno
+    const denoVersion = execCommand('deno --version 2>&1 | head -n1', verbose);
+    if (verbose && denoVersion) {
+      console.log(`[VERBOSE] Deno version: ${denoVersion}`);
+    }
+
+    // Go (Golang)
+    const goVersion = execCommand('go version 2>&1', verbose);
+    if (verbose && goVersion) {
+      console.log(`[VERBOSE] Go version: ${goVersion}`);
+    }
+
+    // Java
+    const javaVersion = execCommand('java -version 2>&1 | head -n1', verbose);
+    if (verbose && javaVersion) {
+      console.log(`[VERBOSE] Java version: ${javaVersion}`);
+    }
+
+    // Lean (theorem prover)
+    const leanVersion = execCommand('lean --version 2>&1', verbose);
+    if (verbose && leanVersion) {
+      console.log(`[VERBOSE] Lean version: ${leanVersion}`);
+    }
+
+    // Perl
+    const perlVersion = execCommand("perl -v 2>&1 | grep -oE 'v[0-9]+\\.[0-9]+\\.[0-9]+'", verbose);
+    if (verbose && perlVersion) {
+      console.log(`[VERBOSE] Perl version: ${perlVersion}`);
+    }
+
+    // OCaml (via opam)
+    const ocamlVersion = execCommand('ocaml --version 2>&1', verbose);
+    if (verbose && ocamlVersion) {
+      console.log(`[VERBOSE] OCaml version: ${ocamlVersion}`);
+    }
+
+    // Rocq/Coq (theorem prover)
+    // Try rocq first (Rocq 9.0+), then fall back to coqc (legacy)
+    let rocqVersion = execCommand('rocq -v 2>&1 | head -n1', verbose);
+    if (!rocqVersion) {
+      rocqVersion = execCommand('rocqc --version 2>&1 | head -n1', verbose);
+    }
+    if (!rocqVersion) {
+      rocqVersion = execCommand('coqc --version 2>&1 | head -n1', verbose);
+    }
+    if (verbose && rocqVersion) {
+      console.log(`[VERBOSE] Rocq/Coq version: ${rocqVersion}`);
+    }
+
     // === Development Tools ===
 
     // Git
@@ -148,6 +197,80 @@ export async function getVersionInfo(verbose = false) {
       console.log(`[VERBOSE] NPM version: ${npmVersion}`);
     }
 
+    // SDKMAN (Java version manager)
+    const sdkmanVersion = execCommand("sdk version 2>&1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'", verbose);
+    if (verbose && sdkmanVersion) {
+      console.log(`[VERBOSE] SDKMAN version: ${sdkmanVersion}`);
+    }
+
+    // Elan (Lean version manager)
+    const elanVersion = execCommand('elan --version 2>&1', verbose);
+    if (verbose && elanVersion) {
+      console.log(`[VERBOSE] Elan version: ${elanVersion}`);
+    }
+
+    // Lake (Lean package manager)
+    const lakeVersion = execCommand('lake --version 2>&1', verbose);
+    if (verbose && lakeVersion) {
+      console.log(`[VERBOSE] Lake version: ${lakeVersion}`);
+    }
+
+    // Perlbrew (Perl version manager)
+    const perlbrewVersion = execCommand('perlbrew --version 2>&1', verbose);
+    if (verbose && perlbrewVersion) {
+      console.log(`[VERBOSE] Perlbrew version: ${perlbrewVersion}`);
+    }
+
+    // Opam (OCaml package manager)
+    const opamVersion = execCommand('opam --version 2>&1', verbose);
+    if (verbose && opamVersion) {
+      console.log(`[VERBOSE] Opam version: ${opamVersion}`);
+    }
+
+    // === C/C++ Development Tools ===
+
+    // Make
+    const makeVersion = execCommand('make --version 2>&1 | head -n1', verbose);
+    if (verbose && makeVersion) {
+      console.log(`[VERBOSE] Make version: ${makeVersion}`);
+    }
+
+    // CMake
+    const cmakeVersion = execCommand('cmake --version 2>&1 | head -n1', verbose);
+    if (verbose && cmakeVersion) {
+      console.log(`[VERBOSE] CMake version: ${cmakeVersion}`);
+    }
+
+    // GCC
+    const gccVersion = execCommand('gcc --version 2>&1 | head -n1', verbose);
+    if (verbose && gccVersion) {
+      console.log(`[VERBOSE] GCC version: ${gccVersion}`);
+    }
+
+    // G++
+    const gppVersion = execCommand('g++ --version 2>&1 | head -n1', verbose);
+    if (verbose && gppVersion) {
+      console.log(`[VERBOSE] G++ version: ${gppVersion}`);
+    }
+
+    // Clang
+    const clangVersion = execCommand('clang --version 2>&1 | head -n1', verbose);
+    if (verbose && clangVersion) {
+      console.log(`[VERBOSE] Clang version: ${clangVersion}`);
+    }
+
+    // LLVM
+    const llvmVersion = execCommand('llvm-config --version 2>&1', verbose);
+    if (verbose && llvmVersion) {
+      console.log(`[VERBOSE] LLVM version: ${llvmVersion}`);
+    }
+
+    // LLD (LLVM linker)
+    const lldVersion = execCommand('lld --version 2>&1 | head -n1', verbose);
+    if (verbose && lldVersion) {
+      console.log(`[VERBOSE] LLD version: ${lldVersion}`);
+    }
+
     // === Platform Information ===
     const platform = process.platform;
     const arch = process.arch;
@@ -176,6 +299,13 @@ export async function getVersionInfo(verbose = false) {
         php: phpVersion,
         bun: bunVersion,
         dotnet: dotnetVersion,
+        deno: denoVersion,
+        go: goVersion,
+        java: javaVersion,
+        lean: leanVersion,
+        perl: perlVersion,
+        ocaml: ocamlVersion,
+        rocq: rocqVersion,
 
         // Development tools
         git: gitVersion,
@@ -185,6 +315,20 @@ export async function getVersionInfo(verbose = false) {
         pyenv: pyenvVersion,
         cargo: cargoVersion,
         brew: brewVersion,
+        sdkman: sdkmanVersion,
+        elan: elanVersion,
+        lake: lakeVersion,
+        perlbrew: perlbrewVersion,
+        opam: opamVersion,
+
+        // C/C++ Development Tools
+        make: makeVersion,
+        cmake: cmakeVersion,
+        gcc: gccVersion,
+        gpp: gppVersion,
+        clang: clangVersion,
+        llvm: llvmVersion,
+        lld: lldVersion,
 
         // Platform
         platform: `${platform} (${arch})`,
@@ -266,6 +410,27 @@ export function formatVersionMessage(versions) {
   if (versions.dotnet) {
     runtimeLines.push(`• .NET: \`${versions.dotnet}\``);
   }
+  if (versions.deno) {
+    runtimeLines.push(`• Deno: \`${versions.deno}\``);
+  }
+  if (versions.go) {
+    runtimeLines.push(`• Go: \`${versions.go}\``);
+  }
+  if (versions.java) {
+    runtimeLines.push(`• Java: \`${versions.java}\``);
+  }
+  if (versions.lean) {
+    runtimeLines.push(`• Lean: \`${versions.lean}\``);
+  }
+  if (versions.perl) {
+    runtimeLines.push(`• Perl: \`${versions.perl}\``);
+  }
+  if (versions.ocaml) {
+    runtimeLines.push(`• OCaml: \`${versions.ocaml}\``);
+  }
+  if (versions.rocq) {
+    runtimeLines.push(`• Rocq/Coq: \`${versions.rocq}\``);
+  }
 
   if (runtimeLines.length > 0) {
     lines.push('');
@@ -296,11 +461,56 @@ export function formatVersionMessage(versions) {
   if (versions.brew) {
     toolLines.push(`• Homebrew: \`${versions.brew}\``);
   }
+  if (versions.sdkman) {
+    toolLines.push(`• SDKMAN: \`${versions.sdkman}\``);
+  }
+  if (versions.elan) {
+    toolLines.push(`• Elan: \`${versions.elan}\``);
+  }
+  if (versions.lake) {
+    toolLines.push(`• Lake: \`${versions.lake}\``);
+  }
+  if (versions.perlbrew) {
+    toolLines.push(`• Perlbrew: \`${versions.perlbrew}\``);
+  }
+  if (versions.opam) {
+    toolLines.push(`• Opam: \`${versions.opam}\``);
+  }
 
   if (toolLines.length > 0) {
     lines.push('');
     lines.push('*🛠 Development Tools*');
     lines.push(...toolLines);
+  }
+
+  // === C/C++ Development Tools ===
+  const cppToolLines = [];
+  if (versions.make) {
+    cppToolLines.push(`• Make: \`${versions.make}\``);
+  }
+  if (versions.cmake) {
+    cppToolLines.push(`• CMake: \`${versions.cmake}\``);
+  }
+  if (versions.gcc) {
+    cppToolLines.push(`• GCC: \`${versions.gcc}\``);
+  }
+  if (versions.gpp) {
+    cppToolLines.push(`• G++: \`${versions.gpp}\``);
+  }
+  if (versions.clang) {
+    cppToolLines.push(`• Clang: \`${versions.clang}\``);
+  }
+  if (versions.llvm) {
+    cppToolLines.push(`• LLVM: \`${versions.llvm}\``);
+  }
+  if (versions.lld) {
+    cppToolLines.push(`• LLD: \`${versions.lld}\``);
+  }
+
+  if (cppToolLines.length > 0) {
+    lines.push('');
+    lines.push('*🔧 C/C++ Development Tools*');
+    lines.push(...cppToolLines);
   }
 
   // === Platform ===

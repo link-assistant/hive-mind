@@ -177,7 +177,7 @@ export async function copySessionToKnowledge({ tool, sessionId, tempDir, repoPat
   const toolFolderMap = {
     claude: path.join('.claude', 'sessions'),
     codex: path.join('.codex', 'sessions'),
-    opencode: path.join('.opencode', 'conversations')
+    opencode: path.join('.opencode', 'conversations'),
   };
 
   const destDir = path.join(repoPath, knowledgeFolder, 'raw', toolFolderMap[tool]);
@@ -204,7 +204,7 @@ export async function generateSessionSummary({ sessionId, sessionContent, issueU
     patternsIdentified: [],
     lessonsLearned: [],
     filesModified: [],
-    toolsUsed: []
+    toolsUsed: [],
   };
 
   return summary;
@@ -270,7 +270,7 @@ if (argv.keepToolContextInRepository && result.sessionId) {
       sessionId: result.sessionId,
       tempDir,
       repoPath: tempDir,
-      knowledgeFolder: argv.knowledgeFolder
+      knowledgeFolder: argv.knowledgeFolder,
     });
 
     if (copyResult.success) {
@@ -280,7 +280,6 @@ if (argv.keepToolContextInRepository && result.sessionId) {
     // Generate and save summary (future enhancement)
     // const summary = await contextLib.generateSessionSummary({ ... });
     // await contextLib.saveSummary({ ... });
-
   } catch (error) {
     await log(`⚠️ Could not persist session context: ${error.message}`, { level: 'warning' });
   }
@@ -356,12 +355,12 @@ cat .knowledge/.gitignore
 
 ## Risks and Mitigations
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Large session files | High | Medium | Rotation policy, cleanup scripts |
-| Sensitive data exposure | Medium | High | Gitignore raw files, review summaries |
-| Breaking changes | Low | Medium | Feature flag, gradual rollout |
-| Performance impact | Low | Low | Async file operations |
+| Risk                    | Probability | Impact | Mitigation                            |
+| ----------------------- | ----------- | ------ | ------------------------------------- |
+| Large session files     | High        | Medium | Rotation policy, cleanup scripts      |
+| Sensitive data exposure | Medium      | High   | Gitignore raw files, review summaries |
+| Breaking changes        | Low         | Medium | Feature flag, gradual rollout         |
+| Performance impact      | Low         | Low    | Async file operations                 |
 
 ## Open Questions
 
@@ -375,5 +374,6 @@ cat .knowledge/.gitignore
 This implementation proposal provides a clear path to enabling persistent context accumulation in hive-mind. The phased approach minimizes risk while delivering value incrementally.
 
 ---
-*Proposal created: 2025-12-27*
-*Status: Draft - Pending Review*
+
+_Proposal created: 2025-12-27_
+_Status: Draft - Pending Review_

@@ -8,13 +8,13 @@
 
 ## Timeline
 
-| Date | Event |
-|------|-------|
+| Date       | Event                                                                               |
+| ---------- | ----------------------------------------------------------------------------------- |
 | 2025-11-03 | Issue #661 opened requesting auto-restart with session resume for cost optimization |
-| 2025-11-03 | PR #662 created with comprehensive case study on session resume patterns |
-| 2025-12-24 | Issue #981 opened requesting `--keep-tool-context-in-repository` option |
-| 2025-12-26 | Issue #964 opened about discussions not loaded to AI context |
-| 2025-12-27 | PR #1012 created (this case study) for architectural exploration |
+| 2025-11-03 | PR #662 created with comprehensive case study on session resume patterns            |
+| 2025-12-24 | Issue #981 opened requesting `--keep-tool-context-in-repository` option             |
+| 2025-12-26 | Issue #964 opened about discussions not loaded to AI context                        |
+| 2025-12-27 | PR #1012 created (this case study) for architectural exploration                    |
 
 ## Background Research
 
@@ -30,6 +30,7 @@ The issue references [ProverCoderAI/context-doc](https://github.com/ProverCoderA
    - `.knowledge/.claude/` - Claude sessions (planned)
 
 **Key Technical Details** (from context-doc source):
+
 - Uses Effect-TS for functional composition
 - Matches projects via `buildProjectLocator()` - normalizes repo URLs and cwds
 - Copies relevant JSONL files while preserving directory structure
@@ -56,6 +57,7 @@ According to research, this is a widespread problem:
 The hive-mind codebase already has foundational infrastructure:
 
 1. **Session ID extraction** (`src/claude.lib.mjs:977-979`):
+
    ```javascript
    if (!sessionId && data.session_id) {
      sessionId = data.session_id;
@@ -64,11 +66,13 @@ The hive-mind codebase already has foundational infrastructure:
    ```
 
 2. **Session resume support** (`src/claude.lib.mjs:900`):
+
    ```javascript
    claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
    ```
 
 3. **Token calculation from session files** (`src/claude.lib.mjs:670-678`):
+
    ```javascript
    const sessionFile = path.join(homeDir, '.claude', 'projects', projectDirName, `${sessionId}.jsonl`);
    ```
@@ -80,23 +84,25 @@ The hive-mind codebase already has foundational infrastructure:
 
 ## Related Issues
 
-| Issue | Title | Status | Relevance |
-|-------|-------|--------|-----------|
-| [#661](https://github.com/link-assistant/hive-mind/issues/661) | Auto-restart with session resume for cost optimization | Open | Session management foundation |
-| [#964](https://github.com/link-assistant/hive-mind/issues/964) | Discussions not loaded to AI context | Open | Context completeness |
-| [#448](https://github.com/link-assistant/hive-mind/issues/448) | Support entire organization clone for full local context | Open | Organization-wide context |
+| Issue                                                          | Title                                                    | Status | Relevance                     |
+| -------------------------------------------------------------- | -------------------------------------------------------- | ------ | ----------------------------- |
+| [#661](https://github.com/link-assistant/hive-mind/issues/661) | Auto-restart with session resume for cost optimization   | Open   | Session management foundation |
+| [#964](https://github.com/link-assistant/hive-mind/issues/964) | Discussions not loaded to AI context                     | Open   | Context completeness          |
+| [#448](https://github.com/link-assistant/hive-mind/issues/448) | Support entire organization clone for full local context | Open   | Organization-wide context     |
 
 ## Root Cause Analysis
 
 ### The Core Problem
 
 AI coding tools operate in a **stateless paradigm** where each session:
+
 1. Starts with zero accumulated knowledge
 2. Reads static configuration files (CLAUDE.md, codex.md)
 3. Performs work and generates learnings
 4. **Discards all learnings when session ends**
 
 This creates a **knowledge accumulation gap** where:
+
 - Project-specific patterns are forgotten
 - Decision rationale is lost
 - Debugging insights are not preserved
@@ -104,13 +110,14 @@ This creates a **knowledge accumulation gap** where:
 
 ### Current Storage Locations
 
-| Tool | Session Storage Location |
-|------|-------------------------|
-| Claude | `~/.claude/projects/[project-path]/[session-id].jsonl` |
-| Codex | `~/.codex/sessions/[session-id].jsonl` |
-| OpenCode | `~/.opencode/conversations/` (structure varies) |
+| Tool     | Session Storage Location                               |
+| -------- | ------------------------------------------------------ |
+| Claude   | `~/.claude/projects/[project-path]/[session-id].jsonl` |
+| Codex    | `~/.codex/sessions/[session-id].jsonl`                 |
+| OpenCode | `~/.opencode/conversations/` (structure varies)        |
 
 These locations are:
+
 - **Local to the developer machine** (not shared)
 - **Scattered across home directories** (not organized)
 - **Not version controlled** (not preserved)
@@ -123,6 +130,7 @@ These locations are:
 **Approach**: After each solve.mjs session, copy relevant session files to `.knowledge/` folder in the repository.
 
 **Implementation**:
+
 ```
 .knowledge/
 ├── .claude/
@@ -138,12 +146,14 @@ These locations are:
 ```
 
 **Pros**:
+
 - Simple implementation
 - Preserves full session context
 - Compatible with all tools
 - No changes to AI tool behavior
 
 **Cons**:
+
 - Large file sizes (JSONL files can be 100KB+ each)
 - Contains potentially sensitive information
 - Git repository bloat over time
@@ -154,6 +164,7 @@ These locations are:
 **Approach**: Use AI to summarize each session's key learnings before storing.
 
 **Implementation**:
+
 ```
 .knowledge/
 ├── summaries/
@@ -166,12 +177,14 @@ These locations are:
 ```
 
 **Pros**:
+
 - Much smaller storage footprint
 - Human-readable summaries
 - Can be curated and edited
 - Safe to commit to public repos
 
 **Cons**:
+
 - Loses detailed context
 - Requires additional AI processing
 - Summarization may miss important details
@@ -182,6 +195,7 @@ These locations are:
 **Approach**: Store both raw session files (excluded from git) and extracted summaries (committed).
 
 **Implementation**:
+
 ```
 .knowledge/
 ├── raw/                    # gitignored
@@ -195,12 +209,14 @@ These locations are:
 ```
 
 **Pros**:
+
 - Full context available locally
 - Clean summaries in repository
 - No git bloat
 - Balances completeness vs cleanliness
 
 **Cons**:
+
 - More complex implementation
 - Requires sync between raw and summaries
 
@@ -209,17 +225,20 @@ These locations are:
 **Approach**: Use Claude's Model Context Protocol (MCP) to connect to a persistent knowledge store.
 
 **Implementation**: Create MCP server that:
+
 1. Captures session learnings in real-time
 2. Stores in structured database (SQLite, Neo4j, etc.)
 3. Injects relevant context into new sessions
 
 **Pros**:
+
 - Most powerful solution
 - Real-time context accumulation
 - Intelligent context retrieval
 - Cross-session learning
 
 **Cons**:
+
 - Most complex implementation
 - Requires MCP infrastructure
 - Tool-specific (Claude only initially)
@@ -259,36 +278,39 @@ These locations are:
 
 ### Benefits
 
-| Benefit | Impact |
-|---------|--------|
-| Reduced context re-explanation | Save 5-10 min per session |
-| More consistent decisions | Fewer rework cycles |
-| Preserved debugging insights | Faster bug resolution |
-| Team knowledge sharing | Better collaboration |
-| AI learning accumulation | Improved quality over time |
+| Benefit                        | Impact                     |
+| ------------------------------ | -------------------------- |
+| Reduced context re-explanation | Save 5-10 min per session  |
+| More consistent decisions      | Fewer rework cycles        |
+| Preserved debugging insights   | Faster bug resolution      |
+| Team knowledge sharing         | Better collaboration       |
+| AI learning accumulation       | Improved quality over time |
 
 ### Costs
 
-| Cost | Mitigation |
-|------|------------|
-| Storage overhead | Rotation policies, gitignore raw files |
-| Implementation effort | Phase-based rollout |
-| Summarization tokens | Use efficient models (haiku) |
-| Maintenance | Automated cleanup scripts |
+| Cost                  | Mitigation                             |
+| --------------------- | -------------------------------------- |
+| Storage overhead      | Rotation policies, gitignore raw files |
+| Implementation effort | Phase-based rollout                    |
+| Summarization tokens  | Use efficient models (haiku)           |
+| Maintenance           | Automated cleanup scripts              |
 
 ## References
 
 ### External Resources
+
 - [Claude Code Best Practices](https://www.anthropic.com/engineering/claude-code-best-practices)
 - [Context Engineering for Claude Code](https://thomaslandgraf.substack.com/p/context-engineering-for-claude-code)
 - [Async Code Research with Coding Agents](https://simonwillison.net/2025/Nov/6/async-code-research/)
 - [Claude Code Memory Documentation](https://code.claude.com/docs/en/memory)
 
 ### Related Hive-Mind Documentation
+
 - `docs/dependencies-research/claude-sessions/README.md` - Session management research
 - `docs/case-studies/issue-661-session-resume-cost-optimization/` - Session resume case study (PR #662)
 
 ### External Repositories
+
 - [ProverCoderAI/context-doc](https://github.com/ProverCoderAI/context-doc) - Inspiration for this feature
 - [anthropics/claude-code Issues](https://github.com/anthropics/claude-code/issues) - Community feedback on context persistence
 
@@ -312,4 +334,4 @@ This feature aligns with industry trends toward persistent AI memory and address
 
 ---
 
-*This case study was compiled on 2025-12-27 as part of the architectural exploration for issue #981.*
+_This case study was compiled on 2025-12-27 as part of the architectural exploration for issue #981._

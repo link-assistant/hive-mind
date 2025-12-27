@@ -1,1 +1,11 @@
-{"body":"As in https://github.com/ProverCoderAI/context-doc, we can enable accumulation of all sessions/conversations contexts in the repository, so AI will always have access to all logs on how decisions were made in the past, and also reuse experience from previous working sessions.\n\nFirst we need to explore different ways to implement it architectually, so no need to write code, until we decide the best possible way together.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.","comments":[],"createdAt":"2025-12-24T15:50:07Z","labels":[{"id":"LA_kwDOPUU0qc8AAAACGYm6jw","name":"documentation","description":"Improvements or additions to documentation","color":"0075ca"},{"id":"LA_kwDOPUU0qc8AAAACGYm6mA","name":"enhancement","description":"New feature or request","color":"a2eeef"}],"title":"Add `--keep-tool-context-in-repository` option","updatedAt":"2025-12-24T21:07:57Z"}
+{
+  "body": "As in https://github.com/ProverCoderAI/context-doc, we can enable accumulation of all sessions/conversations contexts in the repository, so AI will always have access to all logs on how decisions were made in the past, and also reuse experience from previous working sessions.\n\nFirst we need to explore different ways to implement it architectually, so no need to write code, until we decide the best possible way together.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions.",
+  "comments": [],
+  "createdAt": "2025-12-24T15:50:07Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "title": "Add `--keep-tool-context-in-repository` option",
+  "updatedAt": "2025-12-24T21:07:57Z"
+}

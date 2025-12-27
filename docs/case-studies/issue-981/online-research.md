@@ -65,6 +65,7 @@
 **Title**: Context persistence across sessions - major workflow disruption
 
 **Key Points**:
+
 - Forces repeated explanation of project architecture
 - Disrupts workflow for complex projects
 - References multiple related issues (#1345, #1534, #1676, #1723)
@@ -75,6 +76,7 @@
 **Title**: Feature Request: Persistent Memory Between Claude Code Sessions
 
 **Key Points**:
+
 - "Claude Code starts every session with zero context"
 - Proposed solutions:
   - Local storage at `~/.config/claude-code/memory/`
@@ -82,6 +84,7 @@
   - Cross-platform sync with claude.ai memory
 
 **User Quote**:
+
 > "The value of an AI assistant compounds over time. Paying $200/month for a fragmented experience without session continuity feels inadequate."
 
 ## Implications for Hive-Mind
@@ -103,6 +106,7 @@
 ### Validation
 
 The research confirms:
+
 - This is a widely recognized problem in the AI coding community
 - No standard solution exists yet
 - Multiple approaches have been tried with varying success

@@ -209,7 +209,7 @@ export const buildWorkspacePath = (owner, repo, issueNumber, timestamp) => {
 };
 
 // Create or find temporary directory for cloning the repository
-// When --enable-workspaces is used with --tool opencode, creates:
+// When --enable-workspaces is used, creates:
 //   {workspace}/repository - for the cloned repo
 //   {workspace}/tmp - for temp files, logs, downloads
 export const setupTempDirectory = async (argv, workspaceInfo = null) => {
@@ -217,8 +217,8 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   let workspaceTmpDir = null;
   let isResuming = argv.resume;
 
-  // Check if workspace mode should be enabled
-  const useWorkspaces = argv.enableWorkspaces && argv.tool === 'opencode';
+  // Check if workspace mode should be enabled (works with all tools)
+  const useWorkspaces = argv.enableWorkspaces;
 
   if (isResuming) {
     // When resuming, try to find existing directory or create a new one

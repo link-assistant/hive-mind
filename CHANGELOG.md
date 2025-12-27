@@ -1,5 +1,388 @@
 # @link-assistant/hive-mind
 
+## 0.51.14
+
+### Patch Changes
+
+- 4e4fe08: Improve fork divergence error message clarity
+  - Remove misleading "Option 3: Work without syncing fork (NOT RECOMMENDED)"
+  - Add new Option 1 for deleting and recreating fork (marked as SIMPLEST)
+  - Reorder options by simplicity: deletion → auto-resolution → manual resolution
+  - Move risk warnings inline with relevant options for better context
+  - Add comprehensive case study documentation in docs/case-studies/issue-972/
+
+  This change makes the error message more useful by removing options that were never actually viable and adding the fork deletion option as the cleanest solution for most fork divergence scenarios.
+
+## 0.51.13
+
+### Patch Changes
+
+- 20d6f3a: Fix URL hash fragment parsing - URLs with hash fragments like #issuecomment-123 are now correctly parsed. Previously, solving a PR with a comment URL like /pull/9#issuecomment-123 would fail because the PR number was extracted as "9#issuecomment-123" instead of "9".
+
+## 0.51.12
+
+### Patch Changes
+
+- c5bcaf4: fix: add trailing newlines to generated CLAUDE.md files and prompts
+
+  Ensures all automatically generated CLAUDE.md files and prompt strings comply with POSIX text file standards by adding trailing newlines. This fix prevents linter warnings and eliminates the need for manual fixes in subsequent pull requests.
+
+  Changes:
+  - Modified `src/solve.auto-pr.lib.mjs` to add trailing newline to CLAUDE.md template
+  - Updated all prompt builder files (`agent.prompts.lib.mjs`, `claude.prompts.lib.mjs`, `codex.prompts.lib.mjs`, `opencode.prompts.lib.mjs`) to append `\n` to return values
+  - Added comprehensive case study documentation in `docs/case-studies/issue-971/`
+
+  Fixes #971
+
+## 0.51.11
+
+### Patch Changes
+
+- 001dcdb: Fix missing comment detection when PRs have more than 30 comments by adding --paginate flag to GitHub API calls
+
+## 0.51.10
+
+### Patch Changes
+
+- 0f20e0b: Add missing language runtimes, agents, and tools to /version command output
+
+  This patch adds comprehensive version detection for all components installed by the ubuntu-24-server-install.sh script:
+
+  **New Language Runtimes:**
+  - Deno (JavaScript/TypeScript runtime)
+  - Go (Golang)
+  - Java (via SDKMAN)
+  - Lean (theorem prover)
+  - Perl (via Perlbrew)
+  - OCaml (via Opam)
+  - Rocq/Coq (theorem prover)
+
+  **New Development Tools:**
+  - SDKMAN (Java version manager)
+  - Elan (Lean version manager)
+  - Lake (Lean package manager)
+  - Perlbrew (Perl version manager)
+  - Opam (OCaml package manager)
+
+  **New C/C++ Development Tools Section:**
+  - Make
+  - CMake
+  - GCC
+  - G++
+  - Clang
+  - LLVM
+  - LLD (LLVM linker)
+
+  The /version command now displays all installed components that are available in the hive environment.
+
+  Fixes #1007
+
+## 0.51.9
+
+### Patch Changes
+
+- Keep hive user's home directory clean
+  - Move Go GOPATH from `~/go` to `~/.go/path` to keep everything under the hidden `.go` directory
+  - Move Perlbrew from `~/perl5` to `~/.perl5` (hidden directory)
+  - Remove automatic cloning of hive-mind repository to `~/hive-mind`
+
+  This keeps the user's home directory empty by default, giving users freedom to organize their workspace as they prefer.
+
+  Fixes #1004
+
+  fix: ensure log attachment works when PR is merged during session
+
+  Fixes issue where log files would not be attached to pull requests when the PR was merged during the AI solving session. The `gh pr list` command only returns OPEN PRs by default, causing merged PRs to not be found. Added `--state all` flag to find PRs regardless of their state (OPEN, MERGED, or CLOSED), and added handling to skip operations that don't work on merged PRs (like `gh pr edit` and `gh pr ready`) while still allowing log attachment.
+
+## 0.51.7
+
+### Patch Changes
+
+- b7c7a2c: feat: add GitHub API rate limits to /limits command
+
+  Adds GitHub API core rate limit information to the Telegram bot's /limits command output, allowing users to monitor GitHub API usage alongside Claude usage limits and disk space. This helps plan issue execution when GitHub API limits are approaching.
+
+## 0.51.6
+
+### Patch Changes
+
+- 9ee79c8: fix(ci): Add timeout, verbose diagnostics, and pre-fetch caching for Docker ARM64 builds
+
+  Addresses issue #998 where Docker Publish (linux/arm64) was stuck for >1.5 hours due to slow Homebrew bottle downloads on GitHub's ARM64 runners.
+
+  Changes:
+  - Added 90-minute timeout to docker-publish jobs to prevent indefinite hangs
+  - Switched from ubuntu-24.04-arm to ubuntu-22.04-arm for better network performance
+  - Added documentation comments about known ARM64 runner issues
+  - Added Homebrew verbose mode (`HOMEBREW_VERBOSE=1`) for detailed diagnostics
+  - Added `brew fetch --deps --retry` to pre-download bottles before installation
+  - Added timing measurements for fetch and install steps
+  - Updated case study with diagnostic approach
+
+  Root cause: GitHub's ubuntu-24.04-arm runners have known network performance issues (actions/runner-images#11790, actions/partner-runner-images#101). The ARM64 build was stuck downloading Homebrew bottles for PHP dependencies at extremely slow speeds.
+
+  See docs/case-studies/issue-998/README.md for detailed analysis.
+
+## 0.51.5
+
+### Patch Changes
+
+- 1a17f74: feat: add disk space information to /limits command
+
+  Adds free disk space percentage and size information to the Telegram bot's /limits command output, allowing users to monitor disk usage alongside Claude API limits and plan issue execution accordingly.
+
+## 0.51.4
+
+### Patch Changes
+
+- Test patch release
+
+## 0.51.3
+
+### Patch Changes
+
+- 2fdb8b8: Fix Docker publish jobs being skipped after successful npm releases by adding always() to job conditions and explicit result checks
+
+## 0.51.2
+
+### Patch Changes
+
+- a605d9d: Fix perlbrew bashrc unbound variable error (issue #989)
+
+  **Problem:** The error `/home/hive/perl5/perlbrew/etc/bashrc: line 71: $1: unbound variable` appeared during Docker builds when running Perl version checks.
+
+  **Root Cause:** Perlbrew's generated bashrc uses positional parameter `$1` and other variables without protection against `set -u` (nounset mode).
+
+  **Solution:**
+  - Patch perlbrew bashrc after installation to use `${1:-}`, `${PERLBREW_LIB:-}`, and `${outsep:-}` syntax
+  - Add CI check to detect and fail on any unbound variable errors in Docker builds
+  - Add case study documentation for future reference
+
+  **Changes:**
+  - `scripts/ubuntu-24-server-install.sh`: Patch perlbrew bashrc for set -u compatibility
+  - `.github/workflows/release.yml`: Add CI check for unbound variable errors
+  - `docs/case-studies/issue-989/`: Add case study documentation
+
+  References:
+  - Issue: https://github.com/link-assistant/hive-mind/issues/989
+  - Upstream fix: https://github.com/gugod/App-perlbrew/pull/850
+
+## 0.51.1
+
+### Patch Changes
+
+- ec08ef4: Fix Rocq installation verification (issue #952)
+  - Installation script: Check binary accessibility instead of just package listing
+  - Installation script: Use `opam pin add rocq-prover` per official documentation
+  - CI workflow: Require Rocq accessibility in container (not optional)
+  - CI workflow: Enhanced diagnostics when Rocq verification fails
+  - Dockerfile: Add opam environment variables (OPAM_SWITCH_PREFIX, CAML_LD_LIBRARY_PATH, OCAML_TOPLEVEL_PATH)
+
+  References:
+  - Issue: https://github.com/link-assistant/hive-mind/issues/952
+  - Rocq docs: https://rocq-prover.org/docs/using-opam
+
+## 0.51.0
+
+### Minor Changes
+
+- 36f23fb: Add fork parent validation to prevent nested fork hierarchy issues (#967)
+
+  This release adds early validation of fork parent relationships to prevent issues where a fork was created from an intermediate fork (fork of a fork) instead of directly from the intended upstream repository.
+
+  **Problem solved:**
+  When a user's fork was created from an intermediate fork (e.g., `user/repo` forked from `someone-else/repo` which was itself forked from `upstream/repo`), any pull requests created would include all commits that exist in the intermediate fork but not in the upstream. This could result in PRs with hundreds or thousands of unexpected commits.
+
+  **Case study (Issue #967):**
+  A fork `konard/zamtmn-zcad` was created from `veb86/zcadvelecAI` (intermediate fork with 1,678 extra commits) instead of `zamtmn/zcad` (the upstream). This resulted in a PR with 1,681 commits instead of the expected 3 commits.
+
+  **Changes:**
+  - **New function `validateForkParent()`**: Validates that a fork's parent matches the expected upstream repository before using it. Checks both the immediate parent and ultimate source (root) of the fork hierarchy.
+  - **Early validation**: Fork parent is now validated immediately after an existing fork is found, BEFORE syncing or creating branches. This prevents wasted work and provides clear error messages early.
+  - **Detailed error messages**: When a fork parent mismatch is detected, users receive comprehensive information including:
+    - The actual fork hierarchy (parent and source repositories)
+    - Why this is a problem (unexpected commits in PRs)
+    - Three concrete fix options:
+      1. Delete the problematic fork and create a fresh one
+      2. Use `--prefix-fork-name-with-owner-name` to create a new fork with a different name
+      3. Work directly on the repository with `--no-fork` if you have write access
+  - **Unit tests**: Added comprehensive test suite (`tests/test-fork-parent-validation.mjs`) with 10 tests covering the validation logic, error handling, and documentation.
+
+  **Technical details:**
+  - Uses GitHub API to fetch fork relationship: `gh api repos/{fork} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`
+  - Validates in two code paths: when finding existing forks (strict error) and when using forkOwner from PR mode (warning only)
+  - Reports validation errors to Sentry for monitoring
+
+## 0.50.11
+
+### Patch Changes
+
+- 6f51d29: fix: add screen terminal multiplexer to Docker image
+
+  The screen package is now installed by default in the Docker image, resolving issue #986 where users encountered "command not found" errors when attempting to use screen. Includes comprehensive case study documenting the issue analysis, root cause, and solution evaluation.
+
+## 0.50.10
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.9
+
+### Patch Changes
+
+- Fix stuck Docker multi-platform builds by using native ARM64 runners
+
+  The Docker publish workflow was getting stuck for hours when building ARM64 images using QEMU emulation on x86_64 runners. QEMU emulation introduces 10-100x slowdown, especially for complex Dockerfiles that compile native packages.
+
+  **Solution**: Refactored docker-publish jobs to use GitHub's native ARM64 runners (`ubuntu-24.04-arm`) with a matrix strategy:
+  - Each platform (amd64, arm64) builds natively in parallel on dedicated runners
+  - Build artifacts (digests) are uploaded and merged into a multi-platform manifest
+  - Eliminates QEMU emulation overhead entirely
+  - Build times should now be similar for both platforms (~10-15 minutes each)
+
+  This fix applies to both:
+  - `docker-publish` job (triggered by regular releases)
+  - `docker-publish-instant` job (triggered by manual instant releases)
+
+  Fixes #982
+
+  Fix Docker Publish jobs being skipped after npm publish
+
+  Added explicit shell-based output passthrough step for `published` output in both `release` and `instant-release` jobs. This ensures reliable output propagation to dependent jobs (`docker-publish` and `docker-publish-instant`).
+
+  Root cause: Node.js `appendFileSync` to `GITHUB_OUTPUT` was not reliably propagating outputs to dependent jobs. The fix uses a dedicated shell step to echo outputs, which is proven to work correctly.
+
+  Also added debug logging to `setOutput` function in `publish-to-npm.mjs` and `version-and-commit.mjs` scripts.
+
+  Add case study for harmful prompts and resource exhaustion attacks
+
+  Documents analysis of LLM resource exhaustion attacks including:
+  - Timeline and root cause analysis
+  - OWASP LLM Top 10 (2025) attack classification
+  - Attack patterns database with detection rules
+  - Five proposed solution approaches
+  - Raw attack samples for research
+
+## 0.50.8
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.7
+
+### Patch Changes
+
+- 9eea96a: Fix Docker publish jobs failing with "No space left on device" error
+
+  Added disk space cleanup step to both `docker-publish` and `docker-publish-instant` jobs in the release workflow. This step removes large pre-installed packages (dotnet, android SDK, GHC, CodeQL) and prunes unused Docker images before building multi-platform Docker images.
+
+  This fixes issue #975 where instant releases failed during arm64 build due to insufficient disk space when installing Rust toolchain.
+
+## 0.50.6
+
+### Patch Changes
+
+- 7733b32: Detect OpenCode permission prompts and recommend @link-assistant/agent for autonomous workflows
+  - Configure all OpenCode permissions to "allow" (edit, bash, webfetch, skill, doom_loop, external_directory)
+  - Detect interactive permission prompts that block automated execution
+  - Recommend @link-assistant/agent (100% unrestricted OpenCode fork) when prompts are detected
+
+## 0.50.5
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.4
+
+### Patch Changes
+
+- d58e5dd: fix: enable Docker and Helm publishing for instant releases
+
+  Previously, when using the "instant release" workflow (triggered via workflow_dispatch),
+  Docker images and Helm charts were not published because they only depended on the
+  `release` job outputs. This fix adds dedicated `docker-publish-instant` and
+  `helm-release-instant` jobs that depend on the `instant-release` job outputs.
+
+  This resolves the issue where Docker Hub images were 14 days behind npm releases.
+
+  Additionally, duplicated CI/CD logic has been moved to reusable scripts:
+  - `scripts/wait-for-npm.sh` - Waits for NPM package availability
+  - `scripts/helm-release.sh` - Packages and publishes Helm charts to gh-pages
+
+## 0.50.3
+
+### Patch Changes
+
+- ca9f1b2: Fix sentry-cli source maps upload command for v3.0.0+ API
+
+  Updated `scripts/upload-sourcemaps.mjs` to use the new `sentry-cli sourcemaps upload` command syntax instead of the deprecated `sentry-cli releases files upload-sourcemaps` which was removed in sentry-cli 3.0.0.
+
+## 0.50.2
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.1
+
+### Patch Changes
+
+- 8fdf8dd: Fix Sentry CLI 3.x compatibility to restore Docker image publishing
+  - Update `scripts/upload-sourcemaps.mjs` to use `sourcemaps upload` command instead of deprecated `releases files` command
+  - Add case study documentation for issue #962 investigation
+
+## 0.50.0
+
+### Minor Changes
+
+- 8934ed6: Improve changeset CI/CD robustness for multiple concurrent PRs
+  - Update validate-changeset.mjs to only check changesets ADDED by the current PR (not pre-existing ones)
+  - Add merge-changesets.mjs script to combine multiple pending changesets during release
+  - Merged changesets use highest version bump type (major > minor > patch) and combine descriptions chronologically
+  - Update release workflow to merge multiple changesets before version bump
+  - This prevents PR failures when multiple PRs merge before a release cycle completes
+
+## 0.49.0
+
+### Minor Changes
+
+- Add --claude-file and --gitkeep-file CLI options for choosing between CLAUDE.md and .gitkeep files
+
+  This feature allows users to choose which file type to use for PR creation:
+  - `--claude-file` (default: true): Use CLAUDE.md file for task details
+  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+
+  The flags are mutually exclusive:
+  - Using `--gitkeep-file` automatically disables `--claude-file`
+  - Using `--no-claude-file` automatically enables `--gitkeep-file`
+  - Both flags cannot be disabled simultaneously
+
+  This is a step toward making .gitkeep the default behavior in future releases.
+
+## 0.48.4
+
+### Patch Changes
+
+- b010ce6: Increase minimum disk space requirement from 512 MB to 2 GB to provide more room for commands to gracefully finish before running out of disk space and prevent potential OS issues
+
+## 0.48.3
+
+### Patch Changes
+
+- ba6d6e4: Add comprehensive research on folder naming best practices for documentation
+
+  Added expanded documentation in `docs/case-studies/folder-naming-best-practices.md` covering:
+  - Industry standards (Google SRE, ITIL, NIST, Diataxis, Oxide RFD, NASA FRB, FEMA AAR)
+  - Terminology mapping for alternative document type names (PIR, AAR, RCA, TDR, etc.)
+  - Recommended folder structure for incidents, investigations, problems, case studies, decisions, reviews, retrospectives, and runbooks
+  - Extended folder structure for larger organizations
+  - File naming conventions for 18+ document types following kebab-case and ISO 8601 date formats
+  - Document templates with YAML front matter including RFD, Spike, AAR, Retrospective, and One-Pager templates
+  - 30+ verified authoritative sources from industry leaders
+
 ## 0.48.2
 
 ### Patch Changes

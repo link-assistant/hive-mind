@@ -45,7 +45,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
 // Import Claude limits library for /limits command
-const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
+const { getClaudeUsageLimits, getDiskSpaceInfo, getGitHubRateLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
 // Import version info library for /version command
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -844,12 +844,12 @@ bot.command('limits', async ctx => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', {
+  const fetchingMessage = await ctx.reply('🔄 Fetching usage limits...', {
     reply_to_message_id: ctx.message.message_id,
   });
 
-  // Get the usage limits using the library function
-  const result = await getClaudeUsageLimits(VERBOSE);
+  // Get the usage limits, disk space info, and GitHub rate limits in parallel
+  const [result, diskSpaceResult, githubLimitsResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getDiskSpaceInfo(VERBOSE), getGitHubRateLimits(VERBOSE)]);
 
   if (!result.success) {
     // Edit the fetching message to show the error
@@ -859,8 +859,8 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  // Format and edit the fetching message with the results
-  const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
+  // Format and edit the fetching message with the results (pass disk space and GitHub limits if available)
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
     parse_mode: 'Markdown',
   });

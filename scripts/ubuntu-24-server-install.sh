@@ -298,7 +298,7 @@ log_step "Installing system prerequisites"
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
+maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect screen
 log_success "Essential tools installed"
 
 # --- Install C/C++ Development Tools ---
@@ -593,20 +593,22 @@ if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
       rm -rf "$TEMP_DIR"
 
       # Add Go to shell profile for persistence
+      # Note: GOPATH is set to $HOME/.go/path to keep everything under the hidden .go directory
+      # This keeps the user's home directory clean (issue #1004)
       if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
         log_info "Adding Go to shell configuration..."
         {
           echo ''
           echo '# Go configuration'
           echo 'export GOROOT="$HOME/.go"'
-          echo 'export GOPATH="$HOME/go"'
+          echo 'export GOPATH="$HOME/.go/path"'
           echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
         } >> "$HOME/.bashrc"
       fi
 
       # Load Go for current session
       export GOROOT="$HOME/.go"
-      export GOPATH="$HOME/go"
+      export GOPATH="$HOME/.go/path"
       export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 
       # Create GOPATH directory
@@ -627,7 +629,7 @@ else
   # Ensure Go is in PATH for current session
   if [ -d "$HOME/.go/bin" ]; then
     export GOROOT="$HOME/.go"
-    export GOPATH="$HOME/go"
+    export GOPATH="$HOME/.go/path"
     export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
   elif [ -d "/usr/local/go/bin" ]; then
     export PATH="/usr/local/go/bin:$PATH"
@@ -775,28 +777,68 @@ if command -v opam &>/dev/null; then
   eval "$(opam env --switch=default 2>/dev/null)" || true
 
   # Install Rocq (the proof assistant formerly known as Coq)
-  if ! opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  # Reference: https://rocq-prover.org/docs/using-opam
+  # Note: We check for binary accessibility, not just package installation,
+  # because the package might be listed but binaries may not be available
+
+  # First, ensure opam environment is fully loaded
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Check if Rocq binaries are actually accessible (not just if package is installed)
+  ROCQ_ACCESSIBLE=false
+  if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v rocqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v coqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  fi
+
+  if [ "$ROCQ_ACCESSIBLE" = false ]; then
     log_info "Installing Rocq Prover (this may take several minutes)..."
     log_note "Rocq is the new name for the Coq theorem prover"
+    log_note "Reference: https://rocq-prover.org/docs/using-opam"
 
     # Add Rocq package repository
     opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
 
-    # Install Rocq prover
-    opam install rocq-prover -y || {
+    # Update opam to get latest package info
+    opam update 2>/dev/null || true
+
+    # Install Rocq prover using pin (recommended by official docs)
+    # This ensures all dependencies including rocq-runtime are properly installed
+    if opam pin add rocq-prover --yes 2>/dev/null; then
+      log_success "Rocq Prover pinned and installed"
+    elif opam install rocq-prover -y 2>/dev/null; then
+      log_success "Rocq Prover installed via opam install"
+    else
       log_warning "Rocq installation failed. Trying to install Coq as fallback..."
       opam install coq -y || {
         log_warning "Coq installation also failed."
       }
-    }
+    fi
 
-    if opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
-      log_success "Rocq Prover installed successfully"
-    elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
-      log_success "Coq installed successfully (fallback)"
+    # Re-source opam environment after installation
+    eval "$(opam env --switch=default 2>/dev/null)" || true
+
+    # Verify installation was successful by checking binary accessibility
+    if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+      ROCQ_VERSION=$(rocq -v 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v rocqc &>/dev/null; then
+      ROCQ_VERSION=$(rocqc --version 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v coqc &>/dev/null; then
+      COQ_VERSION=$(coqc --version 2>&1 | head -n1)
+      log_success "Coq verified (fallback): $COQ_VERSION"
+    elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_warning "Rocq package installed but binaries not in PATH"
+      log_note "This may indicate a partial installation. Try: eval \$(opam env)"
+    else
+      log_warning "Rocq/Coq installation could not be verified"
     fi
   else
-    log_info "Rocq Prover already installed."
+    log_info "Rocq Prover already installed and accessible."
   fi
 
   # Add opam environment to shell profile for persistence
@@ -904,10 +946,70 @@ if command -v brew &>/dev/null; then
 
     # Install PHP 8.3 if tap was successfully added
     if brew tap | grep -q "shivammathur/php"; then
+      # Pre-fetch PHP bottle and dependencies to cache them
+      # This helps diagnose download issues and can improve future installs
+      # Reference: https://docs.brew.sh/Manpage#fetch-options-formulacask-
+      log_info "Pre-fetching PHP 8.3 bottles (verbose mode for diagnostics)..."
+      log_note "This step downloads bottles to cache before installation"
+      log_note "If downloads are slow, check: https://github.com/Homebrew/brew/issues/19208"
+
+      # Configure Homebrew for optimal diagnostics and network resilience
+      # Reference: https://docs.brew.sh/Manpage (Environment section)
+      #
+      # Diagnostics:
+      # - HOMEBREW_VERBOSE: Detailed output during operations
+      # - HOMEBREW_DISPLAY_INSTALL_TIMES: Show timing for each install step
+      # - HOMEBREW_CURL_VERBOSE: Verbose curl output for download debugging
+      #
+      # Performance & Resilience:
+      # - HOMEBREW_NO_ANALYTICS: Reduce network overhead
+      # - HOMEBREW_NO_AUTO_UPDATE: Prevent update checks during install
+      # - HOMEBREW_CURL_RETRIES: Number of curl retries (default 3)
+      export HOMEBREW_VERBOSE=1
+      export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+      export HOMEBREW_CURL_VERBOSE=1
+      export HOMEBREW_NO_ANALYTICS=1
+      export HOMEBREW_NO_AUTO_UPDATE=1
+      export HOMEBREW_CURL_RETRIES=5
+
+      log_info "Homebrew diagnostics enabled:"
+      log_note "  HOMEBREW_VERBOSE=1 (detailed output)"
+      log_note "  HOMEBREW_DISPLAY_INSTALL_TIMES=1 (timing info)"
+      log_note "  HOMEBREW_CURL_VERBOSE=1 (curl debugging)"
+      log_note "  HOMEBREW_CURL_RETRIES=5 (retry count)"
+      log_note "  HOMEBREW_NO_AUTO_UPDATE=1 (skip update checks)"
+
+      # Fetch bottles first - this downloads to cache without installing
+      # Using --retry to handle transient network issues (up to 5 retries with backoff)
+      # Using --deps to also fetch all dependencies
+      log_info "Fetching PHP 8.3 and all dependencies..."
+      FETCH_START=$(date +%s)
+      if brew fetch --deps --retry shivammathur/php/php@8.3 2>&1; then
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_success "Bottles fetched successfully in ${FETCH_DURATION} seconds"
+        log_note "Bottles are now cached at: $(brew --cache)"
+      else
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_warning "Bottle fetch failed or timed out after ${FETCH_DURATION} seconds"
+        log_note "Will attempt installation anyway (may use source compile as fallback)"
+      fi
+
       log_info "Installing PHP 8.3 (this may take several minutes)..."
-      brew install shivammathur/php/php@8.3 || {
-        log_warning "PHP 8.3 installation failed."
+      INSTALL_START=$(date +%s)
+      brew install --verbose shivammathur/php/php@8.3 || {
+        INSTALL_END=$(date +%s)
+        INSTALL_DURATION=$((INSTALL_END - INSTALL_START))
+        log_warning "PHP 8.3 installation failed after ${INSTALL_DURATION} seconds."
       }
+
+      # Unset diagnostic environment variables after PHP installation
+      unset HOMEBREW_VERBOSE
+      unset HOMEBREW_DISPLAY_INSTALL_TIMES
+      unset HOMEBREW_CURL_VERBOSE
+      unset HOMEBREW_NO_AUTO_UPDATE
+      unset HOMEBREW_CURL_RETRIES
 
       # Link PHP 8.3 as the active version if installation succeeded
       # Check for php@8.3 in brew list (formula name, not tap prefix)
@@ -1020,10 +1122,14 @@ else
 fi
 
 # --- Perl (via Perlbrew) ---
-if [ ! -d "$HOME/perl5/perlbrew" ]; then
+# Note: PERLBREW_ROOT is set to $HOME/.perl5 to keep the home directory clean (issue #1004)
+if [ ! -d "$HOME/.perl5" ]; then
   log_info "Installing Perlbrew (Perl version manager)..."
 
-  # Install Perlbrew
+  # Set PERLBREW_ROOT before installation to use hidden directory
+  export PERLBREW_ROOT="$HOME/.perl5"
+
+  # Install Perlbrew (it will use PERLBREW_ROOT if set)
   curl -L https://install.perlbrew.pl | bash
 
   # Add Perlbrew to shell profile for persistence
@@ -1034,15 +1140,23 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
       echo '# Perlbrew configuration'
       echo '# Only load perlbrew in interactive shells to avoid unbound variable errors'
       echo 'if [ -n "$PS1" ]; then'
-      echo '  export PERLBREW_ROOT="$HOME/perl5/perlbrew"'
+      echo '  export PERLBREW_ROOT="$HOME/.perl5"'
       echo '  [ -f "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"'
       echo 'fi'
     } >> "$HOME/.bashrc"
   fi
 
-  # Load Perlbrew for current session
-  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  # Load Perlbrew for current session (already set above)
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Patch all unprotected positional parameters and variables that cause unbound variable errors
+    # See: https://github.com/gugod/App-perlbrew/pull/850
+    log_info "Patching perlbrew bashrc for set -u compatibility..."
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    # Also fix $outsep in __perlbrew_purify function
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
     # Temporarily disable unset variable check to avoid perlbrew bashrc errors
     set +u
     source "$PERLBREW_ROOT/etc/bashrc"
@@ -1095,8 +1209,14 @@ if [ ! -d "$HOME/perl5/perlbrew" ]; then
 else
   log_info "Perlbrew already installed."
   # Load Perlbrew for current session if available
-  export PERLBREW_ROOT="$HOME/perl5/perlbrew"
+  export PERLBREW_ROOT="$HOME/.perl5"
   if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Apply patch even for existing installations to ensure consistency
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
     # Temporarily disable unset variable check to avoid perlbrew bashrc errors
     set +u
     source "$PERLBREW_ROOT/etc/bashrc"
@@ -1149,7 +1269,7 @@ fi
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
 # Try to install packages individually, continuing on failure for unpublished packages
-PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent"
+PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent start-command gh-setup-git-identity gh-pull-all gh-load-issue gh-load-pull-request gh-upload-log"
 FAILED_PACKAGES=""
 
 for pkg in $PACKAGES; do
@@ -1256,19 +1376,12 @@ else
   log_note "After authentication, Git will be auto-configured with your GitHub identity"
 fi
 
-# --- Clone or update hive-mind repo (idempotent, no fatal logs) ---
-REPO_DIR="$HOME/hive-mind"
-if [ -d "$REPO_DIR/.git" ]; then
-  log_info "Updating existing hive-mind repository..."
-  git -C "$REPO_DIR" fetch --all --prune || log_warning "fetch failed (continuing)."
-  git -C "$REPO_DIR" pull --ff-only || log_warning "pull failed (continuing)."
-elif [ -d "$REPO_DIR" ]; then
-  log_warning "Directory '$REPO_DIR' exists but is not a git repo; skipping clone."
-else
-  log_info "Cloning hive-mind repository..."
-  (cd "$HOME" && git clone https://github.com/link-assistant/hive-mind) || log_warning "clone failed (continuing)."
-  log_success "hive-mind repository cloned"
-fi
+# --- hive-mind repository cloning removed (issue #1004) ---
+# The hive-mind repository is no longer cloned to the user's home directory.
+# Users who need the source code should clone it manually:
+#   git clone https://github.com/link-assistant/hive-mind
+# This keeps the user's home directory clean and gives users freedom to
+# organize their workspace as they prefer.
 
 # --- Generate Installation Summary ---
 log_step "Installation Summary"
@@ -1390,7 +1503,6 @@ log_note "1. Authenticate with GitHub: gh auth login -h github.com -s repo,workf
 log_note "2. Authenticate with Claude: Run 'claude' command and follow the prompts"
 log_note "3. Restart your shell or run: source ~/.bashrc"
 log_note "4. Verify installations with: <tool> --version"
-log_note "5. Navigate to ~/hive-mind to start working"
 
 echo ""
 

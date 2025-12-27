@@ -25,7 +25,8 @@ export async function findGitHubIssueForYouTrack(youTrackId, owner, repo, $) {
   try {
     // Search for both open and closed issues with the YouTrack ID in the title
     // This prevents creating duplicates even if an issue was closed
-    const searchResult = await $`gh api search/issues --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
+    // Use --paginate to get all search results (GitHub API returns max 30 per page by default)
+    const searchResult = await $`gh api search/issues --paginate --jq '.items' -X GET -f q="repo:${owner}/${repo} \"${youTrackId}\" in:title is:issue"`;
 
     if (searchResult.code !== 0) {
       return null;

@@ -93,7 +93,12 @@ if (mode === 'instant' && !bumpType) {
 function setOutput(key, value) {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
-    appendFileSync(outputFile, `${key}=${value}\n`);
+    const content = `${key}=${value}\n`;
+    console.log(`Setting GitHub output: ${key}=${value}`);
+    appendFileSync(outputFile, content);
+    console.log(`Output written to ${outputFile}`);
+  } else {
+    console.log(`GITHUB_OUTPUT not set, would have set: ${key}=${value}`);
   }
 }
 

@@ -372,7 +372,7 @@ async function hasApprovals(prUrl) {
     const [, prOwner, prRepo, prNumber] = urlMatch;
 
     // Check for reviews using GitHub API
-    const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --jq '[.[] | select(.state == "APPROVED")] | length'`;
+    const cmd = `gh api repos/${prOwner}/${prRepo}/pulls/${prNumber}/reviews --paginate --jq '[.[] | select(.state == "APPROVED")] | length'`;
 
     const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
     const approvalCount = parseInt(stdout.trim()) || 0;

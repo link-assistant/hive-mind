@@ -97,6 +97,100 @@ export const checkExistingForkOfRoot = async rootRepo => {
   }
 };
 
+/**
+ * Validate that a fork's parent matches the expected upstream repository.
+ * This prevents issues where a fork was created from an intermediate fork (fork of a fork)
+ * instead of directly from the intended upstream repository.
+ *
+ * @param {string} forkRepo - The fork repository to validate (e.g., "user/repo")
+ * @param {string} expectedUpstream - The expected upstream repository (e.g., "owner/repo")
+ * @returns {Promise<{isValid: boolean, isFork: boolean, parent: string|null, source: string|null, error: string|null}>}
+ */
+export const validateForkParent = async (forkRepo, expectedUpstream) => {
+  try {
+    const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+
+    if (forkInfoResult.code !== 0) {
+      return {
+        isValid: false,
+        isFork: false,
+        parent: null,
+        source: null,
+        error: `Failed to get fork info for ${forkRepo}`,
+      };
+    }
+
+    const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+    const isFork = forkInfo.fork === true;
+    const parent = forkInfo.parent || null;
+    const source = forkInfo.source || null;
+
+    // If not a fork at all, it's invalid for our purposes
+    if (!isFork) {
+      return {
+        isValid: false,
+        isFork: false,
+        parent: null,
+        source: null,
+        error: `Repository ${forkRepo} is not a GitHub fork`,
+      };
+    }
+
+    // The fork's PARENT (immediate upstream) should match expectedUpstream
+    // The SOURCE (ultimate root) is also acceptable as it indicates the fork
+    // is part of the correct hierarchy, just at a different level
+    const parentMatches = parent === expectedUpstream;
+    const sourceMatches = source === expectedUpstream;
+
+    // Ideal case: parent matches directly (fork was made from expected upstream)
+    if (parentMatches) {
+      return {
+        isValid: true,
+        isFork: true,
+        parent,
+        source,
+        error: null,
+      };
+    }
+
+    // Special case: source matches but parent doesn't
+    // This means the fork was made from an intermediate fork
+    // For issue #967, this is the problematic case we want to catch
+    if (sourceMatches && !parentMatches) {
+      return {
+        isValid: false,
+        isFork: true,
+        parent,
+        source,
+        error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. ` + `This can cause pull requests to include unexpected commits from the intermediate fork.`,
+      };
+    }
+
+    // Neither parent nor source matches - completely different repository tree
+    return {
+      isValid: false,
+      isFork: true,
+      parent,
+      source,
+      error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}`,
+    };
+  } catch (error) {
+    reportError(error, {
+      context: 'validate_fork_parent',
+      forkRepo,
+      expectedUpstream,
+      operation: 'check_fork_hierarchy',
+    });
+    return {
+      isValid: false,
+      isFork: false,
+      parent: null,
+      source: null,
+      error: `Error validating fork parent: ${error.message}`,
+    };
+  }
+};
+
 // Create or find temporary directory for cloning the repository
 export const setupTempDirectory = async argv => {
   let tempDir;
@@ -315,8 +409,61 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     }
 
     if (existingForkName) {
-      // Fork exists
+      // Fork exists - validate that its parent matches the expected upstream
       await log(`${formatAligned('✅', 'Fork exists:', existingForkName)}`);
+      await log(`${formatAligned('🔍', 'Validating fork parent...', '')}`);
+
+      const forkValidation = await validateForkParent(existingForkName, `${owner}/${repo}`);
+
+      if (!forkValidation.isValid) {
+        // Fork parent mismatch detected - this prevents issue #967
+        await log('');
+        await log(`${formatAligned('❌', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'error' });
+        await log('');
+        await log('  🔍 What happened:');
+        if (!forkValidation.isFork) {
+          await log(`     The repository ${existingForkName} is NOT a GitHub fork.`);
+          await log('     It may have been created by cloning and pushing instead of forking.');
+        } else {
+          await log(`     Your fork ${existingForkName} was created from an intermediate fork,`);
+          await log(`     not directly from the target repository ${owner}/${repo}.`);
+        }
+        await log('');
+        await log('  📦 Fork relationship:');
+        await log(`     • Your fork: ${existingForkName}`);
+        await log(`     • Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}`);
+        await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
+        await log(`     • Expected parent: ${owner}/${repo}`);
+        await log('');
+        await log('  ⚠️  Why this is a problem:');
+        await log('     When a fork is created from an intermediate fork (a "fork of a fork"),');
+        await log('     any commits that exist in the intermediate fork but not in the target');
+        await log('     repository will be included in your pull requests. This can result in');
+        await log('     pull requests with hundreds or thousands of unexpected commits.');
+        await log('');
+        await log('  📖 Case study: See issue #967');
+        await log('     A fork created from veb86/zcadvelecAI (which had 1,678 extra commits)');
+        await log('     instead of zamtmn/zcad resulted in a PR with 1,681 commits');
+        await log('     instead of the expected 3 commits.');
+        await log('');
+        await log('  💡 How to fix:');
+        await log('');
+        await log('     Option 1: Delete the problematic fork and create a fresh one');
+        await log(`        gh repo delete ${existingForkName}`);
+        await log(`        Then run this command again to create a proper fork of ${owner}/${repo}`);
+        await log('');
+        await log('     Option 2: Use --prefix-fork-name-with-owner-name to create a new fork');
+        await log(`        This creates a fork named ${currentUser}/${owner}-${repo} instead`);
+        await log(`        ./solve.mjs "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --prefix-fork-name-with-owner-name --fork`);
+        await log('');
+        await log('     Option 3: Work directly on the repository (if you have write access)');
+        await log(`        ./solve.mjs "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --no-fork`);
+        await log('');
+
+        await safeExit(1, 'Fork parent mismatch - fork was created from intermediate fork');
+      }
+
+      await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
       repoToClone = existingForkName;
       forkedRepo = existingForkName;
       upstreamRemote = `${owner}/${repo}`;
@@ -555,6 +702,39 @@ Thank you!`;
 
     if (forkCheckResult.code === 0) {
       await log(`${formatAligned('✅', 'Fork verified:', `${actualForkName} is accessible`)}`);
+
+      // Validate fork parent before using it (prevents issue #967)
+      await log(`${formatAligned('🔍', 'Validating fork parent...', '')}`);
+      const forkValidation = await validateForkParent(actualForkName, `${owner}/${repo}`);
+
+      if (!forkValidation.isValid) {
+        // Fork parent mismatch detected
+        await log('');
+        await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH WARNING', '')}`, { level: 'warning' });
+        await log('');
+        await log('  🔍 Issue detected:');
+        if (!forkValidation.isFork) {
+          await log(`     The repository ${actualForkName} is NOT a GitHub fork.`);
+        } else {
+          await log(`     The fork ${actualForkName} was created from ${forkValidation.parent},`);
+          await log(`     not directly from the target repository ${owner}/${repo}.`);
+        }
+        await log('');
+        await log('  📦 Fork relationship:');
+        await log(`     • Fork: ${actualForkName}`);
+        await log(`     • Fork parent: ${forkValidation.parent || 'N/A'}`);
+        await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
+        await log(`     • Expected parent: ${owner}/${repo}`);
+        await log('');
+        await log('  ⚠️  This may cause pull requests to include unexpected commits.');
+        await log('     Consider using --fork to create your own fork instead.');
+        await log('');
+        // Note: We don't exit here since this is someone else's fork and we're just using it
+        // The user should be aware but can proceed (they didn't create this fork)
+      } else {
+        await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
+      }
+
       repoToClone = actualForkName;
       forkedRepo = actualForkName;
       upstreamRemote = `${owner}/${repo}`;
@@ -766,28 +946,25 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                     }
                   } else {
                     // Flag is not enabled - provide guidance
-                    await log('  ⚠️  RISKS of force-pushing:');
-                    await log('     • Overwrites fork history - any unique commits in your fork will be LOST');
-                    await log('     • Other collaborators working on your fork may face conflicts');
-                    await log('     • Cannot be undone - use with extreme caution');
-                    await log('');
                     await log('  💡 Your options:');
                     await log('');
-                    await log('     Option 1: Enable automatic force-push (DANGEROUS)');
+                    await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
+                    await log(`              gh repo delete ${forkedRepo}`);
+                    await log('              Then run the solve command again - the fork will be recreated automatically');
+                    await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
+                    await log('');
+                    await log('     Option 2: Enable automatic force-push (DANGEROUS)');
                     await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
                     await log('              This will automatically sync your fork with upstream using force-with-lease');
+                    await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
                     await log('');
-                    await log('     Option 2: Manually resolve the divergence');
+                    await log('     Option 3: Manually resolve the divergence');
                     await log('              1. Decide if you need any commits unique to your fork');
                     await log('              2. If yes, cherry-pick them after syncing');
                     await log('              3. If no, manually force-push:');
                     await log('                 git fetch upstream');
                     await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
                     await log(`                 git push --force origin ${upstreamDefaultBranch}`);
-                    await log('');
-                    await log('     Option 3: Work without syncing fork (NOT RECOMMENDED)');
-                    await log('              Your fork will remain out-of-sync with upstream');
-                    await log('              May cause merge conflicts in pull requests');
                     await log('');
                     await log('  🔧 To proceed with auto-resolution, restart with:');
                     await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);

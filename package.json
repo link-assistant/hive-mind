@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "0.48.2",
+  "version": "0.51.14",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",

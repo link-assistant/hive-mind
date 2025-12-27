@@ -42,7 +42,7 @@ const { reportError } = sentryLib;
 const { validateClaudeConnection } = claudeLib;
 
 // Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 500) => {
+const checkDiskSpace = async (minSpaceMB = 2048) => {
   const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
   return result.success;
 };
@@ -204,7 +204,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
+export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -272,13 +272,23 @@ export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection
   return true;
 };
 
-// Parse URL components
+// Parse URL components using Node.js URL API
+// Note: This function is a simpler alternative to parseGitHubUrl for cases where
+// you only need owner, repo, and urlNumber without full validation.
+// For full validation, use validateGitHubUrl() which internally uses parseGitHubUrl().
+// Uses Node.js URL API (https://nodejs.org/api/url.html) for stable parsing.
 export const parseUrlComponents = issueUrl => {
-  const urlParts = issueUrl.split('/');
+  // Use Node.js URL API for reliable parsing
+  // This automatically handles hash fragments, query params, and edge cases
+  const urlObj = new globalThis.URL(issueUrl);
+
+  // Extract path segments, filtering out empty strings from leading/trailing slashes
+  const pathParts = urlObj.pathname.split('/').filter(p => p);
+
   return {
-    owner: urlParts[3],
-    repo: urlParts[4],
-    urlNumber: urlParts[6], // Could be issue or PR number
+    owner: pathParts[0],
+    repo: pathParts[1],
+    urlNumber: pathParts[3], // Could be issue or PR number (pathParts[2] is 'issues' or 'pull')
   };
 };
 

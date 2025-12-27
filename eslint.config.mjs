@@ -1,6 +1,14 @@
 import js from '@eslint/js';
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
+import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
+
+// Create custom plugin for gh paginate rule
+const ghPaginatePlugin = {
+  rules: {
+    'require-gh-paginate': requireGhPaginate,
+  },
+};
 
 export default [
   js.configs.recommended,
@@ -8,6 +16,7 @@ export default [
   {
     plugins: {
       prettier,
+      'gh-paginate': ghPaginatePlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -58,6 +67,9 @@ export default [
         },
       ],
       'prettier/prettier': 'warn',
+      // Require --paginate on gh api calls that return lists
+      // This prevents missing data when GitHub API returns more than 30 results
+      'gh-paginate/require-gh-paginate': 'warn',
     },
   },
 ];

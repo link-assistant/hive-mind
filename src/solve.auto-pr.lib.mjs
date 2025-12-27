@@ -30,20 +30,54 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
   const issueUrl = argv['issue-url'] || argv._[0];
 
   try {
-    // Create CLAUDE.md file with the task details
-    await log(formatAligned('📝', 'Creating:', 'CLAUDE.md with task details'));
+    // Determine which file to create based on CLI flags
+    const useClaudeFile = argv.claudeFile !== false; // Default to true
+    const useGitkeepFile = argv.gitkeepFile === true; // Default to false
 
-    // Check if CLAUDE.md already exists and read its content
-    const claudeMdPath = path.join(tempDir, 'CLAUDE.md');
+    // Log which mode we're using
+    if (argv.verbose) {
+      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${useClaudeFile}, --gitkeep-file=${useGitkeepFile})`, { verbose: true });
+    }
+
+    let filePath;
+    let fileName;
     let existingContent = null;
     let fileExisted = false;
-    try {
-      existingContent = await fs.readFile(claudeMdPath, 'utf8');
-      fileExisted = true;
-    } catch (err) {
-      // File doesn't exist, which is fine
-      if (err.code !== 'ENOENT') {
-        throw err;
+
+    if (useClaudeFile) {
+      // Create CLAUDE.md file with the task details
+      await log(formatAligned('📝', 'Creating:', 'CLAUDE.md with task details'));
+
+      filePath = path.join(tempDir, 'CLAUDE.md');
+      fileName = 'CLAUDE.md';
+
+      // Check if CLAUDE.md already exists and read its content
+      try {
+        existingContent = await fs.readFile(filePath, 'utf8');
+        fileExisted = true;
+      } catch (err) {
+        // File doesn't exist, which is fine
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+    } else {
+      // Create .gitkeep file directly (experimental mode)
+      await log(formatAligned('📝', 'Creating:', '.gitkeep (experimental mode)'));
+
+      filePath = path.join(tempDir, '.gitkeep');
+      fileName = '.gitkeep';
+
+      // .gitkeep files are typically small, no need to check for existing content
+      // But we'll check if it exists for proper handling
+      try {
+        existingContent = await fs.readFile(filePath, 'utf8');
+        fileExisted = true;
+      } catch (err) {
+        // File doesn't exist, which is fine
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
       }
     }
 
@@ -61,44 +95,66 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
     // Without this, appending the same task info produces no git changes,
     // leading to "No commits between branches" error during PR creation
     const timestamp = new Date().toISOString();
-    const taskInfo = `Issue to solve: ${issueUrl}
+
+    let finalContent;
+
+    if (useClaudeFile) {
+      // CLAUDE.md: Use detailed task info
+      const taskInfo = `Issue to solve: ${issueUrl}
 Your prepared branch: ${branchName}
 Your prepared working directory: ${tempDir}${
-      argv.fork && forkedRepo
-        ? `
+        argv.fork && forkedRepo
+          ? `
 Your forked repository: ${forkedRepo}
 Original repository (upstream): ${owner}/${repo}`
-        : ''
-    }
+          : ''
+      }
 
-Proceed.`;
+Proceed.
+`;
 
-    // If CLAUDE.md already exists, append the task info with separator and timestamp
-    // Otherwise, create new file with just the task info (no timestamp needed for new files)
-    let finalContent;
-    if (fileExisted && existingContent) {
-      await log('   CLAUDE.md already exists, appending task info...', { verbose: true });
-      // Remove any trailing whitespace and add separator
-      const trimmedExisting = existingContent.trimEnd();
-      // Add timestamp to ensure uniqueness when appending
-      finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
+      // If file already exists, append the task info with separator and timestamp
+      // Otherwise, create new file with just the task info (no timestamp needed for new files)
+      if (fileExisted && existingContent) {
+        await log(`   ${fileName} already exists, appending task info...`, { verbose: true });
+        // Remove any trailing whitespace and add separator
+        const trimmedExisting = existingContent.trimEnd();
+        // Add timestamp to ensure uniqueness when appending
+        finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
+      } else {
+        finalContent = taskInfo;
+      }
     } else {
-      finalContent = taskInfo;
+      // .gitkeep: Use minimal metadata format
+      const gitkeepContent = `# Auto-generated file for PR creation
+# Issue: ${issueUrl}
+# Branch: ${branchName}
+# Timestamp: ${timestamp}
+# This file was created with --gitkeep-file flag (experimental)
+# It will be removed when the task is complete`;
+
+      if (fileExisted && existingContent) {
+        await log(`   ${fileName} already exists, appending timestamp...`, { verbose: true });
+        // For .gitkeep, just append a new timestamp to ensure uniqueness
+        finalContent = `${existingContent.trimEnd()}\n# Updated: ${timestamp}`;
+      } else {
+        finalContent = gitkeepContent;
+      }
     }
 
-    await fs.writeFile(claudeMdPath, finalContent);
-    await log(formatAligned('✅', 'File created:', 'CLAUDE.md'));
+    await fs.writeFile(filePath, finalContent);
+    await log(formatAligned('✅', 'File created:', fileName));
 
     // Add and commit the file
     await log(formatAligned('📦', 'Adding file:', 'To git staging'));
 
     // Use explicit cwd option for better reliability
-    const addResult = await $({ cwd: tempDir })`git add CLAUDE.md`;
+    const addResult = await $({ cwd: tempDir })`git add ${fileName}`;
 
     if (addResult.code !== 0) {
-      await log('❌ Failed to add CLAUDE.md', { level: 'error' });
+      await log(`❌ Failed to add ${fileName}`, { level: 'error' });
       await log(`   Error: ${addResult.stderr ? addResult.stderr.toString() : 'Unknown error'}`, { level: 'error' });
-      throw new Error('Failed to add CLAUDE.md');
+      throw new Error(`Failed to add ${fileName}`);
     }
 
     // Verify the file was actually staged
@@ -110,112 +166,133 @@ Proceed.`;
     }
 
     // Track which file we're using for the commit
-    let commitFileName = 'CLAUDE.md';
+    let commitFileName = fileName;
 
     // Check if anything was actually staged
     if (!gitStatus || gitStatus.length === 0) {
       await log('');
-      await log(formatAligned('⚠️', 'CLAUDE.md not staged:', 'Checking if file is ignored'), { level: 'warning' });
+      await log(formatAligned('⚠️', `${fileName} not staged:`, 'Checking if file is ignored'), { level: 'warning' });
 
-      // Check if CLAUDE.md is in .gitignore
-      const checkIgnoreResult = await $({ cwd: tempDir })`git check-ignore CLAUDE.md`;
-      const isIgnored = checkIgnoreResult.code === 0;
+      // Only apply fallback logic when using CLAUDE.md mode (not in --gitkeep-file mode)
+      if (useClaudeFile) {
+        // Check if CLAUDE.md is in .gitignore
+        const checkIgnoreResult = await $({ cwd: tempDir })`git check-ignore CLAUDE.md`;
+        const isIgnored = checkIgnoreResult.code === 0;
 
-      if (isIgnored) {
-        await log(formatAligned('ℹ️', 'CLAUDE.md is ignored:', 'Using .gitkeep fallback'));
-        await log('');
-        await log('  📝 Fallback strategy:');
-        await log('     CLAUDE.md is in .gitignore, using .gitkeep instead.');
-        await log('     This allows auto-PR creation to proceed without modifying .gitignore.');
-        await log('');
+        if (isIgnored) {
+          await log(formatAligned('ℹ️', 'CLAUDE.md is ignored:', 'Using .gitkeep fallback'));
+          await log('');
+          await log('  📝 Fallback strategy:');
+          await log('     CLAUDE.md is in .gitignore, using .gitkeep instead.');
+          await log('     This allows auto-PR creation to proceed without modifying .gitignore.');
+          await log('');
 
-        // Create a .gitkeep file as fallback
-        const gitkeepPath = path.join(tempDir, '.gitkeep');
-        const gitkeepContent = `# Auto-generated file for PR creation
+          // Create a .gitkeep file as fallback
+          const gitkeepPath = path.join(tempDir, '.gitkeep');
+          const gitkeepContent = `# Auto-generated file for PR creation
 # Issue: ${issueUrl}
 # Branch: ${branchName}
 # This file was created because CLAUDE.md is in .gitignore
 # It will be removed when the task is complete`;
 
-        await fs.writeFile(gitkeepPath, gitkeepContent);
-        await log(formatAligned('✅', 'Created:', '.gitkeep file'));
+          await fs.writeFile(gitkeepPath, gitkeepContent);
+          await log(formatAligned('✅', 'Created:', '.gitkeep file'));
 
-        // Try to add .gitkeep
-        const gitkeepAddResult = await $({ cwd: tempDir })`git add .gitkeep`;
+          // Try to add .gitkeep
+          const gitkeepAddResult = await $({ cwd: tempDir })`git add .gitkeep`;
 
-        if (gitkeepAddResult.code !== 0) {
-          await log('❌ Failed to add .gitkeep', { level: 'error' });
-          await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, {
-            level: 'error',
-          });
-          throw new Error('Failed to add .gitkeep');
-        }
+          if (gitkeepAddResult.code !== 0) {
+            await log('❌ Failed to add .gitkeep', { level: 'error' });
+            await log(`   Error: ${gitkeepAddResult.stderr ? gitkeepAddResult.stderr.toString() : 'Unknown error'}`, {
+              level: 'error',
+            });
+            throw new Error('Failed to add .gitkeep');
+          }
 
-        // Verify .gitkeep was staged
-        statusResult = await $({ cwd: tempDir })`git status --short`;
-        gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
+          // Verify .gitkeep was staged
+          statusResult = await $({ cwd: tempDir })`git status --short`;
+          gitStatus = statusResult.stdout ? statusResult.stdout.toString().trim() : '';
 
-        if (!gitStatus || gitStatus.length === 0) {
+          if (!gitStatus || gitStatus.length === 0) {
+            await log('');
+            await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), {
+              level: 'error',
+            });
+            await log('');
+            await log('  🔍 What happened:');
+            await log('     Both CLAUDE.md and .gitkeep failed to stage.');
+            await log('');
+            await log('  🔧 Troubleshooting steps:');
+            await log(`     1. Check git status: cd "${tempDir}" && git status`);
+            await log(`     2. Check .gitignore: cat "${tempDir}/.gitignore"`);
+            await log(`     3. Try force add: cd "${tempDir}" && git add -f .gitkeep`);
+            await log('');
+            throw new Error('Git add staged nothing - both files failed');
+          }
+
+          commitFileName = '.gitkeep';
+          await log(formatAligned('✅', 'File staged:', '.gitkeep'));
+        } else {
           await log('');
-          await log(formatAligned('❌', 'GIT ADD FAILED:', 'Neither CLAUDE.md nor .gitkeep could be staged'), {
-            level: 'error',
-          });
+          await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
           await log('');
           await log('  🔍 What happened:');
-          await log('     Both CLAUDE.md and .gitkeep failed to stage.');
+          await log('     CLAUDE.md was created but git did not stage any changes.');
+          await log('');
+          await log('  💡 Possible causes:');
+          await log('     • CLAUDE.md already exists with identical content');
+          await log('     • File system sync issue');
           await log('');
           await log('  🔧 Troubleshooting steps:');
-          await log(`     1. Check git status: cd "${tempDir}" && git status`);
-          await log(`     2. Check .gitignore: cat "${tempDir}/.gitignore"`);
-          await log(`     3. Try force add: cd "${tempDir}" && git add -f .gitkeep`);
+          await log(`     1. Check file exists: ls -la "${tempDir}/CLAUDE.md"`);
+          await log(`     2. Check git status: cd "${tempDir}" && git status`);
+          await log(`     3. Force add: cd "${tempDir}" && git add -f CLAUDE.md`);
           await log('');
-          throw new Error('Git add staged nothing - both files failed');
+          await log('  📂 Debug information:');
+          await log(`     Working directory: ${tempDir}`);
+          await log(`     Branch: ${branchName}`);
+          if (existingContent) {
+            await log('     Note: CLAUDE.md already existed (attempted to update with timestamp)');
+          }
+          await log('');
+          throw new Error('Git add staged nothing - CLAUDE.md may be unchanged');
         }
-
-        commitFileName = '.gitkeep';
-        await log(formatAligned('✅', 'File staged:', '.gitkeep'));
       } else {
+        // In --gitkeep-file mode, if .gitkeep couldn't be staged, this is an error
         await log('');
         await log(formatAligned('❌', 'GIT ADD FAILED:', 'Nothing was staged'), { level: 'error' });
         await log('');
         await log('  🔍 What happened:');
-        await log('     CLAUDE.md was created but git did not stage any changes.');
+        await log(`     ${fileName} was created but git did not stage any changes.`);
         await log('');
         await log('  💡 Possible causes:');
-        await log('     • CLAUDE.md already exists with identical content');
+        await log(`     • ${fileName} already exists with identical content`);
         await log('     • File system sync issue');
+        await log(`     • ${fileName} is in .gitignore`);
         await log('');
         await log('  🔧 Troubleshooting steps:');
-        await log(`     1. Check file exists: ls -la "${tempDir}/CLAUDE.md"`);
+        await log(`     1. Check file exists: ls -la "${tempDir}/${fileName}"`);
         await log(`     2. Check git status: cd "${tempDir}" && git status`);
-        await log(`     3. Force add: cd "${tempDir}" && git add -f CLAUDE.md`);
+        await log(`     3. Check if ignored: cd "${tempDir}" && git check-ignore ${fileName}`);
+        await log(`     4. Force add: cd "${tempDir}" && git add -f ${fileName}`);
         await log('');
         await log('  📂 Debug information:');
         await log(`     Working directory: ${tempDir}`);
         await log(`     Branch: ${branchName}`);
+        await log(`     Mode: ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'}`);
         if (existingContent) {
-          await log('     Note: CLAUDE.md already existed (attempted to update with timestamp)');
+          await log(`     Note: ${fileName} already existed (attempted to update with timestamp)`);
         }
         await log('');
-        throw new Error('Git add staged nothing - CLAUDE.md may be unchanged');
+        throw new Error(`Git add staged nothing - ${fileName} may be unchanged or ignored`);
       }
     }
 
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
-    const commitMessage =
-      commitFileName === 'CLAUDE.md'
-        ? `Initial commit with task details
 
-Adding CLAUDE.md with task information for AI processing.
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`
-        : `Initial commit with task details
-
-Adding .gitkeep for PR creation (CLAUDE.md is in .gitignore).
-This file will be removed when the task is complete.
-
-Issue: ${issueUrl}`;
+    // Determine commit message based on which file is being committed
+    const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${useGitkeepFile ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore'})`;
+    const commitMessage = `Initial commit with task details\n\nAdding ${fileDesc}.\nThis file will be removed when the task is complete.\n\nIssue: ${issueUrl}`;
 
     // Use explicit cwd option for better reliability
     const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
@@ -228,7 +305,7 @@ Issue: ${issueUrl}`;
       await log(formatAligned('❌', 'COMMIT FAILED:', 'Could not create initial commit'), { level: 'error' });
       await log('');
       await log('  🔍 What happened:');
-      await log('     Git commit command failed after staging CLAUDE.md.');
+      await log(`     Git commit command failed after staging ${commitFileName}.`);
       await log('');
 
       // Check for specific error patterns
@@ -759,7 +836,7 @@ Issue: ${issueUrl}`;
             // Show all branches on GitHub
             const allBranchesResult = await $({
               silent: true,
-            })`gh api repos/${repoToCheck}/branches --jq '.[].name' 2>&1`;
+            })`gh api repos/${repoToCheck}/branches --paginate --jq '.[].name' 2>&1`;
             if (allBranchesResult.code === 0) {
               await log(`   All GitHub branches: ${allBranchesResult.stdout.toString().split('\n').slice(0, 5).join(', ')}...`);
             }

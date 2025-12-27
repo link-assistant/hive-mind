@@ -90,6 +90,10 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
 
+// Import GitHub rate limit logger
+const rateLimitLogger = await import('./github-rate-limit-logger.lib.mjs');
+const { setRateLimitLoggingEnabled, logGitHubRateLimits, logRateLimitSummary, createRateLimitCheckpoint } = rateLimitLogger;
+
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
 const logFile = await initializeLogFile(null);
@@ -146,6 +150,19 @@ if (argv.sentry) {
     },
   });
 }
+// Configure GitHub rate limit logging based on argv
+// Use --no-github-rate-limits-logging to disable
+setRateLimitLoggingEnabled(argv.githubRateLimitsLogging !== false);
+
+// Create initial rate limit checkpoint for session summary
+let rateLimitCheckpoint = null;
+if (argv.githubRateLimitsLogging !== false) {
+  rateLimitCheckpoint = await createRateLimitCheckpoint();
+  if (rateLimitCheckpoint) {
+    await logGitHubRateLimits({ context: 'session start', log });
+  }
+}
+
 // Create a cleanup wrapper that will be populated with context later
 let cleanupContext = { tempDir: null, argv: null, limitReached: false };
 const cleanupWrapper = async () => {
@@ -519,6 +536,9 @@ try {
     $,
   });
 
+  // Log rate limits after repository setup
+  await logGitHubRateLimits({ context: 'after repository setup', log });
+
   // Verify default branch and status using the new module
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
@@ -616,6 +636,9 @@ try {
       claudeCommitHash = autoPrResult.claudeCommitHash;
     }
   }
+
+  // Log rate limits after PR creation/checkout
+  await logGitHubRateLimits({ context: 'after PR setup', log });
 
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
@@ -870,6 +893,9 @@ try {
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
+
+  // Log rate limits after AI tool execution
+  await logGitHubRateLimits({ context: 'after AI tool execution', log });
 
   // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
   if (toolResult && toolResult.limitResetTime) {
@@ -1170,6 +1196,9 @@ try {
       }
     }
   }
+
+  // Log GitHub rate limit summary at end of session
+  await logRateLimitSummary({ startLimit: rateLimitCheckpoint, log });
 
   // End work session using the new module
   await endWorkSession({

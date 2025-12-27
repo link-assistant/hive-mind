@@ -281,6 +281,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
         default: false,
       })
+      .option('github-rate-limits-logging', {
+        type: 'boolean',
+        description: 'Log GitHub API rate limits at key points during solve execution to identify expensive operations (use --no-github-rate-limits-logging to disable)',
+        default: true,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })

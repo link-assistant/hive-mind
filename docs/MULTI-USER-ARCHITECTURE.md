@@ -7,6 +7,7 @@ This document outlines the architecture for supporting multiple GitHub user acco
 ## Problem Statement
 
 The current hive-mind system operates with a single GitHub authentication context:
+
 - One GitHub account per server instance
 - All commands (`/solve`, `/hive`) run under the same GitHub identity
 - No way to differentiate between Telegram users when making GitHub actions
@@ -53,13 +54,14 @@ interface UserRegistration {
   telegramUserId: number;
   telegramUsername?: string;
   githubUsername: string;
-  containerId?: string;           // Active container ID
+  containerId?: string; // Active container ID
   registeredAt: Date;
   lastActiveAt: Date;
 }
 ```
 
 **Storage Options:**
+
 - SQLite file (simple, local)
 - Redis (for clustered deployments)
 - Kubernetes ConfigMaps/Secrets (for K8s deployments)
@@ -70,15 +72,16 @@ Manages Docker/Kubernetes containers for isolated execution.
 
 ```typescript
 interface ContainerConfig {
-  userId: number;                 // Telegram user ID
-  image: string;                  // Default: konard/hive-mind:latest
-  volumeMounts: VolumeMount[];    // For persistent credentials
+  userId: number; // Telegram user ID
+  image: string; // Default: konard/hive-mind:latest
+  volumeMounts: VolumeMount[]; // For persistent credentials
   resourceLimits: ResourceLimits; // CPU, memory limits
-  ttl: number;                    // Time-to-live in seconds
+  ttl: number; // Time-to-live in seconds
 }
 ```
 
 **Container Lifecycle:**
+
 1. **On-demand creation**: Container created when user sends command
 2. **Warm pool**: Pre-warmed containers for faster response (optional)
 3. **Auto-cleanup**: Containers removed after idle period
@@ -132,10 +135,7 @@ async function executeUserCommand(ctx, command, args) {
   // 1. Check if user is registered
   const registration = await getUserRegistration(telegramUserId);
   if (!registration) {
-    await ctx.reply(
-      '❌ You need to register a GitHub account first.\n' +
-      'Send /register to connect your GitHub account.'
-    );
+    await ctx.reply('❌ You need to register a GitHub account first.\n' + 'Send /register to connect your GitHub account.');
     return;
   }
 
@@ -215,7 +215,7 @@ services:
 multiUser:
   enabled: true
   registry:
-    type: configmap  # or 'secret' for production
+    type: configmap # or 'secret' for production
   containers:
     pool:
       warmSize: 2
@@ -223,28 +223,32 @@ multiUser:
     resources:
       cpu: 1
       memory: 2Gi
-    ttl: 3600  # 1 hour
+    ttl: 3600 # 1 hour
 ```
 
 ### Implementation Phases
 
 #### Phase 1: Foundation (MVP)
+
 - [ ] User registry with simple file-based storage
 - [ ] `/register` command with manual token input (via DM)
 - [ ] Container creation per command execution
 - [ ] Basic `/whoami` command
 
 #### Phase 2: OAuth Integration
+
 - [ ] GitHub OAuth flow for seamless authentication
 - [ ] OAuth callback server in bot
 - [ ] Token refresh mechanism
 
 #### Phase 3: Container Optimization
+
 - [ ] Container pooling for faster startup
 - [ ] Container reuse between commands
 - [ ] Resource limits and quotas per user
 
 #### Phase 4: Enterprise Features
+
 - [ ] Multi-organization support
 - [ ] Role-based access control
 - [ ] Audit logging and compliance
@@ -267,16 +271,16 @@ For existing single-user deployments:
 ### Open Questions
 
 1. **Private Repo Access**: How to handle cases where user A wants to solve issues in a repo that user B has access to?
-   - *Proposed*: Commands always use the executing user's credentials
+   - _Proposed_: Commands always use the executing user's credentials
 
 2. **Rate Limiting**: How to prevent one user from exhausting shared resources?
-   - *Proposed*: Per-user quotas on container creation and command execution
+   - _Proposed_: Per-user quotas on container creation and command execution
 
 3. **Persistence**: Should container state persist across restarts?
-   - *Proposed*: Ephemeral containers, with optional volume mounts for work-in-progress
+   - _Proposed_: Ephemeral containers, with optional volume mounts for work-in-progress
 
 4. **Team Accounts**: Support for shared GitHub accounts across multiple Telegram users?
-   - *Proposed*: Phase 4 feature, requires additional role mapping
+   - _Proposed_: Phase 4 feature, requires additional role mapping
 
 ## References
 

@@ -1264,7 +1264,7 @@ fi
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
 # Try to install packages individually, continuing on failure for unpublished packages
-PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent gh-setup-git-identity gh-pull-all gh-load-issue gh-load-pull-request gh-upload-log"
+PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent start-command gh-setup-git-identity gh-pull-all gh-load-issue gh-load-pull-request gh-upload-log"
 FAILED_PACKAGES=""
 
 for pkg in $PACKAGES; do

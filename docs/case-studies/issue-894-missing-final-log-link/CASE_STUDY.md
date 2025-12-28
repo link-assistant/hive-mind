@@ -7,14 +7,17 @@ The solve command's CLI output does not consistently end with a link to the actu
 ## Timeline / Sequence of Events
 
 ### 1. Initial State
+
 - The solve command creates log files at the start of execution with format: `solve-YYYY-MM-DDTHH-MM-SS-MMMZ.log`
 - Log file path is shown early in output: `📁 Log file: /path/to/log/file`
 
 ### 2. During Execution
+
 - Various operations are logged to both console and log file
 - `showSessionSummary()` function displays: `✅ Complete log file: /absolute/path/to/logfile`
 
 ### 3. Upload Logs Phase
+
 - When `--attach-logs` flag is used, logs are uploaded to GitHub as a Gist
 - Output shows:
   ```
@@ -26,6 +29,7 @@ The solve command's CLI output does not consistently end with a link to the actu
   ```
 
 ### 4. Cleanup Phase
+
 - `cleanupTempDirectory()` is called in the `finally` block
 - Depending on flags, one of these messages is shown:
   - `📁 Keeping directory (--no-auto-cleanup): /tmp/path`
@@ -34,6 +38,7 @@ The solve command's CLI output does not consistently end with a link to the actu
   - `📁 Keeping directory for future resume: /tmp/path`
 
 ### 5. End of Execution
+
 - **PROBLEM**: After the "Keeping directory" message, no final log file reference is shown
 - The process terminates without displaying the log file path one final time
 
@@ -104,23 +109,27 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
 ### Commands That DO Show Final Log Path
 
 **`src/hive.mjs`** - Multiple exit points show log path:
+
 ```javascript
-await log(`   📁 Full log file: ${absoluteLogPath}`);  // Line 1354, 1382, 1420, 1428, 1479
+await log(`   📁 Full log file: ${absoluteLogPath}`); // Line 1354, 1382, 1420, 1428, 1479
 ```
 
 **`src/review.mjs`** - Shows log at end:
+
 ```javascript
-await log(`✅ Complete log file: ${getLogFile()}`);  // Line 363
+await log(`✅ Complete log file: ${getLogFile()}`); // Line 363
 ```
 
 **`src/task.mjs`** - Shows log at start:
+
 ```javascript
-await log(`📁 Log file: ${logFile}`);  // Line 171
+await log(`📁 Log file: ${logFile}`); // Line 171
 ```
 
 ### Exit Handler Pattern
 
 `src/exit-handler.lib.mjs` provides `displayExitMessage()`:
+
 ```javascript
 export const displayExitMessage = async (code, reason, logFunction = log) => {
   const currentLogPath = getLogFilePath();
@@ -144,6 +153,7 @@ Based on the issue description and comparison with Claude and other agents, the 
 3. **Show log file path as the FINAL line of output** (❌ Currently missing)
 
 The final output should look like:
+
 ```
 📎 Uploading solution draft log to Pull Request...
 ✅ Working session logs uploaded successfully
@@ -158,21 +168,24 @@ The final output should look like:
 ### Solution 1: Add Final Log Reference in `cleanupTempDirectory()`
 
 **Pros:**
+
 - Minimal change
 - Keeps cleanup logic together
 - Consistent placement
 
 **Cons:**
+
 - Mixes directory cleanup with log file reporting
 - Requires importing/using getLogFile in repository module
 
 **Implementation:**
+
 ```javascript
 export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   // ... existing cleanup logic ...
 
   // Show final log file reference
-  const path = (await use('path'));
+  const path = await use('path');
   const absoluteLogPath = path.resolve(getLogFile());
   await log(`\n📁 Complete log file: ${absoluteLogPath}`);
 };
@@ -181,15 +194,18 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
 ### Solution 2: Add Final Summary After Cleanup in `solve.mjs`
 
 **Pros:**
+
 - Clear separation: cleanup is cleanup, summary is summary
 - Follows existing pattern in `hive.mjs`
 - More maintainable
 
 **Cons:**
+
 - Requires change in main solve.mjs flow
 - Slightly more code
 
 **Implementation:**
+
 ```javascript
 } finally {
   // Clean up temporary directory using repository module
@@ -207,11 +223,13 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
 ### Solution 3: Use Exit Handler Pattern
 
 **Pros:**
+
 - Leverages existing exit handler infrastructure
 - Consistent with best practices
 - Centralizes final message logic
 
 **Cons:**
+
 - May require refactoring safeExit calls
 - More complex change
 

@@ -142,16 +142,8 @@ export const getGitHubTokensFromCommand = async () => {
 
   return tokens;
 };
-// Helper function to escape code blocks in log content for safe embedding in markdown
-// When log content is placed inside a markdown code block, any triple backticks (```)
-// in the content will prematurely close the outer code block, breaking the markdown.
-// This function escapes those backticks by replacing them with \`\`\` (with backslashes).
-export const escapeCodeBlocksInLog = logContent => {
-  // Replace all occurrences of triple backticks with escaped version
-  // We add backslashes before backticks to prevent them from being
-  // interpreted as markdown code block delimiters
-  return logContent.replace(/```/g, '\\`\\`\\`');
-};
+// Escape ``` in logs for safe markdown embedding (replaces with \`\`\` to prevent code block closure)
+export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`');
 // Helper function to sanitize log content by masking GitHub tokens
 export const sanitizeLogContent = async logContent => {
   let sanitized = logContent;

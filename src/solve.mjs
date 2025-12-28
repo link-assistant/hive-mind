@@ -1212,7 +1212,7 @@ try {
   // Show final log file reference (similar to Claude and other agents)
   // This ensures users always know where to find the complete log file
   if (getLogFile()) {
-    const path = (await use('path'));
+    const path = await use('path');
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`\n📁 Complete log file: ${absoluteLogPath}`);
   }

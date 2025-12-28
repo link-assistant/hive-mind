@@ -35,7 +35,7 @@ const { autoContinueWhenLimitResets } = autoContinue;
 // These are used to generate copy-pasteable Claude CLI resume commands for users
 // Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
-export const { buildClaudeResumeCommand, buildClaudeInitialCommand, isClaudeTool } = claudeCommandBuilder;
+export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used

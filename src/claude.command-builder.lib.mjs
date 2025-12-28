@@ -22,37 +22,6 @@
  */
 
 /**
- * Get the default model for a given tool
- * @param {string} tool - The tool name (claude, opencode, codex, agent)
- * @returns {string} - The default model for that tool
- */
-export const getDefaultModelForTool = tool => {
-  switch (tool) {
-    case 'opencode':
-      return 'grok-code-fast-1';
-    case 'codex':
-      return 'gpt-5';
-    case 'agent':
-      return 'grok-code';
-    case 'claude':
-    default:
-      return 'sonnet';
-  }
-};
-
-/**
- * Check if the current tool is Claude CLI
- * This helper function determines if the command builders should be used
- *
- * @param {Object} argv - The parsed command line arguments
- * @returns {boolean} - True if the tool is Claude CLI (or default)
- */
-export const isClaudeTool = argv => {
-  const tool = argv.tool || 'claude';
-  return tool === 'claude';
-};
-
-/**
  * Build the Claude CLI resume command with the (cd ... && claude --resume ...) pattern
  *
  * This generates a copy-pasteable command that users can execute directly
@@ -117,6 +86,4 @@ export const buildClaudeInitialCommand = ({ tempDir, claudePath = 'claude', mode
 export default {
   buildClaudeResumeCommand,
   buildClaudeInitialCommand,
-  isClaudeTool,
-  getDefaultModelForTool,
 };

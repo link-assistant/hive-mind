@@ -11,7 +11,7 @@
  * and are placed in the claude.command-builder.lib.mjs file as per user requirements.
  */
 
-import { buildClaudeResumeCommand, buildClaudeInitialCommand, isClaudeTool, getDefaultModelForTool } from '../src/claude.command-builder.lib.mjs';
+import { buildClaudeResumeCommand, buildClaudeInitialCommand } from '../src/claude.command-builder.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -228,50 +228,6 @@ runTest('buildClaudeInitialCommand: uses custom claude path', () => {
   });
 
   assertContains(cmd, '/usr/local/bin/claude', 'Should use custom claude path');
-});
-
-// === isClaudeTool tests ===
-
-runTest('isClaudeTool: returns true for claude tool', () => {
-  const result = isClaudeTool({ tool: 'claude' });
-  assertTrue(result, 'Should return true for claude tool');
-});
-
-runTest('isClaudeTool: returns true when tool is undefined (defaults to claude)', () => {
-  const result = isClaudeTool({});
-  assertTrue(result, 'Should return true when tool is undefined');
-});
-
-runTest('isClaudeTool: returns false for non-claude tools', () => {
-  const opencode = isClaudeTool({ tool: 'opencode' });
-  const codex = isClaudeTool({ tool: 'codex' });
-  const agent = isClaudeTool({ tool: 'agent' });
-
-  assertTrue(!opencode, 'Should return false for opencode');
-  assertTrue(!codex, 'Should return false for codex');
-  assertTrue(!agent, 'Should return false for agent');
-});
-
-// === getDefaultModelForTool tests ===
-
-runTest('getDefaultModelForTool: returns sonnet for claude', () => {
-  assertEqual(getDefaultModelForTool('claude'), 'sonnet', 'Claude default model should be sonnet');
-});
-
-runTest('getDefaultModelForTool: returns grok-code-fast-1 for opencode', () => {
-  assertEqual(getDefaultModelForTool('opencode'), 'grok-code-fast-1', 'OpenCode default model should be grok-code-fast-1');
-});
-
-runTest('getDefaultModelForTool: returns gpt-5 for codex', () => {
-  assertEqual(getDefaultModelForTool('codex'), 'gpt-5', 'Codex default model should be gpt-5');
-});
-
-runTest('getDefaultModelForTool: returns grok-code for agent', () => {
-  assertEqual(getDefaultModelForTool('agent'), 'grok-code', 'Agent default model should be grok-code');
-});
-
-runTest('getDefaultModelForTool: returns sonnet for undefined tool', () => {
-  assertEqual(getDefaultModelForTool(undefined), 'sonnet', 'Undefined tool should default to sonnet');
 });
 
 // === Summary ===

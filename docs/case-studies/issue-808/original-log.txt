@@ -1,0 +1,70 @@
+# Solve.mjs Log - 2025-12-02T19:38:35.038Z
+
+[2025-12-02T19:38:35.040Z] [INFO] 📁 Log file: /home/hive/solve-2025-12-02T19-38-35-038Z.log
+[2025-12-02T19:38:35.042Z] [INFO]    (All output will be logged here)
+[2025-12-02T19:38:35.924Z] [INFO] 
+[2025-12-02T19:38:35.925Z] [INFO] 🚀 solve v0.36.3
+[2025-12-02T19:38:35.926Z] [INFO] 🔧 Raw command executed:
+[2025-12-02T19:38:35.926Z] [INFO]    /home/hive/.nvm/versions/node/v20.19.6/bin/node /home/hive/.bun/bin/solve https://github.com/ideav/work-weave-logic/issues/3 --auto-fork --auto-continue --attach-logs --verbose --no-tool-check --prefix-fork-name-with-owner-name
+[2025-12-02T19:38:35.927Z] [INFO] 
+[2025-12-02T19:38:35.952Z] [INFO] 
+[2025-12-02T19:38:35.953Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2025-12-02T19:38:35.954Z] [INFO] 
+[2025-12-02T19:38:35.955Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2025-12-02T19:38:35.955Z] [INFO]    The log may contain sensitive information such as:
+[2025-12-02T19:38:35.956Z] [INFO]    • API keys, tokens, or secrets
+[2025-12-02T19:38:35.956Z] [INFO]    • File paths and directory structures
+[2025-12-02T19:38:35.957Z] [INFO]    • Command outputs and error messages
+[2025-12-02T19:38:35.958Z] [INFO]    • Internal system information
+[2025-12-02T19:38:35.958Z] [INFO] 
+[2025-12-02T19:38:35.959Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2025-12-02T19:38:35.960Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2025-12-02T19:38:35.960Z] [INFO] 
+[2025-12-02T19:38:35.960Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2025-12-02T19:38:35.961Z] [INFO] 
+[2025-12-02T19:38:40.968Z] [INFO] 
+[2025-12-02T19:38:41.033Z] [INFO] 💾 Disk space check: 25726MB available (500MB required) ✅
+[2025-12-02T19:38:41.036Z] [INFO] 🧠 Memory check: 5198MB available, swap: 2047MB (1846MB used), total: 5399MB (256MB required) ✅
+[2025-12-02T19:38:41.036Z] [INFO] ⏩ Skipping tool validation (dry-run mode)
+[2025-12-02T19:38:41.036Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode)
+[2025-12-02T19:38:41.037Z] [INFO] 📋 URL validation:
+[2025-12-02T19:38:41.037Z] [INFO]    Input URL: https://github.com/ideav/work-weave-logic/issues/3
+[2025-12-02T19:38:41.037Z] [INFO]    Is Issue URL: true
+[2025-12-02T19:38:41.037Z] [INFO]    Is PR URL: false
+[2025-12-02T19:38:41.037Z] [INFO] 🔍 Checking repository access for auto-fork...
+[2025-12-02T19:38:41.881Z] [INFO]    Warning: Could not detect repository visibility, defaulting to public
+[2025-12-02T19:38:41.882Z] [INFO] ⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository
+[2025-12-02T19:38:41.883Z] [INFO] ✅ Repository access check: Skipped (fork mode enabled)
+[2025-12-02T19:38:42.311Z] [INFO]    Warning: Could not detect repository visibility, defaulting to public
+[2025-12-02T19:38:42.312Z] [INFO]    Auto-cleanup default: false (repository is public)
+[2025-12-02T19:38:42.313Z] [INFO] 🔍 Auto-continue enabled: Checking for existing PRs for issue #3...
+[2025-12-02T19:38:46.498Z] [INFO] 📝 No existing PRs found for issue #3 - creating new PR
+[2025-12-02T19:38:46.500Z] [INFO] 📝 Issue mode: Working with issue #3
+[2025-12-02T19:38:46.502Z] [INFO] 
+Creating temporary directory: /tmp/gh-issue-solver-1764704326500
+[2025-12-02T19:38:46.505Z] [INFO] 
+🍴 Fork mode:                ENABLED
+[2025-12-02T19:38:46.506Z] [INFO]  Checking fork status...   
+
+[2025-12-02T19:38:46.914Z] [INFO] 🔍 Detecting fork conflicts... 
+[2025-12-02T19:38:47.313Z] [INFO] ⚠️ Warning:                  Could not determine root repository
+[2025-12-02T19:38:48.114Z] [INFO] 🔄 Creating fork...          
+[2025-12-02T19:38:48.548Z] [INFO] 🔍 Checking:                 If fork exists after failed creation attempt...
+[2025-12-02T19:38:48.936Z] [INFO] ⏳ Retry:                    Attempt 1/5 failed, waiting 2s before retry...
+[2025-12-02T19:38:48.937Z] [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
+[2025-12-02T19:38:51.343Z] [INFO] 🔍 Checking:                 If fork exists after failed creation attempt...
+[2025-12-02T19:38:51.766Z] [INFO] ⏳ Retry:                    Attempt 2/5 failed, waiting 4s before retry...
+[2025-12-02T19:38:51.767Z] [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
+[2025-12-02T19:38:56.230Z] [INFO] 🔍 Checking:                 If fork exists after failed creation attempt...
+[2025-12-02T19:38:56.632Z] [INFO] ⏳ Retry:                    Attempt 3/5 failed, waiting 8s before retry...
+[2025-12-02T19:38:56.633Z] [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
+[2025-12-02T19:39:05.084Z] [INFO] 🔍 Checking:                 If fork exists after failed creation attempt...
+[2025-12-02T19:39:05.509Z] [INFO] ⏳ Retry:                    Attempt 4/5 failed, waiting 16s before retry...
+[2025-12-02T19:39:05.509Z] [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
+[2025-12-02T19:39:21.949Z] [INFO] 🔍 Checking:                 If fork exists after failed creation attempt...
+[2025-12-02T19:39:22.544Z] [INFO] ❌ Error:                    Failed to create fork after all retries
+[2025-12-02T19:39:22.545Z] [INFO] failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
+
+[2025-12-02T19:39:22.549Z] [INFO] 
+[2025-12-02T19:39:22.551Z] [ERROR] ❌ Repository setup failed
+[2025-12-02T19:39:22.552Z] [INFO] 📁 Full log file: /home/hive/solve-2025-12-02T19-38-35-038Z.log

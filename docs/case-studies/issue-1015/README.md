@@ -95,30 +95,42 @@ This provides no value to the user and clutters the output.
 
 ### Bug 3: Code Block Formatting Broken in Expander
 
-**Location**: `src/github.lib.mjs`, `escapeCodeBlocksInLog()` function (line 150-154)
+**Location**: `src/github.lib.mjs`, comment templates in `attachLogToGitHub()` function
 
-The current escaping approach replaces ``` with \`\`\`:
+The issue was **not** with the backtick escaping itself, but with the **spacing between HTML and Markdown syntax**.
 
-````javascript
-export const escapeCodeBlocksInLog = logContent => {
-  return logContent.replace(/```/g, '\\`\\`\\`');
-};
-````
+**Problem**: When HTML tags (`<summary>`, `</details>`) are placed directly adjacent to Markdown code blocks without blank lines, GitHub's markdown renderer fails to properly parse the content.
 
-**Problem**: When the log is placed inside a markdown code block:
+**Broken format** (no spacing):
 
 ```markdown
 <details>
 <summary>Click to expand</summary>
-```
-
-${logContent} <!-- Contains \`\`\` which still breaks markdown -->
-
-```
+\`\`\`
+   Code content here
+\`\`\`
 </details>
 ```
 
-The escaped backticks are still rendered incorrectly in some markdown parsers, causing the outer code block to be prematurely closed.
+**Working format** (with proper spacing):
+
+```markdown
+<details>
+<summary>Click to expand</summary>
+
+\`\`\`
+Code content here
+\`\`\`
+
+</details>
+```
+
+The critical difference is:
+
+1. Blank line after `</summary>` and before the opening code fence
+2. Blank line after the closing code fence and before `</details>`
+
+This spacing allows GitHub's markdown parser to correctly transition between HTML and markdown modes.
 
 ## Impact Analysis
 
@@ -175,35 +187,35 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
 };
 ```
 
-### Solution 3: Use Different Code Block Escaping Strategy
+### Solution 3: Fix Spacing Between HTML and Markdown Syntax
 
-Instead of escaping backticks, use a different approach:
+The solution is to add proper blank lines between HTML tags and markdown code blocks:
 
-````javascript
-export const escapeCodeBlocksInLog = logContent => {
-  // Use HTML entities or a different fence character count
-  // Option 1: Replace ``` with a different representation
-  return logContent.replace(/```/g, '‌`‌`‌`'); // Zero-width non-joiner between each
+**Before** (broken):
 
-  // Option 2: Use 4 backticks for outer fence (GitHub supports this)
-  // This requires changing the outer code block too
-};
-````
+```javascript
+logComment = `<details>
+<summary>Click to expand</summary>
+\`\`\`
+${logContent}
+\`\`\`
+</details>`;
+```
 
-Or modify the log attachment to use 4 backticks as the outer fence:
+**After** (fixed):
 
-````javascript
-logComment = `## ${customTitle}
-...
-<details>
+```javascript
+logComment = `<details>
 <summary>Click to expand</summary>
 
-\`\`\`\`
-${logContent}  // Can now contain ``` safely
-\`\`\`\`
-</details>
-`;
-````
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>`;
+```
+
+The original backtick escaping (`\`\`\``) should be retained as it still serves a purpose - preventing the content's backticks from closing the outer code block. The spacing fix ensures GitHub's markdown renderer properly transitions between HTML and markdown modes.
 
 ## Verification Steps
 

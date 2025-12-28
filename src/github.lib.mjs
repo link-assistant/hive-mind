@@ -142,9 +142,16 @@ export const getGitHubTokensFromCommand = async () => {
 
   return tokens;
 };
-// Issue #1015: Escape ``` in logs for safe markdown embedding. Uses zero-width spaces (U+200B)
-// between backticks to prevent premature code block closure in GitHub's markdown renderer.
-export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '`\u200B`\u200B`');
+// Helper function to escape code blocks in log content for safe embedding in markdown
+// When log content is placed inside a markdown code block, any triple backticks (```)
+// in the content will prematurely close the outer code block, breaking the markdown.
+// This function escapes those backticks by replacing them with \`\`\` (with backslashes).
+export const escapeCodeBlocksInLog = logContent => {
+  // Replace all occurrences of triple backticks with escaped version
+  // We add backslashes before backticks to prevent them from being
+  // interpreted as markdown code block delimiters
+  return logContent.replace(/```/g, '\\`\\`\\`');
+};
 // Helper function to sanitize log content by masking GitHub tokens
 export const sanitizeLogContent = async logContent => {
   let sanitized = logContent;
@@ -604,6 +611,7 @@ ${resumeCommand}
 \`\`\`
 ${logContent}
 \`\`\`
+
 </details>
 
 ---
@@ -615,12 +623,16 @@ The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
 \`\`\`
+
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
+
 \`\`\`
 ${logContent}
 \`\`\`
+
 </details>
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
@@ -628,12 +640,16 @@ ${logContent}
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
       logComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
+
 \`\`\`
 ${logContent}
 \`\`\`
+
 </details>
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     }
@@ -828,12 +844,16 @@ async function attachTruncatedLog(options) {
   const truncatedComment = `## 🤖 Solution Draft Log (Truncated)
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.
 ⚠️ **Log was truncated** due to GitHub comment size limits.
+
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB, truncated)</summary>
+
 \`\`\`
 ${truncatedContent}
 \`\`\`
+
 </details>
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
   const tempFile = `/tmp/log-truncated-comment-${targetType}-${Date.now()}.md`;

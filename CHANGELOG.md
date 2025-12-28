@@ -1,5 +1,16 @@
 # @link-assistant/hive-mind
 
+## 0.51.19
+
+### Patch Changes
+
+- 0326eb5: Update /help and docs, add CPU/RAM metrics to /limits
+  - Remove obsolete options (--fork, --auto-fork, --auto-continue) from /help command
+  - Reorder options in /help: --model and --think now listed first
+  - Move --model example from /hive to /solve
+  - Update /limits to show CPU and RAM usage metrics
+  - Fix README.md defaults for --auto-fork and --auto-continue (now true)
+
 ## 0.51.18
 
 ### Patch Changes

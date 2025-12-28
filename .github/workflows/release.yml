@@ -110,11 +110,13 @@ jobs:
           echo "code=false" >> $GITHUB_OUTPUT
         fi
 
-  # === CHANGESET CHECK - only runs on PRs ===
+  # === CHANGESET CHECK - only runs on PRs with code changes ===
+  # Docs-only PRs (./docs folder, markdown files) don't require changesets
   changeset-check:
     name: Check for Changesets
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -153,7 +155,8 @@ jobs:
   test-compilation:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
     - name: Checkout repository
@@ -199,10 +202,12 @@ jobs:
         done
 
   # === ESLINT CODE QUALITY CHECK ===
+  # Lint runs independently of changeset-check - it's a fast check that should always run
+  # See: docs/case-studies/issue-1023 for why this dependency was removed
   lint:
     runs-on: ubuntu-latest
-    needs: [detect-changes, changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
 
     steps:
     - name: Checkout repository
@@ -232,7 +237,8 @@ jobs:
   check-file-line-limits:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
     - name: Checkout repository
@@ -659,7 +665,8 @@ jobs:
   validate-docs:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success') && needs.detect-changes.outputs.docs-changed == 'true'
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
 
     steps:
     - uses: actions/checkout@v4
@@ -679,13 +686,14 @@ jobs:
   docker-pr-check:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
     if: |
       always() &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       github.event_name == 'pull_request' &&
-      needs.changeset-check.result == 'success' &&
-      needs.test-compilation.result == 'success' &&
+      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
       (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
       (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
@@ -1483,7 +1491,8 @@ jobs:
   helm-pr-check:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    if: always() && github.event_name == 'pull_request' && needs.changeset-check.result == 'success'
+    # Run if: changeset-check succeeded OR was skipped (docs-only PR)
+    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped')
 
     steps:
       - name: Checkout repository

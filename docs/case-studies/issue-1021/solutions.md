@@ -24,11 +24,13 @@ gh auth setup-git
 ```
 
 **Advantages:**
+
 - PATs don't count toward the 10-token OAuth limit
 - Single token works across all environments
 - Explicit control over token lifetime
 
 **Disadvantages:**
+
 - Token must be managed manually
 - Token visible during input (use secure methods in scripts)
 
@@ -44,6 +46,7 @@ Before using `gh-setup-git-identity` on a new machine:
 #### C. Sequential Authentication (Avoid Parallel Sessions)
 
 If you must use OAuth flow:
+
 - Don't authenticate on multiple machines simultaneously
 - Wait for one session to complete before starting another
 - Be aware that each `gh auth login` creates a new token
@@ -87,13 +90,15 @@ async function verifyTokenWorks(options = {}) {
 export async function runGhAuthLogin(options = {}) {
   const log = createDefaultLogger(options);
 
-  log.warn(() => `
+  log.warn(
+    () => `
 WARNING: Running gh auth login creates a new OAuth token.
 GitHub limits you to 10 OAuth tokens per application.
 If you use GitHub CLI on multiple machines, old tokens may be revoked.
 Consider using a Personal Access Token instead:
   echo "your_pat" | gh auth login --with-token
-`);
+`
+  );
 
   // ... rest of authentication logic
 }
@@ -106,11 +111,7 @@ Consider using a Personal Access Token instead:
 async function getActiveTokenCount() {
   // Note: This may not be possible via public API
   // Would need to check GitHub API capabilities
-  const result = await execCommand('gh', [
-    'api',
-    '/applications/:client_id/tokens',
-    '--method', 'GET'
-  ]);
+  const result = await execCommand('gh', ['api', '/applications/:client_id/tokens', '--method', 'GET']);
   // Parse and return count
 }
 ```
@@ -129,7 +130,7 @@ services:
       # Share the gh config directory across containers
       - gh-config:/home/hive/.config/gh
     environment:
-      - GH_TOKEN=${GH_TOKEN}  # Or use environment variable
+      - GH_TOKEN=${GH_TOKEN} # Or use environment variable
 
 volumes:
   gh-config:
@@ -162,7 +163,7 @@ async function ensureAuthentication() {
     const sharedToken = process.env.HIVE_GH_TOKEN;
     if (sharedToken) {
       await execCommand('gh', ['auth', 'login', '--with-token'], {
-        input: sharedToken
+        input: sharedToken,
       });
     } else {
       throw new Error('Authentication lost. Please re-authenticate manually.');
@@ -192,8 +193,11 @@ GitHub limits OAuth tokens to 10 per user per application. If you use
 Use a Personal Access Token instead of OAuth:
 
 \`\`\`bash
+
 # Create PAT at https://github.com/settings/tokens
+
 # Then use:
+
 echo "ghp_your_token" | gh auth login --with-token
 gh auth setup-git
 \`\`\`
@@ -220,25 +224,27 @@ If you see this error, your OAuth token may have been revoked because:
 #### A. GitHub CLI Feature Request
 
 Support automatic token revocation:
+
 - Reference: https://github.com/cli/cli/issues/9233
 - Request: Revoke old tokens when creating new ones
 
 #### B. Short-Lived Tokens
 
 Support short-lived OAuth tokens:
+
 - Reference: https://github.com/cli/cli/issues/5924
 - Benefit: Tokens auto-expire, reducing accumulation
 
 ## Implementation Priority
 
-| Priority | Solution | Effort | Impact |
-|----------|----------|--------|--------|
-| High | Document PAT usage | Low | High |
-| High | Add warning message | Low | Medium |
-| Medium | Check existing valid token | Medium | High |
-| Medium | Shared token store | Medium | High |
-| Low | Token count awareness | High | Medium |
-| Low | Upstream contributions | High | Long-term |
+| Priority | Solution                   | Effort | Impact    |
+| -------- | -------------------------- | ------ | --------- |
+| High     | Document PAT usage         | Low    | High      |
+| High     | Add warning message        | Low    | Medium    |
+| Medium   | Check existing valid token | Medium | High      |
+| Medium   | Shared token store         | Medium | High      |
+| Low      | Token count awareness      | High   | Medium    |
+| Low      | Upstream contributions     | High   | Long-term |
 
 ## Recommended Implementation Order
 

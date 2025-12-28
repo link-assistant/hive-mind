@@ -53,70 +53,11 @@ jobs:
 
     - name: Detect changes
       id: changes
-      run: |
-        # For PRs, compare against base branch; for pushes, compare with previous commit
-        EVENT_NAME="${{ github.event_name }}"
-        if [ "$EVENT_NAME" = "pull_request" ]; then
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          git fetch origin $BASE_SHA
-          CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA 2>/dev/null || echo "")
-        else
-          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || git ls-tree --name-only -r HEAD)
-        fi
-
-        echo "Changed files:"
-        echo "$CHANGED_FILES"
-
-        # Check for .mjs file changes
-        if echo "$CHANGED_FILES" | grep -q '\.mjs$'; then
-          echo "mjs=true" >> $GITHUB_OUTPUT
-        else
-          echo "mjs=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Check for package.json changes
-        if echo "$CHANGED_FILES" | grep -q '^package\.json$'; then
-          echo "package=true" >> $GITHUB_OUTPUT
-        else
-          echo "package=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Check for documentation changes
-        if echo "$CHANGED_FILES" | grep -q '\.md$'; then
-          echo "docs=true" >> $GITHUB_OUTPUT
-        else
-          echo "docs=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Check for workflow changes
-        if echo "$CHANGED_FILES" | grep -q '\.github/workflows/'; then
-          echo "workflow=true" >> $GITHUB_OUTPUT
-        else
-          echo "workflow=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Check for docker-related changes
-        if echo "$CHANGED_FILES" | grep -qE '(^Dockerfile$|^\.dockerignore$|^scripts/ubuntu-24-server-install\.sh$)'; then
-          echo "docker=true" >> $GITHUB_OUTPUT
-        else
-          echo "docker=false" >> $GITHUB_OUTPUT
-        fi
-
-        # Check for any code changes (.mjs, package.json, or workflows)
-        # EXCLUDE the following from being treated as code changes:
-        # - Markdown files (*.md) in any folder
-        # - .changeset/ folder (changeset metadata)
-        # - data/ folder (data files)
-        # - docs/ folder (documentation)
-        # - experiments/ folder (experimental scripts)
-        # This ensures docs-only PRs don't require changesets and run only lint checks
-        CODE_CHANGED_FILES=$(echo "$CHANGED_FILES" | grep -v '\.md$' | grep -v '^\.changeset/' | grep -v '^data/' | grep -v '^docs/' | grep -v '^experiments/')
-        if echo "$CODE_CHANGED_FILES" | grep -qE '\.(mjs|json|yml|yaml)$|\.github/workflows/'; then
-          echo "code=true" >> $GITHUB_OUTPUT
-        else
-          echo "code=false" >> $GITHUB_OUTPUT
-        fi
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: node scripts/detect-code-changes.mjs
 
   # === CHANGESET CHECK - only runs on PRs with code changes ===
   # Docs-only PRs (./docs folder, markdown files) don't require changesets

@@ -13,6 +13,7 @@ This fix addresses issue #808 by improving error handling when attempting to for
 3. **Reduced API requests** - Early 404 detection in getRootRepository and immediate exit on 404 during fork creation eliminates unnecessary retries
 
 **Impact:**
+
 - Time saved: ~30 seconds per failed fork attempt
 - API requests saved: ~10 requests per failed fork attempt
 - Better UX: Clear guidance on diagnosing and resolving repository access issues

@@ -541,8 +541,8 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log('     GitHub returned HTTP 404 (Not Found)');
             await log('');
             await log('  💡 Common causes:');
-            await log('     1. Repository doesn\'t exist or was deleted');
-            await log('     2. Repository is private and you don\'t have access');
+            await log("     1. Repository doesn't exist or was deleted");
+            await log("     2. Repository is private and you don't have access");
             await log('     3. Insufficient permissions to view the repository');
             await log('     4. Your GitHub token may lack required scopes');
             await log('');

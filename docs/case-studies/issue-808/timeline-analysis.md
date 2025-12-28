@@ -5,6 +5,7 @@
 **Problem:** The solve tool retries 5 times on HTTP 404 errors when attempting to fork a repository, wasting time and API quota. The error message is also not user-friendly and doesn't help users understand the actual issue (likely insufficient permissions).
 
 **Impact:**
+
 - Wastes approximately 30 seconds on exponential backoff (2s + 4s + 8s + 16s = 30s)
 - Consumes 5 GitHub API requests unnecessarily
 - Provides poor user experience with cryptic error messages
@@ -14,13 +15,16 @@
 Based on the log file (`original-log.txt`), here's the sequence of events:
 
 ### 1. Initial Setup (19:38:35 - 19:38:46)
+
 - Tool started: solve v0.36.3
 - Command: Attempting to solve `https://github.com/ideav/work-weave-logic/issues/3`
 - Options: `--auto-fork --auto-continue --attach-logs --verbose --no-tool-check --prefix-fork-name-with-owner-name`
 - Temp directory created: `/tmp/gh-issue-solver-1764704326500`
 
 ### 2. Repository Access Checks (19:38:46 - 19:38:42)
+
 Lines 34-42:
+
 ```
 [INFO] 🔍 Checking repository access for auto-fork...
 [INFO]    Warning: Could not detect repository visibility, defaulting to public
@@ -35,7 +39,9 @@ Lines 34-42:
 **Note:** The tool made assumptions about repository being public despite warning "Could not detect repository visibility"
 
 ### 3. Fork Detection (19:38:47 - 19:38:48)
+
 Lines 49-51:
+
 ```
 [INFO] 🔍 Detecting fork conflicts...
 [INFO] ⚠️ Warning: Could not determine root repository
@@ -47,52 +53,69 @@ Lines 49-51:
 ### 4. Fork Creation Attempts (19:38:48 - 19:39:22)
 
 #### Attempt 1 (19:38:48 - 19:38:51) - 2s delay
+
 Line 53-54:
+
 ```
 [INFO] 🔍 Checking: If fork exists after failed creation attempt...
 [INFO] ⏳ Retry: Attempt 1/5 failed, waiting 2s before retry...
 [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
+
 **API requests**: 2 (fork creation + existence check)
 
 #### Attempt 2 (19:38:51 - 19:38:56) - 4s delay
+
 Line 56-57:
+
 ```
 [INFO] 🔍 Checking: If fork exists after failed creation attempt...
 [INFO] ⏳ Retry: Attempt 2/5 failed, waiting 4s before retry...
 [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
+
 **API requests**: 2 (fork creation + existence check)
 
 #### Attempt 3 (19:38:56 - 19:39:05) - 8s delay
+
 Line 59-60:
+
 ```
 [INFO] 🔍 Checking: If fork exists after failed creation attempt...
 [INFO] ⏳ Retry: Attempt 3/5 failed, waiting 8s before retry...
 [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
+
 **API requests**: 2 (fork creation + existence check)
 
 #### Attempt 4 (19:39:05 - 19:39:21) - 16s delay
+
 Line 62-63:
+
 ```
 [INFO] 🔍 Checking: If fork exists after failed creation attempt...
 [INFO] ⏳ Retry: Attempt 4/5 failed, waiting 16s before retry...
 [INFO]    Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
+
 **API requests**: 2 (fork creation + existence check)
 
 #### Attempt 5 (19:39:21 - 19:39:22) - Final attempt
+
 Line 64-66:
+
 ```
 [INFO] 🔍 Checking: If fork exists after failed creation attempt...
 [INFO] ❌ Error: Failed to create fork after all retries
 [INFO] failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
+
 **API requests**: 2 (fork creation + existence check)
 
 ### 5. Final Failure (19:39:22)
+
 Line 69-70:
+
 ```
 [ERROR] ❌ Repository setup failed
 [INFO] 📁 Full log file: /home/hive/solve-2025-12-02T19-38-35-038Z.log
@@ -125,7 +148,7 @@ for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
     // ALL OTHER ERRORS - including 404 - retry
     if (attempt < maxForkRetries) {
       const delay = baseDelay * Math.pow(2, attempt - 1);
-      await log(`Retry: Attempt ${attempt}/${maxForkRetries} failed, waiting ${delay/1000}s before retry...`);
+      await log(`Retry: Attempt ${attempt}/${maxForkRetries} failed, waiting ${delay / 1000}s before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -137,11 +160,13 @@ for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
 ### Issue 2: Poor Error Messages
 
 The final error message (line 466-471) only shows:
+
 ```
 Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/work-weave-logic/forks)
 ```
 
 **Problems:**
+
 1. Doesn't explain what 404 means in this context
 2. Doesn't suggest the user might lack permissions
 3. Doesn't guide the user on how to diagnose or fix the issue
@@ -149,6 +174,7 @@ Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/w
 ### Issue 3: Excessive API Requests
 
 **Total API requests made:**
+
 1. Initial fork conflict detection (line 218): 1 request (get root repository) - likely 404
 2. 5 fork creation attempts: 5 requests
 3. 5 fork existence checks after each failed attempt: 5 requests
@@ -160,6 +186,7 @@ Error: failed to fork: HTTP 404: Not Found (https://api.github.com/repos/ideav/w
 ### Issue 4: Misleading Early Assumptions
 
 Lines 35-36:
+
 ```
 Warning: Could not detect repository visibility, defaulting to public
 ⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository
@@ -184,6 +211,7 @@ In this case, since the tool was given a specific issue URL, #2 is most likely.
 ### Solution 1: Do Not Retry on 404 (Required)
 
 **Implementation:**
+
 - Detect HTTP 404 errors specifically
 - Exit immediately with helpful error message
 - Do not waste time on retries
@@ -193,6 +221,7 @@ In this case, since the tool was given a specific issue URL, #2 is most likely.
 ### Solution 2: User-Friendly Error Messages (Required)
 
 **Implementation:**
+
 - When 404 is received, display clear explanation:
   - Repository might not exist
   - User might lack permissions
@@ -204,6 +233,7 @@ In this case, since the tool was given a specific issue URL, #2 is most likely.
 ### Solution 3: Reduce API Requests (Required)
 
 **Implementation:**
+
 - Skip fork existence check if fork creation returns 404
 - Early exit on 404 from root repository check
 - Avoid making redundant requests after clear failure
@@ -213,6 +243,7 @@ In this case, since the tool was given a specific issue URL, #2 is most likely.
 ### Solution 4: Improve Early Detection (Recommended)
 
 **Implementation:**
+
 - When repository visibility check fails, don't assume public
 - Add explicit permission check before attempting fork
 - Provide early warning if repository appears inaccessible

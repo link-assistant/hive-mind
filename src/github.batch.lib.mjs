@@ -131,7 +131,7 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
             const { exec } = await import('child_process');
             const { promisify } = await import('util');
             const execAsync = promisify(exec);
-            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
+            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
 
             const { stdout } = await execAsync(cmd, { encoding: 'utf8', env: process.env });
             const openPrCount = parseInt(stdout.trim()) || 0;

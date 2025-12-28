@@ -52,7 +52,7 @@ const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, form
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
-const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks, parseUrlComponents } = validation;
+const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks } = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
@@ -175,8 +175,11 @@ const urlValidation = validateGitHubUrl(issueUrl);
 if (!urlValidation.isValid) {
   await safeExit(1, 'Invalid GitHub URL');
 }
-const { isIssueUrl, isPrUrl, normalizedUrl } = urlValidation;
+const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
+// Store owner and repo globally for error handlers early
+global.owner = owner;
+global.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
 const errorHandlerOptions = {
   log,
@@ -222,11 +225,9 @@ if (argv.verbose) {
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
 const claudePath = process.env.CLAUDE_PATH || 'claude';
-// Parse URL components using validation module
-const { owner, repo, urlNumber } = parseUrlComponents(issueUrl);
-// Store owner and repo globally for error handlers
-global.owner = owner;
-global.repo = repo;
+// Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
+// The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
+// and the validation result already provides these values correctly parsed
 
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
@@ -1213,4 +1214,12 @@ try {
 } finally {
   // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
+
+  // Show final log file reference (similar to Claude and other agents)
+  // This ensures users always know where to find the complete log file
+  if (getLogFile()) {
+    const path = await use('path');
+    const absoluteLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+  }
 }

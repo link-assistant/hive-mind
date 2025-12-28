@@ -417,7 +417,9 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     await log('\n🔍 Checking for pull requests from branch ' + branchName + '...');
 
     // First, get all PRs from our branch
-    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
+    // IMPORTANT: Use --state all to find PRs that may have been merged during the session (Issue #1008)
+    // Without --state all, gh pr list only returns OPEN PRs, missing merged ones
+    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
 
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
@@ -438,63 +440,72 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
 
-        // Check if PR body has proper issue linking keywords
-        const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
-        if (prBodyResult.code === 0) {
-          const prBody = prBodyResult.stdout.toString();
-          const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
-
-          // Use the new GitHub linking detection library to check for valid keywords
-          // This ensures we only detect actual GitHub-recognized linking keywords
-          // (fixes, closes, resolves and their variants) in proper format
-          // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-          const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
-
-          if (!hasLinkingKeyword) {
-            await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
-            // Add proper issue reference to the PR body
-            const linkingText = `\n\nFixes ${issueRef}`;
-            const updatedBody = prBody + linkingText;
-
-            // Use --body-file instead of --body to avoid command-line length limits
-            // and special character escaping issues that can cause hangs/timeouts
-            const fs = (await use('fs')).promises;
-            const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
-            await fs.writeFile(tempBodyFile, updatedBody);
-
-            try {
-              const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-
-              // Clean up temp file
-              await fs.unlink(tempBodyFile).catch(() => {});
-
-              if (updateResult.code === 0) {
-                await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-              } else {
-                await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-              }
-            } catch (updateError) {
-              // Clean up temp file on error
-              await fs.unlink(tempBodyFile).catch(() => {});
-              throw updateError;
-            }
-          } else {
-            await log('  ✅ PR body already contains issue reference');
-          }
+        // Check if PR was merged during the session (Issue #1008)
+        const isPrMerged = pr.state === 'MERGED';
+        if (isPrMerged) {
+          await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
 
-        // Check if PR is ready for review (convert from draft if necessary)
-        if (pr.isDraft) {
-          await log('  🔄 Converting PR from draft to ready for review...');
-          const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
-          if (readyResult.code === 0) {
-            await log('  ✅ PR converted to ready for review');
-          } else {
-            await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
+        // Skip PR body update and ready conversion for merged PRs (they can't be edited)
+        if (!isPrMerged) {
+          // Check if PR body has proper issue linking keywords
+          const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
+          if (prBodyResult.code === 0) {
+            const prBody = prBodyResult.stdout.toString();
+            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+
+            // Use the new GitHub linking detection library to check for valid keywords
+            // This ensures we only detect actual GitHub-recognized linking keywords
+            // (fixes, closes, resolves and their variants) in proper format
+            // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
+            const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
+
+            if (!hasLinkingKeyword) {
+              await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
+
+              // Add proper issue reference to the PR body
+              const linkingText = `\n\nFixes ${issueRef}`;
+              const updatedBody = prBody + linkingText;
+
+              // Use --body-file instead of --body to avoid command-line length limits
+              // and special character escaping issues that can cause hangs/timeouts
+              const fs = (await use('fs')).promises;
+              const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
+              await fs.writeFile(tempBodyFile, updatedBody);
+
+              try {
+                const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+
+                // Clean up temp file
+                await fs.unlink(tempBodyFile).catch(() => {});
+
+                if (updateResult.code === 0) {
+                  await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
+                } else {
+                  await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
+                }
+              } catch (updateError) {
+                // Clean up temp file on error
+                await fs.unlink(tempBodyFile).catch(() => {});
+                throw updateError;
+              }
+            } else {
+              await log('  ✅ PR body already contains issue reference');
+            }
           }
-        } else {
-          await log('  ✅ PR is already ready for review', { verbose: true });
+
+          // Check if PR is ready for review (convert from draft if necessary)
+          if (pr.isDraft) {
+            await log('  🔄 Converting PR from draft to ready for review...');
+            const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
+            if (readyResult.code === 0) {
+              await log('  ✅ PR converted to ready for review');
+            } else {
+              await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
+            }
+          } else {
+            await log('  ✅ PR is already ready for review', { verbose: true });
+          }
         }
 
         // Upload log file to PR if requested
@@ -544,7 +555,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
 
     // Get all comments and filter them
-    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+    // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');

@@ -1,0 +1,31 @@
+{
+  "issue": {
+    "url": "https://github.com/link-assistant/hive-mind/issues/972",
+    "number": 972,
+    "title": "We need to make our error message more useful for user, and remove wrong options/suggestions",
+    "createdAt": "2025-12-23T15:58:20.789Z",
+    "repository": "link-assistant/hive-mind"
+  },
+  "relatedIssue": {
+    "url": "https://github.com/andchir/PersonaLive/issues/24",
+    "number": 24,
+    "title": "Аудио дорожка должна браться от driving_video",
+    "repository": "andchir/PersonaLive",
+    "state": "CLOSED",
+    "createdAt": "2025-12-23T12:08:34Z",
+    "updatedAt": "2025-12-23T14:04:10Z",
+    "body": "В результирующем видео аудио дорожка должна браться от driving_video. При этом учесть, что результирующее видео может быть меньше, чем driving_video.",
+    "comments": []
+  },
+  "errorMessage": {
+    "type": "FORK DIVERGENCE DETECTED",
+    "location": "src/solve.repository.lib.mjs",
+    "lineRange": "704-796",
+    "context": "setupUpstreamAndSync function"
+  },
+  "problemDescription": "The error message shows 'Option 3: Work without syncing fork (NOT RECOMMENDED)' which is never actually a valid option, and it doesn't suggest the viable option of deleting the fork manually so it can be recreated.",
+  "affectedUsers": {
+    "scenario": "Users who encounter fork divergence when their fork's main branch has different commits than upstream",
+    "trigger": "Typically occurs when upstream had a force push (e.g., git reset --hard)"
+  }
+}

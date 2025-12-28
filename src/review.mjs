@@ -375,7 +375,7 @@ Review this pull request thoroughly.`;
 
       try {
         // Get reviews for the PR
-        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
+        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
 
         if (reviewsResult.code === 0 && reviewsResult.stdout.toString().trim()) {
           await log(`✅ Review has been submitted to PR #${prNumber}`);

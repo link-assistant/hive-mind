@@ -384,6 +384,11 @@ jobs:
         echo "Running test suite for start-screen.mjs..."
         node tests/test-start-screen.mjs
 
+    - name: Run buildCostInfoString test (Issue #1015)
+      run: |
+        echo "Running test suite for buildCostInfoString..."
+        node tests/test-build-cost-info-string.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

@@ -125,10 +125,12 @@ Since the fix is in the external `gh-setup-git-identity` action:
 Replace direct `git push` commands with `gh repo sync` which uses GitHub's authenticated API directly.
 
 Pros:
+
 - Uses existing `gh` authentication
 - More robust than manual git commands
 
 Cons:
+
 - Requires code changes in hive-mind
 - May introduce subtle behavior differences
 
@@ -141,6 +143,7 @@ https://${GITHUB_TOKEN}:x-oauth-basic@github.com/${owner}/${repo}.git
 ```
 
 Cons:
+
 - Token exposure in git config
 - Security risk if repository is shared
 - More complex to maintain

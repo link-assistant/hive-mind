@@ -104,7 +104,15 @@ jobs:
         fi
 
         # Check for any code changes (.mjs, package.json, or workflows)
-        if echo "$CHANGED_FILES" | grep -qE '\.(mjs|json|yml|yaml)$|\.github/workflows/'; then
+        # EXCLUDE the following from being treated as code changes:
+        # - Markdown files (*.md) in any folder
+        # - .changeset/ folder (changeset metadata)
+        # - data/ folder (data files)
+        # - docs/ folder (documentation)
+        # - experiments/ folder (experimental scripts)
+        # This ensures docs-only PRs don't require changesets and run only lint checks
+        CODE_CHANGED_FILES=$(echo "$CHANGED_FILES" | grep -v '\.md$' | grep -v '^\.changeset/' | grep -v '^data/' | grep -v '^docs/' | grep -v '^experiments/')
+        if echo "$CODE_CHANGED_FILES" | grep -qE '\.(mjs|json|yml|yaml)$|\.github/workflows/'; then
           echo "code=true" >> $GITHUB_OUTPUT
         else
           echo "code=false" >> $GITHUB_OUTPUT

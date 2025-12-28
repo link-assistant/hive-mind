@@ -184,6 +184,51 @@ This aligns with the issue description:
 - `docs/case-studies/issue-1021/solutions.md`
 - `docs/case-studies/issue-1021/timeline.md`
 
+## Implemented Solution
+
+The solution implemented in this PR follows **Option C: Make Both Jobs Independent**:
+
+### Changes Made
+
+1. **Made `lint` job independent** (commit 9327e83):
+   - Removed dependency on `changeset-check`
+   - `lint` now runs based only on `detect-changes` outputs
+
+2. **Made `changeset-check` conditional on code changes** (commit 9327e83):
+   - Added condition: `needs.detect-changes.outputs.any-code-changed == 'true'`
+   - Docs-only PRs skip changeset validation entirely
+
+3. **Updated `any-code-changed` detection** (commit [current]):
+   - **Excluded folders** from code changes:
+     - `.changeset/` - changeset metadata files
+     - `data/` - data files
+     - `docs/` - documentation
+     - `experiments/` - experimental scripts
+   - **Excluded markdown files** (`*.md`) in any folder
+   - This ensures docs-only PRs don't trigger changeset requirements
+
+### How It Works Now
+
+For a PR with changes only in excluded folders/files:
+
+1. `detect-changes` sets `any-code-changed=false`
+2. `changeset-check` is skipped (no changeset required)
+3. `lint` still runs (Prettier and ESLint check the files)
+4. PR can be merged after lint passes
+5. Push to main runs lint again - should pass since PR already formatted files
+
+### Files Excluded from Code Change Detection
+
+The following are now explicitly excluded from `any-code-changed`:
+
+| Pattern         | Reason                           |
+| --------------- | -------------------------------- |
+| `*.md`          | Documentation/markdown files     |
+| `.changeset/*`  | Changeset metadata               |
+| `data/*`        | Data files (not executable code) |
+| `docs/*`        | Documentation folder             |
+| `experiments/*` | Experimental/example scripts     |
+
 ## Appendix: CI Run Information
 
 - **Failed Run:** https://github.com/link-assistant/hive-mind/actions/runs/20555859476/job/59039910327

@@ -44,35 +44,16 @@ Almost identical timeline, running approximately 17 seconds after the first comm
 
 ## Root Cause Analysis
 
-### Primary Cause: Git Credential Helper Not Configured Before Push
+### Primary Cause: Git Credential Helper Not Configured
 
-The code in `solve.repository.lib.mjs` uses:
+The error occurred because the `gh-setup-git-identity` GitHub Action (used in Docker container setup) was not running `gh auth setup-git` to configure git to use GitHub CLI as a credential helper.
 
-1. `gh repo clone` for cloning (line 804) - **Works correctly** because `gh` handles authentication
-2. `git push origin main` for syncing fork (line 921) - **Fails** because native git doesn't have credentials configured
+The workflow uses:
 
-The credential helper setup (`gh auth setup-git`) in `solve.repo-setup.lib.mjs` happens **AFTER** the `setupUpstreamAndSync` call:
+1. `gh repo clone` for cloning - **Works correctly** because `gh` handles authentication internally
+2. `git push origin main` for syncing fork - **Fails** because native git doesn't have credentials configured
 
-```javascript
-// From solve.repo-setup.lib.mjs lines 6-22
-export async function setupRepositoryAndClone({ ... }) {
-  // ...
-  await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);  // Line 13 - Push happens here!
-  // ...
-  const authSetupResult = await $({ cwd: tempDir })`gh auth setup-git 2>&1`;  // Line 18 - Too late!
-  // ...
-}
-```
-
-### Secondary Cause: Non-Interactive Environment (Docker Container)
-
-Git's default behavior when encountering authentication issues is to prompt the user for credentials. In a Docker container:
-
-- There is no TTY (terminal) attached
-- Git cannot open `/dev/tty` to prompt for credentials
-- This results in the cryptic error: "No such device or address"
-
-### Contributing Factor: Dual Authentication Systems
+### Key Issue: Dual Authentication Systems
 
 As documented in [mislav/hub#1644](https://github.com/mislav/hub/issues/1644):
 
@@ -80,6 +61,14 @@ As documented in [mislav/hub#1644](https://github.com/mislav/hub/issues/1644):
 - Git has its own credential system (stored credentials, credential helpers)
 - These two systems are completely independent
 - Just because `gh auth status` shows authenticated doesn't mean native `git` commands will work
+
+### Contributing Factor: Non-Interactive Environment (Docker Container)
+
+Git's default behavior when encountering authentication issues is to prompt the user for credentials. In a Docker container:
+
+- There is no TTY (terminal) attached
+- Git cannot open `/dev/tty` to prompt for credentials
+- This results in the cryptic error: "No such device or address"
 
 ## Evidence from Logs
 
@@ -100,64 +89,50 @@ Key observations:
 2. The push failed immediately after attempting (295ms from start to error)
 3. The error clearly indicates git couldn't prompt for credentials
 
-## Proposed Solutions
+## Solution: Fix Applied in gh-setup-git-identity Action
 
-### Solution 1: Use `gh repo sync` Instead of `git push` (Recommended)
+The fix was implemented in the external `gh-setup-git-identity` GitHub Action:
 
-The GitHub CLI provides `gh repo sync` which:
+**Fix PR:** https://github.com/link-foundation/gh-setup-git-identity/pull/25
 
-- Uses GitHub's authenticated API
-- Handles all credential management internally
-- Can sync a fork with its parent in one command
+### What the Fix Does
 
-Change in `solve.repository.lib.mjs`:
+The `gh-setup-git-identity` action now automatically runs `gh auth setup-git` after successful authentication. This command:
 
-```javascript
-// Instead of:
-const pushResult = await $({ cwd: tempDir })`git push origin ${upstreamDefaultBranch}`;
+1. Configures git to use GitHub CLI as a credential helper
+2. Bridges the gap between `gh` authentication and git's credential system
+3. Ensures native `git push` commands work in non-interactive environments
 
-// Use:
-const syncResult = await $({ cwd: tempDir })`gh repo sync --branch ${upstreamDefaultBranch}`;
-```
+### Key Changes in gh-setup-git-identity PR #25
+
+1. **New Function `runGhAuthSetupGit()`:** Configures git to use GitHub CLI as credential helper
+2. **CLI Integration:** Automatically runs `gh auth setup-git -h <hostname>` after successful `gh auth login`
+3. **Fallback for Already Authenticated:** Also runs setup when already authenticated to ensure proper configuration
+
+### Why No Code Changes Needed in hive-mind
+
+Since the fix is in the external `gh-setup-git-identity` action:
+
+- The action is used when setting up Docker containers for the solve process
+- With the fix applied, `gh auth setup-git` runs automatically during container setup
+- Native `git push` commands will work correctly because the credential helper is configured
+- No changes to `src/solve.repository.lib.mjs` are needed
+
+## Alternative Solutions Considered
+
+### Solution A: Use `gh repo sync` Instead of `git push`
+
+Replace direct `git push` commands with `gh repo sync` which uses GitHub's authenticated API directly.
 
 Pros:
-
-- Single command solution
 - Uses existing `gh` authentication
 - More robust than manual git commands
 
 Cons:
+- Requires code changes in hive-mind
+- May introduce subtle behavior differences
 
-- Requires understanding of `gh repo sync` behavior
-- May need additional flags for force-sync scenarios
-
-### Solution 2: Move `gh auth setup-git` Earlier
-
-Move the `gh auth setup-git` call to execute BEFORE any git operations:
-
-```javascript
-export async function setupRepositoryAndClone({ ... }) {
-  // Set up git authentication FIRST
-  const authSetupResult = await $({ cwd: tempDir })`gh auth setup-git 2>&1`;
-
-  // Then proceed with repository operations
-  await cloneRepository(repoToClone, tempDir, argv, owner, repo);
-  await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
-  // ...
-}
-```
-
-Pros:
-
-- Minimal code change
-- Native git commands will work after setup
-
-Cons:
-
-- `gh auth setup-git` may fail silently
-- Adds global git configuration side effects
-
-### Solution 3: Use Token-Embedded URLs (Not Recommended)
+### Solution B: Token-Embedded URLs (Not Recommended)
 
 Configure git remote URLs to include the token:
 
@@ -165,24 +140,10 @@ Configure git remote URLs to include the token:
 https://${GITHUB_TOKEN}:x-oauth-basic@github.com/${owner}/${repo}.git
 ```
 
-Pros:
-
-- Works without credential helper
-
 Cons:
-
 - Token exposure in git config
 - Security risk if repository is shared
 - More complex to maintain
-
-## Recommended Implementation
-
-**Solution 1 (Use `gh repo sync`)** is the recommended approach because:
-
-1. It's the most robust solution
-2. It uses the existing `gh` authentication
-3. It's specifically designed for syncing forks
-4. It handles edge cases like force-sync properly
 
 ## Additional Considerations
 
@@ -194,19 +155,15 @@ The user mentioned running two commands on the same fork simultaneously. While t
 - One command's changes being overwritten by the other
 - Potential merge conflicts
 
-Recommendation: Implement locking mechanism or better coordination for concurrent operations on the same fork.
-
 ## References
 
+- [link-foundation/gh-setup-git-identity#25](https://github.com/link-foundation/gh-setup-git-identity/pull/25) - The actual fix PR
 - [docker/build-push-action#1112](https://github.com/docker/build-push-action/issues/1112) - Similar issue with git authentication in Docker builds
 - [mislav/hub#1644](https://github.com/mislav/hub/issues/1644) - Detailed explanation of dual authentication systems
 - [Jenkins Community Forum](https://community.jenkins.io/t/fatal-could-not-read-username-for-https-github-com-no-such-device-or-address/11254) - Similar issue in CI environments
-- [GitHub CLI `gh repo sync` documentation](https://cli.github.com/manual/gh_repo_sync)
 - [GitHub CLI `gh auth setup-git` documentation](https://cli.github.com/manual/gh_auth_setup-git)
 
 ## Appendix: Related Files
 
-- `src/solve.repository.lib.mjs` - Contains the failing `git push` code
-- `src/solve.repo-setup.lib.mjs` - Contains the `gh auth setup-git` call (executed too late)
 - `docs/case-studies/issue-1017/log1-solve-2025-12-28T05-55-01-355Z.log` - Full log for first command
 - `docs/case-studies/issue-1017/log2-solve-2025-12-28T05-55-18-438Z.log` - Full log for second command

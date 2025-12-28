@@ -910,140 +910,152 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
             }
           }
 
-          // Step 2: Sync default branch with upstream (only if checkout was successful)
+          // Step 2: Sync fork with upstream using gh repo sync
+          // This uses GitHub CLI's authenticated API to avoid git credential issues
+          // (fixes issue #1017: "fatal: could not read Username for 'https://github.com': No such device or address")
           if (syncSuccessful) {
-            const syncResult = await $({ cwd: tempDir })`git reset --hard upstream/${upstreamDefaultBranch}`;
-            if (syncResult.code === 0) {
-              await log(`${formatAligned('✅', 'Default branch synced:', `with upstream/${upstreamDefaultBranch}`)}`);
+            await log(`${formatAligned('🔄', 'Syncing fork:', `${forkedRepo} with upstream (${upstreamDefaultBranch} branch)`)}`);
 
-              // Step 3: Push the updated default branch to fork to keep it in sync
-              await log(`${formatAligned('🔄', 'Pushing to fork:', `${upstreamDefaultBranch} branch`)}`);
-              const pushResult = await $({ cwd: tempDir })`git push origin ${upstreamDefaultBranch}`;
-              if (pushResult.code === 0) {
-                await log(`${formatAligned('✅', 'Fork updated:', 'Default branch pushed to fork')}`);
+            // First, try normal sync (fast-forward only)
+            const ghSyncResult = await $`gh repo sync ${forkedRepo} --branch ${upstreamDefaultBranch} 2>&1`;
+
+            if (ghSyncResult.code === 0) {
+              await log(`${formatAligned('✅', 'Fork synced:', `${upstreamDefaultBranch} branch updated from upstream`)}`);
+
+              // Fetch the synced changes to local repository
+              await log(`${formatAligned('🔄', 'Fetching:', 'Updated fork to local repository')}`);
+              const fetchOriginResult = await $({ cwd: tempDir })`git fetch origin ${upstreamDefaultBranch}`;
+              if (fetchOriginResult.code === 0) {
+                // Reset local branch to match origin (the synced fork)
+                const resetResult = await $({ cwd: tempDir })`git reset --hard origin/${upstreamDefaultBranch}`;
+                if (resetResult.code === 0) {
+                  await log(`${formatAligned('✅', 'Local synced:', `${upstreamDefaultBranch} updated from origin`)}`);
+                } else {
+                  await log(`${formatAligned('⚠️', 'Warning:', 'Failed to reset local branch, continuing anyway')}`);
+                }
               } else {
-                // Check if it's a non-fast-forward error (fork has diverged from upstream)
-                const errorMsg = pushResult.stderr ? pushResult.stderr.toString().trim() : '';
-                const isNonFastForward = errorMsg.includes('non-fast-forward') || errorMsg.includes('rejected') || errorMsg.includes('tip of your current branch is behind');
-
-                if (isNonFastForward) {
-                  // Fork has diverged from upstream
-                  await log('');
-                  await log(`${formatAligned('⚠️', 'FORK DIVERGENCE DETECTED', '')}`, { level: 'warn' });
-                  await log('');
-                  await log('  🔍 What happened:');
-                  await log(`     Your fork's ${upstreamDefaultBranch} branch has different commits than upstream`);
-                  await log('     This typically occurs when upstream had a force push (e.g., git reset --hard)');
-                  await log('');
-                  await log('  📦 Current state:');
-                  await log(`     • Fork: ${forkedRepo}`);
-                  await log(`     • Upstream: ${owner}/${repo}`);
-                  await log(`     • Branch: ${upstreamDefaultBranch}`);
-                  await log('');
-
-                  // Check if user has enabled automatic force push
-                  if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) {
-                    await log('  🔄 Auto-resolution ENABLED (--allow-fork-divergence-resolution-using-force-push-with-lease):');
-                    await log('     Attempting to force-push with --force-with-lease...');
-                    await log('');
-
-                    // Use --force-with-lease for safer force push
-                    // This will only force push if the remote hasn't changed since our last fetch
-                    await log(`${formatAligned('🔄', 'Force pushing:', 'Syncing fork with upstream (--force-with-lease)')}`);
-                    const forcePushResult = await $({
-                      cwd: tempDir,
-                    })`git push --force-with-lease origin ${upstreamDefaultBranch}`;
-
-                    if (forcePushResult.code === 0) {
-                      await log(`${formatAligned('✅', 'Fork synced:', 'Successfully force-pushed to align with upstream')}`);
-                      await log('');
-                    } else {
-                      // Force push also failed - this is a more serious issue
-                      await log('');
-                      await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`, {
-                        level: 'error',
-                      });
-                      await log('');
-                      await log('  🔍 What happened:');
-                      await log(`     Fork branch ${upstreamDefaultBranch} has diverged from upstream`);
-                      await log('     Both normal push and force-with-lease push failed');
-                      await log('');
-                      await log('  📦 Error details:');
-                      const forceErrorMsg = forcePushResult.stderr ? forcePushResult.stderr.toString().trim() : '';
-                      for (const line of forceErrorMsg.split('\n')) {
-                        if (line.trim()) await log(`     ${line}`);
-                      }
-                      await log('');
-                      await log('  💡 Possible causes:');
-                      await log('     • Fork branch is protected (branch protection rules prevent force push)');
-                      await log('     • Someone else pushed to fork after our fetch');
-                      await log('     • Insufficient permissions to force push');
-                      await log('');
-                      await log('  🔧 Manual resolution:');
-                      await log(`     1. Visit your fork: https://github.com/${forkedRepo}`);
-                      await log('     2. Check branch protection settings');
-                      await log('     3. Manually sync fork with upstream:');
-                      await log('        git fetch upstream');
-                      await log(`        git reset --hard upstream/${upstreamDefaultBranch}`);
-                      await log(`        git push --force origin ${upstreamDefaultBranch}`);
-                      await log('');
-                      await safeExit(1, 'Repository setup failed - fork sync failed');
-                    }
-                  } else {
-                    // Flag is not enabled - provide guidance
-                    await log('  💡 Your options:');
-                    await log('');
-                    await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
-                    await log(`              gh repo delete ${forkedRepo}`);
-                    await log('              Then run the solve command again - the fork will be recreated automatically');
-                    await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
-                    await log('');
-                    await log('     Option 2: Enable automatic force-push (DANGEROUS)');
-                    await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
-                    await log('              This will automatically sync your fork with upstream using force-with-lease');
-                    await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
-                    await log('');
-                    await log('     Option 3: Manually resolve the divergence');
-                    await log('              1. Decide if you need any commits unique to your fork');
-                    await log('              2. If yes, cherry-pick them after syncing');
-                    await log('              3. If no, manually force-push:');
-                    await log('                 git fetch upstream');
-                    await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
-                    await log(`                 git push --force origin ${upstreamDefaultBranch}`);
-                    await log('');
-                    await log('  🔧 To proceed with auto-resolution, restart with:');
-                    await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);
-                    await log('');
-                    await safeExit(1, 'Repository setup halted - fork divergence requires user decision');
-                  }
-                } else {
-                  // Some other push error (not divergence-related)
-                  await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to push updated default branch to fork')}`);
-                  await log(`${formatAligned('', 'Push error:', errorMsg)}`);
-                  await log(`${formatAligned('', 'Reason:', 'Fork must be updated or process must stop')}`);
-                  await log(`${formatAligned('', 'Solution draft:', 'Fork sync is required for proper workflow')}`);
-                  await log(`${formatAligned('', 'Next steps:', '1. Check GitHub permissions for the fork')}`);
-                  await log(`${formatAligned('', '', '2. Ensure fork is not protected')}`);
-                  await log(`${formatAligned('', '', '3. Try again after resolving fork issues')}`);
-                  await safeExit(1, 'Repository setup failed');
-                }
-              }
-
-              // Step 4: Return to the original branch if it was different
-              if (currentBranch !== upstreamDefaultBranch) {
-                await log(`${formatAligned('🔄', 'Returning to:', `${currentBranch} branch`)}`);
-                const returnResult = await $({ cwd: tempDir })`git checkout ${currentBranch}`;
-                if (returnResult.code === 0) {
-                  await log(`${formatAligned('✅', 'Branch restored:', `Back on ${currentBranch}`)}`);
-                } else {
-                  await log(`${formatAligned('⚠️', 'Warning:', `Failed to return to ${currentBranch}`)}`);
-                  // This is not fatal, continue with sync on default branch
-                }
+                await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch from origin, continuing anyway')}`);
               }
             } else {
-              await log(`${formatAligned('⚠️', 'Warning:', `Failed to sync ${upstreamDefaultBranch} with upstream`)}`);
-              if (syncResult.stderr) {
-                await log(`${formatAligned('', 'Sync error:', syncResult.stderr.toString().trim())}`);
+              // Check if it's a divergence error
+              const syncOutput = ghSyncResult.stdout ? ghSyncResult.stdout.toString() : '';
+              const syncError = ghSyncResult.stderr ? ghSyncResult.stderr.toString() : '';
+              const combinedOutput = syncOutput + syncError;
+              const isDivergence = combinedOutput.includes("can't sync") || combinedOutput.includes('diverged') || combinedOutput.includes('non-fast-forward') || combinedOutput.includes('--force');
+
+              if (isDivergence) {
+                // Fork has diverged from upstream
+                await log('');
+                await log(`${formatAligned('⚠️', 'FORK DIVERGENCE DETECTED', '')}`, { level: 'warn' });
+                await log('');
+                await log('  🔍 What happened:');
+                await log(`     Your fork's ${upstreamDefaultBranch} branch has different commits than upstream`);
+                await log('     This typically occurs when upstream had a force push (e.g., git reset --hard)');
+                await log('');
+                await log('  📦 Current state:');
+                await log(`     • Fork: ${forkedRepo}`);
+                await log(`     • Upstream: ${owner}/${repo}`);
+                await log(`     • Branch: ${upstreamDefaultBranch}`);
+                await log('');
+
+                // Check if user has enabled automatic force push
+                if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) {
+                  await log('  🔄 Auto-resolution ENABLED (--allow-fork-divergence-resolution-using-force-push-with-lease):');
+                  await log('     Attempting to force sync with gh repo sync --force...');
+                  await log('');
+
+                  // Use gh repo sync --force for force sync
+                  await log(`${formatAligned('🔄', 'Force syncing:', 'Syncing fork with upstream (--force)')}`);
+                  const forceSyncResult = await $`gh repo sync ${forkedRepo} --branch ${upstreamDefaultBranch} --force 2>&1`;
+
+                  if (forceSyncResult.code === 0) {
+                    await log(`${formatAligned('✅', 'Fork synced:', 'Successfully force-synced to align with upstream')}`);
+
+                    // Fetch the synced changes to local repository
+                    await log(`${formatAligned('🔄', 'Fetching:', 'Updated fork to local repository')}`);
+                    const fetchOriginResult = await $({ cwd: tempDir })`git fetch origin ${upstreamDefaultBranch}`;
+                    if (fetchOriginResult.code === 0) {
+                      const resetResult = await $({ cwd: tempDir })`git reset --hard origin/${upstreamDefaultBranch}`;
+                      if (resetResult.code === 0) {
+                        await log(`${formatAligned('✅', 'Local synced:', `${upstreamDefaultBranch} updated from origin`)}`);
+                      }
+                    }
+                    await log('');
+                  } else {
+                    // Force sync also failed - this is a more serious issue
+                    await log('');
+                    await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`, {
+                      level: 'error',
+                    });
+                    await log('');
+                    await log('  🔍 What happened:');
+                    await log(`     Fork branch ${upstreamDefaultBranch} has diverged from upstream`);
+                    await log('     Both normal sync and force sync failed');
+                    await log('');
+                    await log('  📦 Error details:');
+                    const forceErrorMsg = forceSyncResult.stdout ? forceSyncResult.stdout.toString().trim() : '';
+                    for (const line of forceErrorMsg.split('\n')) {
+                      if (line.trim()) await log(`     ${line}`);
+                    }
+                    await log('');
+                    await log('  💡 Possible causes:');
+                    await log('     • Fork branch is protected (branch protection rules prevent force push)');
+                    await log('     • Someone else pushed to fork after our fetch');
+                    await log('     • Insufficient permissions to force push');
+                    await log('');
+                    await log('  🔧 Manual resolution:');
+                    await log(`     1. Visit your fork: https://github.com/${forkedRepo}`);
+                    await log('     2. Check branch protection settings');
+                    await log(`     3. Manually sync fork: gh repo sync ${forkedRepo} --force`);
+                    await log('');
+                    await safeExit(1, 'Repository setup failed - fork sync failed');
+                  }
+                } else {
+                  // Flag is not enabled - provide guidance
+                  await log('  💡 Your options:');
+                  await log('');
+                  await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
+                  await log(`              gh repo delete ${forkedRepo}`);
+                  await log('              Then run the solve command again - the fork will be recreated automatically');
+                  await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
+                  await log('');
+                  await log('     Option 2: Enable automatic force-push (DANGEROUS)');
+                  await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
+                  await log('              This will automatically sync your fork with upstream using force sync');
+                  await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
+                  await log('');
+                  await log('     Option 3: Manually resolve the divergence');
+                  await log('              1. Decide if you need any commits unique to your fork');
+                  await log('              2. If yes, cherry-pick them after syncing');
+                  await log(`              3. If no, force sync: gh repo sync ${forkedRepo} --force`);
+                  await log('');
+                  await log('  🔧 To proceed with auto-resolution, restart with:');
+                  await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);
+                  await log('');
+                  await safeExit(1, 'Repository setup halted - fork divergence requires user decision');
+                }
+              } else {
+                // Some other sync error (not divergence-related)
+                await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`);
+                await log(`${formatAligned('', 'Sync error:', combinedOutput.split('\n')[0])}`);
+                await log(`${formatAligned('', 'Reason:', 'Fork must be updated or process must stop')}`);
+                await log(`${formatAligned('', 'Solution:', 'Fork sync is required for proper workflow')}`);
+                await log(`${formatAligned('', 'Next steps:', '1. Check GitHub authentication: gh auth status')}`);
+                await log(`${formatAligned('', '', '2. Check fork permissions')}`);
+                await log(`${formatAligned('', '', `3. Try manual sync: gh repo sync ${forkedRepo}`)}`);
+                await safeExit(1, 'Repository setup failed');
+              }
+            }
+
+            // Step 3: Return to the original branch if it was different
+            if (currentBranch !== upstreamDefaultBranch) {
+              await log(`${formatAligned('🔄', 'Returning to:', `${currentBranch} branch`)}`);
+              const returnResult = await $({ cwd: tempDir })`git checkout ${currentBranch}`;
+              if (returnResult.code === 0) {
+                await log(`${formatAligned('✅', 'Branch restored:', `Back on ${currentBranch}`)}`);
+              } else {
+                await log(`${formatAligned('⚠️', 'Warning:', `Failed to return to ${currentBranch}`)}`);
+                // This is not fatal, continue with sync on default branch
               }
             }
           }

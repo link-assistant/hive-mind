@@ -117,12 +117,15 @@ export const withSpan = async (name, callback) => {
     return callback();
   }
 
-  return sentry.startSpan({
-    name,
-    op: 'function',
-  }, async () => {
-    return callback();
-  });
+  return sentry.startSpan(
+    {
+      name,
+      op: 'function',
+    },
+    async () => {
+      return callback();
+    }
+  );
 };
 
 /**
@@ -173,7 +176,7 @@ export const reportWarning = (warning, context = {}) => {
  * Add breadcrumb for better error context
  * @param {Object} breadcrumb - Breadcrumb data
  */
-export const addBreadcrumb = async (breadcrumb) => {
+export const addBreadcrumb = async breadcrumb => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -188,7 +191,7 @@ export const addBreadcrumb = async (breadcrumb) => {
  * Set user context for Sentry
  * @param {Object} user - User data
  */
-export const setUserContext = async (user) => {
+export const setUserContext = async user => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
@@ -219,7 +222,7 @@ export const setExtraContext = async (key, value) => {
  * Set tags for Sentry
  * @param {Object} tags - Tags to set
  */
-export const setTags = async (tags) => {
+export const setTags = async tags => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }

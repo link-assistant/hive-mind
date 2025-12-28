@@ -16,7 +16,6 @@
 
 ## Related Resources
 
-- Issue: https://github.com/deep-assistant/hive-mind/issues/719
-- Pull Request: https://github.com/deep-assistant/hive-mind/pull/722
+- Issue: https://github.com/link-assistant/hive-mind/issues/719
+- Pull Request: https://github.com/link-assistant/hive-mind/pull/722
 - Referenced case: docs/case-studies/issue-719/ (original evidence collection)
-

@@ -9,7 +9,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior
 const { $ } = await use('command-stream');
 
-const owner = 'deep-assistant';
+const owner = 'link-assistant';
 const repo = 'hive-mind';
 
 console.log('Testing branch search with pagination fix...\n');
@@ -23,7 +23,11 @@ const branchPattern = `issue-${issueNumber}-`;
 const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
 if (branchListResult.code === 0) {
-  const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+  const allBranches = branchListResult.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .filter(b => b);
   const existingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
 
   console.log(`Total branches in repo: ${allBranches.length}`);
@@ -50,7 +54,11 @@ const branchPattern408 = `issue-${issueNumber408}-`;
 const branchListResult408 = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
 if (branchListResult408.code === 0) {
-  const allBranches = branchListResult408.stdout.toString().trim().split('\n').filter(b => b);
+  const allBranches = branchListResult408.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .filter(b => b);
   const existingBranches = allBranches.filter(branch => branch.startsWith(branchPattern408));
 
   console.log(`Total branches in repo: ${allBranches.length}`);

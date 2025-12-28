@@ -18,21 +18,7 @@ filesPatterns.forEach(pattern => console.log(`  - ${pattern}`));
 console.log();
 
 // List of files that must be included for solve.mjs to work
-const requiredFiles = [
-  'solve.mjs',
-  'solve.auto-continue.lib.mjs',
-  'solve.claude-execution.lib.mjs',
-  'solve.config.lib.mjs',
-  'solve.execution.lib.mjs',
-  'solve.feedback.lib.mjs',
-  'solve.repository.lib.mjs',
-  'solve.results.lib.mjs',
-  'solve.validation.lib.mjs',
-  'lib.mjs',
-  'claude.lib.mjs',
-  'github.lib.mjs',
-  'memory-check.mjs'
-];
+const requiredFiles = ['solve.mjs', 'solve.auto-continue.lib.mjs', 'solve.claude-execution.lib.mjs', 'solve.config.lib.mjs', 'solve.execution.lib.mjs', 'solve.feedback.lib.mjs', 'solve.repository.lib.mjs', 'solve.results.lib.mjs', 'solve.validation.lib.mjs', 'lib.mjs', 'claude.lib.mjs', 'github.lib.mjs', 'memory-check.mjs'];
 
 console.log('✅ Checking required files for solve.mjs:');
 let allFound = true;
@@ -40,14 +26,15 @@ let allFound = true;
 for (const file of requiredFiles) {
   const filePath = path.join(rootDir, file);
   const exists = fs.existsSync(filePath);
-  const inPackageJson = filesPatterns.includes(file) ||
-                         filesPatterns.some(pattern => {
-                           if (pattern.includes('*')) {
-                             const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-                             return regex.test(file);
-                           }
-                           return pattern === file;
-                         });
+  const inPackageJson =
+    filesPatterns.includes(file) ||
+    filesPatterns.some(pattern => {
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        return regex.test(file);
+      }
+      return pattern === file;
+    });
 
   if (!exists) {
     console.log(`  ❌ ${file} - File does not exist!`);

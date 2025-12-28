@@ -26,22 +26,22 @@ export async function detectCITools(workDir) {
       pytest: false,
       nox: false,
       black: false,
-      flake8: false
+      flake8: false,
     },
     javascript: {
       eslint: false,
       prettier: false,
       jest: false,
-      vitest: false
+      vitest: false,
     },
     rust: {
       rustfmt: false,
       clippy: false,
-      cargoTest: false
+      cargoTest: false,
     },
     general: {
-      preCommit: false
-    }
+      preCommit: false,
+    },
   };
 
   try {
@@ -134,7 +134,6 @@ export async function detectCITools(workDir) {
     } catch {
       // File doesn't exist, pre-commit not configured
     }
-
   } catch (err) {
     console.error('Error detecting CI tools:', err.message);
   }
@@ -153,7 +152,7 @@ export async function runLocalCIChecks(workDir, tools, options = {}) {
   const results = {
     success: true,
     checks: [],
-    errors: []
+    errors: [],
   };
 
   const verbose = options.verbose || false;
@@ -253,7 +252,7 @@ async function runCheck(workDir, command, name, verbose) {
     command,
     success: false,
     output: '',
-    error: ''
+    error: '',
   };
 
   try {
@@ -306,12 +305,14 @@ export function generateCICheckReport(results) {
 
   if (failed > 0) {
     lines.push('Failed checks:');
-    results.checks.filter(c => !c.success).forEach(check => {
-      lines.push(`  ❌ ${check.name}`);
-      if (check.output) {
-        lines.push(`     ${check.output.split('\n')[0]}`);
-      }
-    });
+    results.checks
+      .filter(c => !c.success)
+      .forEach(check => {
+        lines.push(`  ❌ ${check.name}`);
+        if (check.output) {
+          lines.push(`     ${check.output.split('\n')[0]}`);
+        }
+      });
   }
 
   if (results.success) {

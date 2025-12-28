@@ -9,6 +9,7 @@ This case study documents an investigation into GitHub authentication token inva
 **Issue URL:** https://github.com/link-assistant/hive-mind/issues/1021
 
 **Reported Behavior:**
+
 > At the same time I was executing `gh-setup-git-identity` command on the remote server. And for some reason executing `gh-setup-git-identity` remotely did destroy GitHub Auth session locally in docker. That is strange. A retried it later and seems `gh-setup-git-identity` works in a such a way. If repeated, for example if I then execute `gh-setup-git-identity` locally in docker I get a problem now on server there GitHub Auth goes away.
 
 **Key Observation:** Running `gh-setup-git-identity` on one machine caused the GitHub authentication session on another machine to become invalid.
@@ -17,15 +18,15 @@ This case study documents an investigation into GitHub authentication token inva
 
 Based on the log file from the gist (https://gist.github.com/konard/a430347f7f9aff41b7e0c64a7289712a):
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
-| 2025-12-28T09:05:36 | `solve` command started in Docker container |
-| 2025-12-28T09:05:42 | GitHub authentication check skipped (`--no-tool-check` enabled) |
-| 2025-12-28T09:05:43 - 09:06:07 | Repository operations (fork, clone, branch creation, push, PR creation) completed successfully |
-| 2025-12-28T09:06:14 | Claude AI execution started |
-| ~09:06:14 - 09:12:59 | Claude AI working on the issue (multiple tool calls) |
-| 2025-12-28T09:12:59 | **First authentication failure detected** - `git push` failed with "Invalid username or token" |
-| 2025-12-28T09:13:06 | `gh auth status` confirmed token invalid: "The token in /home/hive/.config/gh/hosts.yml is invalid" |
+| Timestamp (UTC)                | Event                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| 2025-12-28T09:05:36            | `solve` command started in Docker container                                                         |
+| 2025-12-28T09:05:42            | GitHub authentication check skipped (`--no-tool-check` enabled)                                     |
+| 2025-12-28T09:05:43 - 09:06:07 | Repository operations (fork, clone, branch creation, push, PR creation) completed successfully      |
+| 2025-12-28T09:06:14            | Claude AI execution started                                                                         |
+| ~09:06:14 - 09:12:59           | Claude AI working on the issue (multiple tool calls)                                                |
+| 2025-12-28T09:12:59            | **First authentication failure detected** - `git push` failed with "Invalid username or token"      |
+| 2025-12-28T09:13:06            | `gh auth status` confirmed token invalid: "The token in /home/hive/.config/gh/hosts.yml is invalid" |
 
 The authentication was working at 09:06:07 (successful push) but failed at 09:12:59 (approximately 7 minutes later).
 
@@ -36,16 +37,19 @@ The authentication was working at 09:06:07 (successful push) but failed at 09:12
 GitHub imposes a limit of **10 tokens per user/application/scope combination**. When this limit is exceeded, the **oldest tokens are automatically revoked**.
 
 From [GitHub Documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation):
+
 > "There is a limit of ten tokens that are issued per user/application/scope combination, and a rate limit of ten tokens created per hour. If an application creates more than ten tokens for the same user and the same scopes, the oldest tokens with the same user/application/scope combination are revoked."
 
 ### Secondary Cause: gh auth login Token Replacement Behavior
 
 When `gh auth login` is executed, it:
+
 1. Creates a new OAuth token through GitHub's device code flow
 2. Stores the new token in the local credentials store
 3. **Does NOT revoke the old token** on GitHub's side
 
 From [GitHub CLI Issue #9233](https://github.com/cli/cli/issues/9233):
+
 > "Whenever an already logged-in user runs a gh auth login or gh auth refresh, a new OAuth app token is generated and replaces the previous token in the credentials store. The problem is that the old token is not revoked during this process."
 
 ### How These Combine to Cause the Issue
@@ -93,6 +97,7 @@ The user likely had multiple tokens already active from previous sessions. When 
 ## Evidence from Logs
 
 ### Successful Authentication (Earlier)
+
 ```
 [2025-12-28T09:05:55.246Z] [INFO]    Push exit code: 0
 [2025-12-28T09:05:55.246Z] [INFO]    Push output: remote:
@@ -100,6 +105,7 @@ remote: Create a pull request for 'issue-133-434c3df37b90' on GitHub by visiting
 ```
 
 ### Authentication Failure (Later)
+
 ```
 [2025-12-28T09:12:59.875Z]
 "content": "Exit code 128\nremote: Invalid username or token. Password authentication is not supported for Git operations.\nfatal: Authentication failed for 'https://github.com/konard/andchir-install_scripts.git/'",
@@ -107,6 +113,7 @@ remote: Create a pull request for 'issue-133-434c3df37b90' on GitHub by visiting
 ```
 
 ### gh auth status Confirmation
+
 ```
 [2025-12-28T09:13:06.601Z]
 "content": "Exit code 1\ngithub.com\n  X Failed to log in to github.com account konard (/home/hive/.config/gh/hosts.yml)\n  - Active account: true\n  - The token in /home/hive/.config/gh/hosts.yml is invalid.\n  - To re-authenticate, run: gh auth login -h github.com\n  - To forget about this account, run: gh auth logout -h github.com -u konard",
@@ -127,6 +134,7 @@ The `gh-setup-git-identity` command (version 0.7.0) is a utility that:
 ### Key Code Paths
 
 From `src/index.js`:
+
 ```javascript
 // runGhAuthLogin creates a new OAuth token
 export async function runGhAuthLogin(options = {}) {
@@ -137,6 +145,7 @@ export async function runGhAuthLogin(options = {}) {
 ```
 
 From `src/cli.js` (inferred from README):
+
 ```javascript
 // On each run, if not authenticated, triggers gh auth login
 // This creates a new token on GitHub's servers
@@ -161,11 +170,13 @@ echo "ghp_xxxxxxxxxxxxxxxxxxxx" | gh auth login --with-token
 ```
 
 **Pros:**
+
 - PATs don't count toward the 10-token limit
 - Can be shared across multiple environments
 - Explicit control over token lifecycle
 
 **Cons:**
+
 - Requires manual token management
 - Token stored in plain text during input
 
@@ -187,6 +198,7 @@ fi
 #### 3. Revoke Old Tokens Manually
 
 Users should periodically clean up old OAuth tokens:
+
 1. Go to GitHub Settings > Applications > Authorized OAuth Apps
 2. Find "GitHub CLI" entries
 3. Revoke tokens that are no longer needed
@@ -206,6 +218,7 @@ export GH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"
 #### 1. Add Token Reuse Logic
 
 Modify `gh-setup-git-identity` to:
+
 - Store a hash of the current token
 - Check if the same token is already valid before creating a new one
 - Warn users when approaching the 10-token limit
@@ -213,12 +226,14 @@ Modify `gh-setup-git-identity` to:
 #### 2. Implement Token Synchronization
 
 For multi-environment setups:
+
 - Store token in a shared secure location (e.g., encrypted file on shared storage)
 - Check shared token before creating new ones
 
 #### 3. Add Warning Messages
 
 Add informative warnings:
+
 ```
 WARNING: You have multiple active GitHub CLI sessions.
 Running gh auth login will create a new token.
@@ -230,12 +245,14 @@ If you have more than 10 active tokens, the oldest will be revoked.
 #### 1. GitHub CLI Token Revocation
 
 As requested in [cli/cli#9233](https://github.com/cli/cli/issues/9233):
+
 - Automatically revoke old tokens when running `gh auth login`
 - This is currently blocked due to platform limitations
 
 #### 2. Short-lived OAuth Tokens
 
 Support for short-lived OAuth tokens ([cli/cli#5924](https://github.com/cli/cli/issues/5924)):
+
 - Tokens would automatically expire
 - Reduces the accumulation of stale tokens
 

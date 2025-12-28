@@ -45,7 +45,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
 // Import Claude limits library for /limits command
-const { getClaudeUsageLimits, getDiskSpaceInfo, getGitHubRateLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
+const { getClaudeUsageLimits, getCpuLoadInfo, getMemoryInfo, getDiskSpaceInfo, getGitHubRateLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
 // Import version info library for /version command
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -739,7 +739,7 @@ bot.command('help', async ctx => {
   if (solveEnabled) {
     message += '*/solve* - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
-    message += 'Example: `/solve https://github.com/owner/repo/issues/123`\n';
+    message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
     if (solveOverrides.length > 0) {
       message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
@@ -752,7 +752,7 @@ bot.command('help', async ctx => {
   if (hiveEnabled) {
     message += '*/hive* - Run hive command\n';
     message += 'Usage: `/hive <github-url> [options]`\n';
-    message += 'Example: `/hive https://github.com/owner/repo --model sonnet`\n';
+    message += 'Example: `/hive https://github.com/owner/repo`\n';
     if (hiveOverrides.length > 0) {
       message += `🔒 Locked options: \`${hiveOverrides.join(' ')}\`\n`;
     }
@@ -761,19 +761,15 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
-  message += '*/limits* - Show Claude usage limits\n';
+  message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
   message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
-  message += '• `--fork` - Fork the repository\n';
-  message += '• `--auto-fork` - Automatically fork public repos without write access\n';
-  message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
-  message += '• `--attach-logs` - Attach logs to PR\n';
-  message += '• `--verbose` - Verbose output\n';
   message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
-  message += '• `--interactive-mode` - Post Claude output as PR comments in real-time (experimental)\n';
+  message += '• `--verbose` - Verbose output\n';
+  message += '• `--attach-logs` - Attach logs to PR\n';
 
   if (allowedChats) {
     message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';
@@ -848,8 +844,8 @@ bot.command('limits', async ctx => {
     reply_to_message_id: ctx.message.message_id,
   });
 
-  // Get the usage limits, disk space info, and GitHub rate limits in parallel
-  const [result, diskSpaceResult, githubLimitsResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getDiskSpaceInfo(VERBOSE), getGitHubRateLimits(VERBOSE)]);
+  // Get the usage limits, system info, and GitHub rate limits in parallel
+  const [result, cpuLoadResult, memoryResult, diskSpaceResult, githubLimitsResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getCpuLoadInfo(VERBOSE), getMemoryInfo(VERBOSE), getDiskSpaceInfo(VERBOSE), getGitHubRateLimits(VERBOSE)]);
 
   if (!result.success) {
     // Edit the fetching message to show the error
@@ -859,8 +855,8 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  // Format and edit the fetching message with the results (pass disk space and GitHub limits if available)
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null);
+  // Format and edit the fetching message with the results (pass all system info if available)
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null, cpuLoadResult.success ? cpuLoadResult.cpuLoad : null, memoryResult.success ? memoryResult.memory : null);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
     parse_mode: 'Markdown',
   });

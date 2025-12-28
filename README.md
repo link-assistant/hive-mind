@@ -307,7 +307,7 @@ solve <issue-url> [options]
   --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
   --fork, -f            Fork repo if no write access         [default: false]
   --auto-fork           Automatically fork public repos without write access (fails for private)
-                        [default: false]
+                        [default: true]
   --base-branch, -b     Target branch for PR                 [default: repo default]
   --resume, -r          Resume from session ID
   --verbose, -v         Enable verbose logging               [default: false]
@@ -319,7 +319,7 @@ solve <issue-url> [options]
   --attach-logs         Attach logs to PR (⚠️ sensitive)    [default: false]
   --auto-close-pull-request-on-fail  Close PR on fail        [default: false]
   --auto-continue       Continue with existing PR when issue URL is provided
-                        [default: false]
+                        [default: true]
   --auto-continue-limit, -c  Auto-continue when limit resets [default: false]
   --auto-resume-on-errors  Auto-resume on network errors (503, etc.)
                         [default: false]
@@ -373,7 +373,7 @@ hive <github-url> [options]
   --auto-cleanup        Clean /tmp/* /var/tmp/* on success   [default: false]
   --fork, -f            Fork repos if no write access        [default: false]
   --auto-fork           Automatically fork public repos without write access
-                        [default: false]
+                        [default: true]
   --attach-logs         Attach logs to PRs (⚠️ sensitive)   [default: false]
   --project-number, -pn  GitHub Project number to monitor
   --project-owner, -po  GitHub Project owner (org or user)
@@ -385,7 +385,7 @@ hive <github-url> [options]
   --target-branch, -tb  Target branch for pull requests      [default: repo default]
   --log-dir, -l         Directory for log files              [default: cwd]
   --auto-continue       Pass --auto-continue to solve for each issue
-                        [default: false]
+                        [default: true]
   --think               Thinking level (low, medium, high, max)  [optional]
   --sentry              Enable Sentry error tracking (use --no-sentry to disable)
                         [default: true]
@@ -441,9 +441,8 @@ All commands work in **group chats only** (not in private messages with the bot)
 /solve <github-url> [options]
 
 Examples:
-/solve https://github.com/owner/repo/issues/123
-/solve https://github.com/owner/repo/issues/123 --auto-fork --verbose
-/solve https://github.com/owner/repo/issues/123 --auto-fork --auto-continue --attach-logs --verbose --model sonnet --think max
+/solve https://github.com/owner/repo/issues/123 --model sonnet
+/solve https://github.com/owner/repo/issues/123 --model opus --think max
 ```
 
 #### `/hive` - Run Hive Orchestration
@@ -455,6 +454,19 @@ Examples:
 /hive https://github.com/owner/repo
 /hive https://github.com/owner/repo --all-issues --max-issues 10
 /hive https://github.com/microsoft --all-issues --concurrency 3
+```
+
+#### `/limits` - Show Usage Limits
+
+```
+/limits
+
+Shows:
+- CPU usage and load average
+- RAM usage (used vs total)
+- Disk space usage
+- GitHub API rate limits
+- Claude usage limits (session and weekly)
 ```
 
 #### `/help` - Get Help and Diagnostic Info

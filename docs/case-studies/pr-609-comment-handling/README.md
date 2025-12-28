@@ -20,24 +20,28 @@ This case study analyzes the comment handling and GitHub workflow behavior in Pu
 The PR shows a clear workflow pattern for AI work sessions:
 
 #### 1. Initial Solution Draft Comment (Comment #1)
+
 - **Posted**: 2025-10-24T00:06:19Z
 - **Type**: "🤖 Solution Draft Log"
 - **Content**: Link to GitHub Gist with complete execution trace
 - **Purpose**: First draft of the solution with attached log
 
 #### 2. User Feedback Comment (Comment #2)
+
 - **Posted**: 2025-11-04T01:35:31Z
 - **Type**: User feedback
 - **Content**: User providing specific requirements and corrections
 - **Purpose**: Guide the AI to adjust the solution
 
 #### 3. Work Session Started Comment (Comment #3)
+
 - **Posted**: 2025-11-04T01:36:24Z
 - **Type**: "🤖 AI Work Session Started"
 - **Content**: Marks the beginning of automated work session
 - **Purpose**: Inform that PR is converted to draft mode
 
 #### 4. Solution Draft Log Comment (Comment #4)
+
 - **Posted**: 2025-11-04T01:42:06Z
 - **Type**: "🤖 Solution Draft Log"
 - **Content**: Link to GitHub Gist with complete execution trace
@@ -45,18 +49,21 @@ The PR shows a clear workflow pattern for AI work sessions:
 - **Purpose**: Updated solution draft with execution logs
 
 #### 5. Auto-restart Comment (Comment #5)
+
 - **Posted**: 2025-11-04T01:42:14Z
 - **Type**: "🔄 Auto-restart 1/3"
 - **Content**: Detected uncommitted changes, starting new session
 - **Purpose**: Inform about automatic session restart
 
 #### 6. Final Solution Draft Log Comment (Comment #6)
+
 - **Posted**: 2025-11-04T02:03:09Z
 - **Type**: "🤖 Solution Draft Log"
 - **Content**: Link to GitHub Gist with complete execution trace (1131KB)
 - **Purpose**: Final solution draft with execution logs
 
 #### 7. Work Session Completed Comment (Comment #7)
+
 - **Posted**: 2025-11-04T02:03:10Z
 - **Type**: "🤖 AI Work Session Completed"
 - **Content**: Marks the end of work session
@@ -86,6 +93,7 @@ The duplicate comments are generated from two separate function calls in `src/so
 #### Code Evidence
 
 **src/solve.mjs (lines 914-949)**:
+
 ```javascript
 // Attach updated logs to PR after auto-restart completes
 if (shouldAttachLogs && prNumber) {
@@ -100,7 +108,7 @@ if (shouldAttachLogs && prNumber) {
       $,
       log,
       sanitizeLogContent,
-      verbose: argv.verbose
+      verbose: argv.verbose,
     });
 
     if (logUploadSuccess) {
@@ -120,11 +128,12 @@ await endWorkSession({
   argv,
   log,
   formatAligned,
-  $
+  $,
 });
 ```
 
 **src/github.lib.mjs (lines 571-589)**:
+
 ```javascript
 // Success log format
 const costInfo = totalCostUSD !== null ? `\n\n💰 **Total estimated cost**: $${totalCostUSD.toFixed(6)} USD` : '';
@@ -140,6 +149,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
 ```
 
 **src/solve.session.lib.mjs (lines 82-88)**:
+
 ```javascript
 // Post a comment marking the end of work session
 try {
@@ -153,7 +163,8 @@ try {
 ### Problem Summary
 
 Both functions include text indicating the session has ended:
-- `attachLogToGitHub()` includes: "*Now working session is ended, feel free to review...*"
+
+- `attachLogToGitHub()` includes: "_Now working session is ended, feel free to review..._"
 - `endWorkSession()` posts: "**AI Work Session Completed**"
 
 This creates redundant finishing status comments that clutter the PR conversation.
@@ -183,7 +194,7 @@ export async function endWorkSession({
   log,
   formatAligned,
   $,
-  logsAttached = false  // NEW PARAMETER
+  logsAttached = false, // NEW PARAMETER
 }) {
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
     const workEndTime = new Date();

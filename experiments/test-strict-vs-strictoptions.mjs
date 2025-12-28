@@ -20,13 +20,13 @@ try {
       type: 'boolean',
       description: 'Fork the repository',
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .fail((msg, err, yargs) => {
       console.error('❌ Validation Error:');
@@ -47,7 +47,6 @@ try {
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
   console.log('   All argv:', argv);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

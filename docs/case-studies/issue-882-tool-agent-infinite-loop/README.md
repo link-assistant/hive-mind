@@ -16,17 +16,21 @@ When using `solve` with `--tool agent` flag, the tool entered an infinite loop c
 ## Problem Statement
 
 ### Symptom
+
 The solve command with `--tool agent` flag got stuck in an infinite loop:
+
 - Agent execution failed repeatedly with "model: grok-code" not found errors
 - Check intervals accelerated from ~8 seconds to sub-second intervals
 - 13+ check iterations occurred in rapid succession before the log was captured
 
 ### Command Executed
+
 ```bash
 /home/hive/.nvm/versions/node/v20.19.6/bin/node /home/hive/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/879 --tool agent --attach-logs --verbose --no-tool-check
 ```
 
 ### Expected Behavior
+
 - If the model is not available, fail gracefully with a clear error message
 - Stop retry attempts after a reasonable number of failures
 - Preserve interval timing between checks
@@ -85,6 +89,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 ### Root Cause #1: Model Mismatch in Claude CLI Fallback
 
 **Evidence** (line 2951 of log):
+
 ```
 (cd "/tmp/gh-issue-solver-1765260588631" && claude --output-format stream-json --verbose --dangerously-skip-permissions --model grok-code ...)
 ```
@@ -92,6 +97,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 **Problem**: The `--tool agent` mode uses the Agent CLI for initial execution, but during watch/retry mode, it falls back to Claude CLI with the same model name. The `grok-code` model is specific to the OpenCode/Agent ecosystem and does not exist in the Anthropic Claude API.
 
 **Technical Details**:
+
 - Agent CLI uses `opencode/grok-code` model mapping (line 157-158 of `agent.lib.mjs`)
 - Watch mode in `solve.watch.lib.mjs` dispatches to different tools based on `argv.tool`
 - However, the retry command incorrectly passes the raw model name to Claude CLI
@@ -99,6 +105,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 ### Root Cause #2: Missing Retry Limit for API Errors
 
 **Evidence** (lines 3293, 3693, 4083, etc.):
+
 ```json
 "result": "API Error: 404 {\"type\":\"error\",\"error\":{\"type\":\"not_found_error\",\"message\":\"model: grok-code\"}}"
 ```
@@ -108,6 +115,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 ### Root Cause #3: Accelerating Check Intervals
 
 **Evidence** (timeline above):
+
 - Normal check interval should be ~60 seconds (configurable via `--watch-interval`)
 - After failures, checks accelerated to ~8 seconds, then to sub-second intervals
 - Line 6069-6101 shows rapid succession of checks
@@ -117,6 +125,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 ### Root Cause #4: Validation Skip Allowed Invalid Configuration
 
 **Evidence** (line 28 of log):
+
 ```
 ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
 ```
@@ -141,6 +150,7 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 ### Relevant Code Paths
 
 **solve.watch.lib.mjs (lines 356-383)**:
+
 ```javascript
 } else {
   // Use Claude (default)
@@ -156,10 +166,11 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 The else branch catches all non-opencode/non-codex tools, but doesn't properly handle the `agent` tool case.
 
 **agent.lib.mjs (lines 154-169)**:
+
 ```javascript
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'grok': 'opencode/grok-code',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     // ...
   };
@@ -194,11 +205,13 @@ if (argv.tool === 'agent') {
 ```
 
 **Pros**:
+
 - Fixes the immediate issue
 - Maintains consistency between initial execution and retry execution
 - Minimal code changes
 
 **Cons**:
+
 - Still requires proper error handling for model failures
 
 ### Solution 2: Add Retry Limit with Exponential Backoff
@@ -226,11 +239,13 @@ if (isApiError(error)) {
 ```
 
 **Pros**:
+
 - Prevents infinite loops from any API error
 - Graceful degradation
 - Standard industry practice
 
 **Cons**:
+
 - May give up too early on transient errors
 
 ### Solution 3: Model Validation at Tool Selection
@@ -253,11 +268,13 @@ const validateToolModelCompatibility = (tool, model) => {
 ```
 
 **Pros**:
+
 - Catches issues at configuration time
 - Clear error messages
 - Prevents runtime failures
 
 **Cons**:
+
 - Requires maintaining model lists
 - May become outdated as new models are added
 
@@ -279,11 +296,13 @@ export const resolveModelForTool = (tool, model) => {
 ```
 
 **Pros**:
+
 - Single source of truth for model mapping
 - Consistent behavior across all code paths
 - Easy to extend
 
 **Cons**:
+
 - Larger refactoring effort
 - Needs thorough testing
 
@@ -387,6 +406,7 @@ Added explicit handling for `--tool agent` in the watch mode tool dispatch logic
 Implemented API error detection and retry limiting:
 
 1. **Added tracking variables** (lines 99-102):
+
 ```javascript
 // Track consecutive API errors for retry limit
 const MAX_API_ERROR_RETRIES = 3;
@@ -395,6 +415,7 @@ let currentBackoffSeconds = watchInterval;
 ```
 
 2. **API error detection and retry logic** (lines 420-479):
+
 - Detects API errors (404, 401, 400, etc.) from tool execution results
 - Tracks consecutive API failures
 - Exits watch mode after 3 consecutive API errors
@@ -403,6 +424,7 @@ let currentBackoffSeconds = watchInterval;
 - Provides clear error messages with troubleshooting hints
 
 3. **Backoff interval application** (lines 506-512):
+
 ```javascript
 // Use backoff interval if we have consecutive API errors
 const actualWaitSeconds = consecutiveApiErrors > 0 ? currentBackoffSeconds : watchInterval;
@@ -425,6 +447,7 @@ Created a centralized model mapping module that provides:
    - `codexModels`: OpenAI API models (gpt-5, o3, etc.)
 
 2. **Unified mapping function**:
+
 ```javascript
 export const mapModelForTool = (tool, model) => {
   switch (tool) {
@@ -454,6 +477,7 @@ export const mapModelForTool = (tool, model) => {
 **File**: `tests/test-issue-882-fixes.mjs` (new file)
 
 Comprehensive test suite covering:
+
 - Model mapping for all tools (10 test cases)
 - Compatibility validation
 - Error handling

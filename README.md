@@ -47,6 +47,7 @@ There are infinite ways to extract tokens from a virtual machine connected to th
 **USE THIS SOFTWARE ENTIRELY AT YOUR OWN RISK AND RESPONSIBILITY.**
 
 We strongly recommend:
+
 - Using dedicated, isolated virtual machines
 - Rotating tokens regularly
 - Monitoring token usage for suspicious activity
@@ -54,6 +55,7 @@ We strongly recommend:
 - Being prepared to revoke and replace all tokens used with this system
 
 Minimum system requirements to run `hive.mjs`:
+
 ```
 1 CPU Core
 1 GB RAM
@@ -66,11 +68,13 @@ Minimum system requirements to run `hive.mjs`:
 ### Global Installation
 
 #### Using Bun (Recommended)
+
 ```bash
 bun install -g @link-assistant/hive-mind
 ```
 
 #### Using Node.js
+
 ```bash
 npm install -g @link-assistant/hive-mind
 ```
@@ -113,6 +117,7 @@ solve https://github.com/owner/repo/issues/123
 ```
 
 **Benefits of Docker:**
+
 - ✅ Pre-configured Ubuntu 24.04 environment
 - ✅ All dependencies pre-installed
 - ✅ Isolated from your host system
@@ -138,6 +143,7 @@ helm install hive-mind link-assistant/hive-mind -f values.yaml
 ```
 
 **Benefits of Helm:**
+
 - ✅ Easy deployment to Kubernetes clusters
 - ✅ Declarative configuration management
 - ✅ Simple upgrades and rollbacks
@@ -153,17 +159,21 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
 3. Execute main installation script
+
    ```bash
    curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
    ```
+
    **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
 4. Login to `hive` user
+
    ```bash
    su - hive
    ```
 
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
+
    ```bash
    gh auth login -h github.com -s repo,workflow,user,read:org,gist
 
@@ -177,9 +187,11 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    git config --global user.name
    git config --global user.email
    ```
+
    Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
 
 6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
+
    ```bash
    claude
    ```
@@ -189,6 +201,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 7. Launch the Hive Mind telegram bot:
 
    **Using Links Notation (recommended):**
+
    ```
    screen -S bot # Enter new screen for bot
 
@@ -204,10 +217,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
        --attach-logs
        --verbose
        --no-tool-check
+       --auto-continue-on-limit-reset
      TELEGRAM_SOLVE_OVERRIDES:
        --attach-logs
        --verbose
        --no-tool-check
+       --auto-continue-on-limit-reset
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -215,6 +230,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    ```
 
    **Using individual command-line options:**
+
    ```
    screen -S bot # Enter new screen for bot
 
@@ -228,10 +244,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
      --attach-logs
      --verbose
      --no-tool-check
+     --auto-continue-on-limit-reset
    )" --solve-overrides "(
      --attach-logs
      --verbose
      --no-tool-check
+     --auto-continue-on-limit-reset
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -239,10 +257,10 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 
    Note: You may need to register you own bot with https://t.me/BotFather to get the bot token.
 
-
 #### Codex sign-in
 
 1. Connect to your instance of VPS with Hive Mind installed, using SSH with tunnel opened
+
 ```bash
 ssh -L 1455:localhost:1455 root@123.123.123.123
 ```
@@ -252,11 +270,13 @@ ssh -L 1455:localhost:1455 root@123.123.123.123
 ```bash
 codex login
 ```
+
 The oAuth callback server on 1455 port will be started, and the link to oAuth will be printed, copy the link.
 
 3. Use your browser on machine where you started the tunnel from, paste there the link from `codex login` command, and go there using your browser. Once redirected to localhost:1455 you will see successful login page, and in `codex login` you will see `Successfully logged in`. After that `codex login` command will complete, and you can use `codex` command as usual to verify. It should also be working with `--tool codex` in `solve` and `hive` commands.
 
 ### Core Operations
+
 ```bash
 # Solve using maximum power
 solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --auto-fork --think max
@@ -288,15 +308,18 @@ review --repo owner/repo --pr 456
 
 ## 📋 Core Components
 
-| Script | Purpose | Key Features |
-|--------|---------|--------------|
-| `solve.mjs` (stable) | GitHub issue solver | Auto fork, branch creation, PR generation, resume sessions, fork support |
-| `hive.mjs` (stable) | AI orchestration & monitoring | Multi-repo monitoring, concurrent workers, issue queue management |
-| `review.mjs` (alpha) | Code review automation | Collaborative AI reviews, automated feedback |
-| `reviewers-hive.mjs` (alpha / experimental) | Review team management | Multi-agent consensus, reviewer assignment |
-| `telegram-bot.mjs` (stable) | Telegram bot interface | Remote command execution, group chat support, diagnostic tools |
+| Script                                      | Purpose                       | Key Features                                                             |
+| ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| `solve.mjs` (stable)                        | GitHub issue solver           | Auto fork, branch creation, PR generation, resume sessions, fork support |
+| `hive.mjs` (stable)                         | AI orchestration & monitoring | Multi-repo monitoring, concurrent workers, issue queue management        |
+| `review.mjs` (alpha)                        | Code review automation        | Collaborative AI reviews, automated feedback                             |
+| `reviewers-hive.mjs` (alpha / experimental) | Review team management        | Multi-agent consensus, reviewer assignment                               |
+| `telegram-bot.mjs` (stable)                 | Telegram bot interface        | Remote command execution, group chat support, diagnostic tools           |
+
+> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
 
 ## 🔧 solve Options
+
 ```bash
 solve <issue-url> [options]
 
@@ -348,6 +371,7 @@ solve <issue-url> [options]
 ```
 
 ## 🔧 hive Options
+
 ```bash
 hive <github-url> [options]
 
@@ -410,6 +434,7 @@ Want to see the Hive Mind in action? Join our Telegram channel where you can exe
    - Add the bot to your group chat and make it an admin
 
 2. **Configure Environment**
+
    ```bash
    # Copy the example configuration
    cp .env.example .env
@@ -432,6 +457,7 @@ Want to see the Hive Mind in action? Join our Telegram channel where you can exe
 All commands work in **group chats only** (not in private messages with the bot):
 
 #### `/solve` - Solve GitHub Issues
+
 ```
 /solve <github-url> [options]
 
@@ -442,6 +468,7 @@ Examples:
 ```
 
 #### `/hive` - Run Hive Orchestration
+
 ```
 /hive <github-url> [options]
 
@@ -452,6 +479,7 @@ Examples:
 ```
 
 #### `/help` - Get Help and Diagnostic Info
+
 ```
 /help
 
@@ -488,6 +516,7 @@ The Hive Mind operates on three layers:
 ### Data Flow
 
 #### Mode 1: Issue → Pull Request Flow
+
 ```mermaid
 sequenceDiagram
     participant H as Human
@@ -524,6 +553,7 @@ sequenceDiagram
 ```
 
 #### Mode 2: Pull Request → Comments Flow
+
 ```mermaid
 sequenceDiagram
     participant H as Human
@@ -563,6 +593,7 @@ sequenceDiagram
 ## 📊 Usage Examples
 
 ### Automated Issue Resolution
+
 ```bash
 # Auto-fork and solve issue (automatic fork detection for public repos)
 solve https://github.com/owner/repo/issues/123 --auto-fork --model opus
@@ -581,6 +612,7 @@ solve https://github.com/owner/repo/issues/123 --dry-run
 ```
 
 ### Multi-Repository Orchestration
+
 ```bash
 # Monitor single repository with specific label
 hive https://github.com/owner/repo --monitor-tag "bug" --concurrency 4
@@ -599,6 +631,7 @@ hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
 ```
 
 ### Session Management
+
 ```bash
 # Resume when Claude hits limit
 solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
@@ -610,6 +643,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 ## 🔍 Monitoring & Logging
 
 Find resume commands in logs:
+
 ```bash
 grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hive-*.log
 ```
@@ -617,6 +651,7 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 ## 🔧 Configuration
 
 Authentication is handled through:
+
 - `gh auth login` - GitHub CLI authentication
 - `claude-profiles` - Claude authentication profile migration to server
 
@@ -625,18 +660,23 @@ No environment variable configuration is currently supported.
 ## 🐛 Reporting Issues
 
 ### Hive Mind Issues
+
 If you encounter issues with **Hive Mind** (this project), please report them on our GitHub Issues page:
+
 - **Repository**: https://github.com/link-assistant/hive-mind
 - **Issues**: https://github.com/link-assistant/hive-mind/issues
 
 ### Claude Code CLI Issues
+
 If you encounter issues with the **Claude Code CLI** itself (e.g., `claude` command errors, installation problems, or CLI bugs), please report them to the official Claude Code repository:
+
 - **Repository**: https://github.com/anthropics/claude-code
 - **Issues**: https://github.com/anthropics/claude-code/issues
 
 ## 🛡️ File Size Enforcement
 
 All documentation files are automatically checked:
+
 ```bash
 find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " has " $1 " lines (max 1000)"}'
 ```

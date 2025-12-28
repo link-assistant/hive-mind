@@ -48,7 +48,7 @@ async function main() {
   const allModelsPct = usage.allModels.percentage;
   const sonnetPct = usage.sonnetOnly.percentage;
 
-  const isValidPercentage = (pct) => pct === null || (typeof pct === 'number' && pct >= 0 && pct <= 100);
+  const isValidPercentage = pct => pct === null || (typeof pct === 'number' && pct >= 0 && pct <= 100);
 
   console.log(`Current session: ${sessionPct}% -`, isValidPercentage(sessionPct) ? 'PASS' : 'FAIL');
   console.log(`All models: ${allModelsPct}% -`, isValidPercentage(allModelsPct) ? 'PASS' : 'FAIL');
@@ -73,7 +73,7 @@ async function main() {
   console.log('\n=== All tests passed! ===');
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error('Unhandled error:', error);
   process.exit(1);
 });

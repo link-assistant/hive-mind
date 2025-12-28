@@ -14,9 +14,11 @@ This case study documents the investigation of issue #759 where uploaded logs to
 4. **15:53:05** - File was uploaded to gist while still being written
 
 **Evidence:** The uploaded gist ends at line 6935 with:
+
 ```
 [2025-11-30T15:53:05.640Z] [INFO]   💰 Calculated cost: $1.239405
 ```
+
 The log was captured mid-write, missing the completion entries.
 
 ### Event 2: PR #100 - Gist Creation Failed (2025-11-30T17:40)
@@ -27,6 +29,7 @@ The log was captured mid-write, missing the completion entries.
 4. **17:40:14** - Fallback to comment also failed (body too long)
 
 **Evidence:** From gist `7257b11a986a6e712f0e11ba7c56b572`:
+
 ```
 [2025-11-30T17:40:12.712Z] [INFO]   ❌ Error creating gist: $(...).quiet is not a function
 [2025-11-30T17:40:14.926Z] [INFO]   ❌ Failed to upload log to Pull Request: GraphQL: Body is too long (maximum is 65536 characters) (addComment)
@@ -40,6 +43,7 @@ The log was captured mid-write, missing the completion entries.
 4. Result: **404 Not Found** when accessing the link
 
 **Evidence:**
+
 - Actual filename: `solution-draft-log-pr-1764530686393.txt`
 - Link points to: `solution-draft-log.txt`
 - HTTP response: 404
@@ -59,6 +63,7 @@ The log was captured mid-write, missing the completion entries.
 **Location:** `src/github.lib.mjs` line 651
 
 **Code:**
+
 ```javascript
 const gistResult = await $(gistCommand);
 ```
@@ -72,6 +77,7 @@ const gistResult = await $(gistCommand);
 **Location:** `src/github.lib.mjs` lines 642-666
 
 **Code:**
+
 ```javascript
 // Line 642: File is created with timestamp
 const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
@@ -95,11 +101,11 @@ const fileName = 'solution-draft-log.txt';
 
 ## Affected Gists
 
-| Gist ID | Size | Truncated | Issue |
-|---------|------|-----------|-------|
-| `d5059763df5684ad9e436673a8af0bc3` | 1,138,636 bytes | true (API view) | Incomplete at upload time |
-| `7257b11a986a6e712f0e11ba7c56b572` | 293,818 bytes | false | Shows `.quiet()` error |
-| `fb46027a3af2fa06c39174aa8116bdff` | 730,979 bytes | false | Broken link (filename mismatch) |
+| Gist ID                            | Size            | Truncated       | Issue                           |
+| ---------------------------------- | --------------- | --------------- | ------------------------------- |
+| `d5059763df5684ad9e436673a8af0bc3` | 1,138,636 bytes | true (API view) | Incomplete at upload time       |
+| `7257b11a986a6e712f0e11ba7c56b572` | 293,818 bytes   | false           | Shows `.quiet()` error          |
+| `fb46027a3af2fa06c39174aa8116bdff` | 730,979 bytes   | false           | Broken link (filename mismatch) |
 
 ## Fixes Applied
 

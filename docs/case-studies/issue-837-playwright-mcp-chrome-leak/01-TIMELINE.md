@@ -39,16 +39,16 @@ Processes:
 
 ### Notable Processes from Screenshot
 
-| PID | User | PR | NI | VIRT | RES | SHR | S | %CPU | %MEM | TIME+ | COMMAND |
-|-----|------|----|----|------|-----|-----|---|------|------|-------|---------|
-| 2156921 | root | 20 | 0 | 14988 | 3960 | - | R | 0 | 0.49 | 67:10.09 | kasmvnc0 |
-| 2150792 | root | 20 | 0 | 1377.0g | 208064 | - | R | - | - | 12:06.08 | chrome-headless |
-| 2159253 | hive | 20 | 0 | 1393.7g | 95888 | - | S | - | - | 0:24.48 | chrome-... |
-| 2154726 | hive | 20 | 0 | 1379.4g | 95164 | - | S | - | - | 0:24.32 | chrome-... |
-| 2164508 | hive | 20 | 0 | 805908 | 31432 | 3328 | R | - | - | 0:19.57 | chrome-headless |
-| - | hive | - | - | 1377.6g | 127854 | - | - | - | - | 1:08.87 | chrome-preloader-cf50a7 |
-| - | hive | - | - | 1377.6g | 171652 | - | - | - | - | 3:27.46 | chrome-... |
-| - | hive | - | - | 32.56 | 4188 | - | - | - | - | 0:17.59 | npm |
+| PID     | User | PR  | NI  | VIRT    | RES    | SHR  | S   | %CPU | %MEM | TIME+    | COMMAND                 |
+| ------- | ---- | --- | --- | ------- | ------ | ---- | --- | ---- | ---- | -------- | ----------------------- |
+| 2156921 | root | 20  | 0   | 14988   | 3960   | -    | R   | 0    | 0.49 | 67:10.09 | kasmvnc0                |
+| 2150792 | root | 20  | 0   | 1377.0g | 208064 | -    | R   | -    | -    | 12:06.08 | chrome-headless         |
+| 2159253 | hive | 20  | 0   | 1393.7g | 95888  | -    | S   | -    | -    | 0:24.48  | chrome-...              |
+| 2154726 | hive | 20  | 0   | 1379.4g | 95164  | -    | S   | -    | -    | 0:24.32  | chrome-...              |
+| 2164508 | hive | 20  | 0   | 805908  | 31432  | 3328 | R   | -    | -    | 0:19.57  | chrome-headless         |
+| -       | hive | -   | -   | 1377.6g | 127854 | -    | -   | -    | -    | 1:08.87  | chrome-preloader-cf50a7 |
+| -       | hive | -   | -   | 1377.6g | 171652 | -    | -   | -    | -    | 3:27.46  | chrome-...              |
+| -       | hive | -   | -   | 32.56   | 4188   | -    | -   | -    | -    | 0:17.59  | npm                     |
 
 Multiple `claude` processes also visible with various states.
 
@@ -65,6 +65,7 @@ Multiple `claude` processes also visible with various states.
 ### Phase 2: Accumulation Phase (Days 1-5)
 
 **Pattern per automation cycle:**
+
 ```
 [Time T+0]   Claude invoked for new task
 [Time T+1s]  Playwright MCP spawns browser instance
@@ -75,6 +76,7 @@ Multiple `claude` processes also visible with various states.
 ```
 
 **Repeated Effect:**
+
 - Each cycle leaves 1-3 orphaned Chrome processes
 - Memory usage increases incrementally
 - Process count grows steadily
@@ -83,6 +85,7 @@ Multiple `claude` processes also visible with various states.
 ### Phase 3: Saturation Phase (Days 5-7)
 
 **Symptoms appearing:**
+
 1. **Swap utilization increases** as physical RAM exhausted
 2. **Load average climbs** due to process competition
 3. **New browser launches may fail** with "Browser already in use"
@@ -91,6 +94,7 @@ Multiple `claude` processes also visible with various states.
 ### Phase 4: Critical State (Day 7 - Observed)
 
 **Current state characteristics:**
+
 - Memory nearly exhausted (100 MiB free)
 - Heavy swap usage (1.9 GiB)
 - Load average >60 (unsustainable)
@@ -100,6 +104,7 @@ Multiple `claude` processes also visible with various states.
 ## Process Accumulation Pattern
 
 ### Expected Behavior
+
 ```
 Start Task -> Launch Browser -> Execute -> Close Browser -> End Task
     |              |              |              |              |
@@ -108,6 +113,7 @@ Start Task -> Launch Browser -> Execute -> Close Browser -> End Task
 ```
 
 ### Actual Behavior (with leak)
+
 ```
 Start Task -> Launch Browser -> Execute -> Close Browser -> End Task
     |              |              |              |              |
@@ -120,20 +126,21 @@ Start Task -> Launch Browser -> Execute -> Close Browser -> End Task
 ### Cumulative Effect Over Time
 
 | Day | Est. Invocations | Leaked Processes | Memory Impact |
-|-----|------------------|------------------|---------------|
-| 1 | 50 | 50-150 | +500MB |
-| 2 | 100 | 100-300 | +1GB |
-| 3 | 150 | 150-450 | +1.5GB |
-| 4 | 200 | 200-600 | +2GB |
-| 5 | 250 | 250-750 | +2.5GB |
-| 6 | 300 | 300-900 | +3GB |
-| 7 | 350+ | 350-1000+ | +3.5GB+ |
+| --- | ---------------- | ---------------- | ------------- |
+| 1   | 50               | 50-150           | +500MB        |
+| 2   | 100              | 100-300          | +1GB          |
+| 3   | 150              | 150-450          | +1.5GB        |
+| 4   | 200              | 200-600          | +2GB          |
+| 5   | 250              | 250-750          | +2.5GB        |
+| 6   | 300              | 300-900          | +3GB          |
+| 7   | 350+             | 350-1000+        | +3.5GB+       |
 
-*Note: Estimates based on typical automated task frequency. Actual numbers depend on usage patterns.*
+_Note: Estimates based on typical automated task frequency. Actual numbers depend on usage patterns._
 
 ## Known Trigger Scenarios
 
 ### Scenario 1: Normal MCP Session
+
 ```javascript
 // Claude tool executes this pattern
 const page = await context.newPage();
@@ -145,6 +152,7 @@ await page.close();
 ```
 
 ### Scenario 2: Extension Mode Disconnect
+
 ```javascript
 // Extension mode connects via CDP
 // On disconnect, browser continues running
@@ -152,6 +160,7 @@ await page.close();
 ```
 
 ### Scenario 3: Error During Execution
+
 ```javascript
 try {
   await page.click('#element');
@@ -163,6 +172,7 @@ try {
 ```
 
 ### Scenario 4: Timeout/Kill
+
 ```bash
 # Claude invocation times out or is killed
 # Child browser process continues

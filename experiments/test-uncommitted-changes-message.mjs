@@ -88,9 +88,7 @@ console.log(`  Contains 'Auto-restart 2/3': ${hasRestartCounter2 ? '✅ PASS' : 
 
 // Summary
 console.log('\n' + '='.repeat(70));
-const allPassed = hasCommitInstruction && hasRevertInstruction && hasGitAddCommitPush &&
-                  hasGitCheckout && hasGitClean && hasNoLeaveInstruction &&
-                  hasRestartCounter && hasRestartCounter2;
+const allPassed = hasCommitInstruction && hasRevertInstruction && hasGitAddCommitPush && hasGitCheckout && hasGitClean && hasNoLeaveInstruction && hasRestartCounter && hasRestartCounter2;
 
 if (allPassed) {
   console.log('✅ All tests passed!');

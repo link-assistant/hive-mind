@@ -2,22 +2,7 @@
 
 // Test script to validate the updated configuration module works correctly
 
-import {
-  timeouts,
-  autoContinue,
-  githubLimits,
-  systemLimits,
-  retryLimits,
-  filePaths,
-  textProcessing,
-  display,
-  sentry,
-  externalUrls,
-  modelConfig,
-  version,
-  validateConfig,
-  getAllConfigurations
-} from '../src/config.lib.mjs';
+import { timeouts, autoContinue, githubLimits, systemLimits, retryLimits, filePaths, textProcessing, display, sentry, externalUrls, modelConfig, version, validateConfig, getAllConfigurations } from '../src/config.lib.mjs';
 
 console.log('Testing updated configuration module with getenv and camelCase...\n');
 
@@ -60,21 +45,27 @@ console.log(`   ✅ getenv working correctly\n`);
 // Test 5: Display all configurations with new structure
 console.log('5. Configuration structure (sample):');
 const allConfigs = getAllConfigurations();
-console.log(JSON.stringify({
-  timeouts: {
-    claudeCli: allConfigs.timeouts.claudeCli,
-    githubApiDelay: allConfigs.timeouts.githubApiDelay
-  },
-  githubLimits: {
-    commentMaxSize: allConfigs.githubLimits.commentMaxSize,
-    fileMaxSize: allConfigs.githubLimits.fileMaxSize
-  },
-  autoContinue: allConfigs.autoContinue,
-  sentry: {
-    tracesSampleRateDev: allConfigs.sentry.tracesSampleRateDev,
-    tracesSampleRateProd: allConfigs.sentry.tracesSampleRateProd
-  }
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      timeouts: {
+        claudeCli: allConfigs.timeouts.claudeCli,
+        githubApiDelay: allConfigs.timeouts.githubApiDelay,
+      },
+      githubLimits: {
+        commentMaxSize: allConfigs.githubLimits.commentMaxSize,
+        fileMaxSize: allConfigs.githubLimits.fileMaxSize,
+      },
+      autoContinue: allConfigs.autoContinue,
+      sentry: {
+        tracesSampleRateDev: allConfigs.sentry.tracesSampleRateDev,
+        tracesSampleRateProd: allConfigs.sentry.tracesSampleRateProd,
+      },
+    },
+    null,
+    2
+  )
+);
 
 // Clean up
 if (originalValue !== undefined) {

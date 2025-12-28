@@ -78,7 +78,6 @@ try {
   } else {
     console.log('❌ Should have calculated a cost for paid model');
   }
-
 } catch (error) {
   console.error('Error during pricing calculation:', error.message);
 }

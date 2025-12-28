@@ -29,10 +29,10 @@ const tests = [
     name: 'Normal direct message (should not be filtered)',
     ctx: {
       message: {
-        text: '/solve https://github.com/test/repo/issues/1'
-      }
+        text: '/solve https://github.com/test/repo/issues/1',
+      },
     },
-    expected: false
+    expected: false,
   },
   {
     name: 'Forwarded message with forward_origin (should be filtered)',
@@ -44,13 +44,13 @@ const tests = [
           sender_user: {
             id: 12345,
             is_bot: false,
-            first_name: 'Test'
+            first_name: 'Test',
           },
-          date: 1234567890
-        }
-      }
+          date: 1234567890,
+        },
+      },
     },
-    expected: true
+    expected: true,
   },
   {
     name: 'Reply message (should be filtered)',
@@ -62,13 +62,13 @@ const tests = [
           from: {
             id: 12345,
             is_bot: false,
-            first_name: 'Test'
+            first_name: 'Test',
           },
-          text: 'Original message'
-        }
-      }
+          text: 'Original message',
+        },
+      },
     },
-    expected: true
+    expected: true,
   },
   {
     name: 'Message with both forward and reply (should be filtered)',
@@ -80,34 +80,34 @@ const tests = [
           sender_user: {
             id: 12345,
             is_bot: false,
-            first_name: 'Test'
+            first_name: 'Test',
           },
-          date: 1234567890
+          date: 1234567890,
         },
         reply_to_message: {
           message_id: 123,
           from: {
             id: 12345,
             is_bot: false,
-            first_name: 'Test'
+            first_name: 'Test',
           },
-          text: 'Original message'
-        }
-      }
+          text: 'Original message',
+        },
+      },
     },
-    expected: true
+    expected: true,
   },
   {
     name: 'Empty context (should not be filtered)',
     ctx: {},
-    expected: false
+    expected: false,
   },
   {
     name: 'Context with no message (should not be filtered)',
     ctx: {
-      message: null
+      message: null,
     },
-    expected: false
+    expected: false,
   },
   {
     name: 'Forwarded from hidden user (should be filtered)',
@@ -117,11 +117,11 @@ const tests = [
         forward_origin: {
           type: 'hidden_user',
           sender_user_name: 'Hidden User',
-          date: 1234567890
-        }
-      }
+          date: 1234567890,
+        },
+      },
     },
-    expected: true
+    expected: true,
   },
   {
     name: 'Forwarded from channel (should be filtered)',
@@ -133,15 +133,15 @@ const tests = [
           chat: {
             id: -1001234567890,
             title: 'Test Channel',
-            type: 'channel'
+            type: 'channel',
           },
           message_id: 456,
-          date: 1234567890
-        }
-      }
+          date: 1234567890,
+        },
+      },
     },
-    expected: true
-  }
+    expected: true,
+  },
 ];
 
 let passed = 0;

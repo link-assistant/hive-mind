@@ -42,53 +42,53 @@ const testCases = [
   {
     desc: 'Plain issue URL',
     text: 'https://github.com/link-assistant/hive-mind/issues/603',
-    expected: 'https://github.com/link-assistant/hive-mind/issues/603'
+    expected: 'https://github.com/link-assistant/hive-mind/issues/603',
   },
   {
     desc: 'Issue URL in a sentence',
     text: 'Check out this issue https://github.com/owner/repo/issues/123 please',
-    expected: 'https://github.com/owner/repo/issues/123'
+    expected: 'https://github.com/owner/repo/issues/123',
   },
   {
     desc: 'Pull request URL',
     text: 'Here is the PR: https://github.com/owner/repo/pull/456',
-    expected: 'https://github.com/owner/repo/pull/456'
+    expected: 'https://github.com/owner/repo/pull/456',
   },
   {
     desc: 'Shorthand issue format',
     text: 'owner/repo/issues/789',
-    expected: 'https://github.com/owner/repo/issues/789'
+    expected: 'https://github.com/owner/repo/issues/789',
   },
   {
     desc: 'Multiple URLs (should return first valid one)',
     text: 'Check https://github.com/owner/repo/issues/1 and https://github.com/owner/repo/issues/2',
-    expected: 'https://github.com/owner/repo/issues/1'
+    expected: 'https://github.com/owner/repo/issues/1',
   },
   {
     desc: 'No GitHub URL',
     text: 'This is just a regular message without any links',
-    expected: null
+    expected: null,
   },
   {
     desc: 'GitHub repo URL (not issue/PR)',
     text: 'https://github.com/owner/repo',
-    expected: null
+    expected: null,
   },
   {
     desc: 'Empty text',
     text: '',
-    expected: null
+    expected: null,
   },
   {
     desc: 'Issue URL with query params',
     text: 'https://github.com/owner/repo/issues/100?foo=bar',
-    expected: 'https://github.com/owner/repo/issues/100?foo=bar'
+    expected: 'https://github.com/owner/repo/issues/100?foo=bar',
   },
   {
     desc: 'HTTP protocol (should normalize to HTTPS)',
     text: 'http://github.com/owner/repo/issues/200',
-    expected: 'https://github.com/owner/repo/issues/200'
-  }
+    expected: 'https://github.com/owner/repo/issues/200',
+  },
 ];
 
 console.log('Running URL extraction tests:\n');

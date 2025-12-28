@@ -16,14 +16,14 @@ async function testSwapDisplayInErrors() {
 
   // Collect log messages
   const logMessages = [];
-  const mockLog = async (message) => {
+  const mockLog = async message => {
     logMessages.push(message);
     console.log(message);
   };
 
   // Test with impossibly high memory requirement to trigger failure
   console.log('Test 1: High memory requirement (should fail and show swap)');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   const result = await checkRAM(999999, { log: mockLog });
   console.log('\nResult:', JSON.stringify(result, null, 2));
 

@@ -4,9 +4,13 @@
  * Provides functions to fetch and parse Claude usage limits via OAuth API
  */
 
+import { exec } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(exec);
 
 /**
  * Default path to Claude credentials file
@@ -128,6 +132,178 @@ function formatCurrentTime() {
 }
 
 /**
+ * Format bytes into human-readable size
+ * @param {number} bytes - Size in bytes
+ * @returns {string} Formatted size (e.g., "19.3 GB")
+ */
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  // Use 1 decimal place for GB and above, none for smaller units
+  const decimals = i >= 3 ? 1 : 0;
+  return `${value.toFixed(decimals)} ${sizes[i]}`;
+}
+
+/**
+ * Get GitHub API rate limits by calling gh api rate_limit
+ * Returns rate limit info for core, search, graphql, and other resources
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either rate limit data or error message
+ */
+export async function getGitHubRateLimits(verbose = false) {
+  try {
+    const { stdout } = await execAsync('gh api rate_limit 2>/dev/null');
+    const data = JSON.parse(stdout);
+
+    if (verbose) {
+      console.log('[VERBOSE] /limits GitHub rate limit response:', JSON.stringify(data, null, 2));
+    }
+
+    // Extract the core rate limit (most important for general API usage)
+    const core = data.resources?.core;
+    if (!core) {
+      return {
+        success: false,
+        error: 'Could not parse GitHub rate limit response',
+      };
+    }
+
+    // Calculate remaining percentage
+    const usedPercentage = core.limit > 0 ? Math.round((core.used / core.limit) * 100) : 0;
+    const remainingPercentage = 100 - usedPercentage;
+
+    // Format reset time from Unix timestamp
+    const resetDate = new Date(core.reset * 1000);
+    const resetTimeFormatted = formatResetTime(resetDate.toISOString());
+
+    // Calculate relative time until reset
+    const now = new Date();
+    const diffMs = resetDate - now;
+    let relativeReset = null;
+    if (diffMs > 0) {
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours > 0) {
+        relativeReset = `${hours}h ${minutes}m`;
+      } else {
+        relativeReset = `${minutes}m`;
+      }
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits GitHub API: ${core.remaining}/${core.limit} remaining (${remainingPercentage}% available)`);
+    }
+
+    return {
+      success: true,
+      githubRateLimit: {
+        limit: core.limit,
+        used: core.used,
+        remaining: core.remaining,
+        usedPercentage,
+        remainingPercentage,
+        resetTimestamp: core.reset,
+        resetTime: resetTimeFormatted,
+        relativeReset,
+        resetsAt: resetDate.toISOString(),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits GitHub rate limit error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get GitHub rate limits: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Get disk space information for the current filesystem
+ * Returns total, used, available space and usage percentage
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either disk space data or error message
+ */
+export async function getDiskSpaceInfo(verbose = false) {
+  try {
+    let totalMB, usedMB, availableMB, usedPercentage;
+
+    if (process.platform === 'darwin') {
+      // macOS: use df with 1024-byte blocks and parse
+      const { stdout } = await execAsync("df -k . 2>/dev/null | tail -1 | awk '{print $2, $3, $4}'");
+      const [totalKB, usedKB, availableKB] = stdout.trim().split(/\s+/).map(Number);
+      totalMB = Math.round(totalKB / 1024);
+      usedMB = Math.round(usedKB / 1024);
+      availableMB = Math.round(availableKB / 1024);
+    } else if (process.platform === 'win32') {
+      // Windows: use PowerShell to get drive info
+      const { stdout } = await execAsync('powershell -Command "$drive = (Get-Location).Drive; $info = Get-PSDrive -Name $drive.Name; Write-Output \\"$($info.Used) $($info.Free)\\""');
+      const [usedBytes, freeBytes] = stdout.trim().split(/\s+/).map(Number);
+      const totalBytes = usedBytes + freeBytes;
+      totalMB = Math.round(totalBytes / (1024 * 1024));
+      usedMB = Math.round(usedBytes / (1024 * 1024));
+      availableMB = Math.round(freeBytes / (1024 * 1024));
+    } else {
+      // Linux: use df with megabyte blocks
+      const { stdout } = await execAsync("df -BM . 2>/dev/null | tail -1 | awk '{print $2, $3, $4}'");
+      const parts = stdout
+        .trim()
+        .split(/\s+/)
+        .map(s => parseInt(s.replace('M', '')));
+      [totalMB, usedMB, availableMB] = parts;
+    }
+
+    if (isNaN(totalMB) || isNaN(usedMB) || isNaN(availableMB)) {
+      return {
+        success: false,
+        error: 'Failed to parse disk space information',
+      };
+    }
+
+    // Calculate used percentage (rounded to nearest integer)
+    usedPercentage = Math.round((usedMB / totalMB) * 100);
+    // Free percentage is the inverse
+    const freePercentage = 100 - usedPercentage;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits disk space: ${availableMB}MB free of ${totalMB}MB total (${freePercentage}% free)`);
+    }
+
+    return {
+      success: true,
+      diskSpace: {
+        totalMB,
+        usedMB,
+        availableMB,
+        totalBytes: totalMB * 1024 * 1024,
+        usedBytes: usedMB * 1024 * 1024,
+        availableBytes: availableMB * 1024 * 1024,
+        usedPercentage,
+        freePercentage,
+        totalFormatted: formatBytes(totalMB * 1024 * 1024),
+        usedFormatted: formatBytes(usedMB * 1024 * 1024),
+        availableFormatted: formatBytes(availableMB * 1024 * 1024),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits disk space error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get disk space info: ${error.message}`,
+    };
+  }
+}
+
+/**
  * Get Claude usage limits by calling the Anthropic OAuth usage API
  * This approach is more reliable than trying to parse CLI output
  * and doesn't require the 'expect' command.
@@ -149,7 +325,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!credentials) {
       return {
         success: false,
-        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.'
+        error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.',
       };
     }
 
@@ -158,7 +334,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     if (!accessToken) {
       return {
         success: false,
-        error: 'No access token found in Claude credentials. Please re-authenticate with Claude.'
+        error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
       };
     }
 
@@ -170,12 +346,12 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': 'claude-code/2.0.55',
-        'Authorization': `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20'
-      }
+        Authorization: `Bearer ${accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20',
+      },
     });
 
     if (!response.ok) {
@@ -188,13 +364,13 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (response.status === 401) {
         return {
           success: false,
-          error: 'Claude authentication expired. Please re-authenticate with Claude.'
+          error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
         };
       }
 
       return {
         success: false,
-        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`
+        error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`,
       };
     }
 
@@ -214,23 +390,23 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       currentSession: {
         percentage: data.five_hour?.utilization ?? null,
         resetTime: formatResetTime(data.five_hour?.resets_at),
-        resetsAt: data.five_hour?.resets_at ?? null
+        resetsAt: data.five_hour?.resets_at ?? null,
       },
       allModels: {
         percentage: data.seven_day?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day?.resets_at),
-        resetsAt: data.seven_day?.resets_at ?? null
+        resetsAt: data.seven_day?.resets_at ?? null,
       },
       sonnetOnly: {
         percentage: data.seven_day_sonnet?.utilization ?? null,
         resetTime: formatResetTime(data.seven_day_sonnet?.resets_at),
-        resetsAt: data.seven_day_sonnet?.resets_at ?? null
-      }
+        resetsAt: data.seven_day_sonnet?.resets_at ?? null,
+      },
     };
 
     return {
       success: true,
-      usage
+      usage,
     };
   } catch (error) {
     if (verbose) {
@@ -238,7 +414,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     }
     return {
       success: false,
-      error: `Failed to get usage limits: ${error.message}`
+      error: `Failed to get usage limits: ${error.message}`,
     };
   }
 }
@@ -285,14 +461,40 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
 /**
  * Format Claude usage data into a Telegram-friendly message
  * @param {Object} usage - The usage object from getClaudeUsageLimits
+ * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
+ * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
  * @returns {string} Formatted message
  */
-export function formatUsageMessage(usage) {
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
   // Show current time
   message += `Current time: ${formatCurrentTime()}\n\n`;
+
+  // Disk space section (if provided)
+  if (diskSpace) {
+    message += 'Disk space\n';
+    // Show used percentage with progress bar
+    const usedBar = getProgressBar(diskSpace.usedPercentage);
+    message += `${usedBar} ${diskSpace.usedPercentage}% used\n`;
+    message += `${diskSpace.usedFormatted} used of ${diskSpace.totalFormatted}\n\n`;
+  }
+
+  // GitHub API rate limits section (if provided)
+  if (githubRateLimit) {
+    message += 'GitHub API\n';
+    // Show used percentage with progress bar
+    const usedBar = getProgressBar(githubRateLimit.usedPercentage);
+    message += `${usedBar} ${githubRateLimit.usedPercentage}% used\n`;
+    message += `${githubRateLimit.used}/${githubRateLimit.limit} requests used\n`;
+    if (githubRateLimit.relativeReset) {
+      message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
+    } else if (githubRateLimit.resetTime) {
+      message += `Resets ${githubRateLimit.resetTime}\n`;
+    }
+    message += '\n';
+  }
 
   // Current session (five_hour)
   message += 'Current session\n';
@@ -383,7 +585,9 @@ export function formatUsageMessage(usage) {
 
 export default {
   getClaudeUsageLimits,
+  getDiskSpaceInfo,
+  getGitHubRateLimits,
   getProgressBar,
   calculateTimePassedPercentage,
-  formatUsageMessage
+  formatUsageMessage,
 };

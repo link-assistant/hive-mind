@@ -16,7 +16,9 @@ async function testGraphQLBatchQuery() {
   const query = `
     query GetPullRequestsForIssues {
       repository(owner: "${owner}", name: "${repo}") {
-        ${issueNumbers.map(num => `
+        ${issueNumbers
+          .map(
+            num => `
         issue${num}: issue(number: ${num}) {
           number
           title
@@ -36,7 +38,9 @@ async function testGraphQLBatchQuery() {
               }
             }
           }
-        }`).join('\n')}
+        }`
+          )
+          .join('\n')}
       }
     }
   `;
@@ -48,7 +52,7 @@ async function testGraphQLBatchQuery() {
     // Execute GraphQL query using gh api graphql
     const result = execSync(`gh api graphql -f query='${query}'`, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
 
     const data = JSON.parse(result);
@@ -102,7 +106,6 @@ async function testGraphQLBatchQuery() {
     console.log('  ✅ Complete timeline information included');
 
     return data;
-
   } catch (error) {
     console.error('❌ GraphQL query failed:', error.message);
     if (error.stderr) {
@@ -153,9 +156,9 @@ async function compareApproaches() {
 
 // Run tests
 (async () => {
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
   console.log('GitHub GraphQL Batch PR Query Experiment');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   const graphqlResult = await testGraphQLBatchQuery();
 

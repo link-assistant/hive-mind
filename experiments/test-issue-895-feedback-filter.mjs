@@ -17,7 +17,7 @@ const testScenarios = [
     workStartTime: new Date('2025-12-09T11:00:00Z'),
     prUpdatedAt: new Date('2025-12-09T10:30:00Z'), // Between commit and work start
     expectedFeedback: true,
-    expectedReason: 'External edit - should trigger restart'
+    expectedReason: 'External edit - should trigger restart',
   },
   {
     name: 'PR edited after work started (agent self-edit)',
@@ -25,7 +25,7 @@ const testScenarios = [
     workStartTime: new Date('2025-12-09T11:00:00Z'),
     prUpdatedAt: new Date('2025-12-09T11:30:00Z'), // After work started
     expectedFeedback: false,
-    expectedReason: 'Agent self-edit - should NOT trigger restart'
+    expectedReason: 'Agent self-edit - should NOT trigger restart',
   },
   {
     name: 'PR edited before commit (no feedback)',
@@ -33,7 +33,7 @@ const testScenarios = [
     workStartTime: new Date('2025-12-09T11:00:00Z'),
     prUpdatedAt: new Date('2025-12-09T09:00:00Z'), // Before commit
     expectedFeedback: false,
-    expectedReason: 'Old edit - no feedback needed'
+    expectedReason: 'Old edit - no feedback needed',
   },
   {
     name: 'No workStartTime provided (legacy behavior)',
@@ -41,7 +41,7 @@ const testScenarios = [
     workStartTime: null,
     prUpdatedAt: new Date('2025-12-09T10:30:00Z'), // After commit
     expectedFeedback: true,
-    expectedReason: 'Without workStartTime, treat all post-commit edits as feedback'
+    expectedReason: 'Without workStartTime, treat all post-commit edits as feedback',
   },
   {
     name: 'Issue edited after work started (agent self-edit)',
@@ -49,8 +49,8 @@ const testScenarios = [
     workStartTime: new Date('2025-12-09T11:00:00Z'),
     issueUpdatedAt: new Date('2025-12-09T11:30:00Z'), // After work started
     expectedFeedback: false,
-    expectedReason: 'Agent self-edit on issue - should NOT trigger restart'
-  }
+    expectedReason: 'Agent self-edit on issue - should NOT trigger restart',
+  },
 ];
 
 /**
@@ -106,13 +106,13 @@ for (const scenario of testScenarios) {
     result = detectPrEditFeedback({
       lastCommitTime: scenario.lastCommitTime,
       workStartTime: scenario.workStartTime,
-      prUpdatedAt: scenario.prUpdatedAt
+      prUpdatedAt: scenario.prUpdatedAt,
     });
   } else if (scenario.issueUpdatedAt) {
     result = detectIssueEditFeedback({
       lastCommitTime: scenario.lastCommitTime,
       workStartTime: scenario.workStartTime,
-      issueUpdatedAt: scenario.issueUpdatedAt
+      issueUpdatedAt: scenario.issueUpdatedAt,
     });
   }
 

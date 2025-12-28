@@ -5,12 +5,14 @@
 ### Primary Error Message
 
 **From GitHub Actions**:
+
 ```
 Invalid workflow file: .github/workflows/main.yml#L1166
 You have an error in your yaml syntax on line 1166
 ```
 
 **From Local YAML Parser** (Python yaml library):
+
 ```
 yaml.parser.ParserError: while parsing a block collection
   in ".github/workflows/main.yml", line 1167, column 7
@@ -40,14 +42,15 @@ In GitHub Actions workflows, the `steps` array within a job follows this structu
 jobs:
   job-name:
     runs-on: ubuntu-latest
-    steps:              # Line 1166 in actual file
-      - name: Step 1    # 6 spaces before the dash
-        run: command    # 8 spaces for step properties
-      - name: Step 2    # 6 spaces before the dash
-        run: command    # 8 spaces for step properties
+    steps: # Line 1166 in actual file
+      - name: Step 1 # 6 spaces before the dash
+        run: command # 8 spaces for step properties
+      - name: Step 2 # 6 spaces before the dash
+        run: command # 8 spaces for step properties
 ```
 
 **Indentation Rules**:
+
 1. Job level: 2 spaces
 2. Job properties: 4 spaces
 3. Steps array items: 6 spaces before `-`
@@ -139,6 +142,7 @@ $
 ```
 
 **Indentation Count**:
+
 - Lines 1265-1276: 6 spaces before `-` ✓
 - Lines 1277-1282: 7 spaces before `-` ✗
 - Lines 1284+: 6 spaces before `-` ✓
@@ -160,6 +164,7 @@ $
 **Context**: Developer was modifying the step to add `-f` flag to `git add` command
 
 **The Edit**:
+
 ```diff
 # Before
       - name: Commit and push to gh-pages
@@ -175,6 +180,7 @@ $
 ```
 
 **Analysis**:
+
 - Primary intent: Add `-f` flag to force add ignored files
 - Secondary effect: Changed indentation throughout the entire step
 - Likely cause: Text editor's re-indentation feature or manual spacing error
@@ -215,6 +221,7 @@ $
 GitHub Actions reported the error at line 1166 (`steps:`), but the actual error was at line 1277.
 
 **Reason**: GitHub's workflow parser uses a top-down approach:
+
 1. Parser starts at `steps:` (line 1166)
 2. Begins parsing the block collection (array of steps)
 3. Expects all items to have consistent indentation
@@ -234,6 +241,7 @@ expected <block end>, but found '<block sequence start>'
 ```
 
 This message includes:
+
 1. **Context**: "while parsing a block collection" starting at line 1167
 2. **Expectation**: "expected <block end>" (end of array)
 3. **Actual**: "found '<block sequence start>'" (a `-` at wrong indentation)
@@ -281,6 +289,7 @@ All CI/CD Blocked
 ### First Point of Detection
 
 **GitHub Actions Workflow Parser** (post-merge)
+
 - Triggered when code pushed to main branch
 - Attempted to parse workflow file
 - Failed at parsing stage (before any job execution)
@@ -296,12 +305,12 @@ All CI/CD Blocked
 
 ### Common YAML Indentation Errors
 
-| Error Type | Symptom | Our Case |
-|------------|---------|----------|
-| Tab instead of spaces | Parse error | No - used spaces |
-| Mixed indentation | Inconsistent structure | Yes - 7 spaces instead of 6 |
-| Missing indentation | Unexpected token | No |
-| Extra level of nesting | Incorrect structure | Similar - parser thought it was nested |
+| Error Type             | Symptom                | Our Case                               |
+| ---------------------- | ---------------------- | -------------------------------------- |
+| Tab instead of spaces  | Parse error            | No - used spaces                       |
+| Mixed indentation      | Inconsistent structure | Yes - 7 spaces instead of 6            |
+| Missing indentation    | Unexpected token       | No                                     |
+| Extra level of nesting | Incorrect structure    | Similar - parser thought it was nested |
 
 ### Similar GitHub Actions Issues
 
@@ -328,6 +337,7 @@ From online research:
 ### Immediate Impact
 
 **Blocked Operations**:
+
 - ✗ All CI/CD workflows on main branch
 - ✗ Automated testing
 - ✗ Automated Docker builds
@@ -336,6 +346,7 @@ From online research:
 - ✗ Code quality checks
 
 **Unaffected Operations**:
+
 - ✓ Git operations (push, pull, clone)
 - ✓ Manual testing
 - ✓ Local development
@@ -344,18 +355,21 @@ From online research:
 ### Severity Assessment
 
 **Critical Factors**:
+
 1. **Complete CI/CD Failure**: All automated processes blocked
 2. **Main Branch Affected**: Production pipeline impacted
 3. **No Workaround**: Error must be fixed, can't be bypassed
 4. **Blocking**: No subsequent workflows can run
 
 **Mitigating Factors**:
+
 1. **Quick Detection**: Caught immediately on first workflow run
 2. **Clear Error Message**: Problem area identified (even if not precise)
 3. **Non-Data-Loss**: No code or data corruption
 4. **Reversible**: Can be fixed with simple edit
 
 **Overall Severity**: **P0 - Critical**
+
 - Complete service outage (CI/CD service)
 - Requires immediate attention
 - Blocks all development workflows
@@ -363,16 +377,19 @@ From online research:
 ### Business Impact
 
 **Development Velocity**:
+
 - Developers can't rely on automated tests
 - Can't verify changes before merge
 - Manual testing required (slower)
 
 **Release Process**:
+
 - Automated releases blocked
 - Manual releases may be required
 - Increased risk of human error
 
 **Time to Resolution**:
+
 - Actual: Same day (~4-6 hours)
 - Best case: Minutes (if error immediately obvious)
 - Worst case: Hours to days (if cause not found)
@@ -388,6 +405,7 @@ From online research:
 **Tool**: `yamllint` or `actionlint`
 
 **Configuration**: `.pre-commit-config.yaml`
+
 ```yaml
 repos:
   - repo: https://github.com/adrienverge/yamllint
@@ -408,6 +426,7 @@ repos:
 **Tool**: GitHub Actions workflow validation
 
 **Implementation**: Add to `.github/workflows/validate.yml`
+
 ```yaml
 - name: Validate workflow syntax
   run: |
@@ -438,6 +457,7 @@ repos:
 ```
 
 **Effect**:
+
 - Visual whitespace indicators
 - Real-time YAML validation
 - Catches errors as you type
@@ -451,6 +471,7 @@ repos:
 **Usage**: Edit workflows directly on GitHub.com
 
 **Benefits**:
+
 - Real-time syntax validation
 - Instant error highlighting
 - Prevents committing invalid YAML
@@ -462,20 +483,24 @@ repos:
 ### Defense-in-Depth Strategy
 
 **Layer 1 - Developer Machine**:
+
 - Editor with YAML validation
 - Visual whitespace rendering
 - Pre-commit hooks
 
 **Layer 2 - Git Repository**:
+
 - Pre-push hooks
 - Git hooks for YAML validation
 
 **Layer 3 - Pull Request**:
+
 - CI pipeline with YAML linting
 - Required status checks
 - Automated validation
 
 **Layer 4 - Merge**:
+
 - Final validation before merge
 - Branch protection rules
 

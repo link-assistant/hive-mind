@@ -64,7 +64,7 @@ export const githubLimits = {
 
 // Memory and disk configurations
 export const systemLimits = {
-  minDiskSpaceMb: parseIntWithDefault('HIVE_MIND_MIN_DISK_SPACE_MB', 500),
+  minDiskSpaceMb: parseIntWithDefault('HIVE_MIND_MIN_DISK_SPACE_MB', 2048),
   defaultPageSizeKb: parseIntWithDefault('HIVE_MIND_DEFAULT_PAGE_SIZE_KB', 16),
 };
 
@@ -144,15 +144,7 @@ export const version = {
 // Helper function to validate configuration values
 export function validateConfig() {
   // Ensure all numeric values are valid
-  const numericConfigs = [
-    ...Object.values(timeouts),
-    ...Object.values(githubLimits),
-    ...Object.values(systemLimits),
-    ...Object.values(retryLimits).filter(v => typeof v === 'number'),
-    ...Object.values(textProcessing),
-    display.labelWidth,
-    autoContinue.ageThresholdHours,
-  ];
+  const numericConfigs = [...Object.values(timeouts), ...Object.values(githubLimits), ...Object.values(systemLimits), ...Object.values(retryLimits).filter(v => typeof v === 'number'), ...Object.values(textProcessing), display.labelWidth, autoContinue.ageThresholdHours];
 
   for (const value of numericConfigs) {
     if (isNaN(value) || value < 0) {
@@ -161,12 +153,7 @@ export function validateConfig() {
   }
 
   // Ensure sample rates are between 0 and 1
-  const sampleRates = [
-    sentry.tracesSampleRateDev,
-    sentry.tracesSampleRateProd,
-    sentry.profileSessionSampleRateDev,
-    sentry.profileSessionSampleRateProd,
-  ];
+  const sampleRates = [sentry.tracesSampleRateDev, sentry.tracesSampleRateProd, sentry.profileSessionSampleRateDev, sentry.profileSessionSampleRateProd];
 
   for (const rate of sampleRates) {
     if (isNaN(rate) || rate < 0 || rate > 1) {

@@ -5,7 +5,7 @@
 const limitPatterns = [
   // Primary pattern from the issue description
   '⎿  5-hour limit reached ∙ resets 5:30am',
-  
+
   // Variations of the same pattern
   '5-hour limit reached ∙ resets 5:30am',
   '24-hour limit reached • resets 11:45pm',
@@ -13,7 +13,7 @@ const limitPatterns = [
   '5-hour limit reached, resets 8:00am',
   'Your 5-hour limit reached and resets at 6:30pm',
   'Rate limit reached (5-hour limit) - resets 9:15am',
-  
+
   // Edge cases that should NOT match
   'limit reached',
   'general limit reached without time',

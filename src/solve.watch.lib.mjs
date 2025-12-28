@@ -42,7 +42,7 @@ const checkPRMerged = async (owner, repo, prNumber) => {
       owner,
       repo,
       prNumber,
-      operation: 'check_merge_status'
+      operation: 'check_merge_status',
     });
     // If we can't check, assume not merged
     return false;
@@ -64,7 +64,7 @@ const checkForUncommittedChanges = async (tempDir, $) => {
     reportError(error, {
       context: 'check_pr_closed',
       tempDir,
-      operation: 'check_close_status'
+      operation: 'check_close_status',
     });
     // If we can't check, assume no uncommitted changes
   }
@@ -74,18 +74,8 @@ const checkForUncommittedChanges = async (tempDir, $) => {
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
-export const watchForFeedback = async (params) => {
-  const {
-    issueUrl,
-    owner,
-    repo,
-    issueNumber,
-    prNumber,
-    prBranch,
-    branchName,
-    tempDir,
-    argv
-  } = params;
+export const watchForFeedback = async params => {
+  const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
@@ -186,7 +176,7 @@ export const watchForFeedback = async (params) => {
         log,
         formatAligned,
         cleanErrorMessage,
-        $
+        $,
       });
 
       // Check if there's any feedback or if it's the first iteration in temporary mode
@@ -219,7 +209,7 @@ export const watchForFeedback = async (params) => {
               owner,
               repo,
               branchName,
-              operation: 'check_file_in_branch'
+              operation: 'check_file_in_branch',
             });
             // Ignore errors
           }
@@ -258,7 +248,7 @@ export const watchForFeedback = async (params) => {
                 owner,
                 repo,
                 prNumber,
-                operation: 'comment_on_pr'
+                operation: 'comment_on_pr',
               });
               // Don't fail if comment posting fails
               await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
@@ -294,7 +284,7 @@ export const watchForFeedback = async (params) => {
               owner,
               repo,
               branchName,
-              operation: 'verify_file_in_branch'
+              operation: 'verify_file_in_branch',
             });
             // Ignore errors
           }
@@ -338,7 +328,7 @@ export const watchForFeedback = async (params) => {
             formatAligned,
             getResourceSnapshot,
             opencodePath,
-            $
+            $,
           });
         } else if (argv.tool === 'codex') {
           // Use Codex
@@ -369,7 +359,7 @@ export const watchForFeedback = async (params) => {
             formatAligned,
             getResourceSnapshot,
             codexPath,
-            $
+            $,
           });
         } else if (argv.tool === 'agent') {
           // Use Agent
@@ -398,15 +388,29 @@ export const watchForFeedback = async (params) => {
             formatAligned,
             getResourceSnapshot,
             agentPath,
-            $
+            $,
           });
         } else {
           // Use Claude (default)
           const claudeExecLib = await import('./claude.lib.mjs');
-          const { executeClaude } = claudeExecLib;
+          const { executeClaude, checkPlaywrightMcpAvailability } = claudeExecLib;
 
           // Get claude path
           const claudePath = argv.claudePath || 'claude';
+
+          // Check for Playwright MCP availability if using Claude tool
+          if (argv.tool === 'claude' || !argv.tool) {
+            const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+            if (playwrightMcpAvailable) {
+              await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+              argv.promptPlaywrightMcp = true;
+            } else {
+              await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', {
+                verbose: true,
+              });
+              argv.promptPlaywrightMcp = false;
+            }
+          }
 
           toolResult = await executeClaude({
             issueUrl,
@@ -426,17 +430,13 @@ export const watchForFeedback = async (params) => {
             formatAligned,
             getResourceSnapshot,
             claudePath,
-            $
+            $,
           });
         }
 
         if (!toolResult.success) {
           // Check if this is an API error (404, 401, 400, etc.) from the result
-          const isApiError = toolResult.result &&
-            (toolResult.result.includes('API Error:') ||
-             toolResult.result.includes('not_found_error') ||
-             toolResult.result.includes('authentication_error') ||
-             toolResult.result.includes('invalid_request_error'));
+          const isApiError = toolResult.result && (toolResult.result.includes('API Error:') || toolResult.result.includes('not_found_error') || toolResult.result.includes('authentication_error') || toolResult.result.includes('invalid_request_error'));
 
           if (isApiError) {
             consecutiveApiErrors++;
@@ -500,14 +500,13 @@ export const watchForFeedback = async (params) => {
       } else {
         await log(formatAligned('', 'No feedback detected', 'Continuing to watch...', 2));
       }
-
     } catch (error) {
       reportError(error, {
         context: 'watch_pr_general',
         prNumber,
         owner,
         repo,
-        operation: 'watch_pull_request'
+        operation: 'watch_pull_request',
       });
       await log(formatAligned('⚠️', 'Check failed:', cleanErrorMessage(error), 2));
       if (!isTemporaryWatch) {
@@ -533,14 +532,14 @@ export const watchForFeedback = async (params) => {
   // Return latest session data for accurate pricing in log uploads
   return {
     latestSessionId,
-    latestAnthropicCost
+    latestAnthropicCost,
   };
 };
 
 /**
  * Start watch mode after initial execution
  */
-export const startWatchMode = async (params) => {
+export const startWatchMode = async params => {
   const { argv } = params;
 
   if (argv.verbose) {

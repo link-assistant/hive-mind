@@ -7,6 +7,7 @@
 **File**: `src/solve.config.lib.mjs`, lines 86-94
 
 **Change**:
+
 ```javascript
 .option('model', {
   type: 'string',

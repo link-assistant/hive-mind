@@ -4,24 +4,24 @@
 
 // Mock GitHub CLI output for forked PR
 const forkPRData = {
-  headRefName: "issue-3-6da5c9ab",
-  body: "Fixes #3",
+  headRefName: 'issue-3-6da5c9ab',
+  body: 'Fixes #3',
   number: 39,
-  mergeStateStatus: "CLEAN",
+  mergeStateStatus: 'CLEAN',
   headRepositoryOwner: {
-    login: "different-user"  // Different from repo owner
-  }
+    login: 'different-user', // Different from repo owner
+  },
 };
 
 // Mock GitHub CLI output for non-forked PR
 const normalPRData = {
-  headRefName: "issue-163-219b7547",
-  body: "Fixes #163",
+  headRefName: 'issue-163-219b7547',
+  body: 'Fixes #163',
   number: 176,
-  mergeStateStatus: "CLEAN",
+  mergeStateStatus: 'CLEAN',
   headRepositoryOwner: {
-    login: "link-assistant"  // Same as repo owner
-  }
+    login: 'link-assistant', // Same as repo owner
+  },
 };
 
 // Test the fork detection logic
@@ -39,10 +39,10 @@ console.log('Testing fork detection logic:');
 console.log('============================');
 
 // Test with forked PR
-const isFork1 = testForkDetection(forkPRData, "original-owner");
+const isFork1 = testForkDetection(forkPRData, 'original-owner');
 
 // Test with normal PR
-const isFork2 = testForkDetection(normalPRData, "link-assistant");
+const isFork2 = testForkDetection(normalPRData, 'link-assistant');
 
 // Verify results
 console.log('Results:');

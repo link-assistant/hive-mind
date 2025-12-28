@@ -170,9 +170,9 @@ apt_cleanup() {
 
 # --- Function: create swap file ---
 create_swap_file() {
-  log_info "Setting up 2GB total swap space..."
+  log_info "Setting up 4GB total swap space..."
 
-  local target_total_mb=2048  # 2GB target
+  local target_total_mb=4096  # 4GB target
   local current_total_mb=0
 
   # Function to get file size in MB

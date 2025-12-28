@@ -59,7 +59,7 @@ Minimum system requirements to run `hive.mjs`:
 ```
 1 CPU Core
 1 GB RAM
-> 2 GB SWAP
+> 4 GB SWAP
 50 GB disk space
 ```
 

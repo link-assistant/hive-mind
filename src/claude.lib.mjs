@@ -1067,6 +1067,17 @@ export const executeClaudeCommand = async params => {
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'raw' });
                 lastMessage = line;
+
+                // Detect Claude Code terms acceptance message (Issue #1015)
+                // When Claude CLI requires terms acceptance, it outputs a non-JSON message like:
+                // "[ACTION REQUIRED] An update to our Consumer Terms and Privacy Policy has taken effect..."
+                // This should be treated as an error requiring human intervention, not success
+                const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
+                if (termsAcceptancePattern.test(line)) {
+                  commandFailed = true;
+                  await log('\n❌ Claude Code requires terms acceptance - please run `claude` interactively to accept the updated terms', { level: 'error' });
+                  await log('   This is not an error in your code, but Claude CLI needs human interaction.', { level: 'error' });
+                }
               }
             }
           }

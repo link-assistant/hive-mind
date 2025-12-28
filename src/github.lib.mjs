@@ -22,19 +22,22 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
  * @param {number|null} totalCostUSD - Public pricing estimate
  * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
  * @param {Object|null} pricingInfo - Pricing info from agent tool
- * @returns {string} Formatted cost info string for markdown
+ * @returns {string} Formatted cost info string for markdown (empty if no data available)
  */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
+  // Issue #1015: Don't show cost section when all values are unknown (clutters output)
+  const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
+  const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
+  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel);
+  if (!hasPublic && !hasAnthropic && !hasPricing) return '';
   let costInfo = '\n\n💰 **Cost estimation:**';
-  if (pricingInfo && pricingInfo.modelName) {
+  if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
-  if (totalCostUSD !== null && totalCostUSD !== undefined) {
+  if (hasPublic) {
     costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-  } else {
-    costInfo += '\n- Public pricing estimate: unknown';
-  }
+  } else if (hasPricing) costInfo += '\n- Public pricing estimate: unknown';
   if (pricingInfo?.tokenUsage) {
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
@@ -42,17 +45,13 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
     costInfo += tokenInfo;
   }
-  if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+  if (hasAnthropic) {
     costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
-    if (totalCostUSD !== null) {
+    if (hasPublic) {
       const diff = anthropicTotalCostUSD - totalCostUSD;
       const pct = totalCostUSD > 0 ? (diff / totalCostUSD) * 100 : 0;
       costInfo += `\n- Difference: $${diff.toFixed(6)} (${pct > 0 ? '+' : ''}${pct.toFixed(2)}%)`;
-    } else {
-      costInfo += '\n- Difference: unknown';
     }
-  } else if (!pricingInfo) {
-    costInfo += '\n- Calculated by Anthropic: unknown\n- Difference: unknown';
   }
   return costInfo;
 };
@@ -143,16 +142,9 @@ export const getGitHubTokensFromCommand = async () => {
 
   return tokens;
 };
-// Helper function to escape code blocks in log content for safe embedding in markdown
-// When log content is placed inside a markdown code block, any triple backticks (```)
-// in the content will prematurely close the outer code block, breaking the markdown.
-// This function escapes those backticks by replacing them with \`\`\` (with backslashes).
-export const escapeCodeBlocksInLog = logContent => {
-  // Replace all occurrences of triple backticks with escaped version
-  // We add backslashes before backticks to prevent them from being
-  // interpreted as markdown code block delimiters
-  return logContent.replace(/```/g, '\\`\\`\\`');
-};
+// Issue #1015: Escape ``` in logs for safe markdown embedding. Uses zero-width spaces (U+200B)
+// between backticks to prevent premature code block closure in GitHub's markdown renderer.
+export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '`\u200B`\u200B`');
 // Helper function to sanitize log content by masking GitHub tokens
 export const sanitizeLogContent = async logContent => {
   let sanitized = logContent;

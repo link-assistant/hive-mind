@@ -795,6 +795,18 @@ That can be done, but not recommended as reboot have better effect.
 
 Unlicense License - see [LICENSE](./LICENSE)
 
+## 🏆 Best Practices
+
+Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
+
+Key benefits of proper CI/CD:
+
+- AI solvers iterate until all checks pass
+- Consistent quality regardless of human/AI team composition
+- File size limits ensure code is readable by both AI and humans
+
+Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
+
 ## 🤖 Contributing
 
 This project uses AI-driven development. See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for human-AI collaboration guidelines.

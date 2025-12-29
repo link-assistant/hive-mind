@@ -8,7 +8,7 @@
 
 This case study investigates why images in a PR comment were not displayed in a private GitHub repository (`kogeletey/egida-test`), while the same approach worked correctly in a public repository (`konard/high-performance-gaussian-splatting`).
 
-**Root Cause:** The AI agent uploaded screenshots to the repository branch and referenced them using `raw.githubusercontent.com` URLs, which **do not work for private repositories** without authentication.
+**Root Cause:** The AI agent uploaded screenshots to the repository branch and referenced them using `raw.githubusercontent.com` URLs. These URLs **do not support authentication at all** - even authenticated users with access to the private repository cannot view the images because the browser's HTTP requests to fetch images cannot carry GitHub authentication tokens.
 
 ## Timeline of Events
 
@@ -44,10 +44,17 @@ Comment ID: `3697298651` posted to [PR #4](https://github.com/kogeletey/egida-te
 ### Why Images Don't Display
 
 1. **Repository is private:** `kogeletey/egida-test` is a private repository
-2. **raw.githubusercontent.com requires authentication for private repos:** Unlike public repos, accessing raw files from private repos requires:
-   - GitHub authentication token in request headers
-   - OR authenticated browser session (cookies)
-3. **GitHub returns 404:** For security reasons, GitHub returns 404 (not 403) to avoid leaking private repo existence
+2. **raw.githubusercontent.com does NOT support authentication:** This is the critical finding. When you include an authentication token in requests to `raw.githubusercontent.com`, it is simply **ignored**. There is no way to authenticate with this service.
+3. **Browser cannot pass authentication:** When GitHub's web interface renders Markdown containing image URLs, the browser makes separate HTTP requests to fetch those images. These requests cannot carry GitHub authentication tokens, so even authenticated users see 404 errors.
+4. **GitHub returns 404:** For security reasons, GitHub returns 404 (not 403) to avoid leaking private repo existence
+
+### Technical Deep Dive
+
+According to [GitHub Community Discussion #160828](https://github.com/orgs/community/discussions/160828):
+
+> "As far as I can tell, raw.githubusercontent.com doesn't actually support authentication at all. You can throw your personal access token in the header, but it's ignored - no rate limit headers, no feedback, nothing. A 200 response doesn't mean authentication worked - it just means the file exists and was public anyway."
+
+The only official way to do authenticated access to raw files is via the GitHub REST API (`/repos/:owner/:repo/contents/:path`), which provides proper rate limit headers and actually respects authentication tokens. However, this API returns base64-encoded content, not raw binary, making it unsuitable for embedding images in Markdown comments.
 
 ### Contrast with Working Example
 
@@ -63,15 +70,19 @@ The successful PR (#15 in `konard/high-performance-gaussian-splatting`) used ide
 
 ### Primary Cause
 
-**The AI agent was not aware that `raw.githubusercontent.com` URLs don't work for private repositories.**
+**The `raw.githubusercontent.com` service does not support authentication at all.**
 
-The same approach that works for public repos fails silently for private repos - viewers without authentication see broken images (404).
+This means that:
+
+- Even users who are logged into GitHub and have full access to the private repository cannot view images
+- Including authentication tokens in requests has no effect - they are ignored
+- The same approach that works for public repos fails completely for private repos
 
 ### Contributing Factors
 
 1. **GitHub Gist limitation:** `gh gist create` doesn't support binary files, which prevented the initial fallback approach
 2. **No GitHub API for image uploads:** GitHub doesn't provide a REST API for uploading images to issue/PR comments (like the web drag-and-drop does)
-3. **Missing instructions:** The system prompt doesn't include guidance about private repo image handling
+3. **Missing instructions:** The system prompt didn't include guidance about private repo image handling
 
 ## Detailed Evidence
 
@@ -93,76 +104,18 @@ The same approach that works for public repos fails silently for private repos -
 }
 ```
 
-## Proposed Solutions
+## Solution
 
-### Solution 1: Use External Image Hosting (Recommended)
+### Enhanced System Prompt
 
-Upload images to a service that provides public URLs, then embed those URLs in comments.
-
-**Options:**
-
-- **imgbb.com** - Free image hosting API
-- **Cloudinary** - Robust media hosting with API
-- **GitHub Gist with base64** - Encode images as base64 in a text file
-
-**Pros:** Works regardless of repository visibility
-**Cons:** Requires API keys for external services
-
-### Solution 2: Use GitHub User Attachments API (Limited)
-
-GitHub's `user-attachments` URLs work for private repos when the user has access. However:
-
-- There's no official API for uploading these programmatically
-- The web interface creates these via drag-and-drop
-
-**Workaround:** Automate browser interaction to upload images via GitHub web interface.
-
-### Solution 3: Detect Private Repos and Warn
-
-Add detection logic to warn when attempting to reference images in private repos:
-
-```javascript
-// Pseudo-code for system prompt enhancement
-if (repo.isPrivate && imageUrl.includes('raw.githubusercontent.com')) {
-  warn("Images from private repos won't display for unauthenticated viewers");
-  suggestAlternative('Upload to external image hosting or use base64 inline');
-}
-```
-
-### Solution 4: Use Base64 Inline Images (Limited)
-
-Embed small images directly in markdown using data URIs:
-
-```markdown
-![Small Icon](data:image/png;base64,iVBORw0KGgoAAAANS...)
-```
-
-**Pros:** No external dependencies
-**Cons:** GitHub may strip large data URIs; bloats comment size
-
-### Solution 5: Enhanced System Prompt
-
-Add guidance to the AI agent's system prompt:
+Added guidance to the AI agent's system prompt in all prompt files (`src/*.prompts.lib.mjs`):
 
 ```
-When uploading screenshots or images to GitHub comments:
-- For PUBLIC repositories: Commit images to branch and use raw.githubusercontent.com URLs
-- For PRIVATE repositories: Use external image hosting (imgbb, cloudinary) OR encode as base64 gist
-- NEVER use raw.githubusercontent.com URLs for private repos - they will return 404 for viewers
+Uploading images to GitHub comments.
+   - When you need to share screenshots or images in PR/issue comments, be aware of repository visibility:
+      For PUBLIC repositories: You can commit images to the branch and reference them using raw.githubusercontent.com URLs (e.g., https://raw.githubusercontent.com/owner/repo/branch/path/to/image.png). These URLs work without authentication.
+      For PRIVATE repositories: NEVER use raw.githubusercontent.com URLs - they will return 404 even for authenticated viewers. This is because raw.githubusercontent.com does not support authentication at all - the browser's HTTP requests to fetch images cannot carry GitHub authentication tokens. Instead, use base64 encoding for small images by embedding them directly in markdown using data URIs.
 ```
-
-## Recommended Implementation
-
-### Short Term (Immediate Fix)
-
-1. Update `src/claude.prompts.lib.mjs` to include private repository image handling guidance
-2. Add detection for private repositories before suggesting image upload methods
-
-### Long Term (Robust Solution)
-
-1. Integrate with external image hosting service (e.g., imgbb or Cloudinary)
-2. Create helper function for uploading and obtaining public image URLs
-3. Fall back gracefully when gist binary upload fails
 
 ## Files for Reference
 
@@ -171,13 +124,13 @@ When uploading screenshots or images to GitHub comments:
 
 ## External References
 
+- [GitHub Discussion: raw.githubusercontent.com authentication](https://github.com/orgs/community/discussions/160828)
 - [GitHub Discussion: raw.githubusercontent.com 404 for private repos](https://github.com/orgs/community/discussions/53538)
 - [GitHub Discussion: API for uploading images to comments](https://github.com/orgs/community/discussions/28219)
 - [GitHub CLI Issue: Upload files to PRs/Issues](https://github.com/cli/cli/issues/1895)
-- [Codegenes: Downloading from private repos](https://www.codegenes.net/blog/how-can-i-download-a-single-raw-file-from-a-private-github-repo-using-the-command-line/)
 
 ## Conclusion
 
-The image upload failure was caused by using `raw.githubusercontent.com` URLs for a private repository. This approach works for public repos but fails silently for private ones. The solution requires either using external image hosting services or implementing browser automation for GitHub's web-based image upload.
+The image upload failure was caused by using `raw.githubusercontent.com` URLs for a private repository. The critical finding is that **raw.githubusercontent.com does not support authentication at all** - even authenticated users cannot view images from private repos because browser HTTP requests cannot carry GitHub authentication tokens.
 
-The AI agent correctly identified that gist binary uploads don't work and chose an alternative (committing to branch), but was not aware that this alternative fails for private repositories.
+For private repositories, the only viable solution for embedding images in Markdown comments is to use base64-encoded data URIs for small images. This approach embeds the image data directly in the Markdown, bypassing the authentication problem entirely.

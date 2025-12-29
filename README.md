@@ -301,99 +301,53 @@ review --repo owner/repo --pr 456
 
 ```bash
 solve <issue-url> [options]
-
-  --model, -m           Model (sonnet, opus for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
-  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
-  --fork, -f            Fork repo if no write access         [default: false]
-  --auto-fork           Automatically fork public repos without write access (fails for private)
-                        [default: true]
-  --base-branch, -b     Target branch for PR                 [default: repo default]
-  --resume, -r          Resume from session ID
-  --verbose, -v         Enable verbose logging               [default: false]
-  --dry-run, -n         Prepare only, don't execute          [default: false]
-  --only-prepare-command  Only prepare and print the command [default: false]
-  --skip-tool-check     Skip tool connection check (use --no-tool-check to disable)
-                        [default: false]
-  --auto-pull-request-creation  Create draft PR before execution [default: true]
-  --attach-logs         Attach logs to PR (⚠️ sensitive)    [default: false]
-  --auto-close-pull-request-on-fail  Close PR on fail        [default: false]
-  --auto-continue       Continue with existing PR when issue URL is provided
-                        [default: true]
-  --auto-continue-limit, -c  Auto-continue when limit resets [default: false]
-  --auto-resume-on-errors  Auto-resume on network errors (503, etc.)
-                        [default: false]
-  --auto-continue-only-on-new-comments  Fail if no new comments
-                        [default: false]
-  --auto-commit-uncommitted-changes  Auto-commit changes    [default: false]
-  --auto-merge-default-branch-to-pull-request-branch  Merge default branch to PR branch
-                        (only in continue mode) [default: false]
-  --allow-fork-divergence-resolution-using-force-push-with-lease
-                        Allow force-push with --force-with-lease when fork diverges
-                        (DANGEROUS: can overwrite fork history) [default: false]
-  --prefix-fork-name-with-owner-name  Prefix fork name with owner (owner-repo)
-                        Useful for forking repos with same name from different owners
-                        [default: true]
-  --continue-only-on-feedback  Only continue if feedback detected
-                        [default: false]
-  --watch, -w           Monitor for feedback and auto-restart [default: false]
-  --watch-interval      Feedback check interval (seconds)    [default: 60]
-  --min-disk-space      Minimum disk space in MB             [default: 500]
-  --log-dir, -l         Directory for log files              [default: cwd]
-  --think               Thinking level (low, medium, high, max)  [optional]
-  --sentry              Enable Sentry error tracking (use --no-sentry to disable)
-                        [default: true]
-  --auto-cleanup        Delete temp directory on completion
-                        [default: true for private repos, false for public repos]
-  --version             Show version number
-  --help, -h            Show help
 ```
+
+**Most frequently used options:**
+
+| Option    | Alias | Description                             | Default |
+| --------- | ----- | --------------------------------------- | ------- |
+| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--think` |       | Thinking level (low, medium, high, max) | -       |
+
+**Other useful options:**
+
+| Option          | Alias | Description                                      | Default |
+| --------------- | ----- | ------------------------------------------------ | ------- |
+| `--tool`        |       | AI tool (claude, opencode, codex, agent)         | claude  |
+| `--verbose`     | `-v`  | Enable verbose logging                           | false   |
+| `--attach-logs` |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
+| `--help`        | `-h`  | Show all available options                       | -       |
+
+> **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
 ## 🔧 hive Options
 
 ```bash
 hive <github-url> [options]
-
-  --monitor-tag, -t     Label to monitor                     [default: "help wanted"]
-  --all-issues, -a      Monitor all issues (ignore labels)   [default: false]
-  --skip-issues-with-prs, -s  Skip issues with existing PRs [default: false]
-  --concurrency, -c     Parallel workers                     [default: 2]
-  --pull-requests-per-issue, -p  Number of PRs per issue    [default: 1]
-  --model, -m           Model (opus, sonnet for claude; grok-code-fast-1, gpt4o for opencode; gpt5, gpt5-codex, o3 for codex; grok, sonnet, haiku for agent)
-                        [default: sonnet for claude, grok-code-fast-1 for opencode, gpt-5 for codex, grok-code-fast-1 for agent]
-  --tool                AI tool (claude, opencode, codex, agent)    [default: claude]
-  --interval, -i        Poll interval (seconds)              [default: 300]
-  --max-issues          Limit processed issues               [default: 0 (unlimited)]
-  --once                Single run (don't monitor)           [default: false]
-  --dry-run             List issues without processing       [default: false]
-  --skip-tool-check     Skip tool connection check (use --no-tool-check to disable)
-                        [default: false]
-  --verbose, -v         Enable verbose logging               [default: false]
-  --min-disk-space      Minimum disk space in MB             [default: 500]
-  --auto-cleanup        Clean /tmp/* /var/tmp/* on success   [default: false]
-  --fork, -f            Fork repos if no write access        [default: false]
-  --auto-fork           Automatically fork public repos without write access
-                        [default: true]
-  --attach-logs         Attach logs to PRs (⚠️ sensitive)   [default: false]
-  --project-number, -pn  GitHub Project number to monitor
-  --project-owner, -po  GitHub Project owner (org or user)
-  --project-status, -ps  Project status column to monitor    [default: "Ready"]
-  --project-mode, -pm   Enable project-based monitoring      [default: false]
-  --youtrack-mode       Enable YouTrack mode instead of GitHub  [default: false]
-  --youtrack-stage      Override YouTrack stage to monitor
-  --youtrack-project    Override YouTrack project code
-  --target-branch, -tb  Target branch for pull requests      [default: repo default]
-  --log-dir, -l         Directory for log files              [default: cwd]
-  --auto-continue       Pass --auto-continue to solve for each issue
-                        [default: true]
-  --think               Thinking level (low, medium, high, max)  [optional]
-  --sentry              Enable Sentry error tracking (use --no-sentry to disable)
-                        [default: true]
-  --watch, -w           Monitor for feedback and auto-restart  [default: false]
-  --issue-order, -o     Order issues by date (asc, desc)     [default: asc]
-  --version             Show version number
-  --help, -h            Show help
 ```
+
+**Most frequently used options:**
+
+| Option         | Alias | Description                             | Default |
+| -------------- | ----- | --------------------------------------- | ------- |
+| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--think`      |       | Thinking level (low, medium, high, max) | -       |
+| `--all-issues` | `-a`  | Monitor all issues (ignore labels)      | false   |
+| `--once`       |       | Single run (don't monitor continuously) | false   |
+
+**Other useful options:**
+
+| Option                   | Alias | Description                                       | Default |
+| ------------------------ | ----- | ------------------------------------------------- | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, agent)                 | claude  |
+| `--concurrency`          | `-c`  | Number of parallel workers                        | 2       |
+| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                     | false   |
+| `--verbose`              | `-v`  | Enable verbose logging                            | false   |
+| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data) | false   |
+| `--help`                 | `-h`  | Show all available options                        | -       |
+
+> **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
 
 ## 🤖 Telegram Bot
 
@@ -641,12 +595,14 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 ## 🔧 Configuration
 
-Authentication is handled through:
+**Authentication:**
 
 - `gh auth login` - GitHub CLI authentication
 - `claude-profiles` - Claude authentication profile migration to server
 
-No environment variable configuration is currently supported.
+**Environment Variables & Advanced Options:**
+
+For comprehensive configuration including environment variables, timeouts, retry limits, Telegram bot settings, YouTrack integration, and all CLI options, see [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
 
 ## 🐛 Reporting Issues
 

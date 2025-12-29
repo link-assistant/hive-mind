@@ -283,8 +283,8 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('prompt-playwright-mcp', {
         type: 'boolean',
-        description: 'Enable Playwright MCP browser automation hints in system prompt. When not specified, auto-detects if Playwright MCP is installed. Use --no-prompt-playwright-mcp to explicitly disable. Only supported for --tool claude.',
-        default: undefined,
+        description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Only supported for --tool claude.',
+        default: true,
       })
       .parserConfiguration({
         'boolean-negation': true,

@@ -14,6 +14,17 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
+// Import Claude command builder for generating resume commands
+import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
+
+// Helper to display resume command at end of session
+const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
+  if (!sessionId || !tempDir) return;
+  const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
+  await log('\n💡 To continue this session in Claude Code interactive mode:\n');
+  await log(`   ${cmd}\n`);
+};
+
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -1250,6 +1261,7 @@ export const executeClaudeCommand = async params => {
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
         // Log attachment will be handled by solve.mjs when it receives success=false
         await log('', { verbose: true });
+        await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
         return {
           success: false,
           sessionId,
@@ -1349,6 +1361,7 @@ export const executeClaudeCommand = async params => {
           await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
         }
       }
+      await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
       return {
         success: true,
         sessionId,

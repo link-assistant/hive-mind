@@ -17,14 +17,14 @@ This approach ensures consistent quality regardless of whether the team consists
 
 We provide ready-to-use templates for multiple languages with all best practices pre-configured:
 
-| Language | Template Repository |
-|----------|---------------------|
-| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template) |
-| Rust | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template) |
-| Python | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
-| Go | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template) |
-| C# | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
-| Java | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template) |
+| Language              | Template Repository                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| JavaScript/TypeScript | [js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template)         |
+| Rust                  | [rust-ai-driven-development-pipeline-template](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template)     |
+| Python                | [python-ai-driven-development-pipeline-template](https://github.com/link-foundation/python-ai-driven-development-pipeline-template) |
+| Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
+| C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
+| Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
 
 ## Universal Best Practices
 
@@ -33,11 +33,13 @@ We provide ready-to-use templates for multiple languages with all best practices
 **Enforce a maximum of 1000-1500 lines per code file.**
 
 This constraint benefits both AI and human developers:
+
 - AI models can read and understand entire files within context windows
 - Humans can navigate and comprehend files without cognitive overload
 - Forces modular, well-organized code architecture
 
 Example enforcement in CI:
+
 ```bash
 find src/ -name "*.js" -exec wc -l {} + | awk '$1 > 1000 {exit 1}'
 ```
@@ -46,14 +48,14 @@ find src/ -name "*.js" -exec wc -l {} + | awk '$1 > 1000 {exit 1}'
 
 Consistent formatting eliminates style debates and reduces diff noise:
 
-| Language | Tool |
-|----------|------|
-| JavaScript/TypeScript | ESLint + Prettier |
-| Rust | rustfmt |
-| Python | Ruff |
-| Go | gofmt |
-| C# | dotnet format |
-| Java | Spotless (Google Java Format) |
+| Language              | Tool                          |
+| --------------------- | ----------------------------- |
+| JavaScript/TypeScript | ESLint + Prettier             |
+| Rust                  | rustfmt                       |
+| Python                | Ruff                          |
+| Go                    | gofmt                         |
+| C#                    | dotnet format                 |
+| Java                  | Spotless (Google Java Format) |
 
 All templates include pre-commit hooks that run formatters automatically before each commit.
 
@@ -61,14 +63,14 @@ All templates include pre-commit hooks that run formatters automatically before 
 
 Catch bugs and enforce patterns before code reaches review:
 
-| Language | Tools |
-|----------|-------|
-| JavaScript/TypeScript | ESLint with strict rules |
-| Rust | Clippy (pedantic + nursery) |
-| Python | Ruff + mypy |
-| Go | go vet + staticcheck |
-| C# | .NET analyzers (warnings as errors) |
-| Java | SpotBugs (maximum effort) |
+| Language              | Tools                               |
+| --------------------- | ----------------------------------- |
+| JavaScript/TypeScript | ESLint with strict rules            |
+| Rust                  | Clippy (pedantic + nursery)         |
+| Python                | Ruff + mypy                         |
+| Go                    | go vet + staticcheck                |
+| C#                    | .NET analyzers (warnings as errors) |
+| Java                  | SpotBugs (maximum effort)           |
 
 ### 4. Comprehensive Testing
 
@@ -90,12 +92,12 @@ All templates use a changeset system that:
 - **Generates changelogs** - Release notes are compiled automatically
 - **Supports semantic versioning** - patch/minor/major bumps are explicit
 
-| Language | Tool |
-|----------|------|
-| JavaScript/TypeScript | @changesets/cli |
-| Rust | changelog.d + custom scripts |
-| Python | Scriv |
-| Go, C#, Java | Custom changeset workflows |
+| Language              | Tool                         |
+| --------------------- | ---------------------------- |
+| JavaScript/TypeScript | @changesets/cli              |
+| Rust                  | changelog.d + custom scripts |
+| Python                | Scriv                        |
+| Go, C#, Java          | Custom changeset workflows   |
 
 ### 6. Pre-commit Hooks
 

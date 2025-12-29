@@ -800,6 +800,7 @@ Unlicense License - see [LICENSE](./LICENSE)
 Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
 
 Key benefits of proper CI/CD:
+
 - AI solvers iterate until all checks pass
 - Consistent quality regardless of human/AI team composition
 - File size limits ensure code is readable by both AI and humans

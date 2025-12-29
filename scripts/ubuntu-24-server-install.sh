@@ -1364,56 +1364,6 @@ else
   log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
 fi
 
-# --- Install Figma Developer MCP ---
-# Reference: https://github.com/GLips/Figma-Context-MCP
-# This MCP server provides Figma design context to AI coding agents
-log_info "Installing Figma Developer MCP server..."
-if npm list -g figma-developer-mcp &>/dev/null; then
-  log_info "Figma Developer MCP already installed, updating..."
-  npm update -g figma-developer-mcp --no-fund --silent
-else
-  log_info "Installing Figma Developer MCP package..."
-  npm install -g figma-developer-mcp --no-fund --silent
-fi
-log_success "Figma Developer MCP installed"
-
-# --- Configure Figma Developer MCP for Claude CLI ---
-log_info "Configuring Figma Developer MCP for Claude CLI..."
-
-if command -v claude &>/dev/null; then
-  # Check if figma MCP is already configured
-  if claude mcp list 2>/dev/null | grep -q "figma"; then
-    log_info "Figma Developer MCP already configured in Claude CLI, removing old configuration..."
-    claude mcp remove figma 2>/dev/null || log_warning "Could not remove old Figma MCP configuration"
-  fi
-
-  # Add the Figma Developer MCP server to Claude CLI configuration with user scope
-  # Using -s user ensures it's available for all tasks in all folders
-  # Configuration:
-  # - Uses npx to run figma-developer-mcp package
-  # - --figma-api-key uses FIGMA_API_KEY environment variable
-  # - --stdio for standard I/O communication with Claude
-  # Note: FIGMA_API_KEY must be set in the environment before running Claude
-  log_info "Adding Figma Developer MCP to Claude CLI configuration (user scope)..."
-  claude mcp add figma -s user -e FIGMA_API_KEY -- npx -y figma-developer-mcp@latest --figma-api-key=\${FIGMA_API_KEY} --stdio 2>/dev/null || {
-    log_warning "Could not add Figma Developer MCP to Claude CLI."
-    log_note "You may need to run manually: claude mcp add figma -s user -e FIGMA_API_KEY -- npx -y figma-developer-mcp@latest --figma-api-key=\${FIGMA_API_KEY} --stdio"
-  }
-
-  # Verify the configuration
-  if claude mcp get figma 2>/dev/null | grep -q "figma"; then
-    log_success "Figma Developer MCP successfully configured"
-  else
-    log_warning "Figma Developer MCP configuration could not be verified"
-  fi
-else
-  log_warning "Claude CLI is not available. Skipping Figma MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add figma -s user -e FIGMA_API_KEY -- npx -y figma-developer-mcp@latest --figma-api-key=\${FIGMA_API_KEY} --stdio"
-fi
-
-log_note "To use Figma MCP, set FIGMA_API_KEY environment variable with your Figma personal access token"
-log_note "Get your token from: https://www.figma.com/developers/api#access-tokens"
-
 # --- Git setup with GitHub identity (only if authenticated) ---
 if gh auth status &>/dev/null; then
   log_info "Configuring Git with GitHub identity..."
@@ -1523,16 +1473,6 @@ else
 fi
 
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
-
-echo ""
-echo "MCP Servers:"
-if npm list -g figma-developer-mcp &>/dev/null; then
-  log_success "Figma Developer MCP: installed"
-  log_note "Set FIGMA_API_KEY environment variable to use"
-else
-  log_warning "Figma Developer MCP: not found"
-fi
-if npm list -g @playwright/mcp &>/dev/null; then log_success "Playwright MCP: installed"; else log_warning "Playwright MCP: not found"; fi
 
 echo ""
 echo "C/C++ Development Tools:"

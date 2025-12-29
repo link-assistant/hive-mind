@@ -14,18 +14,18 @@ This case study investigates why images in a PR comment were not displayed in a 
 
 ### Working Session (2025-12-29T19:06:00Z - 2025-12-29T19:15:00Z)
 
-| Time (UTC) | Event |
-|------------|-------|
-| 19:06:00 | AI work session started on PR #4 in `kogeletey/egida-test` |
-| 19:07:00 | Attempted to download Figma design image - GitHub asset URL returned 404 initially |
-| 19:09:43 | First screenshot attempt failed due to Playwright MCP path restriction |
-| 19:09:48 | Successfully captured `current-implementation.png` using relative filename |
-| 19:10:00 | Downloaded Figma design image with GitHub token authentication |
-| 19:13:11 | Captured `updated-implementation.png` after design adjustments |
-| 19:14:07 | **Key Failure:** Attempted `gh gist create` with binary files - got "binary file not supported" |
-| 19:14:16 | **Alternative taken:** Committed screenshots directly to branch `issue-3-f18b9a29708e` |
-| 19:14:25 | Posted PR comment with `raw.githubusercontent.com` URLs |
-| 19:15:04 | Session ended |
+| Time (UTC) | Event                                                                                           |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| 19:06:00   | AI work session started on PR #4 in `kogeletey/egida-test`                                      |
+| 19:07:00   | Attempted to download Figma design image - GitHub asset URL returned 404 initially              |
+| 19:09:43   | First screenshot attempt failed due to Playwright MCP path restriction                          |
+| 19:09:48   | Successfully captured `current-implementation.png` using relative filename                      |
+| 19:10:00   | Downloaded Figma design image with GitHub token authentication                                  |
+| 19:13:11   | Captured `updated-implementation.png` after design adjustments                                  |
+| 19:14:07   | **Key Failure:** Attempted `gh gist create` with binary files - got "binary file not supported" |
+| 19:14:16   | **Alternative taken:** Committed screenshots directly to branch `issue-3-f18b9a29708e`          |
+| 19:14:25   | Posted PR comment with `raw.githubusercontent.com` URLs                                         |
+| 19:15:04   | Session ended                                                                                   |
 
 ## Problem Analysis
 
@@ -34,6 +34,7 @@ This case study investigates why images in a PR comment were not displayed in a 
 Comment ID: `3697298651` posted to [PR #4](https://github.com/kogeletey/egida-test/pull/4#issuecomment-3697298651)
 
 **Image References Used:**
+
 ```markdown
 ![Figma Design](https://raw.githubusercontent.com/kogeletey/egida-test/issue-3-f18b9a29708e/figma-design.png)
 ![Previous Implementation](https://raw.githubusercontent.com/kogeletey/egida-test/issue-3-f18b9a29708e/current-implementation.png)
@@ -51,6 +52,7 @@ Comment ID: `3697298651` posted to [PR #4](https://github.com/kogeletey/egida-te
 ### Contrast with Working Example
 
 The successful PR (#15 in `konard/high-performance-gaussian-splatting`) used identical URL pattern:
+
 ```markdown
 ![Updated Design](https://github.com/konard/high-performance-gaussian-splatting/blob/issue-14-450f7123a953/screenshots/new-design.png?raw=true)
 ```
@@ -60,6 +62,7 @@ The successful PR (#15 in `konard/high-performance-gaussian-splatting`) used ide
 ## Root Causes Identified
 
 ### Primary Cause
+
 **The AI agent was not aware that `raw.githubusercontent.com` URLs don't work for private repositories.**
 
 The same approach that works for public repos fails silently for private repos - viewers without authentication see broken images (404).
@@ -73,6 +76,7 @@ The same approach that works for public repos fails silently for private repos -
 ## Detailed Evidence
 
 ### Failed Gist Upload Attempt (from logs)
+
 ```json
 {
   "command": "gh gist create /tmp/.../figma-design.png /tmp/.../current-implementation.png /tmp/.../updated-implementation.png --desc \"Screenshots comparison for PR #4\"",
@@ -81,6 +85,7 @@ The same approach that works for public repos fails silently for private repos -
 ```
 
 ### Successful Commit to Branch
+
 ```json
 {
   "command": "cp screenshots to repo && git add && git commit && git push",
@@ -95,6 +100,7 @@ The same approach that works for public repos fails silently for private repos -
 Upload images to a service that provides public URLs, then embed those URLs in comments.
 
 **Options:**
+
 - **imgbb.com** - Free image hosting API
 - **Cloudinary** - Robust media hosting with API
 - **GitHub Gist with base64** - Encode images as base64 in a text file
@@ -105,6 +111,7 @@ Upload images to a service that provides public URLs, then embed those URLs in c
 ### Solution 2: Use GitHub User Attachments API (Limited)
 
 GitHub's `user-attachments` URLs work for private repos when the user has access. However:
+
 - There's no official API for uploading these programmatically
 - The web interface creates these via drag-and-drop
 
@@ -118,13 +125,14 @@ Add detection logic to warn when attempting to reference images in private repos
 // Pseudo-code for system prompt enhancement
 if (repo.isPrivate && imageUrl.includes('raw.githubusercontent.com')) {
   warn("Images from private repos won't display for unauthenticated viewers");
-  suggestAlternative("Upload to external image hosting or use base64 inline");
+  suggestAlternative('Upload to external image hosting or use base64 inline');
 }
 ```
 
 ### Solution 4: Use Base64 Inline Images (Limited)
 
 Embed small images directly in markdown using data URIs:
+
 ```markdown
 ![Small Icon](data:image/png;base64,iVBORw0KGgoAAAANS...)
 ```
@@ -146,10 +154,12 @@ When uploading screenshots or images to GitHub comments:
 ## Recommended Implementation
 
 ### Short Term (Immediate Fix)
+
 1. Update `src/claude.prompts.lib.mjs` to include private repository image handling guidance
 2. Add detection for private repositories before suggesting image upload methods
 
 ### Long Term (Robust Solution)
+
 1. Integrate with external image hosting service (e.g., imgbb or Cloudinary)
 2. Create helper function for uploading and obtaining public image URLs
 3. Fall back gracefully when gist binary upload fails

@@ -801,9 +801,7 @@ if (isDirectExecution) {
             if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-            if (argv.promptPlaywrightMcp === true) args.push('--prompt-playwright-mcp');
-            if (argv.promptPlaywrightMcp === false) args.push('--no-prompt-playwright-mcp');
-
+            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
             // Log the actual command being executed so users can investigate/reproduce
             const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}`;
             await log(`   📋 Command: ${command}`);

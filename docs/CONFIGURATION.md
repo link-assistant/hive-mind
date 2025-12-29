@@ -21,6 +21,7 @@ The Hive Mind application supports extensive configuration through environment v
   - [YouTrack Integration](#14-youtrack-integration)
   - [Tool Paths](#15-tool-paths)
   - [Debug and Development](#16-debug-and-development)
+  - [Playwright MCP](#17-playwright-mcp)
 - [Command-Line Options](#command-line-options)
   - [solve Options](#solve-options)
   - [hive Options](#hive-options)
@@ -177,6 +178,81 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | `NODE_ENV`           | production | Node.js environment   |
 | `CI`                 | false      | CI environment flag   |
 | `VERBOSE`            | false      | Enable verbose output |
+
+### 17. Playwright MCP
+
+Playwright MCP (Model Context Protocol) provides browser automation capabilities for Claude Code, enabling web scraping, UI testing, and interaction with dynamic web pages.
+
+#### Installation
+
+```bash
+# Recommended: Install with memory-safe settings
+claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless
+
+# With additional options for servers
+claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000
+```
+
+#### Command-Line Arguments
+
+| Argument                 | Description                                    | Memory Impact                              |
+| ------------------------ | ---------------------------------------------- | ------------------------------------------ |
+| `--isolated`             | Ephemeral browser contexts (MOST IMPORTANT)    | **HIGH** - Prevents process accumulation   |
+| `--headless`             | Run browser in headless mode                   | **MEDIUM** - Reduces UI memory overhead    |
+| `--browser <type>`       | Browser: chromium, firefox, webkit, msedge     | **VARIES** - WebKit often uses less memory |
+| `--no-sandbox`           | Disable sandbox (controlled environments only) | **LOW** - Reduces memory slightly          |
+| `--timeout-action <ms>`  | Timeout for actions (default: 5000)            | **N/A** - Prevents hung processes          |
+| `--viewport-size <size>` | Set viewport dimensions (e.g., "1280x720")     | **LOW** - Affects rendering memory         |
+| `--storage-state <path>` | Load auth state without full profile           | **MEDIUM** - Auth without profile bloat    |
+
+#### Scope Options
+
+| Scope     | Description                     | Config Location                     |
+| --------- | ------------------------------- | ----------------------------------- |
+| `local`   | Current directory only          | `~/.claude.json` (project-specific) |
+| `project` | Team-shared via version control | `.mcp.json` (project root)          |
+| `user`    | Available globally              | `~/.claude.json` (user section)     |
+
+#### JSON Configuration
+
+Direct configuration in `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--isolated", "--headless"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "/opt/playwright/browsers"
+      }
+    }
+  }
+}
+```
+
+#### MCP Commands
+
+```bash
+# List configured MCP servers
+claude mcp list
+
+# Get server details
+claude mcp get playwright
+
+# Remove server
+claude mcp remove playwright
+```
+
+#### Best Practices
+
+1. **Always use `--isolated` mode** - Prevents Chrome process accumulation and memory leaks
+2. **Pin to a specific version** - Use `@playwright/mcp@0.0.49` instead of `@latest` for stability
+3. **Use `--headless` for servers** - Reduces memory overhead in CI/CD and production environments
+4. **Restart Claude Code periodically** - For long-running sessions to clear accumulated browser resources
+
+For comprehensive configuration options, troubleshooting, and advanced use cases, see the detailed guide:
+[Playwright MCP Configuration Guide](./case-studies/issue-837-playwright-mcp-chrome-leak/04-CLAUDE-PLAYWRIGHT-MCP-CONFIGURATION.md)
 
 ---
 

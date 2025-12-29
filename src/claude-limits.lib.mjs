@@ -225,6 +225,184 @@ export async function getGitHubRateLimits(verbose = false) {
 }
 
 /**
+ * Get CPU load average information
+ * Returns 1-minute, 5-minute, and 15-minute load averages
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either CPU load data or error message
+ */
+export async function getCpuLoadInfo(verbose = false) {
+  try {
+    let loadAvg1, loadAvg5, loadAvg15, cpuCount;
+
+    if (process.platform === 'win32') {
+      // Windows: Get CPU count and approximate load
+      const { stdout: cpuStdout } = await execAsync('wmic cpu get NumberOfCores /format:value 2>nul');
+      const coresMatch = cpuStdout.match(/NumberOfCores=(\d+)/);
+      cpuCount = coresMatch ? parseInt(coresMatch[1]) : 1;
+
+      // Windows doesn't have load average, use current CPU usage as approximation
+      const { stdout: loadStdout } = await execAsync('wmic cpu get LoadPercentage /format:value 2>nul');
+      const loadMatch = loadStdout.match(/LoadPercentage=(\d+)/);
+      const currentLoad = loadMatch ? (parseFloat(loadMatch[1]) / 100) * cpuCount : 0;
+      loadAvg1 = loadAvg5 = loadAvg15 = currentLoad;
+    } else {
+      // Unix-like systems (Linux, macOS)
+      const { stdout: loadStdout } = await execAsync('cat /proc/loadavg 2>/dev/null || uptime');
+      const numbers = loadStdout.match(/[\d.]+/g);
+
+      if (numbers && numbers.length >= 3) {
+        loadAvg1 = parseFloat(numbers[0]);
+        loadAvg5 = parseFloat(numbers[1]);
+        loadAvg15 = parseFloat(numbers[2]);
+      }
+
+      // Get CPU count
+      if (process.platform === 'darwin') {
+        const { stdout: cpuStdout } = await execAsync('sysctl -n hw.ncpu 2>/dev/null');
+        cpuCount = parseInt(cpuStdout.trim()) || 1;
+      } else {
+        const { stdout: cpuStdout } = await execAsync('nproc 2>/dev/null || grep -c processor /proc/cpuinfo 2>/dev/null');
+        cpuCount = parseInt(cpuStdout.trim()) || 1;
+      }
+    }
+
+    if (isNaN(loadAvg1) || isNaN(cpuCount)) {
+      return {
+        success: false,
+        error: 'Failed to parse CPU load information',
+      };
+    }
+
+    // Calculate usage percentage based on load average vs CPU count
+    // Load average of 1.0 per CPU = 100% utilization
+    const usagePercentage = Math.min(100, Math.round((loadAvg1 / cpuCount) * 100));
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
+    }
+
+    return {
+      success: true,
+      cpuLoad: {
+        loadAvg1,
+        loadAvg5,
+        loadAvg15,
+        cpuCount,
+        usagePercentage,
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits CPU load error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get CPU load info: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Get RAM/memory usage information
+ * Returns total, used, and available memory with usage percentage
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either memory data or error message
+ */
+export async function getMemoryInfo(verbose = false) {
+  try {
+    let totalMB, usedMB, availableMB;
+
+    if (process.platform === 'darwin') {
+      // macOS: use vm_stat and sysctl
+      const { stdout: memTotal } = await execAsync('sysctl -n hw.memsize 2>/dev/null');
+      const totalBytes = parseInt(memTotal.trim());
+      totalMB = Math.round(totalBytes / (1024 * 1024));
+
+      const { stdout: vmStat } = await execAsync('vm_stat 2>/dev/null');
+      const pageSize = 4096; // Default page size on macOS
+      const freeMatch = vmStat.match(/Pages free:\s+(\d+)/);
+      const inactiveMatch = vmStat.match(/Pages inactive:\s+(\d+)/);
+      const speculativeMatch = vmStat.match(/Pages speculative:\s+(\d+)/);
+
+      const freePages = freeMatch ? parseInt(freeMatch[1]) : 0;
+      const inactivePages = inactiveMatch ? parseInt(inactiveMatch[1]) : 0;
+      const speculativePages = speculativeMatch ? parseInt(speculativeMatch[1]) : 0;
+
+      // Available = free + inactive + speculative (approximately)
+      availableMB = Math.round(((freePages + inactivePages + speculativePages) * pageSize) / (1024 * 1024));
+      usedMB = totalMB - availableMB;
+    } else if (process.platform === 'win32') {
+      // Windows: use wmic
+      const { stdout } = await execAsync('wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /format:value 2>nul');
+      const freeMatch = stdout.match(/FreePhysicalMemory=(\d+)/);
+      const totalMatch = stdout.match(/TotalVisibleMemorySize=(\d+)/);
+
+      if (freeMatch && totalMatch) {
+        const freeKB = parseInt(freeMatch[1]);
+        const totalKB = parseInt(totalMatch[1]);
+        totalMB = Math.round(totalKB / 1024);
+        availableMB = Math.round(freeKB / 1024);
+        usedMB = totalMB - availableMB;
+      }
+    } else {
+      // Linux: use /proc/meminfo
+      const { stdout } = await execAsync("grep -E '^(MemTotal|MemAvailable):' /proc/meminfo 2>/dev/null");
+      const totalMatch = stdout.match(/MemTotal:\s+(\d+)/);
+      const availableMatch = stdout.match(/MemAvailable:\s+(\d+)/);
+
+      if (totalMatch && availableMatch) {
+        const totalKB = parseInt(totalMatch[1]);
+        const availableKB = parseInt(availableMatch[1]);
+        totalMB = Math.round(totalKB / 1024);
+        availableMB = Math.round(availableKB / 1024);
+        usedMB = totalMB - availableMB;
+      }
+    }
+
+    if (isNaN(totalMB) || isNaN(usedMB) || isNaN(availableMB)) {
+      return {
+        success: false,
+        error: 'Failed to parse memory information',
+      };
+    }
+
+    // Calculate used percentage
+    const usedPercentage = Math.round((usedMB / totalMB) * 100);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits memory: ${usedMB}MB used of ${totalMB}MB total (${usedPercentage}% used)`);
+    }
+
+    return {
+      success: true,
+      memory: {
+        totalMB,
+        usedMB,
+        availableMB,
+        totalBytes: totalMB * 1024 * 1024,
+        usedBytes: usedMB * 1024 * 1024,
+        availableBytes: availableMB * 1024 * 1024,
+        usedPercentage,
+        freePercentage: 100 - usedPercentage,
+        totalFormatted: formatBytes(totalMB * 1024 * 1024),
+        usedFormatted: formatBytes(usedMB * 1024 * 1024),
+        availableFormatted: formatBytes(availableMB * 1024 * 1024),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits memory error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get memory info: ${error.message}`,
+    };
+  }
+}
+
+/**
  * Get disk space information for the current filesystem
  * Returns total, used, available space and usage percentage
  *
@@ -463,14 +641,33 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * @param {Object} usage - The usage object from getClaudeUsageLimits
  * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
  * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
+ * @param {Object} cpuLoad - Optional CPU load info from getCpuLoadInfo
+ * @param {Object} memory - Optional memory info from getMemoryInfo
  * @returns {string} Formatted message
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null) {
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
   // Show current time
   message += `Current time: ${formatCurrentTime()}\n\n`;
+
+  // CPU load section (if provided)
+  if (cpuLoad) {
+    message += 'CPU\n';
+    const usedBar = getProgressBar(cpuLoad.usagePercentage);
+    message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
+    message += `Load avg: ${cpuLoad.loadAvg1.toFixed(2)} (1m) ${cpuLoad.loadAvg5.toFixed(2)} (5m) ${cpuLoad.loadAvg15.toFixed(2)} (15m)\n`;
+    message += `${cpuLoad.cpuCount} CPU core${cpuLoad.cpuCount > 1 ? 's' : ''}\n\n`;
+  }
+
+  // Memory section (if provided)
+  if (memory) {
+    message += 'RAM\n';
+    const usedBar = getProgressBar(memory.usedPercentage);
+    message += `${usedBar} ${memory.usedPercentage}% used\n`;
+    message += `${memory.usedFormatted} used of ${memory.totalFormatted}\n\n`;
+  }
 
   // Disk space section (if provided)
   if (diskSpace) {
@@ -585,6 +782,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
 export default {
   getClaudeUsageLimits,
+  getCpuLoadInfo,
+  getMemoryInfo,
   getDiskSpaceInfo,
   getGitHubRateLimits,
   getProgressBar,

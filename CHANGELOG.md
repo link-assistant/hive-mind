@@ -1,5 +1,170 @@
 # @link-assistant/hive-mind
 
+## 0.51.20
+
+### Patch Changes
+
+- 9327e83: Fix CI/CD check differences between pull request and push events
+
+  Changes:
+  - Make lint job independent of changeset-check (runs based on file changes only)
+  - Allow docs-only PRs without changeset requirement
+  - Handle changeset-check 'skipped' state in dependent jobs
+  - Fix unformatted markdown files in case studies
+  - Add case study documentation for issue #1023
+
+## 0.51.19
+
+### Patch Changes
+
+- 0326eb5: Update /help and docs, add CPU/RAM metrics to /limits
+  - Remove obsolete options (--fork, --auto-fork, --auto-continue) from /help command
+  - Reorder options in /help: --model and --think now listed first
+  - Move --model example from /hive to /solve
+  - Update /limits to show CPU and RAM usage metrics
+  - Fix README.md defaults for --auto-fork and --auto-continue (now true)
+
+## 0.51.18
+
+### Patch Changes
+
+- bf6ac23: Fix Claude Code terms acceptance treated as success
+  - Detect Claude CLI terms acceptance messages and treat as error requiring human intervention
+  - Hide cost estimation section when all values are unknown
+  - Fix code block escaping in log comments using zero-width spaces
+
+## 0.51.17
+
+### Patch Changes
+
+- 91e43bf: Fix: Do not retry on 404 errors, display user-friendly permission suggestions
+
+  This fix addresses issue #808 by improving error handling when attempting to fork inaccessible repositories.
+
+  **Key improvements:**
+  1. **No retry on 404 errors** - 404 errors are detected immediately and fail fast, saving ~30 seconds and ~10 API requests per failure
+  2. **User-friendly error messages** - Comprehensive error messages explain what happened, list common causes, and provide step-by-step troubleshooting
+  3. **Reduced API requests** - Early 404 detection in getRootRepository and immediate exit on 404 during fork creation eliminates unnecessary retries
+
+  **Impact:**
+  - Time saved: ~30 seconds per failed fork attempt
+  - API requests saved: ~10 requests per failed fork attempt
+  - Better UX: Clear guidance on diagnosing and resolving repository access issues
+
+## 0.51.16
+
+### Patch Changes
+
+- 312c600: Fix issue #894: Add final log file reference at end of solve command CLI output
+
+  Following the pattern used by Claude and other agents, the solve command now consistently displays the log file path as the final line of output. This ensures users always know where to find the complete log file, regardless of operations like log uploads, watch mode, or cleanup messages.
+
+## 0.51.15
+
+### Patch Changes
+
+- 93a0af9: Add case study for issue #964: Discussion comments not loaded to AI context
+
+  This case study documents the root cause analysis of why the AI solver failed to see and respond to repository owner feedback on PR #13 in the eg0rmaffin/vapor-rice-i3 repository. The investigation revealed two independent root causes:
+  1. The feedback system tells the AI the count of new comments but not their content
+  2. The AI used an incomplete API command that only fetches conversation comments, missing review comments
+
+  The case study includes proposed solutions to fix this issue.
+
+## 0.51.14
+
+### Patch Changes
+
+- 4e4fe08: Improve fork divergence error message clarity
+  - Remove misleading "Option 3: Work without syncing fork (NOT RECOMMENDED)"
+  - Add new Option 1 for deleting and recreating fork (marked as SIMPLEST)
+  - Reorder options by simplicity: deletion → auto-resolution → manual resolution
+  - Move risk warnings inline with relevant options for better context
+  - Add comprehensive case study documentation in docs/case-studies/issue-972/
+
+  This change makes the error message more useful by removing options that were never actually viable and adding the fork deletion option as the cleanest solution for most fork divergence scenarios.
+
+## 0.51.13
+
+### Patch Changes
+
+- 20d6f3a: Fix URL hash fragment parsing - URLs with hash fragments like #issuecomment-123 are now correctly parsed. Previously, solving a PR with a comment URL like /pull/9#issuecomment-123 would fail because the PR number was extracted as "9#issuecomment-123" instead of "9".
+
+## 0.51.12
+
+### Patch Changes
+
+- c5bcaf4: fix: add trailing newlines to generated CLAUDE.md files and prompts
+
+  Ensures all automatically generated CLAUDE.md files and prompt strings comply with POSIX text file standards by adding trailing newlines. This fix prevents linter warnings and eliminates the need for manual fixes in subsequent pull requests.
+
+  Changes:
+  - Modified `src/solve.auto-pr.lib.mjs` to add trailing newline to CLAUDE.md template
+  - Updated all prompt builder files (`agent.prompts.lib.mjs`, `claude.prompts.lib.mjs`, `codex.prompts.lib.mjs`, `opencode.prompts.lib.mjs`) to append `\n` to return values
+  - Added comprehensive case study documentation in `docs/case-studies/issue-971/`
+
+  Fixes #971
+
+## 0.51.11
+
+### Patch Changes
+
+- 001dcdb: Fix missing comment detection when PRs have more than 30 comments by adding --paginate flag to GitHub API calls
+
+## 0.51.10
+
+### Patch Changes
+
+- 0f20e0b: Add missing language runtimes, agents, and tools to /version command output
+
+  This patch adds comprehensive version detection for all components installed by the ubuntu-24-server-install.sh script:
+
+  **New Language Runtimes:**
+  - Deno (JavaScript/TypeScript runtime)
+  - Go (Golang)
+  - Java (via SDKMAN)
+  - Lean (theorem prover)
+  - Perl (via Perlbrew)
+  - OCaml (via Opam)
+  - Rocq/Coq (theorem prover)
+
+  **New Development Tools:**
+  - SDKMAN (Java version manager)
+  - Elan (Lean version manager)
+  - Lake (Lean package manager)
+  - Perlbrew (Perl version manager)
+  - Opam (OCaml package manager)
+
+  **New C/C++ Development Tools Section:**
+  - Make
+  - CMake
+  - GCC
+  - G++
+  - Clang
+  - LLVM
+  - LLD (LLVM linker)
+
+  The /version command now displays all installed components that are available in the hive environment.
+
+  Fixes #1007
+
+## 0.51.9
+
+### Patch Changes
+
+- Keep hive user's home directory clean
+  - Move Go GOPATH from `~/go` to `~/.go/path` to keep everything under the hidden `.go` directory
+  - Move Perlbrew from `~/perl5` to `~/.perl5` (hidden directory)
+  - Remove automatic cloning of hive-mind repository to `~/hive-mind`
+
+  This keeps the user's home directory empty by default, giving users freedom to organize their workspace as they prefer.
+
+  Fixes #1004
+
+  fix: ensure log attachment works when PR is merged during session
+
+  Fixes issue where log files would not be attached to pull requests when the PR was merged during the AI solving session. The `gh pr list` command only returns OPEN PRs by default, causing merged PRs to not be found. Added `--state all` flag to find PRs regardless of their state (OPEN, MERGED, or CLOSED), and added handling to skip operations that don't work on merged PRs (like `gh pr edit` and `gh pr ready`) while still allowing log attachment.
+
 ## 0.51.7
 
 ### Patch Changes

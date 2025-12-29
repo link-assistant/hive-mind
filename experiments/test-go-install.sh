@@ -15,13 +15,14 @@ else
 fi
 
 # Load Go for current session
+# GOPATH is set to $HOME/.go/path to keep the home directory clean (issue #1004)
 if [ -d "$HOME/.go/bin" ]; then
   export GOROOT="$HOME/.go"
-  export GOPATH="$HOME/go"
+  export GOPATH="$HOME/.go/path"
   export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
 elif [ -d "/usr/local/go/bin" ]; then
   export PATH="/usr/local/go/bin:$PATH"
-  export GOPATH="$HOME/go"
+  export GOPATH="$HOME/.go/path"
 fi
 
 if command -v go &>/dev/null; then

@@ -16,6 +16,12 @@ RUN bun install -g @link-assistant/claude-profiles
 # Install OpenCode AI
 RUN bun install -g opencode-ai
 
+# Install Figma Developer MCP server
+# Reference: https://github.com/GLips/Figma-Context-MCP
+# This MCP server provides Figma design context to AI coding agents
+# Note: FIGMA_API_KEY environment variable must be set at runtime to use
+RUN npm install -g figma-developer-mcp --no-fund
+
 # Install Lean (via elan)
 RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
 ENV PATH="/home/gitpod/.elan/bin:${PATH}"

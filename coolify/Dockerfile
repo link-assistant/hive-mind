@@ -80,6 +80,12 @@ RUN bun install -g \
     @link-assistant/claude-profiles \
     @link-assistant/hive-mind
 
+# Install Figma Developer MCP server
+# Reference: https://github.com/GLips/Figma-Context-MCP
+# This MCP server provides Figma design context to AI coding agents
+# Note: FIGMA_API_KEY environment variable must be set at runtime to use
+RUN npm install -g figma-developer-mcp --no-fund --silent
+
 # Create app directory
 WORKDIR /app
 

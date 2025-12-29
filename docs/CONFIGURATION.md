@@ -307,6 +307,7 @@ solve <issue-url> [options]
 | `--tokens-budget-stats`                                          |       | boolean | false     | [EXPERIMENTAL] Show token budget statistics                                            |
 | `--prompt-issue-reporting`                                       |       | boolean | false     | Auto-create issues for spotted bugs                                                    |
 | `--prompt-case-studies`                                          |       | boolean | false     | Create case study documentation                                                        |
+| `--prompt-playwright-mcp`                                        |       | boolean | (auto)    | Playwright MCP hints (auto-detect, use `--no-prompt-playwright-mcp` to disable)        |
 
 ### hive Options
 
@@ -356,6 +357,7 @@ hive <github-url> [options]
 | `--tokens-budget-stats`              |       | boolean | false         | [EXPERIMENTAL] Show token budget statistics |
 | `--prompt-issue-reporting`           |       | boolean | false         | Auto-create issues for spotted bugs         |
 | `--prompt-case-studies`              |       | boolean | false         | Create case study documentation             |
+| `--prompt-playwright-mcp`            |       | boolean | (auto)        | Playwright MCP hints (auto/disable)         |
 
 ### hive-telegram-bot Options
 

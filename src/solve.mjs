@@ -828,14 +828,21 @@ try {
     // Default to Claude
     // Check for Playwright MCP availability if using Claude tool
     if (argv.tool === 'claude' || !argv.tool) {
-      const { checkPlaywrightMcpAvailability } = claudeLib;
-      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
-      if (playwrightMcpAvailable) {
-        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
-        argv.promptPlaywrightMcp = true;
+      // Respect explicit user flag, otherwise auto-detect
+      if (argv.promptPlaywrightMcp === undefined) {
+        const { checkPlaywrightMcpAvailability } = claudeLib;
+        const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+        if (playwrightMcpAvailable) {
+          await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+          argv.promptPlaywrightMcp = true;
+        } else {
+          await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+          argv.promptPlaywrightMcp = false;
+        }
+      } else if (argv.promptPlaywrightMcp) {
+        await log('🎭 Playwright MCP explicitly enabled via --prompt-playwright-mcp', { verbose: true });
       } else {
-        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
-        argv.promptPlaywrightMcp = false;
+        await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
       }
     }
     const claudeResult = await executeClaude({

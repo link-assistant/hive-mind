@@ -266,6 +266,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
       default: false,
     })
+    .option('prompt-playwright-mcp', {
+      type: 'boolean',
+      description: 'Enable Playwright MCP browser automation hints in system prompt. When not specified, auto-detects if Playwright MCP is installed. Use --no-prompt-playwright-mcp to explicitly disable. Only supported for --tool claude.',
+      default: undefined,
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

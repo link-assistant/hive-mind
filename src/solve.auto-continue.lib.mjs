@@ -43,9 +43,6 @@ const { extractLinkedIssueNumber } = githubLinking;
 // Import configuration
 import { autoContinue } from './config.lib.mjs';
 
-// Note: Claude-specific command builders (buildClaudeResumeCommand) are not needed here
-// since we display resume commands using simpler patterns and build solve.mjs args directly
-
 const { calculateWaitTime } = validation;
 
 /**
@@ -95,54 +92,29 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Recursively call the solve script with --resume
+    // We need to reconstruct the command with appropriate flags
     const childProcess = await import('child_process');
 
-    // Build the solve.mjs resume arguments directly (not through command builder)
-    // The solve.mjs script will be spawned as a child process
-    const resumeArgs = [process.argv[1], issueUrl, '--resume', sessionId];
+    // Build the resume command
+    const resumeArgs = [
+      process.argv[1], // solve.mjs path
+      issueUrl,
+      '--resume',
+      sessionId,
+    ];
 
-    // Preserve relevant options from the original invocation
-    if (argv.model && argv.model !== 'sonnet') {
-      resumeArgs.push('--model', argv.model);
-    }
-    if (argv.verbose) {
-      resumeArgs.push('--verbose');
-    }
-    if (argv.fork) {
-      resumeArgs.push('--fork');
-    }
-    if (shouldAttachLogs || argv.attachLogs || argv['attach-logs']) {
-      resumeArgs.push('--attach-logs');
-    }
+    // Preserve auto-continue flag
     if (argv.autoContinueOnLimitReset) {
       resumeArgs.push('--auto-continue-on-limit-reset');
     }
-    if (argv.tool && argv.tool !== 'claude') {
-      resumeArgs.push('--tool', argv.tool);
-    }
-    if (argv.autoCleanup === false) {
-      resumeArgs.push('--no-auto-cleanup');
-    }
-    if (argv.watch) {
-      resumeArgs.push('--watch');
-    }
-    if (argv.think) {
-      resumeArgs.push('--think', argv.think);
-    }
-    if (argv.autoResumeOnErrors) {
-      resumeArgs.push('--auto-resume-on-errors');
-    }
-    if (argv.autoCommitUncommittedChanges) {
-      resumeArgs.push('--auto-commit-uncommitted-changes');
-    }
-    if (argv.interactiveMode) {
-      resumeArgs.push('--interactive-mode');
-    }
-    if (argv.tokensBudgetStats) {
-      resumeArgs.push('--tokens-budget-stats');
-    }
 
-    await log(`\n🔄 Executing: node ${resumeArgs.join(' ')}`);
+    // Preserve other flags from original invocation
+    if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
+    if (argv.verbose) resumeArgs.push('--verbose');
+    if (argv.fork) resumeArgs.push('--fork');
+    if (shouldAttachLogs) resumeArgs.push('--attach-logs');
+
+    await log(`\n🔄 Executing: ${resumeArgs.join(' ')}`);
 
     // Execute the resume command
     const child = childProcess.spawn('node', resumeArgs, {
@@ -162,16 +134,8 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       operation: 'auto_continue_execution',
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
-    // Show Claude CLI resume command for manual resume (only for --tool claude)
-    const tool = argv.tool || 'claude';
-    if (tool === 'claude') {
-      // Note: We don't have tempDir in this context, so we show the session ID
-      await log('\n💡 To resume manually in Claude Code interactive mode, use:');
-      await log(`   claude --resume ${sessionId}`);
-      await log('   (Run this command from within the working directory)');
-    } else {
-      await log(`\n💡 Session ID for manual resume: ${sessionId}`);
-    }
+    await log('\n🔄 Manual resume command:');
+    await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
     await safeExit(1, 'Auto-continue failed');
   }
 };

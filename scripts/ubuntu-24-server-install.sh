@@ -1347,10 +1347,11 @@ if command -v claude &>/dev/null; then
   # - --headless: Reduces UI memory overhead
   # - --no-sandbox: Required for server/container environments
   # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  # - --viewport-size 1920x1080: 1080p resolution for consistent screenshots
   log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
-  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 2>/dev/null || {
+  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || {
     log_warning "Could not add Playwright MCP to Claude CLI."
-    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
   }
 
   # Verify the configuration
@@ -1361,7 +1362,7 @@ if command -v claude &>/dev/null; then
   fi
 else
   log_warning "Claude CLI is not available. Skipping MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
 fi
 
 # --- Git setup with GitHub identity (only if authenticated) ---

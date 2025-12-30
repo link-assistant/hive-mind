@@ -186,11 +186,11 @@ Playwright MCP (Model Context Protocol) provides browser automation capabilities
 #### Installation
 
 ```bash
-# Recommended: Install with memory-safe settings
-claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless
+# Recommended: Install with memory-safe settings (for servers and Docker)
+claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
 
-# With additional options for servers
-claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000
+# Minimal installation (for local development)
+claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless
 ```
 
 #### Command-Line Arguments
@@ -222,7 +222,7 @@ Direct configuration in `~/.claude.json`:
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest", "--isolated", "--headless"],
+      "args": ["@playwright/mcp@latest", "--isolated", "--headless", "--no-sandbox", "--timeout-action=600000", "--viewport-size", "1920x1080"],
       "env": {
         "PLAYWRIGHT_BROWSERS_PATH": "/opt/playwright/browsers"
       }

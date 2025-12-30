@@ -15,7 +15,9 @@ console.log('🧪 Testing GitHub token masking false positive prevention (Issue 
 
 // Import the functions we need to test
 import { maskToken } from '../src/lib.mjs';
-import { isSafeToken, isHexInSafeContext, sanitizeLogContent } from '../src/github.lib.mjs';
+// Token sanitization functions can be imported from either location
+// Using the dedicated module for clarity
+import { isSafeToken, isHexInSafeContext, sanitizeLogContent } from '../src/token-sanitization.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;

@@ -750,6 +750,7 @@ if (isDirectExecution) {
             const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
             const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
             const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
+            const promptPlaywrightMcpFlag = argv.promptPlaywrightMcp === true ? ' --prompt-playwright-mcp' : argv.promptPlaywrightMcp === false ? ' --no-prompt-playwright-mcp' : '';
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
 
@@ -800,9 +801,9 @@ if (isDirectExecution) {
             if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-
+            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
             // Log the actual command being executed so users can investigate/reproduce
-            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}`;
+            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}`;
             await log(`   📋 Command: ${command}`);
 
             let exitCode = 0;

@@ -4,12 +4,12 @@ This document provides an in-depth analysis of the root causes that led to the s
 
 ## Summary of Root Causes
 
-| Priority | Root Cause | Impact | Mitigation |
-|----------|-----------|--------|------------|
-| **Critical** | Playwright MCP timeout not being respected | Session hangs despite 10min timeout config | Investigate MCP timeout behavior |
-| **High** | No client-side timeout for MCP tools | solve.mjs waits forever | Implement tool call timeout |
-| **Medium** | AI clicked button triggering heavy operation | Browser became unresponsive | AI prompt guidance |
-| **Low** | Missing error recovery mechanism | Manual intervention required | Add auto-recovery |
+| Priority     | Root Cause                                   | Impact                                     | Mitigation                       |
+| ------------ | -------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| **Critical** | Playwright MCP timeout not being respected   | Session hangs despite 10min timeout config | Investigate MCP timeout behavior |
+| **High**     | No client-side timeout for MCP tools         | solve.mjs waits forever                    | Implement tool call timeout      |
+| **Medium**   | AI clicked button triggering heavy operation | Browser became unresponsive                | AI prompt guidance               |
+| **Low**      | Missing error recovery mechanism             | Manual intervention required               | Add auto-recovery                |
 
 ## Detailed Analysis
 
@@ -22,6 +22,7 @@ The Playwright MCP server **is** configured with explicit timeout settings (`--t
 #### Evidence
 
 From the installation script (`ubuntu-24-server-install.sh:1352`):
+
 ```bash
 claude mcp add playwright -s user -- npx -y @playwright/mcp@latest \
   --isolated --headless --no-sandbox \
@@ -31,6 +32,7 @@ claude mcp add playwright -s user -- npx -y @playwright/mcp@latest \
 The timeout is configured as 600,000ms (10 minutes), but the operation hung for 94 minutes.
 
 From the log initialization:
+
 ```
 [2025-12-30T11:20:34.892Z] [INFO] 🎭 Playwright MCP detected - enabling browser automation hints
 ```
@@ -62,6 +64,7 @@ Since the configured timeout doesn't appear to work reliably, additional safegua
 #### The Problem
 
 The "Load data" button was designed to:
+
 1. Fetch `mrds.geojson` (107MB file)
 2. Parse 304,613 GeoJSON features
 3. Create Cesium entities for each point
@@ -72,6 +75,7 @@ This is a computationally intensive operation that can make the browser tab unre
 #### Evidence
 
 From the page snapshot before the click:
+
 ```yaml
 - generic: "Отображено точек: 0" (Points displayed: 0)
 - generic: "Всего в базе: 304,613" (Total in database: 304,613)
@@ -82,6 +86,7 @@ The page was showing 0 points, indicating the data hadn't been loaded yet. The b
 #### Why This Matters
 
 When JavaScript executes a heavy operation:
+
 1. The browser's main thread becomes blocked
 2. Playwright cannot receive acknowledgment that the click completed
 3. The `click()` action appears to hang indefinitely
@@ -92,9 +97,10 @@ When JavaScript executes a heavy operation:
 // Typical problematic pattern in the target application
 button.addEventListener('click', async () => {
   // This blocks the main thread
-  const data = await fetch('mrds.geojson');  // 107MB
-  const json = await data.json();            // Parse 300K features
-  json.features.forEach(feature => {         // Create 300K entities
+  const data = await fetch('mrds.geojson'); // 107MB
+  const json = await data.json(); // Parse 300K features
+  json.features.forEach(feature => {
+    // Create 300K entities
     viewer.entities.add(createEntity(feature));
   });
 });
@@ -103,11 +109,13 @@ button.addEventListener('click', async () => {
 #### The Fix
 
 The target application should use:
+
 - Web Workers for heavy parsing
 - RequestAnimationFrame for batched rendering
 - Progress indicators to keep UI responsive
 
 For the solve command, the AI should:
+
 - Not click buttons that trigger heavy operations without safeguards
 - Use `browser_wait_for` with specific text expectations
 - Verify the operation completes with snapshots
@@ -123,6 +131,7 @@ The `solve.mjs` script doesn't implement timeout detection for MCP tool calls. W
 #### Evidence
 
 The log shows no timeout warning or error:
+
 ```
 [2025-12-30T11:22:53.672Z] [INFO] {...browser_click call...}
 [2025-12-30T12:57:10.345Z] [INFO] 📁 Keeping directory...
@@ -133,6 +142,7 @@ There's a 1h34m gap with no log entries - the system was simply waiting.
 #### The Expected Behavior
 
 solve.mjs should:
+
 1. Track the start time of each tool call
 2. Implement a configurable timeout (e.g., 10 minutes for browser operations)
 3. Log warnings when operations take longer than expected
@@ -204,6 +214,7 @@ This indicates that Playwright MCP reliability issues are a known problem.
 #### The Problem
 
 The AI decided to click the "Load data" button without:
+
 1. Checking if the prerequisite data file existed
 2. Understanding the impact of loading 300K+ points
 3. Setting up any timeout or verification mechanism
@@ -211,6 +222,7 @@ The AI decided to click the "Load data" button without:
 #### Evidence
 
 From the AI's message before the click:
+
 ```
 "Good! The page loaded. I can see there's a Cesium Ion 401 error (token issue)
 and a 404 for favicon. Let me click the 'Load Data' button to test data loading:"
@@ -221,6 +233,7 @@ The AI acknowledged errors but proceeded anyway.
 #### The Better Approach
 
 The AI should have:
+
 1. Verified that `mrds.geojson` existed before clicking
 2. Noted that loading 304,613 points could be slow
 3. Used `browser_evaluate` to test data loading with a timeout
@@ -229,8 +242,10 @@ The AI should have:
 #### The Fix
 
 Add guidance to the AI system prompt:
+
 ```markdown
 Playwright MCP usage guidelines:
+
 - Before clicking buttons that load large datasets, verify the data source exists
 - For operations that may take long, use browser_evaluate with explicit timeouts
 - After clicks that trigger data loading, use browser_wait_for with expected text

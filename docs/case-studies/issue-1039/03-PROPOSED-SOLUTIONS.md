@@ -4,12 +4,12 @@ This document outlines proposed solutions to prevent the solve command from beco
 
 ## Solution Overview
 
-| Solution | Complexity | Impact | Priority | Status |
-|----------|------------|--------|----------|--------|
-| 1. Enhance AI system prompt | Low | Medium | P0 - Critical | **IMPLEMENTED** |
-| 2. Add timeout detection in solve.mjs | Medium | High | P1 - High | Pending |
-| 3. Report issue to Playwright MCP | Low | High | P2 - Medium | Pending |
-| 4. Implement auto-recovery mechanism | High | Medium | P3 - Low | Pending |
+| Solution                              | Complexity | Impact | Priority      | Status          |
+| ------------------------------------- | ---------- | ------ | ------------- | --------------- |
+| 1. Enhance AI system prompt           | Low        | Medium | P0 - Critical | **IMPLEMENTED** |
+| 2. Add timeout detection in solve.mjs | Medium     | High   | P1 - High     | Pending         |
+| 3. Report issue to Playwright MCP     | Low        | High   | P2 - Medium   | Pending         |
+| 4. Implement auto-recovery mechanism  | High       | Medium | P3 - Low      | Pending         |
 
 ## Solution 1: Enhance AI System Prompt (P0) - IMPLEMENTED
 
@@ -73,12 +73,12 @@ Add a wrapper function that tracks tool execution time and implements timeout lo
 // In solve.mjs or a new module
 
 const TOOL_TIMEOUTS = {
-  'mcp__playwright__browser_navigate': 120000,    // 2 minutes for navigation
-  'mcp__playwright__browser_click': 60000,        // 1 minute for clicks
-  'mcp__playwright__browser_type': 60000,         // 1 minute for typing
-  'mcp__playwright__browser_snapshot': 30000,     // 30 seconds for snapshots
-  'mcp__playwright__browser_evaluate': 300000,    // 5 minutes for JS execution
-  'default': 120000                               // 2 minutes default
+  mcp__playwright__browser_navigate: 120000, // 2 minutes for navigation
+  mcp__playwright__browser_click: 60000, // 1 minute for clicks
+  mcp__playwright__browser_type: 60000, // 1 minute for typing
+  mcp__playwright__browser_snapshot: 30000, // 30 seconds for snapshots
+  mcp__playwright__browser_evaluate: 300000, // 5 minutes for JS execution
+  default: 120000, // 2 minutes default
 };
 
 const WARNING_THRESHOLD = 30000; // Warn after 30 seconds
@@ -131,26 +131,34 @@ Open an issue on [microsoft/playwright-mcp](https://github.com/microsoft/playwri
 **Title:** `--timeout-action not respected for browser_click on long-running JavaScript operations`
 
 **Body:**
+
 ```markdown
 ## Description
+
 When using `browser_click` on a button that triggers a long-running JavaScript operation (e.g., loading 300K+ data points), the `--timeout-action` configuration does not trigger. The MCP connection hangs indefinitely instead of returning a timeout error.
 
 ## Configuration
+
 npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
 
 ## Steps to Reproduce
+
 1. Navigate to a page with a button that loads large amounts of data
 2. Click the button using `browser_click`
 3. The click action hangs indefinitely (tested for 1h 34m with no response)
 
 ## Expected Behavior
+
 After 600,000ms (10 minutes), the action should timeout and return an error.
 
 ## Actual Behavior
+
 The action hangs indefinitely without triggering the timeout.
 
 ## Hypothesis
+
 The timeout may not be properly detected when:
+
 - Browser JavaScript blocks the main thread
 - The click action technically completes but the page becomes unresponsive
 - The MCP protocol layer doesn't propagate the timeout error
@@ -229,7 +237,7 @@ class BrowserRecoveryAgent {
   async killOrphanedBrowsers() {
     // Find and kill orphaned Chromium processes
     const { exec } = require('child_process');
-    exec('pkill -f chromium --signal KILL', (err) => {
+    exec('pkill -f chromium --signal KILL', err => {
       if (err) log('No orphaned browsers to kill');
     });
   }
@@ -247,21 +255,25 @@ class BrowserRecoveryAgent {
 ## Implementation Priority
 
 ### Phase 1: Immediate (P0) - DONE
+
 - [x] Verify Playwright MCP configuration has proper timeouts (confirmed: 10min timeout exists)
 - [x] Add safety guidelines to AI system prompt (implemented in `src/claude.prompts.lib.mjs`)
 - [ ] Test that the new guidelines help prevent stuck operations
 
 ### Phase 2: Short-term (P1)
+
 - [ ] Add timeout tracking to solve.mjs tool execution
 - [ ] Implement warning logs for slow operations
 - [ ] Add graceful error handling for timeout errors
 
 ### Phase 3: Medium-term (P2)
+
 - [ ] Report timeout issue to microsoft/playwright-mcp
 - [ ] Add comprehensive case study documentation
 - [ ] Create documentation for Playwright MCP best practices
 
 ### Phase 4: Long-term (P3)
+
 - [ ] Design auto-recovery mechanism
 - [ ] Implement browser process management
 - [ ] Add comprehensive logging and monitoring
@@ -269,17 +281,20 @@ class BrowserRecoveryAgent {
 ## Testing Plan
 
 ### Test Case 1: AI Prompt Effectiveness (Manual)
+
 1. Present AI with a scenario involving large data load
 2. Check if AI takes precautions before clicking
 3. **Expected**: AI should verify data source exists and consider operation time
 
 ### Test Case 2: Timeout Verification
+
 1. Configure Playwright MCP with `--timeout-action=10000` (10 seconds)
 2. Navigate to a page with a button that triggers a 30-second operation
 3. Click the button
 4. **Expected**: Error after 10 seconds, not a hang
 
 ### Test Case 3: solve.mjs Timeout Detection (Future)
+
 1. Enable timeout tracking in solve.mjs
 2. Create a mock MCP server that delays responses
 3. **Expected**: Warning logs after 30 seconds, error after timeout

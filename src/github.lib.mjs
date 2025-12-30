@@ -5,9 +5,6 @@
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
-const fs = (await use('fs')).promises;
-const os = (await use('os')).default;
-const path = (await use('path')).default;
 // Use command-stream for consistent $ behavior
 const { $ } = await use('command-stream');
 // Import log and maskToken from general lib

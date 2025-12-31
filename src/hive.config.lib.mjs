@@ -202,6 +202,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
       default: true,
     })
+    .option('auto-continue-on-limit-reset', {
+      type: 'boolean',
+      description: 'Automatically continue when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
+      default: false,
+    })
     .option('think', {
       type: 'string',
       description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',

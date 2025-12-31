@@ -741,6 +741,7 @@ if (isDirectExecution) {
             const skipToolConnectionCheckFlag = argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
             const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
             const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
+            const autoContinueOnLimitResetFlag = argv.autoContinueOnLimitReset ? ' --auto-continue-on-limit-reset' : '';
             const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
             const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
             const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
@@ -788,6 +789,9 @@ if (isDirectExecution) {
             } else {
               args.push('--no-auto-continue');
             }
+            if (argv.autoContinueOnLimitReset) {
+              args.push('--auto-continue-on-limit-reset');
+            }
             if (argv.think) {
               args.push('--think', argv.think);
             }
@@ -803,7 +807,7 @@ if (isDirectExecution) {
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
             if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
             // Log the actual command being executed so users can investigate/reproduce
-            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}`;
+            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${autoContinueOnLimitResetFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}`;
             await log(`   📋 Command: ${command}`);
 
             let exitCode = 0;

@@ -21,6 +21,8 @@ Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range o
 
 This generalist capability, combined with **maximum workflow efficiency**, gives users back as much free time as possible.
 
+Hive Mind has high creativity indistinguishable from most (average) programmers. The more detailed the problem definition, the better the result - but like people, AI can ask questions if the problem is not defined enough. We also use a customized system message that improves quality of results by guiding AI to avoid common mistakes.
+
 ## Why Hive Mind?
 
 ### 1. No Babysitting Required
@@ -53,10 +55,11 @@ This generalist capability, combined with **maximum workflow efficiency**, gives
 **Safety Benefits**:
 
 - Your developer machine stays completely untouched
-- Each task runs in full isolation
-- If something breaks, simply reinstall the VM/container
+- Isolation is VM and/or Docker, easy to restore if broken
+- AI agent does not store any data or results in its execution environment - all results go to GitHub as Pull Request
 - No risk to your production tokens or local configurations
 - We recommend never running this software directly on a developer machine
+- We recommend using GitHub Actions CI/CD to access production, with no direct access from AI agent (to prevent accidental database deletion or production damage)
 
 ### 3. Full Internet Access & Sudo Privileges
 
@@ -84,6 +87,8 @@ This generalist capability, combined with **maximum workflow efficiency**, gives
 - **Build tools**: CMake, Make, GCC, Clang/LLVM
 - **Package managers**: npm, pip, cargo, go modules, and more
 - **Browser automation**: Playwright with all browsers installed
+
+All these are preinstalled, but Hive Mind can decide to install more if needed thanks to sudo access.
 
 ### 5. Token-Efficient Architecture
 
@@ -144,11 +149,11 @@ This generalist capability, combined with **maximum workflow efficiency**, gives
 - Close PR to stop work immediately
 - Branch protections are respected
 
-### 10. Telegram Integration - Program From Your Phone
+### 10. Telegram Integration - Program From Any Device
 
 **The Problem**: Managing AI issue solving requires SSH access and command-line knowledge, tying you to a computer.
 
-**The Solution**: **Manage AI workers from your phone** with `/solve` and `/hive` commands. Both Telegram and GitHub are available on mobile devices - no tablet, notebook, or PC required. No IDE or vibe coding apps (like Cursor) or vibe coding websites needed.
+**The Solution**: **Manage AI workers from any device** with `/solve` and `/hive` commands. Both Telegram and GitHub are available on mobile devices - no tablet, notebook, or PC required. No IDE or vibe coding apps (like Cursor) or vibe coding websites needed. Mobile access is enough.
 
 **Commands available**:
 
@@ -157,7 +162,7 @@ This generalist capability, combined with **maximum workflow efficiency**, gives
 - `/limits` - Check usage and resources
 - Group chat support for team collaboration
 
-**True Mobile Development**: Create issues, trigger AI solvers, review PRs - all from your smartphone.
+**True Mobile Development**: Create issues, trigger AI solvers, review PRs - all from your smartphone, tablet, or any device.
 
 ### 11. Deployment Flexibility
 
@@ -201,7 +206,11 @@ While the AI solver works, you are free to:
 - Attend meetings
 - Take a break
 - Review other pull requests
-- Simply live your life
+- Do other tasks - or even sleep
+
+> **"The code is written while you sleep."**
+>
+> It's actually possible to produce drafts for all your tasks/issues backlog while you sleep - hundreds of tasks per night.
 
 ### The "Team of Developers" Effect
 
@@ -219,22 +228,26 @@ All for the cost of a **Claude MAX subscription (~$200/month)**.
 
 The Claude MAX $200 subscription is currently at 50% discount, providing **$400 value for $200**. This is why Hive Mind, specifically designed for optimal use of this subscription, beats almost all other solutions on the market for value/quality balance.
 
+**Note**: Claude MAX provides "almost unlimited" usage - it takes tens of users to actually use 100% of the subscription limit.
+
 ## Key Features Summary
 
-| Feature                 | Benefit                                 |
-| ----------------------- | --------------------------------------- |
-| Full Autonomy           | No babysitting, no permission dialogs   |
-| Cloud Isolation         | Safe execution, no local machine risk   |
-| Internet + Sudo Access  | Install anything, full creative freedom |
-| Pre-installed Toolchain | Ready to work in any language           |
-| Token Efficiency        | More context for problem-solving        |
-| Time Freedom            | 10-15 min vs 2-8 hours of human work    |
-| Multi-Model Support     | Flexibility and cost optimization       |
-| Scale Orchestration     | Handle many issues simultaneously       |
-| Human Oversight         | Quality control where it matters        |
-| Telegram Control        | Program from your phone, no PC needed   |
-| Multiple Deployments    | Run wherever you need                   |
-| Generalist AI           | Not just coding - any file-based task   |
+| Feature                 | Benefit                                         |
+| ----------------------- | ----------------------------------------------- |
+| Full Autonomy           | No babysitting, no permission dialogs           |
+| Cloud Isolation         | Safe execution, easy to restore if broken       |
+| Internet + Sudo Access  | Install anything, full creative freedom         |
+| Pre-installed Toolchain | Ready to work in any language, can install more |
+| Token Efficiency        | More context for problem-solving                |
+| Time Freedom            | 10-15 min vs 2-8 hours of human work            |
+| Multi-Model Support     | Flexibility and cost optimization               |
+| Scale Orchestration     | Handle many issues simultaneously               |
+| Human Oversight         | Quality control where it matters                |
+| Device Control          | Program from any device via Telegram            |
+| Multiple Deployments    | Run on our or your infrastructure               |
+| Generalist AI           | Not just coding - any file-based task           |
+| High Creativity         | Indistinguishable from average programmers      |
+| 100% Open Source        | Unlicense (public domain), full transparency    |
 
 ## User Problems Solved
 
@@ -261,19 +274,21 @@ The Claude MAX $200 subscription is currently at 50% discount, providing **$400 
 
 ## Comparison with Alternatives
 
-| Feature               | Hive Mind     | Other AI Assistants               |
-| --------------------- | ------------- | --------------------------------- |
-| Autonomous Mode       | Full autonomy | Requires approval for each action |
-| Execution Environment | Cloud VM      | Local machine                     |
-| Internet Access       | Unlimited     | Often sandboxed                   |
-| Sudo Access           | Full access   | Limited or none                   |
-| Pre-installed Tools   | 25GB+ ready   | Manual installation               |
-| Token Efficiency      | Optimized     | Wastes on routine tasks           |
-| Time Required         | 10-15 min     | 2-8 hours human work              |
-| Orchestration         | Multi-issue   | Single issue                      |
-| Human Oversight       | At merge time | At every step                     |
-| Mobile Control        | Telegram      | Not available                     |
-| Price (Claude MAX)    | ~$200/month   | Similar or higher                 |
+| Feature               | Hive Mind                      | Other AI Assistants                        |
+| --------------------- | ------------------------------ | ------------------------------------------ |
+| Autonomous Mode       | Full autonomy                  | Requires approval for each action          |
+| Execution Environment | Cloud VM or Docker             | Local machine (risky) or restrictive cloud |
+| Internet Access       | Unlimited                      | Often sandboxed                            |
+| Sudo Access           | Full access                    | Limited or none                            |
+| Pre-installed Tools   | 25GB+ ready, can install more  | Manual installation, restrictive ENVs      |
+| GitHub Access         | Full gh CLI access             | Often limited (can't create issues, etc.)  |
+| Token Efficiency      | Optimized                      | Wastes on routine tasks                    |
+| Time Required         | 10-15 min                      | 2-8 hours human work                       |
+| Orchestration         | Multi-issue                    | Single issue                               |
+| Human Oversight       | At merge time                  | At every step                              |
+| Device Control        | Any device via Telegram        | Computer required                          |
+| Open Source           | 100% open (Unlicense)          | Usually closed or restrictive              |
+| Price (Claude MAX)    | ~$200/month (almost unlimited) | Similar or higher                          |
 
 > _"Compared to Codex for $200, this solution is fire."_ - User feedback
 

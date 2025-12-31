@@ -21,19 +21,19 @@ When considering AI-assisted development, there are several categories of soluti
 
 **What it is**: Traditional approach of hiring full-time employees or contractors.
 
-| Aspect            | Hiring Developers                | Hive Mind                          |
-| ----------------- | -------------------------------- | ---------------------------------- |
-| **Time to start** | Weeks to months (hiring process) | Minutes (issue creation)           |
-| **Availability**  | Business hours, time zones       | 24/7, instant start                |
-| **Scalability**   | Linear (hire more people)        | Parallel (multiple issues at once) |
-| **Consistency**   | Varies by individual             | Consistent approach every time     |
-| **Management**    | Meetings, reviews, 1:1s          | Write issue, review PR             |
-| **Cost**          | $5,000-15,000+/month per person  | ~$200/month for unlimited issues   |
-| **Expertise**     | Deep domain knowledge            | Broad but may need guidance        |
-| **Creativity**    | High, with experience            | Good for defined problems          |
-| **Ramp-up time**  | Weeks to understand codebase     | Analyzes codebase each run         |
-| **Retention**     | Risk of departure                | Always available                   |
-| **Best for**      | Strategic, long-term work        | Routine issues, rapid prototyping  |
+| Aspect            | Hiring Developers                | Hive Mind                                                                    |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| **Time to start** | Weeks to months (hiring process) | Minutes (issue creation)                                                     |
+| **Availability**  | Business hours, time zones       | 24/7, instant start                                                          |
+| **Scalability**   | Linear (hire more people)        | Parallel (multiple issues at once)                                           |
+| **Consistency**   | Varies by individual             | Consistent approach every time                                               |
+| **Management**    | Meetings, reviews, 1:1s          | Write issue, review PR                                                       |
+| **Cost**          | $5,000-15,000+/month per person  | ~$200/month for unlimited issues                                             |
+| **Expertise**     | Deep domain knowledge            | Broad knowledge, searches online, compensates lack of experience with speed  |
+| **Creativity**    | High, with experience            | High - indistinguishable from average programmers, asks questions if unclear |
+| **Ramp-up time**  | Weeks to understand codebase     | Analyzes codebase each run                                                   |
+| **Retention**     | Risk of departure                | Always available on demand, instantly                                        |
+| **Best for**      | Strategic, long-term work        | Routine issues, rapid prototyping                                            |
 
 **When to choose Hive Mind over hiring**:
 
@@ -44,9 +44,11 @@ When considering AI-assisted development, there are several categories of soluti
 
 **When to hire developers instead**:
 
-- Deep domain expertise is required
-- Long-term strategic projects with complex requirements
+- Critical systems development (medical, space, high-stakes environments)
+- Projects requiring lowest possible error rate and highest quality
 - Building and maintaining team culture is important
+
+**Note**: Hive Mind excels on small tasks. For complex projects, consider using Hive Mind or other AI for task decomposition to get best results. In the future, an "architect" AI will handle task decomposition and final review (not yet implemented).
 
 ### 2. Traditional IDEs (VS Code, IntelliJ, Vim)
 
@@ -92,8 +94,10 @@ When considering AI-assisted development, there are several categories of soluti
 | **Hands-on time**        | 80-95% of task duration     | 5-15% (issue + review)           |
 | **Multi-tasking**        | One task at a time          | Multiple parallel workers        |
 | **Mobile access**        | No                          | Yes (Telegram)                   |
-| **Cost**                 | $20-50/month                | ~$200/month (Claude MAX)         |
+| **Cost**                 | $20-50/month + your time    | ~$200/month (Claude MAX)         |
 | **Best for**             | Interactive coding sessions | Autonomous task completion       |
+
+**Important**: AI-Assisted IDEs pricing doesn't account for human time cost - it's not only the subscription price, your hours matter too.
 
 **When to choose Hive Mind over AI-assisted IDEs**:
 
@@ -112,19 +116,21 @@ When considering AI-assisted development, there are several categories of soluti
 
 **What it is**: Web-based platforms for AI-generated code and prototypes.
 
-| Aspect                | Vibe Coding Websites      | Hive Mind                          |
-| --------------------- | ------------------------- | ---------------------------------- |
-| **Primary use case**  | Prototyping, new projects | Any repository, existing codebases |
-| **Repository access** | Creates new projects      | Works on your existing repos       |
-| **CI/CD integration** | Limited or none           | Full GitHub workflow               |
-| **Testing**           | Manual or basic           | Uses your CI pipeline              |
-| **Code ownership**    | Platform-dependent        | Your GitHub, full ownership        |
-| **Tech stack**        | Platform limitations      | Any stack (10+ runtimes installed) |
-| **Customization**     | Platform templates        | Full system access                 |
-| **Collaboration**     | Platform-specific         | Standard GitHub PRs                |
-| **Iteration**         | Chat-based refinement     | PR comments, AI iterates           |
-| **Deployment**        | Platform hosting          | Your infrastructure                |
-| **Best for**          | Quick prototypes, demos   | Production code, team workflows    |
+| Aspect                | Vibe Coding Websites      | Hive Mind                                             |
+| --------------------- | ------------------------- | ----------------------------------------------------- |
+| **Primary use case**  | Prototyping, new projects | Any repository, new or existing                       |
+| **Repository access** | Creates new projects      | Works on existing repos or starts from scratch        |
+| **CI/CD integration** | Limited or none           | Full GitHub workflow                                  |
+| **Testing**           | Manual or basic           | Uses your CI pipeline                                 |
+| **Code ownership**    | Platform-dependent        | Your GitHub, full ownership                           |
+| **Tech stack**        | Platform limitations      | Any stack (10+ runtimes preinstalled, more on demand) |
+| **Customization**     | Platform templates        | Full system access                                    |
+| **Collaboration**     | Platform-specific         | Standard GitHub PRs                                   |
+| **Iteration**         | Chat-based refinement     | PR comments, AI iterates                              |
+| **Deployment**        | Platform hosting          | Our or your infrastructure                            |
+| **Best for**          | Quick prototypes, demos   | Production code, team workflows                       |
+
+**Note**: With vibe coding websites you will still be dependent on GitHub for serious development. Why not only depend on GitHub from the start?
 
 **When to choose Hive Mind over vibe coding websites**:
 
@@ -143,21 +149,30 @@ When considering AI-assisted development, there are several categories of soluti
 
 **What it is**: AI agents that can write and execute code autonomously.
 
-| Aspect                    | Other AI Agents           | Hive Mind                          |
-| ------------------------- | ------------------------- | ---------------------------------- |
-| **Execution environment** | Varies (local/cloud)      | Cloud VM with sudo access          |
-| **Internet access**       | Often restricted          | Full unrestricted access           |
-| **Pre-installed tools**   | Basic or manual setup     | 25GB+ ready (10 runtimes, provers) |
-| **Token efficiency**      | AI handles routine tasks  | Routine automated in code          |
-| **Permission model**      | Often requires approvals  | Full autonomy, no babysitting      |
-| **Orchestration**         | Single agent typically    | Multi-agent (`hive` command)       |
-| **Session handling**      | Varies                    | Auto-continue, resume from limits  |
-| **GitHub integration**    | Varies                    | Native PR workflow                 |
-| **Mobile control**        | Usually not available     | Telegram bot                       |
-| **Model flexibility**     | Often locked to one model | Claude, Grok, Codex, custom agents |
-| **Isolation**             | Varies                    | VM per task, reinstall if broken   |
-| **Cost**                  | $100-500/month            | ~$200/month (Claude MAX)           |
-| **Best for**              | General AI coding         | GitHub-centric workflows           |
+| Aspect                    | Other AI Agents                           | Hive Mind                                   |
+| ------------------------- | ----------------------------------------- | ------------------------------------------- |
+| **Execution environment** | Varies (local/cloud)                      | Cloud VM with sudo access                   |
+| **Internet access**       | Often restricted                          | Full unrestricted access                    |
+| **Pre-installed tools**   | Restrictive ENVs, can't install anything  | 25GB+ ready, AI installs more if needed     |
+| **GitHub access**         | Often limited (can't create issues, etc.) | Full GitHub access via gh CLI               |
+| **Token efficiency**      | AI handles routine tasks                  | Routine automated in code                   |
+| **Permission model**      | Often requires approvals                  | Full autonomy, no babysitting               |
+| **Orchestration**         | Single agent typically                    | Multi-agent (`hive` command)                |
+| **Session handling**      | Varies                                    | Auto-continue, resume from limits           |
+| **GitHub integration**    | Varies                                    | Native PR workflow                          |
+| **Mobile control**        | Usually not available                     | Telegram bot                                |
+| **Model flexibility**     | Often locked to one model                 | Claude, Grok, Codex, custom agents          |
+| **Isolation**             | Varies, local risks your machine          | VM or Docker, easy to restore if broken     |
+| **Open source**           | Usually closed or restrictive             | 100% open source, Unlicense (public domain) |
+| **Cost**                  | $100-500/month                            | ~$200/month (Claude MAX)                    |
+| **Best for**              | General AI coding                         | GitHub-centric workflows                    |
+
+**Important notes about other AI agents**:
+
+- Cloud-based agentic AI usually don't allow installing anything as their environments are quite restrictive
+- They usually don't have full access to GitHub - for example, you cannot ask AI agents in the cloud to actually create issues on GitHub
+- If agentic AI works locally, you risk your own machine being damaged
+- We recommend using GitHub Actions CI/CD to access production, with no direct access from AI agent (can accidentally delete database or damage production)
 
 **Specific comparison with OpenAI Codex**:
 
@@ -198,7 +213,11 @@ During step 2, you can:
 - Attend meetings
 - Take a break
 - Review other PRs
-- Use your phone for other tasks
+- Do other tasks - or even sleep
+
+> **"The code is written while you sleep."**
+>
+> It's actually possible to produce drafts for all your tasks/issues backlog while you sleep - hundreds of tasks per night.
 
 > "What human developer does in 2-8 hours, can be done in 10-15 minutes. User is free to do other things while AI solver is working."
 
@@ -222,34 +241,36 @@ This creates the effect of having a team of developers, but:
 
 ## Cost Comparison
 
-| Solution                   | Monthly Cost  | What You Get                              |
-| -------------------------- | ------------- | ----------------------------------------- |
-| Junior Developer           | $3,000-6,000  | ~160 hours, single person                 |
-| Senior Developer           | $8,000-15,000 | ~160 hours, single person                 |
-| Cursor/Copilot             | $20-50        | AI assistance while you code              |
-| Replit/Bolt Pro            | $25-100       | Web-based AI coding                       |
-| Devin                      | $500          | Autonomous AI agent                       |
-| Claude MAX                 | $200          | Unlimited Claude usage for Hive Mind      |
-| **Hive Mind + Claude MAX** | **$200**      | Autonomous solver, parallel workers, 24/7 |
+| Solution                   | Monthly Cost  | What You Get                                |
+| -------------------------- | ------------- | ------------------------------------------- |
+| Junior Developer           | $3,000-6,000  | ~160 hours, single person                   |
+| Senior Developer           | $8,000-15,000 | ~160 hours, single person                   |
+| Cursor/Copilot             | $20-50        | AI assistance while you code                |
+| Replit/Bolt Pro            | $25-100       | Web-based AI coding                         |
+| Devin                      | $500          | Autonomous AI agent                         |
+| Claude MAX                 | $200          | Almost unlimited Claude usage for Hive Mind |
+| **Hive Mind + Claude MAX** | **$200**      | Autonomous solver, parallel workers, 24/7   |
 
 The Claude MAX subscription is currently at 50% discount, providing $400 value for $200.
+
+**Note**: Claude MAX provides "almost unlimited" usage - it takes tens of users to actually use 100% of the subscription limit.
 
 ## When Hive Mind Is the Best Choice
 
 Hive Mind excels when:
 
-1. **You have defined issues** - Clear requirements in GitHub issues
+1. **Any level of issue definition** - AI asks questions if unclear, you can clarify on the go via PR comments, and sometimes AI does the best thing from the first go
 2. **You value your time** - Want to delegate rather than pair-program
 3. **Multiple issues exist** - Can parallelize with `hive` command
-4. **Mobile access matters** - Control from phone via Telegram
+4. **Mobile access is enough** - Control from any device via Telegram (phone, tablet, etc.)
 5. **Safety is important** - Cloud VM isolation protects your machine
-6. **Budget is limited** - $200/month vs hiring costs
+6. **Budget is limited or workload is large** - $200/month vs hiring costs, handles large task backlogs
 7. **24/7 availability needed** - AI works anytime
-8. **Existing codebase** - Works with your repos, CI/CD, workflows
+8. **Any codebase** - Works with existing repos, CI/CD, workflows - or starts from scratch like any programmer
 
 ## When to Choose Other Solutions
 
-- **Hiring**: Strategic projects, deep domain expertise, team building
+- **Hiring**: Critical systems development (medical, space, high-stakes), lowest possible error rate, highest quality requirements
 - **Traditional IDEs**: Learning, debugging, full control
 - **AI-Assisted IDEs**: Interactive coding sessions, real-time exploration
 - **Vibe Coding**: Quick prototypes, non-developers, demos
@@ -261,10 +282,16 @@ Hive Mind occupies a unique space as a **generalist autonomous AI solver**:
 
 - **Generalist**: Works on almost any task that can be done with repository files
 - **Autonomous**: Full autonomy with sudo access, no permission prompts
-- **Isolated**: Cloud VM execution, safe for your machine
+- **Creative**: High creativity indistinguishable from average programmers, asks questions when needed
+- **Isolated**: Cloud VM or Docker execution, easy to restore if broken, safe for your machine
 - **Efficient**: Token-efficient architecture, parallel execution
-- **Accessible**: Mobile control via Telegram
-- **Integrated**: Native GitHub PR workflow
-- **Affordable**: ~$200/month for unlimited usage
+- **Accessible**: Mobile control via Telegram from any device
+- **Integrated**: Native GitHub PR workflow with full gh CLI access
+- **Open Source**: 100% open source with Unlicense (public domain)
+- **Affordable**: ~$200/month for almost unlimited usage
+
+We use a customized system message that improves quality of results by guiding AI to avoid common mistakes, compensating for typical areas that are hard for AI.
 
 It's not just an AI coding tool - it's a mini-AGI capable of working on a wide range of tasks, giving you back your time while maintaining quality through human review at the merge stage.
+
+> **"The code is written while you sleep."**

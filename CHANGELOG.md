@@ -1,5 +1,16 @@
 # @link-assistant/hive-mind
 
+## 0.52.1
+
+### Patch Changes
+
+- 1a4f1a2: Reduce Telegram messages by updating instead of sending new ones
+
+  The `/solve` and `/hive` commands now update the initial "Starting..." message with the success/error result instead of sending a separate message. This follows the same pattern already used by the `/limits` command.
+
+  **Before:** Two separate messages per command
+  **After:** Single message that gets updated with the result
+
 ## 0.52.0
 
 ### Minor Changes

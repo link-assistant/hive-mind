@@ -251,6 +251,12 @@ export const createYargsConfig = yargsInstance => {
         choices: ['claude', 'opencode', 'codex', 'agent'],
         default: 'claude',
       })
+      .option('use-agent-commander', {
+        type: 'boolean',
+        description: '[EXPERIMENTAL] Use agent-commander library for tool execution instead of embedded logic. Requires agent-commander to be installed.',
+        default: false,
+        hidden: true,
+      })
       .option('interactive-mode', {
         type: 'boolean',
         description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',

@@ -112,8 +112,13 @@ global.verboseMode = argv.verbose;
 // The trade-off is: early logs in cwd vs missing version/command in error cases
 
 // Conditionally import tool-specific functions after argv is parsed
+// If --use-agent-commander is enabled, use agent-commander's checkForUncommittedChanges
 let checkForUncommittedChanges;
-if (argv.tool === 'opencode') {
+let agentCommanderLib = null;
+if (argv.useAgentCommander) {
+  agentCommanderLib = await import('./agent-commander.lib.mjs');
+  checkForUncommittedChanges = agentCommanderLib.checkForUncommittedChanges;
+} else if (argv.tool === 'opencode') {
   const opencodeLib = await import('./opencode.lib.mjs');
   checkForUncommittedChanges = opencodeLib.checkForUncommittedChanges;
 } else if (argv.tool === 'codex') {
@@ -740,7 +745,47 @@ try {
 
   // Execute tool command with all prompts and settings
   let toolResult;
-  if (argv.tool === 'opencode') {
+
+  // If --use-agent-commander is enabled, use agent-commander for all tools
+  if (argv.useAgentCommander) {
+    // Ensure agent-commander is available
+    if (!agentCommanderLib) {
+      agentCommanderLib = await import('./agent-commander.lib.mjs');
+    }
+
+    const isAvailable = await agentCommanderLib.isAgentCommanderAvailable();
+    if (!isAvailable) {
+      await log('\n[agent-commander] agent-commander is not installed.', { level: 'error' });
+      await log('   Install it with: npm install agent-commander', { level: 'error' });
+      await log('   Or remove the --use-agent-commander flag to use embedded tool logic.', { level: 'error' });
+      await safeExit(1, 'agent-commander not available');
+    }
+
+    await log(`\n[agent-commander] Using agent-commander for ${argv.tool || 'claude'} execution`);
+
+    toolResult = await agentCommanderLib.executeWithAgentCommander({
+      issueUrl,
+      issueNumber,
+      prNumber,
+      prUrl,
+      branchName,
+      tempDir,
+      isContinueMode,
+      mergeStateStatus,
+      forkedRepo,
+      feedbackLines,
+      forkActionsUrl,
+      owner,
+      repo,
+      argv,
+      log,
+      setLogFile,
+      getLogFile,
+      formatAligned,
+      getResourceSnapshot,
+      $,
+    });
+  } else if (argv.tool === 'opencode') {
     const opencodeLib = await import('./opencode.lib.mjs');
     const { executeOpenCode } = opencodeLib;
     const opencodePath = process.env.OPENCODE_PATH || 'opencode';

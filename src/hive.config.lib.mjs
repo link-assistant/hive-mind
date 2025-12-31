@@ -271,6 +271,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Only supported for --tool claude.',
       default: true,
     })
+    .option('prompt-check-sibling-pull-requests', {
+      type: 'boolean',
+      description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
+      default: true,
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

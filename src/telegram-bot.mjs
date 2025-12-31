@@ -53,6 +53,9 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 // Import Telegram markdown escaping utilities
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 
+// Import solve queue for /solve command throttling
+const { getSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG } = await import('./telegram-solve-queue.lib.mjs');
+
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
   .option('configuration', {
@@ -885,7 +888,29 @@ bot.command('limits', async ctx => {
   }
 
   // Format and edit the fetching message with the results (pass all system info if available)
-  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null, cpuLoadResult.success ? cpuLoadResult.cpuLoad : null, memoryResult.success ? memoryResult.memory : null);
+  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null, cpuLoadResult.success ? cpuLoadResult.cpuLoad : null, memoryResult.success ? memoryResult.memory : null);
+
+  // Add solve queue status
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  const queueStats = solveQueue.getStats();
+  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
+
+  // Add queue info section before the closing code block
+  // The formatUsageMessage returns a string ending with '```'
+  // We need to insert our queue info before that
+  const codeBlockEnd = message.lastIndexOf('```');
+  if (codeBlockEnd !== -1) {
+    let queueInfo = '\nSolve Queue\n';
+    if (queueStats.queued > 0 || queueStats.processing > 0) {
+      queueInfo += `Pending: ${queueStats.queued}, Processing: ${queueStats.processing}\n`;
+    } else {
+      queueInfo += 'Empty (no pending commands)\n';
+    }
+    queueInfo += `Claude processes: ${claudeProcs.count}\n`;
+
+    message = message.slice(0, codeBlockEnd) + queueInfo + message.slice(codeBlockEnd);
+  }
+
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
     parse_mode: 'Markdown',
   });
@@ -1080,8 +1105,90 @@ bot.command(/^solve$/i, async ctx => {
     infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   }
 
-  const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
+  // Get the solve queue instance
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+
+  // Check if we can start immediately or need to queue
+  const check = await solveQueue.canStartCommand();
+  const queueStats = solveQueue.getStats();
+
+  if (check.canStart && queueStats.queued === 0) {
+    // Can start immediately
+    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
+  } else {
+    // Need to queue the command
+    const queueItem = solveQueue.enqueue({
+      url: args[0],
+      args,
+      ctx,
+      requester,
+      infoBlock,
+      tool: solveTool,
+    });
+
+    // Calculate queue position
+    const position = queueStats.queued + 1;
+    let queueMessage = `📋 Solve command queued (position #${position})\n\n${infoBlock}`;
+
+    if (check.reason) {
+      queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
+    }
+
+    // Store the queued message reference in the item for later update
+    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+
+    // Store message info in the queue item for later update
+    queueItem.messageInfo = {
+      chatId: queuedMessage.chat.id,
+      messageId: queuedMessage.message_id,
+    };
+
+    // Set up the execute callback if not already configured
+    if (!solveQueue.executeCallback) {
+      solveQueue.executeCallback = async item => {
+        const { chatId, messageId } = item.messageInfo || {};
+        const itemCtx = item.ctx;
+
+        try {
+          // Update the message to show command is starting
+          if (chatId && messageId) {
+            await itemCtx.telegram.editMessageText(chatId, messageId, undefined, `🚀 Starting solve command...\n\n${item.infoBlock}`, { parse_mode: 'Markdown' });
+          }
+
+          // Execute the command
+          const result = await executeStartScreen('solve', item.args);
+
+          // Update message with result
+          if (chatId && messageId) {
+            if (result.warning) {
+              await itemCtx.telegram.editMessageText(chatId, messageId, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
+            } else if (result.success) {
+              const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+              const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
+              const response = `✅ Solve command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${item.infoBlock}`;
+              await itemCtx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+            } else {
+              const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
+              await itemCtx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+            }
+          }
+
+          return result;
+        } catch (error) {
+          // Try to update message with error
+          if (chatId && messageId) {
+            try {
+              await itemCtx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
+            } catch {
+              // Ignore message edit failures
+            }
+          }
+          throw error;
+        }
+      };
+    }
+  }
 });
 
 bot.command(/^hive$/i, async ctx => {

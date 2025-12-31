@@ -108,7 +108,12 @@ Initial research.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.${argv?.promptCheckSiblingPullRequests !== false ? '\n   - When you study related work, study the most recent related pull requests.' : ''}
+   - When you need repo context, read files in your working directory.${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.

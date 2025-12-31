@@ -665,6 +665,35 @@ function validateGitHubUrl(args, options = {}) {
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
 /**
+ * Execute a start-screen command and update the initial message with the result.
+ * Used by both /solve and /hive commands to reduce code duplication.
+ *
+ * @param {Object} ctx - Telegram context
+ * @param {Object} startingMessage - The initial message to update
+ * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
+ * @param {string[]} args - Command arguments
+ * @param {string} infoBlock - Info block with request details
+ */
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
+  const result = await executeStartScreen(commandName, args);
+
+  if (result.warning) {
+    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
+    return;
+  }
+
+  if (result.success) {
+    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
+    const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}`;
+    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+  } else {
+    const response = `❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
+    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+  }
+}
+
+/**
  * Extract GitHub issue/PR URL from message text
  * Validates that message contains exactly one GitHub issue/PR link
  *
@@ -1044,34 +1073,15 @@ bot.command(/^solve$/i, async ctx => {
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
   const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting solve command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
   if (solveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('solve', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
+    infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   }
 
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-
-    let response = '✅ Solve command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  } else {
-    let response = '❌ Error executing solve command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  }
+  const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
 });
 
 bot.command(/^hive$/i, async ctx => {
@@ -1198,34 +1208,15 @@ bot.command(/^hive$/i, async ctx => {
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
   const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting hive command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
   if (hiveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('hive', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
+    infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
   }
 
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-
-    let response = '✅ Hive command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  } else {
-    let response = '❌ Error executing hive command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  }
+  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 });
 
 // Register /top command from separate module

@@ -54,7 +54,7 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 
 // Import solve queue for /solve command throttling
-const { getSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG } = await import('./telegram-solve-queue.lib.mjs');
+const { getSolveQueue, getRunningClaudeProcesses } = await import('./telegram-solve-queue.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')

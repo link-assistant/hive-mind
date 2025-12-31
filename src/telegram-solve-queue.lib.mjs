@@ -100,7 +100,7 @@ class LimitCache {
     let validEntries = 0;
     let expiredEntries = 0;
 
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [_key, entry] of this.cache.entries()) {
       if (now - entry.timestamp > this.ttlMs) {
         expiredEntries++;
       } else {

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 0.53.0
+
+### Minor Changes
+
+- b750286: Add `--prompt-check-sibling-pull-requests` flag (default: true) to control whether the AI is prompted to study related/sibling pull requests during issue solving
+
 ## 0.52.1
 
 ### Patch Changes

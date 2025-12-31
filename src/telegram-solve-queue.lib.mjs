@@ -100,7 +100,7 @@ class LimitCache {
     let validEntries = 0;
     let expiredEntries = 0;
 
-    for (const [_key, entry] of this.cache.entries()) {
+    for (const entry of this.cache.values()) {
       if (now - entry.timestamp > this.ttlMs) {
         expiredEntries++;
       } else {
@@ -799,11 +799,61 @@ export function resetSolveQueue() {
   }
 }
 
+/**
+ * Create an execute callback for the queue that handles Telegram message updates
+ * @param {Function} executeStartScreen - Function to execute start-screen command
+ * @returns {Function} Execute callback for queue items
+ */
+export function createQueueExecuteCallback(executeStartScreen) {
+  return async item => {
+    const { chatId, messageId } = item.messageInfo || {};
+    const ctx = item.ctx;
+
+    try {
+      // Update the message to show command is starting
+      if (chatId && messageId) {
+        await ctx.telegram.editMessageText(chatId, messageId, undefined, `🚀 Starting solve command...\n\n${item.infoBlock}`, { parse_mode: 'Markdown' });
+      }
+
+      // Execute the command
+      const result = await executeStartScreen('solve', item.args);
+
+      // Update message with result
+      if (chatId && messageId) {
+        if (result.warning) {
+          await ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
+        } else if (result.success) {
+          const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+          const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
+          const response = `✅ Solve command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${item.infoBlock}`;
+          await ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+        } else {
+          const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
+          await ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      // Try to update message with error
+      if (chatId && messageId) {
+        try {
+          await ctx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
+        } catch {
+          // Ignore message edit failures
+        }
+      }
+      throw error;
+    }
+  };
+}
+
 export default {
   SolveQueue,
   SolveQueueItem,
   getSolveQueue,
   resetSolveQueue,
   getRunningClaudeProcesses,
+  createQueueExecuteCallback,
   QUEUE_CONFIG,
 };

@@ -15,6 +15,25 @@ It is also possible to connect this AI to collective human intelligence, meaning
 
 Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
+## Why Hive Mind?
+
+**Hive Mind is the most autonomous, cloud-ready AI issue solver that eliminates developer babysitting while maintaining human oversight on critical decisions.**
+
+| Feature                      | What It Means For You                                                                   |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| **No Babysitting**           | Create an issue, get a pull request. No permission dialogs or command approvals needed. |
+| **Cloud Isolation**          | Runs on dedicated VMs - your developer machine stays safe and untouched.                |
+| **Full Internet Access**     | AI can install packages, fetch docs, and access any resource it needs.                  |
+| **Pre-installed Toolchain**  | 25GB+ of development tools ready: 10 language runtimes, 2 theorem provers, build tools. |
+| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.        |
+| **Scale with Orchestration** | Process entire issue backlogs with parallel workers and multi-repo monitoring.          |
+| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.         |
+| **Telegram Control**         | Manage AI workers from your phone with `/solve` and `/hive` commands.                   |
+
+> _"Compared to other AI tools costing $200, this solution is fire."_ - User feedback
+
+For detailed features and user benefits, see [docs/FEATURES.md](./docs/FEATURES.md).
+
 ## ⚠️ WARNING
 
 It is UNSAFE to run this software on your developer machine.

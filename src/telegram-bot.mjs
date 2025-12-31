@@ -53,6 +53,9 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 // Import Telegram markdown escaping utilities
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 
+// Import session monitoring for work session completion notifications
+const { trackSession, startSessionMonitoring } = await import('./session-monitor.lib.mjs');
+
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
   .option('configuration', {
@@ -685,7 +688,16 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   if (result.success) {
     const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
     const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-    const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}`;
+
+    // Track the session for completion notifications
+    if (sessionName !== 'unknown') {
+      trackSession(sessionName, { chatId: ctx.chat.id, startTime: new Date(), url: args[0], command: commandName });
+      if (VERBOSE) {
+        console.log(`[VERBOSE] Tracking session ${sessionName} for chat ${ctx.chat.id}`);
+      }
+    }
+
+    const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`;
     await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
   } else {
     const response = `❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
@@ -790,9 +802,8 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
-  message += '*/limits* - Show usage limits\n';
-  message += '*/version* - Show bot and runtime versions\n';
-  message += '*/help* - Show this help message\n\n';
+  message += '*/limits* - Show usage limits\n*/version* - Show bot and runtime versions\n*/help* - Show this help message\n\n';
+  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n\n';
   message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
   message += '🔧 *Available Options:*\n';
   message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
@@ -1436,6 +1447,9 @@ bot.telegram
 
       console.log('[VERBOSE] Send a message to the bot to test message reception');
     }
+
+    // Start session monitoring - check for completed sessions every 30 seconds
+    startSessionMonitoring(bot, VERBOSE);
   })
   .catch(error => {
     console.error('❌ Failed to start bot:', error);

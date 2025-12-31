@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": minor
+'@link-assistant/hive-mind': minor
 ---
 
 Add producer/consumer queue for /solve command in Telegram bot

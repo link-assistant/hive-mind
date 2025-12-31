@@ -100,8 +100,12 @@ export const buildSystemPrompt = params => {
 General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.
    - When running commands, do not set a timeout yourself — let them run as long as needed (default timeout - 2 minutes is more than enough), and once they finish, review the logs in the file.
-   - When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.
-${argv && argv.promptIssueReporting ? `   - When you spot any errors or bugs or minor issues during working session that are not related to requirements of the main task, create issues to track them if they do not exist yet. The issue should contain reproducible examples (ideally minimum reproducible example), workarounds, and suggestions for fixing the issue in code. For issues in the current repository, use gh issue create --repo ${owner}/${repo} --title "Issue title" --body "Issue description". For issues in third-party repositories on GitHub (libraries/components used in the working repository), use gh issue create --repo owner/repo --title "Issue title" --body "Issue description". Always check first if similar issues already exist using gh issue list --repo owner/repo --search "keywords" to avoid duplicates. If a similar issue already exists, add a comment to that issue using gh issue comment <issue-number> --repo owner/repo --body "Comment text" describing your specific case, including logs (anonymized with redacted personal and sensitive data), ways to reproduce, ideally minimum reproducible example, workarounds, and suggestions for fix - similar to how you would describe the issue if it didn't exist yet.` : ''}
+   - When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.${
+     argv && argv.promptIssueReporting
+       ? `
+   - When you spot any errors or bugs or minor issues during working session that are not related to requirements of the main task, create issues to track them if they do not exist yet. The issue should contain reproducible examples (ideally minimum reproducible example), workarounds, and suggestions for fixing the issue in code. For issues in the current repository, use gh issue create --repo ${owner}/${repo} --title "Issue title" --body "Issue description". For issues in third-party repositories on GitHub (libraries/components used in the working repository), use gh issue create --repo owner/repo --title "Issue title" --body "Issue description". Always check first if similar issues already exist using gh issue list --repo owner/repo --search "keywords" to avoid duplicates. If a similar issue already exists, add a comment to that issue using gh issue comment <issue-number> --repo owner/repo --body "Comment text" describing your specific case, including logs (anonymized with redacted personal and sensitive data), ways to reproduce, ideally minimum reproducible example, workarounds, and suggestions for fix - similar to how you would describe the issue if it didn't exist yet.`
+       : ''
+   }
    - When CI is failing or user reports failures, consider adding a detailed investigation protocol to your todo list with these steps:
       Step 1: List recent runs with timestamps using: gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha
       Step 2: Verify runs are after the latest commit by checking timestamps and SHA
@@ -124,8 +128,17 @@ Initial research.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.${argv && argv.promptExploreSubAgent ? '\n   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.' : ''}
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv && argv.promptExploreSubAgent
+       ? `
+   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.`
+       : ''
+   }${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
@@ -135,7 +148,17 @@ Initial research.
       2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
       3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
       IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
-   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${argv && argv.promptGeneralPurposeSubAgent ? '\n   - When the task is big and requires processing of lots of files or folders, you should use the `general-purpose` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.' : ''}${argv && argv.promptCaseStudies ? `\n   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.` : ''}
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${
+     argv && argv.promptGeneralPurposeSubAgent
+       ? `
+   - When the task is big and requires processing of lots of files or folders, you should use the \`general-purpose\` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.`
+       : ''
+   }${
+     argv && argv.promptCaseStudies
+       ? `
+   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.`
+       : ''
+   }
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -196,7 +219,29 @@ GitHub CLI command patterns.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/\${owner}/\${repo}/pulls/\${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${argv && argv.promptPlaywrightMcp ? '\n\nPlaywright MCP usage (browser automation via mcp__playwright__* tools).\n   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.\n   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.\n   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.\n   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.\n   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).\n   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.\n   - When you finish using the browser, always close it with browser_close to free resources.' : ''}${argv && argv.promptPlanSubAgent ? '\n\nPlan sub-agent usage.\n   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.\n   - When using the Plan sub-agent, you can add it as the first item in your todo list.\n   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.' : ''}`;
+   - When filtering with jq, use gh api repos/\${owner}/\${repo}/pulls/\${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${
+     argv && argv.promptPlaywrightMcp
+       ? `
+
+Playwright MCP usage (browser automation via mcp__playwright__* tools).
+   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
+   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
+   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
+   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
+   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
+   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
+   - When you finish using the browser, always close it with browser_close to free resources.`
+       : ''
+   }${
+     argv && argv.promptPlanSubAgent
+       ? `
+
+Plan sub-agent usage.
+   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.
+   - When using the Plan sub-agent, you can add it as the first item in your todo list.
+   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
+       : ''
+   }`;
 };
 
 // Export all functions as default object too

@@ -295,10 +295,8 @@ if (isDirectExecution) {
     }
 
     let githubUrl = argv['github-url'];
-
     // Set global verbose mode
     global.verboseMode = argv.verbose;
-
     // Use the universal GitHub URL parser
     if (githubUrl) {
       const parsedUrl = parseGitHubUrl(githubUrl);

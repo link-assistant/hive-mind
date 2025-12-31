@@ -61,7 +61,8 @@
   },
   "dependencies": {
     "@sentry/node": "^10.15.0",
-    "@sentry/profiling-node": "^10.15.0"
+    "@sentry/profiling-node": "^10.15.0",
+    "start-command": "^0.13.0"
   },
   "lint-staged": {
     "*.{js,mjs,json,md}": [

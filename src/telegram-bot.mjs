@@ -689,12 +689,9 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
     const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
 
-    // Track the session for completion notifications
+    // Track the session for completion notifications using ExecutionStore
     if (sessionName !== 'unknown') {
-      trackSession(sessionName, { chatId: ctx.chat.id, startTime: new Date(), url: args[0], command: commandName });
-      if (VERBOSE) {
-        console.log(`[VERBOSE] Tracking session ${sessionName} for chat ${ctx.chat.id}`);
-      }
+      trackSession(sessionName, { chatId: ctx.chat.id, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
     }
 
     const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`;

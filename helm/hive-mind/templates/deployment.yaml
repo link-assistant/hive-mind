@@ -45,14 +45,14 @@ spec:
           {{- toYaml . | nindent 12 }}
         {{- end }}
         env:
-        {{- if .Values.secrets.githubToken }}
+        {{- if and .Values.secrets .Values.secrets.githubToken (ne .Values.secrets.githubToken "") }}
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
               name: {{ .Values.secrets.githubToken }}
               key: token
         {{- end }}
-        {{- if .Values.secrets.claudeApiKey }}
+        {{- if and .Values.secrets .Values.secrets.claudeApiKey (ne .Values.secrets.claudeApiKey "") }}
         - name: ANTHROPIC_API_KEY
           valueFrom:
             secretKeyRef:

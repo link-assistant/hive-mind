@@ -92,10 +92,10 @@ env:
 # These should be created separately and referenced here
 secrets:
   # Name of an existing secret containing GitHub token
-  # githubToken: ""
+  githubToken: ""
 
   # Name of an existing secret containing Claude API key
-  # claudeApiKey: ""
+  claudeApiKey: ""
 
 # Node selector for pod assignment
 nodeSelector: {}

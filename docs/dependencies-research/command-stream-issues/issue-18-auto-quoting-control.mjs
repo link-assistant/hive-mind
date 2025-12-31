@@ -29,11 +29,7 @@ async function setup() {
 
   const startScreenCmd = 'start-screen';
   const command = 'solve';
-  const args = [
-    'https://github.com/example/repo/issues/1',
-    '--auto-continue',
-    '--verbose'
-  ];
+  const args = ['https://github.com/example/repo/issues/1', '--auto-continue', '--verbose'];
 
   console.log(`   Command: ${startScreenCmd}`);
   console.log(`   Subcommand: ${command}`);
@@ -47,42 +43,42 @@ async function setup() {
  * Helper: Execute command with spawn (workaround)
  */
 function executeWithSpawn(startScreenCmd, command, args) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const allArgs = [command, ...args];
 
     console.log(`   Executing: ${startScreenCmd} ${allArgs.join(' ')}`);
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
     });
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout?.on('data', (data) => {
+    child.stdout?.on('data', data => {
       stdout += data.toString();
     });
 
-    child.stderr?.on('data', (data) => {
+    child.stderr?.on('data', data => {
       stderr += data.toString();
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       resolve({
         success: false,
         error: error.message,
         stdout,
-        stderr
+        stderr,
       });
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       resolve({
         success: code === 0,
         exitCode: code,
         stdout,
-        stderr
+        stderr,
       });
     });
   });
@@ -103,7 +99,7 @@ async function runTest() {
     console.log('1️⃣  Using command-stream $ with full command string:');
 
     // Build the full command string
-    const quotedArgs = args.map(arg => arg.includes(' ') ? `"${arg}"` : arg).join(' ');
+    const quotedArgs = args.map(arg => (arg.includes(' ') ? `"${arg}"` : arg)).join(' ');
     const fullCommand = `${startScreenCmd} ${command} ${quotedArgs}`;
 
     console.log(`   Full command: ${fullCommand}\n`);
@@ -123,7 +119,6 @@ async function runTest() {
 
     console.log('✅ Command worked (issue may be fixed)');
     console.log(`   Output: ${output.substring(0, 100)}...`);
-
   } catch (error) {
     // CATCH: Demonstrate the issue and apply workaround
     console.log('❌ ISSUE CONFIRMED: Auto-quoting interfered with command execution');
@@ -208,8 +203,8 @@ async function runTest() {
   console.log('   const result = await $({ autoQuote: false })`${cmd}`;');
 
   console.log('\n📚 REFERENCES:');
-  console.log('   • Related issue: https://github.com/deep-assistant/hive-mind/issues/377');
-  console.log('   • PR with fix: https://github.com/deep-assistant/hive-mind/pull/387');
+  console.log('   • Related issue: https://github.com/link-assistant/hive-mind/issues/377');
+  console.log('   • PR with fix: https://github.com/link-assistant/hive-mind/pull/387');
 }
 
 // Run the test

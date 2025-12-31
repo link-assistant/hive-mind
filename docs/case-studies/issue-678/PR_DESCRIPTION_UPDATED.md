@@ -18,11 +18,13 @@ After thorough investigation of user-reported logs and multiple testing scenario
 ### Problem 1: "No Commits Between Branches" Error
 
 **Symptom**: When using `--auto-continue` to reuse existing branches, PR creation fails with:
+
 ```
 GraphQL: No commits between master and issue-1-b53fe3666f91
 ```
 
 **What the logs showed**:
+
 ```
 [10:00:15.117Z] CLAUDE.md already exists, appending task info...
 [10:00:15.199Z] Commit created: 9d8c4fc
@@ -44,6 +46,7 @@ GraphQL: No commits between master and issue-1-b53fe3666f91
 **Key Insight**: GitHub doesn't check if different commits exist—it checks if the **content differs**. This is why a new commit with identical content fails.
 
 **Solution (v0.29.8)**: Add timestamp to make content unique every run:
+
 ```javascript
 finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${timestamp}`;
 ```
@@ -51,6 +54,7 @@ finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${tim
 ### Problem 2: Fork Mode Compare API 404 Errors
 
 **Symptom**: In fork mode, Compare API check fails repeatedly with 404 errors:
+
 ```
 [12:28:48.248Z] Push succeeds to fork: konard/anti-corruption
 [12:28:50.768Z] Compare API error (attempt 1/5): {"message":"Not Found","status":"404"}
@@ -61,27 +65,34 @@ finalContent = `${trimmedExisting}\n\n---\n\n${taskInfo}\n\nRun timestamp: ${tim
 **Root Cause**: The Compare API check (added in v0.29.7 to handle GitHub sync delays) was using the wrong head reference format for fork mode:
 
 ❌ **Wrong** (v0.29.7):
+
 ```
 repos/xlabtg/anti-corruption/compare/main...issue-6-01d3f376c347
 ```
+
 Problem: Branch `issue-6-01d3f376c347` only exists in `konard/anti-corruption` (fork), not in `xlabtg/anti-corruption` (upstream)
 
 ✅ **Correct** (v0.29.9):
+
 ```
 repos/xlabtg/anti-corruption/compare/main...konard:issue-6-01d3f376c347
 ```
+
 This tells GitHub to look for the branch in the fork using the `forkUser:branch` format.
 
 **Solution (v0.29.9)**: Detect fork mode and construct correct head reference:
+
 ```javascript
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // e.g., "konard:issue-678-abc"
+  headRef = `${forkUser}:${branchName}`; // e.g., "konard:issue-678-abc"
 } else {
-  headRef = branchName;  // e.g., "issue-678-abc"
+  headRef = branchName; // e.g., "issue-678-abc"
 }
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true,
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
 This matches the format used in `gh pr create` and correctly references branches in forks.
@@ -112,6 +123,7 @@ experiments/
 ### Problem 1: Identical Content When Reusing Branches (v0.29.5)
 
 When using `--auto-continue` mode with existing branches:
+
 1. Checkout existing branch
 2. Append task information to CLAUDE.md
 3. Create commit and push
@@ -122,11 +134,13 @@ When using `--auto-continue` mode with existing branches:
 ### Problem 2: Fork Mode 404 Errors (v0.29.7 regression)
 
 In fork mode, Compare API check failed with 404 errors:
+
 ```
 Compare API error: {"message":"Not Found","status":"404"}
 ```
 
 **Root Cause**: Compare API was called with incorrect head reference:
+
 - Used: `repos/upstream/repo/compare/main...branch-name`
 - Problem: Branch only exists in fork, not upstream
 - Result: GitHub returns 404 error
@@ -149,11 +163,13 @@ This ensures each run creates genuinely unique content, even when appending to e
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // e.g., "konard:issue-678-abc"
+  headRef = `${forkUser}:${branchName}`; // e.g., "konard:issue-678-abc"
 } else {
-  headRef = branchName;  // e.g., "issue-678-abc"
+  headRef = branchName; // e.g., "issue-678-abc"
 }
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true,
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
 This matches the format used in `gh pr create` and correctly references branches in forks.
@@ -182,6 +198,7 @@ The case study includes three failure logs from production:
 3. **log3.txt** (v0.29.7): Fork mode fails with Compare API 404 errors
 
 These logs prove that:
+
 - v0.29.5 didn't have the timestamp fix → identical content → failures
 - v0.29.7 didn't have fork mode fix → 404 errors → failures
 - v0.29.9 (this PR) has both fixes → should work correctly
@@ -220,12 +237,14 @@ These logs prove that:
 ## ✨ Result
 
 Users can now reliably use all solve command modes:
+
 - ✅ Direct repository access
 - ✅ Fork mode with `--auto-fork`
 - ✅ Branch reuse with `--auto-continue`
 - ✅ Combined fork + auto-continue workflows
 
 The solve command now handles:
+
 - GitHub's backend sync delays (exponential backoff retry)
 - Content uniqueness when reusing branches (timestamp)
 - Correct API references for fork mode (forkUser:branch format)
@@ -233,19 +252,23 @@ The solve command now handles:
 ## 📝 Changes
 
 **src/solve.auto-pr.lib.mjs:**
+
 - Line ~145: Add timestamp when appending to existing CLAUDE.md
 - Line ~500: Add fork mode detection and head reference construction
 
 **docs/case-studies/issue-678/:**
+
 - Comprehensive case study with all analysis documents
 - Evidence logs from production failures
 - Clear explanation of root causes and solutions
 
 **experiments/:**
+
 - Test scripts validating both fixes
 - Analysis and reproduction scripts
 
 **package.json:**
+
 - Bump version to 0.29.9
 
 ---

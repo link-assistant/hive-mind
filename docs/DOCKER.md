@@ -13,6 +13,10 @@ docker pull konard/hive-mind:latest
 # Run an interactive session
 docker run -it konard/hive-mind:latest
 
+# IMPORTANT: Authentication is done AFTER the Docker image is installed
+# The installation script does NOT run gh auth login to avoid build timeouts
+# This allows the Docker build to complete successfully without interactive prompts
+
 # Inside the container, authenticate with GitHub
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
 
@@ -52,25 +56,38 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) uses Ubuntu 24.04 and the official installation script. Authentication is performed **inside the container** after starting it:
+The production Docker image (`Dockerfile`) uses Ubuntu 24.04 and the official installation script. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
+
+**Why Authentication Happens After Installation:**
+
+- ✅ Avoids Docker build timeouts caused by interactive prompts
+- ✅ Prevents build failures in CI/CD pipelines
+- ✅ Allows the installation script to complete successfully
+- ✅ Supports automated Docker image builds
 
 ### GitHub Authentication
+
 ```bash
-# Inside the container
+# Inside the container, AFTER it's running
 gh auth login -h github.com -s repo,workflow,user,read:org,gist
 ```
 
+**Note:** The installation script intentionally does NOT call `gh auth login` during the build process. This is by design to support Docker builds without timeouts.
+
 ### Claude Authentication
+
 ```bash
-# Inside the container
+# Inside the container, AFTER it's running
 claude
 ```
 
 This approach allows:
+
 - ✅ Multiple Docker instances with different GitHub accounts
 - ✅ Multiple Docker instances with different Claude subscriptions
 - ✅ No credential leakage between containers
 - ✅ Each container has its own isolated authentication
+- ✅ Successful Docker builds without interactive authentication
 
 ## Prerequisites
 
@@ -137,6 +154,7 @@ volumes:
 ```
 
 Then run:
+
 ```bash
 docker-compose run --rm hive-mind
 ```
@@ -144,6 +162,7 @@ docker-compose run --rm hive-mind
 ## Troubleshooting
 
 ### GitHub Authentication Issues
+
 ```bash
 # Inside the container, check authentication status
 gh auth status
@@ -153,12 +172,14 @@ gh auth login -h github.com -s repo,workflow,user,read:org,gist
 ```
 
 ### Claude Authentication Issues
+
 ```bash
 # Inside the container, re-run Claude to authenticate
 claude
 ```
 
 ### Docker Issues
+
 ```bash
 # Check Docker status on host
 docker info
@@ -227,7 +248,7 @@ If using a fork, update the image name in `.github/workflows/docker-publish.yml`
 ```yaml
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: YOUR_DOCKERHUB_USERNAME/hive-mind  # Change this to your username
+  IMAGE_NAME: YOUR_DOCKERHUB_USERNAME/hive-mind # Change this to your username
 ```
 
 ### Step 5: Verify the Configuration
@@ -247,14 +268,17 @@ env:
 ### Troubleshooting CI/CD
 
 **Build fails with authentication error:**
+
 - Verify `DOCKERHUB_USERNAME` matches your Docker Hub username exactly
 - Regenerate `DOCKERHUB_TOKEN` and update the secret
 
 **Image published but can't pull:**
+
 - Ensure the repository on Docker Hub is public (or you're authenticated)
 - Check [hub.docker.com](https://hub.docker.com) → Your repositories → hive-mind → Settings → Make Public
 
 **Build succeeds but image doesn't appear:**
+
 - Check you're pushing to the `main` branch (pull requests only test, don't publish)
 - Verify the workflow ran in the Actions tab
 - Check Docker Hub rate limits haven't been exceeded

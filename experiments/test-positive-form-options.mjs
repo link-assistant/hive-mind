@@ -18,12 +18,12 @@ function createParser(args) {
     .option('solve', {
       type: 'boolean',
       description: 'Enable /solve command',
-      default: true
+      default: true,
     })
     .option('hive', {
       type: 'boolean',
       description: 'Enable /hive command',
-      default: true
+      default: true,
     });
 }
 

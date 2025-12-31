@@ -38,11 +38,13 @@ The solve script works around these limitations:
 ### Troubleshooting
 
 If you see "Could not resolve host: github.com" in codex output:
+
 - ✅ This is expected and normal
 - ✅ solve.mjs will handle the push after codex completes
-- ⚠️  Don't interrupt with Ctrl+C - let the process complete
+- ⚠️ Don't interrupt with Ctrl+C - let the process complete
 
 If solve.mjs doesn't push after codex completes:
+
 - Check if you interrupted the process early
 - Manually push: `git push origin <branch-name>`
 - Report as a bug if it consistently fails
@@ -59,6 +61,7 @@ When codex or other tools leave uncommitted changes, solve.mjs automatically ent
 - **NOT the same as**: User-requested `--watch` mode
 
 **Example Output:**
+
 ```
 🔄 AUTO-RESTART: Uncommitted changes detected
    Starting temporary monitoring cycle (NOT --watch mode)
@@ -81,6 +84,7 @@ When you explicitly use `--watch`, solve.mjs continuously monitors for feedback:
 - **Use case**: Long-running monitoring for feedback
 
 **Example Output:**
+
 ```
 👁️ WATCH MODE ACTIVATED
    Checking interval: 60 seconds
@@ -90,12 +94,12 @@ When you explicitly use `--watch`, solve.mjs continuously monitors for feedback:
 
 ### Key Differences
 
-| Feature | Auto-Restart | Watch Mode |
-|---------|-------------|------------|
-| Activation | Automatic (uncommitted changes) | Manual (`--watch` flag) |
-| Duration | Single cycle | Continuous |
-| Purpose | Finish incomplete work | Monitor for feedback |
-| Exit Condition | Changes committed | PR merged or Ctrl+C |
+| Feature        | Auto-Restart                    | Watch Mode              |
+| -------------- | ------------------------------- | ----------------------- |
+| Activation     | Automatic (uncommitted changes) | Manual (`--watch` flag) |
+| Duration       | Single cycle                    | Continuous              |
+| Purpose        | Finish incomplete work          | Monitor for feedback    |
+| Exit Condition | Changes committed               | PR merged or Ctrl+C     |
 
 ## Common Issues
 
@@ -120,11 +124,13 @@ When you explicitly use `--watch`, solve.mjs continuously monitors for feedback:
 **Explanation**: Either Auto-Restart is waiting for changes to be committed, or you used `--watch`.
 
 **Debugging**:
+
 1. Check the log messages - does it say "AUTO-RESTART MODE" or "WATCH MODE ACTIVATED"?
 2. If Auto-Restart: Check if there are still uncommitted changes
 3. If Watch Mode: You used `--watch` flag, wait for PR merge or press Ctrl+C
 
 **Solution**:
+
 - For Auto-Restart: Let it complete or commit changes manually
 - For Watch Mode: Wait for completion or interrupt with Ctrl+C
 

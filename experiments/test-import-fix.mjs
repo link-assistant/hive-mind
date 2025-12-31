@@ -16,7 +16,6 @@ try {
   console.log('✅ getResourceSnapshot() executed successfully');
   console.log('   Memory usage:', snapshot.memory);
   console.log('   CPU usage:', snapshot.cpu);
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   process.exit(1);

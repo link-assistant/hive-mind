@@ -30,27 +30,27 @@ export const productionConfig = {
       priority: 'high',
       specialization: ['github-integration', 'code-generation', 'testing'],
       maxConcurrentTasks: 3,
-      timeout: 600000 // 10 minutes
+      timeout: 600000, // 10 minutes
     },
     'code-reviewer': {
       model: 'opus',
       priority: 'critical',
       specialization: ['security-analysis', 'architecture-review', 'performance'],
       maxConcurrentTasks: 2,
-      timeout: 300000 // 5 minutes
+      timeout: 300000, // 5 minutes
     },
-    'coordinator': {
+    coordinator: {
       model: 'haiku',
       priority: 'medium',
       specialization: ['task-management', 'communication', 'monitoring'],
       maxConcurrentTasks: 10,
-      timeout: 30000 // 30 seconds
-    }
+      timeout: 30000, // 30 seconds
+    },
   },
   orchestrator: {
     consensusThreshold: 0.8,
-    conflictResolution: 'weighted'
-  }
+    conflictResolution: 'weighted',
+  },
 };
 
 /**
@@ -66,8 +66,7 @@ export function validateConfig(config) {
   }
 
   // Validate consensus threshold
-  if (config.orchestrator.consensusThreshold < 0.5 || 
-      config.orchestrator.consensusThreshold > 1.0) {
+  if (config.orchestrator.consensusThreshold < 0.5 || config.orchestrator.consensusThreshold > 1.0) {
     throw new Error('Consensus threshold must be between 0.5 and 1.0');
   }
 
@@ -87,7 +86,7 @@ export function validateConfig(config) {
 // Usage example
 if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('🤖 Validating production configuration...');
-  
+
   try {
     validateConfig(productionConfig);
     console.log('✅ Configuration is valid');

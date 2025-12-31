@@ -25,4 +25,3 @@
 - Propagated limitResetTime and resumeCommand into attachLogToGitHub with a dedicated usage-limit comment.
 - Made gist fallback prefer usage-limit formatting whenever isUsageLimit=true.
 - solve.mjs now assigns global.limitResetTime from tool results for auto-continue-limit and PR comments.
-

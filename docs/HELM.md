@@ -60,6 +60,7 @@ resources:
 ```
 
 **Recommended minimum resources per pod:**
+
 - CPU: 500m (0.5 cores)
 - Memory: 1Gi RAM
 - Disk: 50Gi persistent storage
@@ -80,7 +81,7 @@ persistence:
 ```yaml
 persistence:
   enabled: true
-  storageClass: "fast-ssd"
+  storageClass: 'fast-ssd'
   size: 100Gi
 ```
 
@@ -89,7 +90,7 @@ persistence:
 ```yaml
 persistence:
   enabled: true
-  existingClaim: "my-existing-pvc"
+  existingClaim: 'my-existing-pvc'
 ```
 
 ### Authentication Configuration
@@ -114,8 +115,8 @@ kubectl create secret generic hive-claude-api-key \
 
 ```yaml
 secrets:
-  githubToken: "hive-github-token"
-  claudeApiKey: "hive-claude-api-key"
+  githubToken: 'hive-github-token'
+  claudeApiKey: 'hive-claude-api-key'
 ```
 
 ### Running as a Telegram Bot
@@ -145,7 +146,7 @@ command:
     "
 
 env:
-  TELEGRAM_BOT_TOKEN: "your-telegram-bot-token"
+  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
 ```
 
 ### Autoscaling
@@ -179,10 +180,10 @@ Allow scheduling on tainted nodes:
 
 ```yaml
 tolerations:
-  - key: "ai-workload"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
+  - key: 'ai-workload'
+    operator: 'Equal'
+    value: 'true'
+    effect: 'NoSchedule'
 ```
 
 #### Affinity Rules
@@ -247,7 +248,7 @@ autoscaling:
 
 persistence:
   enabled: true
-  storageClass: "fast-ssd"
+  storageClass: 'fast-ssd'
   size: 100Gi
 
 resources:
@@ -259,8 +260,8 @@ resources:
     memory: 4Gi
 
 secrets:
-  githubToken: "hive-github-token"
-  claudeApiKey: "hive-claude-api-key"
+  githubToken: 'hive-github-token'
+  claudeApiKey: 'hive-claude-api-key'
 
 command:
   - /bin/bash
@@ -277,7 +278,7 @@ podAntiAffinity:
             operator: In
             values:
               - hive-mind
-      topologyKey: "kubernetes.io/hostname"
+      topologyKey: 'kubernetes.io/hostname'
 ```
 
 ```bash
@@ -387,6 +388,7 @@ kubectl describe pvc hive-mind
 **Symptom:** Pod stuck in `Pending` state
 
 **Solutions:**
+
 1. Check node resources: `kubectl describe node`
 2. Verify PVC is bound: `kubectl get pvc`
 3. Check storage class exists: `kubectl get storageclass`
@@ -396,6 +398,7 @@ kubectl describe pvc hive-mind
 **Symptom:** GitHub/Claude commands fail
 
 **Solutions:**
+
 1. Verify secrets exist: `kubectl get secrets`
 2. Check secret contents: `kubectl describe secret hive-github-token`
 3. Manually authenticate inside pod:
@@ -410,6 +413,7 @@ kubectl describe pvc hive-mind
 **Symptom:** Pod crashes with OOMKilled
 
 **Solutions:**
+
 1. Increase memory limits in values.yaml
 2. Monitor actual usage: `kubectl top pods`
 3. Consider using autoscaling
@@ -439,7 +443,7 @@ Use a custom Docker image:
 ```yaml
 image:
   repository: myregistry.com/custom-hive-mind
-  tag: "1.0.0"
+  tag: '1.0.0'
   pullPolicy: Always
 
 imagePullSecrets:
@@ -480,8 +484,8 @@ Integrate with logging systems like ELK, Loki, or CloudWatch:
 
 ```yaml
 podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "9090"
+  prometheus.io/scrape: 'true'
+  prometheus.io/port: '9090'
 ```
 
 ## Security Best Practices
@@ -489,6 +493,7 @@ podAnnotations:
 1. **Use Secrets Management:** Store GitHub tokens and API keys in Kubernetes secrets or external secret managers (HashiCorp Vault, AWS Secrets Manager)
 
 2. **Network Policies:** Restrict network access between pods:
+
    ```yaml
    apiVersion: networking.k8s.io/v1
    kind: NetworkPolicy
@@ -503,10 +508,11 @@ podAnnotations:
        - Egress
      egress:
        - to:
-         - namespaceSelector: {}
+           - namespaceSelector: {}
    ```
 
 3. **Pod Security Standards:** Use restricted pod security standards:
+
    ```yaml
    podSecurityContext:
      runAsNonRoot: true

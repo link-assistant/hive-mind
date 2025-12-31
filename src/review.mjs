@@ -55,45 +55,45 @@ const argv = yargs()
   .usage('Usage: $0 <pr-url> [options]')
   .positional('pr-url', {
     type: 'string',
-    description: 'The GitHub pull request URL to review'
+    description: 'The GitHub pull request URL to review',
   })
   .option('resume', {
     type: 'string',
     description: 'Resume from a previous session ID (when limit was reached)',
-    alias: 'r'
+    alias: 'r',
   })
   .option('dry-run', {
     type: 'boolean',
     description: 'Prepare everything but do not execute Claude',
-    alias: 'n'
+    alias: 'n',
   })
   .option('model', {
     type: 'string',
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
   })
   .option('focus', {
     type: 'string',
     description: 'Focus areas for review (security, performance, logic, style, tests)',
     alias: 'f',
-    default: 'all'
+    default: 'all',
   })
   .option('approve', {
     type: 'boolean',
     description: 'If review passes, approve the PR',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .demandCommand(1, 'The GitHub pull request URL is required')
   .parserConfiguration({
-    'boolean-negation': true
+    'boolean-negation': true,
   })
   .help('h')
   .alias('h', 'help')
@@ -120,7 +120,9 @@ await log('   (All output will be logged here)\n');
 
 // Validate GitHub PR URL format
 if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
-  await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', { level: 'error' });
+  await log('Error: Please provide a valid GitHub pull request URL (e.g., https://github.com/owner/repo/pull/123)', {
+    level: 'error',
+  });
   process.exit(1);
 }
 
@@ -153,7 +155,7 @@ if (isResuming) {
   } catch (err) {
     reportError(err, {
       context: 'resume_session_lookup',
-      sessionId: argv.resume
+      sessionId: argv.resume,
     });
     await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
     tempDir = path.join(os.tmpdir(), `gh-pr-reviewer-resume-${argv.resume}-${Date.now()}`);
@@ -172,15 +174,15 @@ try {
   // Get PR details first
   await log('📊 Getting pull request details...');
   const prDetailsResult = await $`gh pr view ${prUrl} --json title,body,headRefName,baseRefName,author,number,state,files`;
-  
+
   if (prDetailsResult.code !== 0) {
     await log('Error: Failed to get PR details', { level: 'error' });
     await log(prDetailsResult.stderr ? prDetailsResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
+
   const prDetails = JSON.parse(prDetailsResult.stdout.toString());
-  
+
   await log(`\n📄 Pull Request: #${prDetails.number} - ${prDetails.title}`);
   await log(`👤 Author: ${prDetails.author.login}`);
   await log(`🌿 Branch: ${prDetails.headRefName} → ${prDetails.baseRefName}`);
@@ -190,7 +192,7 @@ try {
   // Clone the repository using gh tool with authentication
   await log(`\nCloning repository ${owner}/${repo} using gh tool...\n`);
   const cloneResult = await $`gh repo clone ${owner}/${repo} ${tempDir}`;
-  
+
   // Verify clone was successful
   if (cloneResult.code !== 0) {
     await log('Error: Failed to clone repository', { level: 'error' });
@@ -209,25 +211,25 @@ try {
   // Fetch and checkout the PR branch
   await log(`🔀 Fetching and checking out PR branch: ${prDetails.headRefName}`);
   const fetchResult = await $`cd ${tempDir} && gh pr checkout ${prNumber}`;
-  
+
   if (fetchResult.code !== 0) {
     await log('Error: Failed to checkout PR branch', { level: 'error' });
     await log(fetchResult.stderr ? fetchResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
+
   await log('✅ Successfully checked out PR branch\n');
 
   // Get the diff for the PR
   await log('📝 Getting PR diff...');
   const diffResult = await $`gh pr diff ${prUrl}`;
-  
+
   if (diffResult.code !== 0) {
     await log('Error: Failed to get PR diff', { level: 'error' });
     await log(diffResult.stderr ? diffResult.stderr.toString() : 'Unknown error', { level: 'error' });
     process.exit(1);
   }
-  
+
   const prDiff = diffResult.stdout.toString();
   await log(`✅ Got PR diff (${prDiff.length} characters)\n`);
 
@@ -342,7 +344,7 @@ Review this pull request thoroughly.`;
     forkedRepo: null,
     feedbackLines: [],
     claudePath,
-    $
+    $,
   });
 
   const { success: commandSuccess, sessionId, limitReached: limitReachedResult } = result;
@@ -370,11 +372,11 @@ Review this pull request thoroughly.`;
     } else {
       // Check if review was submitted
       await log('\n🔍 Checking for submitted review...');
-      
+
       try {
         // Get reviews for the PR
-        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
-        
+        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
+
         if (reviewsResult.code === 0 && reviewsResult.stdout.toString().trim()) {
           await log(`✅ Review has been submitted to PR #${prNumber}`);
           await log(`📍 View at: ${prUrl}`);
@@ -385,11 +387,11 @@ Review this pull request thoroughly.`;
         reportError(error, {
           context: 'verify_review_status',
           prNumber,
-          level: 'warning'
+          level: 'warning',
         });
         await log('⚠️  Could not verify review status');
       }
-      
+
       // Show command to resume session in interactive mode
       await log('\n💡 To continue this session in Claude Code interactive mode:\n');
       await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
@@ -402,11 +404,10 @@ Review this pull request thoroughly.`;
 
   await log('\n✨ Review process complete. Check the PR for review comments.');
   await log(`📍 Pull Request: ${prUrl}`);
-
 } catch (error) {
   reportError(error, {
     context: 'review_execution',
-    prUrl: prUrl
+    prUrl: prUrl,
   });
   await log('Error executing review:', error.message, { level: 'error' });
   process.exit(1);
@@ -421,7 +422,7 @@ Review this pull request thoroughly.`;
       reportError(cleanupError, {
         context: 'cleanup_temp_dir',
         level: 'warning',
-        tempDir
+        tempDir,
       });
       await log(' ⚠️  (failed)');
     }

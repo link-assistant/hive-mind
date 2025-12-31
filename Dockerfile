@@ -11,8 +11,11 @@ WORKDIR /workspace
 COPY scripts/ubuntu-24-server-install.sh /tmp/ubuntu-24-server-install.sh
 
 # Make the script executable and run it
+# Pass DOCKER_BUILD=1 environment variable to indicate Docker build environment
+# This is needed because standard Docker detection (/.dockerenv, cgroup checks)
+# doesn't work reliably during Docker build with BuildKit
 RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
-    bash /tmp/ubuntu-24-server-install.sh && \
+    DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh && \
     rm -f /tmp/ubuntu-24-server-install.sh
 
 # Switch to hive user
@@ -25,7 +28,19 @@ WORKDIR /home/hive
 ENV NVM_DIR="/home/hive/.nvm"
 ENV PYENV_ROOT="/home/hive/.pyenv"
 ENV BUN_INSTALL="/home/hive/.bun"
-ENV PATH="/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
+ENV DENO_INSTALL="/home/hive/.deno"
+ENV CARGO_HOME="/home/hive/.cargo"
+# Include PHP paths from Homebrew (PHP is keg-only and needs explicit PATH entry)
+# Include Cargo/Rust paths (installed via rustup)
+# Include Lean/elan paths
+# Include Opam paths for Rocq/Coq theorem prover
+ENV PATH="/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
+# Opam environment variables for Rocq/Coq theorem prover
+# Reference: https://rocq-prover.org/docs/using-opam (issue #952)
+# These are needed in addition to PATH for opam-installed tools to work properly
+ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
 
 # Load NVM, Pyenv, and other tools in shell sessions
 SHELL ["/bin/bash", "-c"]

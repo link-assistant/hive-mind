@@ -21,13 +21,7 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 // Import resource monitoring functions
-import {
-  getClaudeUsageLimits,
-  getCpuLoadInfo,
-  getMemoryInfo,
-  getDiskSpaceInfo,
-  getGitHubRateLimits,
-} from './claude-limits.lib.mjs';
+import { getClaudeUsageLimits, getCpuLoadInfo, getMemoryInfo, getDiskSpaceInfo, getGitHubRateLimits } from './claude-limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling
@@ -132,15 +126,20 @@ export async function getRunningClaudeProcesses(verbose = false) {
     // Use pgrep to find claude processes
     // This is more reliable than parsing ps output
     const { stdout } = await execAsync('pgrep -l -x claude 2>/dev/null || true');
-    const lines = stdout.trim().split('\n').filter(line => line.trim());
+    const lines = stdout
+      .trim()
+      .split('\n')
+      .filter(line => line.trim());
 
-    const processes = lines.map(line => {
-      const parts = line.trim().split(/\s+/);
-      return {
-        pid: parts[0],
-        name: parts.slice(1).join(' ') || 'claude',
-      };
-    }).filter(p => p.pid);
+    const processes = lines
+      .map(line => {
+        const parts = line.trim().split(/\s+/);
+        return {
+          pid: parts[0],
+          name: parts.slice(1).join(' ') || 'claude',
+        };
+      })
+      .filter(p => p.pid);
 
     if (verbose) {
       console.log(`[VERBOSE] /solve-queue found ${processes.length} running claude processes`);
@@ -256,9 +255,7 @@ export class SolveQueue {
     this.lastStartTime = null;
 
     // Cache for limit checks
-    this.limitCache = new LimitCache(
-      options.limitCacheTtlMs || QUEUE_CONFIG.LIMIT_CACHE_TTL_MS
-    );
+    this.limitCache = new LimitCache(options.limitCacheTtlMs || QUEUE_CONFIG.LIMIT_CACHE_TTL_MS);
 
     // Consumer task reference
     this.consumerTask = null;
@@ -437,7 +434,7 @@ export class SolveQueue {
 
     // Check RAM
     const memCached = this.limitCache.get('memory');
-    const memResult = memCached || await getMemoryInfo(this.verbose);
+    const memResult = memCached || (await getMemoryInfo(this.verbose));
     if (!memCached && memResult.success) {
       this.limitCache.set('memory', memResult);
     }
@@ -452,7 +449,7 @@ export class SolveQueue {
 
     // Check CPU
     const cpuCached = this.limitCache.get('cpu');
-    const cpuResult = cpuCached || await getCpuLoadInfo(this.verbose);
+    const cpuResult = cpuCached || (await getCpuLoadInfo(this.verbose));
     if (!cpuCached && cpuResult.success) {
       this.limitCache.set('cpu', cpuResult);
     }
@@ -467,7 +464,7 @@ export class SolveQueue {
 
     // Check disk space
     const diskCached = this.limitCache.get('disk');
-    const diskResult = diskCached || await getDiskSpaceInfo(this.verbose);
+    const diskResult = diskCached || (await getDiskSpaceInfo(this.verbose));
     if (!diskCached && diskResult.success) {
       this.limitCache.set('disk', diskResult);
     }
@@ -502,7 +499,7 @@ export class SolveQueue {
 
     // Check Claude limits
     const claudeCached = this.limitCache.get('claude');
-    const claudeResult = claudeCached || await getClaudeUsageLimits(this.verbose);
+    const claudeResult = claudeCached || (await getClaudeUsageLimits(this.verbose));
     if (!claudeCached && claudeResult.success) {
       this.limitCache.set('claude', claudeResult);
     }
@@ -545,7 +542,7 @@ export class SolveQueue {
     // Check GitHub limits (only relevant if claude processes running)
     if (hasRunningClaude) {
       const githubCached = this.limitCache.get('github');
-      const githubResult = githubCached || await getGitHubRateLimits(this.verbose);
+      const githubResult = githubCached || (await getGitHubRateLimits(this.verbose));
       if (!githubCached && githubResult.success) {
         this.limitCache.set('github', githubResult);
       }

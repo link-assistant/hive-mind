@@ -19,13 +19,7 @@ const __dirname = dirname(__filename);
 
 // Import the queue library
 const queueLibPath = join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs');
-const {
-  SolveQueue,
-  getSolveQueue,
-  resetSolveQueue,
-  getRunningClaudeProcesses,
-  QUEUE_CONFIG,
-} = await import(queueLibPath);
+const { SolveQueue, getSolveQueue, resetSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG } = await import(queueLibPath);
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -68,17 +62,7 @@ async function runTestAsync(name, testFn) {
 
 // Test 1: QUEUE_CONFIG has required properties
 runTest('QUEUE_CONFIG has required properties', () => {
-  const requiredProps = [
-    'RAM_THRESHOLD_PERCENT',
-    'CPU_THRESHOLD_PERCENT',
-    'DISK_FREE_THRESHOLD_PERCENT',
-    'CLAUDE_SESSION_THRESHOLD_PERCENT',
-    'CLAUDE_WEEKLY_THRESHOLD_PERCENT',
-    'GITHUB_API_THRESHOLD_PERCENT',
-    'MIN_START_INTERVAL_MS',
-    'LIMIT_CACHE_TTL_MS',
-    'CONSUMER_POLL_INTERVAL_MS',
-  ];
+  const requiredProps = ['RAM_THRESHOLD_PERCENT', 'CPU_THRESHOLD_PERCENT', 'DISK_FREE_THRESHOLD_PERCENT', 'CLAUDE_SESSION_THRESHOLD_PERCENT', 'CLAUDE_WEEKLY_THRESHOLD_PERCENT', 'GITHUB_API_THRESHOLD_PERCENT', 'MIN_START_INTERVAL_MS', 'LIMIT_CACHE_TTL_MS', 'CONSUMER_POLL_INTERVAL_MS'];
 
   for (const prop of requiredProps) {
     if (!(prop in QUEUE_CONFIG)) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Token sanitization utilities for log content
- * Handles masking of sensitive tokens while avoiding false positives
+ * Uses secretlint for reliable detection with custom patterns for additional coverage
  *
  * @module token-sanitization
  */
@@ -14,6 +14,43 @@ import { reportError } from './sentry.lib.mjs';
 const getOsModule = async () => (await import('os')).default;
 const getPathModule = async () => (await import('path')).default;
 const getFsModule = async () => (await import('fs')).promises;
+
+// Lazy-loaded secretlint modules (initialized on first use)
+let secretlintCore = null;
+let secretlintConfig = null;
+
+/**
+ * Initialize secretlint modules lazily
+ * @returns {Promise<boolean>} True if secretlint is available
+ */
+const initSecretlint = async () => {
+  if (secretlintConfig !== null) {
+    return true;
+  }
+
+  try {
+    const [core, preset] = await Promise.all([import('@secretlint/core'), import('@secretlint/secretlint-rule-preset-recommend')]);
+
+    secretlintCore = core;
+    secretlintConfig = {
+      rules: [
+        {
+          id: '@secretlint/secretlint-rule-preset-recommend',
+          rule: preset.creator,
+        },
+      ],
+    };
+
+    return true;
+  } catch (error) {
+    // secretlint not available - fall back to custom patterns only
+    if (global.verboseMode) {
+      await log(`  ⚠️  Secretlint not available, using fallback patterns: ${error.message}`, { verbose: true });
+    }
+    secretlintConfig = false;
+    return false;
+  }
+};
 
 /**
  * Patterns that indicate a string is NOT a sensitive token (false positive patterns)
@@ -46,6 +83,70 @@ const SAFE_CONTEXT_PATTERNS = [
   /^commit\s+[a-f0-9]{40}/m,
   // Short commit hashes in various contexts
   /\b[a-f0-9]{7,40}\s+Author:/i,
+];
+
+/**
+ * Additional token patterns not fully covered by secretlint
+ * These supplement secretlint's detection for edge cases
+ *
+ * Note: secretlint has stricter patterns to avoid false positives.
+ * These patterns provide broader coverage for tokens that may not
+ * match secretlint's exact formats but are still sensitive.
+ */
+const ADDITIONAL_TOKEN_PATTERNS = [
+  // OpenAI API tokens - contain T3BlbkFJ (base64 of "OpenAI")
+  // Secretlint is stricter (requires specific lengths), we catch broader variants
+  // Variants: sk-proj-, sk-svcacct-, sk-admin-, or just sk-
+  /\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]*T3BlbkFJ[A-Za-z0-9_-]+/g,
+
+  // Anthropic (Claude) API tokens - start with sk-ant-
+  // Secretlint requires ending with AA and 90-128 chars, we catch broader variants
+  /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{20,}/g,
+
+  // GitHub fine-grained PAT tokens (secretlint preset may not cover all variations)
+  /\bgithub_pat_[a-zA-Z0-9_]{20,}/g,
+
+  // GitHub server-to-server tokens
+  /\bghs_[a-zA-Z0-9_]{20,}/g,
+
+  // GitHub refresh tokens
+  /\bghr_[a-zA-Z0-9_]{20,}/g,
+
+  // AWS Access Key IDs (all types - AKIA, ASIA, AGPA, AROA, AIPA, ANPA, ANVA)
+  /\b(?:A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b/g,
+
+  // Stripe API keys (live and test, secret and publishable)
+  /\b(?:sk_live_|sk_test_|pk_live_|pk_test_)[a-zA-Z0-9]{20,}/g,
+
+  // SendGrid API keys (SG.{base64}.{base64} format)
+  /\bSG\.[a-zA-Z0-9_-]{15,}\.[a-zA-Z0-9_-]{30,}/g,
+
+  // Twilio API keys (SK followed by 32 hex chars)
+  /\bSK[a-f0-9]{32}\b/g,
+
+  // Mailchimp API keys (32 hex chars followed by -usNN)
+  /\b[a-f0-9]{32}-us[0-9]{1,2}\b/g,
+
+  // Square tokens
+  /\bsq0(?:atp|csp)-[a-zA-Z0-9_-]{22,}/g,
+
+  // Databricks tokens
+  /\bdapi[a-f0-9]{32}\b/g,
+
+  // PyPI tokens (variable length, typically 50+ chars)
+  /\bpypi-[A-Za-z0-9_-]{50,}/g,
+
+  // Discord bot tokens (base64 encoded, typically 59-72 chars)
+  /\b[MN][A-Za-z0-9_-]{23,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{20,}/g,
+
+  // Telegram bot tokens (bot ID:token format, token is 35 chars)
+  /\b[0-9]{8,10}:[a-zA-Z0-9_-]{30,}/g,
+
+  // Google API / Gemini tokens - start with AIza followed by 35+ chars
+  /\bAIza[0-9A-Za-z_-]{32,40}\b/g,
+
+  // HuggingFace API tokens - start with hf_ followed by alphanumeric
+  /\bhf_[a-zA-Z0-9]{30,}/g,
 ];
 
 /**
@@ -175,103 +276,119 @@ export const getGitHubTokensFromCommand = async () => {
 };
 
 /**
- * Sanitize log content by masking GitHub tokens while avoiding false positives
+ * Use secretlint to detect secrets in content
+ * @param {string} content - Content to scan
+ * @returns {Promise<Array<{start: number, end: number, token: string}>>} Array of detected secrets
+ */
+const detectSecretsWithSecretlint = async content => {
+  const secrets = [];
+
+  const available = await initSecretlint();
+  if (!available || !secretlintCore || !secretlintConfig) {
+    return secrets;
+  }
+
+  try {
+    const result = await secretlintCore.lintSource({
+      source: {
+        filePath: '/virtual/content.txt',
+        content: content,
+        contentType: 'text',
+      },
+      options: {
+        config: secretlintConfig,
+        maskSecrets: false, // We need raw positions to mask ourselves
+      },
+    });
+
+    for (const message of result.messages) {
+      if (message.range && message.range.length === 2) {
+        const [start, end] = message.range;
+        const token = content.substring(start, end);
+        secrets.push({ start, end, token });
+      }
+    }
+  } catch (error) {
+    if (global.verboseMode) {
+      await log(`  ⚠️  Secretlint detection error: ${error.message}`, { verbose: true });
+    }
+  }
+
+  return secrets;
+};
+
+/**
+ * Sanitize log content by masking sensitive tokens while avoiding false positives
+ * Uses secretlint as primary detection with custom patterns for additional coverage
+ *
  * @param {string} logContent - The log content to sanitize
  * @returns {Promise<string>} Sanitized log content with tokens masked
  */
 export const sanitizeLogContent = async logContent => {
   let sanitized = logContent;
+  let secretsDetected = 0;
 
   try {
-    // Get tokens from both sources
+    // Step 1: Get known tokens from files and commands
     const fileTokens = await getGitHubTokensFromFiles();
     const commandTokens = await getGitHubTokensFromCommand();
-    const allTokens = [...new Set([...fileTokens, ...commandTokens])];
+    const allKnownTokens = [...new Set([...fileTokens, ...commandTokens])];
 
-    // Mask each token found
-    for (const token of allTokens) {
+    // Mask known tokens first
+    for (const token of allKnownTokens) {
       if (token && token.length >= 12) {
         const maskedToken = maskToken(token);
-        // Use global replace to mask all occurrences
         sanitized = sanitized.split(token).join(maskedToken);
+        secretsDetected++;
       }
     }
 
-    // Also look for and mask common token patterns directly in the log
-    // IMPORTANT: Be careful not to mask legitimate identifiers (Issue #1037)
-    const tokenPatterns = [
-      // GitHub tokens with known prefixes - these are definitely sensitive
-      /gh[pou]_[a-zA-Z0-9_]{20,}/g,
-      // GitHub fine-grained PAT tokens
-      /github_pat_[a-zA-Z0-9_]{20,}/g,
-      // GitHub server-to-server tokens
-      /ghs_[a-zA-Z0-9_]{20,}/g,
-      // GitHub refresh tokens
-      /ghr_[a-zA-Z0-9_]{20,}/g,
+    // Step 2: Use secretlint for comprehensive detection
+    const secretlintSecrets = await detectSecretsWithSecretlint(sanitized);
 
-      // OpenAI API tokens - contain T3BlbkFJ (base64 of "OpenAI")
-      // Variants: sk-proj-, sk-svcacct-, sk-admin-, or just sk-
-      // Token length can vary, T3BlbkFJ appears in the middle
-      /\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]*T3BlbkFJ[A-Za-z0-9_-]+/g,
+    // Apply secretlint detections (from end to start to preserve positions)
+    const sortedSecrets = [...secretlintSecrets].sort((a, b) => b.start - a.start);
+    for (const secret of sortedSecrets) {
+      const { start, end, token } = secret;
+      // Verify the token is still in the content at the expected position
+      const currentToken = sanitized.substring(start, end);
+      if (currentToken === token) {
+        const masked = maskToken(token);
+        sanitized = sanitized.substring(0, start) + masked + sanitized.substring(end);
+        secretsDetected++;
+      }
+    }
 
-      // Anthropic (Claude) API tokens - start with sk-ant-
-      /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{20,}/g,
-
-      // Google API / Gemini tokens - start with AIza followed by 35+ chars
-      // Total key length is typically 39 characters but can vary
-      /\bAIza[0-9A-Za-z_-]{32,40}\b/g,
-
-      // HuggingFace API tokens - start with hf_ followed by alphanumeric
-      // Token length varies from 34-50+ characters after hf_
-      /\bhf_[a-zA-Z0-9]{30,}/g,
-
-      // AWS Access Key IDs
-      /\b(?:A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b/g,
-
-      // Slack tokens
-      /\bxox[baprs]-[a-zA-Z0-9-]{10,}/g,
-
-      // Stripe API keys
-      /\b(?:sk_live_|sk_test_|pk_live_|pk_test_)[a-zA-Z0-9]{20,}/g,
-
-      // SendGrid API keys (SG.{base64}.{base64} format, variable lengths)
-      /\bSG\.[a-zA-Z0-9_-]{15,}\.[a-zA-Z0-9_-]{30,}/g,
-
-      // Twilio API keys (SK followed by 32 hex chars)
-      /\bSK[a-f0-9]{32}\b/g,
-
-      // Mailchimp API keys (32 hex chars followed by -usNN)
-      /\b[a-f0-9]{32}-us[0-9]{1,2}\b/g,
-
-      // Square tokens
-      /\bsq0(?:atp|csp)-[a-zA-Z0-9_-]{22,}/g,
-
-      // Shopify tokens
-      /\bshp(?:ss|at|ca|pa)_[a-f0-9]{32}\b/g,
-
-      // Databricks tokens
-      /\bdapi[a-f0-9]{32}\b/g,
-
-      // npm tokens
-      /\bnpm_[a-zA-Z0-9]{36}\b/g,
-
-      // PyPI tokens (variable length, typically 50+ chars)
-      /\bpypi-[A-Za-z0-9_-]{50,}/g,
-
-      // Discord bot tokens (base64 encoded, typically 59-72 chars)
-      /\b[MN][A-Za-z0-9_-]{23,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{20,}/g,
-
-      // Telegram bot tokens (bot ID:token format, token is 35 chars)
-      /\b[0-9]{8,10}:[a-zA-Z0-9_-]{30,}/g,
-    ];
-
-    for (const pattern of tokenPatterns) {
+    // Step 3: Apply additional custom patterns for tokens not covered by secretlint
+    // Reset pattern lastIndex to ensure fresh matching
+    for (const pattern of ADDITIONAL_TOKEN_PATTERNS) {
+      pattern.lastIndex = 0;
       sanitized = sanitized.replace(pattern, match => {
+        // Skip if already masked (contains consecutive asterisks)
+        if (/\*{3,}/.test(match)) {
+          return match;
+        }
+        secretsDetected++;
         return maskToken(match);
       });
     }
 
-    // Handle 40-char hex tokens specially - only mask if NOT in safe context
+    // Step 4: Handle GitHub tokens with known prefixes (always mask these)
+    // prettier-ignore
+    const githubPatterns = [/\bghp_[a-zA-Z0-9_]{20,}/g, /\bgho_[a-zA-Z0-9_]{20,}/g, /\bghu_[a-zA-Z0-9_]{20,}/g, /\bgithub_pat_[a-zA-Z0-9_]{20,}/g, /\bghs_[a-zA-Z0-9_]{20,}/g, /\bghr_[a-zA-Z0-9_]{20,}/g];
+
+    for (const pattern of githubPatterns) {
+      pattern.lastIndex = 0;
+      sanitized = sanitized.replace(pattern, match => {
+        if (/\*{3,}/.test(match)) {
+          return match;
+        }
+        secretsDetected++;
+        return maskToken(match);
+      });
+    }
+
+    // Step 5: Handle 40-char hex tokens specially - only mask if NOT in safe context
     // These could be GitHub tokens OR git commit hashes/gist IDs
     const hexPattern = /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm;
     let hexMatch;
@@ -284,9 +401,15 @@ export const sanitizeLogContent = async logContent => {
       const token = hexMatch[1];
       const position = hexMatch.index;
 
+      // Skip if already masked
+      if (/\*{3,}/.test(token)) {
+        continue;
+      }
+
       // Only mask if NOT in a safe git/gist context
       if (!isHexInSafeContext(tempContent, token, position)) {
         hexReplacements.push({ token, masked: maskToken(token) });
+        secretsDetected++;
       }
     }
 
@@ -295,11 +418,11 @@ export const sanitizeLogContent = async logContent => {
       sanitized = sanitized.split(token).join(masked);
     }
 
-    // NOTE: Removed the overly broad pattern /[a-zA-Z0-9_]{20,}/ that was causing
-    // false positives with legitimate identifiers like 'browser_take_screenshot'
-    // (Issue #1037). Now we only mask tokens with known sensitive prefixes.
-
-    await log(`  🔒 Sanitized ${allTokens.length} detected GitHub tokens in log content`, { verbose: true });
+    if (global.verboseMode && secretsDetected > 0) {
+      await log(`  🔒 Sanitized ${secretsDetected} secrets in log content (secretlint + custom patterns)`, {
+        verbose: true,
+      });
+    }
   } catch (error) {
     reportError(error, {
       context: 'sanitize_log_content',

@@ -727,6 +727,125 @@ await runAsyncTest('Very long content with multiple tool references', async () =
   assertNotContains(sanitized, '*', 'Should not contain any asterisks (no masking)');
 });
 
+// ==== Secretlint integration tests with realistic token formats ====
+console.log('\n📋 Test Group 17: Secretlint integration - realistic token formats\n');
+
+// Realistic OpenAI token: sk-{20 chars}T3BlbkFJ{20 chars} = 51 chars total
+await runAsyncTest('Realistic OpenAI legacy token IS masked', async () => {
+  const padding20 = 'abcdefghij1234567890';
+  const token = `sk-${padding20}T3BlbkFJ${padding20}`;
+  const content = `OPENAI_API_KEY="${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask realistic OpenAI token');
+  assertContains(sanitized, '*', 'Should contain asterisks');
+});
+
+// Realistic Anthropic token: sk-ant-api03-{93 chars}AA = 108 chars total
+await runAsyncTest('Realistic Anthropic token IS masked', async () => {
+  const body = 'A'.repeat(93);
+  const token = `sk-ant-api03-${body}AA`;
+  const content = `ANTHROPIC_API_KEY="${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask realistic Anthropic token');
+});
+
+// Test private key detection (via secretlint)
+await runAsyncTest('Private key IS masked', async () => {
+  const content = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA0Z3US2zzMpVb0H7vSjJVVNxF4TvVYvhR3w2vLZM4lEv4ZFCa
+0C7LNpf8vbT8vR7lOvvR6WvY3eZljS2xB5qL5rVlVQxvR8VN3vEuBLVhPvVvVnJH
+-----END RSA PRIVATE KEY-----
+`;
+  const sanitized = await sanitizeLogContent(content);
+  // Private keys should have some masking applied
+  assertNotContains(sanitized, 'MIIEowIBAAKCAQEA0Z3US2zzMpVb0H7vSjJVVNxF4TvVYvhR3w2vLZM4lEv4ZFCa', 'Should mask private key content');
+});
+
+// Test basicauth URL (via secretlint)
+await runAsyncTest('Basic auth URL IS masked', async () => {
+  const content = 'postgresql://user:supersecretpassword@localhost:5432/mydb';
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, 'supersecretpassword', 'Should mask password in URL');
+});
+
+console.log('\n📋 Test Group 18: Additional false positive prevention\n');
+
+await runAsyncTest('Common programming terms are NOT masked', async () => {
+  const content = `
+    const sk_test = 'short variable';
+    let hf_config = {};
+    var AKIA_PREFIX = 'constant';
+  `;
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'sk_test', 'Should preserve sk_test variable name');
+  assertContains(sanitized, 'hf_config', 'Should preserve hf_config variable name');
+  assertContains(sanitized, 'AKIA_PREFIX', 'Should preserve AKIA_PREFIX constant name');
+});
+
+await runAsyncTest('Short sk-ant prefix is NOT masked', async () => {
+  const content = 'Use sk-ant prefix for Anthropic tokens';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'sk-ant', 'Should preserve short sk-ant prefix in documentation');
+});
+
+await runAsyncTest('GitHub Actions workflow names are NOT masked', async () => {
+  const content = 'Run npm_install_step and then npm_test_step workflows';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'npm_install_step', 'Should preserve workflow step name');
+  assertContains(sanitized, 'npm_test_step', 'Should preserve workflow step name');
+});
+
+console.log('\n📋 Test Group 19: Edge cases for multi-line content\n');
+
+await runAsyncTest('Multi-line environment file IS sanitized', async () => {
+  const ghpToken = 'ghp_1234567890abcdef1234567890abcdef12345678';
+  const content = `
+# Development environment
+NODE_ENV=development
+DEBUG=true
+
+# API Keys (SENSITIVE)
+GITHUB_TOKEN=${ghpToken}
+DATABASE_URL=localhost
+
+# Safe content
+browser_take_screenshot
+mcp__playwright__browser_click
+`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, ghpToken, 'Should mask GitHub token');
+  assertContains(sanitized, 'browser_take_screenshot', 'Should preserve safe content');
+  assertContains(sanitized, 'mcp__playwright__browser_click', 'Should preserve MCP tool name');
+});
+
+await runAsyncTest('JSON config with tokens IS sanitized', async () => {
+  const slackToken = ['xoxb', '-', '123456789012', '-', '1234567890123', '-', 'abcdefghijklmnopqrstuvwx'].join('');
+  const content = JSON.stringify({
+    slack: { token: slackToken },
+    tools: ['browser_take_screenshot', 'mcp__playwright__browser_click'],
+    git: { commit: '2073c66ab9405a46416dbb51714f843c3016052a' },
+  });
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, slackToken, 'Should mask Slack token in JSON');
+  assertContains(sanitized, 'browser_take_screenshot', 'Should preserve tool name in JSON');
+});
+
+console.log('\n📋 Test Group 20: Linear tokens (via secretlint)\n');
+
+await runAsyncTest('Linear API token IS masked', async () => {
+  // Linear API keys are 39 chars starting with lin_api_
+  const token = 'lin_api_abcdefghij1234567890abcdefghij123';
+  const content = `LINEAR_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  // This should be masked by secretlint's linear rule
+  assertNotContains(sanitized, 'lin_api_abcdefghij1234567890abcdefghij123', 'Should mask Linear API key');
+});
+
+// Note: 1Password tokens are validated by secretlint to be actual JWT tokens
+// with valid JSON payload, so synthetic test tokens won't match.
+// Real 1Password tokens will be detected by secretlint in production.
+
 // Summary
 console.log('\n' + '='.repeat(80));
 console.log(`Test Results for Token Sanitization (Issue #1037):`);

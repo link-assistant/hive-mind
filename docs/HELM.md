@@ -115,6 +115,36 @@ secrets:
   claudeApiKey: 'hive-claude-api-key'
 ```
 
+### Running as a Telegram Bot
+
+To run Hive Mind as a Telegram bot in Kubernetes:
+
+```yaml
+command:
+  - /bin/bash
+  - -c
+  - |
+    # Authenticate with GitHub using token from secret
+    echo "$GITHUB_TOKEN" | gh auth login --with-token
+
+    # Start the telegram bot
+    hive-telegram-bot --configuration "
+      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
+      TELEGRAM_ALLOWED_CHATS:
+        -1002975819706
+      TELEGRAM_HIVE_OVERRIDES:
+        --all-issues
+        --once
+        --auto-fork
+        --attach-logs
+        --verbose
+      TELEGRAM_BOT_VERBOSE: true
+    "
+
+env:
+  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
+```
+
 ### Autoscaling
 
 Enable horizontal pod autoscaling:

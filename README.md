@@ -103,101 +103,225 @@ Choose your preferred installation method:
 
 ### Docker Installation
 
-**Safest option for local installation.** Runs in isolated containers with all dependencies pre-installed.
+Run the Hive Mind using Docker for safer local installation - no manual setup required:
+
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm Installation](#helm-installation) section below.
 
 ```bash
-# Pull and run
+# Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
+
+# Run an interactive session
 docker run -it konard/hive-mind:latest
 
-# Inside the container, authenticate:
+# IMPORTANT: Authenticate AFTER the Docker image is installed
+# This avoids build timeouts and allows the installation to complete successfully
+
+# Inside the container, authenticate with GitHub
 gh-setup-git-identity
+
+# Authenticate with Claude
 claude
 
-# Ready to use!
+# Now you can use hive and solve commands
+solve https://github.com/owner/repo/issues/123
 ```
 
-**Benefits:**
+**Benefits of Docker:**
 
 - Pre-configured Ubuntu 24.04 environment
 - All dependencies pre-installed
 - Isolated from your host system
-- Easy to run multiple instances
+- Easy to run multiple instances with different GitHub accounts
+- Consistent environment across different machines
 
-See [docs/DOCKER.md](./docs/DOCKER.md) for persistent storage, Docker Compose, and CI/CD configuration.
+See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage including persistent storage, Docker Compose, and CI/CD configuration.
 
 ### Helm Installation
 
-**Best for Kubernetes production deployments.**
+Deploy Hive Mind on Kubernetes using Helm:
 
 ```bash
-# Add repository and install
+# Add the Hive Mind Helm repository
 helm repo add link-assistant https://link-assistant.github.io/hive-mind
 helm repo update
+
+# Install Hive Mind
 helm install hive-mind link-assistant/hive-mind
+
+# Or install with custom values
+helm install hive-mind link-assistant/hive-mind -f values.yaml
 ```
 
-**Benefits:**
+**Benefits of Helm:**
 
+- Easy deployment to Kubernetes clusters
 - Declarative configuration management
 - Simple upgrades and rollbacks
 - Production-ready with configurable resources
 - Supports multiple replicas and scaling
 
-See [docs/HELM.md](./docs/HELM.md) for configuration, authentication secrets, and production examples.
+See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
+
+**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
 
 ### Ubuntu 24.04 Server Installation
 
-**Best for dedicated VMs/VPS.**
-
-1. Reset/install VPS with fresh Ubuntu 24.04
-2. Login as `root` and run:
+1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
+2. Login to `root` user.
+3. Execute main installation script
 
    ```bash
    curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
    ```
 
-3. Switch to `hive` user and authenticate:
+   **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
+
+4. Login to `hive` user
 
    ```bash
    su - hive
+   ```
+
+5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
+
+   ```bash
    gh-setup-git-identity
+   ```
+
+   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
+
+6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
+
+   ```bash
    claude
    ```
+
+   Note: Both opencode and agent come with free Grok Code Fast 1 model by default - so no authorization is required for these tools.
+
+7. Launch the Hive Mind telegram bot:
+
+   **Using Links Notation (recommended):**
+
+   ```
+   screen -S bot # Enter new screen for bot
+
+   hive-telegram-bot --configuration "
+     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
+     TELEGRAM_ALLOWED_CHATS:
+       -1002975819706
+       -1002861722681
+     TELEGRAM_HIVE_OVERRIDES:
+       --all-issues
+       --once
+       --skip-issues-with-prs
+       --attach-logs
+       --verbose
+       --no-tool-check
+       --auto-continue-on-limit-reset
+     TELEGRAM_SOLVE_OVERRIDES:
+       --attach-logs
+       --verbose
+       --no-tool-check
+       --auto-continue-on-limit-reset
+     TELEGRAM_BOT_VERBOSE: true
+   "
+
+   # Press CTRL + A + D for detach from screen
+   ```
+
+   **Using individual command-line options:**
+
+   ```
+   screen -S bot # Enter new screen for bot
+
+   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
+     -1002975819706
+     -1002861722681
+   )" --hive-overrides "(
+     --all-issues
+     --once
+     --skip-issues-with-prs
+     --attach-logs
+     --verbose
+     --no-tool-check
+     --auto-continue-on-limit-reset
+   )" --solve-overrides "(
+     --attach-logs
+     --verbose
+     --no-tool-check
+     --auto-continue-on-limit-reset
+   )" --verbose
+
+   # Press CTRL + A + D for detach from screen
+   ```
+
+   Note: You may need to register you own bot with https://t.me/BotFather to get the bot token.
+
+#### Codex sign-in
+
+1. Connect to your instance of VPS with Hive Mind installed, using SSH with tunnel opened
+
+```bash
+ssh -L 1455:localhost:1455 root@123.123.123.123
+```
+
+2. Start codex login oAuth server:
+
+```bash
+codex login
+```
+
+The oAuth callback server on 1455 port will be started, and the link to oAuth will be printed, copy the link.
+
+3. Use your browser on machine where you started the tunnel from, paste there the link from `codex login` command, and go there using your browser. Once redirected to localhost:1455 you will see successful login page, and in `codex login` you will see `Successfully logged in`. After that `codex login` command will complete, and you can use `codex` command as usual to verify. It should also be working with `--tool codex` in `solve` and `hive` commands.
 
 ### Global Installation
 
 **For quick testing (not recommended for production).**
 
-```bash
-# Using Bun (Recommended)
-bun install -g @link-assistant/hive-mind
+#### Using Bun (Recommended)
 
-# Using Node.js
+```bash
+bun install -g @link-assistant/hive-mind
+```
+
+#### Using Node.js
+
+```bash
 npm install -g @link-assistant/hive-mind
 ```
 
-## Usage
-
-Once installed and authenticated, you can use Hive Mind via:
-
-- **CLI commands** (`solve`, `hive`) - Direct terminal usage
-- **Telegram bot** - Remote control from any device
-
-### Quick Examples
+## Core Operations
 
 ```bash
-# Solve a GitHub issue
-solve https://github.com/owner/repo/issues/123 --model sonnet
+# Solve using maximum power
+solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --auto-fork --think max
 
-# Solve with maximum power
-solve https://github.com/owner/repo/issues/123 --model opus --think max --auto-fork
+# Solve GitHub issues automatically (auto-fork if no write access)
+solve https://github.com/owner/repo/issues/123 --auto-fork --model sonnet
 
-# Monitor and solve all issues in a repo
-hive https://github.com/owner/repo --all-issues --once
+# Solve issue with PR to custom branch (manual fork mode)
+solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
+
+# Continue working on existing PR
+solve https://github.com/owner/repo/pull/456 --model opus
+
+# Resume from Claude session when limit is reached
+solve https://github.com/owner/repo/issues/123 --resume session-id
+
+# Start hive orchestration (monitor and solve issues automatically)
+hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
+
+# Monitor all issues in organization with auto-fork
+hive https://github.com/microsoft --all-issues --max-issues 10 --auto-fork
+
+# Run collaborative review process
+review --repo owner/repo --pr 456
+
+# Multiple AI reviewers for consensus
+./reviewers-hive.mjs --agents 3 --consensus-threshold 0.8
 ```
-
-**Full usage documentation:** See [docs/USAGE.md](./docs/USAGE.md) for complete CLI reference, Telegram bot setup, and all options.
 
 ## Core Components
 
@@ -209,7 +333,160 @@ hive https://github.com/owner/repo --all-issues --once
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management        | Multi-agent consensus, reviewer assignment                               |
 | `telegram-bot.mjs` (stable)                 | Telegram bot interface        | Remote command execution, group chat support, diagnostic tools           |
 
-> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md).
+> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
+
+## solve Options
+
+```bash
+solve <issue-url> [options]
+```
+
+**Most frequently used options:**
+
+| Option    | Alias | Description                             | Default |
+| --------- | ----- | --------------------------------------- | ------- |
+| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--think` |       | Thinking level (low, medium, high, max) | -       |
+
+**Other useful options:**
+
+| Option          | Alias | Description                                   | Default |
+| --------------- | ----- | --------------------------------------------- | ------- |
+| `--tool`        |       | AI tool (claude, opencode, codex, agent)      | claude  |
+| `--verbose`     | `-v`  | Enable verbose logging                        | false   |
+| `--attach-logs` |       | Attach logs to PR (may expose sensitive data) | false   |
+| `--help`        | `-h`  | Show all available options                    | -       |
+
+> **Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
+
+## hive Options
+
+```bash
+hive <github-url> [options]
+```
+
+**Most frequently used options:**
+
+| Option         | Alias | Description                             | Default |
+| -------------- | ----- | --------------------------------------- | ------- |
+| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--think`      |       | Thinking level (low, medium, high, max) | -       |
+| `--all-issues` | `-a`  | Monitor all issues (ignore labels)      | false   |
+| `--once`       |       | Single run (don't monitor continuously) | false   |
+
+**Other useful options:**
+
+| Option                   | Alias | Description                                    | Default |
+| ------------------------ | ----- | ---------------------------------------------- | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, agent)              | claude  |
+| `--concurrency`          | `-c`  | Number of parallel workers                     | 2       |
+| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                  | false   |
+| `--verbose`              | `-v`  | Enable verbose logging                         | false   |
+| `--attach-logs`          |       | Attach logs to PRs (may expose sensitive data) | false   |
+| `--help`                 | `-h`  | Show all available options                     | -       |
+
+> **Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
+
+## Telegram Bot
+
+The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote command execution.
+
+### Test Drive
+
+Want to see the Hive Mind in action? Join our Telegram channel where you can execute the Hive Mind on your own issues and watch AI solve them:
+
+**[Join https://t.me/hive_mind_pull_requests](https://t.me/hive_mind_pull_requests)**
+
+### Setup
+
+1. **Get Bot Token**
+   - Talk to [@BotFather](https://t.me/BotFather) on Telegram
+   - Create a new bot and get your token
+   - Add the bot to your group chat and make it an admin
+
+2. **Configure Environment**
+
+   ```bash
+   # Copy the example configuration
+   cp .env.example .env
+
+   # Edit and add your bot token
+   echo "TELEGRAM_BOT_TOKEN=your_bot_token_here" >> .env
+
+   # Optional: Restrict to specific chats
+   # Get chat ID using /help command, then add:
+   echo "TELEGRAM_ALLOWED_CHATS=123456789,987654321" >> .env
+   ```
+
+3. **Start the Bot**
+   ```bash
+   hive-telegram-bot
+   ```
+
+### Bot Commands
+
+All commands work in **group chats only** (not in private messages with the bot):
+
+#### `/solve` - Solve GitHub Issues
+
+```
+/solve <github-url> [options]
+
+Examples:
+/solve https://github.com/owner/repo/issues/123 --model sonnet
+/solve https://github.com/owner/repo/issues/123 --model opus --think max
+```
+
+#### `/hive` - Run Hive Orchestration
+
+```
+/hive <github-url> [options]
+
+Examples:
+/hive https://github.com/owner/repo
+/hive https://github.com/owner/repo --all-issues --max-issues 10
+/hive https://github.com/microsoft --all-issues --concurrency 3
+```
+
+#### `/limits` - Show Usage Limits
+
+```
+/limits
+
+Shows:
+- CPU usage and load average
+- RAM usage (used vs total)
+- Disk space usage
+- GitHub API rate limits
+- Claude usage limits (session and weekly)
+```
+
+#### `/help` - Get Help and Diagnostic Info
+
+```
+/help
+
+Shows:
+- Chat ID (needed for TELEGRAM_ALLOWED_CHATS)
+- Chat type
+- Available commands
+- Usage examples
+```
+
+### Features
+
+- **Group Chat Only**: Commands work only in group chats (not private messages)
+- **Full Options Support**: All command-line options work in Telegram
+- **Screen Sessions**: Commands run in detached screen sessions
+- **Chat Restrictions**: Optional whitelist of allowed chat IDs
+- **Diagnostic Tools**: Get chat ID and configuration info
+
+### Security Notes
+
+- Only works in group chats where the bot is admin
+- Optional chat ID restrictions via `TELEGRAM_ALLOWED_CHATS`
+- Commands run as the system user running the bot
+- Ensure proper authentication (`gh auth login`, `claude-profiles`)
 
 ## Architecture
 
@@ -296,9 +573,74 @@ sequenceDiagram
 
 For comprehensive data flow documentation including human feedback integration points, see [docs/flow.md](./docs/flow.md).
 
+## Usage Examples
+
+### Automated Issue Resolution
+
+```bash
+# Auto-fork and solve issue (automatic fork detection for public repos)
+solve https://github.com/owner/repo/issues/123 --auto-fork --model opus
+
+# Manual fork and solve issue (works for both public and private repos)
+solve https://github.com/owner/repo/issues/123 --fork --model opus
+
+# Continue work on existing PR
+solve https://github.com/owner/repo/pull/456 --verbose
+
+# Solve with detailed logging and solution attachment
+solve https://github.com/owner/repo/issues/123 --verbose --attach-logs
+
+# Dry run to see what would happen
+solve https://github.com/owner/repo/issues/123 --dry-run
+```
+
+### Multi-Repository Orchestration
+
+```bash
+# Monitor single repository with specific label
+hive https://github.com/owner/repo --monitor-tag "bug" --concurrency 4
+
+# Monitor all issues in an organization with auto-fork
+hive https://github.com/microsoft --all-issues --max-issues 20 --once --auto-fork
+
+# Monitor user repositories with high concurrency
+hive https://github.com/username --all-issues --concurrency 8 --interval 120 --auto-fork
+
+# Skip issues that already have PRs
+hive https://github.com/org/repo --skip-issues-with-prs --verbose
+
+# Auto-cleanup temporary files and auto-fork if needed
+hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
+```
+
+### Session Management
+
+```bash
+# Resume when Claude hits limit
+solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
+
+# Continue session interactively in Claude Code
+(cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
+```
+
+## Monitoring & Logging
+
+Find resume commands in logs:
+
+```bash
+grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hive-*.log
+```
+
 ## Configuration
 
-For detailed configuration options see [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
+**Authentication:**
+
+- `gh auth login` - GitHub CLI authentication
+- `claude-profiles` - Claude authentication profile migration to server
+
+**Environment Variables & Advanced Options:**
+
+For comprehensive configuration including environment variables, timeouts, retry limits, Telegram bot settings, YouTrack integration, and all CLI options, see [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
 
 ## Documentation
 
@@ -328,9 +670,17 @@ If you encounter issues with the **Claude Code CLI** itself (e.g., `claude` comm
 - **Repository**: https://github.com/anthropics/claude-code
 - **Issues**: https://github.com/anthropics/claude-code/issues
 
+## File Size Enforcement
+
+All documentation files are automatically checked:
+
+```bash
+find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " has " $1 " lines (max 1000)"}'
+```
+
 ## Server Diagnostics
 
-Identify screens that are parents of processes consuming resources:
+Identify screens that are parents of processes eating the resources:
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"
@@ -352,7 +702,7 @@ for p in $TARGETS; do
 done
 ```
 
-Show details about a process:
+Show details about the process:
 
 ```bash
 procinfo() {
@@ -367,25 +717,35 @@ procinfo() {
   fi
 
   echo "=== Process $pid ==="
+  # Basic process info
   ps -p "$pid" -o user=,uid=,pid=,ppid=,c=,stime=,etime=,tty=,time=,cmd=
 
   echo
+  # Working directory
   echo "CWD: $(readlink -f /proc/$pid/cwd 2>/dev/null)"
+
+  # Executable path
   echo "EXE: $(readlink -f /proc/$pid/exe 2>/dev/null)"
+
+  # Root directory of the process
   echo "ROOT: $(readlink -f /proc/$pid/root 2>/dev/null)"
 
+  # Command line (full, raw)
   echo "CMDLINE:"
   tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null
   echo
 
+  # Environment variables
   echo
   echo "ENVIRONMENT (key=value):"
   tr '\0' '\n' < /proc/$pid/environ 2>/dev/null | head -n 20
 
+  # Open files (first few)
   echo
   echo "OPEN FILES:"
   ls -l /proc/$pid/fd 2>/dev/null | head -n 10
 
+  # Child processes
   echo
   echo "CHILDREN:"
   ps --ppid "$pid" -o pid=,cmd= 2>/dev/null
@@ -397,21 +757,23 @@ procinfo 62220
 
 ### Reboot Server
 
-```bash
+```
 sudo reboot
 ```
 
-This removes all dangling unused processes and screens, freeing RAM and reducing CPU load. Reboot may also clear temporary files.
+That will remove all dangling unused processes and screens, which will in turn free the RAM and reduce CPU load. Also reboot may clear all temporary files, so next step can do nothing if reboot was done.
 
 ### Cleanup Disk Space
 
-```bash
+```
 df -h
+
 rm -rf /tmp
+
 df -h
 ```
 
-Execute under `hive` user. If you accidentally removed `/tmp` as `root`, restore it:
+These commands should be executed under `hive` user. If you have accidentally removed the `/tmp` folder itself under `root` user, you will need to restore it like this:
 
 ```bash
 sudo mkdir -p /tmp
@@ -419,19 +781,21 @@ sudo chown root:root /tmp
 sudo chmod 1777 /tmp
 ```
 
-### Close All Screens
+### Close All Screens to Free up RAM
 
 ```bash
-# Close all sessions
+# close all (Attached or Detached) sessions
 screen -ls | awk '/(Detached|Attached)/{print $1}' \
 | while read s; do screen -S "$s" -X quit; done
 
-# Remove zombie sockets
+# remove any zombie sockets
 screen -wipe
 
-# Verify
+# verify
 screen -ls
 ```
+
+That can be done, but not recommended as reboot have better effect.
 
 ## License
 
@@ -439,7 +803,7 @@ Unlicense License - see [LICENSE](./LICENSE)
 
 ## Best Practices
 
-Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations.
+Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
 
 Key benefits of proper CI/CD:
 

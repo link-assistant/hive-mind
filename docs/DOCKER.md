@@ -60,10 +60,10 @@ The production Docker image (`Dockerfile`) uses Ubuntu 24.04 and the official in
 
 **Why Authentication Happens After Installation:**
 
-- Avoids Docker build timeouts caused by interactive prompts
-- Prevents build failures in CI/CD pipelines
-- Allows the installation script to complete successfully
-- Supports automated Docker image builds
+- ✅ Avoids Docker build timeouts caused by interactive prompts
+- ✅ Prevents build failures in CI/CD pipelines
+- ✅ Allows the installation script to complete successfully
+- ✅ Supports automated Docker image builds
 
 ### GitHub Authentication
 
@@ -83,11 +83,11 @@ claude
 
 This approach allows:
 
-- Multiple Docker instances with different GitHub accounts
-- Multiple Docker instances with different Claude subscriptions
-- No credential leakage between containers
-- Each container has its own isolated authentication
-- Successful Docker builds without interactive authentication
+- ✅ Multiple Docker instances with different GitHub accounts
+- ✅ Multiple Docker instances with different Claude subscriptions
+- ✅ No credential leakage between containers
+- ✅ Each container has its own isolated authentication
+- ✅ Successful Docker builds without interactive authentication
 
 ## Prerequisites
 

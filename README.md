@@ -5,7 +5,7 @@
 [![Open in Gitpod](https://img.shields.io/badge/Gitpod-ready--to--code-f29718?logo=gitpod)](https://gitpod.io/#https://github.com/link-assistant/hive-mind)
 [![Open in GitHub Codespaces](https://img.shields.io/badge/GitHub%20Codespaces-Open-181717?logo=github)](https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind)
 
-# Hive Mind
+# Hive Mind 🧠
 
 **The master mind AI that controls hive of AI.** The orchestrator AI that controls AIs. The HIVE MIND. The SWARM MIND.
 
@@ -42,7 +42,7 @@ Hive Mind has high creativity indistinguishable from average programmers. It ask
 
 For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
 
-## WARNING
+## ⚠️ WARNING
 
 It is UNSAFE to run this software on your developer machine.
 
@@ -54,7 +54,7 @@ That means it can lead to unexpected side effects.
 
 There is also a known issue of space leakage. So you need to make sure you are able to reinstall your virtual machine to clear space and/or any damage to the virtual machine.
 
-### CRITICAL: Token and Sensitive Data Security
+### ⚠️ CRITICAL: Token and Sensitive Data Security
 
 **THIS SOFTWARE CANNOT GUARANTEE ANY SAFETY FOR YOUR TOKENS OR OTHER SENSITIVE DATA ON THE VIRTUAL MACHINE.**
 
@@ -90,7 +90,7 @@ We strongly recommend:
 50 GB disk space
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 Choose your preferred installation method:
 
@@ -129,11 +129,11 @@ solve https://github.com/owner/repo/issues/123
 
 **Benefits of Docker:**
 
-- Pre-configured Ubuntu 24.04 environment
-- All dependencies pre-installed
-- Isolated from your host system
-- Easy to run multiple instances with different GitHub accounts
-- Consistent environment across different machines
+- ✅ Pre-configured Ubuntu 24.04 environment
+- ✅ All dependencies pre-installed
+- ✅ Isolated from your host system
+- ✅ Easy to run multiple instances with different GitHub accounts
+- ✅ Consistent environment across different machines
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage including persistent storage, Docker Compose, and CI/CD configuration.
 
@@ -155,11 +155,11 @@ helm install hive-mind link-assistant/hive-mind -f values.yaml
 
 **Benefits of Helm:**
 
-- Easy deployment to Kubernetes clusters
-- Declarative configuration management
-- Simple upgrades and rollbacks
-- Production-ready with configurable resources
-- Supports multiple replicas and scaling
+- ✅ Easy deployment to Kubernetes clusters
+- ✅ Declarative configuration management
+- ✅ Simple upgrades and rollbacks
+- ✅ Production-ready with configurable resources
+- ✅ Supports multiple replicas and scaling
 
 See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 
@@ -323,7 +323,7 @@ review --repo owner/repo --pr 456
 ./reviewers-hive.mjs --agents 3 --consensus-threshold 0.8
 ```
 
-## Core Components
+## 📋 Core Components
 
 | Script                                      | Purpose                       | Key Features                                                             |
 | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
@@ -335,7 +335,7 @@ review --repo owner/repo --pr 456
 
 > **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
 
-## solve Options
+## 🔧 solve Options
 
 ```bash
 solve <issue-url> [options]
@@ -350,16 +350,16 @@ solve <issue-url> [options]
 
 **Other useful options:**
 
-| Option          | Alias | Description                                   | Default |
-| --------------- | ----- | --------------------------------------------- | ------- |
-| `--tool`        |       | AI tool (claude, opencode, codex, agent)      | claude  |
-| `--verbose`     | `-v`  | Enable verbose logging                        | false   |
-| `--attach-logs` |       | Attach logs to PR (may expose sensitive data) | false   |
-| `--help`        | `-h`  | Show all available options                    | -       |
+| Option          | Alias | Description                                      | Default |
+| --------------- | ----- | ------------------------------------------------ | ------- |
+| `--tool`        |       | AI tool (claude, opencode, codex, agent)         | claude  |
+| `--verbose`     | `-v`  | Enable verbose logging                           | false   |
+| `--attach-logs` |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
+| `--help`        | `-h`  | Show all available options                       | -       |
 
-> **Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
+> **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
-## hive Options
+## 🔧 hive Options
 
 ```bash
 hive <github-url> [options]
@@ -376,22 +376,22 @@ hive <github-url> [options]
 
 **Other useful options:**
 
-| Option                   | Alias | Description                                    | Default |
-| ------------------------ | ----- | ---------------------------------------------- | ------- |
-| `--tool`                 |       | AI tool (claude, opencode, agent)              | claude  |
-| `--concurrency`          | `-c`  | Number of parallel workers                     | 2       |
-| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                  | false   |
-| `--verbose`              | `-v`  | Enable verbose logging                         | false   |
-| `--attach-logs`          |       | Attach logs to PRs (may expose sensitive data) | false   |
-| `--help`                 | `-h`  | Show all available options                     | -       |
+| Option                   | Alias | Description                                       | Default |
+| ------------------------ | ----- | ------------------------------------------------- | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, agent)                 | claude  |
+| `--concurrency`          | `-c`  | Number of parallel workers                        | 2       |
+| `--skip-issues-with-prs` | `-s`  | Skip issues with existing PRs                     | false   |
+| `--verbose`              | `-v`  | Enable verbose logging                            | false   |
+| `--attach-logs`          |       | Attach logs to PRs (⚠️ may expose sensitive data) | false   |
+| `--help`                 | `-h`  | Show all available options                        | -       |
 
-> **Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
+> **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#hive-options) for all available options including project monitoring, YouTrack integration, and experimental features.
 
-## Telegram Bot
+## 🤖 Telegram Bot
 
 The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote command execution.
 
-### Test Drive
+### 🚀 Test Drive
 
 Want to see the Hive Mind in action? Join our Telegram channel where you can execute the Hive Mind on your own issues and watch AI solve them:
 
@@ -475,11 +475,11 @@ Shows:
 
 ### Features
 
-- **Group Chat Only**: Commands work only in group chats (not private messages)
-- **Full Options Support**: All command-line options work in Telegram
-- **Screen Sessions**: Commands run in detached screen sessions
-- **Chat Restrictions**: Optional whitelist of allowed chat IDs
-- **Diagnostic Tools**: Get chat ID and configuration info
+- ✅ **Group Chat Only**: Commands work only in group chats (not private messages)
+- ✅ **Full Options Support**: All command-line options work in Telegram
+- ✅ **Screen Sessions**: Commands run in detached screen sessions
+- ✅ **Chat Restrictions**: Optional whitelist of allowed chat IDs
+- ✅ **Diagnostic Tools**: Get chat ID and configuration info
 
 ### Security Notes
 
@@ -488,7 +488,7 @@ Shows:
 - Commands run as the system user running the bot
 - Ensure proper authentication (`gh auth login`, `claude-profiles`)
 
-## Architecture
+## 🏗️ Architecture
 
 The Hive Mind operates on three layers:
 
@@ -498,7 +498,7 @@ The Hive Mind operates on three layers:
 
 ### Data Flow
 
-#### Mode 1: Issue -> Pull Request Flow
+#### Mode 1: Issue → Pull Request Flow
 
 ```mermaid
 sequenceDiagram
@@ -535,7 +535,7 @@ sequenceDiagram
     end
 ```
 
-#### Mode 2: Pull Request -> Comments Flow
+#### Mode 2: Pull Request → Comments Flow
 
 ```mermaid
 sequenceDiagram
@@ -571,9 +571,9 @@ sequenceDiagram
     end
 ```
 
-For comprehensive data flow documentation including human feedback integration points, see [docs/flow.md](./docs/flow.md).
+📖 **For comprehensive data flow documentation including human feedback integration points, see [docs/flow.md](./docs/flow.md)**
 
-## Usage Examples
+## 📊 Usage Examples
 
 ### Automated Issue Resolution
 
@@ -623,7 +623,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
-## Monitoring & Logging
+## 🔍 Monitoring & Logging
 
 Find resume commands in logs:
 
@@ -631,7 +631,7 @@ Find resume commands in logs:
 grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hive-*.log
 ```
 
-## Configuration
+## 🔧 Configuration
 
 **Authentication:**
 
@@ -654,7 +654,7 @@ For comprehensive configuration including environment variables, timeouts, retry
 | [docs/HELM.md](./docs/HELM.md)                     | Kubernetes/Helm deployment guide                    |
 | [docs/BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) | CI/CD recommendations for best results              |
 
-## Reporting Issues
+## 🐛 Reporting Issues
 
 ### Hive Mind Issues
 
@@ -670,7 +670,7 @@ If you encounter issues with the **Claude Code CLI** itself (e.g., `claude` comm
 - **Repository**: https://github.com/anthropics/claude-code
 - **Issues**: https://github.com/anthropics/claude-code/issues
 
-## File Size Enforcement
+## 🛡️ File Size Enforcement
 
 All documentation files are automatically checked:
 
@@ -797,11 +797,11 @@ screen -ls
 
 That can be done, but not recommended as reboot have better effect.
 
-## License
+## 📄 License
 
 Unlicense License - see [LICENSE](./LICENSE)
 
-## Best Practices
+## 🏆 Best Practices
 
 Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
 
@@ -813,6 +813,6 @@ Key benefits of proper CI/CD:
 
 Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
 
-## Contributing
+## 🤖 Contributing
 
 This project uses AI-driven development. See [CONTRIBUTING.md](./docs/CONTRIBUTING.md) for human-AI collaboration guidelines.

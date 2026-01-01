@@ -1,6 +1,7 @@
 # Case Study: --auto-continue-on-limit-reset Feature Not Working
 
 ## Issue Reference
+
 - **Issue**: https://github.com/link-assistant/hive-mind/issues/1054
 - **Incident Report**: https://github.com/Jhon-Crow/YandexMusicBetaModeRust/pull/4#issuecomment-3703850597
 
@@ -55,12 +56,14 @@ When the usage limit is reached:
 ### Evidence from Logs
 
 The log file `session-with-limit-9186deea.log` ends with:
+
 ```
 [2026-01-01T15:56:40.991Z] [INFO]
 📄 Attaching logs to Pull Request (auto-continue mode)...
 ```
 
 The log shows the system correctly detected "auto-continue mode" but then terminated without:
+
 - Showing the session summary
 - Waiting for the limit to reset
 - Resuming the session

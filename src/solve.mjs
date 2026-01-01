@@ -1035,7 +1035,11 @@ try {
     }
   }
 
-  if (!success) {
+  // Handle failure cases, but skip exit if limit reached with auto-continue enabled
+  // This allows the code to continue to showSessionSummary() where autoContinueWhenLimitResets() is called
+  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoContinueOnLimitReset;
+
+  if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
     // Show claude resume command only for --tool claude (or default) on failure
     // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const toolForFailure = argv.tool || 'claude';

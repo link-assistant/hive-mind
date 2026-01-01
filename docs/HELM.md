@@ -1,6 +1,6 @@
-# Helm Chart Documentation
+# Helm Installation
 
-This document provides comprehensive guidance for deploying Hive Mind on Kubernetes using Helm.
+This document covers Kubernetes/Helm installation for Hive Mind. For usage instructions after installation, see [USAGE.md](./USAGE.md).
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ This document provides comprehensive guidance for deploying Hive Mind on Kuberne
 - `kubectl` configured to access your cluster
 - Sufficient cluster resources (see [Resource Requirements](#resource-requirements))
 
-## Installation
+## Quick Start
 
 ### Add the Helm Repository
 
@@ -40,10 +40,6 @@ helm install hive-mind link-assistant/hive-mind -n hive-mind
 ```
 
 ## Configuration
-
-### Default Values
-
-The default `values.yaml` provides sensible defaults for most deployments. Key configuration options:
 
 ### Resource Requirements
 
@@ -95,7 +91,7 @@ persistence:
 
 ### Authentication Configuration
 
-Hive Mind requires GitHub and Claude authentication. These should be configured via Kubernetes secrets:
+Hive Mind requires GitHub and Claude authentication. Configure via Kubernetes secrets:
 
 #### Create GitHub Token Secret
 
@@ -119,39 +115,9 @@ secrets:
   claudeApiKey: 'hive-claude-api-key'
 ```
 
-### Running as a Telegram Bot
-
-To run Hive Mind as a Telegram bot in Kubernetes:
-
-```yaml
-command:
-  - /bin/bash
-  - -c
-  - |
-    # Authenticate with GitHub using token from secret
-    echo "$GITHUB_TOKEN" | gh auth login --with-token
-
-    # Start the telegram bot
-    hive-telegram-bot --configuration "
-      TELEGRAM_BOT_TOKEN: '$TELEGRAM_BOT_TOKEN'
-      TELEGRAM_ALLOWED_CHATS:
-        -1002975819706
-      TELEGRAM_HIVE_OVERRIDES:
-        --all-issues
-        --once
-        --auto-fork
-        --attach-logs
-        --verbose
-      TELEGRAM_BOT_VERBOSE: true
-    "
-
-env:
-  TELEGRAM_BOT_TOKEN: 'your-telegram-bot-token'
-```
-
 ### Autoscaling
 
-Enable horizontal pod autoscaling for multiple bot instances:
+Enable horizontal pod autoscaling:
 
 ```yaml
 autoscaling:
@@ -205,11 +171,11 @@ affinity:
           topologyKey: kubernetes.io/hostname
 ```
 
-## Common Use Cases
+## Deployment Examples
 
 ### Example 1: Single Bot Instance
 
-Simple deployment for testing or small-scale usage:
+Simple deployment for testing:
 
 ```yaml
 # values-simple.yaml
@@ -348,7 +314,7 @@ helm rollback hive-mind 2
 helm uninstall hive-mind
 ```
 
-**Note:** By default, PersistentVolumeClaims are not deleted automatically. To delete them:
+**Note:** PersistentVolumeClaims are not deleted automatically. To delete them:
 
 ```bash
 kubectl delete pvc -l app.kubernetes.io/name=hive-mind
@@ -466,7 +432,7 @@ volumeMounts:
     readOnly: true
 ```
 
-## Monitoring and Observability
+## Monitoring
 
 ### Resource Monitoring
 
@@ -478,7 +444,7 @@ kubectl top pods -l app.kubernetes.io/name=hive-mind
 watch kubectl top pods -l app.kubernetes.io/name=hive-mind
 ```
 
-### Logging
+### Logging Integration
 
 Integrate with logging systems like ELK, Loki, or CloudWatch:
 
@@ -526,12 +492,20 @@ podAnnotations:
 
 5. **Regular Updates:** Keep the chart and container image updated
 
-## Support and Contributing
+## Resources
 
 - **GitHub Issues:** https://github.com/link-assistant/hive-mind/issues
 - **Documentation:** https://github.com/link-assistant/hive-mind
 - **Docker Hub:** https://hub.docker.com/r/konard/hive-mind
 - **ArtifactHub:** https://artifacthub.io/packages/helm/link-assistant/hive-mind
+
+## Next Steps
+
+After installation and authentication, see [USAGE.md](./USAGE.md) for:
+
+- CLI commands (`solve`, `hive`)
+- Telegram bot setup
+- All available options
 
 ## License
 

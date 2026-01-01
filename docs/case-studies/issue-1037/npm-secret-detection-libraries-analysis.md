@@ -24,6 +24,7 @@ This document analyzes the available open-source NPM libraries for secret/token 
 **Last Updated:** Actively maintained (updates within last week)
 
 #### Key Features
+
 - **Pluggable Architecture**: Modular rule system with individual packages for each provider
 - **Opt-in Approach**: Reduces false positives through explicit configuration
 - **Secret Masking**: Automatically masks secrets in output (useful for CI logs and AI agent tools)
@@ -33,34 +34,38 @@ This document analyzes the available open-source NPM libraries for secret/token 
 
 #### Available Rule Packages (26 total)
 
-| Category | Rules |
-|----------|-------|
-| **AI/ML Providers** | `@secretlint/secretlint-rule-openai`, `@secretlint/secretlint-rule-anthropic` |
-| **Cloud Providers** | `@secretlint/secretlint-rule-aws`, `@secretlint/secretlint-rule-gcp`, `@secretlint/secretlint-rule-azure` |
-| **Developer Tools** | `@secretlint/secretlint-rule-github`, `@secretlint/secretlint-rule-npm` |
-| **SaaS Services** | `@secretlint/secretlint-rule-slack`, `@secretlint/secretlint-rule-sendgrid`, `@secretlint/secretlint-rule-shopify`, `@secretlint/secretlint-rule-linear` |
-| **Security** | `@secretlint/secretlint-rule-privatekey`, `@secretlint/secretlint-rule-secp256k1-privatekey`, `@secretlint/secretlint-rule-1password` |
-| **Infrastructure** | `@secretlint/secretlint-rule-basicauth`, `@secretlint/secretlint-rule-database-connection-string`, `@secretlint/secretlint-rule-no-k8s-kind-secret` |
-| **Utilities** | `@secretlint/secretlint-rule-pattern` (custom regex patterns), `@secretlint/secretlint-rule-no-dotenv`, `@secretlint/secretlint-rule-no-homedir` |
-| **Presets** | `@secretlint/secretlint-rule-preset-recommend` (bundled recommended rules) |
+| Category            | Rules                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI/ML Providers** | `@secretlint/secretlint-rule-openai`, `@secretlint/secretlint-rule-anthropic`                                                                            |
+| **Cloud Providers** | `@secretlint/secretlint-rule-aws`, `@secretlint/secretlint-rule-gcp`, `@secretlint/secretlint-rule-azure`                                                |
+| **Developer Tools** | `@secretlint/secretlint-rule-github`, `@secretlint/secretlint-rule-npm`                                                                                  |
+| **SaaS Services**   | `@secretlint/secretlint-rule-slack`, `@secretlint/secretlint-rule-sendgrid`, `@secretlint/secretlint-rule-shopify`, `@secretlint/secretlint-rule-linear` |
+| **Security**        | `@secretlint/secretlint-rule-privatekey`, `@secretlint/secretlint-rule-secp256k1-privatekey`, `@secretlint/secretlint-rule-1password`                    |
+| **Infrastructure**  | `@secretlint/secretlint-rule-basicauth`, `@secretlint/secretlint-rule-database-connection-string`, `@secretlint/secretlint-rule-no-k8s-kind-secret`      |
+| **Utilities**       | `@secretlint/secretlint-rule-pattern` (custom regex patterns), `@secretlint/secretlint-rule-no-dotenv`, `@secretlint/secretlint-rule-no-homedir`         |
+| **Presets**         | `@secretlint/secretlint-rule-preset-recommend` (bundled recommended rules)                                                                               |
 
 #### Token Patterns Detected
 
 **OpenAI Tokens:**
+
 - `sk-proj-*` (project keys)
 - `sk-svcacct-*` (service account keys)
 - `sk-*` with T3BlbkFJ signature (legacy keys)
 
 **Anthropic Tokens:**
+
 - `sk-ant-api03-*`
 - `sk-ant-api01-*`
 - `sk-ant-*`
 
 **AWS Credentials:**
+
 - Access Key IDs: `AKIA*`, `ASIA*`, `AGPA*`, `AROA*`, `AIPA*`, `ANPA*`, `ANVA*`
 - Secret Access Keys (high-entropy detection)
 
 **Other Patterns:**
+
 - GitHub tokens (`ghp_*`, `gho_*`, `ghu_*`, `ghs_*`, `ghr_*`)
 - Slack tokens (`xoxb-*`, `xoxp-*`, etc.)
 - SendGrid API keys (`SG.*.*`)
@@ -104,6 +109,7 @@ npx secretlint "**/*"
 ```
 
 #### Pros
+
 - Native JavaScript implementation (no Python dependency)
 - Comprehensive AI provider support (OpenAI, Anthropic built-in)
 - Active maintenance with regular updates
@@ -112,6 +118,7 @@ npx secretlint "**/*"
 - Excellent documentation
 
 #### Cons
+
 - Requires separate installation of each rule package (or use preset)
 - Smaller community compared to Python alternatives like TruffleHog
 
@@ -125,6 +132,7 @@ npx secretlint "**/*"
 **Last Updated:** Active
 
 #### Key Features
+
 - **Multi-pronged Detection**: Regex rules, entropy analysis, context-based scanning, provider-specific plugins
 - **AI-powered Detection**: Advanced pattern recognition (Enterprise feature)
 - **Build Artifact Scanning**: Scans post-compilation artifacts
@@ -132,11 +140,13 @@ npx secretlint "**/*"
 - **Zero-knowledge Privacy**: All scanning performed locally
 
 #### Supported Languages/Frameworks
+
 - JavaScript, TypeScript, JSX, TSX, JSON
 - React, Vue, Angular, Next.js, Nuxt.js, Express
 - Webpack, Vite, Rollup, Parcel
 
 #### Detection Output Example
+
 ```json
 {
   "line": 45,
@@ -149,11 +159,13 @@ npx secretlint "**/*"
 ```
 
 #### Pros
+
 - Comprehensive detection with multiple methods
 - Modern framework support
 - Zero-knowledge local scanning
 
 #### Cons
+
 - Commercial product (AI features require Enterprise license)
 - Less transparent pattern definitions
 - Vendor lock-in risk
@@ -168,17 +180,20 @@ npx secretlint "**/*"
 **Last Updated:** ~4 months ago
 
 #### Key Features
+
 - JavaScript implementation of Yelp's detect-secrets
 - Uses WebAssembly technology
 - No Python dependency required
 - Compatible API with original detect-secrets
 
 #### Pros
+
 - Native JavaScript (no Python needed)
 - Memory efficient
 - False positive detection
 
 #### Cons
+
 - Less active maintenance
 - Fewer built-in patterns than secretlint
 - No dedicated AI provider rules
@@ -193,14 +208,17 @@ npx secretlint "**/*"
 **Last Updated:** March 2020 (outdated)
 
 #### Key Features
+
 - Node.js wrapper for Yelp's Python detect-secrets
 - Falls back to Docker if Python not found
 - Pre-commit hook integration
 
 #### Pros
+
 - Leverages proven Yelp detect-secrets patterns
 
 #### Cons
+
 - **Outdated** (last update 2020)
 - Requires Python or Docker
 - Not recommended for new projects
@@ -215,17 +233,20 @@ npx secretlint "**/*"
 **License:** ISC
 
 #### Key Features
+
 - ESLint integration
 - Entropy-based detection (like early TruffleHog)
 - AST-based analysis for JavaScript files
 - Two rules: `no-secrets` and `no-pattern-match`
 
 #### Detection Methods
+
 1. **Entropy Analysis**: Identifies high-entropy strings that look like secrets
 2. **Pattern Matching**: Regex-based detection (AWS keys, etc.)
 3. **AST Inspection**: Checks string templates, comments, literals
 
 #### Configuration Example
+
 ```json
 {
   "plugins": ["no-secrets"],
@@ -237,11 +258,13 @@ npx secretlint "**/*"
 ```
 
 #### Pros
+
 - Integrates with existing ESLint workflow
 - Well-maintained with regular updates
 - Good for JS/TS focused projects
 
 #### Cons
+
 - Limited to ESLint ecosystem
 - Fewer built-in patterns than secretlint
 - No dedicated AI provider patterns
@@ -256,17 +279,20 @@ npx secretlint "**/*"
 **License:** MIT
 
 #### Key Features
+
 - 160+ secret type detectors
 - Git history scanning
 - Three modes: git, dir, stdin
 - JSON, SARIF, CSV output
 
 #### Pros
+
 - Extensive pattern library (800+ detectors with verification)
 - Active development and large community
 - Deep git history scanning
 
 #### Cons
+
 - Original tool is Go-based (npm package is community wrapper)
 - npm wrapper may lag behind main development
 - Overkill for runtime sanitization
@@ -275,21 +301,21 @@ npx secretlint "**/*"
 
 ## Comparison Matrix
 
-| Feature | secretlint | @bytehide | secure-scan-js | eslint-plugin-no-secrets | gitleaks |
-|---------|------------|-----------|----------------|--------------------------|----------|
-| **Native JavaScript** | Yes | Yes | Yes | Yes | No (wrapper) |
-| **OpenAI Patterns** | Yes | Yes | Limited | No | Yes |
-| **Anthropic Patterns** | Yes | Yes | Limited | No | Yes |
-| **AWS Patterns** | Yes | Yes | Yes | Yes | Yes |
-| **GitHub Patterns** | Yes | Yes | Yes | Limited | Yes |
-| **Custom Patterns** | Yes | Yes | Yes | Yes | Yes |
-| **Active Maintenance** | Yes | Yes | Moderate | Yes | Yes |
-| **License** | MIT | Commercial | MIT | ISC | MIT |
-| **ESLint Integration** | No | No | No | Native | No |
-| **Pre-commit Hooks** | Yes | Yes | Yes | Via ESLint | Yes |
-| **CI/CD Integration** | SARIF | Yes | Basic | Via ESLint | SARIF |
-| **Secret Masking** | Yes | Yes | No | No | No |
-| **Runtime API** | Yes | Yes | Yes | No | No |
+| Feature                | secretlint | @bytehide  | secure-scan-js | eslint-plugin-no-secrets | gitleaks     |
+| ---------------------- | ---------- | ---------- | -------------- | ------------------------ | ------------ |
+| **Native JavaScript**  | Yes        | Yes        | Yes            | Yes                      | No (wrapper) |
+| **OpenAI Patterns**    | Yes        | Yes        | Limited        | No                       | Yes          |
+| **Anthropic Patterns** | Yes        | Yes        | Limited        | No                       | Yes          |
+| **AWS Patterns**       | Yes        | Yes        | Yes            | Yes                      | Yes          |
+| **GitHub Patterns**    | Yes        | Yes        | Yes            | Limited                  | Yes          |
+| **Custom Patterns**    | Yes        | Yes        | Yes            | Yes                      | Yes          |
+| **Active Maintenance** | Yes        | Yes        | Moderate       | Yes                      | Yes          |
+| **License**            | MIT        | Commercial | MIT            | ISC                      | MIT          |
+| **ESLint Integration** | No         | No         | No             | Native                   | No           |
+| **Pre-commit Hooks**   | Yes        | Yes        | Yes            | Via ESLint               | Yes          |
+| **CI/CD Integration**  | SARIF      | Yes        | Basic          | Via ESLint               | SARIF        |
+| **Secret Masking**     | Yes        | Yes        | No             | No                       | No           |
+| **Runtime API**        | Yes        | Yes        | Yes            | No                       | No           |
 
 ---
 
@@ -323,6 +349,7 @@ npm install secretlint @secretlint/secretlint-rule-preset-recommend --save-dev
 ```
 
 For programmatic use (extracting patterns):
+
 - Study patterns from: `@secretlint/secretlint-rule-openai`
 - Study patterns from: `@secretlint/secretlint-rule-anthropic`
 - Study patterns from: `@secretlint/secretlint-rule-aws`
@@ -342,4 +369,4 @@ For programmatic use (extracting patterns):
 
 ---
 
-*Document generated for Issue #1037 token sanitization research*
+_Document generated for Issue #1037 token sanitization research_

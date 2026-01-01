@@ -433,6 +433,288 @@ await runAsyncTest('Special characters around tokens', async () => {
   assertNotContains(sanitized, token, 'Should mask tokens surrounded by special characters');
 });
 
+// ==== AI Provider Token Tests (OpenAI, Anthropic, Google, etc.) ====
+// Note: Test tokens are constructed dynamically to avoid triggering GitHub secret scanning
+// These are NOT real API tokens - they are synthetic patterns that match the regex
+console.log('\n📋 Test Group 10: AI Provider tokens - OpenAI\n');
+
+// Helper to create synthetic tokens that match patterns but aren't real secrets
+// OpenAI signature: T3BlbkFJ (base64 of "OpenAI")
+const openAISignature = Buffer.from('OpenAI').toString('base64');
+
+await runAsyncTest('OpenAI project API key (sk-proj-) IS masked', async () => {
+  // Construct test token dynamically to avoid secret scanning
+  const token = ['sk-proj-', 'abcdefghijklmnopqrst', openAISignature, 'uvwxyz1234567890abcd'].join('');
+  const content = `OPENAI_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask OpenAI project API key');
+  assertContains(sanitized, 'sk-pr', 'Should preserve prefix in mask');
+  assertContains(sanitized, '*', 'Should contain asterisks');
+});
+
+await runAsyncTest('OpenAI service account key (sk-svcacct-) IS masked', async () => {
+  const token = ['sk-svcacct-', 'abcdefghijklmnopq', openAISignature, 'rstuvwxyz123456789'].join('');
+  const content = `export OPENAI_API_KEY="${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask OpenAI service account key');
+});
+
+await runAsyncTest('OpenAI admin key (sk-admin-) IS masked', async () => {
+  const token = ['sk-admin-', 'abcdefghijklmnopqrs', openAISignature, 'tuvwxyz12345678901'].join('');
+  const content = `apiKey: ${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask OpenAI admin key');
+});
+
+await runAsyncTest('OpenAI legacy key (sk-) IS masked', async () => {
+  const token = ['sk-', 'abcdefghijklmnopqrstuvwx', openAISignature, 'yz12345678901234567'].join('');
+  const content = `api_key = "${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask OpenAI legacy key');
+});
+
+console.log('\n📋 Test Group 11: AI Provider tokens - Anthropic (Claude)\n');
+
+await runAsyncTest('Anthropic API key (sk-ant-api03-) IS masked', async () => {
+  const token = ['sk-ant-api03-', 'abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJ'].join('');
+  const content = `ANTHROPIC_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Anthropic API key');
+  assertContains(sanitized, 'sk-an', 'Should preserve prefix in mask');
+  assertContains(sanitized, '*', 'Should contain asterisks');
+});
+
+await runAsyncTest('Anthropic API key with different version (sk-ant-api01-) IS masked', async () => {
+  const token = ['sk-ant-api01-', 'xyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefgh'].join('');
+  const content = `anthropic_key: "${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Anthropic API key v1');
+});
+
+await runAsyncTest('Anthropic API key short format (sk-ant-) IS masked', async () => {
+  const token = ['sk-ant-', 'abcdefghijklmnopqrstuvwxyz1234567890ABCDEFG'].join('');
+  const content = `export CLAUDE_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Anthropic short format key');
+});
+
+console.log('\n📋 Test Group 12: AI Provider tokens - Google (Gemini)\n');
+
+await runAsyncTest('Google API / Gemini key (AIza*) IS masked', async () => {
+  const token = ['AIzaSyB', 'abcdefghijklmnopqrstuvwxyz12345'].join('');
+  const content = `GOOGLE_API_KEY="${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Google API key');
+  assertContains(sanitized, 'AIzaS', 'Should preserve prefix in mask');
+  assertContains(sanitized, '*', 'Should contain asterisks');
+});
+
+await runAsyncTest('Google Gemini API key IS masked', async () => {
+  const token = ['AIzaSyC', '1234567890abcdefghijklmnopqrstu'].join('');
+  const content = `gemini_api_key: ${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Google Gemini key');
+});
+
+console.log('\n📋 Test Group 13: AI Provider tokens - HuggingFace\n');
+
+await runAsyncTest('HuggingFace API token (hf_*) IS masked', async () => {
+  // Construct dynamically to avoid secret scanning
+  const token = ['hf_', 'abcdefghijklmnopqrstuvwxyzABCDEFGH'].join('');
+  const content = `HUGGINGFACE_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask HuggingFace token');
+  assertContains(sanitized, 'hf_ab', 'Should preserve prefix in mask');
+  assertContains(sanitized, '*', 'Should contain asterisks');
+});
+
+await runAsyncTest('HuggingFace token in Python code IS masked', async () => {
+  const token = ['hf_', 'xyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234'].join('');
+  const content = `huggingface_hub.login("${token}")`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask HuggingFace token in code');
+});
+
+console.log('\n📋 Test Group 14: Other sensitive tokens (AWS, Slack, Stripe, etc.)\n');
+
+await runAsyncTest('AWS Access Key ID (AKIA*) IS masked', async () => {
+  const token = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+  const content = `aws_access_key_id = ${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask AWS Access Key ID');
+  assertContains(sanitized, 'AKIAI', 'Should preserve prefix in mask');
+});
+
+await runAsyncTest('AWS Session Token (ASIA*) IS masked', async () => {
+  const token = ['ASIA', 'XYZABCDEFGHIJKLM'].join('');
+  const content = `AWS_ACCESS_KEY_ID="${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask AWS Session Token');
+});
+
+await runAsyncTest('Slack bot token (xoxb-*) IS masked', async () => {
+  const token = ['xoxb', '-', '123456789012', '-', '1234567890123', '-', 'abcdefghijklmnopqrstuvwx'].join('');
+  const content = `SLACK_BOT_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Slack bot token');
+});
+
+await runAsyncTest('Slack user token (xoxp-*) IS masked', async () => {
+  const token = ['xoxp', '-', '123456789', '-', '123456789', '-', '123456789', '-', 'abcdefghijklmnopqrstuv'].join('');
+  const content = `slack_token: "${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Slack user token');
+});
+
+await runAsyncTest('Stripe live secret key (sk_live_*) IS masked', async () => {
+  const token = ['sk', '_live_', 'abcdefghijklmnopqrstuvwxyz1234567890'].join('');
+  const content = `STRIPE_SECRET_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Stripe live secret key');
+});
+
+await runAsyncTest('Stripe test secret key (sk_test_*) IS masked', async () => {
+  const token = ['sk', '_test_', 'abcdefghijklmnopqrstuvwxyz1234567890'].join('');
+  const content = `stripe_key: "${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Stripe test secret key');
+});
+
+await runAsyncTest('Stripe publishable key (pk_live_*) IS masked', async () => {
+  const token = ['pk', '_live_', 'abcdefghijklmnopqrstuvwxyz1234567890'].join('');
+  const content = `publishableKey: "${token}"`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Stripe publishable key');
+});
+
+await runAsyncTest('SendGrid API key IS masked', async () => {
+  const token = ['SG', '.', 'abcdefghijklmnopqrstuv', '.', 'abcdefghijklmnopqrstuvwxyz1234567890ABCDE'].join('');
+  const content = `SENDGRID_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask SendGrid API key');
+});
+
+await runAsyncTest('Twilio API key (SK*) IS masked', async () => {
+  const token = ['S', 'K', '1234567890abcdef1234567890abcdef'].join('');
+  const content = `TWILIO_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Twilio API key');
+});
+
+await runAsyncTest('Mailchimp API key IS masked', async () => {
+  const token = ['1234567890abcdef1234567890abcdef', '-', 'us10'].join('');
+  const content = `MAILCHIMP_API_KEY=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Mailchimp API key');
+});
+
+await runAsyncTest('Square access token (sq0atp-*) IS masked', async () => {
+  const token = ['sq0', 'atp', '-', 'abcdefghijklmnopqrstuvwxyz'].join('');
+  const content = `SQUARE_ACCESS_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Square access token');
+});
+
+await runAsyncTest('Shopify access token (shpat_*) IS masked', async () => {
+  const token = ['shp', 'at', '_', '1234567890abcdef1234567890abcdef'].join('');
+  const content = `SHOPIFY_ACCESS_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Shopify access token');
+});
+
+await runAsyncTest('Databricks token (dapi*) IS masked', async () => {
+  const token = ['d', 'api', '1234567890abcdef1234567890abcdef'].join('');
+  const content = `DATABRICKS_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Databricks token');
+});
+
+await runAsyncTest('npm token (npm_*) IS masked', async () => {
+  const token = ['n', 'pm', '_', 'abcdefghijklmnopqrstuvwxyz1234567890'].join('');
+  const content = `NPM_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask npm token');
+});
+
+await runAsyncTest('PyPI token (pypi-*) IS masked', async () => {
+  const token = ['py', 'pi-', 'AgEIcHlwaS5vcmcCJDEyMzQ1Njc4LTEyMzQtMTIzNC0xMjM0LTEyMzQ1Njc4OTAxMgACJXsicG'].join('');
+  const content = `PYPI_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask PyPI token');
+});
+
+await runAsyncTest('Discord bot token IS masked', async () => {
+  const token = ['MTIzNDU2Nzg5MDEyMzQ1Njc4', '.', 'G12345', '.', 'abcdefghijklmnopqrstuvwxyzAB'].join('');
+  const content = `DISCORD_BOT_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Discord bot token');
+});
+
+await runAsyncTest('Telegram bot token IS masked', async () => {
+  const token = ['123456789', ':', 'ABCdefGHIjklMNOpqrSTUvwxYZ1234567890'].join('');
+  const content = `TELEGRAM_BOT_TOKEN=${token}`;
+  const sanitized = await sanitizeLogContent(content);
+  assertNotContains(sanitized, token, 'Should mask Telegram bot token');
+});
+
+console.log('\n📋 Test Group 15: False positives - AI/provider prefixes that should NOT be masked\n');
+
+await runAsyncTest('Short sk- prefix alone is NOT masked', async () => {
+  const content = 'The prefix sk- indicates a secret key';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'sk-', 'Short sk- prefix should not be masked');
+});
+
+await runAsyncTest('Documentation about hf_ token format is NOT masked', async () => {
+  const content = 'HuggingFace tokens start with hf_ prefix and contain alphanumeric chars';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'hf_', 'hf_ in documentation should not be masked');
+});
+
+await runAsyncTest('AWS key documentation is NOT masked', async () => {
+  const content = 'AWS Access Keys start with AKIA prefix';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'AKIA', 'AKIA in documentation should not be masked');
+});
+
+await runAsyncTest('Google AIza prefix in docs is NOT masked', async () => {
+  const content = 'Google API keys start with AIza prefix';
+  const sanitized = await sanitizeLogContent(content);
+  assertContains(sanitized, 'AIza', 'AIza in documentation should not be masked');
+});
+
+console.log('\n📋 Test Group 16: Real-world mixed content with multiple AI provider tokens\n');
+
+await runAsyncTest('Mixed AI provider tokens in environment config', async () => {
+  const openaiToken = ['sk-proj-', 'abcdefghijklmnopqrst', openAISignature, 'uvwxyz1234567890abcd'].join('');
+  const anthropicToken = ['sk-ant-api03-', 'abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJ'].join('');
+  const geminiToken = ['AIzaSyB', 'abcdefghijklmnopqrstuvwxyz12345'].join('');
+  const huggingfaceToken = ['hf_', 'abcdefghijklmnopqrstuvwxyzABCDEFGH'].join('');
+
+  const content = `
+# Environment configuration
+OPENAI_API_KEY="${openaiToken}"
+ANTHROPIC_API_KEY="${anthropicToken}"
+GOOGLE_API_KEY="${geminiToken}"
+HUGGINGFACE_TOKEN="${huggingfaceToken}"
+
+# These should NOT be masked
+browser_take_screenshot mcp__playwright__browser_click
+commit 2073c66ab9405a46416dbb51714f843c3016052a
+`;
+  const sanitized = await sanitizeLogContent(content);
+
+  // All tokens should be masked
+  assertNotContains(sanitized, openaiToken, 'Should mask OpenAI token');
+  assertNotContains(sanitized, anthropicToken, 'Should mask Anthropic token');
+  assertNotContains(sanitized, geminiToken, 'Should mask Google/Gemini token');
+  assertNotContains(sanitized, huggingfaceToken, 'Should mask HuggingFace token');
+
+  // These should NOT be masked (false positives)
+  assertContains(sanitized, 'browser_take_screenshot', 'Should preserve browser tool name');
+  assertContains(sanitized, 'mcp__playwright__browser_click', 'Should preserve MCP tool name');
+});
+
 await runAsyncTest('Very long content with multiple tool references', async () => {
   let content = '';
   for (let i = 0; i < 100; i++) {

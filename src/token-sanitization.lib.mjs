@@ -197,13 +197,72 @@ export const sanitizeLogContent = async logContent => {
       }
     }
 
-    // Also look for and mask common GitHub token patterns directly in the log
+    // Also look for and mask common token patterns directly in the log
     // IMPORTANT: Be careful not to mask legitimate identifiers (Issue #1037)
     const tokenPatterns = [
       // GitHub tokens with known prefixes - these are definitely sensitive
       /gh[pou]_[a-zA-Z0-9_]{20,}/g,
       // GitHub fine-grained PAT tokens
       /github_pat_[a-zA-Z0-9_]{20,}/g,
+      // GitHub server-to-server tokens
+      /ghs_[a-zA-Z0-9_]{20,}/g,
+      // GitHub refresh tokens
+      /ghr_[a-zA-Z0-9_]{20,}/g,
+
+      // OpenAI API tokens - contain T3BlbkFJ (base64 of "OpenAI")
+      // Variants: sk-proj-, sk-svcacct-, sk-admin-, or just sk-
+      // Token length can vary, T3BlbkFJ appears in the middle
+      /\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]*T3BlbkFJ[A-Za-z0-9_-]+/g,
+
+      // Anthropic (Claude) API tokens - start with sk-ant-
+      /\bsk-ant-(?:api\d{2}-)?[A-Za-z0-9_-]{20,}/g,
+
+      // Google API / Gemini tokens - start with AIza followed by 35+ chars
+      // Total key length is typically 39 characters but can vary
+      /\bAIza[0-9A-Za-z_-]{32,40}\b/g,
+
+      // HuggingFace API tokens - start with hf_ followed by alphanumeric
+      // Token length varies from 34-50+ characters after hf_
+      /\bhf_[a-zA-Z0-9]{30,}/g,
+
+      // AWS Access Key IDs
+      /\b(?:A3T[A-Z0-9]|AKIA|AGPA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b/g,
+
+      // Slack tokens
+      /\bxox[baprs]-[a-zA-Z0-9-]{10,}/g,
+
+      // Stripe API keys
+      /\b(?:sk_live_|sk_test_|pk_live_|pk_test_)[a-zA-Z0-9]{20,}/g,
+
+      // SendGrid API keys (SG.{base64}.{base64} format, variable lengths)
+      /\bSG\.[a-zA-Z0-9_-]{15,}\.[a-zA-Z0-9_-]{30,}/g,
+
+      // Twilio API keys (SK followed by 32 hex chars)
+      /\bSK[a-f0-9]{32}\b/g,
+
+      // Mailchimp API keys (32 hex chars followed by -usNN)
+      /\b[a-f0-9]{32}-us[0-9]{1,2}\b/g,
+
+      // Square tokens
+      /\bsq0(?:atp|csp)-[a-zA-Z0-9_-]{22,}/g,
+
+      // Shopify tokens
+      /\bshp(?:ss|at|ca|pa)_[a-f0-9]{32}\b/g,
+
+      // Databricks tokens
+      /\bdapi[a-f0-9]{32}\b/g,
+
+      // npm tokens
+      /\bnpm_[a-zA-Z0-9]{36}\b/g,
+
+      // PyPI tokens (variable length, typically 50+ chars)
+      /\bpypi-[A-Za-z0-9_-]{50,}/g,
+
+      // Discord bot tokens (base64 encoded, typically 59-72 chars)
+      /\b[MN][A-Za-z0-9_-]{23,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{20,}/g,
+
+      // Telegram bot tokens (bot ID:token format, token is 35 chars)
+      /\b[0-9]{8,10}:[a-zA-Z0-9_-]{30,}/g,
     ];
 
     for (const pattern of tokenPatterns) {

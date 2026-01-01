@@ -90,7 +90,7 @@ We strongly recommend:
 50 GB disk space
 ```
 
-## Installation
+## Quick Start
 
 Choose your preferred installation method:
 
@@ -295,6 +295,10 @@ sequenceDiagram
 ```
 
 For comprehensive data flow documentation including human feedback integration points, see [docs/flow.md](./docs/flow.md).
+
+## Configuration
+
+For detailed configuration options see [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
 
 ## Documentation
 

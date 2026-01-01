@@ -230,14 +230,17 @@ env:
 ### Troubleshooting CI/CD
 
 **Build fails with authentication error:**
+
 - Verify `DOCKERHUB_USERNAME` matches your Docker Hub username exactly
 - Regenerate `DOCKERHUB_TOKEN` and update the secret
 
 **Image published but can't pull:**
+
 - Ensure the repository on Docker Hub is public
 - Check Docker Hub -> Your repositories -> hive-mind -> Settings -> Make Public
 
 **Build succeeds but image doesn't appear:**
+
 - Check you're pushing to the `main` branch (pull requests only test, don't publish)
 - Verify the workflow ran in the Actions tab
 - Check Docker Hub rate limits haven't been exceeded

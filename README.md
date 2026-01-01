@@ -94,12 +94,12 @@ We strongly recommend:
 
 Choose your preferred installation method:
 
-| Method | Best For | Guide |
-| ------ | -------- | ----- |
-| **Docker** | Local development, multiple instances | [Docker Installation](#docker-installation) |
-| **Helm/Kubernetes** | Production deployments, scaling | [Helm Installation](#helm-installation) |
-| **Ubuntu 24.04 Server** | Dedicated VMs/VPS | [Server Installation](#ubuntu-2404-server-installation) |
-| **Global npm/bun** | Quick local testing | [Global Installation](#global-installation) |
+| Method                  | Best For                              | Guide                                                   |
+| ----------------------- | ------------------------------------- | ------------------------------------------------------- |
+| **Docker**              | Local development, multiple instances | [Docker Installation](#docker-installation)             |
+| **Helm/Kubernetes**     | Production deployments, scaling       | [Helm Installation](#helm-installation)                 |
+| **Ubuntu 24.04 Server** | Dedicated VMs/VPS                     | [Server Installation](#ubuntu-2404-server-installation) |
+| **Global npm/bun**      | Quick local testing                   | [Global Installation](#global-installation)             |
 
 ### Docker Installation
 
@@ -302,15 +302,15 @@ For detailed configuration options see [docs/CONFIGURATION.md](./docs/CONFIGURAT
 
 ## Documentation
 
-| Document | Description |
-| -------- | ----------- |
-| [docs/USAGE.md](./docs/USAGE.md) | Complete CLI and Telegram bot usage guide |
-| [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) | All configuration options and environment variables |
-| [docs/FEATURES.md](./docs/FEATURES.md) | Detailed feature explanations |
-| [docs/COMPARISON.md](./docs/COMPARISON.md) | Comparisons with alternatives |
-| [docs/DOCKER.md](./docs/DOCKER.md) | Docker installation and configuration |
-| [docs/HELM.md](./docs/HELM.md) | Kubernetes/Helm deployment guide |
-| [docs/BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) | CI/CD recommendations for best results |
+| Document                                           | Description                                         |
+| -------------------------------------------------- | --------------------------------------------------- |
+| [docs/USAGE.md](./docs/USAGE.md)                   | Complete CLI and Telegram bot usage guide           |
+| [docs/CONFIGURATION.md](./docs/CONFIGURATION.md)   | All configuration options and environment variables |
+| [docs/FEATURES.md](./docs/FEATURES.md)             | Detailed feature explanations                       |
+| [docs/COMPARISON.md](./docs/COMPARISON.md)         | Comparisons with alternatives                       |
+| [docs/DOCKER.md](./docs/DOCKER.md)                 | Docker installation and configuration               |
+| [docs/HELM.md](./docs/HELM.md)                     | Kubernetes/Helm deployment guide                    |
+| [docs/BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) | CI/CD recommendations for best results              |
 
 ## Reporting Issues
 

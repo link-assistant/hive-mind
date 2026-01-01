@@ -1204,15 +1204,12 @@ export const executeClaudeCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
-          // Format and display user-friendly message
-          // Use Claude CLI resume command instead of solve.mjs command
-          // This allows users to resume directly with `claude --resume` in the working directory
-          const claudeResumeCmd = tempDir && sessionId ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+          // Format and display user-friendly message with Claude CLI resume command
           const messageLines = formatUsageLimitMessage({
             tool: 'Claude',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: claudeResumeCmd,
+            resumeCommand: tempDir && sessionId ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
           });
 
           for (const line of messageLines) {
@@ -1223,10 +1220,7 @@ export const executeClaudeCommand = async params => {
         } else {
           await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
-            await log(`📌 Session ID for resuming: ${sessionId}`);
-            await log('\nTo resume this session in Claude Code interactive mode, run:');
-            const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-            await log(`   ${claudeResumeCmd}`);
+            await log(`📌 Session ID: ${sessionId}\nTo resume in Claude Code interactive mode:   ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           }
         }
       }

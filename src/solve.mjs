@@ -946,12 +946,10 @@ try {
         }
       } else if (prNumber) {
         // Fallback: Post simple failure comment if logs are not attached
+        // Note: Commands should not be in GitHub comments - only mention the option
         try {
           const resetTime = global.limitResetTime;
-          // Build Claude CLI resume command
-          const tool = argv.tool || 'claude';
-          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
-          const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
+          const resumeSection = sessionId ? `Session ID: \`${sessionId}\`\n\nUse the \`--auto-continue-on-limit-reset\` option to automatically resume when the limit resets.` : 'Use the `--auto-continue-on-limit-reset` option to automatically resume when the limit resets.';
           const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;

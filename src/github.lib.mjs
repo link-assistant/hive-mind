@@ -579,20 +579,14 @@ The automated solution draft was interrupted because the ${toolName} usage limit
       logComment += '\n\n### 🔄 How to Continue\n';
 
       if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
+        logComment += `Once the limit resets at **${limitResetTime}**, you can use the \`--auto-continue-on-limit-reset\` option to automatically resume when the limit resets.`;
       } else {
-        logComment += 'Once the limit resets, ';
+        logComment += 'You can use the `--auto-continue-on-limit-reset` option to automatically resume when the limit resets.';
       }
 
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
+      // Note: The Claude CLI resume command is available in the logs below for manual resumption
+      if (sessionId) {
+        logComment += `\n\nSee the logs below for the resume command if you need to continue manually.`;
       }
 
       logComment += `

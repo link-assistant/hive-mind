@@ -44,17 +44,11 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 // Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
-// Import Claude limits library for /limits command
+// Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage } = await import('./claude-limits.lib.mjs');
-
-// Import version info library for /version command
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-
-// Import utilities for markdown escaping and solve queue
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-
-// Import cached limits functions (shared cache for /limits and /solve queue)
 const { getAllCachedLimits } = await import('./telegram-limits.lib.mjs');
 
 const config = yargs(hideBin(process.argv))

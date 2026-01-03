@@ -19,7 +19,11 @@ const __dirname = dirname(__filename);
 
 // Import the queue library
 const queueLibPath = join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs');
-const { SolveQueue, getSolveQueue, resetSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG } = await import(queueLibPath);
+const { SolveQueue, getSolveQueue, resetSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG, QueueItemStatus } = await import(queueLibPath);
+
+// Import the limits cache library
+const limitsLibPath = join(__dirname, '..', 'src', 'telegram-limits.lib.mjs');
+const { CACHE_TTL, getLimitCache, resetLimitCache } = await import(limitsLibPath);
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -28,7 +32,6 @@ function runTest(name, testFn) {
   process.stdout.write(`Testing ${name}... `);
   try {
     const result = testFn();
-    // Handle async tests
     if (result instanceof Promise) {
       return result
         .then(() => {
@@ -60,9 +63,9 @@ async function runTestAsync(name, testFn) {
   }
 }
 
-// Test 1: QUEUE_CONFIG has required properties
-runTest('QUEUE_CONFIG has required properties', () => {
-  const requiredProps = ['RAM_THRESHOLD_PERCENT', 'CPU_THRESHOLD_PERCENT', 'DISK_FREE_THRESHOLD_PERCENT', 'CLAUDE_SESSION_THRESHOLD_PERCENT', 'CLAUDE_WEEKLY_THRESHOLD_PERCENT', 'GITHUB_API_THRESHOLD_PERCENT', 'MIN_START_INTERVAL_MS', 'LIMIT_CACHE_TTL_MS', 'CONSUMER_POLL_INTERVAL_MS'];
+// Test 1: QUEUE_CONFIG has required properties with ratio format
+runTest('QUEUE_CONFIG has required properties (ratio format)', () => {
+  const requiredProps = ['RAM_THRESHOLD', 'CPU_THRESHOLD', 'DISK_THRESHOLD', 'CLAUDE_SESSION_THRESHOLD', 'CLAUDE_WEEKLY_THRESHOLD', 'GITHUB_API_THRESHOLD', 'MIN_START_INTERVAL_MS', 'CONSUMER_POLL_INTERVAL_MS'];
 
   for (const prop of requiredProps) {
     if (!(prop in QUEUE_CONFIG)) {
@@ -74,45 +77,51 @@ runTest('QUEUE_CONFIG has required properties', () => {
   }
 });
 
-// Test 2: Check default thresholds match requirements
-runTest('Default thresholds match requirements', () => {
-  // From issue #1041:
-  // - RAM: 50%
-  // - CPU: 50%
-  // - Disk free: 5%
-  // - Claude session: 90%
-  // - Claude weekly: 99%
-  // - GitHub API: 80%
+// Test 2: Check default thresholds match requirements (ratio format)
+runTest('Default thresholds match requirements (ratio format)', () => {
+  // From issue #1041 (converted to ratios):
+  // - RAM: 0.5 (50%)
+  // - CPU: 0.5 (50%)
+  // - Disk: 0.95 (95% usage, i.e., 5% free)
+  // - Claude session: 0.9 (90%)
+  // - Claude weekly: 0.99 (99%)
+  // - GitHub API: 0.8 (80%)
   // - Min interval: 1 minute
-  // - Cache TTL: 5 minutes
 
-  if (QUEUE_CONFIG.RAM_THRESHOLD_PERCENT !== 50) {
-    throw new Error(`RAM threshold should be 50%, got ${QUEUE_CONFIG.RAM_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.RAM_THRESHOLD !== 0.5) {
+    throw new Error(`RAM threshold should be 0.5, got ${QUEUE_CONFIG.RAM_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CPU_THRESHOLD_PERCENT !== 50) {
-    throw new Error(`CPU threshold should be 50%, got ${QUEUE_CONFIG.CPU_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.CPU_THRESHOLD !== 0.5) {
+    throw new Error(`CPU threshold should be 0.5, got ${QUEUE_CONFIG.CPU_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.DISK_FREE_THRESHOLD_PERCENT !== 5) {
-    throw new Error(`Disk free threshold should be 5%, got ${QUEUE_CONFIG.DISK_FREE_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.95) {
+    throw new Error(`Disk threshold should be 0.95, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD_PERCENT !== 90) {
-    throw new Error(`Claude session threshold should be 90%, got ${QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD !== 0.9) {
+    throw new Error(`Claude session threshold should be 0.9, got ${QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD_PERCENT !== 99) {
-    throw new Error(`Claude weekly threshold should be 99%, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD !== 0.99) {
+    throw new Error(`Claude weekly threshold should be 0.99, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.GITHUB_API_THRESHOLD_PERCENT !== 80) {
-    throw new Error(`GitHub API threshold should be 80%, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD_PERCENT}`);
+  if (QUEUE_CONFIG.GITHUB_API_THRESHOLD !== 0.8) {
+    throw new Error(`GitHub API threshold should be 0.8, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD}`);
   }
   if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 60000) {
     throw new Error(`Min interval should be 60000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
   }
-  if (QUEUE_CONFIG.LIMIT_CACHE_TTL_MS !== 300000) {
-    throw new Error(`Cache TTL should be 300000ms, got ${QUEUE_CONFIG.LIMIT_CACHE_TTL_MS}`);
+});
+
+// Test 3: CACHE_TTL has correct values (3min API, 2min system)
+runTest('CACHE_TTL has correct values', () => {
+  if (CACHE_TTL.API !== 180000) {
+    throw new Error(`API cache TTL should be 180000ms (3 minutes), got ${CACHE_TTL.API}`);
+  }
+  if (CACHE_TTL.SYSTEM !== 120000) {
+    throw new Error(`System cache TTL should be 120000ms (2 minutes), got ${CACHE_TTL.SYSTEM}`);
   }
 });
 
-// Test 3: SolveQueue can be instantiated
+// Test 4: SolveQueue can be instantiated
 runTest('SolveQueue can be instantiated', () => {
   const queue = new SolveQueue();
   if (!queue) {
@@ -121,9 +130,10 @@ runTest('SolveQueue can be instantiated', () => {
   queue.stop();
 });
 
-// Test 4: getSolveQueue returns singleton
+// Test 5: getSolveQueue returns singleton
 runTest('getSolveQueue returns singleton', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue1 = getSolveQueue();
   const queue2 = getSolveQueue();
 
@@ -135,9 +145,10 @@ runTest('getSolveQueue returns singleton', () => {
   resetSolveQueue();
 });
 
-// Test 5: Queue enqueue and getStats
+// Test 6: Queue enqueue and getStats
 runTest('Queue enqueue and getStats', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const stats1 = queue.getStats();
@@ -145,7 +156,6 @@ runTest('Queue enqueue and getStats', () => {
     throw new Error('Initial queue should be empty');
   }
 
-  // Mock context
   const mockCtx = { telegram: {}, from: { id: 123 } };
 
   queue.enqueue({
@@ -168,9 +178,10 @@ runTest('Queue enqueue and getStats', () => {
   queue.stop();
 });
 
-// Test 6: Queue cancel
+// Test 7: Queue cancel
 runTest('Queue cancel', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const mockCtx = { telegram: {}, from: { id: 123 } };
@@ -205,7 +216,7 @@ runTest('Queue cancel', () => {
   queue.stop();
 });
 
-// Test 7: getRunningClaudeProcesses returns object with count
+// Test 8: getRunningClaudeProcesses returns object with count
 await runTestAsync('getRunningClaudeProcesses returns object with count', async () => {
   const result = await getRunningClaudeProcesses(false);
 
@@ -223,9 +234,10 @@ await runTestAsync('getRunningClaudeProcesses returns object with count', async 
   }
 });
 
-// Test 8: Queue getQueueSummary
+// Test 9: Queue getQueueSummary
 runTest('Queue getQueueSummary', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const mockCtx = { telegram: {}, from: { id: 123 } };
@@ -257,9 +269,10 @@ runTest('Queue getQueueSummary', () => {
   queue.stop();
 });
 
-// Test 9: Queue formatStatus
+// Test 10: Queue formatStatus
 runTest('Queue formatStatus', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const status1 = queue.formatStatus();
@@ -286,22 +299,24 @@ runTest('Queue formatStatus', () => {
   queue.stop();
 });
 
-// Test 10: Queue clearCache
+// Test 11: Queue clearCache
 runTest('Queue clearCache', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   // Add something to cache
-  queue.limitCache.set('test', { value: 123 });
+  const cache = getLimitCache();
+  cache.set('test', { value: 123 });
 
-  const stats1 = queue.limitCache.getStats();
+  const stats1 = cache.getStats();
   if (stats1.validEntries !== 1) {
     throw new Error('Cache should have 1 entry');
   }
 
   queue.clearCache();
 
-  const stats2 = queue.limitCache.getStats();
+  const stats2 = cache.getStats();
   if (stats2.validEntries !== 0) {
     throw new Error('Cache should be empty after clear');
   }
@@ -309,38 +324,38 @@ runTest('Queue clearCache', () => {
   queue.stop();
 });
 
-// Test 11: LimitCache TTL expiration
+// Test 12: LimitCache TTL expiration
 runTest('LimitCache TTL expiration', () => {
   resetSolveQueue();
-  // Create queue with very short cache TTL
-  const queue = new SolveQueue({ limitCacheTtlMs: 10 });
+  resetLimitCache();
 
-  queue.limitCache.set('test', { value: 123 });
+  // Create cache with very short TTL for testing
+  const cache = getLimitCache();
+  cache.set('test', { value: 123 }, 10); // 10ms TTL
 
   // Immediate read should work
-  const val1 = queue.limitCache.get('test');
+  const val1 = cache.get('test', 10);
   if (!val1) {
     throw new Error('Cache should return value immediately');
   }
 
-  // Wait for expiration (use blocking wait for test)
+  // Wait for expiration
   const start = Date.now();
   while (Date.now() - start < 20) {
     // busy wait
   }
 
   // After TTL, should return null
-  const val2 = queue.limitCache.get('test');
+  const val2 = cache.get('test', 10);
   if (val2 !== null) {
     throw new Error('Cache should return null after TTL');
   }
-
-  queue.stop();
 });
 
-// Test 12: canStartCommand returns proper structure
+// Test 13: canStartCommand returns proper structure
 await runTestAsync('canStartCommand returns proper structure', async () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const result = await queue.canStartCommand();
@@ -358,9 +373,10 @@ await runTestAsync('canStartCommand returns proper structure', async () => {
   queue.stop();
 });
 
-// Test 13: Queue stops correctly
+// Test 14: Queue stops correctly
 runTest('Queue stops correctly', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   if (!queue.isRunning) {
@@ -374,9 +390,10 @@ runTest('Queue stops correctly', () => {
   }
 });
 
-// Test 14: Multiple enqueues maintain order
+// Test 15: Multiple enqueues maintain order
 runTest('Multiple enqueues maintain order', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const mockCtx = { telegram: {}, from: { id: 123 } };
@@ -408,9 +425,10 @@ runTest('Multiple enqueues maintain order', () => {
   queue.stop();
 });
 
-// Test 15: SolveQueueItem has correct properties
+// Test 16: SolveQueueItem has correct properties with new status system
 runTest('SolveQueueItem has correct properties', () => {
   resetSolveQueue();
+  resetLimitCache();
   const queue = new SolveQueue();
 
   const mockCtx = { telegram: {}, from: { id: 123 } };
@@ -433,8 +451,8 @@ runTest('SolveQueueItem has correct properties', () => {
   if (!Array.isArray(item.args) || item.args.length !== 3) {
     throw new Error('Item should have args array');
   }
-  if (item.status !== 'pending') {
-    throw new Error('Item status should be pending');
+  if (item.status !== QueueItemStatus.QUEUED) {
+    throw new Error(`Item status should be ${QueueItemStatus.QUEUED}, got ${item.status}`);
   }
   if (!(item.createdAt instanceof Date)) {
     throw new Error('Item should have createdAt date');
@@ -444,6 +462,28 @@ runTest('SolveQueueItem has correct properties', () => {
   }
 
   queue.stop();
+});
+
+// Test 17: QueueItemStatus enum values
+runTest('QueueItemStatus has correct values', () => {
+  if (QueueItemStatus.QUEUED !== 'queued') {
+    throw new Error('QUEUED should be "queued"');
+  }
+  if (QueueItemStatus.WAITING !== 'waiting') {
+    throw new Error('WAITING should be "waiting"');
+  }
+  if (QueueItemStatus.STARTING !== 'starting') {
+    throw new Error('STARTING should be "starting"');
+  }
+  if (QueueItemStatus.STARTED !== 'started') {
+    throw new Error('STARTED should be "started"');
+  }
+  if (QueueItemStatus.FAILED !== 'failed') {
+    throw new Error('FAILED should be "failed"');
+  }
+  if (QueueItemStatus.CANCELLED !== 'cancelled') {
+    throw new Error('CANCELLED should be "cancelled"');
+  }
 });
 
 // Summary
@@ -456,6 +496,7 @@ console.log('='.repeat(50));
 
 // Cleanup
 resetSolveQueue();
+resetLimitCache();
 
 // Restore CI if it was set
 if (originalCI !== undefined) {

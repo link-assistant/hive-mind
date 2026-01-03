@@ -45,7 +45,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
 // Import Claude limits library for /limits command
-const { getClaudeUsageLimits, getCpuLoadInfo, getMemoryInfo, getDiskSpaceInfo, getGitHubRateLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
+const { formatUsageMessage } = await import('./claude-limits.lib.mjs');
 
 // Import version info library for /version command
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -53,6 +53,9 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 // Import utilities for markdown escaping and solve queue
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+
+// Import cached limits functions (shared cache for /limits and /solve queue)
+const { getAllCachedLimits } = await import('./telegram-limits.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -874,19 +877,17 @@ bot.command('limits', async ctx => {
     reply_to_message_id: ctx.message.message_id,
   });
 
-  // Get the usage limits, system info, and GitHub rate limits in parallel
-  const [result, cpuLoadResult, memoryResult, diskSpaceResult, githubLimitsResult] = await Promise.all([getClaudeUsageLimits(VERBOSE), getCpuLoadInfo(VERBOSE), getMemoryInfo(VERBOSE), getDiskSpaceInfo(VERBOSE), getGitHubRateLimits(VERBOSE)]);
+  // Get all limits using shared cache (3min for API, 2min for system)
+  const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!result.success) {
-    // Edit the fetching message to show the error
-    // Escape the error message for MarkdownV2, preserving inline code blocks
-    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
+  if (!limits.claude.success) {
+    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
     await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
     return;
   }
 
-  // Format the fetching message with usage limits and queue status
-  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(result.usage, diskSpaceResult.success ? diskSpaceResult.diskSpace : null, githubLimitsResult.success ? githubLimitsResult.githubRateLimit : null, cpuLoadResult.success ? cpuLoadResult.cpuLoad : null, memoryResult.success ? memoryResult.memory : null);
+  // Format the message with usage limits and queue status
+  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStats = solveQueue.getStats();
   const claudeProcs = await getRunningClaudeProcesses(VERBOSE);

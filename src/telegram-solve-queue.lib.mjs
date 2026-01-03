@@ -10,7 +10,7 @@
  * - API limit checking (Claude, GitHub)
  * - Minimum interval between command starts
  * - Running process detection
- * - Cached limit checks (5-minute cache)
+ * - Status tracking: Queued -> Waiting -> Starting -> Started
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1041
  */
@@ -20,26 +20,26 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
-// Import resource monitoring functions
-import { getClaudeUsageLimits, getCpuLoadInfo, getMemoryInfo, getDiskSpaceInfo, getGitHubRateLimits } from './claude-limits.lib.mjs';
+// Import centralized caching from telegram-limits.lib.mjs
+import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './telegram-limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling
+ * All thresholds use ratios (0.0 - 1.0) representing usage percentage
  */
 export const QUEUE_CONFIG = {
-  // Resource thresholds
-  RAM_THRESHOLD_PERCENT: 50, // Stop if RAM usage > 50%
-  CPU_THRESHOLD_PERCENT: 50, // Stop if CPU usage > 50%
-  DISK_FREE_THRESHOLD_PERCENT: 5, // One-at-a-time if disk free < 5%
+  // Resource thresholds (usage ratios: 0.0 - 1.0)
+  RAM_THRESHOLD: 0.5, // Stop if RAM usage > 50%
+  CPU_THRESHOLD: 0.5, // Stop if CPU usage > 50%
+  DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage > 95%
 
-  // API limit thresholds
-  CLAUDE_SESSION_THRESHOLD_PERCENT: 90, // Stop if 5-hour limit > 90%
-  CLAUDE_WEEKLY_THRESHOLD_PERCENT: 99, // One-at-a-time if weekly limit > 99%
-  GITHUB_API_THRESHOLD_PERCENT: 80, // Stop if GitHub > 80% with parallel claude
+  // API limit thresholds (usage ratios: 0.0 - 1.0)
+  CLAUDE_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit > 90%
+  CLAUDE_WEEKLY_THRESHOLD: 0.99, // One-at-a-time if weekly limit > 99%
+  GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub > 80% with parallel claude
 
   // Timing
   MIN_START_INTERVAL_MS: 60000, // 1 minute between starts
-  LIMIT_CACHE_TTL_MS: 300000, // 5 minutes cache for API calls
   CONSUMER_POLL_INTERVAL_MS: 5000, // 5 seconds between queue checks
 
   // Process detection
@@ -47,74 +47,16 @@ export const QUEUE_CONFIG = {
 };
 
 /**
- * Cache for API limit checks to avoid excessive API calls
+ * Status enum for queue items
  */
-class LimitCache {
-  constructor(ttlMs = QUEUE_CONFIG.LIMIT_CACHE_TTL_MS) {
-    this.ttlMs = ttlMs;
-    this.cache = new Map();
-  }
-
-  /**
-   * Get cached value if not expired
-   * @param {string} key - Cache key
-   * @returns {any|null} Cached value or null if expired/missing
-   */
-  get(key) {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-
-    if (Date.now() - entry.timestamp > this.ttlMs) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.value;
-  }
-
-  /**
-   * Set cached value
-   * @param {string} key - Cache key
-   * @param {any} value - Value to cache
-   */
-  set(key, value) {
-    this.cache.set(key, {
-      value,
-      timestamp: Date.now(),
-    });
-  }
-
-  /**
-   * Clear entire cache
-   */
-  clear() {
-    this.cache.clear();
-  }
-
-  /**
-   * Get cache statistics
-   * @returns {Object} Cache stats
-   */
-  getStats() {
-    const now = Date.now();
-    let validEntries = 0;
-    let expiredEntries = 0;
-
-    for (const entry of this.cache.values()) {
-      if (now - entry.timestamp > this.ttlMs) {
-        expiredEntries++;
-      } else {
-        validEntries++;
-      }
-    }
-
-    return {
-      validEntries,
-      expiredEntries,
-      totalEntries: this.cache.size,
-    };
-  }
-}
+export const QueueItemStatus = {
+  QUEUED: 'queued',
+  WAITING: 'waiting',
+  STARTING: 'starting',
+  STARTED: 'started',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+};
 
 /**
  * Count running claude processes
@@ -123,8 +65,6 @@ class LimitCache {
  */
 export async function getRunningClaudeProcesses(verbose = false) {
   try {
-    // Use pgrep to find claude processes
-    // This is more reliable than parsing ps output
     const { stdout } = await execAsync('pgrep -l -x claude 2>/dev/null || true');
     const lines = stdout
       .trim()
@@ -156,8 +96,49 @@ export async function getRunningClaudeProcesses(verbose = false) {
     if (verbose) {
       console.error('[VERBOSE] /solve-queue error counting claude processes:', error.message);
     }
-    // On error, assume no processes (allow command to proceed)
     return { count: 0, processes: [] };
+  }
+}
+
+/**
+ * Format a threshold as percentage for display
+ * @param {number} ratio - Ratio (0.0 - 1.0)
+ * @returns {string} Formatted percentage
+ */
+function formatThresholdPercent(ratio) {
+  return `${Math.round(ratio * 100)}%`;
+}
+
+/**
+ * Generate human-readable waiting reason based on threshold violation
+ * @param {string} metric - The metric name (ram, cpu, disk, etc.)
+ * @param {number} currentValue - Current value (as percentage 0-100)
+ * @param {number} threshold - Threshold ratio (0.0 - 1.0)
+ * @returns {string} Human-readable reason
+ */
+function formatWaitingReason(metric, currentValue, threshold) {
+  const thresholdPercent = formatThresholdPercent(threshold);
+  const currentPercent = Math.round(currentValue);
+
+  switch (metric) {
+    case 'ram':
+      return `RAM usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'cpu':
+      return `CPU usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'disk':
+      return `Disk usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'claude_session':
+      return `Claude session limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'claude_weekly':
+      return `Claude weekly limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'github':
+      return `GitHub API usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'min_interval':
+      return `Minimum interval between commands not reached`;
+    case 'claude_running':
+      return `Claude process is already running`;
+    default:
+      return `${metric} threshold exceeded`;
   }
 }
 
@@ -169,48 +150,64 @@ class SolveQueueItem {
     this.id = `solve-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     this.url = options.url;
     this.args = options.args;
-    this.ctx = options.ctx; // Telegram context
+    this.ctx = options.ctx;
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
     this.tool = options.tool || 'claude';
     this.createdAt = new Date();
     this.startedAt = null;
-    this.status = 'pending'; // pending, processing, completed, failed, cancelled
+    this.status = QueueItemStatus.QUEUED;
+    this.waitingReason = null;
     this.error = null;
     this.result = null;
+    this.sessionName = null;
+    // Message tracking - forget after STARTED
+    this.messageInfo = null; // { chatId, messageId }
   }
 
   /**
-   * Mark item as processing
+   * Update status to waiting with reason
+   * @param {string} reason - Waiting reason
    */
-  markProcessing() {
-    this.status = 'processing';
+  setWaiting(reason) {
+    this.status = QueueItemStatus.WAITING;
+    this.waitingReason = reason;
+  }
+
+  /**
+   * Update status to starting
+   */
+  setStarting() {
+    this.status = QueueItemStatus.STARTING;
     this.startedAt = new Date();
+    this.waitingReason = null;
   }
 
   /**
-   * Mark item as completed
-   * @param {Object} result - Execution result
+   * Update status to started and clear message tracking
+   * @param {string} sessionName - Session name for debugging
    */
-  markCompleted(result) {
-    this.status = 'completed';
-    this.result = result;
+  setStarted(sessionName) {
+    this.status = QueueItemStatus.STARTED;
+    this.sessionName = sessionName;
+    // Terminal status - forget message tracking
+    this.messageInfo = null;
   }
 
   /**
    * Mark item as failed
    * @param {Error|string} error - Error that occurred
    */
-  markFailed(error) {
-    this.status = 'failed';
+  setFailed(error) {
+    this.status = QueueItemStatus.FAILED;
     this.error = error instanceof Error ? error.message : error;
   }
 
   /**
    * Mark item as cancelled
    */
-  markCancelled() {
-    this.status = 'cancelled';
+  setCancelled() {
+    this.status = QueueItemStatus.CANCELLED;
   }
 
   /**
@@ -232,30 +229,22 @@ class SolveQueueItem {
 
 /**
  * Solve Queue - Producer/Consumer queue for /solve commands
- *
- * The queue implements resource-aware throttling:
- * - Checks system resources before starting commands
- * - Enforces minimum intervals between starts
- * - Limits concurrency based on API limits
- * - Caches limit checks to avoid API spam
  */
 export class SolveQueue {
   constructor(options = {}) {
     this.verbose = options.verbose || false;
     this.executeCallback = options.executeCallback || null;
+    this.messageUpdateCallback = options.messageUpdateCallback || null;
 
     // Queue state
     this.queue = [];
-    this.processing = new Map(); // id -> SolveQueueItem
+    this.processing = new Map();
     this.completed = [];
     this.failed = [];
     this.isRunning = true;
 
     // Timing
     this.lastStartTime = null;
-
-    // Cache for limit checks
-    this.limitCache = new LimitCache(options.limitCacheTtlMs || QUEUE_CONFIG.LIMIT_CACHE_TTL_MS);
 
     // Consumer task reference
     this.consumerTask = null;
@@ -307,17 +296,15 @@ export class SolveQueue {
    * @returns {boolean} True if cancelled
    */
   cancel(id) {
-    // Check if in queue
     const queueIndex = this.queue.findIndex(item => item.id === id);
     if (queueIndex !== -1) {
       const item = this.queue.splice(queueIndex, 1)[0];
-      item.markCancelled();
+      item.setCancelled();
       this.stats.totalCancelled++;
       this.log(`Cancelled queued item: ${item.toString()}`);
       return true;
     }
 
-    // Can't cancel processing items
     if (this.processing.has(id)) {
       this.log(`Cannot cancel processing item: ${id}`);
       return false;
@@ -337,7 +324,7 @@ export class SolveQueue {
       completed: this.completed.length,
       failed: this.failed.length,
       ...this.stats,
-      cacheStats: this.limitCache.getStats(),
+      cacheStats: getLimitCache().getStats(),
       lastStartTime: this.lastStartTime,
       isRunning: this.isRunning,
     };
@@ -355,19 +342,22 @@ export class SolveQueue {
         requester: item.requester,
         waitTime: item.getWaitTime(),
         createdAt: item.createdAt,
+        status: item.status,
+        waitingReason: item.waitingReason,
       })),
       processing: Array.from(this.processing.values()).map(item => ({
         id: item.id,
         url: item.url,
         requester: item.requester,
         startedAt: item.startedAt,
+        status: item.status,
       })),
     };
   }
 
   /**
    * Check if a new command can start
-   * Returns { canStart: boolean, reason?: string, oneAtATime?: boolean }
+   * @returns {Promise<{canStart: boolean, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
    */
   async canStartCommand() {
     const reasons = [];
@@ -378,7 +368,7 @@ export class SolveQueue {
       const timeSinceLastStart = Date.now() - this.lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
         const waitSeconds = Math.ceil((QUEUE_CONFIG.MIN_START_INTERVAL_MS - timeSinceLastStart) / 1000);
-        reasons.push(`min interval (wait ${waitSeconds}s)`);
+        reasons.push(formatWaitingReason('min_interval', 0, 0) + ` (${waitSeconds}s remaining)`);
         this.recordThrottle('min_interval');
       }
     }
@@ -386,12 +376,11 @@ export class SolveQueue {
     // Check running claude processes
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
     if (claudeProcs.count > 0) {
-      // Can't start new --tool claude commands if claude is running
-      reasons.push(`claude running (${claudeProcs.count} processes)`);
+      reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
       this.recordThrottle('claude_running');
     }
 
-    // Check system resources (with caching)
+    // Check system resources
     const resourceCheck = await this.checkSystemResources();
     if (!resourceCheck.ok) {
       reasons.push(...resourceCheck.reasons);
@@ -400,7 +389,7 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Check API limits (with caching)
+    // Check API limits
     const limitCheck = await this.checkApiLimits(claudeProcs.count > 0);
     if (!limitCheck.ok) {
       reasons.push(...limitCheck.reasons);
@@ -409,7 +398,6 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Determine if we can start
     const canStart = reasons.length === 0;
 
     if (!canStart && this.verbose) {
@@ -418,78 +406,61 @@ export class SolveQueue {
 
     return {
       canStart,
-      reason: reasons.length > 0 ? reasons.join(', ') : undefined,
+      reason: reasons.length > 0 ? reasons.join('\n') : undefined,
+      reasons,
       oneAtATime,
       claudeProcesses: claudeProcs.count,
     };
   }
 
   /**
-   * Check system resources (RAM, CPU, disk)
+   * Check system resources (RAM, CPU, disk) using cached values
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
   async checkSystemResources() {
     const reasons = [];
     let oneAtATime = false;
 
-    // Check RAM
-    const memCached = this.limitCache.get('memory');
-    const memResult = memCached || (await getMemoryInfo(this.verbose));
-    if (!memCached && memResult.success) {
-      this.limitCache.set('memory', memResult);
-    }
-
+    // Check RAM (using cached value)
+    const memResult = await getCachedMemoryInfo(this.verbose);
     if (memResult.success) {
-      const usedPercent = memResult.memory.usedPercentage;
-      if (usedPercent > QUEUE_CONFIG.RAM_THRESHOLD_PERCENT) {
-        reasons.push(`RAM ${usedPercent}% > ${QUEUE_CONFIG.RAM_THRESHOLD_PERCENT}%`);
+      const usedRatio = memResult.memory.usedPercentage / 100;
+      if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
+        reasons.push(formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.RAM_THRESHOLD));
         this.recordThrottle('ram_high');
       }
     }
 
-    // Check CPU
-    const cpuCached = this.limitCache.get('cpu');
-    const cpuResult = cpuCached || (await getCpuLoadInfo(this.verbose));
-    if (!cpuCached && cpuResult.success) {
-      this.limitCache.set('cpu', cpuResult);
-    }
-
+    // Check CPU (using cached value)
+    const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
-      const usedPercent = cpuResult.cpuLoad.usagePercentage;
-      if (usedPercent > QUEUE_CONFIG.CPU_THRESHOLD_PERCENT) {
-        reasons.push(`CPU ${usedPercent}% > ${QUEUE_CONFIG.CPU_THRESHOLD_PERCENT}%`);
+      const usedRatio = cpuResult.cpuLoad.usagePercentage / 100;
+      if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
+        reasons.push(formatWaitingReason('cpu', cpuResult.cpuLoad.usagePercentage, QUEUE_CONFIG.CPU_THRESHOLD));
         this.recordThrottle('cpu_high');
       }
     }
 
-    // Check disk space
-    const diskCached = this.limitCache.get('disk');
-    const diskResult = diskCached || (await getDiskSpaceInfo(this.verbose));
-    if (!diskCached && diskResult.success) {
-      this.limitCache.set('disk', diskResult);
-    }
-
+    // Check disk space (using cached value)
+    const diskResult = await getCachedDiskInfo(this.verbose);
     if (diskResult.success) {
-      const freePercent = diskResult.diskSpace.freePercentage;
-      if (freePercent < QUEUE_CONFIG.DISK_FREE_THRESHOLD_PERCENT) {
-        // Low disk: one-at-a-time mode
+      // Calculate usage from free percentage
+      const usedPercent = 100 - diskResult.diskSpace.freePercentage;
+      const usedRatio = usedPercent / 100;
+      if (usedRatio > QUEUE_CONFIG.DISK_THRESHOLD) {
         oneAtATime = true;
-        this.recordThrottle('disk_low');
+        this.recordThrottle('disk_high');
         if (this.processing.size > 0) {
-          reasons.push(`disk free ${freePercent}% < ${QUEUE_CONFIG.DISK_FREE_THRESHOLD_PERCENT}% (wait for current)`);
+          reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD) + ' (waiting for current command)');
         }
       }
     }
 
-    return {
-      ok: reasons.length === 0,
-      reasons,
-      oneAtATime,
-    };
+    return { ok: reasons.length === 0, reasons, oneAtATime };
   }
 
   /**
-   * Check API limits (Claude, GitHub)
+   * Check API limits (Claude, GitHub) using cached values
    * @param {boolean} hasRunningClaude - Whether claude processes are running
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
@@ -497,43 +468,38 @@ export class SolveQueue {
     const reasons = [];
     let oneAtATime = false;
 
-    // Check Claude limits
-    const claudeCached = this.limitCache.get('claude');
-    const claudeResult = claudeCached || (await getClaudeUsageLimits(this.verbose));
-    if (!claudeCached && claudeResult.success) {
-      this.limitCache.set('claude', claudeResult);
-    }
-
+    // Check Claude limits (using cached value)
+    const claudeResult = await getCachedClaudeLimits(this.verbose);
     if (claudeResult.success) {
       const sessionPercent = claudeResult.usage.currentSession.percentage;
       const weeklyPercent = claudeResult.usage.allModels.percentage;
 
       // Session limit (5-hour)
-      if (sessionPercent !== null && sessionPercent >= QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD_PERCENT) {
-        if (sessionPercent >= 100) {
-          reasons.push(`Claude session 100% (waiting for reset)`);
+      if (sessionPercent !== null) {
+        const sessionRatio = sessionPercent / 100;
+        if (sessionRatio >= 1.0) {
+          reasons.push('Claude session limit is 100% (waiting for reset)');
           this.recordThrottle('claude_session_100');
-        } else {
-          reasons.push(`Claude session ${sessionPercent}% >= ${QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD_PERCENT}%`);
+        } else if (sessionRatio >= QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) {
+          reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD));
           this.recordThrottle('claude_session_high');
         }
       }
 
       // Weekly limit
       if (weeklyPercent !== null) {
-        if (weeklyPercent >= 100) {
-          // 100% weekly could mean 99.75%, allow one-at-a-time
+        const weeklyRatio = weeklyPercent / 100;
+        if (weeklyRatio >= 1.0) {
           oneAtATime = true;
           this.recordThrottle('claude_weekly_100');
           if (this.processing.size > 0) {
-            reasons.push(`Claude weekly 100% (wait for current)`);
+            reasons.push('Claude weekly limit is 100% (waiting for current command)');
           }
-        } else if (weeklyPercent >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD_PERCENT) {
-          // >99% weekly: one-at-a-time mode
+        } else if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
           oneAtATime = true;
           this.recordThrottle('claude_weekly_high');
           if (this.processing.size > 0) {
-            reasons.push(`Claude weekly ${weeklyPercent}% >= ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD_PERCENT}% (wait for current)`);
+            reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
           }
         }
       }
@@ -541,29 +507,21 @@ export class SolveQueue {
 
     // Check GitHub limits (only relevant if claude processes running)
     if (hasRunningClaude) {
-      const githubCached = this.limitCache.get('github');
-      const githubResult = githubCached || (await getGitHubRateLimits(this.verbose));
-      if (!githubCached && githubResult.success) {
-        this.limitCache.set('github', githubResult);
-      }
-
+      const githubResult = await getCachedGitHubLimits(this.verbose);
       if (githubResult.success) {
         const usedPercent = githubResult.githubRateLimit.usedPercentage;
-        if (usedPercent >= 100) {
-          reasons.push(`GitHub API 100% (waiting for reset)`);
+        const usedRatio = usedPercent / 100;
+        if (usedRatio >= 1.0) {
+          reasons.push('GitHub API limit is 100% (waiting for reset)');
           this.recordThrottle('github_100');
-        } else if (usedPercent >= QUEUE_CONFIG.GITHUB_API_THRESHOLD_PERCENT) {
-          reasons.push(`GitHub API ${usedPercent}% >= ${QUEUE_CONFIG.GITHUB_API_THRESHOLD_PERCENT}%`);
+        } else if (usedRatio >= QUEUE_CONFIG.GITHUB_API_THRESHOLD) {
+          reasons.push(formatWaitingReason('github', usedPercent, QUEUE_CONFIG.GITHUB_API_THRESHOLD));
           this.recordThrottle('github_high');
         }
       }
     }
 
-    return {
-      ok: reasons.length === 0,
-      reasons,
-      oneAtATime,
-    };
+    return { ok: reasons.length === 0, reasons, oneAtATime };
   }
 
   /**
@@ -588,24 +546,51 @@ export class SolveQueue {
   }
 
   /**
+   * Update item message in Telegram
+   * @param {SolveQueueItem} item
+   * @param {string} text
+   */
+  async updateItemMessage(item, text) {
+    if (!item.messageInfo || !item.ctx) return;
+
+    try {
+      const { chatId, messageId } = item.messageInfo;
+      await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+    } catch (error) {
+      this.log(`Failed to update message: ${error.message}`);
+    }
+  }
+
+  /**
    * Consumer loop - processes items from the queue
    */
   async runConsumer() {
     this.log('Consumer started');
 
     while (this.isRunning) {
-      // Check if there's work to do
       if (this.queue.length === 0) {
-        // No work, wait and check again
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Check if we can start a command
       const check = await this.canStartCommand();
 
       if (!check.canStart) {
-        // Can't start now, wait and retry
+        // Update all queued items to waiting status with reason
+        for (const item of this.queue) {
+          if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
+            const previousStatus = item.status;
+            const previousReason = item.waitingReason;
+            item.setWaiting(check.reason);
+
+            // Update message if status or reason changed
+            if (previousStatus !== item.status || previousReason !== item.waitingReason) {
+              const position = this.queue.indexOf(item) + 1;
+              await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${check.reason}`);
+            }
+          }
+        }
+
         this.log(`Throttled: ${check.reason}`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
@@ -624,22 +609,24 @@ export class SolveQueue {
 
       // Check if this item uses claude tool and claude is running
       if (item.tool === 'claude' && check.claudeProcesses > 0) {
-        // Put item back in front of queue
         this.queue.unshift(item);
         this.log(`Claude tool item queued but claude running, waiting...`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Start processing
-      item.markProcessing();
+      // Update status to Starting
+      item.setStarting();
       this.processing.set(item.id, item);
       this.lastStartTime = Date.now();
       this.stats.totalStarted++;
 
+      // Update message to show Starting status
+      await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
+
       this.log(`Starting: ${item.toString()}`);
 
-      // Execute in background (don't await)
+      // Execute in background
       this.executeItem(item).catch(error => {
         console.error(`[solve-queue] Execution error for ${item.id}:`, error);
       });
@@ -657,36 +644,69 @@ export class SolveQueue {
     try {
       if (this.executeCallback) {
         const result = await this.executeCallback(item);
-        item.markCompleted(result);
+
+        // Extract session name from result
+        let sessionName = 'unknown';
+        if (result && result.output) {
+          const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+          if (sessionMatch) sessionName = sessionMatch[1];
+        }
+
+        // Update to Started status (terminal - forgets message tracking)
+        item.setStarted(sessionName);
         this.stats.totalCompleted++;
+
+        // Final message update before forgetting
+        if (item.ctx && result) {
+          const { chatId, messageId } = item.messageInfo || {};
+          if (chatId && messageId) {
+            try {
+              if (result.warning) {
+                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}`, { parse_mode: 'Markdown' });
+              } else if (result.success) {
+                const response = `✅ Solve command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${item.infoBlock}`;
+                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+              } else {
+                const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
+                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+              }
+            } catch {
+              // Ignore message edit failures
+            }
+          }
+        }
       } else {
-        // No callback, just mark as completed
-        item.markCompleted({ message: 'No execute callback configured' });
+        item.setStarted('no-callback');
         this.stats.totalCompleted++;
       }
     } catch (error) {
-      item.markFailed(error);
+      item.setFailed(error);
       this.stats.totalFailed++;
       console.error(`[solve-queue] Item failed: ${item.id}`, error);
+
+      // Try to update message with error
+      const { chatId, messageId } = item.messageInfo || {};
+      if (chatId && messageId && item.ctx) {
+        try {
+          await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
+        } catch {
+          // Ignore
+        }
+      }
     } finally {
-      // Move from processing to completed/failed
       this.processing.delete(item.id);
 
-      if (item.status === 'completed') {
+      if (item.status === QueueItemStatus.STARTED) {
         this.completed.push(item);
-      } else if (item.status === 'failed') {
+      } else if (item.status === QueueItemStatus.FAILED) {
         this.failed.push(item);
       }
 
       this.log(`Finished: ${item.toString()}`);
 
       // Limit history size
-      while (this.completed.length > 100) {
-        this.completed.shift();
-      }
-      while (this.failed.length > 100) {
-        this.failed.shift();
-      }
+      while (this.completed.length > 100) this.completed.shift();
+      while (this.failed.length > 100) this.failed.shift();
     }
   }
 
@@ -708,28 +728,23 @@ export class SolveQueue {
   }
 
   /**
-   * Clear the limit cache (useful after limit reset)
+   * Clear the limit cache
    */
   clearCache() {
-    this.limitCache.clear();
+    getLimitCache().clear();
     this.log('Limit cache cleared');
   }
 
   /**
-   * Format queue status for display (e.g., in /limits command)
+   * Format queue status for display
    * @returns {string}
    */
   formatStatus() {
     const stats = this.getStats();
-    let status = '';
-
     if (stats.queued > 0 || stats.processing > 0) {
-      status += `Solve Queue: ${stats.queued} pending, ${stats.processing} processing\n`;
-    } else {
-      status += 'Solve Queue: empty\n';
+      return `Solve Queue: ${stats.queued} pending, ${stats.processing} processing\n`;
     }
-
-    return status;
+    return 'Solve Queue: empty\n';
   }
 
   /**
@@ -758,7 +773,10 @@ export class SolveQueue {
       message += '*Waiting in Queue:*\n';
       for (const item of summary.pending.slice(0, 5)) {
         const waitSeconds = Math.floor(item.waitTime / 1000);
-        message += `• ${item.url} (waiting ${waitSeconds}s)\n`;
+        message += `• ${item.url} (${item.status}, ${waitSeconds}s)\n`;
+        if (item.waitingReason) {
+          message += `  └ ${item.waitingReason}\n`;
+        }
       }
       if (summary.pending.length > 5) {
         message += `  ... and ${summary.pending.length - 5} more\n`;
@@ -771,7 +789,6 @@ export class SolveQueue {
 
 /**
  * Global queue instance (singleton)
- * Created when module is first imported
  */
 let globalQueue = null;
 
@@ -800,51 +817,13 @@ export function resetSolveQueue() {
 }
 
 /**
- * Create an execute callback for the queue that handles Telegram message updates
+ * Create an execute callback for the queue
  * @param {Function} executeStartScreen - Function to execute start-screen command
  * @returns {Function} Execute callback for queue items
  */
 export function createQueueExecuteCallback(executeStartScreen) {
   return async item => {
-    const { chatId, messageId } = item.messageInfo || {};
-    const ctx = item.ctx;
-
-    try {
-      // Update the message to show command is starting
-      if (chatId && messageId) {
-        await ctx.telegram.editMessageText(chatId, messageId, undefined, `🚀 Starting solve command...\n\n${item.infoBlock}`, { parse_mode: 'Markdown' });
-      }
-
-      // Execute the command
-      const result = await executeStartScreen('solve', item.args);
-
-      // Update message with result
-      if (chatId && messageId) {
-        if (result.warning) {
-          await ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-        } else if (result.success) {
-          const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-          const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-          const response = `✅ Solve command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${item.infoBlock}`;
-          await ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
-        } else {
-          const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
-          await ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
-        }
-      }
-
-      return result;
-    } catch (error) {
-      // Try to update message with error
-      if (chatId && messageId) {
-        try {
-          await ctx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
-        } catch {
-          // Ignore message edit failures
-        }
-      }
-      throw error;
-    }
+    return await executeStartScreen('solve', item.args);
   };
 }
 
@@ -856,4 +835,5 @@ export default {
   getRunningClaudeProcesses,
   createQueueExecuteCallback,
   QUEUE_CONFIG,
+  QueueItemStatus,
 };

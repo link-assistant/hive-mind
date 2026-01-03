@@ -780,7 +780,143 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   return message;
 }
 
+// ============================================================================
+// Caching Layer
+// ============================================================================
+
+/**
+ * Cache TTL constants (in milliseconds)
+ */
+export const CACHE_TTL = {
+  API: 180000, // 3 minutes for API calls (Claude, GitHub)
+  SYSTEM: 120000, // 2 minutes for system metrics (RAM, CPU, disk)
+};
+
+/**
+ * Generic cache class with configurable TTL
+ */
+class LimitCache {
+  constructor(defaultTtlMs = CACHE_TTL.API) {
+    this.defaultTtlMs = defaultTtlMs;
+    this.cache = new Map();
+  }
+
+  get(key, ttlMs) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    const effectiveTtl = ttlMs ?? entry.ttlMs ?? this.defaultTtlMs;
+    if (Date.now() - entry.timestamp > effectiveTtl) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  set(key, value, ttlMs) {
+    this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  getStats() {
+    const now = Date.now();
+    let validEntries = 0;
+    let expiredEntries = 0;
+    for (const [, entry] of this.cache) {
+      const effectiveTtl = entry.ttlMs ?? this.defaultTtlMs;
+      if (now - entry.timestamp > effectiveTtl) {
+        expiredEntries++;
+      } else {
+        validEntries++;
+      }
+    }
+    return { validEntries, expiredEntries, totalEntries: this.cache.size };
+  }
+}
+
+let globalCache = null;
+
+export function getLimitCache() {
+  if (!globalCache) globalCache = new LimitCache();
+  return globalCache;
+}
+
+export function resetLimitCache() {
+  if (globalCache) {
+    globalCache.clear();
+    globalCache = null;
+  }
+}
+
+export async function getCachedClaudeLimits(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('claude', CACHE_TTL.API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits');
+    return cached;
+  }
+  const result = await getClaudeUsageLimits(verbose);
+  if (result.success) cache.set('claude', result, CACHE_TTL.API);
+  return result;
+}
+
+export async function getCachedGitHubLimits(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('github', CACHE_TTL.API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached GitHub limits');
+    return cached;
+  }
+  const result = await getGitHubRateLimits(verbose);
+  if (result.success) cache.set('github', result, CACHE_TTL.API);
+  return result;
+}
+
+export async function getCachedMemoryInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('memory', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached memory info');
+    return cached;
+  }
+  const result = await getMemoryInfo(verbose);
+  if (result.success) cache.set('memory', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedCpuInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('cpu', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached CPU info');
+    return cached;
+  }
+  const result = await getCpuLoadInfo(verbose);
+  if (result.success) cache.set('cpu', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedDiskInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('disk', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached disk info');
+    return cached;
+  }
+  const result = await getDiskSpaceInfo(verbose);
+  if (result.success) cache.set('disk', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getAllCachedLimits(verbose = false) {
+  const [claude, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
+  return { claude, github, memory, cpu, disk };
+}
+
 export default {
+  // Raw functions (no caching)
   getClaudeUsageLimits,
   getCpuLoadInfo,
   getMemoryInfo,
@@ -789,4 +925,15 @@ export default {
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  // Cache management
+  CACHE_TTL,
+  getLimitCache,
+  resetLimitCache,
+  // Cached functions
+  getCachedClaudeLimits,
+  getCachedGitHubLimits,
+  getCachedMemoryInfo,
+  getCachedCpuInfo,
+  getCachedDiskInfo,
+  getAllCachedLimits,
 };

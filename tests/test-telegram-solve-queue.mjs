@@ -21,8 +21,8 @@ const __dirname = dirname(__filename);
 const queueLibPath = join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs');
 const { SolveQueue, getSolveQueue, resetSolveQueue, getRunningClaudeProcesses, QUEUE_CONFIG, QueueItemStatus } = await import(queueLibPath);
 
-// Import the limits cache library
-const limitsLibPath = join(__dirname, '..', 'src', 'telegram-limits.lib.mjs');
+// Import the limits library
+const limitsLibPath = join(__dirname, '..', 'src', 'limits.lib.mjs');
 const { CACHE_TTL, getLimitCache, resetLimitCache } = await import(limitsLibPath);
 
 let testsPassed = 0;

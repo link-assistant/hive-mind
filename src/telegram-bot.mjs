@@ -45,11 +45,10 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
 // Import libraries for /limits, /version, and markdown escaping
-const { formatUsageMessage } = await import('./claude-limits.lib.mjs');
+const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { getAllCachedLimits } = await import('./telegram-limits.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')

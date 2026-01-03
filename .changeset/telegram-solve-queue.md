@@ -30,9 +30,9 @@ This feature implements resource-aware throttling to prevent system overload whe
 - System metrics (RAM, CPU, disk): 2-minute cache
 - Shared cache between /solve queue and /limits command
 
-**New Files:**
+**Files Changed:**
 
-- `telegram-limits.lib.mjs` - Centralized caching for all limit checks
+- `limits.lib.mjs` - Merged from `claude-limits.lib.mjs` with added caching layer (replaces both `claude-limits.lib.mjs` and `telegram-limits.lib.mjs`)
 - `telegram-solve-queue.lib.mjs` - Queue implementation with status tracking
 
 **User Experience:**

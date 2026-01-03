@@ -20,8 +20,8 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
-// Import centralized caching from telegram-limits.lib.mjs
-import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './telegram-limits.lib.mjs';
+// Import centralized limits and caching
+import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling

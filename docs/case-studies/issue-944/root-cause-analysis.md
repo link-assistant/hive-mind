@@ -49,21 +49,24 @@ Issue #944 requested the implementation of `--tokens-budget-stats` option for th
 **Location**: `src/telegram-bot.mjs:162`
 
 **Problematic Code**:
+
 ```javascript
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parse(resolvedHiveOverrides)  // ❌ Returns mixed types
-      .map(line => line.trim())       // ❌ Fails on non-strings
+      .parse(resolvedHiveOverrides) // ❌ Returns mixed types
+      .map(line => line.trim()) // ❌ Fails on non-strings
       .filter(line => line)
   : [];
 ```
 
 **Why It Failed**:
+
 1. `lino.parse()` method (from `src/lino.lib.mjs:18-40`) can return values of type `value.id || value`
 2. When `value` is an object (not a string), `value.id` might be undefined, causing `value` itself to be returned
 3. Calling `.trim()` on a non-string object throws `TypeError: line.trim is not a function`
 
 **Evidence from lino.lib.mjs**:
+
 ```javascript
 parse(input) {
   // ...
@@ -78,21 +81,24 @@ parse(input) {
 ### The Fix
 
 **New Code**:
+
 ```javascript
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parseStringValues(resolvedHiveOverrides)  // ✅ Returns only strings
-      .map(line => line.trim())                   // ✅ Safe to call .trim()
+      .parseStringValues(resolvedHiveOverrides) // ✅ Returns only strings
+      .map(line => line.trim()) // ✅ Safe to call .trim()
       .filter(line => line)
   : [];
 ```
 
 **Why It Works**:
+
 1. `lino.parseStringValues()` method (from `src/lino.lib.mjs:71-97`) explicitly filters for string types
 2. Type guard: `if (typeof linkStr === 'string')` ensures only strings are returned
 3. Safe to call `.trim()` on guaranteed string values
 
 **Evidence from lino.lib.mjs**:
+
 ```javascript
 parseStringValues(input) {
   // ...
@@ -113,11 +119,13 @@ parseStringValues(input) {
 The system uses "Links Notation" (lino) to parse configuration values. This is a custom format managed by the `links-notation` npm package (loaded via `use-m`).
 
 **Parser Methods**:
+
 - `parse()`: Returns all values (mixed types: strings, objects, numbers)
 - `parseStringValues()`: Returns only string values (type-safe)
 - `parseNumericIds()`: Returns only numeric IDs
 
 **Usage Pattern**:
+
 ```
 TELEGRAM_HIVE_OVERRIDES:
   --all-issues
@@ -130,6 +138,7 @@ TELEGRAM_HIVE_OVERRIDES:
 The system fetches model limits from `https://models.dev/api.json`:
 
 **API Structure**:
+
 ```json
 {
   "anthropic": {
@@ -154,6 +163,7 @@ The system fetches model limits from `https://models.dev/api.json`:
 ```
 
 **Current Coverage** (as of 2026-01-04):
+
 - 21 Claude models in Anthropic provider
 - All models include `limit.context` and `limit.output` fields
 - Pricing information available for all models
@@ -176,6 +186,7 @@ When `--tokens-budget-stats` is enabled, the system displays:
    - Sum of: inputTokens + cacheCreationTokens + outputTokens
 
 **Example Output**:
+
 ```
 📊 Token Budget Statistics:
   Context window:
@@ -216,9 +227,11 @@ When `--tokens-budget-stats` is enabled, the system displays:
 ## Related Code
 
 ### Files Modified
+
 - `src/telegram-bot.mjs` (lines 151-164)
 
 ### Files Analyzed
+
 - `src/claude.budget-stats.lib.mjs` (display logic)
 - `src/claude.lib.mjs` (integration point)
 - `src/solve.config.lib.mjs` (option definition)
@@ -226,6 +239,7 @@ When `--tokens-budget-stats` is enabled, the system displays:
 - `src/lino.lib.mjs` (parsing logic)
 
 ### External Dependencies
+
 - `links-notation` npm package (via use-m)
 - `https://models.dev/api.json` (model limits data)
 
@@ -236,6 +250,7 @@ The `--tokens-budget-stats` feature was already fully implemented and functional
 The fix is minimal (2 lines changed) but critical - using the type-safe `parseStringValues()` method instead of the generic `parse()` method ensures string type consistency throughout the parsing pipeline.
 
 This issue highlights the importance of:
+
 1. Using type-safe methods when available
 2. Testing integration points (CLI vs bot vs config files)
 3. Understanding library behavior (what types does it return?)

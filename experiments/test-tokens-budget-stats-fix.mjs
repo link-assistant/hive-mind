@@ -76,7 +76,7 @@ console.log('\n❌ Old code (would crash):');
 try {
   const oldResult = lino
     .parse(testConfig)
-    .map(line => line.trim())  // This could fail!
+    .map(line => line.trim()) // This could fail!
     .filter(line => line);
   console.log('  ✅ No error (all items were strings)');
   console.log('  Result:', oldResult);
@@ -89,7 +89,7 @@ console.log('\n✅ New code (safe):');
 try {
   const newResult = lino
     .parseStringValues(testConfig)
-    .map(line => line.trim())  // Safe!
+    .map(line => line.trim()) // Safe!
     .filter(line => line);
   console.log('  ✅ Success! No errors.');
   console.log('  Result:', newResult);

@@ -86,16 +86,18 @@ This meant we could build on existing infrastructure rather than creating new sy
 **Location:** `src/telegram-bot.mjs:162`
 
 **Problematic Code:**
+
 ```javascript
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parse(resolvedHiveOverrides)  // ❌ Returns mixed types
-      .map(line => line.trim())       // ❌ Fails on non-strings
+      .parse(resolvedHiveOverrides) // ❌ Returns mixed types
+      .map(line => line.trim()) // ❌ Fails on non-strings
       .filter(line => line)
   : [];
 ```
 
 **Why It Failed:**
+
 - `lino.parse()` can return non-string values (objects)
 - Calling `.trim()` on an object throws `TypeError`
 - Bug only manifested when using telegram bot configuration overrides
@@ -104,16 +106,18 @@ const hiveOverrides = resolvedHiveOverrides
 ### The Fix
 
 **New Code:**
+
 ```javascript
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parseStringValues(resolvedHiveOverrides)  // ✅ Returns only strings
-      .map(line => line.trim())                   // ✅ Safe to call
+      .parseStringValues(resolvedHiveOverrides) // ✅ Returns only strings
+      .map(line => line.trim()) // ✅ Safe to call
       .filter(line => line)
   : [];
 ```
 
 **Why It Works:**
+
 - `lino.parseStringValues()` explicitly filters for string types
 - Type guard ensures only strings are returned
 - Safe to call `.trim()` on guaranteed string values
@@ -219,10 +223,11 @@ export const fetchModelInfo = async modelId => {
   // - limit.context (max context window)
   // - limit.output (max output tokens)
   // - cost information
-}
+};
 ```
 
 **Current API Coverage** (as of 2026-01-04):
+
 - 21 Claude models in Anthropic provider
 - All models include `limit.context` and `limit.output` fields
 - Example: claude-opus-4-0 has context: 200,000, output: 32,000

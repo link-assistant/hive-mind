@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 fix: resolve TypeError in telegram-bot when using --tokens-budget-stats

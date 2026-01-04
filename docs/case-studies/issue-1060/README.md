@@ -377,6 +377,6 @@ This is a known class of issues in the Playwright MCP ecosystem, with multiple r
 
 ## Appendix: Related Files
 
-- `logs/full-log.txt` - Complete log file from the gist
+- `evidence/full-log.txt` - Complete log file from the gist
 - `screenshots/screenshot.png` - Screenshot of the stuck PR
 - Original gist: https://gist.github.com/konard/6d51538702e3709bcd6f66d2fcece890

@@ -377,11 +377,13 @@ The following fixes have been implemented in `scripts/ubuntu-24-server-install.s
 ### Reference to Fix
 
 The fix addresses the user's feedback from the PR comments where the installation script was showing:
+
 ```
 [!] Failed to install some Playwright browsers. This may affect browser automation.
 ```
 
 The updated script now properly handles:
+
 - System-installed browsers (Chrome, Edge)
 - Platform-specific browser availability (msedge may not be available on some distros)
 - Individual browser installation failures with detailed logging

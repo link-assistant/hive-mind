@@ -673,20 +673,25 @@ function validateGitHubUrl(args, options = {}) {
  */
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
+  const { chat, message_id } = startingMessage;
 
-  if (result.warning) {
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
-  }
+  // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
+  const safeEdit = async text => {
+    try {
+      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+    } catch (e) {
+      console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
+    }
+  };
+
+  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
 
   if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-    const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}`;
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const session = match ? match[1] : 'unknown';
+    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
   } else {
-    const response = `❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
   }
 }
 

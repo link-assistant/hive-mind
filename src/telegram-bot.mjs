@@ -150,7 +150,7 @@ const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowed
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
   ? lino
-      .parse(resolvedSolveOverrides)
+      .parseStringValues(resolvedSolveOverrides)
       .map(line => line.trim())
       .filter(line => line)
   : [];
@@ -158,7 +158,7 @@ const solveOverrides = resolvedSolveOverrides
 const resolvedHiveOverrides = config.hiveOverrides || getenv('TELEGRAM_HIVE_OVERRIDES', '');
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parse(resolvedHiveOverrides)
+      .parseStringValues(resolvedHiveOverrides)
       .map(line => line.trim())
       .filter(line => line)
   : [];

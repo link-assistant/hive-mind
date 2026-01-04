@@ -357,6 +357,13 @@ export class SolveQueue {
 
   /**
    * Check if a new command can start
+   *
+   * Logic:
+   * 1. "Claude process is already running" is NOT a limit by itself - it's a metric
+   * 2. Commands can run in parallel as long as actual limits are not exceeded
+   * 3. If Claude limits are at 100% but no Claude process is running, allow one
+   *    command to go through (to test if limits are really exhausted)
+   *
    * @returns {Promise<{canStart: boolean, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
    */
   async canStartCommand() {
@@ -373,10 +380,12 @@ export class SolveQueue {
       }
     }
 
-    // Check running claude processes
+    // Check running claude processes (this is a metric, not a blocking reason by itself)
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
-    if (claudeProcs.count > 0) {
-      reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
+    const hasRunningClaude = claudeProcs.count > 0;
+
+    // Track claude_running as a metric (but don't add to reasons yet)
+    if (hasRunningClaude) {
       this.recordThrottle('claude_running');
     }
 
@@ -389,13 +398,20 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Check API limits
-    const limitCheck = await this.checkApiLimits(claudeProcs.count > 0);
+    // Check API limits (pass hasRunningClaude to enable special handling)
+    const limitCheck = await this.checkApiLimits(hasRunningClaude);
     if (!limitCheck.ok) {
       reasons.push(...limitCheck.reasons);
     }
     if (limitCheck.oneAtATime) {
       oneAtATime = true;
+    }
+
+    // "Claude process running" only blocks if there are OTHER reasons too
+    // This allows parallel execution when limits are not exceeded
+    if (hasRunningClaude && reasons.length > 0) {
+      // Add claude_running info only when combined with actual limit reasons
+      reasons.unshift(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
     }
 
     const canStart = reasons.length === 0;
@@ -461,6 +477,12 @@ export class SolveQueue {
 
   /**
    * Check API limits (Claude, GitHub) using cached values
+   *
+   * Special handling per issue #1061:
+   * - If Claude limits are at 100% but no Claude process is running, allow one
+   *   command to go through (to test if limits are really exhausted)
+   * - The API's 100% might be stale/cached - running claude is the ultimate test
+   *
    * @param {boolean} hasRunningClaude - Whether claude processes are running
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
@@ -478,10 +500,18 @@ export class SolveQueue {
       if (sessionPercent !== null) {
         const sessionRatio = sessionPercent / 100;
         if (sessionRatio >= 1.0) {
-          reasons.push('Claude session limit is 100% (waiting for reset)');
+          // At 100% session limit:
+          // - If no Claude process running, allow one to test if really exhausted
+          // - If Claude process running, block
+          if (hasRunningClaude) {
+            reasons.push('Claude session limit is 100% (waiting for reset)');
+          }
           this.recordThrottle('claude_session_100');
         } else if (sessionRatio >= QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) {
-          reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD));
+          // Below 100% but above threshold - only block if Claude is running
+          if (hasRunningClaude) {
+            reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD));
+          }
           this.recordThrottle('claude_session_high');
         }
       }
@@ -492,12 +522,16 @@ export class SolveQueue {
         if (weeklyRatio >= 1.0) {
           oneAtATime = true;
           this.recordThrottle('claude_weekly_100');
-          if (this.processing.size > 0) {
+          // At 100% weekly limit:
+          // - If no Claude process running, allow one to test if really exhausted
+          // - If Claude process running or command in progress, block
+          if (hasRunningClaude || this.processing.size > 0) {
             reasons.push('Claude weekly limit is 100% (waiting for current command)');
           }
         } else if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
           oneAtATime = true;
           this.recordThrottle('claude_weekly_high');
+          // Above threshold but below 100% - only block if command in progress
           if (this.processing.size > 0) {
             reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
           }

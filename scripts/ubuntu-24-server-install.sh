@@ -1298,30 +1298,91 @@ else
 fi
 
 # --- Install Playwright MCP ---
-log_info "Installing Playwright MCP server..."
-if npm list -g @playwright/mcp &>/dev/null; then
-  log_info "Playwright MCP already installed, updating..."
-  npm update -g @playwright/mcp --no-fund --silent
-else
-  log_info "Installing Playwright MCP package..."
-  npm install -g @playwright/mcp --no-fund --silent
-fi
-log_success "Playwright MCP installed"
+# Always install/update to the latest version to get the newest features and bug fixes
+log_info "Installing Playwright MCP server (latest version)..."
+# Force reinstall to ensure latest version is used
+npm install -g @playwright/mcp@latest --no-fund --silent 2>&1 || {
+  log_warning "npm install -g @playwright/mcp@latest failed, trying update..."
+  npm update -g @playwright/mcp --no-fund --silent 2>&1 || true
+}
 
-# --- Now install Playwright browsers (after deps to avoid warnings) ---
-log_info "Installing Playwright browsers (chromium, firefox, webkit)..."
+# Verify installation
+if npm list -g @playwright/mcp &>/dev/null; then
+  PLAYWRIGHT_MCP_VERSION=$(npm list -g @playwright/mcp --depth=0 2>/dev/null | grep "@playwright/mcp" | sed 's/.*@//' || echo "unknown")
+  log_success "Playwright MCP installed: v${PLAYWRIGHT_MCP_VERSION}"
+else
+  log_warning "Playwright MCP installation could not be verified"
+fi
+
+# --- Install Playwright CLI and all browsers ---
+# Install all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
+# Reference: npx @playwright/mcp@latest --help shows --browser option supports these
+log_info "Installing Playwright browsers (all supported by Playwright MCP)..."
+log_note "Installing: chromium, chrome, firefox, webkit, msedge"
 log_note "This may take several minutes depending on network speed..."
 
 # Ensure CLI exists so we don't get the npx "install without dependencies" banner
 if ! command -v playwright >/dev/null 2>&1; then
   log_info "Installing Playwright CLI globally..."
-  npm install -g @playwright/test --no-fund --silent
+  npm install -g @playwright/test@latest --no-fund --silent
 fi
 
-playwright install chromium firefox webkit 2>&1 | grep -E "(Downloading|downloaded|Installing)" || {
-  log_warning "Failed to install some Playwright browsers. This may affect browser automation."
+# Install all browsers that Playwright MCP supports
+# Use --with-deps to also install any missing OS dependencies
+# This helps avoid the "browser_install stuck" issue from #1060
+BROWSER_INSTALL_LOG="/tmp/playwright-browser-install-$$.log"
+BROWSERS_TO_INSTALL="chromium chrome firefox webkit msedge"
+BROWSERS_FAILED=""
+BROWSERS_INSTALLED=""
+
+for browser in $BROWSERS_TO_INSTALL; do
+  log_info "Installing Playwright browser: $browser..."
+  playwright install "$browser" --with-deps > "$BROWSER_INSTALL_LOG" 2>&1
+  INSTALL_EXIT_CODE=$?
+
+  # Check the output for various conditions
+  if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+    log_success "$browser installed successfully"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "already installed on the system" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Chrome/Edge might already be system-installed (non-hermetic)
+    # This is fine - Playwright MCP can use system-installed browsers
+    log_success "$browser already installed on system (non-hermetic)"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "not supported\|not available\|cannot download\|unsupported" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Browser not available on this platform (e.g., msedge on some Linux distros)
+    log_note "$browser is not available on this platform (skipping)"
+  else
+    log_warning "$browser installation failed"
+    cat "$BROWSER_INSTALL_LOG" | tail -10 || true
+    BROWSERS_FAILED="$BROWSERS_FAILED $browser"
+  fi
+done
+
+# Cleanup temp log
+rm -f "$BROWSER_INSTALL_LOG"
+
+# Also install chromium headless shell (useful for CI/server environments)
+log_info "Installing chromium headless shell..."
+playwright install chromium-headless-shell --with-deps 2>&1 | grep -E "(Downloading|downloaded|complete)" || {
+  log_note "chromium-headless-shell installation skipped or already installed"
 }
-log_success "Playwright browsers installed"
+
+# Summary
+if [ -n "$BROWSERS_INSTALLED" ]; then
+  log_success "Playwright browsers installed:$BROWSERS_INSTALLED"
+fi
+
+if [ -n "$BROWSERS_FAILED" ]; then
+  log_warning "Some browsers failed to install:$BROWSERS_FAILED"
+  log_note "This may affect browser automation. You can retry with: playwright install <browser> --with-deps"
+else
+  log_success "All Playwright browsers installed successfully"
+fi
+
+# Verify what browsers are actually available
+log_info "Verifying installed browsers..."
+playwright install --list 2>&1 | grep -E "^\s+/" | head -10 || true
 
 # --- Configure Playwright MCP for Claude CLI ---
 log_info "Configuring Playwright MCP for Claude CLI..."
@@ -1342,11 +1403,12 @@ if command -v claude &>/dev/null; then
   # Add the playwright MCP server to Claude CLI configuration with user scope
   # Using -s user ensures it's available for all tasks in all folders
   # Configuration flags:
-  # - @latest: Use latest version (currently 0.0.49)
+  # - @latest: Always use the latest version to get newest features and bug fixes
+  #            This ensures browsers are compatible with the MCP server
   # - --isolated: Ephemeral browser contexts (prevents memory leaks)
-  # - --headless: Reduces UI memory overhead
+  # - --headless: Reduces UI memory overhead (required for server environments)
   # - --no-sandbox: Required for server/container environments
-  # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  # - --timeout-action=600000: 10-minute timeout to prevent hung processes (fixes #1060)
   # - --viewport-size 1920x1080: 1080p resolution for consistent screenshots
   log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
   claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || {

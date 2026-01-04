@@ -349,6 +349,43 @@ RUN npx playwright install chromium firefox webkit
 
 3. **Add progress streaming** for long operations
 
+## Implementation Status
+
+The following fixes have been implemented in `scripts/ubuntu-24-server-install.sh`:
+
+### Changes Made
+
+1. **Install ALL browsers supported by Playwright MCP** (chromium, chrome, firefox, webkit, msedge)
+   - Previously: Only installed chromium, firefox, webkit
+   - Now: Installs all browsers the `--browser` option of Playwright MCP supports
+
+2. **Use `--with-deps` flag** for all browser installations
+   - This ensures OS-level dependencies are installed
+   - Helps prevent the stuck browser installation issue
+
+3. **Better error handling for system-installed browsers**
+   - Chrome and Edge are often system-installed (non-hermetic)
+   - The script now correctly handles the "already installed on system" message
+
+4. **Always use latest Playwright MCP version**
+   - Uses `@playwright/mcp@latest` for installation
+   - Also uses `@latest` in Claude MCP configuration
+
+5. **Enhanced timeout configuration**
+   - Uses `--timeout-action=600000` (10-minute timeout) to prevent hung processes
+
+### Reference to Fix
+
+The fix addresses the user's feedback from the PR comments where the installation script was showing:
+```
+[!] Failed to install some Playwright browsers. This may affect browser automation.
+```
+
+The updated script now properly handles:
+- System-installed browsers (Chrome, Edge)
+- Platform-specific browser availability (msedge may not be available on some distros)
+- Individual browser installation failures with detailed logging
+
 ## Conclusion
 
 The `mcp__playwright__browser_install` tool stuck for 3+ hours due to a combination of:

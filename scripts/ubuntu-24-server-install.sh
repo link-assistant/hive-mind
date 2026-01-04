@@ -1381,8 +1381,57 @@ else
 fi
 
 # Verify what browsers are actually available
-log_info "Verifying installed browsers..."
-playwright install --list 2>&1 | grep -E "^\s+/" | head -10 || true
+log_info "Verifying installed Playwright browsers..."
+
+# Check the Playwright browser cache directory for installed browsers
+PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+BROWSERS_VERIFIED=""
+BROWSERS_MISSING=""
+
+# List of browsers that should be installed (Playwright-managed browsers)
+# Note: chrome and msedge may be system-installed (non-hermetic) and won't appear in cache
+PLAYWRIGHT_BROWSERS="chromium chromium_headless_shell firefox webkit ffmpeg"
+
+for browser in $PLAYWRIGHT_BROWSERS; do
+  BROWSER_DIR=$(ls -d "$PLAYWRIGHT_CACHE/${browser}"* 2>/dev/null | head -1 || true)
+  if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+    log_success "Playwright browser verified: $browser ($(basename "$BROWSER_DIR"))"
+    BROWSERS_VERIFIED="$BROWSERS_VERIFIED $browser"
+  else
+    log_warning "Playwright browser not in cache: $browser"
+    BROWSERS_MISSING="$BROWSERS_MISSING $browser"
+  fi
+done
+
+# Check for system-installed browsers (Chrome, Edge)
+log_info "Checking for system-installed browsers..."
+if command -v google-chrome &>/dev/null || command -v google-chrome-stable &>/dev/null || [ -x /opt/google/chrome/chrome ]; then
+  CHROME_VERSION=$(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || /opt/google/chrome/chrome --version 2>/dev/null || echo "installed")
+  log_success "Google Chrome (system): $CHROME_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED chrome"
+fi
+
+if command -v microsoft-edge &>/dev/null || command -v microsoft-edge-stable &>/dev/null; then
+  EDGE_VERSION=$(microsoft-edge --version 2>/dev/null || microsoft-edge-stable --version 2>/dev/null || echo "installed")
+  log_success "Microsoft Edge (system): $EDGE_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED msedge"
+fi
+
+# Summary of browser verification
+if [ -n "$BROWSERS_VERIFIED" ]; then
+  log_success "Playwright browsers verified:$BROWSERS_VERIFIED"
+fi
+
+if [ -n "$BROWSERS_MISSING" ]; then
+  log_warning "Some Playwright browsers not in cache:$BROWSERS_MISSING"
+  log_note "These may be available as system browsers or may need manual installation"
+fi
+
+# Show detailed browser list for debugging
+log_info "Playwright browser cache contents:"
+playwright install --list 2>&1 | grep -E "^\s+/" | head -15 || {
+  log_note "Could not list Playwright browsers (playwright CLI may not be available)"
+}
 
 # --- Configure Playwright MCP for Claude CLI ---
 log_info "Configuring Playwright MCP for Claude CLI..."

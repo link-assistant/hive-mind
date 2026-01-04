@@ -522,13 +522,14 @@ await runTestAsync('canStartCommand allows parallel execution when no limits exc
   queue.stop();
 });
 
-// Test 19: checkApiLimits allows command when at 100% but no Claude running (issue #1061)
-await runTestAsync('checkApiLimits allows one command when at 100% limit but no Claude running (issue #1061)', async () => {
+// Test 19: checkApiLimits allows one command when no Claude running (issue #1061)
+// Simplified logic: any limit >= threshold allows exactly one command to pass
+await runTestAsync('checkApiLimits allows one command when limit >= threshold but no Claude running (issue #1061)', async () => {
   resetSolveQueue();
   resetLimitCache();
   const queue = new SolveQueue({ verbose: false });
 
-  // Test the logic: when hasRunningClaude=false, even high limits should not block
+  // Test the logic: when hasRunningClaude=false, limits should not block
   // because running claude is the ultimate test of whether limits are really exhausted
   const result = await queue.checkApiLimits(false);
 

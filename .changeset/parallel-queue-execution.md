@@ -10,4 +10,4 @@ Changes:
 
 - `claude_running` is now tracked as a metric, not a blocking reason
 - Commands can run in parallel as long as actual limits are not exceeded
-- If Claude limits show 100% but no Claude process is running, allow one command through to test if limits are really exhausted
+- When any limit >= threshold, allow exactly one claude command to pass

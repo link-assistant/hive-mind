@@ -19,6 +19,7 @@ The `mcp__playwright__browser_install` tool was called at 08:24:47 UTC and never
 ![Screenshot showing the stuck AI work session](screenshots/screenshot.png)
 
 The screenshot shows:
+
 - PR marked as draft at the start of the AI work session
 - "AI Work Session Started" comment posted at 2026-01-04T08:21:58.622Z
 - PR showing "All checks have passed" but work session never completed
@@ -28,20 +29,20 @@ The screenshot shows:
 
 Based on the full log file from the gist (https://gist.github.com/konard/6d51538702e3709bcd6f66d2fcece890):
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
-| 2026-01-04T08:21:46 | `solve` command started |
-| 2026-01-04T08:21:58 | Claude AI execution started, work session began |
-| 2026-01-04T08:22:01 | Work session start comment posted to PR |
-| 2026-01-04T08:24:33 | HTTP server started for testing (`python3 -m http.server 8080`) |
-| 2026-01-04T08:24:39 | Server verified working |
-| 2026-01-04T08:24:43 | AI attempted to use Playwright browser navigation |
+| Timestamp (UTC)     | Event                                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 2026-01-04T08:21:46 | `solve` command started                                                                                                       |
+| 2026-01-04T08:21:58 | Claude AI execution started, work session began                                                                               |
+| 2026-01-04T08:22:01 | Work session start comment posted to PR                                                                                       |
+| 2026-01-04T08:24:33 | HTTP server started for testing (`python3 -m http.server 8080`)                                                               |
+| 2026-01-04T08:24:39 | Server verified working                                                                                                       |
+| 2026-01-04T08:24:43 | AI attempted to use Playwright browser navigation                                                                             |
 | 2026-01-04T08:24:43 | **Browser navigation failed**: "browserType.launch: Chromium distribution 'chrome' is not found at /opt/google/chrome/chrome" |
-| 2026-01-04T08:24:46 | AI responded: "Let me install the browser:" |
-| 2026-01-04T08:24:47 | **`mcp__playwright__browser_install` tool called** |
-| (3+ hours silence) | No log entries - tool call never returned |
-| 2026-01-04T11:48:06 | Process manually interrupted with CTRL+C |
-| 2026-01-04T11:48:06 | Log entry: "Interrupted (CTRL+C)" |
+| 2026-01-04T08:24:46 | AI responded: "Let me install the browser:"                                                                                   |
+| 2026-01-04T08:24:47 | **`mcp__playwright__browser_install` tool called**                                                                            |
+| (3+ hours silence)  | No log entries - tool call never returned                                                                                     |
+| 2026-01-04T11:48:06 | Process manually interrupted with CTRL+C                                                                                      |
+| 2026-01-04T11:48:06 | Log entry: "Interrupted (CTRL+C)"                                                                                             |
 
 ### Critical Gap Analysis
 
@@ -84,6 +85,7 @@ Based on research of known issues:
 #### 3. No Timeout Mechanism
 
 The Playwright MCP server has configurable timeouts for:
+
 - Actions (`--timeout-action`, default 5000ms)
 - Navigation (`--timeout-navigation`)
 
@@ -187,6 +189,7 @@ npx playwright install chromium --with-deps
 ```
 
 Or in the system prompt, instruct the AI to:
+
 - Check if browsers are installed before using Playwright
 - Use Bash commands to install if needed
 - Set appropriate timeouts
@@ -202,10 +205,7 @@ async function callMcpToolWithTimeout(tool, input, timeoutMs = 120000) {
     setTimeout(() => reject(new Error(`MCP tool ${tool} timed out after ${timeoutMs}ms`)), timeoutMs);
   });
 
-  return Promise.race([
-    mcpServer.callTool(tool, input),
-    timeoutPromise
-  ]);
+  return Promise.race([mcpServer.callTool(tool, input), timeoutPromise]);
 }
 ```
 
@@ -266,6 +266,7 @@ await mcpServer.ping();
 #### 1. Implement Proper Timeout Handling in Playwright MCP
 
 Submit a feature request or PR to the [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp) repository to add:
+
 - Configurable timeout for `browser_install`
 - Progress reporting during installation
 - Graceful failure when installation cannot complete
@@ -295,7 +296,10 @@ class McpCircuitBreaker {
       this.failures++;
       if (this.failures >= this.maxFailures) {
         this.isOpen = true;
-        setTimeout(() => { this.isOpen = false; this.failures = 0; }, this.resetTimeMs);
+        setTimeout(() => {
+          this.isOpen = false;
+          this.failures = 0;
+        }, this.resetTimeMs);
       }
       throw error;
     }
@@ -318,6 +322,7 @@ RUN npx playwright install chromium firefox webkit
 ### For Users
 
 1. **Pre-install browsers** before running solve commands:
+
    ```bash
    npx playwright install chromium --with-deps
    ```
@@ -358,11 +363,13 @@ This is a known class of issues in the Playwright MCP ecosystem, with multiple r
 ## References
 
 ### Primary Issue
-- [Issue #1060: mcp__playwright__browser_install stuck for more than 3 hours](https://github.com/link-assistant/hive-mind/issues/1060)
+
+- [Issue #1060: mcp**playwright**browser_install stuck for more than 3 hours](https://github.com/link-assistant/hive-mind/issues/1060)
 - [Full Log Gist](https://gist.github.com/konard/6d51538702e3709bcd6f66d2fcece890)
 - [PR Comment Reference](https://github.com/Jhon-Crow/audio-recorder-with-visualization/pull/22#issuecomment-3707858883)
 
 ### Related GitHub Issues
+
 - [Playwright MCP Issue #881: v0.0.33 hanging in DevContainers](https://github.com/microsoft/playwright-mcp/issues/881)
 - [Playwright MCP Issue #218: Browser installation fails on first run](https://github.com/microsoft/playwright-mcp/issues/218)
 - [Playwright MCP Issue #982: MCP ping timeout suggestion](https://github.com/microsoft/playwright-mcp/issues/982)
@@ -372,6 +379,7 @@ This is a known class of issues in the Playwright MCP ecosystem, with multiple r
 - [Claude Code Issue #1383: Playwright MCP frequently fails](https://github.com/anthropics/claude-code/issues/1383)
 
 ### Documentation
+
 - [Playwright MCP Server Repository](https://github.com/microsoft/playwright-mcp)
 - [Playwright Browser Installation Documentation](https://playwright.dev/docs/browsers)
 

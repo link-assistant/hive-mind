@@ -376,8 +376,8 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
+      if (argv.autoResumeOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
         if (global.limitResetTime) {

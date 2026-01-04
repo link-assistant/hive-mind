@@ -143,9 +143,9 @@ export const createYargsConfig = yargsInstance => {
         description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
         default: true,
       })
-      .option('auto-continue-on-limit-reset', {
+      .option('auto-resume-on-limit-reset', {
         type: 'boolean',
-        description: 'Automatically continue when AI tool limit resets (calculates reset time and waits)',
+        description: 'Automatically resume when AI tool limit resets (calculates reset time and waits)',
         default: false,
       })
       .option('auto-resume-on-errors', {

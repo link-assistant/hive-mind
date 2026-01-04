@@ -202,9 +202,9 @@ export const createYargsConfig = yargsInstance => {
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
       default: true,
     })
-    .option('auto-continue-on-limit-reset', {
+    .option('auto-resume-on-limit-reset', {
       type: 'boolean',
-      description: 'Automatically continue when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
+      description: 'Automatically resume when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
       default: false,
     })
     .option('think', {

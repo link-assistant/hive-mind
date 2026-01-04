@@ -281,7 +281,7 @@ solve <issue-url> [options]
 | `--attach-logs`                                                  |       | boolean | false     | Attach logs to PR (sensitive)                                                                           |
 | `--auto-close-pull-request-on-fail`                              |       | boolean | false     | Close PR on fail                                                                                        |
 | `--auto-continue`                                                |       | boolean | true      | Continue with existing PR                                                                               |
-| `--auto-continue-on-limit-reset`                                 |       | boolean | false     | Auto-continue when limit resets                                                                         |
+| `--auto-resume-on-limit-reset`                                   |       | boolean | false     | Auto-resume when limit resets                                                                           |
 | `--auto-resume-on-errors`                                        |       | boolean | false     | Auto-resume on network errors                                                                           |
 | `--auto-continue-only-on-new-comments`                           |       | boolean | false     | Fail if no new comments                                                                                 |
 | `--auto-commit-uncommitted-changes`                              |       | boolean | false     | Auto-commit changes                                                                                     |

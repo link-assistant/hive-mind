@@ -745,7 +745,7 @@ if (isDirectExecution) {
             if (argv.dryRun) args.push('--dry-run');
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
-            if (argv.autoContinueOnLimitReset) args.push('--auto-continue-on-limit-reset');
+            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
             if (argv.think) args.push('--think', argv.think);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
             if (!argv.sentry) args.push('--no-sentry');

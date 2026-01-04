@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## Unreleased
+
+### Minor Changes
+
+- Rename `--auto-continue-on-limit-reset` to `--auto-resume-on-limit-reset` for clarity
+
+  The option is related to `--resume` for `claude` command and has an entirely different meaning from `--auto-continue` mode. This rename makes the distinction clearer and aligns the terminology with the resume functionality.
+
 ## 0.54.0
 
 ### Minor Changes

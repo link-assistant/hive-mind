@@ -673,40 +673,25 @@ function validateGitHubUrl(args, options = {}) {
  */
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
+  const { chat, message_id } = startingMessage;
 
-  // Helper function to safely update message with error handling
-  // This prevents the message from getting stuck at "Starting..." if editMessageText fails
-  // See: https://github.com/link-assistant/hive-mind/issues/1062
-  const safeEditMessage = async (text, parseMode = 'Markdown') => {
+  // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
+  const safeEdit = async text => {
     try {
-      await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, text, { parse_mode: parseMode });
-    } catch (error) {
-      console.error(`[telegram-bot] Failed to update message for ${commandName} command: ${error.message}`);
-      // Log additional context for debugging
-      if (VERBOSE) {
-        console.error(`[VERBOSE] Message update failure details:`, {
-          chatId: startingMessage.chat.id,
-          messageId: startingMessage.message_id,
-          textLength: text.length,
-          error: error.message,
-        });
-      }
+      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+    } catch (e) {
+      console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
     }
   };
 
-  if (result.warning) {
-    await safeEditMessage(`⚠️  ${result.warning}`);
-    return;
-  }
+  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
 
   if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-    const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}`;
-    await safeEditMessage(response);
+    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const session = match ? match[1] : 'unknown';
+    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
   } else {
-    const response = `❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await safeEditMessage(response);
+    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
   }
 }
 

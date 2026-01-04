@@ -168,6 +168,61 @@ apt_cleanup() {
   log_success "Cleanup completed"
 }
 
+# --- Function: cleanup duplicate APT sources ---
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  # - microsoft-edge-stable.list: Created by Playwright's install msedge
+  # - microsoft-edge.list: Created by some manual installation tutorials
+  # Both point to https://packages.microsoft.com/repos/edge stable main
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  # - google-chrome.list: Created by Chrome's official installer
+  # - google-chrome-stable.list: Created by some package managers
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  # VS Code / Microsoft products can also have duplicates
+  # - vscode.list: Created by some installers
+  # - microsoft-prod.list: Created by Microsoft's official method
+  # Note: These might contain different products, so we only remove if both exist
+  # and contain the same repo URL
+  if [ -f /etc/apt/sources.list.d/vscode.list ] && \
+     [ -f /etc/apt/sources.list.d/packages-microsoft-prod.list ]; then
+    # Check if vscode.list contains the same repo as packages-microsoft-prod.list
+    if grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/vscode.list 2>/dev/null && \
+       grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/packages-microsoft-prod.list 2>/dev/null; then
+      log_info "Found duplicate VS Code APT sources"
+      log_note "Removing /etc/apt/sources.list.d/vscode.list (keeping packages-microsoft-prod.list)"
+      maybe_sudo rm -f /etc/apt/sources.list.d/vscode.list
+      duplicates_found=true
+    fi
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
+  fi
+}
+
 # --- Function: create swap file ---
 create_swap_file() {
   log_info "Setting up 4GB total swap space..."
@@ -295,6 +350,11 @@ create_swap_file() {
 
 # --- Ensure prerequisites ---
 log_step "Installing system prerequisites"
+
+# Clean up duplicate APT sources before updating (fixes warnings on upgrade installs)
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 apt_update_safe
 
 log_info "Installing essential development tools..."
@@ -447,6 +507,39 @@ maybe_sudo() {
   else
     # Not root and sudo not available - try directly (will fail if permissions needed)
     "$@"
+  fi
+}
+
+# Function: cleanup duplicate APT sources (inside hive user script)
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
   fi
 }
 
@@ -1247,6 +1340,11 @@ npm install -g npm@latest --no-fund --silent
 log_success "npm updated to latest version"
 
 # --- Install Playwright OS dependencies first (as root via absolute npx path) ---
+# Clean up duplicate APT sources before Playwright install-deps runs apt
+# This prevents duplicate warnings like "Target Packages configured multiple times"
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 log_info "Installing Playwright OS dependencies (requires sudo, may take a few minutes)..."
 NPX_PATH="$(command -v npx || true)"
 if [ -z "$NPX_PATH" ]; then
@@ -1637,6 +1735,11 @@ rm -f /tmp/hive-user-setup.sh
 
 # --- Cleanup after everything (so install-deps/apt had full cache) ---
 log_step "Cleaning up"
+
+# Final cleanup of any duplicate APT sources that may have been created during installation
+# This ensures a clean state after all components are installed
+cleanup_duplicate_apt_sources
+
 apt_cleanup
 
 log_step "Setup complete!"

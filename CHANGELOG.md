@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 0.54.2
+
+### Patch Changes
+
+- c5f5194: Fix Telegram message getting stuck at "Starting solve command..."
+  - Add error handling to `executeAndUpdateMessage` function to catch Telegram API errors
+  - Fix critical bug where `messageInfo` was being cleared before the final message update
+  - Add proper error logging for message edit failures in both immediate and queued execution paths
+
 ## 0.54.1
 
 ### Patch Changes

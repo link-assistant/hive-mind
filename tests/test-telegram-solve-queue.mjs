@@ -486,6 +486,75 @@ runTest('QueueItemStatus has correct values', () => {
   }
 });
 
+// Test 18: canStartCommand returns canStart=true when no limits exceeded (issue #1061)
+// This test verifies that "Claude process running" alone does NOT block the queue
+await runTestAsync('canStartCommand allows parallel execution when no limits exceeded (issue #1061)', async () => {
+  resetSolveQueue();
+  resetLimitCache();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Get current state - canStart should reflect actual system state
+  const result = await queue.canStartCommand();
+
+  // canStartCommand must return proper structure
+  if (typeof result !== 'object') {
+    throw new Error('Should return an object');
+  }
+  if (typeof result.canStart !== 'boolean') {
+    throw new Error('Should have canStart boolean');
+  }
+  if (typeof result.claudeProcesses !== 'number') {
+    throw new Error('Should have claudeProcesses number');
+  }
+  if (!Array.isArray(result.reasons)) {
+    throw new Error('Should have reasons array');
+  }
+
+  // Key assertion for issue #1061:
+  // If the only potential "issue" is claude_running, canStart should be true
+  // because claude_running is NOT a limit by itself
+  const hasOnlyClaudeRunning = result.claudeProcesses > 0 && result.reasons.filter(r => !r.includes('Claude process is already running')).length === 0;
+
+  if (hasOnlyClaudeRunning && !result.canStart) {
+    throw new Error('canStart should be true when only claude_running (no actual limits exceeded) - issue #1061');
+  }
+
+  queue.stop();
+});
+
+// Test 19: checkApiLimits allows one command when no Claude running (issue #1061)
+// Simplified logic: any limit >= threshold allows exactly one command to pass
+await runTestAsync('checkApiLimits allows one command when limit >= threshold but no Claude running (issue #1061)', async () => {
+  resetSolveQueue();
+  resetLimitCache();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test the logic: when hasRunningClaude=false, limits should not block
+  // because running claude is the ultimate test of whether limits are really exhausted
+  const result = await queue.checkApiLimits(false);
+
+  // With hasRunningClaude=false, Claude limit reasons should not be added
+  // (allowing one command to go through and test the limits)
+  if (typeof result !== 'object') {
+    throw new Error('Should return an object');
+  }
+  if (typeof result.ok !== 'boolean') {
+    throw new Error('Should have ok boolean');
+  }
+  if (!Array.isArray(result.reasons)) {
+    throw new Error('Should have reasons array');
+  }
+
+  // Verify no Claude session/weekly limit reasons when no Claude running
+  // (GitHub limits are only checked when hasRunningClaude=true)
+  const claudeLimitReasons = result.reasons.filter(r => r.includes('Claude session') || r.includes('Claude weekly'));
+  if (claudeLimitReasons.length > 0) {
+    throw new Error(`Should not have Claude limit reasons when no Claude running, got: ${claudeLimitReasons.join(', ')}`);
+  }
+
+  queue.stop();
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for telegram-solve-queue.lib.mjs:`);

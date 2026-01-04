@@ -79,18 +79,18 @@ else
 fi
 
 # Test 9: Check if Playwright browsers are installed
+# Check all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
 echo ""
-echo "Checking Playwright browsers:"
-for browser in chromium firefox webkit; do
-    if npx playwright show-trace 2>&1 | grep -q "browsers"; then
-        echo "  Browser check requires running: npx playwright install $browser"
+echo "Checking Playwright browsers (all supported by Playwright MCP):"
+BROWSERS_EXPECTED="chromium chrome firefox webkit msedge chromium_headless_shell"
+for browser in $BROWSERS_EXPECTED; do
+    # Check for browser directory in cache
+    BROWSER_DIR=$(ls -d "$HOME/.cache/ms-playwright/${browser}"* 2>/dev/null | head -1 || true)
+    if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+        echo -e "  $browser: ${GREEN}✓${NC} ($(basename "$BROWSER_DIR"))"
     else
-        # Try to check browser installation
-        if [ -d "$HOME/.cache/ms-playwright/$browser"* ] 2>/dev/null; then
-            echo -e "  $browser: ${GREEN}✓${NC}"
-        else
-            echo -e "  $browser: ${YELLOW}Not installed${NC}"
-        fi
+        # Some browsers like msedge might not be available on all platforms
+        echo -e "  $browser: ${YELLOW}Not installed${NC}"
     fi
 done
 

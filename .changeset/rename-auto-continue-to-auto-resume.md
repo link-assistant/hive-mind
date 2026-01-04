@@ -8,6 +8,8 @@ BREAKING CHANGE: The `--auto-continue-on-limit-reset` option has been renamed to
 
 The option is related to `--resume` for `claude` command and has an entirely different meaning from `--auto-continue` mode. This rename makes the distinction clearer and aligns the terminology with the resume functionality.
 
+Additionally, internal source file `solve.auto-continue.lib.mjs` has been renamed to `solve.continuation.lib.mjs` to avoid confusion with the `--auto-continue` option.
+
 Migration:
 
 - Replace `--auto-continue-on-limit-reset` with `--auto-resume-on-limit-reset` in all commands

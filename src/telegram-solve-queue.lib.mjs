@@ -667,13 +667,18 @@ export class SolveQueue {
           if (sessionMatch) sessionName = sessionMatch[1];
         }
 
+        // IMPORTANT: Save messageInfo BEFORE calling setStarted, because setStarted clears it
+        // This was a bug where the final message update never happened because messageInfo was null
+        // See: https://github.com/link-assistant/hive-mind/issues/1062
+        const savedMessageInfo = item.messageInfo;
+
         // Update to Started status (terminal - forgets message tracking)
         item.setStarted(sessionName);
         this.stats.totalCompleted++;
 
-        // Final message update before forgetting
-        if (item.ctx && result) {
-          const { chatId, messageId } = item.messageInfo || {};
+        // Final message update using saved messageInfo
+        if (item.ctx && result && savedMessageInfo) {
+          const { chatId, messageId } = savedMessageInfo;
           if (chatId && messageId) {
             try {
               if (result.warning) {
@@ -685,8 +690,10 @@ export class SolveQueue {
                 const response = `❌ Error executing solve command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               }
-            } catch {
-              // Ignore message edit failures
+            } catch (error) {
+              // Log message edit failures for debugging
+              // See: https://github.com/link-assistant/hive-mind/issues/1062
+              console.error(`[solve-queue] Failed to update message for item ${item.id}: ${error.message}`);
             }
           }
         }
@@ -704,8 +711,10 @@ export class SolveQueue {
       if (chatId && messageId && item.ctx) {
         try {
           await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `❌ Error: ${error.message}`, { parse_mode: 'Markdown' });
-        } catch {
-          // Ignore
+        } catch (editError) {
+          // Log the edit failure for debugging
+          // See: https://github.com/link-assistant/hive-mind/issues/1062
+          console.error(`[solve-queue] Failed to update error message for item ${item.id}: ${editError.message}`);
         }
       }
     } finally {

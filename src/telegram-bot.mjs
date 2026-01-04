@@ -674,8 +674,28 @@ function validateGitHubUrl(args, options = {}) {
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
 
+  // Helper function to safely update message with error handling
+  // This prevents the message from getting stuck at "Starting..." if editMessageText fails
+  // See: https://github.com/link-assistant/hive-mind/issues/1062
+  const safeEditMessage = async (text, parseMode = 'Markdown') => {
+    try {
+      await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, text, { parse_mode: parseMode });
+    } catch (error) {
+      console.error(`[telegram-bot] Failed to update message for ${commandName} command: ${error.message}`);
+      // Log additional context for debugging
+      if (VERBOSE) {
+        console.error(`[VERBOSE] Message update failure details:`, {
+          chatId: startingMessage.chat.id,
+          messageId: startingMessage.message_id,
+          textLength: text.length,
+          error: error.message,
+        });
+      }
+    }
+  };
+
   if (result.warning) {
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, `⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
+    await safeEditMessage(`⚠️  ${result.warning}`);
     return;
   }
 
@@ -683,10 +703,10 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
     const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
     const response = `✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionName}\`\n\n${infoBlock}`;
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+    await safeEditMessage(response);
   } else {
     const response = `❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.telegram.editMessageText(startingMessage.chat.id, startingMessage.message_id, undefined, response, { parse_mode: 'Markdown' });
+    await safeEditMessage(response);
   }
 }
 

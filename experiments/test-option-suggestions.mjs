@@ -3,12 +3,7 @@
 // Test script for option suggestion feature
 // Tests Levenshtein distance calculation and option suggestion functionality
 
-import {
-  calculateLevenshteinDistance,
-  findSimilarOptions,
-  formatSuggestions,
-  enhanceErrorMessage,
-} from '../src/option-suggestions.lib.mjs';
+import { calculateLevenshteinDistance, findSimilarOptions, formatSuggestions, enhanceErrorMessage } from '../src/option-suggestions.lib.mjs';
 
 console.log('=== Testing Option Suggestion Feature ===\n');
 
@@ -37,20 +32,7 @@ console.log('------------------------------------------');
 // Create a mock yargs instance with test options
 const mockYargs = {
   getOptions: () => ({
-    key: [
-      'model',
-      'base-branch',
-      'fork',
-      'verbose',
-      'think',
-      'attach-logs',
-      'resume',
-      'dry-run',
-      'watch',
-      'tool',
-      'auto-fork',
-      'log-dir',
-    ],
+    key: ['model', 'base-branch', 'fork', 'verbose', 'think', 'attach-logs', 'resume', 'dry-run', 'watch', 'tool', 'auto-fork', 'log-dir'],
     alias: {
       model: ['m'],
       'base-branch': ['b'],
@@ -107,11 +89,7 @@ formatTests.forEach(({ suggestions, label }) => {
 console.log('\nTest 4: Enhance Error Message');
 console.log('------------------------------------------');
 
-const errorTests = [
-  'Unknown argument: branch',
-  'Unknown arguments: branch, model-name',
-  'Unknown argument: forked',
-];
+const errorTests = ['Unknown argument: branch', 'Unknown arguments: branch, model-name', 'Unknown argument: forked'];
 
 errorTests.forEach(errorMsg => {
   console.log(`Original error: "${errorMsg}"`);

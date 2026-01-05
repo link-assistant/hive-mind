@@ -35,7 +35,7 @@ export function calculateLevenshteinDistance(a, b) {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
           matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j] + 1, // deletion
+          matrix[i - 1][j] + 1 // deletion
         );
       }
     }
@@ -53,12 +53,7 @@ export function calculateLevenshteinDistance(a, b) {
  * @param {number} distanceThreshold - Maximum distance to consider for suggestions (default: 5)
  * @returns {string[]} - Array of suggested option names, sorted by similarity
  */
-export function findSimilarOptions(
-  unknownOption,
-  yargsInstance,
-  maxSuggestions = 3,
-  distanceThreshold = 5,
-) {
+export function findSimilarOptions(unknownOption, yargsInstance, maxSuggestions = 3, distanceThreshold = 5) {
   // Remove leading dashes from the unknown option
   const cleanUnknown = unknownOption.replace(/^-+/, '');
 
@@ -69,9 +64,7 @@ export function findSimilarOptions(
   // Collect all option names (both long form and aliases)
   if (availableOptions.key) {
     // Ensure it's an array before iterating
-    const keys = Array.isArray(availableOptions.key)
-      ? availableOptions.key
-      : Object.keys(availableOptions.key || {});
+    const keys = Array.isArray(availableOptions.key) ? availableOptions.key : Object.keys(availableOptions.key || {});
     keys.forEach(opt => {
       allOptions.add(opt);
     });

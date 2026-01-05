@@ -332,10 +332,11 @@ solve <issue-url> [options]
 
 **Most frequently used options:**
 
-| Option    | Alias | Description                             | Default |
-| --------- | ----- | --------------------------------------- | ------- |
-| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
-| `--think` |       | Thinking level (low, medium, high, max) | -       |
+| Option          | Alias | Description                             | Default   |
+| --------------- | ----- | --------------------------------------- | --------- |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--think`       |       | Thinking level (low, medium, high, max) | -         |
+| `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
 **Other useful options:**
 

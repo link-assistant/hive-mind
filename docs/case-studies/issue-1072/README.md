@@ -37,9 +37,11 @@ Use /help to see available options
 ### User Expectation vs Reality
 
 **User Input:**
+
 - `--branch dev` (intuitive but incorrect)
 
 **Actual Option:**
+
 - `--base-branch dev` (correct full form)
 - `-b dev` (correct short alias)
 
@@ -72,6 +74,7 @@ The option **is defined** in the code (`src/solve.config.lib.mjs:213-217`):
 ```
 
 And **is documented** in:
+
 - `README.md:294` - Example usage
 - `docs/CONFIGURATION.md:274` - Full option table
 
@@ -100,6 +103,7 @@ Based on web research, yargs has a `recommendCommands()` feature for suggesting 
 ### 1. Screenshot Analysis
 
 The screenshot from the issue shows:
+
 - Telegram chat interface with the Hive Mind bot
 - User command: `/solve https://github.com/uselessgoddess/license/issues/24 --branch dev --model opus`
 - Bot response: Error message with no helpful suggestions
@@ -108,19 +112,23 @@ The screenshot from the issue shows:
 ### 2. Code Evidence
 
 **File: `src/solve.config.lib.mjs`**
+
 - Line 213-217: `--base-branch` option definition (exists in code)
 - Line 299: `.strict()` mode enabled (causes unknown argument rejection)
 
 **File: `src/telegram-bot.mjs`**
+
 - Line 800-803: Limited options shown in `/help` (doesn't include `--base-branch`)
 - Line 1074: Generic error message without suggestions
 
 **File: `docs/CONFIGURATION.md`**
+
 - Line 274: Full documentation of `--base-branch` option (exists but not discoverable via bot)
 
 ### 3. External Evidence
 
 Research on yargs library functionality:
+
 - [yargs/yargs #580](https://github.com/yargs/yargs/pull/580) - `recommendCommands()` feature (commands only)
 - [yargs/yargs #1973](https://github.com/yargs/yargs/pull/1973) - Damerau-Levenshtein distance implementation
 - No built-in option name suggestion feature found
@@ -136,6 +144,7 @@ Research on yargs library functionality:
 ### Frequency Assessment
 
 The `--base-branch` option is described as "frequently used" in the issue title, and similar issues exist:
+
 - Issue #681 documented problems with `--base-branch` usage
 - Multiple case studies reference the option (found in 19 files via grep)
 
@@ -154,11 +163,13 @@ message += '• `--base-branch <branch>` or `-b` - Target branch for PR\n';
 ```
 
 **Pros:**
+
 - Quick fix
 - Low risk
 - Addresses immediate discoverability issue
 
 **Cons:**
+
 - Doesn't solve the typo suggestion problem
 - Help message becomes longer (already noted as "too many options")
 
@@ -180,12 +191,14 @@ Implement a Levenshtein distance-based suggestion system for option names:
 **Algorithm:** Use Damerau-Levenshtein distance (same as yargs uses for commands)
 
 **Pros:**
+
 - Solves the root cause
 - Improves UX for all option typos, not just `--branch`
 - Follows industry best practice (git, npm, etc.)
 - Handles aliases automatically
 
 **Cons:**
+
 - Requires implementing custom distance calculation
 - More testing required
 - Slightly increased error handling complexity
@@ -204,11 +217,13 @@ Create a smart help system that:
 4. Uses dynamic generation from yargs config instead of hardcoded strings
 
 **Pros:**
+
 - Scalable solution for "too many options" problem
 - Maintains discoverability without overwhelming users
 - Single source of truth (yargs config)
 
 **Cons:**
+
 - Significant refactoring required
 - Changes user interaction model
 - Requires documentation updates
@@ -232,33 +247,39 @@ Common examples:
 ```
 
 **Pros:**
+
 - Educational for users
 - Reduces support burden
 - Low risk addition
 
 **Cons:**
+
 - Makes error messages longer
 - Doesn't prevent the error, just explains better
 
 ## Recommended Implementation Plan
 
 ### Phase 1: Quick Win (Week 1)
+
 1. ✅ Add `--base-branch` to `/help` command output
 2. ✅ Add brief mention that `/help` shows common options only
 3. ✅ Add link to full documentation
 
 ### Phase 2: Core Fix (Week 2-3)
+
 1. ✅ Implement Levenshtein distance calculation utility
 2. ✅ Add option name suggestion logic to error handler
 3. ✅ Test with common typos (`--branch`, `--model-name`, `--fork-mode`, etc.)
 4. ✅ Update error messages to show top 3 suggestions
 
 ### Phase 3: Enhanced Documentation (Week 4)
+
 1. ✅ Audit all options in yargs config
 2. ✅ Update README.md with more examples using `--base-branch`
 3. ✅ Add troubleshooting section for common option name mistakes
 
 ### Phase 4: Future Enhancement (Backlog)
+
 1. Implement enhanced help system (Solution 3)
 2. Add interactive examples (Solution 4)
 3. Consider command builder interface for complex commands
@@ -310,16 +331,19 @@ Common examples:
 ## References
 
 ### Internal Documentation
+
 - [README.md:289-299](../../README.md) - Usage examples
 - [docs/CONFIGURATION.md:269-279](../CONFIGURATION.md) - Options table
 - [docs/case-studies/issue-681-base-branch-not-used/](../issue-681-base-branch-not-used/) - Related base-branch issue
 
 ### External Research
+
 - [yargs Strict Mode Issues](https://github.com/yargs/yargs/issues/1325) - Unknown arguments handling
 - [yargs Command Recommendations](https://github.com/yargs/yargs/pull/580) - Command suggestion implementation
 - [Damerau-Levenshtein Distance](https://github.com/yargs/yargs/pull/1973) - String similarity algorithm
 
 ### Code Locations
+
 - `src/solve.config.lib.mjs:213-217` - Option definition
 - `src/telegram-bot.mjs:738-820` - Help command
 - `src/telegram-bot.mjs:918-1099` - /solve command handler
@@ -375,15 +399,15 @@ Common examples:
 
 Based on intuitive naming patterns, users might try:
 
-| User Input | Correct Option | Levenshtein Distance |
-|------------|----------------|---------------------|
-| `--branch` | `--base-branch` | 5 (insert "base-") |
-| `--target-branch` | `--base-branch` | 7 |
-| `--pr-branch` | `--base-branch` | 6 |
-| `--model-name` | `--model` | 5 |
-| `--ai-model` | `--model` | 3 |
-| `--resume-session` | `--resume` | 8 |
-| `--session` | `--resume` | 5 |
+| User Input         | Correct Option  | Levenshtein Distance |
+| ------------------ | --------------- | -------------------- |
+| `--branch`         | `--base-branch` | 5 (insert "base-")   |
+| `--target-branch`  | `--base-branch` | 7                    |
+| `--pr-branch`      | `--base-branch` | 6                    |
+| `--model-name`     | `--model`       | 5                    |
+| `--ai-model`       | `--model`       | 3                    |
+| `--resume-session` | `--resume`      | 8                    |
+| `--session`        | `--resume`      | 5                    |
 
 ### C. Screenshot Documentation
 

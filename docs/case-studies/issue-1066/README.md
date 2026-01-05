@@ -133,22 +133,40 @@ The log shows no error messages between 15:57:02.607 (last tool call) and 17:46:
 
 ## Proposed Solutions
 
-### Solution 1: Configure MCP Timeout (Workaround)
+### ~~Solution 1: Configure MCP Timeout (Workaround)~~ - **REFUTED**
 
-Set the `MCP_TIMEOUT` environment variable before running Claude Code:
+> **⚠️ Status: REFUTED (2026-01-05)**
+>
+> This solution has been verified as **NOT WORKING** based on evidence from [Claude Code Issue #7575](https://github.com/anthropics/claude-code/issues/7575).
+>
+> As of Claude Code v2.0.60, the `MCP_TIMEOUT` environment variable is **not properly respected** for values longer than 60 seconds. Despite configuration, the actual timeout enforced is hardcoded to approximately 60 seconds.
+>
+> **Evidence from Issue #7575:**
+> ```
+> [DEBUG] MCP server "sleep": Starting connection with timeout of 100000ms
+> [DEBUG] MCP server "sleep": Connection failed after 60028ms: MCP error -32001: Request timed out
+> ```
+>
+> The latest update (December 7, 2025) confirms the bug persists in recent versions.
+
+~~Set the `MCP_TIMEOUT` environment variable before running Claude Code:~~
 
 ```bash
-# For long operations (20 minutes)
-MCP_TIMEOUT=1200000 claude
+# DOES NOT WORK - timeout is hardcoded to ~60 seconds regardless of this setting
+# MCP_TIMEOUT=1200000 claude
 
-# Or in settings.json
-{
-  "env": {
-    "MCP_TIMEOUT": "120000",
-    "MCP_TOOL_TIMEOUT": "120000"
-  }
-}
+# Or in settings.json - ALSO DOES NOT WORK for MCP tool calls
+# {
+#   "env": {
+#     "MCP_TIMEOUT": "120000",
+#     "MCP_TOOL_TIMEOUT": "120000"
+#   }
+# }
 ```
+
+**Note:** While `MCP_TIMEOUT` does not work, the following Bash timeout settings DO work in `~/.claude/settings.json` under the `env` section (but only for Bash commands, not MCP tools):
+- `BASH_DEFAULT_TIMEOUT_MS` - Controls default bash command timeout
+- `BASH_MAX_TIMEOUT_MS` - Controls maximum timeout limit
 
 ### Solution 2: Implement Graceful Timeout in Claude Code
 
@@ -217,11 +235,48 @@ As proposed in [Issue #982](https://github.com/microsoft/playwright-mcp/issues/9
 ## Attachments
 
 - `logs/full-session-log.txt` - Complete session log (8852 lines)
+- `logs/related-issues/issue-1039-playwright-stuck.log` - Log from related issue #1039
+- `logs/related-issues/issue-1060-browser-install-stuck.log` - Log from related issue #1060
 - `screenshot-stuck-tool.png` - Screenshot showing the stuck session
 
 ## Related Issues
 
+### In This Repository (link-assistant/hive-mind)
+
+- [Issue #1039](https://github.com/link-assistant/hive-mind/issues/1039) - Solve command stuck on Playwright MCP tool call
+- [Issue #1060](https://github.com/link-assistant/hive-mind/issues/1060) - `mcp__playwright__browser_install` stuck for more than 3 hours
+
+### Upstream Issues
+
 - [Claude Code #424](https://github.com/anthropics/claude-code/issues/424) - MCP Timeout needs to be configurable
 - [Claude Code #470](https://github.com/anthropics/claude-code/issues/470) - resetTimeoutOnProgress support
+- [Claude Code #3033](https://github.com/anthropics/claude-code/issues/3033) - MCP Server Timeout Configuration Ignored in SSE Connections
+- [Claude Code #7575](https://github.com/anthropics/claude-code/issues/7575) - MCP_TIMEOUT not working (60s hardcoded limit)
+- [Claude Code #8999](https://github.com/anthropics/claude-code/issues/8999) - Claude Haiku 3.5 hangs with MCP servers
+- [Claude Code #11385](https://github.com/anthropics/claude-code/issues/11385) - /mcp reconnect causes deadlock when MCP server not configured
 - [Playwright MCP #982](https://github.com/microsoft/playwright-mcp/issues/982) - Make MCP ping timeout configurable
 - [Claude Agent SDK Python #145](https://github.com/anthropics/claude-agent-sdk-python/issues/145) - Hanging after MCP tool execution
+
+## Summary of Findings
+
+### Key Insights
+
+1. **MCP_TIMEOUT environment variable does NOT work** for timeouts longer than 60 seconds (hardcoded limit in Claude Code)
+2. **No graceful timeout handling** exists - MCP tool calls can hang indefinitely without any error or recovery
+3. **Parallel tool calls may cause deadlocks** in Playwright MCP server
+4. **Multiple related issues** exist in both this repository and upstream projects, indicating a systemic problem
+
+### Root Cause Categories
+
+| Category | Issue | Status |
+|----------|-------|--------|
+| Hardcoded 60s timeout | Claude Code MCP SDK | Unfixed (as of v2.0.76) |
+| No progress reporting | MCP protocol design | Feature not implemented |
+| Parallel call handling | Playwright MCP | Unknown |
+| SSE idle disconnect | MCP transport layer | Partially fixed with keep-alive |
+
+### Recommended Next Steps
+
+1. ✅ **Filed issue to link-assistant/agent** - [Issue #106](https://github.com/link-assistant/agent/issues/106) - Ensure Agent CLI has proper timeout handling from the start
+2. **Monitor upstream issues** - Track progress on Claude Code #424, #470, #7575, and #3033
+3. **Implement watchdog** - Build external monitoring to detect and terminate stuck sessions

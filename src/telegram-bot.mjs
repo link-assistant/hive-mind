@@ -651,27 +651,15 @@ function validateGitHubUrl(args, options = {}) {
     if (parsed.type === 'issues_list') {
       // User provided /issues (list page) instead of /issues/123 (specific issue)
       error = `URL points to the issues list page, but you need a specific issue`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Open the repository: ${url}\n` +
-                    `2. Click on a specific issue\n` +
-                    `3. Copy the URL (it should end with /issues/NUMBER)\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Open the repository: ${url}\n` + `2. Click on a specific issue\n` + `3. Copy the URL (it should end with /issues/NUMBER)\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
     } else if (parsed.type === 'pulls_list') {
       // User provided /pulls (list page) instead of /pull/123 (specific PR)
       error = `URL points to the pull requests list page, but you need a specific pull request`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Open the repository: ${url}\n` +
-                    `2. Click on a specific pull request\n` +
-                    `3. Copy the URL (it should end with /pull/NUMBER)\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/pull/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Open the repository: ${url}\n` + `2. Click on a specific pull request\n` + `3. Copy the URL (it should end with /pull/NUMBER)\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/pull/1\``;
     } else if (parsed.type === 'repo') {
       // User provided repository URL instead of issue/PR
       error = `URL points to a repository, but you need a specific ${allowedTypesStr}`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Go to: ${url}/issues\n` +
-                    `2. Click on an issue to solve\n` +
-                    `3. Use the full URL with the issue number\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Go to: ${url}/issues\n` + `2. Click on an issue to solve\n` + `3. Use the full URL with the issue number\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
     } else {
       // Generic message for other URL types
       error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
@@ -1348,12 +1336,7 @@ bot.catch((error, ctx) => {
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
     // Detect if this is a Telegram API parsing error
-    const isTelegramParsingError = error.message && (
-      error.message.includes("can't parse entities") ||
-      error.message.includes("Can't parse entities") ||
-      error.message.includes("can't find end of") ||
-      error.message.includes("Bad Request") && error.message.includes("400")
-    );
+    const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
 
     let errorMessage;
 

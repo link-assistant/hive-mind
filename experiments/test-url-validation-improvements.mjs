@@ -42,25 +42,13 @@ function validateGitHubUrl(args, options = {}) {
 
     if (parsed.type === 'issues_list') {
       error = `URL points to the issues list page, but you need a specific issue`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Open the repository: ${url}\n` +
-                    `2. Click on a specific issue\n` +
-                    `3. Copy the URL (it should end with /issues/NUMBER)\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Open the repository: ${url}\n` + `2. Click on a specific issue\n` + `3. Copy the URL (it should end with /issues/NUMBER)\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
     } else if (parsed.type === 'pulls_list') {
       error = `URL points to the pull requests list page, but you need a specific pull request`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Open the repository: ${url}\n` +
-                    `2. Click on a specific pull request\n` +
-                    `3. Copy the URL (it should end with /pull/NUMBER)\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/pull/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Open the repository: ${url}\n` + `2. Click on a specific pull request\n` + `3. Copy the URL (it should end with /pull/NUMBER)\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/pull/1\``;
     } else if (parsed.type === 'repo') {
       error = `URL points to a repository, but you need a specific ${allowedTypesStr}`;
-      specificHelp = `\n\n💡 How to fix:\n` +
-                    `1. Go to: ${url}/issues\n` +
-                    `2. Click on an issue to solve\n` +
-                    `3. Use the full URL with the issue number\n\n` +
-                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+      specificHelp = `\n\n💡 How to fix:\n` + `1. Go to: ${url}/issues\n` + `2. Click on an issue to solve\n` + `3. Use the full URL with the issue number\n\n` + `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
     } else {
       error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
     }
@@ -139,11 +127,21 @@ for (const test of testCases) {
 
       if (allExpectedFound) {
         console.log(`   ✅ PASS - Correctly rejected with helpful error`);
-        console.log(`   Error message:\n${result.error.split('\n').map(l => `      ${l}`).join('\n')}`);
+        console.log(
+          `   Error message:\n${result.error
+            .split('\n')
+            .map(l => `      ${l}`)
+            .join('\n')}`
+        );
         passed++;
       } else {
         console.log(`   ❌ FAIL - Error message missing expected content: ${missingExpected.join(', ')}`);
-        console.log(`   Actual error:\n${result.error.split('\n').map(l => `      ${l}`).join('\n')}`);
+        console.log(
+          `   Actual error:\n${result.error
+            .split('\n')
+            .map(l => `      ${l}`)
+            .join('\n')}`
+        );
         failed++;
       }
     } else {

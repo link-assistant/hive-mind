@@ -9,11 +9,13 @@
 ## Problem Description
 
 The user tried to execute:
+
 ```
 /solve https://github.com/Andreymazo/Posutochka_Fastapi/issues
 ```
 
 And received an unhelpful error message:
+
 ```
 ❌ An error occurred while processing your request.
 
@@ -28,6 +30,7 @@ Details: 400: Bad Request: can't parse entities: Can't find end of the entity st
 ```
 
 **User Complaint:**
+
 > Currently that message is big, and seems to be not related to actual problem, and does not suggest actual fix - just adding specific issue id.
 
 ## Timeline/Sequence of Events
@@ -44,11 +47,13 @@ Details: 400: Bad Request: can't parse entities: Can't find end of the entity st
 ### Actual Problem
 
 The user provided a URL to the **issues list** page:
+
 ```
 https://github.com/Andreymazo/Posutochka_Fastapi/issues
 ```
 
 But the `/solve` command requires a URL to a **specific issue**:
+
 ```
 https://github.com/Andreymazo/Posutochka_Fastapi/issues/123
 ```
@@ -68,11 +73,13 @@ This is a **Telegram Bot API error**, not a GitHub API error. It occurs when:
 - The bot tries to send a message with malformed Markdown entities
 
 **Common Causes:**
+
 1. Special characters in URLs not properly escaped
 2. Mismatched or unclosed Markdown tags
 3. Incomplete entity formatting
 
 **Research Sources:**
+
 - [Telegram Bot API Issue #265](https://github.com/tdlib/telegram-bot-api/issues/265)
 - [Python Telegram Bot Issue #1967](https://github.com/python-telegram-bot/python-telegram-bot/issues/1967)
 - [DEV Community: Send message as a Telegram bot](https://dev.to/mbelsky/send-message-as-a-telegram-bot-what-may-go-wrong-1adf)
@@ -93,6 +100,7 @@ The current error handler (lines 1314-1350 in `src/telegram-bot.mjs`) has severa
 ### 1. Better URL Validation (Primary Fix)
 
 Improve the `parseGitHubUrl()` function to:
+
 - Clearly reject `/issues` (issues list) and require `/issues/123` (specific issue)
 - Provide a helpful error message before any API call is made
 
@@ -101,6 +109,7 @@ Improve the `parseGitHubUrl()` function to:
 Make the error handler more context-aware:
 
 **For URL Validation Errors:**
+
 ```
 ❌ Invalid GitHub URL
 
@@ -117,6 +126,7 @@ https://github.com/Andreymazo/Posutochka_Fastapi/issues
 ```
 
 **For Telegram API Errors (Fallback):**
+
 ```
 ❌ Message formatting error
 

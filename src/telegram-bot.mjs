@@ -643,9 +643,43 @@ function validateGitHubUrl(args, options = {}) {
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
+
+    // Provide specific, helpful error messages based on the URL type
+    let error;
+    let specificHelp = '';
+
+    if (parsed.type === 'issues_list') {
+      // User provided /issues (list page) instead of /issues/123 (specific issue)
+      error = `URL points to the issues list page, but you need a specific issue`;
+      specificHelp = `\n\n💡 How to fix:\n` +
+                    `1. Open the repository: ${url}\n` +
+                    `2. Click on a specific issue\n` +
+                    `3. Copy the URL (it should end with /issues/NUMBER)\n\n` +
+                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+    } else if (parsed.type === 'pulls_list') {
+      // User provided /pulls (list page) instead of /pull/123 (specific PR)
+      error = `URL points to the pull requests list page, but you need a specific pull request`;
+      specificHelp = `\n\n💡 How to fix:\n` +
+                    `1. Open the repository: ${url}\n` +
+                    `2. Click on a specific pull request\n` +
+                    `3. Copy the URL (it should end with /pull/NUMBER)\n\n` +
+                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/pull/1\``;
+    } else if (parsed.type === 'repo') {
+      // User provided repository URL instead of issue/PR
+      error = `URL points to a repository, but you need a specific ${allowedTypesStr}`;
+      specificHelp = `\n\n💡 How to fix:\n` +
+                    `1. Go to: ${url}/issues\n` +
+                    `2. Click on an issue to solve\n` +
+                    `3. Use the full URL with the issue number\n\n` +
+                    `Example: \`https://github.com/${parsed.owner}/${parsed.repo}/issues/1\``;
+    } else {
+      // Generic message for other URL types
+      error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
+    }
+
     return {
       valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`,
+      error: error + specificHelp,
     };
   }
 
@@ -1313,38 +1347,63 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    // Build a more informative error message
-    let errorMessage = '❌ An error occurred while processing your request.\n\n';
+    // Detect if this is a Telegram API parsing error
+    const isTelegramParsingError = error.message && (
+      error.message.includes("can't parse entities") ||
+      error.message.includes("Can't parse entities") ||
+      error.message.includes("can't find end of") ||
+      error.message.includes("Bad Request") && error.message.includes("400")
+    );
 
-    // Add error type/name if available
-    if (error.name && error.name !== 'Error') {
-      errorMessage += `**Error type:** ${error.name}\n`;
-    }
+    let errorMessage;
 
-    // Add sanitized error message (avoid leaking sensitive info)
-    if (error.message) {
-      // Filter out potentially sensitive information
-      const sanitizedMessage = error.message
-        .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-        .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-        .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
+    if (isTelegramParsingError) {
+      // Special handling for Telegram API parsing errors
+      // These are usually caused by unescaped special characters in error messages
+      errorMessage = '❌ A message formatting error occurred.\n\n';
+      errorMessage += '💡 This usually means there was a problem with special characters in the response.\n';
+      errorMessage += 'Please try your command again with a different URL or contact support.\n';
 
-      errorMessage += `**Details:** ${sanitizedMessage}\n`;
-    }
+      if (VERBOSE) {
+        // Include escaped error details in verbose mode
+        const escapedError = escapeMarkdown(error.message || 'Unknown error');
+        errorMessage += `\n🔍 Debug info: ${escapedError}`;
+        errorMessage += `\nUpdate ID: ${ctx.update.update_id}`;
+      }
+    } else {
+      // Build a more informative error message for other errors
+      errorMessage = '❌ An error occurred while processing your request.\n\n';
 
-    errorMessage += '\n💡 **Troubleshooting:**\n';
-    errorMessage += '• Try running the command again\n';
-    errorMessage += '• Check if all required parameters are correct\n';
-    errorMessage += '• If the issue persists, contact support with the error details above\n';
+      // Add sanitized error message (avoid leaking sensitive info)
+      if (error.message) {
+        // Filter out potentially sensitive information
+        let sanitizedMessage = error.message
+          .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
+          .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
+          .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
 
-    if (VERBOSE) {
-      errorMessage += `\n🔍 **Debug info:** Update ID: ${ctx.update.update_id}`;
+        // Escape markdown special characters to prevent parsing errors
+        sanitizedMessage = escapeMarkdown(sanitizedMessage);
+
+        errorMessage += `Details: ${sanitizedMessage}\n`;
+      }
+
+      errorMessage += '\n💡 Troubleshooting:\n';
+      errorMessage += '• Try running the command again\n';
+      errorMessage += '• Check if all required parameters are correct\n';
+      errorMessage += '• Use /help to see command examples\n';
+      errorMessage += '• If the issue persists, contact support with the error details above\n';
+
+      if (VERBOSE) {
+        errorMessage += `\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
+      }
     }
 
     ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
       console.error('Failed to send error message to user:', replyError);
       // Try sending a simple text message without Markdown if Markdown parsing failed
-      ctx.reply('❌ An error occurred while processing your request. Please try again or contact support.').catch(fallbackError => {
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+      ctx.reply(plainMessage).catch(fallbackError => {
         console.error('Failed to send fallback error message:', fallbackError);
       });
     });

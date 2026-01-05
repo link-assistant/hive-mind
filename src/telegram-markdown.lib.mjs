@@ -77,6 +77,7 @@ export function cleanNonPrintableChars(text) {
       // Remove zero-width characters
       .replace(/[\u200B-\u200D\uFEFF]/g, '')
       // Remove other non-printable control characters (except newline, tab, carriage return)
+      // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '')
       // Remove soft hyphens
       .replace(/\u00AD/g, '')

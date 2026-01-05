@@ -800,8 +800,7 @@ bot.command('help', async ctx => {
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
-  message += '• `--verbose` or `-v` - Verbose output\n';
-  message += '• `--attach-logs` - Attach logs to PR\n';
+  message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
   if (allowedChats) {

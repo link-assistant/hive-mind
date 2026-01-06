@@ -7,6 +7,8 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
+import { enhanceErrorMessage } from './option-suggestions.lib.mjs';
+
 // Export an initialization function that accepts 'use'
 export const initializeConfig = async use => {
   // Import yargs with specific version for hideBin support
@@ -310,6 +312,7 @@ export const parseArguments = async (yargs, hideBin) => {
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
+  let yargsInstance;
   try {
     // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
     // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
@@ -330,7 +333,8 @@ export const parseArguments = async (yargs, hideBin) => {
     };
 
     try {
-      argv = await createYargsConfig(yargs()).parse(rawArgs);
+      yargsInstance = createYargsConfig(yargs());
+      argv = await yargsInstance.parse(rawArgs);
     } finally {
       // Always restore stderr.write
       process.stderr.write = originalStderrWrite;
@@ -345,9 +349,29 @@ export const parseArguments = async (yargs, hideBin) => {
     }
   } catch (error) {
     // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), re-throw it
-    if (error.message && error.message.includes('Unknown arguments')) {
-      throw error;
+    // If the error is about unknown arguments (strict mode), enhance it with suggestions
+    // Check if this error has already been enhanced to avoid re-processing
+    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
+      try {
+        // Enhance the error message with helpful suggestions
+        // Use the yargsInstance we already created, or create a new one if needed
+        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
+        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
+        const enhancedError = new Error(enhancedMessage);
+        enhancedError.name = error.name;
+        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
+        throw enhancedError;
+      } catch (enhanceErr) {
+        // If enhancing fails, just throw the original error
+        if (global.verboseMode) {
+          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
+        }
+        // If the enhance error itself is already enhanced, throw it
+        if (enhanceErr._enhanced) {
+          throw enhanceErr;
+        }
+        throw error;
+      }
     }
     // For other validation errors, show a warning in verbose mode
     if (error.message && global.verboseMode) {

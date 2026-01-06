@@ -807,11 +807,12 @@ bot.command('help', async ctx => {
   message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
   message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
-  message += '🔧 *Available Options:*\n';
-  message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '🔧 *Common Options:*\n';
+  message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
-  message += '• `--verbose` - Verbose output\n';
-  message += '• `--attach-logs` - Attach logs to PR\n';
+  message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
+  message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
   if (allowedChats) {
     message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';

@@ -66,8 +66,8 @@ export const buildUserPrompt = params => {
   // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt
-  return promptLines.join('\n');
+  // Build the final prompt with trailing newline for POSIX compliance
+  return promptLines.join('\n') + '\n';
 };
 
 /**
@@ -118,14 +118,22 @@ Initial research.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.
-   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.
+   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+      1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
+      2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
+      3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
+      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -172,8 +180,20 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
+   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.${getArchitectureCareSubPrompt(argv)}`;
+   - When you finalize, confirm code, tests, and description are consistent.
+
+GitHub CLI command patterns.
+   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
+   - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
+   - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
+   - When filtering with jq, use gh api repos/\${owner}/\${repo}/pulls/\${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

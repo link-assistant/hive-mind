@@ -44,14 +44,11 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 // Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
-// Import Claude limits library for /limits command
-const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
-
-// Import version info library for /version command
+// Import libraries for /limits, /version, and markdown escaping
+const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-
-// Import Telegram markdown escaping utilities
-const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -153,7 +150,7 @@ const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowed
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
   ? lino
-      .parse(resolvedSolveOverrides)
+      .parseStringValues(resolvedSolveOverrides)
       .map(line => line.trim())
       .filter(line => line)
   : [];
@@ -161,7 +158,7 @@ const solveOverrides = resolvedSolveOverrides
 const resolvedHiveOverrides = config.hiveOverrides || getenv('TELEGRAM_HIVE_OVERRIDES', '');
 const hiveOverrides = resolvedHiveOverrides
   ? lino
-      .parse(resolvedHiveOverrides)
+      .parseStringValues(resolvedHiveOverrides)
       .map(line => line.trim())
       .filter(line => line)
   : [];
@@ -646,10 +643,21 @@ function validateGitHubUrl(args, options = {}) {
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
-    return {
-      valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`,
-    };
+    const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+
+    // Provide specific, helpful error messages based on the URL type
+    let error;
+    if (parsed.type === 'issues_list') {
+      error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${baseUrl}/issues/1\``;
+    } else if (parsed.type === 'pulls_list') {
+      error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${baseUrl}/pull/1\``;
+    } else if (parsed.type === 'repo') {
+      error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${url}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${baseUrl}/issues/1\``;
+    } else {
+      error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
+    }
+
+    return { valid: false, error };
   }
 
   return { valid: true };
@@ -665,6 +673,40 @@ function validateGitHubUrl(args, options = {}) {
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
 /**
+ * Execute a start-screen command and update the initial message with the result.
+ * Used by both /solve and /hive commands to reduce code duplication.
+ *
+ * @param {Object} ctx - Telegram context
+ * @param {Object} startingMessage - The initial message to update
+ * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
+ * @param {string[]} args - Command arguments
+ * @param {string} infoBlock - Info block with request details
+ */
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
+  const result = await executeStartScreen(commandName, args);
+  const { chat, message_id } = startingMessage;
+
+  // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
+  const safeEdit = async text => {
+    try {
+      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+    } catch (e) {
+      console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
+    }
+  };
+
+  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+
+  if (result.success) {
+    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const session = match ? match[1] : 'unknown';
+    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
+  } else {
+    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
+  }
+}
+
+/**
  * Extract GitHub issue/PR URL from message text
  * Validates that message contains exactly one GitHub issue/PR link
  *
@@ -676,7 +718,7 @@ function extractGitHubUrl(text) {
     return { url: null, error: null, linkCount: 0 };
   }
 
-  // Split text into words and check each one
+  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
   const words = text.split(/\s+/);
   const foundUrls = [];
 
@@ -739,7 +781,7 @@ bot.command('help', async ctx => {
   if (solveEnabled) {
     message += '*/solve* - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
-    message += 'Example: `/solve https://github.com/owner/repo/issues/123`\n';
+    message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
     if (solveOverrides.length > 0) {
       message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
@@ -752,7 +794,7 @@ bot.command('help', async ctx => {
   if (hiveEnabled) {
     message += '*/hive* - Run hive command\n';
     message += 'Usage: `/hive <github-url> [options]`\n';
-    message += 'Example: `/hive https://github.com/owner/repo --model sonnet`\n';
+    message += 'Example: `/hive https://github.com/owner/repo`\n';
     if (hiveOverrides.length > 0) {
       message += `🔒 Locked options: \`${hiveOverrides.join(' ')}\`\n`;
     }
@@ -761,19 +803,16 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
-  message += '*/limits* - Show Claude usage limits\n';
+  message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
   message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
-  message += '🔧 *Available Options:*\n';
-  message += '• `--fork` - Fork the repository\n';
-  message += '• `--auto-fork` - Automatically fork public repos without write access\n';
-  message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
-  message += '• `--attach-logs` - Attach logs to PR\n';
-  message += '• `--verbose` - Verbose output\n';
-  message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '🔧 *Common Options:*\n';
+  message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
-  message += '• `--interactive-mode` - Post Claude output as PR comments in real-time (experimental)\n';
+  message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
+  message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
   if (allowedChats) {
     message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';
@@ -844,26 +883,30 @@ bot.command('limits', async ctx => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', {
+  const fetchingMessage = await ctx.reply('🔄 Fetching usage limits...', {
     reply_to_message_id: ctx.message.message_id,
   });
 
-  // Get the usage limits using the library function
-  const result = await getClaudeUsageLimits(VERBOSE);
+  // Get all limits using shared cache (3min for API, 2min for system)
+  const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!result.success) {
-    // Edit the fetching message to show the error
-    // Escape the error message for MarkdownV2, preserving inline code blocks
-    const escapedError = escapeMarkdownV2(result.error, { preserveCodeBlocks: true });
+  if (!limits.claude.success) {
+    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
     await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
     return;
   }
 
-  // Format and edit the fetching message with the results
-  const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
-  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, {
-    parse_mode: 'Markdown',
-  });
+  // Format the message with usage limits and queue status
+  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  const queueStats = solveQueue.getStats();
+  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
+  const codeBlockEnd = message.lastIndexOf('```');
+  if (codeBlockEnd !== -1) {
+    const queueStatus = queueStats.queued > 0 || queueStats.processing > 0 ? `Pending: ${queueStats.queued}, Processing: ${queueStats.processing}` : 'Empty (no pending commands)';
+    message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
+  }
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {
   VERBOSE && console.log('[VERBOSE] /version command received');
@@ -1048,33 +1091,22 @@ bot.command(/^solve$/i, async ctx => {
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
-  const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting solve command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
-  if (solveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('solve', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
-  }
-
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-
-    let response = '✅ Solve command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(args[0])}\nOptions: ${optionsText}`;
+  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  const check = await solveQueue.canStartCommand();
+  const queueStats = solveQueue.getStats();
+  if (check.canStart && queueStats.queued === 0) {
+    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
-    let response = '❌ Error executing solve command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    const queueItem = solveQueue.enqueue({ url: args[0], args, ctx, requester, infoBlock, tool: solveTool });
+    let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
+    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
+    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
+    if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
 });
 
@@ -1202,34 +1234,15 @@ bot.command(/^hive$/i, async ctx => {
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
   const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting hive command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
   if (hiveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('hive', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
+    infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
   }
 
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-
-    let response = '✅ Hive command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  } else {
-    let response = '❌ Error executing hive command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  }
+  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 });
 
 // Register /top command from separate module
@@ -1312,38 +1325,46 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    // Build a more informative error message
-    let errorMessage = '❌ An error occurred while processing your request.\n\n';
+    // Detect if this is a Telegram API parsing error
+    const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
 
-    // Add error type/name if available
-    if (error.name && error.name !== 'Error') {
-      errorMessage += `**Error type:** ${error.name}\n`;
-    }
+    let errorMessage;
 
-    // Add sanitized error message (avoid leaking sensitive info)
-    if (error.message) {
-      // Filter out potentially sensitive information
-      const sanitizedMessage = error.message
-        .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-        .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-        .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
-
-      errorMessage += `**Details:** ${sanitizedMessage}\n`;
-    }
-
-    errorMessage += '\n💡 **Troubleshooting:**\n';
-    errorMessage += '• Try running the command again\n';
-    errorMessage += '• Check if all required parameters are correct\n';
-    errorMessage += '• If the issue persists, contact support with the error details above\n';
-
-    if (VERBOSE) {
-      errorMessage += `\n🔍 **Debug info:** Update ID: ${ctx.update.update_id}`;
+    if (isTelegramParsingError) {
+      // Special handling for Telegram API parsing errors caused by unescaped special characters
+      errorMessage = `❌ A message formatting error occurred.\n\n💡 This usually means there was a problem with special characters in the response.\nPlease try your command again with a different URL or contact support.`;
+      // Show the user's input with special characters visible (if available)
+      if (ctx.message?.text) {
+        const cleanedInput = cleanNonPrintableChars(ctx.message.text);
+        const visibleInput = makeSpecialCharsVisible(cleanedInput, { maxLength: 150 });
+        if (visibleInput !== cleanedInput) errorMessage += `\n\n📝 Your input (with special chars visible):\n\`${escapeMarkdown(visibleInput)}\``;
+      }
+      if (VERBOSE) {
+        const escapedError = escapeMarkdown(error.message || 'Unknown error');
+        errorMessage += `\n\n🔍 Debug info: ${escapedError}\nUpdate ID: ${ctx.update.update_id}`;
+      }
+    } else {
+      // Build informative error message for other errors
+      errorMessage = '❌ An error occurred while processing your request.\n\n';
+      if (error.message) {
+        // Filter out sensitive info and escape markdown
+        const sanitizedMessage = escapeMarkdown(
+          error.message
+            .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
+            .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
+            .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]')
+        );
+        errorMessage += `Details: ${sanitizedMessage}\n`;
+      }
+      errorMessage += '\n💡 Troubleshooting:\n• Try running the command again\n• Check if all required parameters are correct\n• Use /help to see command examples\n• If the issue persists, contact support with the error details above';
+      if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
     ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
       console.error('Failed to send error message to user:', replyError);
       // Try sending a simple text message without Markdown if Markdown parsing failed
-      ctx.reply('❌ An error occurred while processing your request. Please try again or contact support.').catch(fallbackError => {
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+      ctx.reply(plainMessage).catch(fallbackError => {
         console.error('Failed to send fallback error message:', fallbackError);
       });
     });
@@ -1360,29 +1381,17 @@ if (allowedChats && allowedChats.length > 0) {
 } else {
   console.log('Allowed chats: All (no restrictions)');
 }
-console.log('Commands enabled:', {
-  solve: solveEnabled,
-  hive: hiveEnabled,
-});
-if (solveOverrides.length > 0) {
-  console.log('Solve overrides (lino):', lino.format(solveOverrides));
-}
-if (hiveOverrides.length > 0) {
-  console.log('Hive overrides (lino):', lino.format(hiveOverrides));
-}
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
+if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
+if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {
   console.log('[VERBOSE] Verbose logging enabled');
   console.log('[VERBOSE] Bot start time (Unix):', BOT_START_TIME);
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
 
-// Delete any existing webhook before starting polling
-// This is critical because a webhook prevents polling from working
-// If the bot was previously configured with a webhook (or if one exists),
-// we must delete it to allow polling mode to receive messages
-if (VERBOSE) {
-  console.log('[VERBOSE] Deleting webhook...');
-}
+// Delete existing webhook (critical: webhooks prevent polling from working)
+if (VERBOSE) console.log('[VERBOSE] Deleting webhook...');
 bot.telegram
   .deleteWebhook({ drop_pending_updates: true })
   .then(result => {
@@ -1397,19 +1406,12 @@ bot.telegram
       });
     }
     return bot.launch({
-      // Receive message updates (commands, text messages) and callback queries (button clicks)
-      // This ensures the bot receives all message types including commands and button interactions
-      allowedUpdates: ['message', 'callback_query'],
-      // Drop any pending updates that were sent before the bot started
-      // This ensures we only process new messages sent after this bot instance started
-      dropPendingUpdates: true,
+      allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+      dropPendingUpdates: true, // Drop pending updates sent before bot started
     });
   })
   .then(async () => {
-    // Check if shutdown was initiated before printing success messages
-    if (isShuttingDown) {
-      return; // Skip success messages if shutting down
-    }
+    if (isShuttingDown) return; // Skip success messages if shutting down
 
     console.log('✅ SwarmMindBot is now running!');
     console.log('Press Ctrl+C to stop');

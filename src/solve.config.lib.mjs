@@ -7,6 +7,8 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
+import { enhanceErrorMessage } from './option-suggestions.lib.mjs';
+
 // Export an initialization function that accepts 'use'
 export const initializeConfig = async use => {
   // Import yargs with specific version for hideBin support
@@ -118,6 +120,16 @@ export const createYargsConfig = yargsInstance => {
         description: 'Automatically fork public repositories without write access (fails for private repos)',
         default: true,
       })
+      .option('claude-file', {
+        type: 'boolean',
+        description: 'Create CLAUDE.md file for task details (default, mutually exclusive with --gitkeep-file)',
+        default: true,
+      })
+      .option('gitkeep-file', {
+        type: 'boolean',
+        description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+        default: false,
+      })
       .option('attach-logs', {
         type: 'boolean',
         description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
@@ -133,9 +145,9 @@ export const createYargsConfig = yargsInstance => {
         description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
         default: true,
       })
-      .option('auto-continue-on-limit-reset', {
+      .option('auto-resume-on-limit-reset', {
         type: 'boolean',
-        description: 'Automatically continue when AI tool limit resets (calculates reset time and waits)',
+        description: 'Automatically resume when AI tool limit resets (calculates reset time and waits)',
         default: false,
       })
       .option('auto-resume-on-errors', {
@@ -181,8 +193,8 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('min-disk-space', {
         type: 'number',
-        description: 'Minimum required disk space in MB (default: 500)',
-        default: 500,
+        description: 'Minimum required disk space in MB (default: 2048)',
+        default: 2048,
       })
       .option('log-dir', {
         type: 'string',
@@ -276,6 +288,16 @@ export const createYargsConfig = yargsInstance => {
         description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
         default: false,
       })
+      .option('prompt-playwright-mcp', {
+        type: 'boolean',
+        description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Only supported for --tool claude.',
+        default: true,
+      })
+      .option('prompt-check-sibling-pull-requests', {
+        type: 'boolean',
+        description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
+        default: true,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })
@@ -295,6 +317,7 @@ export const parseArguments = async (yargs, hideBin) => {
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
+  let yargsInstance;
   try {
     // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
     // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
@@ -315,7 +338,8 @@ export const parseArguments = async (yargs, hideBin) => {
     };
 
     try {
-      argv = await createYargsConfig(yargs()).parse(rawArgs);
+      yargsInstance = createYargsConfig(yargs());
+      argv = await yargsInstance.parse(rawArgs);
     } finally {
       // Always restore stderr.write
       process.stderr.write = originalStderrWrite;
@@ -330,9 +354,29 @@ export const parseArguments = async (yargs, hideBin) => {
     }
   } catch (error) {
     // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), re-throw it
-    if (error.message && error.message.includes('Unknown arguments')) {
-      throw error;
+    // If the error is about unknown arguments (strict mode), enhance it with suggestions
+    // Check if this error has already been enhanced to avoid re-processing
+    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
+      try {
+        // Enhance the error message with helpful suggestions
+        // Use the yargsInstance we already created, or create a new one if needed
+        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
+        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
+        const enhancedError = new Error(enhancedMessage);
+        enhancedError.name = error.name;
+        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
+        throw enhancedError;
+      } catch (enhanceErr) {
+        // If enhancing fails, just throw the original error
+        if (global.verboseMode) {
+          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
+        }
+        // If the enhance error itself is already enhanced, throw it
+        if (enhanceErr._enhanced) {
+          throw enhanceErr;
+        }
+        throw error;
+      }
     }
     // For other validation errors, show a warning in verbose mode
     if (error.message && global.verboseMode) {
@@ -368,6 +412,45 @@ export const parseArguments = async (yargs, hideBin) => {
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
     argv.model = 'grok-code';
+  }
+
+  // Validate mutual exclusivity of --claude-file and --gitkeep-file
+  // Check if both are explicitly enabled (user passed both --claude-file and --gitkeep-file)
+  if (argv.claudeFile && argv.gitkeepFile) {
+    // Check if they were explicitly set via command line
+    const claudeFileExplicit = rawArgs.includes('--claude-file');
+    const gitkeepFileExplicit = rawArgs.includes('--gitkeep-file');
+
+    if (claudeFileExplicit && gitkeepFileExplicit) {
+      throw new Error('--claude-file and --gitkeep-file are mutually exclusive. Please use only one.');
+    }
+
+    // If only one is explicit, turn off the other
+    if (gitkeepFileExplicit && !claudeFileExplicit) {
+      argv.claudeFile = false;
+    } else if (claudeFileExplicit && !gitkeepFileExplicit) {
+      argv.gitkeepFile = false;
+    }
+  }
+
+  // Check for both being disabled (both --no-claude-file and --no-gitkeep-file)
+  const noClaudeFile = rawArgs.includes('--no-claude-file');
+  const noGitkeepFile = rawArgs.includes('--no-gitkeep-file');
+
+  if (noClaudeFile && noGitkeepFile) {
+    throw new Error('Cannot disable both --claude-file and --gitkeep-file. At least one must be enabled for PR creation.');
+  }
+
+  // If user explicitly set --no-claude-file, enable gitkeep-file
+  if (noClaudeFile && !argv.gitkeepFile) {
+    argv.gitkeepFile = true;
+    argv.claudeFile = false;
+  }
+
+  // If user explicitly set --no-gitkeep-file, enable claude-file (this is the default anyway)
+  if (noGitkeepFile && !argv.claudeFile) {
+    argv.claudeFile = true;
+    argv.gitkeepFile = false;
   }
 
   return argv;

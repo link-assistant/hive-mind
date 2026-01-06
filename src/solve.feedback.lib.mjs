@@ -10,6 +10,7 @@ export const detectAndCountFeedback = async params => {
   const { prNumber, branchName, owner, repo, issueNumber, isContinueMode, argv, mergeStateStatus, prState, workStartTime, log, formatAligned, cleanErrorMessage, $ } = params;
 
   let newPrComments = 0;
+  let newPrReviewComments = 0;
   let newIssueComments = 0;
   let commentInfo = '';
   let feedbackLines = [];
@@ -67,7 +68,7 @@ export const detectAndCountFeedback = async params => {
       } else {
         // Fallback: Get last commit time from GitHub API
         try {
-          const prCommitsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --jq 'last.commit.author.date'`;
+          const prCommitsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --jq 'last.commit.author.date'`;
           if (prCommitsResult.code === 0 && prCommitsResult.stdout) {
             lastCommitTime = new Date(prCommitsResult.stdout.toString().trim());
             await log(formatAligned('📅', 'Last commit time (from API):', lastCommitTime.toISOString(), 2));
@@ -91,22 +92,21 @@ export const detectAndCountFeedback = async params => {
         let prReviewComments = [];
         let prConversationComments = [];
 
-        // Get PR code review comments
-        const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments`;
+        // Get PR code review comments (use --paginate to get all comments, not just first page)
+        const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
         if (prReviewCommentsResult.code === 0) {
           prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString());
         }
 
         // Get PR conversation comments (PR is also an issue)
-        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments`;
+        // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
         if (prConversationCommentsResult.code === 0) {
           prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
         }
 
-        // Combine and count all PR comments after last commit
-        // Filter out comments from current user if made after work started AND filter out log comments
-        const allPrComments = [...prReviewComments, ...prConversationComments];
-        const filteredPrComments = allPrComments.filter(comment => {
+        // Helper function to filter comments based on time and log patterns
+        const filterComment = comment => {
           const commentTime = new Date(comment.created_at);
           const isAfterCommit = commentTime > lastCommitTime;
           const isNotLogPattern = !logPatterns.some(pattern => pattern.test(comment.body || ''));
@@ -121,11 +121,22 @@ export const detectAndCountFeedback = async params => {
           }
 
           return isAfterCommit && isNotLogPattern;
-        });
-        newPrComments = filteredPrComments.length;
+        };
+
+        // Filter and count PR review comments (inline code comments) separately
+        const filteredPrReviewComments = prReviewComments.filter(filterComment);
+        newPrReviewComments = filteredPrReviewComments.length;
+
+        // Filter and count PR conversation comments separately
+        const filteredPrConversationComments = prConversationComments.filter(filterComment);
+        newPrComments = filteredPrConversationComments.length;
+
+        // Combined count for logging purposes
+        const allPrComments = [...prReviewComments, ...prConversationComments];
 
         // Count new issue comments after last commit
-        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+        // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
         if (issueCommentsResult.code === 0) {
           const issueComments = JSON.parse(issueCommentsResult.stdout.toString());
           const filteredIssueComments = issueComments.filter(comment => {
@@ -148,11 +159,12 @@ export const detectAndCountFeedback = async params => {
         }
 
         await log(formatAligned('💬', 'New PR comments:', newPrComments.toString(), 2));
+        await log(formatAligned('💬', 'New PR review comments:', newPrReviewComments.toString(), 2));
         await log(formatAligned('💬', 'New issue comments:', newIssueComments.toString(), 2));
 
         if (argv.verbose) {
-          await log(`   Total new comments: ${newPrComments + newIssueComments}`, { verbose: true });
-          await log(`   Comment lines to add: ${newPrComments > 0 || newIssueComments > 0 ? 'Yes' : 'No (saving tokens)'}`, { verbose: true });
+          await log(`   Total new comments: ${newPrComments + newPrReviewComments + newIssueComments}`, { verbose: true });
+          await log(`   Comment lines to add: ${newPrComments > 0 || newPrReviewComments > 0 || newIssueComments > 0 ? 'Yes' : 'No (saving tokens)'}`, { verbose: true });
           await log(`   PR review comments fetched: ${prReviewComments.length}`, { verbose: true });
           await log(`   PR conversation comments fetched: ${prConversationComments.length}`, { verbose: true });
           await log(`   Total PR comments checked: ${allPrComments.length}`, { verbose: true });
@@ -160,7 +172,7 @@ export const detectAndCountFeedback = async params => {
 
         // Check if --auto-continue-only-on-new-comments is enabled and fail if no new comments
         if (argv.autoContinueOnlyOnNewComments && (isContinueMode || argv.autoContinue)) {
-          const totalNewComments = newPrComments + newIssueComments;
+          const totalNewComments = newPrComments + newPrReviewComments + newIssueComments;
           if (totalNewComments === 0) {
             await log('❌ auto-continue-only-on-new-comments: No new comments found since last commit');
             await log('   This option requires new comments to proceed with auto-continue or continue mode.');
@@ -179,6 +191,9 @@ export const detectAndCountFeedback = async params => {
         if (newPrComments > 0) {
           feedbackLines.push(`New comments on the pull request: ${newPrComments}`);
         }
+        if (newPrReviewComments > 0) {
+          feedbackLines.push(`New review comments on the pull request: ${newPrReviewComments}`);
+        }
         if (newIssueComments > 0) {
           feedbackLines.push(`New comments on the issue: ${newIssueComments}`);
         }
@@ -190,7 +205,7 @@ export const detectAndCountFeedback = async params => {
           }
 
           // 1. Check for new comments (already filtered above)
-          const totalNewComments = newPrComments + newIssueComments;
+          const totalNewComments = newPrComments + newPrReviewComments + newIssueComments;
           if (totalNewComments > 0) {
             feedbackDetected = true;
             feedbackSources.push(`New comments (${totalNewComments})`);
@@ -266,7 +281,7 @@ export const detectAndCountFeedback = async params => {
               const repoData = JSON.parse(defaultBranchResult.stdout.toString());
               const defaultBranch = repoData.default_branch;
 
-              const commitsResult = await $`gh api repos/${owner}/${repo}/commits --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
+              const commitsResult = await $`gh api repos/${owner}/${repo}/commits --paginate --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
               if (commitsResult.code === 0) {
                 const commits = JSON.parse(commitsResult.stdout.toString());
                 if (commits.length > 0) {
@@ -314,7 +329,7 @@ export const detectAndCountFeedback = async params => {
 
           // 6. Check for failed PR checks
           try {
-            const checksResult = await $`gh api repos/${owner}/${repo}/commits/$(gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha')/check-runs`;
+            const checksResult = await $`gh api repos/${owner}/${repo}/commits/$(gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha')/check-runs --paginate`;
             if (checksResult.code === 0) {
               const checksData = JSON.parse(checksResult.stdout.toString());
               const failedChecks = checksData.check_runs?.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime) || [];
@@ -338,7 +353,7 @@ export const detectAndCountFeedback = async params => {
 
           // 7. Check for review requests with changes requested
           try {
-            const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews`;
+            const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
             if (reviewsResult.code === 0) {
               const reviews = JSON.parse(reviewsResult.stdout.toString());
               const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);
@@ -411,5 +426,5 @@ export const detectAndCountFeedback = async params => {
     }
   }
 
-  return { newPrComments, newIssueComments, commentInfo, feedbackLines };
+  return { newPrComments, newPrReviewComments, newIssueComments, commentInfo, feedbackLines };
 };

@@ -1,5 +1,728 @@
 # @link-assistant/hive-mind
 
+## 1.0.0
+
+### Major Changes
+
+- 4e8d141: Rename `--auto-continue-on-limit-reset` to `--auto-resume-on-limit-reset` for clarity
+
+  BREAKING CHANGE: The `--auto-continue-on-limit-reset` option has been renamed to `--auto-resume-on-limit-reset`. Users must update their commands and configurations to use the new flag name.
+
+  The option is related to `--resume` for `claude` command and has an entirely different meaning from `--auto-continue` mode. This rename makes the distinction clearer and aligns the terminology with the resume functionality.
+
+  Migration:
+  - Replace `--auto-continue-on-limit-reset` with `--auto-resume-on-limit-reset` in all commands
+  - Update environment variables and configuration files accordingly
+
+## 0.54.6
+
+### Patch Changes
+
+- f734d5d: feat: Add --base-branch to /help and implement option typo suggestions
+  - Added --base-branch option to Telegram bot /help command
+  - Implemented intelligent option name suggestions using Levenshtein distance
+  - Added --base-branch to README.md solve options section
+  - Enhanced error messages with helpful suggestions for typos (e.g., --branch → --base-branch)
+
+## 0.54.5
+
+### Patch Changes
+
+- Fix duplicate APT sources warning in installation script
+  - Add `cleanup_duplicate_apt_sources()` function to detect and remove duplicate APT source files
+  - Clean up duplicate Microsoft Edge sources (`microsoft-edge.list` vs `microsoft-edge-stable.list`)
+  - Clean up duplicate Google Chrome sources (`google-chrome.list` vs `google-chrome-stable.list`)
+  - Run cleanup before `apt update` to prevent "Target Packages configured multiple times" warnings
+  - Ensures script supports clean upgrade mode when run on previously installed systems
+
+  Improve Telegram bot error messages for better user experience (issue #1070)
+  - Enhanced URL validation to provide specific, actionable error messages based on URL type (issues list, pulls list, repository)
+  - Added step-by-step fix instructions with examples when users provide wrong URL formats
+  - Improved global error handler to properly escape Markdown special characters, preventing "400: Bad Request: can't parse entities" errors
+  - Added special handling for Telegram API parsing errors with clearer messaging
+  - Added `cleanNonPrintableChars()` to automatically remove invisible Unicode characters from user input
+  - Added `makeSpecialCharsVisible()` to show users exactly where problematic special characters are in their input
+  - Enhanced error messages to display user input with special characters made visible for easier debugging
+  - Refactored telegram-bot.mjs to meet 1500 line limit requirement
+  - Created comprehensive test suites to verify URL validation improvements and special character handling
+  - Documented case study analysis in docs/case-studies/issue-1070/ANALYSIS.md
+
+## 0.54.4
+
+### Patch Changes
+
+- 4e53d67: fix: resolve TypeError in telegram-bot when using --tokens-budget-stats
+
+  Fixed type safety bug that prevented the --tokens-budget-stats option from working via telegram bot configuration overrides. Changed from lino.parse() to lino.parseStringValues() to ensure only string values are returned, making .trim() safe to call. The feature was already fully implemented but crashed when used via TELEGRAM_HIVE_OVERRIDES or TELEGRAM_SOLVE_OVERRIDES.
+
+## 0.54.3
+
+### Patch Changes
+
+- 4d4b461: Add Playwright browser verification to installation script and CI
+  - Enhanced `scripts/ubuntu-24-server-install.sh` with detailed browser verification after installation
+  - Added CI checks in `.github/workflows/release.yml` to verify required Playwright browsers (chromium, firefox, webkit) are installed
+  - CI now fails if required browsers are missing, ensuring Playwright MCP server has all dependencies
+
+## 0.54.2
+
+### Patch Changes
+
+- c5f5194: Fix Telegram message getting stuck at "Starting solve command..."
+  - Add error handling to `executeAndUpdateMessage` function to catch Telegram API errors
+  - Fix critical bug where `messageInfo` was being cleared before the final message update
+  - Add proper error logging for message edit failures in both immediate and queued execution paths
+
+## 0.54.1
+
+### Patch Changes
+
+- 55576af: fix: allow parallel queue execution when no limits exceeded
+
+  Previously, "Claude process is already running" was treated as a blocking reason on its own, preventing parallel execution even when all system and API limits were within thresholds.
+
+  Changes:
+  - `claude_running` is now tracked as a metric, not a blocking reason
+  - Commands can run in parallel as long as actual limits are not exceeded
+  - When any limit >= threshold, allow exactly one claude command to pass
+
+## 0.54.0
+
+### Minor Changes
+
+- 4af584c: Add producer/consumer queue for /solve command in Telegram bot
+
+  This feature implements resource-aware throttling to prevent system overload when multiple /solve commands are submitted simultaneously.
+
+  **Queue Configuration (using usage ratios 0.0-1.0):**
+  - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
+  - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
+  - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
+  - `CLAUDE_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
+  - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
+  - 1-minute minimum interval between command starts
+  - Running claude process detection
+
+  **Status Flow:**
+  - `Queued` - Initial status when command is added to queue
+  - `Waiting` - When start conditions are not met (with human-readable reason)
+  - `Starting` - When command is being started
+  - `Started` - Terminal status with session info (message tracking is released)
+
+  **Caching:**
+  - API calls (Claude, GitHub): 3-minute cache
+  - System metrics (RAM, CPU, disk): 2-minute cache
+  - Shared cache between /solve queue and /limits command
+
+  **Files Changed:**
+  - `limits.lib.mjs` - Merged from `claude-limits.lib.mjs` with added caching layer (replaces both `claude-limits.lib.mjs` and `telegram-limits.lib.mjs`)
+  - `telegram-solve-queue.lib.mjs` - Queue implementation with status tracking
+
+  **User Experience:**
+  - Messages are updated in-place as status changes
+  - Clear waiting reasons displayed (e.g., "Disk usage is 96% (threshold: 95%)")
+  - Queue status added to /limits command output
+
+## 0.53.2
+
+### Patch Changes
+
+- 5030fe1: Fix --auto-continue-on-limit-reset flag not working
+
+  When Claude hit its usage limit with --auto-continue-on-limit-reset enabled, the code would exit early
+  via the failure branch before reaching showSessionSummary() where autoContinueWhenLimitResets() is called.
+
+  This patch adds a condition to skip the failure exit when limit is reached with auto-continue enabled,
+  allowing the code to properly wait for the limit to reset and resume the session.
+
+## 0.53.1
+
+### Patch Changes
+
+- 6d7fb43: Add --auto-continue-on-limit-reset option to hive command
+
+  The hive command was missing the --auto-continue-on-limit-reset option that is available
+  in the solve command. This caused yargs strict mode to reject the option with an
+  "Unknown arguments" error. The option is now properly defined in hive.config.lib.mjs
+  and passed to the solve command when spawning workers.
+
+## 0.53.0
+
+### Minor Changes
+
+- b750286: Add `--prompt-check-sibling-pull-requests` flag (default: true) to control whether the AI is prompted to study related/sibling pull requests during issue solving
+
+## 0.52.1
+
+### Patch Changes
+
+- 1a4f1a2: Reduce Telegram messages by updating instead of sending new ones
+
+  The `/solve` and `/hive` commands now update the initial "Starting..." message with the success/error result instead of sending a separate message. This follows the same pattern already used by the `/limits` command.
+
+  **Before:** Two separate messages per command
+  **After:** Single message that gets updated with the result
+
+## 0.52.0
+
+### Minor Changes
+
+- b280bcc: Add `--prompt-playwright-mcp` flag to control Playwright MCP hints in system prompt
+
+  Users can now explicitly control whether Playwright MCP browser automation hints appear in the AI's system prompt:
+  - Use `--no-prompt-playwright-mcp` to disable hints even when Playwright MCP is installed
+  - Use `--prompt-playwright-mcp` to explicitly enable hints
+  - Omit the flag to keep the default auto-detection behavior
+
+## 0.51.21
+
+### Patch Changes
+
+- Increase swap space from 2GB to 4GB in installation script for improved stability
+
+  Fix: Show Claude CLI resume command using `(cd ... && claude --resume ...)` pattern
+
+  When using `--tool claude` (or the default tool), the console now displays a copyable Claude CLI resume command at the end of every session (success, failure, or usage limit reached):
+
+  ```
+  💡 To continue this session in Claude Code interactive mode:
+
+     (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+  ```
+
+  Changes in this PR:
+  - Refactored `claude.command-builder.lib.mjs` to build Claude CLI commands instead of solve.mjs commands
+  - Added `buildClaudeResumeCommand()` for generating `(cd ... && claude --resume ...)` pattern
+  - Added `buildClaudeInitialCommand()` for generating `(cd ... && claude ...)` pattern
+  - Removed solve.mjs resume command display from console output
+  - Updated PR comments to use Claude CLI resume command pattern
+
+  This allows users to:
+  - Investigate sessions interactively in Claude Code
+  - Resume from where they left off after usage limits reset
+  - See full context and history
+  - Debug issues
+
+  The command uses the `(cd ... && claude --resume ...)` pattern for a fully copyable, executable command that works regardless of the current directory.
+
+  Note: The resume command is only shown for `--tool claude` since other tools (codex, opencode, agent) have different resume mechanisms.
+
+  Fixes #942
+
+## 0.51.20
+
+### Patch Changes
+
+- 9327e83: Fix CI/CD check differences between pull request and push events
+
+  Changes:
+  - Make lint job independent of changeset-check (runs based on file changes only)
+  - Allow docs-only PRs without changeset requirement
+  - Handle changeset-check 'skipped' state in dependent jobs
+  - Fix unformatted markdown files in case studies
+  - Add case study documentation for issue #1023
+
+## 0.51.19
+
+### Patch Changes
+
+- 0326eb5: Update /help and docs, add CPU/RAM metrics to /limits
+  - Remove obsolete options (--fork, --auto-fork, --auto-continue) from /help command
+  - Reorder options in /help: --model and --think now listed first
+  - Move --model example from /hive to /solve
+  - Update /limits to show CPU and RAM usage metrics
+  - Fix README.md defaults for --auto-fork and --auto-continue (now true)
+
+## 0.51.18
+
+### Patch Changes
+
+- bf6ac23: Fix Claude Code terms acceptance treated as success
+  - Detect Claude CLI terms acceptance messages and treat as error requiring human intervention
+  - Hide cost estimation section when all values are unknown
+  - Fix code block escaping in log comments using zero-width spaces
+
+## 0.51.17
+
+### Patch Changes
+
+- 91e43bf: Fix: Do not retry on 404 errors, display user-friendly permission suggestions
+
+  This fix addresses issue #808 by improving error handling when attempting to fork inaccessible repositories.
+
+  **Key improvements:**
+  1. **No retry on 404 errors** - 404 errors are detected immediately and fail fast, saving ~30 seconds and ~10 API requests per failure
+  2. **User-friendly error messages** - Comprehensive error messages explain what happened, list common causes, and provide step-by-step troubleshooting
+  3. **Reduced API requests** - Early 404 detection in getRootRepository and immediate exit on 404 during fork creation eliminates unnecessary retries
+
+  **Impact:**
+  - Time saved: ~30 seconds per failed fork attempt
+  - API requests saved: ~10 requests per failed fork attempt
+  - Better UX: Clear guidance on diagnosing and resolving repository access issues
+
+## 0.51.16
+
+### Patch Changes
+
+- 312c600: Fix issue #894: Add final log file reference at end of solve command CLI output
+
+  Following the pattern used by Claude and other agents, the solve command now consistently displays the log file path as the final line of output. This ensures users always know where to find the complete log file, regardless of operations like log uploads, watch mode, or cleanup messages.
+
+## 0.51.15
+
+### Patch Changes
+
+- 93a0af9: Add case study for issue #964: Discussion comments not loaded to AI context
+
+  This case study documents the root cause analysis of why the AI solver failed to see and respond to repository owner feedback on PR #13 in the eg0rmaffin/vapor-rice-i3 repository. The investigation revealed two independent root causes:
+  1. The feedback system tells the AI the count of new comments but not their content
+  2. The AI used an incomplete API command that only fetches conversation comments, missing review comments
+
+  The case study includes proposed solutions to fix this issue.
+
+## 0.51.14
+
+### Patch Changes
+
+- 4e4fe08: Improve fork divergence error message clarity
+  - Remove misleading "Option 3: Work without syncing fork (NOT RECOMMENDED)"
+  - Add new Option 1 for deleting and recreating fork (marked as SIMPLEST)
+  - Reorder options by simplicity: deletion → auto-resolution → manual resolution
+  - Move risk warnings inline with relevant options for better context
+  - Add comprehensive case study documentation in docs/case-studies/issue-972/
+
+  This change makes the error message more useful by removing options that were never actually viable and adding the fork deletion option as the cleanest solution for most fork divergence scenarios.
+
+## 0.51.13
+
+### Patch Changes
+
+- 20d6f3a: Fix URL hash fragment parsing - URLs with hash fragments like #issuecomment-123 are now correctly parsed. Previously, solving a PR with a comment URL like /pull/9#issuecomment-123 would fail because the PR number was extracted as "9#issuecomment-123" instead of "9".
+
+## 0.51.12
+
+### Patch Changes
+
+- c5bcaf4: fix: add trailing newlines to generated CLAUDE.md files and prompts
+
+  Ensures all automatically generated CLAUDE.md files and prompt strings comply with POSIX text file standards by adding trailing newlines. This fix prevents linter warnings and eliminates the need for manual fixes in subsequent pull requests.
+
+  Changes:
+  - Modified `src/solve.auto-pr.lib.mjs` to add trailing newline to CLAUDE.md template
+  - Updated all prompt builder files (`agent.prompts.lib.mjs`, `claude.prompts.lib.mjs`, `codex.prompts.lib.mjs`, `opencode.prompts.lib.mjs`) to append `\n` to return values
+  - Added comprehensive case study documentation in `docs/case-studies/issue-971/`
+
+  Fixes #971
+
+## 0.51.11
+
+### Patch Changes
+
+- 001dcdb: Fix missing comment detection when PRs have more than 30 comments by adding --paginate flag to GitHub API calls
+
+## 0.51.10
+
+### Patch Changes
+
+- 0f20e0b: Add missing language runtimes, agents, and tools to /version command output
+
+  This patch adds comprehensive version detection for all components installed by the ubuntu-24-server-install.sh script:
+
+  **New Language Runtimes:**
+  - Deno (JavaScript/TypeScript runtime)
+  - Go (Golang)
+  - Java (via SDKMAN)
+  - Lean (theorem prover)
+  - Perl (via Perlbrew)
+  - OCaml (via Opam)
+  - Rocq/Coq (theorem prover)
+
+  **New Development Tools:**
+  - SDKMAN (Java version manager)
+  - Elan (Lean version manager)
+  - Lake (Lean package manager)
+  - Perlbrew (Perl version manager)
+  - Opam (OCaml package manager)
+
+  **New C/C++ Development Tools Section:**
+  - Make
+  - CMake
+  - GCC
+  - G++
+  - Clang
+  - LLVM
+  - LLD (LLVM linker)
+
+  The /version command now displays all installed components that are available in the hive environment.
+
+  Fixes #1007
+
+## 0.51.9
+
+### Patch Changes
+
+- Keep hive user's home directory clean
+  - Move Go GOPATH from `~/go` to `~/.go/path` to keep everything under the hidden `.go` directory
+  - Move Perlbrew from `~/perl5` to `~/.perl5` (hidden directory)
+  - Remove automatic cloning of hive-mind repository to `~/hive-mind`
+
+  This keeps the user's home directory empty by default, giving users freedom to organize their workspace as they prefer.
+
+  Fixes #1004
+
+  fix: ensure log attachment works when PR is merged during session
+
+  Fixes issue where log files would not be attached to pull requests when the PR was merged during the AI solving session. The `gh pr list` command only returns OPEN PRs by default, causing merged PRs to not be found. Added `--state all` flag to find PRs regardless of their state (OPEN, MERGED, or CLOSED), and added handling to skip operations that don't work on merged PRs (like `gh pr edit` and `gh pr ready`) while still allowing log attachment.
+
+## 0.51.7
+
+### Patch Changes
+
+- b7c7a2c: feat: add GitHub API rate limits to /limits command
+
+  Adds GitHub API core rate limit information to the Telegram bot's /limits command output, allowing users to monitor GitHub API usage alongside Claude usage limits and disk space. This helps plan issue execution when GitHub API limits are approaching.
+
+## 0.51.6
+
+### Patch Changes
+
+- 9ee79c8: fix(ci): Add timeout, verbose diagnostics, and pre-fetch caching for Docker ARM64 builds
+
+  Addresses issue #998 where Docker Publish (linux/arm64) was stuck for >1.5 hours due to slow Homebrew bottle downloads on GitHub's ARM64 runners.
+
+  Changes:
+  - Added 90-minute timeout to docker-publish jobs to prevent indefinite hangs
+  - Switched from ubuntu-24.04-arm to ubuntu-22.04-arm for better network performance
+  - Added documentation comments about known ARM64 runner issues
+  - Added Homebrew verbose mode (`HOMEBREW_VERBOSE=1`) for detailed diagnostics
+  - Added `brew fetch --deps --retry` to pre-download bottles before installation
+  - Added timing measurements for fetch and install steps
+  - Updated case study with diagnostic approach
+
+  Root cause: GitHub's ubuntu-24.04-arm runners have known network performance issues (actions/runner-images#11790, actions/partner-runner-images#101). The ARM64 build was stuck downloading Homebrew bottles for PHP dependencies at extremely slow speeds.
+
+  See docs/case-studies/issue-998/README.md for detailed analysis.
+
+## 0.51.5
+
+### Patch Changes
+
+- 1a17f74: feat: add disk space information to /limits command
+
+  Adds free disk space percentage and size information to the Telegram bot's /limits command output, allowing users to monitor disk usage alongside Claude API limits and plan issue execution accordingly.
+
+## 0.51.4
+
+### Patch Changes
+
+- Test patch release
+
+## 0.51.3
+
+### Patch Changes
+
+- 2fdb8b8: Fix Docker publish jobs being skipped after successful npm releases by adding always() to job conditions and explicit result checks
+
+## 0.51.2
+
+### Patch Changes
+
+- a605d9d: Fix perlbrew bashrc unbound variable error (issue #989)
+
+  **Problem:** The error `/home/hive/perl5/perlbrew/etc/bashrc: line 71: $1: unbound variable` appeared during Docker builds when running Perl version checks.
+
+  **Root Cause:** Perlbrew's generated bashrc uses positional parameter `$1` and other variables without protection against `set -u` (nounset mode).
+
+  **Solution:**
+  - Patch perlbrew bashrc after installation to use `${1:-}`, `${PERLBREW_LIB:-}`, and `${outsep:-}` syntax
+  - Add CI check to detect and fail on any unbound variable errors in Docker builds
+  - Add case study documentation for future reference
+
+  **Changes:**
+  - `scripts/ubuntu-24-server-install.sh`: Patch perlbrew bashrc for set -u compatibility
+  - `.github/workflows/release.yml`: Add CI check for unbound variable errors
+  - `docs/case-studies/issue-989/`: Add case study documentation
+
+  References:
+  - Issue: https://github.com/link-assistant/hive-mind/issues/989
+  - Upstream fix: https://github.com/gugod/App-perlbrew/pull/850
+
+## 0.51.1
+
+### Patch Changes
+
+- ec08ef4: Fix Rocq installation verification (issue #952)
+  - Installation script: Check binary accessibility instead of just package listing
+  - Installation script: Use `opam pin add rocq-prover` per official documentation
+  - CI workflow: Require Rocq accessibility in container (not optional)
+  - CI workflow: Enhanced diagnostics when Rocq verification fails
+  - Dockerfile: Add opam environment variables (OPAM_SWITCH_PREFIX, CAML_LD_LIBRARY_PATH, OCAML_TOPLEVEL_PATH)
+
+  References:
+  - Issue: https://github.com/link-assistant/hive-mind/issues/952
+  - Rocq docs: https://rocq-prover.org/docs/using-opam
+
+## 0.51.0
+
+### Minor Changes
+
+- 36f23fb: Add fork parent validation to prevent nested fork hierarchy issues (#967)
+
+  This release adds early validation of fork parent relationships to prevent issues where a fork was created from an intermediate fork (fork of a fork) instead of directly from the intended upstream repository.
+
+  **Problem solved:**
+  When a user's fork was created from an intermediate fork (e.g., `user/repo` forked from `someone-else/repo` which was itself forked from `upstream/repo`), any pull requests created would include all commits that exist in the intermediate fork but not in the upstream. This could result in PRs with hundreds or thousands of unexpected commits.
+
+  **Case study (Issue #967):**
+  A fork `konard/zamtmn-zcad` was created from `veb86/zcadvelecAI` (intermediate fork with 1,678 extra commits) instead of `zamtmn/zcad` (the upstream). This resulted in a PR with 1,681 commits instead of the expected 3 commits.
+
+  **Changes:**
+  - **New function `validateForkParent()`**: Validates that a fork's parent matches the expected upstream repository before using it. Checks both the immediate parent and ultimate source (root) of the fork hierarchy.
+  - **Early validation**: Fork parent is now validated immediately after an existing fork is found, BEFORE syncing or creating branches. This prevents wasted work and provides clear error messages early.
+  - **Detailed error messages**: When a fork parent mismatch is detected, users receive comprehensive information including:
+    - The actual fork hierarchy (parent and source repositories)
+    - Why this is a problem (unexpected commits in PRs)
+    - Three concrete fix options:
+      1. Delete the problematic fork and create a fresh one
+      2. Use `--prefix-fork-name-with-owner-name` to create a new fork with a different name
+      3. Work directly on the repository with `--no-fork` if you have write access
+  - **Unit tests**: Added comprehensive test suite (`tests/test-fork-parent-validation.mjs`) with 10 tests covering the validation logic, error handling, and documentation.
+
+  **Technical details:**
+  - Uses GitHub API to fetch fork relationship: `gh api repos/{fork} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`
+  - Validates in two code paths: when finding existing forks (strict error) and when using forkOwner from PR mode (warning only)
+  - Reports validation errors to Sentry for monitoring
+
+## 0.50.11
+
+### Patch Changes
+
+- 6f51d29: fix: add screen terminal multiplexer to Docker image
+
+  The screen package is now installed by default in the Docker image, resolving issue #986 where users encountered "command not found" errors when attempting to use screen. Includes comprehensive case study documenting the issue analysis, root cause, and solution evaluation.
+
+## 0.50.10
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.9
+
+### Patch Changes
+
+- Fix stuck Docker multi-platform builds by using native ARM64 runners
+
+  The Docker publish workflow was getting stuck for hours when building ARM64 images using QEMU emulation on x86_64 runners. QEMU emulation introduces 10-100x slowdown, especially for complex Dockerfiles that compile native packages.
+
+  **Solution**: Refactored docker-publish jobs to use GitHub's native ARM64 runners (`ubuntu-24.04-arm`) with a matrix strategy:
+  - Each platform (amd64, arm64) builds natively in parallel on dedicated runners
+  - Build artifacts (digests) are uploaded and merged into a multi-platform manifest
+  - Eliminates QEMU emulation overhead entirely
+  - Build times should now be similar for both platforms (~10-15 minutes each)
+
+  This fix applies to both:
+  - `docker-publish` job (triggered by regular releases)
+  - `docker-publish-instant` job (triggered by manual instant releases)
+
+  Fixes #982
+
+  Fix Docker Publish jobs being skipped after npm publish
+
+  Added explicit shell-based output passthrough step for `published` output in both `release` and `instant-release` jobs. This ensures reliable output propagation to dependent jobs (`docker-publish` and `docker-publish-instant`).
+
+  Root cause: Node.js `appendFileSync` to `GITHUB_OUTPUT` was not reliably propagating outputs to dependent jobs. The fix uses a dedicated shell step to echo outputs, which is proven to work correctly.
+
+  Also added debug logging to `setOutput` function in `publish-to-npm.mjs` and `version-and-commit.mjs` scripts.
+
+  Add case study for harmful prompts and resource exhaustion attacks
+
+  Documents analysis of LLM resource exhaustion attacks including:
+  - Timeline and root cause analysis
+  - OWASP LLM Top 10 (2025) attack classification
+  - Attack patterns database with detection rules
+  - Five proposed solution approaches
+  - Raw attack samples for research
+
+## 0.50.8
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.7
+
+### Patch Changes
+
+- 9eea96a: Fix Docker publish jobs failing with "No space left on device" error
+
+  Added disk space cleanup step to both `docker-publish` and `docker-publish-instant` jobs in the release workflow. This step removes large pre-installed packages (dotnet, android SDK, GHC, CodeQL) and prunes unused Docker images before building multi-platform Docker images.
+
+  This fixes issue #975 where instant releases failed during arm64 build due to insufficient disk space when installing Rust toolchain.
+
+## 0.50.6
+
+### Patch Changes
+
+- 7733b32: Detect OpenCode permission prompts and recommend @link-assistant/agent for autonomous workflows
+  - Configure all OpenCode permissions to "allow" (edit, bash, webfetch, skill, doom_loop, external_directory)
+  - Detect interactive permission prompts that block automated execution
+  - Recommend @link-assistant/agent (100% unrestricted OpenCode fork) when prompts are detected
+
+## 0.50.5
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.4
+
+### Patch Changes
+
+- d58e5dd: fix: enable Docker and Helm publishing for instant releases
+
+  Previously, when using the "instant release" workflow (triggered via workflow_dispatch),
+  Docker images and Helm charts were not published because they only depended on the
+  `release` job outputs. This fix adds dedicated `docker-publish-instant` and
+  `helm-release-instant` jobs that depend on the `instant-release` job outputs.
+
+  This resolves the issue where Docker Hub images were 14 days behind npm releases.
+
+  Additionally, duplicated CI/CD logic has been moved to reusable scripts:
+  - `scripts/wait-for-npm.sh` - Waits for NPM package availability
+  - `scripts/helm-release.sh` - Packages and publishes Helm charts to gh-pages
+
+## 0.50.3
+
+### Patch Changes
+
+- ca9f1b2: Fix sentry-cli source maps upload command for v3.0.0+ API
+
+  Updated `scripts/upload-sourcemaps.mjs` to use the new `sentry-cli sourcemaps upload` command syntax instead of the deprecated `sentry-cli releases files upload-sourcemaps` which was removed in sentry-cli 3.0.0.
+
+## 0.50.2
+
+### Patch Changes
+
+- Test patch release
+
+## 0.50.1
+
+### Patch Changes
+
+- 8fdf8dd: Fix Sentry CLI 3.x compatibility to restore Docker image publishing
+  - Update `scripts/upload-sourcemaps.mjs` to use `sourcemaps upload` command instead of deprecated `releases files` command
+  - Add case study documentation for issue #962 investigation
+
+## 0.50.0
+
+### Minor Changes
+
+- 8934ed6: Improve changeset CI/CD robustness for multiple concurrent PRs
+  - Update validate-changeset.mjs to only check changesets ADDED by the current PR (not pre-existing ones)
+  - Add merge-changesets.mjs script to combine multiple pending changesets during release
+  - Merged changesets use highest version bump type (major > minor > patch) and combine descriptions chronologically
+  - Update release workflow to merge multiple changesets before version bump
+  - This prevents PR failures when multiple PRs merge before a release cycle completes
+
+## 0.49.0
+
+### Minor Changes
+
+- Add --claude-file and --gitkeep-file CLI options for choosing between CLAUDE.md and .gitkeep files
+
+  This feature allows users to choose which file type to use for PR creation:
+  - `--claude-file` (default: true): Use CLAUDE.md file for task details
+  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+
+  The flags are mutually exclusive:
+  - Using `--gitkeep-file` automatically disables `--claude-file`
+  - Using `--no-claude-file` automatically enables `--gitkeep-file`
+  - Both flags cannot be disabled simultaneously
+
+  This is a step toward making .gitkeep the default behavior in future releases.
+
+## 0.48.4
+
+### Patch Changes
+
+- b010ce6: Increase minimum disk space requirement from 512 MB to 2 GB to provide more room for commands to gracefully finish before running out of disk space and prevent potential OS issues
+
+## 0.48.3
+
+### Patch Changes
+
+- ba6d6e4: Add comprehensive research on folder naming best practices for documentation
+
+  Added expanded documentation in `docs/case-studies/folder-naming-best-practices.md` covering:
+  - Industry standards (Google SRE, ITIL, NIST, Diataxis, Oxide RFD, NASA FRB, FEMA AAR)
+  - Terminology mapping for alternative document type names (PIR, AAR, RCA, TDR, etc.)
+  - Recommended folder structure for incidents, investigations, problems, case studies, decisions, reviews, retrospectives, and runbooks
+  - Extended folder structure for larger organizations
+  - File naming conventions for 18+ document types following kebab-case and ISO 8601 date formats
+  - Document templates with YAML front matter including RFD, Spike, AAR, Retrospective, and One-Pager templates
+  - 30+ verified authoritative sources from industry leaders
+
+## 0.48.2
+
+### Patch Changes
+
+- Test patch release
+
+## 0.48.1
+
+### Patch Changes
+
+- 279642e: Comprehensive release and validation fixes
+
+  This release includes multiple critical fixes that work together to ensure reliable releases and prevent unvalidated code from merging:
+
+  **1. Fix workflow conditions to prevent unvalidated code from merging (#958)**
+
+  Updated lint job conditions in release.yml to check all file types that Prettier formats (.mjs, .md, .json, .js), not just .mjs files. This ensures the lint check runs consistently for both pull requests and main branch, preventing formatting issues from bypassing validation. Previously, PRs changing only .md or .json files would skip lint checks, allowing unformatted code to merge and cause main branch CI failures.
+
+  Documentation added:
+  - Case study analysis (docs/case-studies/issue-958/ANALYSIS.md) with root cause analysis and timeline reconstruction
+  - Branch protection policy guide (docs/BRANCH_PROTECTION_POLICY.md) with required status checks specification and configuration instructions
+
+  **2. Fix perlbrew bashrc unbound variable error at perl version check (#954)**
+
+  Resolves an issue where running `perl --version` during installation would trigger an "unbound variable" error from perlbrew's bashrc file at line 71. The error occurred because:
+  - The version check command triggered .bashrc sourcing in a subshell
+  - Perlbrew's bashrc referenced positional parameter $1 without guards
+  - With `set -u` enabled, unbound variables cause errors
+
+  Solution:
+  - Only load perlbrew in interactive shells (PS1 check in .bashrc)
+  - Temporarily disable `set -u` when sourcing perlbrew bashrc in the install script
+  - Re-enable strict mode immediately after sourcing
+  - Added comprehensive test script (experiments/test-perlbrew-fix.sh)
+
+  **3. Enhance README.md initialization for empty repositories (#706)**
+
+  Enhanced the existing empty repository handling to include repository description in the auto-generated README.md file. When the solve command encounters an empty repository that cannot be forked, it now creates a more descriptive README with both the repository title and description (if available).
+
+  **4. Fix package-lock.json sync in changeset version bump flow**
+  - Add `npm install --package-lock-only` after `npm run changeset:version` in version-and-commit.mjs
+  - Ensures package-lock.json stays in sync with package.json during changeset-based releases
+  - Fixes issue where version bumps only updated package.json
+
+## 0.48.0
+
+### Minor Changes
+
+- 93ea94b: Add solution drafts listing feature to hive command. When processing completes, hive now displays all completed issues with their linked pull requests before showing the "✅ All issues processed!" message.
+
+### Patch Changes
+
+- a44ab88: Add system prompt guidance to prefer using existing code as examples
+  - Added guideline to encourage searching for similar existing implementations before implementing from scratch
+  - Applied consistently across all three prompt modules (claude, codex, opencode)
+  - Helps maintain consistency with existing patterns and reduces redundant work
+
+- 1bdc96d: Fix --base-branch option to properly create branches from the specified base branch instead of from current HEAD
+
 ## 0.47.1
 
 ### Patch Changes

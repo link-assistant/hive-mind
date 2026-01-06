@@ -38,7 +38,7 @@ TODO.md Workflow Management.
  * @param {Object} argv - Command line arguments
  * @returns {string} The sub-prompt content or empty string if disabled
  */
-export const getArchitectureCareSubPrompt = (argv) => {
+export const getArchitectureCareSubPrompt = argv => {
   if (argv && argv.promptArchitectureCare) {
     return buildArchitectureCareSubPrompt();
   }
@@ -48,5 +48,5 @@ export const getArchitectureCareSubPrompt = (argv) => {
 // Export all functions as default object too
 export default {
   buildArchitectureCareSubPrompt,
-  getArchitectureCareSubPrompt
+  getArchitectureCareSubPrompt,
 };

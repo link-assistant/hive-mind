@@ -204,9 +204,32 @@ WARNING: Rocq/Coq not accessible in container
 2. But there are NO rocq/coq binaries in `~/.opam/default/bin/`
 3. Even `eval $(opam env)` doesn't make rocq accessible
 4. The `rocq-prover` is a **meta-package** that depends on `rocq-core` and `rocq-stdlib`
-5. The actual binary installation may have failed or the package structure doesn't include CLI tools
+5. The binaries come from `rocq-runtime` package which may not have been installed properly
 
 **This is a deeper issue with the opam package or installation process**, not just a PATH/environment issue.
+
+## Implemented Solution (December 2025)
+
+Based on our investigation, we implemented the following fixes:
+
+### 1. Installation Script Changes (`scripts/ubuntu-24-server-install.sh`)
+
+- **Binary verification before installation**: Check if `rocq`, `rocqc`, or `coqc` binaries are actually accessible (not just if the package is listed)
+- **Use `opam pin add rocq-prover`**: Per [official documentation](https://rocq-prover.org/docs/using-opam), use `opam pin add` instead of `opam install` for more reliable installation
+- **Post-installation verification**: Verify binaries are accessible after installation and log clear success/warning messages
+- **Better error handling**: Distinguish between "package installed but binaries not in PATH" vs "installation failed"
+
+### 2. CI Workflow Changes (`.github/workflows/release.yml`)
+
+- **Require Rocq accessibility**: CI now fails if Rocq binaries are not accessible in the container (removed "optional" treatment)
+- **Full opam environment sourcing**: Source both `opam-init/init.sh` and run `eval $(opam env)` for complete environment setup
+- **Enhanced diagnostics**: Show installed opam packages and bin directory contents when verification fails
+- **Reference to issue #952**: Include link to this case study for troubleshooting
+
+### 3. Dockerfile Changes
+
+- **Add opam environment variables**: Set `OPAM_SWITCH_PREFIX`, `CAML_LD_LIBRARY_PATH`, and `OCAML_TOPLEVEL_PATH` in addition to PATH
+- **Reference documentation**: Added comments referencing the official Rocq documentation
 
 ## Conclusion
 
@@ -215,6 +238,14 @@ The investigation revealed that:
 1. **The original issue was correct** - Rocq verification was not working properly
 2. **Our fix improved verification** - We now properly source opam env and check multiple command names (rocq, rocqc, coqc)
 3. **We added diagnostic output** - The CI now provides detailed information when Rocq is not accessible
-4. **The underlying problem is deeper** - The `rocq-prover` package may not be providing the expected binaries
+4. **The underlying problem was multi-faceted**:
+   - The `rocq-prover` meta-package wasn't properly pulling in `rocq-runtime` binaries
+   - Docker environment wasn't setting all required opam environment variables
+   - CI was treating Rocq as optional when it should be required
 
-**Recommendation**: Investigate why `rocq-prover` opam package doesn't install binaries to `~/.opam/default/bin/`. This may require checking opam installation logs during build or investigating the package dependencies.
+**Resolution**: The fixes ensure:
+
+- Proper installation using `opam pin add rocq-prover` per official docs
+- Binary verification after installation (not just package listing)
+- Full opam environment setup in Docker container
+- CI fails fast if Rocq is not accessible (no silent failures)

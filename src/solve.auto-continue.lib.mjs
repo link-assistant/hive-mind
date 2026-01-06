@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Auto-continue module for solve command
+// Session continuation module for solve command
+// Handles session resumption, PR detection, and limit reset waiting
 // Extracted from solve.mjs to keep files under 1500 lines
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -103,9 +104,9 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       sessionId,
     ];
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Preserve auto-resume flag
+    if (argv.autoResumeOnLimitReset) {
+      resumeArgs.push('--auto-resume-on-limit-reset');
     }
 
     // Preserve other flags from original invocation
@@ -181,18 +182,20 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
                 continue;
               }
 
-              // Check if CLAUDE.md exists in this PR branch
+              // Check if CLAUDE.md or .gitkeep exists in this PR branch
+              // If neither exists, it means work was completed and files were removed
               const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
+              const gitkeepExists = await checkFileInBranch(owner, repo, '.gitkeep', pr.headRefName);
 
-              if (!claudeMdExists) {
-                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
+              if (!claudeMdExists && !gitkeepExists) {
+                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md/.gitkeep missing - work completed, branch: ${pr.headRefName})`);
 
-                // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
+                // Switch to continue mode immediately (don't wait 24 hours if both files are missing)
                 isContinueMode = true;
                 prNumber = pr.number;
                 prBranch = pr.headRefName;
                 if (argv.verbose) {
-                  await log('   Continue mode activated: Auto-continue (CLAUDE.md missing)', { verbose: true });
+                  await log('   Continue mode activated: Auto-continue (initial commit files missing)', { verbose: true });
                   await log(`   PR Number: ${prNumber}`, { verbose: true });
                   await log(`   PR Branch: ${prBranch}`, { verbose: true });
                 }
@@ -454,15 +457,16 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
               continue;
             }
 
-            // Check if CLAUDE.md exists in this PR branch
+            // Check if CLAUDE.md or .gitkeep exists in this PR branch
             const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
+            const gitkeepExists = await checkFileInBranch(owner, repo, '.gitkeep', pr.headRefName);
 
-            if (!claudeMdExists) {
-              await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
+            if (!claudeMdExists && !gitkeepExists) {
+              await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md/.gitkeep missing - work completed, branch: ${pr.headRefName})`);
 
-              // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
+              // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md/.gitkeep is missing)
               if (argv.verbose) {
-                await log('   Continue mode activated: Auto-continue (CLAUDE.md missing)', { verbose: true });
+                await log('   Continue mode activated: Auto-continue (CLAUDE.md/.gitkeep missing)', { verbose: true });
                 await log(`   PR Number: ${pr.number}`, { verbose: true });
                 await log(`   PR Branch: ${pr.headRefName}`, { verbose: true });
               }
@@ -490,12 +494,12 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 issueNumber,
               };
             } else {
-              await log(`  PR #${pr.number}: CLAUDE.md exists, age ${ageHours}h < 24h - skipping`);
+              await log(`  PR #${pr.number}: CLAUDE.md/.gitkeep exists, age ${ageHours}h < 24h - skipping`);
             }
           }
         }
 
-        await log('⏭️  No suitable PRs found (missing CLAUDE.md or older than 24h) - creating new PR as usual');
+        await log('⏭️  No suitable PRs found (missing CLAUDE.md/.gitkeep or older than 24h) - creating new PR as usual');
       } else {
         await log(`📝 No existing PRs found for issue #${issueNumber} - creating new PR`);
       }

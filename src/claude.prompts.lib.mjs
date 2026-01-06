@@ -3,6 +3,8 @@
  * Handles building prompts for Claude commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Claude
  * @param {Object} params - Parameters for building the user prompt
@@ -241,7 +243,7 @@ Plan sub-agent usage.
    - When using the Plan sub-agent, you can add it as the first item in your todo list.
    - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
        : ''
-   }`;
+   }${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

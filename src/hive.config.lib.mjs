@@ -281,6 +281,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
       default: true,
     })
+    .option('prompt-architecture-care', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
+      default: false,
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

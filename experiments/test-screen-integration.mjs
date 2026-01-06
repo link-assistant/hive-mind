@@ -26,25 +26,21 @@ const testUrls = [
     expectedOwner: 'veb86',
     expectedRepo: 'zcadvelecAI',
     expectedNumber: 2,
-    expectedType: 'issue'
+    expectedType: 'issue',
   },
   {
-    url: 'https://github.com/deep-assistant/hive-mind',
-    expectedOwner: 'deep-assistant',
+    url: 'https://github.com/link-assistant/hive-mind',
+    expectedOwner: 'link-assistant',
     expectedRepo: 'hive-mind',
     expectedNumber: null,
-    expectedType: 'repo'
-  }
+    expectedType: 'repo',
+  },
 ];
 
 let allPassed = true;
 for (const test of testUrls) {
   const parsed = parseGitHubUrl(test.url);
-  const passed =
-    parsed.owner === test.expectedOwner &&
-    parsed.repo === test.expectedRepo &&
-    (test.expectedNumber === null ? !parsed.hasOwnProperty('number') : parsed.number === test.expectedNumber) &&
-    parsed.type === test.expectedType;
+  const passed = parsed.owner === test.expectedOwner && parsed.repo === test.expectedRepo && (test.expectedNumber === null ? !parsed.hasOwnProperty('number') : parsed.number === test.expectedNumber) && parsed.type === test.expectedType;
 
   console.log(`   ${test.url}`);
   console.log(`     Owner: ${parsed.owner} (expected: ${test.expectedOwner})`);
@@ -64,14 +60,14 @@ const commandTests = [
     args: ['solve', 'https://github.com/test/repo/issues/1', '--dry-run'],
     expectedCommand: 'solve',
     expectedUrl: 'https://github.com/test/repo/issues/1',
-    expectedOptions: ['--dry-run']
+    expectedOptions: ['--dry-run'],
   },
   {
     args: ['hive', 'https://github.com/test/repo', '--dry-run', '--verbose'],
     expectedCommand: 'hive',
     expectedUrl: 'https://github.com/test/repo',
-    expectedOptions: ['--dry-run', '--verbose']
-  }
+    expectedOptions: ['--dry-run', '--verbose'],
+  },
 ];
 
 for (const test of commandTests) {
@@ -91,10 +87,7 @@ for (const test of commandTests) {
     }
   }
 
-  const passed =
-    command === test.expectedCommand &&
-    githubUrl === test.expectedUrl &&
-    JSON.stringify(options) === JSON.stringify(test.expectedOptions);
+  const passed = command === test.expectedCommand && githubUrl === test.expectedUrl && JSON.stringify(options) === JSON.stringify(test.expectedOptions);
 
   console.log(`     Command: ${command} (expected: ${test.expectedCommand})`);
   console.log(`     URL: ${githubUrl} (expected: ${test.expectedUrl})`);

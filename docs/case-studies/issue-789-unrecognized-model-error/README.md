@@ -16,6 +16,7 @@ This case study analyzes issue #789, where an invalid model name (`--model oups`
 ## Problem Summary
 
 When a user provides an invalid model name, the system:
+
 1. Accepts the argument without validation
 2. Proceeds through all initialization steps (~50 seconds)
 3. Makes API calls to Anthropic
@@ -29,36 +30,42 @@ When a user provides an invalid model name, the system:
 This case study is organized into multiple files for easier navigation:
 
 ### [00-OVERVIEW.md](./00-OVERVIEW.md)
+
 - Problem statement
 - Impact analysis
 - Requirements for solution
 - Quick reference
 
 ### [01-TIMELINE.md](./01-TIMELINE.md)
+
 - Detailed timeline of events
 - Log analysis with timestamps
 - Performance impact
 - What should have happened
 
 ### [02-ROOT-CAUSES.md](./02-ROOT-CAUSES.md)
+
 - Three distinct root causes identified
 - Code-level analysis
 - Architecture review
 - Contributing factors
 
 ### [03-SOLUTIONS.md](./03-SOLUTIONS.md)
+
 - Five different solution approaches
 - Comparison matrix
 - Pros and cons for each
 - Recommended combination approach
 
 ### [04-IMPLEMENTATION.md](./04-IMPLEMENTATION.md)
+
 - Step-by-step implementation plan
 - Code examples
 - Testing strategy
 - Rollout plan
 
 ### [full-log.json](./full-log.json)
+
 - Complete log from the failed execution
 - Original data source from gist
 
@@ -92,6 +99,7 @@ With validation:  <1 second  → Error + No Cost
 **Hybrid Approach**: Warning with Confirmation + Separate Validation Flag
 
 ### Benefits
+
 ✅ Prevents typos from incurring costs
 ✅ Maintains flexibility for custom model IDs
 ✅ Provides helpful suggestions
@@ -99,6 +107,7 @@ With validation:  <1 second  → Error + No Cost
 ✅ Backward compatible
 
 ### Implementation
+
 ```javascript
 // Immediate validation with helpful feedback
 const validation = validateModelName(argv.model);
@@ -121,14 +130,17 @@ if (validation.needsWarning && !argv.force) {
 ## Impact After Fix
 
 ### User Experience
+
 - **Before**: 57 seconds → Error + Cost
 - **After**: Instant feedback → No cost for typos
 
 ### Cost Savings
+
 - **Per typo**: $0.027 saved
 - **Over time**: Significant (depends on usage frequency)
 
 ### Developer Experience
+
 - Clear error messages
 - Helpful suggestions
 - Fast feedback loop
@@ -149,6 +161,7 @@ if (validation.needsWarning && !argv.force) {
 ## Testing Recommendations
 
 ### Must Test
+
 - [ ] Invalid model name is rejected immediately
 - [ ] Valid aliases work without warnings
 - [ ] Full model IDs work with optional warning
@@ -157,6 +170,7 @@ if (validation.needsWarning && !argv.force) {
 - [ ] `--skip-model-validation` bypasses validation
 
 ### Should Test
+
 - [ ] Performance impact of validation (<10ms)
 - [ ] Help text shows available models
 - [ ] Error messages are clear and actionable

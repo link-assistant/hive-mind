@@ -29,7 +29,7 @@ const { fetchModelInfo } = claudeLib;
  * @param {string} output - Raw stdout output from agent command
  * @returns {Object} Aggregated token usage and cost data
  */
-export const parseAgentTokenUsage = (output) => {
+export const parseAgentTokenUsage = output => {
   const usage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -37,7 +37,7 @@ export const parseAgentTokenUsage = (output) => {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     totalCost: 0,
-    stepCount: 0
+    stepCount: 0,
   };
 
   // Try to parse each line as JSON (agent outputs NDJSON format)
@@ -114,17 +114,17 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           inputPerMillion: cost.input || 0,
           outputPerMillion: cost.output || 0,
           cacheReadPerMillion: cost.cache_read || 0,
-          cacheWritePerMillion: cost.cache_write || 0
+          cacheWritePerMillion: cost.cache_write || 0,
         },
         tokenUsage,
         breakdown: {
           input: inputCost,
           output: outputCost,
           cacheRead: cacheReadCost,
-          cacheWrite: cacheWriteCost
+          cacheWrite: cacheWriteCost,
         },
         totalCostUSD: totalCost,
-        isFreeModel: cost.input === 0 && cost.output === 0
+        isFreeModel: cost.input === 0 && cost.output === 0,
       };
     }
 
@@ -135,7 +135,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       provider: 'Unknown',
       tokenUsage,
       totalCostUSD: null,
-      error: 'Model not found in models.dev API'
+      error: 'Model not found in models.dev API',
     };
   } catch (error) {
     // Error fetching pricing, return with error info
@@ -144,23 +144,23 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       modelName,
       tokenUsage,
       totalCostUSD: null,
-      error: error.message
+      error: error.message,
     };
   }
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
 // Agent uses OpenCode's JSON interface and models
-export const mapModelToId = (model) => {
+export const mapModelToId = model => {
   const modelMap = {
-    'grok': 'opencode/grok-code',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'openai/gpt-5-nano',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'haiku': 'anthropic/claude-3-5-haiku',
-    'opus': 'anthropic/claude-3-opus',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    haiku: 'anthropic/claude-3-5-haiku',
+    opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
   };
 
@@ -209,7 +209,9 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
 
         if (stderr.includes('auth') || stderr.includes('login')) {
           await log('❌ Agent authentication failed', { level: 'error' });
-          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', { level: 'error' });
+          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', {
+            level: 'error',
+          });
           return false;
         }
 
@@ -223,7 +225,9 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
       return true;
     } catch (error) {
       await log(`❌ Failed to validate Agent connection: ${error.message}`, { level: 'error' });
-      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', { level: 'error' });
+      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', {
+        level: 'error',
+      });
       return false;
     }
   };
@@ -240,28 +244,8 @@ export const handleAgentRuntimeSwitch = async () => {
 };
 
 // Main function to execute Agent with prompts and settings
-export const executeAgent = async (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    agentPath = 'agent',
-    $
-  } = params;
+export const executeAgent = async params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
 
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
@@ -281,7 +265,7 @@ export const executeAgent = async (params) => {
     forkActionsUrl,
     owner,
     repo,
-    argv
+    argv,
   });
 
   // Build the system prompt
@@ -294,7 +278,7 @@ export const executeAgent = async (params) => {
     tempDir,
     isContinueMode,
     forkedRepo,
-    argv
+    argv,
   });
 
   // Log prompt details in verbose mode
@@ -331,25 +315,12 @@ export const executeAgent = async (params) => {
     forkedRepo,
     feedbackLines,
     agentPath,
-    $
+    $,
   });
 };
 
-export const executeAgentCommand = async (params) => {
-  const {
-    tempDir,
-    branchName,
-    prompt,
-    systemPrompt,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    forkedRepo,
-    feedbackLines,
-    agentPath,
-    $
-  } = params;
+export const executeAgentCommand = async params => {
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $ } = params;
 
   // Retry configuration
   const maxRetries = 3;
@@ -411,7 +382,7 @@ export const executeAgentCommand = async (params) => {
       // Pipe the prompt file to agent via stdin
       execCommand = $({
         cwd: tempDir,
-        mirror: false
+        mirror: false,
       })`cat ${promptFile} | ${agentPath} --model ${mappedModel}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -477,7 +448,7 @@ export const executeAgentCommand = async (params) => {
       // 1. Non-zero exit code (agent returns 1 on errors)
       // 2. Explicit JSON error messages from agent (type: "error")
       // 3. Usage limit detection (handled separately)
-      const detectAgentErrors = (stdoutOutput) => {
+      const detectAgentErrors = stdoutOutput => {
         const lines = stdoutOutput.split('\n');
 
         for (const line of lines) {
@@ -508,12 +479,12 @@ export const executeAgentCommand = async (params) => {
           type: 'error',
           exitCode,
           errorDetectedInOutput: outputError.detected,
-          errorType: outputError.detected ? outputError.type : (exitCode !== 0 ? 'NonZeroExitCode' : null),
+          errorType: outputError.detected ? outputError.type : exitCode !== 0 ? 'NonZeroExitCode' : null,
           errorMatch: outputError.detected ? outputError.match : null,
           message: null,
           sessionId,
           limitReached: false,
-          limitResetTime: null
+          limitResetTime: null,
         };
 
         // Check for usage limit errors first (more specific)
@@ -530,7 +501,7 @@ export const executeAgentCommand = async (params) => {
             tool: 'Agent',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
           });
 
           for (const line of messageLines) {
@@ -563,10 +534,10 @@ export const executeAgentCommand = async (params) => {
           sessionId,
           limitReached,
           limitResetTime,
-          errorInfo,  // Include structured error information
+          errorInfo, // Include structured error information
           tokenUsage,
           pricingInfo,
-          publicPricingEstimate: pricingInfo.totalCostUSD
+          publicPricingEstimate: pricingInfo.totalCostUSD,
         };
       }
 
@@ -609,14 +580,14 @@ export const executeAgentCommand = async (params) => {
         limitResetTime,
         tokenUsage,
         pricingInfo,
-        publicPricingEstimate: pricingInfo.totalCostUSD
+        publicPricingEstimate: pricingInfo.totalCostUSD,
       };
     } catch (error) {
       reportError(error, {
         context: 'execute_agent',
         command: params.command,
         agentPath: params.agentPath,
-        operation: 'run_agent_command'
+        operation: 'run_agent_command',
       });
 
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
@@ -627,7 +598,7 @@ export const executeAgentCommand = async (params) => {
         limitResetTime: null,
         tokenUsage: null,
         pricingInfo: null,
-        publicPricingEstimate: null
+        publicPricingEstimate: null,
       };
     }
   };
@@ -668,13 +639,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning',
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning',
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning',
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -698,14 +675,16 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning',
+      });
       return false;
     }
   } catch (gitError) {
     reportError(gitError, {
       context: 'check_uncommitted_changes_agent',
       tempDir,
-      operation: 'git_status_check'
+      operation: 'git_status_check',
     });
     await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
     return false;
@@ -720,5 +699,5 @@ export default {
   executeAgentCommand,
   checkForUncommittedChanges,
   parseAgentTokenUsage,
-  calculateAgentPricing
+  calculateAgentPricing,
 };

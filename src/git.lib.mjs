@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
 // Git-related library functions for hive-mind project
 
 // Helper function to check if we're in a git repository
-export const isGitRepository = async (execSync) => {
+export const isGitRepository = async (execFunc = execAsync) => {
   try {
-    execSync('git rev-parse --git-dir', {
+    await execFunc('git rev-parse --git-dir', {
       encoding: 'utf8',
-      stdio: ['pipe', 'ignore', 'ignore']  // Suppress both stdout and stderr
+      env: process.env,
     });
     return true;
   } catch {
@@ -16,61 +21,61 @@ export const isGitRepository = async (execSync) => {
 };
 
 // Helper function to get git tag for current HEAD
-export const getGitTag = async (execSync) => {
+export const getGitTag = async (execFunc = execAsync) => {
   try {
-    const gitTag = execSync('git describe --exact-match --tags HEAD', {
+    const { stdout } = await execFunc('git describe --exact-match --tags HEAD', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
-    }).trim();
-    return gitTag;
+      env: process.env,
+    });
+    return stdout.trim();
   } catch {
     return null;
   }
 };
 
 // Helper function to get latest git tag
-export const getLatestGitTag = async (execSync) => {
+export const getLatestGitTag = async (execFunc = execAsync) => {
   try {
-    const latestTag = execSync('git describe --tags --abbrev=0', {
+    const { stdout } = await execFunc('git describe --tags --abbrev=0', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
-    }).trim().replace(/^v/, '');
-    return latestTag;
+      env: process.env,
+    });
+    return stdout.trim().replace(/^v/, '');
   } catch {
     return null;
   }
 };
 
 // Helper function to get short commit SHA
-export const getCommitSha = async (execSync) => {
+export const getCommitSha = async (execFunc = execAsync) => {
   try {
-    const commitSha = execSync('git rev-parse --short HEAD', {
+    const { stdout } = await execFunc('git rev-parse --short HEAD', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']  // Suppress stderr
-    }).trim();
-    return commitSha;
+      env: process.env,
+    });
+    return stdout.trim();
   } catch {
     return null;
   }
 };
 
 // Helper function to get version string based on git state
-export const getGitVersion = async (execSync, currentVersion) => {
+export const getGitVersion = async (execFunc = execAsync, currentVersion) => {
   // First check if we're in a git repository
-  if (!await isGitRepository(execSync)) {
+  if (!(await isGitRepository(execFunc))) {
     return currentVersion;
   }
 
   // Check if this is a release version (has a git tag)
-  const gitTag = await getGitTag(execSync);
+  const gitTag = await getGitTag(execFunc);
   if (gitTag) {
     // It's a tagged release, use the version from package.json
     return currentVersion;
   }
 
   // Not a tagged release, get the latest tag and commit SHA
-  const latestTag = await getLatestGitTag(execSync);
-  const commitSha = await getCommitSha(execSync);
+  const latestTag = await getLatestGitTag(execFunc);
+  const commitSha = await getCommitSha(execFunc);
 
   if (latestTag && commitSha) {
     return `${latestTag}.${commitSha}`;
@@ -136,5 +141,5 @@ export default {
   getLatestGitTag,
   getCommitSha,
   getGitVersion,
-  getGitVersionAsync
+  getGitVersionAsync,
 };

@@ -44,8 +44,11 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 // Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
-// Import Claude limits library for /limits command
-const { getClaudeUsageLimits, formatUsageMessage } = await import('./claude-limits.lib.mjs');
+// Import libraries for /limits, /version, and markdown escaping
+const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
+const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -53,61 +56,61 @@ const config = yargs(hideBin(process.argv))
     type: 'string',
     description: 'LINO configuration string for environment variables',
     alias: 'c',
-    default: getenv('TELEGRAM_CONFIGURATION', '')
+    default: getenv('TELEGRAM_CONFIGURATION', ''),
   })
   .option('token', {
     type: 'string',
     description: 'Telegram bot token from @BotFather',
     alias: 't',
-    default: getenv('TELEGRAM_BOT_TOKEN', '')
+    default: getenv('TELEGRAM_BOT_TOKEN', ''),
   })
   .option('allowedChats', {
     type: 'string',
     description: 'Allowed chat IDs in lino notation, e.g., "(\n  123456789\n  987654321\n)"',
     alias: 'allowed-chats',
-    default: getenv('TELEGRAM_ALLOWED_CHATS', '')
+    default: getenv('TELEGRAM_ALLOWED_CHATS', ''),
   })
   .option('solveOverrides', {
     type: 'string',
     description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
     alias: 'solve-overrides',
-    default: getenv('TELEGRAM_SOLVE_OVERRIDES', '')
+    default: getenv('TELEGRAM_SOLVE_OVERRIDES', ''),
   })
   .option('hiveOverrides', {
     type: 'string',
     description: 'Override options for /hive command in lino notation, e.g., "(\n  --verbose\n  --all-issues\n)"',
     alias: 'hive-overrides',
-    default: getenv('TELEGRAM_HIVE_OVERRIDES', '')
+    default: getenv('TELEGRAM_HIVE_OVERRIDES', ''),
   })
   .option('solve', {
     type: 'boolean',
     description: 'Enable /solve command (use --no-solve to disable)',
-    default: getenv('TELEGRAM_SOLVE', 'true') !== 'false'
+    default: getenv('TELEGRAM_SOLVE', 'true') !== 'false',
   })
   .option('hive', {
     type: 'boolean',
     description: 'Enable /hive command (use --no-hive to disable)',
-    default: getenv('TELEGRAM_HIVE', 'true') !== 'false'
+    default: getenv('TELEGRAM_HIVE', 'true') !== 'false',
   })
   .option('dryRun', {
     type: 'boolean',
     description: 'Validate configuration and options without starting the bot',
     alias: 'dry-run',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
-    default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true'
+    default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
     'boolean-negation': true,
-    'strip-dashed': true  // Remove dashed keys from argv to simplify validation
+    'strip-dashed': true, // Remove dashed keys from argv to simplify validation
   })
-  .strict()  // Enable strict mode to reject unknown options (consistent with solve.mjs and hive.mjs)
+  .strict() // Enable strict mode to reject unknown options (consistent with solve.mjs and hive.mjs)
   .parse();
 
 // Load configuration from --configuration option if provided
@@ -141,19 +144,23 @@ if (!BOT_TOKEN) {
 // Priority: CLI option > environment variable (from .lenv or .env)
 // NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
-const allowedChats = resolvedAllowedChats
-  ? lino.parseNumericIds(resolvedAllowedChats)
-  : null;
+const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;
 
 // Parse override options
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
 const solveOverrides = resolvedSolveOverrides
-  ? lino.parse(resolvedSolveOverrides).map(line => line.trim()).filter(line => line)
+  ? lino
+      .parseStringValues(resolvedSolveOverrides)
+      .map(line => line.trim())
+      .filter(line => line)
   : [];
 
 const resolvedHiveOverrides = config.hiveOverrides || getenv('TELEGRAM_HIVE_OVERRIDES', '');
 const hiveOverrides = resolvedHiveOverrides
-  ? lino.parse(resolvedHiveOverrides).map(line => line.trim()).filter(line => line)
+  ? lino
+      .parseStringValues(resolvedHiveOverrides)
+      .map(line => line.trim())
+      .filter(line => line)
   : [];
 
 // Command enable/disable flags
@@ -173,7 +180,7 @@ if (solveEnabled && solveOverrides.length > 0) {
     // Temporarily suppress stderr to avoid yargs error output during validation
     const originalStderrWrite = process.stderr.write;
     const stderrBuffer = [];
-    process.stderr.write = (chunk) => {
+    process.stderr.write = chunk => {
       stderrBuffer.push(chunk);
       return true;
     };
@@ -213,7 +220,7 @@ if (hiveEnabled && hiveOverrides.length > 0) {
     // Temporarily suppress stderr to avoid yargs error output during validation
     const originalStderrWrite = process.stderr.write;
     const stderrBuffer = [];
-    process.stderr.write = (chunk) => {
+    process.stderr.write = chunk => {
       stderrBuffer.push(chunk);
       return true;
     };
@@ -283,7 +290,7 @@ const { Telegraf } = telegrafModule;
 const bot = new Telegraf(BOT_TOKEN, {
   // Remove the default 90-second timeout for message handlers
   // This is important because command handlers (like /solve) spawn long-running processes
-  handlerTimeout: Infinity
+  handlerTimeout: Infinity,
 });
 
 // Track bot startup time to ignore messages sent before bot started
@@ -345,9 +352,7 @@ function isForwardedOrReply(ctx) {
     return true;
   }
   // Also check old forwarding API fields for backward compatibility
-  if (message.forward_from || message.forward_from_chat ||
-      message.forward_from_message_id || message.forward_signature ||
-      message.forward_sender_name || message.forward_date) {
+  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
     if (VERBOSE) {
       console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
       if (message.forward_from) console.log('[VERBOSE]     Triggered by: forward_from');
@@ -403,16 +408,14 @@ async function executeStartScreen(command, args) {
     const whichPath = await findStartScreenCommand();
 
     if (!whichPath) {
-      const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' +
-                        'Please ensure @deep-assistant/hive-mind is properly installed\n' +
-                        'You may need to run: npm install -g @deep-assistant/hive-mind';
+      const warningMsg = '⚠️  WARNING: start-screen command not found in PATH\n' + 'Please ensure @link-assistant/hive-mind is properly installed\n' + 'You may need to run: npm install -g @link-assistant/hive-mind';
       console.warn(warningMsg);
 
       // Still try to execute with 'start-screen' in case it's available in PATH but 'which' failed
       return {
         success: false,
         warning: warningMsg,
-        error: 'start-screen command not found in PATH'
+        error: 'start-screen command not found in PATH',
       };
     }
 
@@ -427,13 +430,13 @@ async function executeStartScreen(command, args) {
     return {
       success: false,
       output: '',
-      error: error.message
+      error: error.message,
     };
   }
 }
 
 function executeWithCommand(startScreenCmd, command, args) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const allArgs = [command, ...args];
 
     if (VERBOSE) {
@@ -444,39 +447,40 @@ function executeWithCommand(startScreenCmd, command, args) {
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
+      env: process.env,
     });
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       stderr += data.toString();
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       resolve({
         success: false,
         output: stdout,
-        error: error.message
+        error: error.message,
       });
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         resolve({
           success: true,
-          output: stdout
+          output: stdout,
         });
       } else {
         resolve({
           success: false,
           output: stdout,
-          error: stderr || `Command exited with code ${code}`
+          error: stderr || `Command exited with code ${code}`,
         });
       }
     });
@@ -609,15 +613,12 @@ function mergeArgsWithOverrides(userArgs, overrides) {
  */
 function validateGitHubUrl(args, options = {}) {
   // Default options for /solve command (backward compatibility)
-  const {
-    allowedTypes = ['issue', 'pull'],
-    commandName = 'solve'
-  } = options;
+  const { allowedTypes = ['issue', 'pull'], commandName = 'solve' } = options;
 
   if (args.length === 0) {
     return {
       valid: false,
-      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`
+      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`,
     };
   }
 
@@ -625,7 +626,7 @@ function validateGitHubUrl(args, options = {}) {
   if (!url.includes('github.com')) {
     return {
       valid: false,
-      error: 'First argument must be a GitHub URL'
+      error: 'First argument must be a GitHub URL',
     };
   }
 
@@ -634,17 +635,29 @@ function validateGitHubUrl(args, options = {}) {
   if (!parsed.valid) {
     return {
       valid: false,
-      error: parsed.error || 'Invalid GitHub URL'
+      error: parsed.error || 'Invalid GitHub URL',
+      suggestion: parsed.suggestion,
     };
   }
 
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
-    const allowedTypesStr = allowedTypes.map(t => t === 'pull' ? 'pull request' : t).join(', ');
-    return {
-      valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`
-    };
+    const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
+    const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+
+    // Provide specific, helpful error messages based on the URL type
+    let error;
+    if (parsed.type === 'issues_list') {
+      error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${baseUrl}/issues/1\``;
+    } else if (parsed.type === 'pulls_list') {
+      error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${baseUrl}/pull/1\``;
+    } else if (parsed.type === 'repo') {
+      error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${url}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${baseUrl}/issues/1\``;
+    } else {
+      error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
+    }
+
+    return { valid: false, error };
   }
 
   return { valid: true };
@@ -659,13 +672,38 @@ function validateGitHubUrl(args, options = {}) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
-function escapeMarkdown(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
+/**
+ * Execute a start-screen command and update the initial message with the result.
+ * Used by both /solve and /hive commands to reduce code duplication.
+ *
+ * @param {Object} ctx - Telegram context
+ * @param {Object} startingMessage - The initial message to update
+ * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
+ * @param {string[]} args - Command arguments
+ * @param {string} infoBlock - Info block with request details
+ */
+async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
+  const result = await executeStartScreen(commandName, args);
+  const { chat, message_id } = startingMessage;
+
+  // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
+  const safeEdit = async text => {
+    try {
+      await ctx.telegram.editMessageText(chat.id, message_id, undefined, text, { parse_mode: 'Markdown' });
+    } catch (e) {
+      console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
+    }
+  };
+
+  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+
+  if (result.success) {
+    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const session = match ? match[1] : 'unknown';
+    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
+  } else {
+    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
   }
-  // Escape underscore and asterisk which are the most common issues in URLs
-  // These can cause "Can't find end of entity" errors when Telegram tries to parse them
-  return text.replace(/_/g, '\\_').replace(/\*/g, '\\*');
 }
 
 /**
@@ -680,7 +718,7 @@ function extractGitHubUrl(text) {
     return { url: null, error: null, linkCount: 0 };
   }
 
-  // Split text into words and check each one
+  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
   const words = text.split(/\s+/);
   const foundUrls = [];
 
@@ -703,12 +741,12 @@ function extractGitHubUrl(text) {
     return {
       url: null,
       error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length
+      linkCount: foundUrls.length,
     };
   }
 }
 
-bot.command('help', async (ctx) => {
+bot.command('help', async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /help command received');
   }
@@ -743,7 +781,7 @@ bot.command('help', async (ctx) => {
   if (solveEnabled) {
     message += '*/solve* - Solve a GitHub issue\n';
     message += 'Usage: `/solve <github-url> [options]`\n';
-    message += 'Example: `/solve https://github.com/owner/repo/issues/123`\n';
+    message += 'Example: `/solve https://github.com/owner/repo/issues/123 --model sonnet`\n';
     message += 'Or reply to a message with a GitHub link: `/solve`\n';
     if (solveOverrides.length > 0) {
       message += `🔒 Locked options: \`${solveOverrides.join(' ')}\`\n`;
@@ -756,7 +794,7 @@ bot.command('help', async (ctx) => {
   if (hiveEnabled) {
     message += '*/hive* - Run hive command\n';
     message += 'Usage: `/hive <github-url> [options]`\n';
-    message += 'Example: `/hive https://github.com/owner/repo --model sonnet`\n';
+    message += 'Example: `/hive https://github.com/owner/repo`\n';
     if (hiveOverrides.length > 0) {
       message += `🔒 Locked options: \`${hiveOverrides.join(' ')}\`\n`;
     }
@@ -765,21 +803,16 @@ bot.command('help', async (ctx) => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
-  message += '*/limits* - Show Claude usage limits\n';
-  message += 'Usage: `/limits`\n';
-  message += 'Shows current session and weekly usage percentages\n\n';
-
+  message += '*/limits* - Show usage limits\n';
+  message += '*/version* - Show bot and runtime versions\n';
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive and /limits commands only work in group chats.\n\n';
-  message += '🔧 *Available Options:*\n';
-  message += '• `--fork` - Fork the repository\n';
-  message += '• `--auto-fork` - Automatically fork public repos without write access\n';
-  message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
-  message += '• `--attach-logs` - Attach logs to PR\n';
-  message += '• `--verbose` - Verbose output\n';
-  message += '• `--model <model>` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
+  message += '🔧 *Common Options:*\n';
+  message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (low/medium/high/max)\n';
-  message += '• `--interactive-mode` - Post Claude output as PR comments in real-time (experimental)\n';
+  message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
+  message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
   if (allowedChats) {
     message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';
@@ -798,7 +831,7 @@ bot.command('help', async (ctx) => {
   await ctx.reply(message, { parse_mode: 'Markdown' });
 });
 
-bot.command('limits', async (ctx) => {
+bot.command('limits', async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /limits command received');
   }
@@ -850,34 +883,51 @@ bot.command('limits', async (ctx) => {
   }
 
   // Send "fetching" message to indicate work is in progress
-  const fetchingMessage = await ctx.reply('🔄 Fetching Claude usage limits...', { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Fetching usage limits...', {
+    reply_to_message_id: ctx.message.message_id,
+  });
 
-  // Get the usage limits using the library function
-  const result = await getClaudeUsageLimits(VERBOSE);
+  // Get all limits using shared cache (3min for API, 2min for system)
+  const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!result.success) {
-    // Edit the fetching message to show the error
-    await ctx.telegram.editMessageText(
-      fetchingMessage.chat.id,
-      fetchingMessage.message_id,
-      undefined,
-      `❌ ${result.error}`
-    );
+  if (!limits.claude.success) {
+    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
+    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
     return;
   }
 
-  // Format and edit the fetching message with the results
-  const message = '📊 *Claude Usage Limits*\n\n' + formatUsageMessage(result.usage);
-  await ctx.telegram.editMessageText(
-    fetchingMessage.chat.id,
-    fetchingMessage.message_id,
-    undefined,
-    message,
-    { parse_mode: 'Markdown' }
-  );
+  // Format the message with usage limits and queue status
+  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  const queueStats = solveQueue.getStats();
+  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
+  const codeBlockEnd = message.lastIndexOf('```');
+  if (codeBlockEnd !== -1) {
+    const queueStatus = queueStats.queued > 0 || queueStats.processing > 0 ? `Pending: ${queueStats.queued}, Processing: ${queueStats.processing}` : 'Empty (no pending commands)';
+    message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
+  }
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
-
-bot.command(/^solve$/i, async (ctx) => {
+bot.command('version', async ctx => {
+  VERBOSE && console.log('[VERBOSE] /version command received');
+  await addBreadcrumb({
+    category: 'telegram.command',
+    message: '/version command received',
+    level: 'info',
+    data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
+  });
+  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  const chatId = ctx.chat.id;
+  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+  const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
+    reply_to_message_id: ctx.message.message_id,
+  });
+  const result = await getVersionInfo(VERBOSE);
+  if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
+  await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
+});
+bot.command(/^solve$/i, async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
   }
@@ -915,9 +965,7 @@ bot.command(/^solve$/i, async (ctx) => {
   // But allow reply messages for URL extraction feature
   const message = ctx.message;
   const isForwarded = message.forward_origin && message.forward_origin.type;
-  const isOldApiForwarded = message.forward_from || message.forward_from_chat ||
-                            message.forward_from_message_id || message.forward_signature ||
-                            message.forward_sender_name || message.forward_date;
+  const isOldApiForwarded = message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date;
 
   if (isForwarded || isOldApiForwarded) {
     if (VERBOSE) {
@@ -951,9 +999,7 @@ bot.command(/^solve$/i, async (ctx) => {
 
   // Check if this is a reply to a message and user didn't provide URL
   // In that case, try to extract GitHub URL from the replied message
-  const isReply = message.reply_to_message &&
-                  message.reply_to_message.message_id &&
-                  !message.reply_to_message.forum_topic_created;
+  const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
   if (isReply && userArgs.length === 0) {
     if (VERBOSE) {
@@ -968,7 +1014,10 @@ bot.command(/^solve$/i, async (ctx) => {
       if (VERBOSE) {
         console.log('[VERBOSE] Multiple GitHub URLs found in replied message');
       }
-      await ctx.reply(`❌ ${extraction.error}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await ctx.reply(`❌ ${extraction.error}`, {
+        parse_mode: 'Markdown',
+        reply_to_message_id: ctx.message.message_id,
+      });
       return;
     } else if (extraction.url) {
       // Single link found
@@ -989,7 +1038,12 @@ bot.command(/^solve$/i, async (ctx) => {
 
   const validation = validateGitHubUrl(userArgs);
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/solve https://github.com/owner/repo/issues/123\`\n\nOr reply to a message containing a GitHub link with \`/solve\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1021,53 +1075,42 @@ bot.command(/^solve$/i, async (ctx) => {
     // Configure yargs to throw errors instead of trying to exit the process
     // This prevents confusing error messages when validation fails but execution continues
     let failureMessage = null;
-    testYargs
-      .exitProcess(false)
-      .fail((msg, err) => {
-        // Capture the failure message instead of letting yargs print it
-        failureMessage = msg || (err && err.message) || 'Unknown validation error';
-        throw new Error(failureMessage);
-      });
+    testYargs.exitProcess(false).fail((msg, err) => {
+      // Capture the failure message instead of letting yargs print it
+      failureMessage = msg || (err && err.message) || 'Unknown validation error';
+      throw new Error(failureMessage);
+    });
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message.message_id,
+    });
     return;
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
-  const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting solve command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
-  if (solveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('solve', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
-  }
-
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) ||
-                            result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
-
-    let response = '✅ Solve command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(args[0])}\nOptions: ${optionsText}`;
+  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
+  const solveQueue = getSolveQueue({ verbose: VERBOSE });
+  const check = await solveQueue.canStartCommand();
+  const queueStats = solveQueue.getStats();
+  if (check.canStart && queueStats.queued === 0) {
+    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
-    let response = '❌ Error executing solve command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    const queueItem = solveQueue.enqueue({ url: args[0], args, ctx, requester, infoBlock, tool: solveTool });
+    let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
+    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
+    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
+    if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
 });
 
-bot.command(/^hive$/i, async (ctx) => {
+bot.command(/^hive$/i, async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /hive command received');
   }
@@ -1135,10 +1178,15 @@ bot.command(/^hive$/i, async (ctx) => {
   const validation = validateGitHubUrl(userArgs, {
     allowedTypes: ['repo', 'organization', 'user'],
     commandName: 'hive',
-    exampleUrl: 'https://github.com/owner/repo'
+    exampleUrl: 'https://github.com/owner/repo',
   });
   if (!validation.valid) {
-    await ctx.reply(`❌ ${validation.error}\n\nExample: \`/hive https://github.com/owner/repo\``, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    let errorMsg = `❌ ${validation.error}`;
+    if (validation.suggestion) {
+      errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
+    }
+    errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
+    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1170,91 +1218,74 @@ bot.command(/^hive$/i, async (ctx) => {
     // Configure yargs to throw errors instead of trying to exit the process
     // This prevents confusing error messages when validation fails but execution continues
     let failureMessage = null;
-    testYargs
-      .exitProcess(false)
-      .fail((msg, err) => {
-        // Capture the failure message instead of letting yargs print it
-        failureMessage = msg || (err && err.message) || 'Unknown validation error';
-        throw new Error(failureMessage);
-      });
+    testYargs.exitProcess(false).fail((msg, err) => {
+      // Capture the failure message instead of letting yargs print it
+      failureMessage = msg || (err && err.message) || 'Unknown validation error';
+      throw new Error(failureMessage);
+    });
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message.message_id,
+    });
     return;
   }
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  // Escape URL to prevent Markdown parsing errors with underscores and asterisks
   const escapedUrl = escapeMarkdown(args[0]);
-  let statusMsg = `🚀 Starting hive command...\nRequested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${args.slice(1).join(' ') || 'none'}`;
+  const optionsText = args.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
   if (hiveOverrides.length > 0) {
-    statusMsg += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
-  }
-  await ctx.reply(statusMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-
-  const result = await executeStartScreen('hive', args);
-
-  if (result.warning) {
-    await ctx.reply(`⚠️  ${result.warning}`, { parse_mode: 'Markdown' });
-    return;
+    infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
   }
 
-  if (result.success) {
-    const sessionNameMatch = result.output.match(/session:\s*(\S+)/i) ||
-                            result.output.match(/screen -r\s+(\S+)/);
-    const sessionName = sessionNameMatch ? sessionNameMatch[1] : 'unknown';
+  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
+});
 
-    let response = '✅ Hive command started successfully!\n\n';
-    response += `📊 *Session:* \`${sessionName}\`\n`;
-
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  } else {
-    let response = '❌ Error executing hive command:\n\n';
-    response += `\`\`\`\n${result.error || result.output}\n\`\`\``;
-    await ctx.reply(response, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
-  }
+// Register /top command from separate module
+// This keeps telegram-bot.mjs under the 1500 line limit
+const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
+registerTopCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
 });
 
 // Add message listener for verbose debugging
-// This helps diagnose if bot is receiving messages at all
 if (VERBOSE) {
   bot.on('message', (ctx, next) => {
-    console.log('[VERBOSE] Message received:');
-    console.log('[VERBOSE]   Chat ID:', ctx.chat?.id);
-    console.log('[VERBOSE]   Chat type:', ctx.chat?.type);
-    console.log('[VERBOSE]   Is forum:', ctx.chat?.is_forum);
-    console.log('[VERBOSE]   Is topic message:', ctx.message?.is_topic_message);
-    console.log('[VERBOSE]   Message thread ID:', ctx.message?.message_thread_id);
-    console.log('[VERBOSE]   Message date:', ctx.message?.date);
-    console.log('[VERBOSE]   Message text:', ctx.message?.text?.substring(0, 100));
-    console.log('[VERBOSE]   From user:', ctx.from?.username || ctx.from?.id);
-    console.log('[VERBOSE]   Bot start time:', BOT_START_TIME);
-    console.log('[VERBOSE]   Is old message:', isOldMessage(ctx));
-
-    // Detailed forwarding/reply detection debug info
     const msg = ctx.message;
-    const isForwarded = isForwardedOrReply(ctx);
-    console.log('[VERBOSE]   Is forwarded/reply:', isForwarded);
+    console.log('[VERBOSE] Message:', {
+      chatId: ctx.chat?.id,
+      chatType: ctx.chat?.type,
+      isForum: ctx.chat?.is_forum,
+      isTopicMsg: msg?.is_topic_message,
+      threadId: msg?.message_thread_id,
+      date: msg?.date,
+      text: msg?.text?.substring(0, 100),
+      user: ctx.from?.username || ctx.from?.id,
+      botStartTime: BOT_START_TIME,
+      isOld: isOldMessage(ctx),
+      isForwarded: isForwardedOrReply(ctx),
+      isAuthorized: isChatAuthorized(ctx.chat?.id),
+    });
     if (msg) {
-      // Log ALL message fields to diagnose what Telegram is actually sending
-      console.log('[VERBOSE]   Full message object keys:', Object.keys(msg));
-      console.log('[VERBOSE]     - forward_origin:', JSON.stringify(msg.forward_origin));
-      console.log('[VERBOSE]     - forward_origin type:', typeof msg.forward_origin);
-      console.log('[VERBOSE]     - forward_origin truthy?:', !!msg.forward_origin);
-      console.log('[VERBOSE]     - forward_origin.type:', msg.forward_origin?.type);
-      console.log('[VERBOSE]     - forward_from:', JSON.stringify(msg.forward_from));
-      console.log('[VERBOSE]     - forward_from_chat:', JSON.stringify(msg.forward_from_chat));
-      console.log('[VERBOSE]     - forward_date:', msg.forward_date);
-      console.log('[VERBOSE]     - reply_to_message:', JSON.stringify(msg.reply_to_message));
-      console.log('[VERBOSE]     - reply_to_message type:', typeof msg.reply_to_message);
-      console.log('[VERBOSE]     - reply_to_message truthy?:', !!msg.reply_to_message);
-      console.log('[VERBOSE]     - reply_to_message.message_id:', msg.reply_to_message?.message_id);
-      console.log('[VERBOSE]     - reply_to_message.forum_topic_created:', JSON.stringify(msg.reply_to_message?.forum_topic_created));
+      console.log('[VERBOSE] Msg fields:', Object.keys(msg));
+      console.log('[VERBOSE] Forward/reply:', {
+        forward_origin: msg.forward_origin,
+        forward_from: msg.forward_from,
+        forward_from_chat: msg.forward_from_chat,
+        forward_date: msg.forward_date,
+        reply_to_message: msg.reply_to_message,
+        reply_id: msg.reply_to_message?.message_id,
+        forum_topic_created: msg.reply_to_message?.forum_topic_created,
+      });
     }
-
-    console.log('[VERBOSE]   Is authorized:', isChatAuthorized(ctx.chat?.id));
-    // Continue to next handler
     return next();
   });
 }
@@ -1263,14 +1294,12 @@ if (VERBOSE) {
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
   console.error('Error:', error);
-
   // Log detailed error information
   console.error('Error details:', {
     name: error.name,
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
-
   // Log context information for debugging
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {
@@ -1296,43 +1325,49 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    // Build a more informative error message
-    let errorMessage = '❌ An error occurred while processing your request.\n\n';
+    // Detect if this is a Telegram API parsing error
+    const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
 
-    // Add error type/name if available
-    if (error.name && error.name !== 'Error') {
-      errorMessage += `**Error type:** ${error.name}\n`;
+    let errorMessage;
+
+    if (isTelegramParsingError) {
+      // Special handling for Telegram API parsing errors caused by unescaped special characters
+      errorMessage = `❌ A message formatting error occurred.\n\n💡 This usually means there was a problem with special characters in the response.\nPlease try your command again with a different URL or contact support.`;
+      // Show the user's input with special characters visible (if available)
+      if (ctx.message?.text) {
+        const cleanedInput = cleanNonPrintableChars(ctx.message.text);
+        const visibleInput = makeSpecialCharsVisible(cleanedInput, { maxLength: 150 });
+        if (visibleInput !== cleanedInput) errorMessage += `\n\n📝 Your input (with special chars visible):\n\`${escapeMarkdown(visibleInput)}\``;
+      }
+      if (VERBOSE) {
+        const escapedError = escapeMarkdown(error.message || 'Unknown error');
+        errorMessage += `\n\n🔍 Debug info: ${escapedError}\nUpdate ID: ${ctx.update.update_id}`;
+      }
+    } else {
+      // Build informative error message for other errors
+      errorMessage = '❌ An error occurred while processing your request.\n\n';
+      if (error.message) {
+        // Filter out sensitive info and escape markdown
+        const sanitizedMessage = escapeMarkdown(
+          error.message
+            .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
+            .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
+            .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]')
+        );
+        errorMessage += `Details: ${sanitizedMessage}\n`;
+      }
+      errorMessage += '\n💡 Troubleshooting:\n• Try running the command again\n• Check if all required parameters are correct\n• Use /help to see command examples\n• If the issue persists, contact support with the error details above';
+      if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
-    // Add sanitized error message (avoid leaking sensitive info)
-    if (error.message) {
-      // Filter out potentially sensitive information
-      const sanitizedMessage = error.message
-        .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-        .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-        .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
-
-      errorMessage += `**Details:** ${sanitizedMessage}\n`;
-    }
-
-    errorMessage += '\n💡 **Troubleshooting:**\n';
-    errorMessage += '• Try running the command again\n';
-    errorMessage += '• Check if all required parameters are correct\n';
-    errorMessage += '• If the issue persists, contact support with the error details above\n';
-
-    if (VERBOSE) {
-      errorMessage += `\n🔍 **Debug info:** Update ID: ${ctx.update.update_id}`;
-    }
-
-    ctx.reply(errorMessage, { parse_mode: 'Markdown' })
-      .catch(replyError => {
-        console.error('Failed to send error message to user:', replyError);
-        // Try sending a simple text message without Markdown if Markdown parsing failed
-        ctx.reply('❌ An error occurred while processing your request. Please try again or contact support.')
-          .catch(fallbackError => {
-            console.error('Failed to send fallback error message:', fallbackError);
-          });
+    ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
+      console.error('Failed to send error message to user:', replyError);
+      // Try sending a simple text message without Markdown if Markdown parsing failed
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+      ctx.reply(plainMessage).catch(fallbackError => {
+        console.error('Failed to send fallback error message:', fallbackError);
       });
+    });
   }
 });
 
@@ -1346,31 +1381,20 @@ if (allowedChats && allowedChats.length > 0) {
 } else {
   console.log('Allowed chats: All (no restrictions)');
 }
-console.log('Commands enabled:', {
-  solve: solveEnabled,
-  hive: hiveEnabled
-});
-if (solveOverrides.length > 0) {
-  console.log('Solve overrides (lino):', lino.format(solveOverrides));
-}
-if (hiveOverrides.length > 0) {
-  console.log('Hive overrides (lino):', lino.format(hiveOverrides));
-}
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
+if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
+if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {
   console.log('[VERBOSE] Verbose logging enabled');
   console.log('[VERBOSE] Bot start time (Unix):', BOT_START_TIME);
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
 
-// Delete any existing webhook before starting polling
-// This is critical because a webhook prevents polling from working
-// If the bot was previously configured with a webhook (or if one exists),
-// we must delete it to allow polling mode to receive messages
-if (VERBOSE) {
-  console.log('[VERBOSE] Deleting webhook...');
-}
-bot.telegram.deleteWebhook({ drop_pending_updates: true })
-  .then((result) => {
+// Delete existing webhook (critical: webhooks prevent polling from working)
+if (VERBOSE) console.log('[VERBOSE] Deleting webhook...');
+bot.telegram
+  .deleteWebhook({ drop_pending_updates: true })
+  .then(result => {
     if (VERBOSE) {
       console.log('[VERBOSE] Webhook deletion result:', result);
     }
@@ -1378,23 +1402,16 @@ bot.telegram.deleteWebhook({ drop_pending_updates: true })
     if (VERBOSE) {
       console.log('[VERBOSE] Launching bot with config:', {
         allowedUpdates: ['message'],
-        dropPendingUpdates: true
+        dropPendingUpdates: true,
       });
     }
     return bot.launch({
-      // Only receive message updates (commands, text messages)
-      // This ensures the bot receives all message types including commands
-      allowedUpdates: ['message'],
-      // Drop any pending updates that were sent before the bot started
-      // This ensures we only process new messages sent after this bot instance started
-      dropPendingUpdates: true
+      allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+      dropPendingUpdates: true, // Drop pending updates sent before bot started
     });
   })
   .then(async () => {
-    // Check if shutdown was initiated before printing success messages
-    if (isShuttingDown) {
-      return; // Skip success messages if shutting down
-    }
+    if (isShuttingDown) return; // Skip success messages if shutting down
 
     console.log('✅ SwarmMindBot is now running!');
     console.log('Press Ctrl+C to stop');
@@ -1435,12 +1452,12 @@ bot.telegram.deleteWebhook({ drop_pending_updates: true })
       console.log('[VERBOSE] Send a message to the bot to test message reception');
     }
   })
-  .catch((error) => {
+  .catch(error => {
     console.error('❌ Failed to start bot:', error);
     console.error('Error details:', {
       message: error.message,
       code: error.code,
-      stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
     });
     if (VERBOSE) {
       console.error('[VERBOSE] Full error:', error);

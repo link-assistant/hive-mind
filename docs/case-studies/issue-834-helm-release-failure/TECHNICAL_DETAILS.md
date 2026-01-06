@@ -47,6 +47,7 @@ lookup_latest_tag() {
 ```
 
 **Behavior:**
+
 - Fetches tags from remote
 - Attempts to describe the latest tag on HEAD~
 - Falls back to first commit hash if no tags exist
@@ -61,7 +62,7 @@ Our workflow configuration:
   uses: helm/chart-releaser-action@v1.6.0
   with:
     charts_dir: helm
-    skip_packaging: true    # <-- TRIGGERS THE BUG
+    skip_packaging: true # <-- TRIGGERS THE BUG
     skip_existing: true
 ```
 
@@ -99,6 +100,7 @@ fi
 ```
 
 **Key improvements:**
+
 1. Uses `${latest_tag:-}` which expands to empty string if undefined (safe with set -u)
 2. Only writes chart_version.txt if latest_tag has a value
 3. Recognizes that chart_version isn't meaningful when packaging is skipped
@@ -142,6 +144,7 @@ fi
 ```
 
 **Pros:**
+
 - Only outputs when meaningful
 - Safe with undefined variables
 - Logically correct (no chart_version when we didn't look it up)
@@ -153,6 +156,7 @@ fi
 The `set -o nounset` option changes bash's default behavior:
 
 ### Default Bash Behavior
+
 ```bash
 # Without set -u
 unset myvar
@@ -161,6 +165,7 @@ exit_code=$?          # 0 (success)
 ```
 
 ### With set -u
+
 ```bash
 set -o nounset
 unset myvar
@@ -204,12 +209,14 @@ echo "${myvar:+value}"      # "value" if set, empty if unset
 **Perceived Impact:** Complete workflow failure
 
 **Actual Impact:**
+
 - Chart was successfully packaged
 - Index was updated and pushed
 - Only metadata file creation failed
 - Subsequent steps didn't run due to step failure
 
 **Critical Missing:**
+
 - GitHub Pages deployment step was skipped
 - This means the index.yaml wasn't published via GitHub Pages action
 - Chart might be in gh-pages branch but not served via GitHub Pages
@@ -283,6 +290,7 @@ jobs:
 ## Lessons for Action Developers
 
 1. **Always initialize variables used across scopes**
+
    ```bash
    # Good
    my_var=""
@@ -299,6 +307,7 @@ jobs:
    ```
 
 2. **Use parameter expansion for safety**
+
    ```bash
    # Safe with set -u
    if [[ -n "${var:-}" ]]; then
@@ -327,11 +336,11 @@ jobs:
 
 ## Version Comparison
 
-| Version | skip_packaging=true | skip_packaging=false | Notes |
-|---------|-------------------|---------------------|--------|
-| v1.5.0  | ✅ Works | ✅ Works | Before the bug |
-| v1.6.0  | ❌ Fails | ✅ Works | Bug introduced in PR #130 |
-| v1.7.0  | ✅ Works | ✅ Works | Fixed in PR #202 |
+| Version | skip_packaging=true | skip_packaging=false | Notes                     |
+| ------- | ------------------- | -------------------- | ------------------------- |
+| v1.5.0  | ✅ Works            | ✅ Works             | Before the bug            |
+| v1.6.0  | ❌ Fails            | ✅ Works             | Bug introduced in PR #130 |
+| v1.7.0  | ✅ Works            | ✅ Works             | Fixed in PR #202          |
 
 ## References
 

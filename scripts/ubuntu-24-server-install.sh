@@ -168,11 +168,66 @@ apt_cleanup() {
   log_success "Cleanup completed"
 }
 
+# --- Function: cleanup duplicate APT sources ---
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  # - microsoft-edge-stable.list: Created by Playwright's install msedge
+  # - microsoft-edge.list: Created by some manual installation tutorials
+  # Both point to https://packages.microsoft.com/repos/edge stable main
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  # - google-chrome.list: Created by Chrome's official installer
+  # - google-chrome-stable.list: Created by some package managers
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  # VS Code / Microsoft products can also have duplicates
+  # - vscode.list: Created by some installers
+  # - microsoft-prod.list: Created by Microsoft's official method
+  # Note: These might contain different products, so we only remove if both exist
+  # and contain the same repo URL
+  if [ -f /etc/apt/sources.list.d/vscode.list ] && \
+     [ -f /etc/apt/sources.list.d/packages-microsoft-prod.list ]; then
+    # Check if vscode.list contains the same repo as packages-microsoft-prod.list
+    if grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/vscode.list 2>/dev/null && \
+       grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/packages-microsoft-prod.list 2>/dev/null; then
+      log_info "Found duplicate VS Code APT sources"
+      log_note "Removing /etc/apt/sources.list.d/vscode.list (keeping packages-microsoft-prod.list)"
+      maybe_sudo rm -f /etc/apt/sources.list.d/vscode.list
+      duplicates_found=true
+    fi
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
+  fi
+}
+
 # --- Function: create swap file ---
 create_swap_file() {
-  log_info "Setting up 2GB total swap space..."
+  log_info "Setting up 4GB total swap space..."
 
-  local target_total_mb=2048  # 2GB target
+  local target_total_mb=4096  # 4GB target
   local current_total_mb=0
 
   # Function to get file size in MB
@@ -295,11 +350,21 @@ create_swap_file() {
 
 # --- Ensure prerequisites ---
 log_step "Installing system prerequisites"
+
+# Clean up duplicate APT sources before updating (fixes warnings on upgrade installs)
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 apt_update_safe
 
 log_info "Installing essential development tools..."
-maybe_sudo apt install -y wget curl unzip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect
+maybe_sudo apt install -y wget curl unzip zip git sudo ca-certificates gnupg dotnet-sdk-8.0 build-essential expect screen
 log_success "Essential tools installed"
+
+# --- Install C/C++ Development Tools ---
+log_info "Installing C/C++ development tools (CMake, Clang/LLVM)..."
+sudo apt install -y cmake clang llvm lld
+log_success "C/C++ development tools installed"
 
 # --- Install Python build dependencies (required for pyenv) ---
 log_info "Installing Python build dependencies..."
@@ -445,6 +510,39 @@ maybe_sudo() {
   fi
 }
 
+# Function: cleanup duplicate APT sources (inside hive user script)
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
+  fi
+}
+
 log_step "Installing development tools as hive user"
 
 # --- GitHub CLI Authentication Note ---
@@ -463,6 +561,29 @@ if ! command -v bun &>/dev/null; then
   log_success "Bun installed"
 else
   log_info "Bun already installed."
+fi
+
+# --- Deno ---
+if ! command -v deno &>/dev/null; then
+  log_info "Installing Deno..."
+  # Use -y flag to skip interactive prompts (fixes "cannot open /dev/tty" error
+  # when running in non-interactive contexts like su/sudo or CI pipelines)
+  curl -fsSL https://deno.land/install.sh | sh -s -- -y
+  export DENO_INSTALL="$HOME/.deno"
+  export PATH="$DENO_INSTALL/bin:$PATH"
+  # Add Deno to shell profile for persistence
+  if ! grep -q 'DENO_INSTALL' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Deno to shell configuration..."
+    {
+      echo ''
+      echo '# Deno configuration'
+      echo 'export DENO_INSTALL="$HOME/.deno"'
+      echo 'export PATH="$DENO_INSTALL/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "Deno installed"
+else
+  log_info "Deno already installed."
 fi
 
 # --- NVM + Node ---
@@ -529,6 +650,85 @@ else
   log_warning "Pyenv installation may have failed. Skipping Python setup."
 fi
 
+# --- Golang ---
+if [ ! -d "$HOME/.go" ] && [ ! -d "/usr/local/go" ]; then
+  log_info "Installing Golang..."
+
+  # Detect architecture
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64) GO_ARCH="amd64" ;;
+    aarch64) GO_ARCH="arm64" ;;
+    armv7l) GO_ARCH="armv6l" ;;
+    *)
+      log_warning "Unsupported architecture: $ARCH. Skipping Go installation."
+      GO_ARCH=""
+      ;;
+  esac
+
+  if [ -n "$GO_ARCH" ]; then
+    # Get latest stable Go version from golang.org
+    log_info "Fetching latest Go version..."
+    GO_VERSION=$(curl -sL 'https://go.dev/VERSION?m=text' | head -n1)
+
+    if [ -n "$GO_VERSION" ]; then
+      GO_TARBALL="${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      GO_URL="https://go.dev/dl/${GO_TARBALL}"
+
+      log_info "Downloading Go $GO_VERSION for $GO_ARCH..."
+      TEMP_DIR=$(mktemp -d)
+      curl -sL "$GO_URL" -o "$TEMP_DIR/$GO_TARBALL"
+
+      # Install to user's home directory
+      log_info "Installing Go to $HOME/.go..."
+      mkdir -p "$HOME/.go"
+      tar -xzf "$TEMP_DIR/$GO_TARBALL" -C "$HOME/.go" --strip-components=1
+      rm -rf "$TEMP_DIR"
+
+      # Add Go to shell profile for persistence
+      # Note: GOPATH is set to $HOME/.go/path to keep everything under the hidden .go directory
+      # This keeps the user's home directory clean (issue #1004)
+      if ! grep -q 'GOROOT.*\.go' "$HOME/.bashrc" 2>/dev/null; then
+        log_info "Adding Go to shell configuration..."
+        {
+          echo ''
+          echo '# Go configuration'
+          echo 'export GOROOT="$HOME/.go"'
+          echo 'export GOPATH="$HOME/.go/path"'
+          echo 'export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"'
+        } >> "$HOME/.bashrc"
+      fi
+
+      # Load Go for current session
+      export GOROOT="$HOME/.go"
+      export GOPATH="$HOME/.go/path"
+      export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+
+      # Create GOPATH directory
+      mkdir -p "$GOPATH"
+
+      if command -v go &>/dev/null; then
+        log_success "Golang installed: $(go version)"
+      else
+        log_error "Go installation failed - binary not found in PATH"
+        exit 1
+      fi
+    else
+      log_warning "Could not determine latest Go version. Skipping Go installation."
+    fi
+  fi
+else
+  log_info "Golang already installed."
+  # Ensure Go is in PATH for current session
+  if [ -d "$HOME/.go/bin" ]; then
+    export GOROOT="$HOME/.go"
+    export GOPATH="$HOME/.go/path"
+    export PATH="$GOROOT/bin:$GOPATH/bin:$PATH"
+  elif [ -d "/usr/local/go/bin" ]; then
+    export PATH="/usr/local/go/bin:$PATH"
+  fi
+fi
+
 # --- Rust ---
 if [ ! -d "$HOME/.cargo" ]; then
   log_info "Installing Rust..."
@@ -541,6 +741,210 @@ if [ ! -d "$HOME/.cargo" ]; then
   fi
 else
   log_info "Rust already installed."
+fi
+
+# --- Java (SDKMAN + OpenJDK) ---
+if [ ! -d "$HOME/.sdkman" ]; then
+  log_info "Installing SDKMAN (Java version manager)..."
+  # Use ci=true for non-interactive installation (auto-answers prompts,
+  # disables color output for cleaner logs, prevents auto-updates)
+  curl -s "https://get.sdkman.io?rcupdate=false&ci=true" | bash
+  # Add SDKMAN to shell profile for persistence
+  if ! grep -q 'sdkman-init.sh' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding SDKMAN to shell configuration..."
+    {
+      echo ''
+      echo '# SDKMAN configuration'
+      echo 'export SDKMAN_DIR="$HOME/.sdkman"'
+      echo '[[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    } >> "$HOME/.bashrc"
+  fi
+  log_success "SDKMAN installed and configured"
+else
+  log_info "SDKMAN already installed."
+fi
+
+# Load SDKMAN for current session and install Java
+export SDKMAN_DIR="$HOME/.sdkman"
+if [ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]; then
+  # Temporarily disable unbound variable check for SDKMAN init
+  # SDKMAN's init script has variables that may not be set initially
+  set +u
+  source "$SDKMAN_DIR/bin/sdkman-init.sh"
+  set -u
+  log_success "SDKMAN loaded for current session"
+
+  # Install latest LTS Java version (Java 21)
+  log_info "Installing Java 21 LTS (OpenJDK via Eclipse Temurin)..."
+  # Temporarily disable unbound variable check for SDK commands
+  # SDKMAN's scripts check variables that may not be set in non-interactive contexts
+  set +u
+  if ! sdk list java 2>/dev/null | grep -q "21.*tem.*installed"; then
+    # Install Eclipse Temurin (recommended OpenJDK distribution)
+    sdk install java 21-tem < /dev/null || {
+      log_warning "Eclipse Temurin installation failed, trying default OpenJDK..."
+      sdk install java 21-open < /dev/null || {
+        log_warning "Java installation failed. You can install manually with: sdk install java"
+      }
+    }
+  else
+    log_info "Java 21 (Temurin) already installed."
+  fi
+  set -u
+
+  # Verify Java installation
+  if command -v java &>/dev/null; then
+    log_success "Java version manager setup complete"
+    java -version 2>&1 | head -n1
+  else
+    log_warning "Java installation may have failed. You can install manually with: sdk install java"
+  fi
+else
+  log_warning "SDKMAN installation may have failed. Skipping Java setup."
+fi
+
+# --- Lean (via elan) ---
+if [ ! -d "$HOME/.elan" ]; then
+  log_info "Installing Lean (via elan)..."
+  curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+    log_success "Lean installed successfully"
+  else
+    log_warning "Lean installation may have failed or been cancelled. Skipping Lean environment setup."
+  fi
+  # Add elan to shell profile for persistence
+  if ! grep -q 'elan' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding elan to shell configuration..."
+    {
+      echo ''
+      echo '# Lean (elan) configuration'
+      echo 'export PATH="$HOME/.elan/bin:$PATH"'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_info "Lean (elan) already installed."
+  # Ensure elan is loaded for current session
+  if [ -f "$HOME/.elan/env" ]; then
+    \. "$HOME/.elan/env"
+  fi
+fi
+
+# --- Opam + Rocq (Coq theorem prover) ---
+if ! command -v opam &>/dev/null; then
+  log_info "Installing Opam (OCaml package manager)..."
+  # Install opam dependencies
+  sudo apt install -y bubblewrap || {
+    log_warning "Failed to install bubblewrap (opam sandboxing dependency)"
+  }
+
+  # Install opam via official script
+  bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh) --no-backup" <<< "y" || {
+    log_warning "Opam installation via script failed. Trying apt..."
+    sudo apt install -y opam || {
+      log_warning "Opam installation failed."
+    }
+  }
+
+  if command -v opam &>/dev/null; then
+    log_success "Opam installed successfully"
+  fi
+else
+  log_info "Opam already installed."
+fi
+
+# Initialize opam and install Rocq
+if command -v opam &>/dev/null; then
+  if [ ! -d "$HOME/.opam" ]; then
+    log_info "Initializing Opam..."
+    # Use --disable-sandboxing for Docker/container compatibility
+    opam init --disable-sandboxing --auto-setup -y || {
+      log_warning "Opam init failed."
+    }
+    log_success "Opam initialized"
+  else
+    log_info "Opam already initialized."
+  fi
+
+  # Source opam environment
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Install Rocq (the proof assistant formerly known as Coq)
+  # Reference: https://rocq-prover.org/docs/using-opam
+  # Note: We check for binary accessibility, not just package installation,
+  # because the package might be listed but binaries may not be available
+
+  # First, ensure opam environment is fully loaded
+  eval "$(opam env --switch=default 2>/dev/null)" || true
+
+  # Check if Rocq binaries are actually accessible (not just if package is installed)
+  ROCQ_ACCESSIBLE=false
+  if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v rocqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  elif command -v coqc &>/dev/null; then
+    ROCQ_ACCESSIBLE=true
+  fi
+
+  if [ "$ROCQ_ACCESSIBLE" = false ]; then
+    log_info "Installing Rocq Prover (this may take several minutes)..."
+    log_note "Rocq is the new name for the Coq theorem prover"
+    log_note "Reference: https://rocq-prover.org/docs/using-opam"
+
+    # Add Rocq package repository
+    opam repo add rocq-released https://rocq-prover.org/opam/released 2>/dev/null || true
+
+    # Update opam to get latest package info
+    opam update 2>/dev/null || true
+
+    # Install Rocq prover using pin (recommended by official docs)
+    # This ensures all dependencies including rocq-runtime are properly installed
+    if opam pin add rocq-prover --yes 2>/dev/null; then
+      log_success "Rocq Prover pinned and installed"
+    elif opam install rocq-prover -y 2>/dev/null; then
+      log_success "Rocq Prover installed via opam install"
+    else
+      log_warning "Rocq installation failed. Trying to install Coq as fallback..."
+      opam install coq -y || {
+        log_warning "Coq installation also failed."
+      }
+    fi
+
+    # Re-source opam environment after installation
+    eval "$(opam env --switch=default 2>/dev/null)" || true
+
+    # Verify installation was successful by checking binary accessibility
+    if command -v rocq &>/dev/null && rocq -v &>/dev/null; then
+      ROCQ_VERSION=$(rocq -v 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v rocqc &>/dev/null; then
+      ROCQ_VERSION=$(rocqc --version 2>&1 | head -n1)
+      log_success "Rocq verified: $ROCQ_VERSION"
+    elif command -v coqc &>/dev/null; then
+      COQ_VERSION=$(coqc --version 2>&1 | head -n1)
+      log_success "Coq verified (fallback): $COQ_VERSION"
+    elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+      log_warning "Rocq package installed but binaries not in PATH"
+      log_note "This may indicate a partial installation. Try: eval \$(opam env)"
+    else
+      log_warning "Rocq/Coq installation could not be verified"
+    fi
+  else
+    log_info "Rocq Prover already installed and accessible."
+  fi
+
+  # Add opam environment to shell profile for persistence
+  if ! grep -q 'opam env' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Opam environment to shell configuration..."
+    {
+      echo ''
+      echo '# Opam (OCaml/Rocq) configuration'
+      echo 'test -r $HOME/.opam/opam-init/init.sh && . $HOME/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true'
+    } >> "$HOME/.bashrc"
+  fi
+else
+  log_warning "Opam not available. Skipping Rocq installation."
 fi
 
 # --- Homebrew ---
@@ -635,10 +1039,70 @@ if command -v brew &>/dev/null; then
 
     # Install PHP 8.3 if tap was successfully added
     if brew tap | grep -q "shivammathur/php"; then
+      # Pre-fetch PHP bottle and dependencies to cache them
+      # This helps diagnose download issues and can improve future installs
+      # Reference: https://docs.brew.sh/Manpage#fetch-options-formulacask-
+      log_info "Pre-fetching PHP 8.3 bottles (verbose mode for diagnostics)..."
+      log_note "This step downloads bottles to cache before installation"
+      log_note "If downloads are slow, check: https://github.com/Homebrew/brew/issues/19208"
+
+      # Configure Homebrew for optimal diagnostics and network resilience
+      # Reference: https://docs.brew.sh/Manpage (Environment section)
+      #
+      # Diagnostics:
+      # - HOMEBREW_VERBOSE: Detailed output during operations
+      # - HOMEBREW_DISPLAY_INSTALL_TIMES: Show timing for each install step
+      # - HOMEBREW_CURL_VERBOSE: Verbose curl output for download debugging
+      #
+      # Performance & Resilience:
+      # - HOMEBREW_NO_ANALYTICS: Reduce network overhead
+      # - HOMEBREW_NO_AUTO_UPDATE: Prevent update checks during install
+      # - HOMEBREW_CURL_RETRIES: Number of curl retries (default 3)
+      export HOMEBREW_VERBOSE=1
+      export HOMEBREW_DISPLAY_INSTALL_TIMES=1
+      export HOMEBREW_CURL_VERBOSE=1
+      export HOMEBREW_NO_ANALYTICS=1
+      export HOMEBREW_NO_AUTO_UPDATE=1
+      export HOMEBREW_CURL_RETRIES=5
+
+      log_info "Homebrew diagnostics enabled:"
+      log_note "  HOMEBREW_VERBOSE=1 (detailed output)"
+      log_note "  HOMEBREW_DISPLAY_INSTALL_TIMES=1 (timing info)"
+      log_note "  HOMEBREW_CURL_VERBOSE=1 (curl debugging)"
+      log_note "  HOMEBREW_CURL_RETRIES=5 (retry count)"
+      log_note "  HOMEBREW_NO_AUTO_UPDATE=1 (skip update checks)"
+
+      # Fetch bottles first - this downloads to cache without installing
+      # Using --retry to handle transient network issues (up to 5 retries with backoff)
+      # Using --deps to also fetch all dependencies
+      log_info "Fetching PHP 8.3 and all dependencies..."
+      FETCH_START=$(date +%s)
+      if brew fetch --deps --retry shivammathur/php/php@8.3 2>&1; then
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_success "Bottles fetched successfully in ${FETCH_DURATION} seconds"
+        log_note "Bottles are now cached at: $(brew --cache)"
+      else
+        FETCH_END=$(date +%s)
+        FETCH_DURATION=$((FETCH_END - FETCH_START))
+        log_warning "Bottle fetch failed or timed out after ${FETCH_DURATION} seconds"
+        log_note "Will attempt installation anyway (may use source compile as fallback)"
+      fi
+
       log_info "Installing PHP 8.3 (this may take several minutes)..."
-      brew install shivammathur/php/php@8.3 || {
-        log_warning "PHP 8.3 installation failed."
+      INSTALL_START=$(date +%s)
+      brew install --verbose shivammathur/php/php@8.3 || {
+        INSTALL_END=$(date +%s)
+        INSTALL_DURATION=$((INSTALL_END - INSTALL_START))
+        log_warning "PHP 8.3 installation failed after ${INSTALL_DURATION} seconds."
       }
+
+      # Unset diagnostic environment variables after PHP installation
+      unset HOMEBREW_VERBOSE
+      unset HOMEBREW_DISPLAY_INSTALL_TIMES
+      unset HOMEBREW_CURL_VERBOSE
+      unset HOMEBREW_NO_AUTO_UPDATE
+      unset HOMEBREW_CURL_RETRIES
 
       # Link PHP 8.3 as the active version if installation succeeded
       # Check for php@8.3 in brew list (formula name, not tap prefix)
@@ -750,6 +1214,110 @@ else
   log_warning "Homebrew not available. Skipping PHP installation."
 fi
 
+# --- Perl (via Perlbrew) ---
+# Note: PERLBREW_ROOT is set to $HOME/.perl5 to keep the home directory clean (issue #1004)
+if [ ! -d "$HOME/.perl5" ]; then
+  log_info "Installing Perlbrew (Perl version manager)..."
+
+  # Set PERLBREW_ROOT before installation to use hidden directory
+  export PERLBREW_ROOT="$HOME/.perl5"
+
+  # Install Perlbrew (it will use PERLBREW_ROOT if set)
+  curl -L https://install.perlbrew.pl | bash
+
+  # Add Perlbrew to shell profile for persistence
+  if ! grep -q 'perlbrew' "$HOME/.bashrc" 2>/dev/null; then
+    log_info "Adding Perlbrew to shell configuration..."
+    {
+      echo ''
+      echo '# Perlbrew configuration'
+      echo '# Only load perlbrew in interactive shells to avoid unbound variable errors'
+      echo 'if [ -n "$PS1" ]; then'
+      echo '  export PERLBREW_ROOT="$HOME/.perl5"'
+      echo '  [ -f "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"'
+      echo 'fi'
+    } >> "$HOME/.bashrc"
+  fi
+
+  # Load Perlbrew for current session (already set above)
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Patch all unprotected positional parameters and variables that cause unbound variable errors
+    # See: https://github.com/gugod/App-perlbrew/pull/850
+    log_info "Patching perlbrew bashrc for set -u compatibility..."
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    # Also fix $outsep in __perlbrew_purify function
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
+    # Temporarily disable unset variable check to avoid perlbrew bashrc errors
+    set +u
+    source "$PERLBREW_ROOT/etc/bashrc"
+    set -u
+    log_success "Perlbrew installed and configured"
+
+    # Install latest stable Perl version
+    log_info "Installing latest stable Perl version (this may take several minutes)..."
+
+    # Fetch available Perl versions and extract the first stable version
+    # Use grep -oE to robustly extract version strings regardless of line formatting
+    # Filter for stable releases only (even minor version numbers: 5.32.x, 5.34.x, etc.)
+    PERLBREW_OUTPUT=$(perlbrew available 2>&1 || true)
+    if [ -z "$PERLBREW_OUTPUT" ]; then
+      log_warning "perlbrew available returned empty output"
+    fi
+
+    # Extract version using -oE to handle any line formatting (spaces, markers, etc.)
+    LATEST_PERL=$(echo "$PERLBREW_OUTPUT" | grep -oE 'perl-5\.[0-9]+\.[0-9]+' | head -1 || true)
+
+    if [ -n "$LATEST_PERL" ]; then
+      log_info "Installing $LATEST_PERL..."
+      if ! perlbrew list | grep -q "$LATEST_PERL"; then
+        perlbrew install "$LATEST_PERL" --notest || {
+          log_warning "Perl installation failed. You can try manually: perlbrew install $LATEST_PERL"
+        }
+      else
+        log_info "$LATEST_PERL already installed."
+      fi
+
+      # Switch to the installed Perl version
+      if perlbrew list | grep -q "$LATEST_PERL"; then
+        log_info "Switching to $LATEST_PERL..."
+        perlbrew switch "$LATEST_PERL"
+        log_success "Perl version manager setup complete"
+        perl --version | head -n 2
+      fi
+    else
+      log_warning "Could not determine latest Perl version. Skipping Perl installation."
+      log_note "You can install Perl manually: perlbrew available && perlbrew install perl-5.x.x"
+      # Show first few lines of perlbrew output for debugging
+      if [ -n "$PERLBREW_OUTPUT" ]; then
+        log_note "perlbrew available output (first 5 lines):"
+        echo "$PERLBREW_OUTPUT" | head -5
+      fi
+    fi
+  else
+    log_warning "Perlbrew installation may have failed. Skipping Perl setup."
+  fi
+else
+  log_info "Perlbrew already installed."
+  # Load Perlbrew for current session if available
+  export PERLBREW_ROOT="$HOME/.perl5"
+  if [ -f "$PERLBREW_ROOT/etc/bashrc" ]; then
+    # Fix perlbrew bashrc for set -u compatibility (issue #989)
+    # Apply patch even for existing installations to ensure consistency
+    sed -i 's/\$1/${1:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$PERLBREW_LIB/${PERLBREW_LIB:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    sed -i 's/\$outsep/${outsep:-}/g' "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
+    # Temporarily disable unset variable check to avoid perlbrew bashrc errors
+    set +u
+    source "$PERLBREW_ROOT/etc/bashrc"
+    set -u
+    log_success "Perlbrew loaded for current session"
+  fi
+fi
+
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -772,6 +1340,11 @@ npm install -g npm@latest --no-fund --silent
 log_success "npm updated to latest version"
 
 # --- Install Playwright OS dependencies first (as root via absolute npx path) ---
+# Clean up duplicate APT sources before Playwright install-deps runs apt
+# This prevents duplicate warnings like "Target Packages configured multiple times"
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 log_info "Installing Playwright OS dependencies (requires sudo, may take a few minutes)..."
 NPX_PATH="$(command -v npx || true)"
 if [ -z "$NPX_PATH" ]; then
@@ -793,7 +1366,23 @@ fi
 
 # --- Global bun packages ---
 log_info "Installing global bun packages (this may take a few minutes)..."
-bun install -g @deep-assistant/hive-mind @deep-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent
+# Try to install packages individually, continuing on failure for unpublished packages
+PACKAGES="@link-assistant/hive-mind @link-assistant/claude-profiles @anthropic-ai/claude-code @openai/codex @qwen-code/qwen-code @google/gemini-cli @github/copilot opencode-ai @link-assistant/agent start-command gh-setup-git-identity gh-pull-all gh-load-issue gh-load-pull-request gh-upload-log"
+FAILED_PACKAGES=""
+
+for pkg in $PACKAGES; do
+  if bun install -g "$pkg" 2>&1 | tee /tmp/bun-install-$$.log | grep -q "error:"; then
+    log_note "Package $pkg not available (may not be published yet) - continuing..."
+    FAILED_PACKAGES="$FAILED_PACKAGES $pkg"
+  fi
+done
+
+if [ -n "$FAILED_PACKAGES" ]; then
+  log_note "Some packages could not be installed:$FAILED_PACKAGES"
+  log_note "This is expected if packages haven't been published to NPM yet."
+else
+  log_success "All global packages installed successfully"
+fi
 
 # Check for blocked postinstall scripts
 log_info "Checking for blocked postinstall scripts..."
@@ -807,30 +1396,140 @@ else
 fi
 
 # --- Install Playwright MCP ---
-log_info "Installing Playwright MCP server..."
-if npm list -g @playwright/mcp &>/dev/null; then
-  log_info "Playwright MCP already installed, updating..."
-  npm update -g @playwright/mcp --no-fund --silent
-else
-  log_info "Installing Playwright MCP package..."
-  npm install -g @playwright/mcp --no-fund --silent
-fi
-log_success "Playwright MCP installed"
+# Always install/update to the latest version to get the newest features and bug fixes
+log_info "Installing Playwright MCP server (latest version)..."
+# Force reinstall to ensure latest version is used
+npm install -g @playwright/mcp@latest --no-fund --silent 2>&1 || {
+  log_warning "npm install -g @playwright/mcp@latest failed, trying update..."
+  npm update -g @playwright/mcp --no-fund --silent 2>&1 || true
+}
 
-# --- Now install Playwright browsers (after deps to avoid warnings) ---
-log_info "Installing Playwright browsers (chromium, firefox, webkit)..."
+# Verify installation
+if npm list -g @playwright/mcp &>/dev/null; then
+  PLAYWRIGHT_MCP_VERSION=$(npm list -g @playwright/mcp --depth=0 2>/dev/null | grep "@playwright/mcp" | sed 's/.*@//' || echo "unknown")
+  log_success "Playwright MCP installed: v${PLAYWRIGHT_MCP_VERSION}"
+else
+  log_warning "Playwright MCP installation could not be verified"
+fi
+
+# --- Install Playwright CLI and all browsers ---
+# Install all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
+# Reference: npx @playwright/mcp@latest --help shows --browser option supports these
+log_info "Installing Playwright browsers (all supported by Playwright MCP)..."
+log_note "Installing: chromium, chrome, firefox, webkit, msedge"
 log_note "This may take several minutes depending on network speed..."
 
 # Ensure CLI exists so we don't get the npx "install without dependencies" banner
 if ! command -v playwright >/dev/null 2>&1; then
   log_info "Installing Playwright CLI globally..."
-  npm install -g @playwright/test --no-fund --silent
+  npm install -g @playwright/test@latest --no-fund --silent
 fi
 
-playwright install chromium firefox webkit 2>&1 | grep -E "(Downloading|downloaded|Installing)" || {
-  log_warning "Failed to install some Playwright browsers. This may affect browser automation."
+# Install all browsers that Playwright MCP supports
+# Use --with-deps to also install any missing OS dependencies
+# This helps avoid the "browser_install stuck" issue from #1060
+BROWSER_INSTALL_LOG="/tmp/playwright-browser-install-$$.log"
+BROWSERS_TO_INSTALL="chromium chrome firefox webkit msedge"
+BROWSERS_FAILED=""
+BROWSERS_INSTALLED=""
+
+for browser in $BROWSERS_TO_INSTALL; do
+  log_info "Installing Playwright browser: $browser..."
+  playwright install "$browser" --with-deps > "$BROWSER_INSTALL_LOG" 2>&1
+  INSTALL_EXIT_CODE=$?
+
+  # Check the output for various conditions
+  if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+    log_success "$browser installed successfully"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "already installed on the system" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Chrome/Edge might already be system-installed (non-hermetic)
+    # This is fine - Playwright MCP can use system-installed browsers
+    log_success "$browser already installed on system (non-hermetic)"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "not supported\|not available\|cannot download\|unsupported" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Browser not available on this platform (e.g., msedge on some Linux distros)
+    log_note "$browser is not available on this platform (skipping)"
+  else
+    log_warning "$browser installation failed"
+    cat "$BROWSER_INSTALL_LOG" | tail -10 || true
+    BROWSERS_FAILED="$BROWSERS_FAILED $browser"
+  fi
+done
+
+# Cleanup temp log
+rm -f "$BROWSER_INSTALL_LOG"
+
+# Also install chromium headless shell (useful for CI/server environments)
+log_info "Installing chromium headless shell..."
+playwright install chromium-headless-shell --with-deps 2>&1 | grep -E "(Downloading|downloaded|complete)" || {
+  log_note "chromium-headless-shell installation skipped or already installed"
 }
-log_success "Playwright browsers installed"
+
+# Summary
+if [ -n "$BROWSERS_INSTALLED" ]; then
+  log_success "Playwright browsers installed:$BROWSERS_INSTALLED"
+fi
+
+if [ -n "$BROWSERS_FAILED" ]; then
+  log_warning "Some browsers failed to install:$BROWSERS_FAILED"
+  log_note "This may affect browser automation. You can retry with: playwright install <browser> --with-deps"
+else
+  log_success "All Playwright browsers installed successfully"
+fi
+
+# Verify what browsers are actually available
+log_info "Verifying installed Playwright browsers..."
+
+# Check the Playwright browser cache directory for installed browsers
+PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+BROWSERS_VERIFIED=""
+BROWSERS_MISSING=""
+
+# List of browsers that should be installed (Playwright-managed browsers)
+# Note: chrome and msedge may be system-installed (non-hermetic) and won't appear in cache
+PLAYWRIGHT_BROWSERS="chromium chromium_headless_shell firefox webkit ffmpeg"
+
+for browser in $PLAYWRIGHT_BROWSERS; do
+  BROWSER_DIR=$(ls -d "$PLAYWRIGHT_CACHE/${browser}"* 2>/dev/null | head -1 || true)
+  if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+    log_success "Playwright browser verified: $browser ($(basename "$BROWSER_DIR"))"
+    BROWSERS_VERIFIED="$BROWSERS_VERIFIED $browser"
+  else
+    log_warning "Playwright browser not in cache: $browser"
+    BROWSERS_MISSING="$BROWSERS_MISSING $browser"
+  fi
+done
+
+# Check for system-installed browsers (Chrome, Edge)
+log_info "Checking for system-installed browsers..."
+if command -v google-chrome &>/dev/null || command -v google-chrome-stable &>/dev/null || [ -x /opt/google/chrome/chrome ]; then
+  CHROME_VERSION=$(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || /opt/google/chrome/chrome --version 2>/dev/null || echo "installed")
+  log_success "Google Chrome (system): $CHROME_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED chrome"
+fi
+
+if command -v microsoft-edge &>/dev/null || command -v microsoft-edge-stable &>/dev/null; then
+  EDGE_VERSION=$(microsoft-edge --version 2>/dev/null || microsoft-edge-stable --version 2>/dev/null || echo "installed")
+  log_success "Microsoft Edge (system): $EDGE_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED msedge"
+fi
+
+# Summary of browser verification
+if [ -n "$BROWSERS_VERIFIED" ]; then
+  log_success "Playwright browsers verified:$BROWSERS_VERIFIED"
+fi
+
+if [ -n "$BROWSERS_MISSING" ]; then
+  log_warning "Some Playwright browsers not in cache:$BROWSERS_MISSING"
+  log_note "These may be available as system browsers or may need manual installation"
+fi
+
+# Show detailed browser list for debugging
+log_info "Playwright browser cache contents:"
+playwright install --list 2>&1 | grep -E "^\s+/" | head -15 || {
+  log_note "Could not list Playwright browsers (playwright CLI may not be available)"
+}
 
 # --- Configure Playwright MCP for Claude CLI ---
 log_info "Configuring Playwright MCP for Claude CLI..."
@@ -851,15 +1550,17 @@ if command -v claude &>/dev/null; then
   # Add the playwright MCP server to Claude CLI configuration with user scope
   # Using -s user ensures it's available for all tasks in all folders
   # Configuration flags:
-  # - @latest: Use latest version (currently 0.0.49)
+  # - @latest: Always use the latest version to get newest features and bug fixes
+  #            This ensures browsers are compatible with the MCP server
   # - --isolated: Ephemeral browser contexts (prevents memory leaks)
-  # - --headless: Reduces UI memory overhead
+  # - --headless: Reduces UI memory overhead (required for server environments)
   # - --no-sandbox: Required for server/container environments
-  # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  # - --timeout-action=600000: 10-minute timeout to prevent hung processes (fixes #1060)
+  # - --viewport-size 1920x1080: 1080p resolution for consistent screenshots
   log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
-  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 2>/dev/null || {
+  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || {
     log_warning "Could not add Playwright MCP to Claude CLI."
-    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
   }
 
   # Verify the configuration
@@ -870,7 +1571,7 @@ if command -v claude &>/dev/null; then
   fi
 else
   log_warning "Claude CLI is not available. Skipping MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
 fi
 
 # --- Git setup with GitHub identity (only if authenticated) ---
@@ -885,19 +1586,12 @@ else
   log_note "After authentication, Git will be auto-configured with your GitHub identity"
 fi
 
-# --- Clone or update hive-mind repo (idempotent, no fatal logs) ---
-REPO_DIR="$HOME/hive-mind"
-if [ -d "$REPO_DIR/.git" ]; then
-  log_info "Updating existing hive-mind repository..."
-  git -C "$REPO_DIR" fetch --all --prune || log_warning "fetch failed (continuing)."
-  git -C "$REPO_DIR" pull --ff-only || log_warning "pull failed (continuing)."
-elif [ -d "$REPO_DIR" ]; then
-  log_warning "Directory '$REPO_DIR' exists but is not a git repo; skipping clone."
-else
-  log_info "Cloning hive-mind repository..."
-  (cd "$HOME" && git clone https://github.com/deep-assistant/hive-mind) || log_warning "clone failed (continuing)."
-  log_success "hive-mind repository cloned"
-fi
+# --- hive-mind repository cloning removed (issue #1004) ---
+# The hive-mind repository is no longer cloned to the user's home directory.
+# Users who need the source code should clone it manually:
+#   git clone https://github.com/link-assistant/hive-mind
+# This keeps the user's home directory clean and gives users freedom to
+# organize their workspace as they prefer.
 
 # --- Generate Installation Summary ---
 log_step "Installation Summary"
@@ -907,18 +1601,28 @@ echo "System & Development Tools:"
 if command -v gh &>/dev/null; then log_success "GitHub CLI: $(gh --version | head -n1)"; else log_warning "GitHub CLI: not found"; fi
 if command -v git &>/dev/null; then log_success "Git: $(git --version)"; else log_warning "Git: not found"; fi
 if command -v bun &>/dev/null; then log_success "Bun: $(bun --version)"; else log_warning "Bun: not found"; fi
+if command -v deno &>/dev/null; then log_success "Deno: $(deno --version | head -n1)"; else log_warning "Deno: not found"; fi
 if command -v node &>/dev/null; then log_success "Node.js: $(node --version)"; else log_warning "Node.js: not found"; fi
 if command -v npm &>/dev/null; then log_success "NPM: $(npm --version)"; else log_warning "NPM: not found"; fi
 if command -v python &>/dev/null; then log_success "Python: $(python --version)"; else log_warning "Python: not found"; fi
 if command -v pyenv &>/dev/null; then log_success "Pyenv: $(pyenv --version)"; else log_warning "Pyenv: not found"; fi
+if command -v go &>/dev/null; then log_success "Go: $(go version)"; else log_warning "Go: not found"; fi
 if command -v rustc &>/dev/null; then log_success "Rust: $(rustc --version)"; else log_warning "Rust: not found"; fi
 if command -v cargo &>/dev/null; then log_success "Cargo: $(cargo --version)"; else log_warning "Cargo: not found"; fi
+if command -v java &>/dev/null; then log_success "Java: $(java -version 2>&1 | head -n1)"; else log_warning "Java: not found"; fi
+if command -v sdk &>/dev/null; then log_success "SDKMAN: $(sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'installed')"; else log_warning "SDKMAN: not found"; fi
+if command -v elan &>/dev/null; then log_success "Elan: $(elan --version)"; else log_warning "Elan: not found"; fi
+if command -v lean &>/dev/null; then log_success "Lean: $(lean --version)"; else log_warning "Lean: not found"; fi
+if command -v lake &>/dev/null; then log_success "Lake: $(lake --version)"; else log_warning "Lake: not found"; fi
+
 if command -v brew &>/dev/null; then
   BREW_VERSION=$(brew --version 2>/dev/null | head -n1 || echo "version unknown")
   log_success "Homebrew: $BREW_VERSION"
 else
   log_warning "Homebrew: not found"
 fi
+
+if command -v opam &>/dev/null; then log_success "Opam: $(opam --version)"; else log_warning "Opam: not found"; fi
 
 if command -v php &>/dev/null; then
   PHP_VERSION=$(php --version 2>/dev/null | head -n1 || echo "unknown version")
@@ -942,7 +1646,54 @@ else
     log_warning "PHP: not found"
   fi
 fi
+if command -v perl &>/dev/null; then
+  log_success "Perl: $(perl --version | head -n 2 | tail -n 1 | sed 's/^[[:space:]]*//')"
+else
+  log_warning "Perl: not found"
+fi
+if command -v perlbrew &>/dev/null; then log_success "Perlbrew: $(perlbrew --version)"; else log_warning "Perlbrew: not found"; fi
+
+# Source opam environment to ensure Rocq/Coq is accessible
+# This is required because opam-installed tools need environment setup
+# Reference: https://rocq-prover.org/docs/using-opam
+if [ -f "$HOME/.opam/opam-init/init.sh" ]; then
+  source "$HOME/.opam/opam-init/init.sh" > /dev/null 2>&1 || true
+fi
+
+# Verify Rocq installation
+# Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)
+# Reference: https://rocq-prover.org/docs/using-opam
+if rocq -v &>/dev/null; then
+  # Use 'rocq -v' output (official verification command for Rocq 9.0+)
+  log_success "Rocq: $(rocq -v 2>&1 | head -n1)"
+elif command -v rocqc &>/dev/null; then
+  # rocqc is the Rocq compiler alias
+  log_success "Rocq: $(rocqc --version 2>&1 | head -n1)"
+elif command -v coqc &>/dev/null; then
+  # coqc is the legacy Coq compiler (backward compatible)
+  log_success "Coq: $(coqc --version | head -n1)"
+elif opam list --installed rocq-prover 2>/dev/null | grep -q "rocq-prover"; then
+  log_warning "Rocq: installed via opam but not in current PATH"
+  log_note "Rocq will be available after shell restart or: eval \$(opam env)"
+elif opam list --installed coq 2>/dev/null | grep -q "coq"; then
+  log_warning "Coq: installed via opam but not in current PATH"
+  log_note "Coq will be available after shell restart or: eval \$(opam env)"
+else
+  log_warning "Rocq/Coq: not found"
+fi
+
 if command -v playwright &>/dev/null; then log_success "Playwright: $(playwright --version)"; else log_warning "Playwright: not found"; fi
+
+echo ""
+echo "C/C++ Development Tools:"
+if command -v make &>/dev/null; then log_success "Make: $(make --version | head -n1)"; else log_warning "Make: not found"; fi
+if command -v cmake &>/dev/null; then log_success "CMake: $(cmake --version | head -n1)"; else log_warning "CMake: not found"; fi
+if command -v gcc &>/dev/null; then log_success "GCC: $(gcc --version | head -n1)"; else log_warning "GCC: not found"; fi
+if command -v g++ &>/dev/null; then log_success "G++: $(g++ --version | head -n1)"; else log_warning "G++: not found"; fi
+if command -v clang &>/dev/null; then log_success "Clang: $(clang --version | head -n1)"; else log_warning "Clang: not found"; fi
+if command -v clang++ &>/dev/null; then log_success "Clang++: $(clang++ --version | head -n1)"; else log_warning "Clang++: not found"; fi
+if command -v llvm-config &>/dev/null; then log_success "LLVM: $(llvm-config --version)"; else log_warning "LLVM: not found"; fi
+if command -v lld &>/dev/null; then log_success "LLD Linker: $(lld --version | head -n1)"; else log_warning "LLD Linker: not found"; fi
 
 echo ""
 echo "Swap Configuration:"
@@ -962,7 +1713,6 @@ log_note "1. Authenticate with GitHub: gh auth login -h github.com -s repo,workf
 log_note "2. Authenticate with Claude: Run 'claude' command and follow the prompts"
 log_note "3. Restart your shell or run: source ~/.bashrc"
 log_note "4. Verify installations with: <tool> --version"
-log_note "5. Navigate to ~/hive-mind to start working"
 
 echo ""
 
@@ -985,6 +1735,11 @@ rm -f /tmp/hive-user-setup.sh
 
 # --- Cleanup after everything (so install-deps/apt had full cache) ---
 log_step "Cleaning up"
+
+# Final cleanup of any duplicate APT sources that may have been created during installation
+# This ensures a clean state after all components are installed
+cleanup_duplicate_apt_sources
+
 apt_cleanup
 
 log_step "Setup complete!"

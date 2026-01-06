@@ -48,18 +48,18 @@ let logFile = null;
 // Helper function to log to both console and file
 const log = async (message, options = {}) => {
   const { level = 'info', verbose = false } = options;
-  
+
   // Skip verbose logs unless --verbose is enabled
   if (verbose && !global.verboseMode) {
     return;
   }
-  
+
   // Write to file if log file is set
   if (logFile) {
     const logMessage = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}`;
     await fs.appendFile(logFile, logMessage + '\n').catch(() => {});
   }
-  
+
   // Write to console based on level
   switch (level) {
     case 'error':
@@ -82,72 +82,72 @@ const argv = yargs()
   .usage('Usage: $0 <task-description> [options]')
   .positional('task-description', {
     type: 'string',
-    description: 'The task to clarify and decompose'
+    description: 'The task to clarify and decompose',
   })
   .option('clarify', {
     type: 'boolean',
     description: 'Enable clarification mode (asks clarifying questions about the task)',
-    default: true
+    default: true,
   })
   .option('decompose', {
     type: 'boolean',
     description: 'Enable decomposition mode (breaks down the task into subtasks)',
-    default: true
+    default: true,
   })
   .option('only-clarify', {
     type: 'boolean',
     description: 'Only run clarification mode, skip decomposition',
-    default: false
+    default: false,
   })
   .option('only-decompose', {
     type: 'boolean',
-    description: 'Only run decomposition mode, skip clarification',  
-    default: false
+    description: 'Only run decomposition mode, skip clarification',
+    default: false,
   })
   .option('model', {
     type: 'string',
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
     default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101']
+    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('output-format', {
     type: 'string',
     description: 'Output format (text or json)',
     alias: 'o',
     default: 'text',
-    choices: ['text', 'json']
+    choices: ['text', 'json'],
   })
-  .check((argv) => {
+  .check(argv => {
     if (!argv['task-description'] && !argv._[0]) {
       throw new Error('Please provide a task description');
     }
-    
+
     // Handle mutual exclusivity of only-clarify and only-decompose
     if (argv['only-clarify'] && argv['only-decompose']) {
       throw new Error('Cannot use both --only-clarify and --only-decompose at the same time');
     }
-    
+
     // If only-clarify is set, disable decompose
     if (argv['only-clarify']) {
       argv.decompose = false;
     }
-    
+
     // If only-decompose is set, disable clarify
     if (argv['only-decompose']) {
       argv.clarify = false;
     }
-    
+
     return true;
   })
   .parserConfiguration({
-    'boolean-negation': true
+    'boolean-negation': true,
   })
   .help()
   .alias('h', 'help')
@@ -194,37 +194,33 @@ const executeClaude = (prompt, model) => {
     // Map model alias to full ID
     const mappedModel = mapModelToId(model);
 
-    const args = [
-      '-p', prompt,
-      '--output-format', 'text',
-      '--dangerously-skip-permissions',
-      '--model', mappedModel
-    ];
-    
+    const args = ['-p', prompt, '--output-format', 'text', '--dangerously-skip-permissions', '--model', mappedModel];
+
     const child = spawn(claudePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
     });
-    
+
     let stdout = '';
     let stderr = '';
-    
-    child.stdout.on('data', (data) => {
+
+    child.stdout.on('data', data => {
       stdout += data.toString();
     });
-    
-    child.stderr.on('data', (data) => {
+
+    child.stderr.on('data', data => {
       stderr += data.toString();
     });
-    
-    child.on('close', (code) => {
+
+    child.on('close', code => {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
         reject(new Error(`Claude exited with code ${code}: ${stderr}`));
       }
     });
-    
-    child.on('error', (error) => {
+
+    child.on('error', error => {
       reject(error);
     });
   });
@@ -235,14 +231,14 @@ try {
     task: taskDescription,
     timestamp: new Date().toISOString(),
     clarification: null,
-    decomposition: null
+    decomposition: null,
   };
 
   // Phase 1: Clarification
   if (argv.clarify) {
     await log('\n🤔 Phase 1: Task Clarification');
     await log('   Analyzing task and generating clarifying questions...');
-    
+
     const clarifyPrompt = `Task: "${taskDescription}"
 
 Please help clarify this task by:
@@ -258,7 +254,7 @@ Provide your response in a clear, structured format that helps refine the task u
       console.log('\n📝 Clarification Results:');
       console.log(clarificationOutput);
     }
-    
+
     results.clarification = clarificationOutput;
     await log('\n✅ Clarification phase completed');
   }
@@ -267,13 +263,13 @@ Provide your response in a clear, structured format that helps refine the task u
   if (argv.decompose) {
     await log('\n🔍 Phase 2: Task Decomposition');
     await log('   Breaking down task into manageable subtasks...');
-    
+
     let decomposePrompt = `Task: "${taskDescription}"`;
-    
+
     if (results.clarification) {
       decomposePrompt += `\n\nClarification analysis:\n${results.clarification}`;
     }
-    
+
     decomposePrompt += `\n\nPlease decompose this task by:
 1. Breaking it down into 3-8 specific, actionable subtasks
 2. Ordering the subtasks logically (dependencies and sequence)
@@ -288,7 +284,7 @@ Provide your response as a structured breakdown that someone could use as a impl
       console.log('\n🔍 Decomposition Results:');
       console.log(decompositionOutput);
     }
-    
+
     results.decomposition = decompositionOutput;
     await log('\n✅ Decomposition phase completed');
   }
@@ -300,7 +296,6 @@ Provide your response as a structured breakdown that someone could use as a impl
 
   await log('\n🎉 Task processing completed successfully');
   await log(`💡 Review the session log for details: ${logFile}`);
-  
 } catch (error) {
   await log(`❌ Error processing task: ${error.message}`, { level: 'error' });
   process.exit(1);

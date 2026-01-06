@@ -8,7 +8,7 @@
  * regression of issue #625.
  *
  * References:
- * - Issue #625: https://github.com/deep-assistant/hive-mind/issues/625
+ * - Issue #625: https://github.com/link-assistant/hive-mind/issues/625
  * - Root cause: CLAUDE.md was modified after initial commit (e.g., by prettier)
  *   causing a merge conflict when git revert tries to revert the initial commit
  */
@@ -71,7 +71,9 @@ Proceed.
     await $({ cwd: tempDir })`git commit -q -m "Previous session commit"`;
 
     // Append new task info (simulate initial commit)
-    const appendedContent = initialContent + `
+    const appendedContent =
+      initialContent +
+      `
 ---
 
 Issue to solve: undefined
@@ -100,11 +102,7 @@ Proceed.
     const finalContent = await fs.readFile(path.join(tempDir, 'CLAUDE.md'), 'utf-8');
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      finalContent === initialContent && statusResult.stdout.trim() === '',
-      'Conflict resolved: CLAUDE.md restored to pre-session state',
-      `Content matches: ${finalContent === initialContent}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(finalContent === initialContent && statusResult.stdout.trim() === '', 'Conflict resolved: CLAUDE.md restored to pre-session state', `Content matches: ${finalContent === initialContent}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'Conflict resolved: CLAUDE.md restored to pre-session state', error.message);
   } finally {
@@ -146,14 +144,13 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Verify CLAUDE.md was deleted
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      !fileExists && statusResult.stdout.trim() === '',
-      'Conflict resolved: CLAUDE.md correctly deleted',
-      `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(!fileExists && statusResult.stdout.trim() === '', 'Conflict resolved: CLAUDE.md correctly deleted', `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'Conflict resolved: CLAUDE.md correctly deleted', error.message);
   } finally {
@@ -190,14 +187,13 @@ Proceed.
     await cleanupClaudeFile(tempDir, 'test-branch', initialCommitHash);
 
     // Verify CLAUDE.md was deleted
-    const fileExists = await fs.access(path.join(tempDir, 'CLAUDE.md')).then(() => true).catch(() => false);
+    const fileExists = await fs
+      .access(path.join(tempDir, 'CLAUDE.md'))
+      .then(() => true)
+      .catch(() => false);
     const statusResult = await $({ cwd: tempDir })`git status --short`;
 
-    assert(
-      !fileExists && statusResult.stdout.trim() === '',
-      'No conflict: Normal revert worked correctly',
-      `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`
-    );
+    assert(!fileExists && statusResult.stdout.trim() === '', 'No conflict: Normal revert worked correctly', `File exists: ${fileExists}, Status clean: ${statusResult.stdout.trim() === ''}`);
   } catch (error) {
     assert(false, 'No conflict: Normal revert worked correctly', error.message);
   } finally {

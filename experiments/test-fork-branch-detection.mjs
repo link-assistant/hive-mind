@@ -18,7 +18,7 @@ const __dirname = dirname(__filename);
 console.log('🧪 Testing fork branch detection for issue #393\n');
 
 // Read the continuation library file
-const continuationLibPath = join(__dirname, '..', 'src', 'solve.continuation.lib.mjs');
+const continuationLibPath = join(__dirname, '..', 'src', 'solve.auto-continue.lib.mjs');
 const continuationContent = readFileSync(continuationLibPath, 'utf8');
 
 console.log('Test 1: Check if fork branch detection code exists');

@@ -73,7 +73,7 @@ globalThis.log = async msg => {
 globalThis.reportError = () => {};
 
 // Import the module to test
-const autoContinueLib = await import('../src/solve.continuation.lib.mjs');
+const autoContinueLib = await import('../src/solve.auto-continue.lib.mjs');
 const { processAutoContinueForIssue } = autoContinueLib;
 
 // Test scenarios

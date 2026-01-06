@@ -18,7 +18,7 @@ filesPatterns.forEach(pattern => console.log(`  - ${pattern}`));
 console.log();
 
 // List of files that must be included for solve.mjs to work
-const requiredFiles = ['solve.mjs', 'solve.continuation.lib.mjs', 'solve.claude-execution.lib.mjs', 'solve.config.lib.mjs', 'solve.execution.lib.mjs', 'solve.feedback.lib.mjs', 'solve.repository.lib.mjs', 'solve.results.lib.mjs', 'solve.validation.lib.mjs', 'lib.mjs', 'claude.lib.mjs', 'github.lib.mjs', 'memory-check.mjs'];
+const requiredFiles = ['solve.mjs', 'solve.auto-continue.lib.mjs', 'solve.claude-execution.lib.mjs', 'solve.config.lib.mjs', 'solve.execution.lib.mjs', 'solve.feedback.lib.mjs', 'solve.repository.lib.mjs', 'solve.results.lib.mjs', 'solve.validation.lib.mjs', 'lib.mjs', 'claude.lib.mjs', 'github.lib.mjs', 'memory-check.mjs'];
 
 console.log('✅ Checking required files for solve.mjs:');
 let allFound = true;

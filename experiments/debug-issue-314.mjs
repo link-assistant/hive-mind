@@ -24,7 +24,7 @@ console.log('   - FAILS: branch not found\n');
 
 console.log('CODE LOCATIONS:');
 console.log('--------------');
-console.log('1. src/solve.continuation.lib.mjs:251');
+console.log('1. src/solve.auto-continue.lib.mjs:251');
 console.log('   - Detects fork PR: isForkPR = prData.headRepositoryOwner.login !== owner');
 console.log('   - Returns isForkPR in processPRMode()');
 console.log('');

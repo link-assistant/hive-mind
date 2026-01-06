@@ -28,7 +28,7 @@ const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import continuation functions (session resumption, PR detection)
-const autoContinue = await import('./solve.continuation.lib.mjs');
+const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
 
 // Import Claude-specific command builders

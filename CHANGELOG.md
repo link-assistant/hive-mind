@@ -1,5 +1,22 @@
 # @link-assistant/hive-mind
 
+## 1.0.1
+
+### Patch Changes
+
+- 2a3848d: Add --prompt-architecture-care flag for managing REQUIREMENTS.md and ARCHITECTURE.md files
+
+  Adds an optional experimental flag `--prompt-architecture-care` that provides guidance for:
+  - Managing REQUIREMENTS.md (high-level why/what documentation)
+  - Managing ARCHITECTURE.md (high-level how documentation)
+  - TODO.md workflow management for task persistence across sessions
+
+  The flag is disabled by default and works with all tools (claude, agent, opencode, codex).
+
+- a18a664: Fix session ID extraction error for --tool agent
+  - Fixed JSON parsing logic in agent tool to extract session IDs from NDJSON output
+  - Modified session summary to show informational message for agent tool instead of error
+
 ## 1.0.0
 
 ### Major Changes

@@ -344,6 +344,11 @@ jobs:
         echo "Running test suite for buildCostInfoString..."
         node tests/test-build-cost-info-string.mjs
 
+    - name: Run Telegram special character handling test (Issue #1070)
+      run: |
+        echo "Running test suite for Telegram special character handling..."
+        node tests/test-telegram-special-char-handling.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

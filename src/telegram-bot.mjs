@@ -47,7 +47,7 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 // Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2 } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
@@ -643,10 +643,21 @@ function validateGitHubUrl(args, options = {}) {
   // Check if the URL type is allowed for this command
   if (!allowedTypes.includes(parsed.type)) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
-    return {
-      valid: false,
-      error: `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type})`,
-    };
+    const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+
+    // Provide specific, helpful error messages based on the URL type
+    let error;
+    if (parsed.type === 'issues_list') {
+      error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${baseUrl}/issues/1\``;
+    } else if (parsed.type === 'pulls_list') {
+      error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${url}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${baseUrl}/pull/1\``;
+    } else if (parsed.type === 'repo') {
+      error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${url}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${baseUrl}/issues/1\``;
+    } else {
+      error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
+    }
+
+    return { valid: false, error };
   }
 
   return { valid: true };
@@ -707,7 +718,7 @@ function extractGitHubUrl(text) {
     return { url: null, error: null, linkCount: 0 };
   }
 
-  // Split text into words and check each one
+  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
   const words = text.split(/\s+/);
   const foundUrls = [];
 
@@ -1313,38 +1324,46 @@ bot.catch((error, ctx) => {
 
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
-    // Build a more informative error message
-    let errorMessage = '❌ An error occurred while processing your request.\n\n';
+    // Detect if this is a Telegram API parsing error
+    const isTelegramParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
 
-    // Add error type/name if available
-    if (error.name && error.name !== 'Error') {
-      errorMessage += `**Error type:** ${error.name}\n`;
-    }
+    let errorMessage;
 
-    // Add sanitized error message (avoid leaking sensitive info)
-    if (error.message) {
-      // Filter out potentially sensitive information
-      const sanitizedMessage = error.message
-        .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
-        .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
-        .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]');
-
-      errorMessage += `**Details:** ${sanitizedMessage}\n`;
-    }
-
-    errorMessage += '\n💡 **Troubleshooting:**\n';
-    errorMessage += '• Try running the command again\n';
-    errorMessage += '• Check if all required parameters are correct\n';
-    errorMessage += '• If the issue persists, contact support with the error details above\n';
-
-    if (VERBOSE) {
-      errorMessage += `\n🔍 **Debug info:** Update ID: ${ctx.update.update_id}`;
+    if (isTelegramParsingError) {
+      // Special handling for Telegram API parsing errors caused by unescaped special characters
+      errorMessage = `❌ A message formatting error occurred.\n\n💡 This usually means there was a problem with special characters in the response.\nPlease try your command again with a different URL or contact support.`;
+      // Show the user's input with special characters visible (if available)
+      if (ctx.message?.text) {
+        const cleanedInput = cleanNonPrintableChars(ctx.message.text);
+        const visibleInput = makeSpecialCharsVisible(cleanedInput, { maxLength: 150 });
+        if (visibleInput !== cleanedInput) errorMessage += `\n\n📝 Your input (with special chars visible):\n\`${escapeMarkdown(visibleInput)}\``;
+      }
+      if (VERBOSE) {
+        const escapedError = escapeMarkdown(error.message || 'Unknown error');
+        errorMessage += `\n\n🔍 Debug info: ${escapedError}\nUpdate ID: ${ctx.update.update_id}`;
+      }
+    } else {
+      // Build informative error message for other errors
+      errorMessage = '❌ An error occurred while processing your request.\n\n';
+      if (error.message) {
+        // Filter out sensitive info and escape markdown
+        const sanitizedMessage = escapeMarkdown(
+          error.message
+            .replace(/token[s]?\s*[:=]\s*[\w-]+/gi, 'token: [REDACTED]')
+            .replace(/password[s]?\s*[:=]\s*[\w-]+/gi, 'password: [REDACTED]')
+            .replace(/api[_-]?key[s]?\s*[:=]\s*[\w-]+/gi, 'api_key: [REDACTED]')
+        );
+        errorMessage += `Details: ${sanitizedMessage}\n`;
+      }
+      errorMessage += '\n💡 Troubleshooting:\n• Try running the command again\n• Check if all required parameters are correct\n• Use /help to see command examples\n• If the issue persists, contact support with the error details above';
+      if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
     ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
       console.error('Failed to send error message to user:', replyError);
       // Try sending a simple text message without Markdown if Markdown parsing failed
-      ctx.reply('❌ An error occurred while processing your request. Please try again or contact support.').catch(fallbackError => {
+      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+      ctx.reply(plainMessage).catch(fallbackError => {
         console.error('Failed to send fallback error message:', fallbackError);
       });
     });
@@ -1361,29 +1380,17 @@ if (allowedChats && allowedChats.length > 0) {
 } else {
   console.log('Allowed chats: All (no restrictions)');
 }
-console.log('Commands enabled:', {
-  solve: solveEnabled,
-  hive: hiveEnabled,
-});
-if (solveOverrides.length > 0) {
-  console.log('Solve overrides (lino):', lino.format(solveOverrides));
-}
-if (hiveOverrides.length > 0) {
-  console.log('Hive overrides (lino):', lino.format(hiveOverrides));
-}
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
+if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
+if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {
   console.log('[VERBOSE] Verbose logging enabled');
   console.log('[VERBOSE] Bot start time (Unix):', BOT_START_TIME);
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
 
-// Delete any existing webhook before starting polling
-// This is critical because a webhook prevents polling from working
-// If the bot was previously configured with a webhook (or if one exists),
-// we must delete it to allow polling mode to receive messages
-if (VERBOSE) {
-  console.log('[VERBOSE] Deleting webhook...');
-}
+// Delete existing webhook (critical: webhooks prevent polling from working)
+if (VERBOSE) console.log('[VERBOSE] Deleting webhook...');
 bot.telegram
   .deleteWebhook({ drop_pending_updates: true })
   .then(result => {
@@ -1398,19 +1405,12 @@ bot.telegram
       });
     }
     return bot.launch({
-      // Receive message updates (commands, text messages) and callback queries (button clicks)
-      // This ensures the bot receives all message types including commands and button interactions
-      allowedUpdates: ['message', 'callback_query'],
-      // Drop any pending updates that were sent before the bot started
-      // This ensures we only process new messages sent after this bot instance started
-      dropPendingUpdates: true,
+      allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+      dropPendingUpdates: true, // Drop pending updates sent before bot started
     });
   })
   .then(async () => {
-    // Check if shutdown was initiated before printing success messages
-    if (isShuttingDown) {
-      return; // Skip success messages if shutting down
-    }
+    if (isShuttingDown) return; // Skip success messages if shutting down
 
     console.log('✅ SwarmMindBot is now running!');
     console.log('Press Ctrl+C to stop');

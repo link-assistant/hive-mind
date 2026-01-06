@@ -18,7 +18,7 @@ TELEGRAM_HIVE_OVERRIDES:
   --attach-logs
   --verbose
   --no-tool-check
-  --auto-continue-on-limit-reset
+  --auto-resume-on-limit-reset
   --tokens-budget-stats
 `;
 

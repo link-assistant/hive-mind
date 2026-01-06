@@ -892,10 +892,10 @@ try {
 
   // Handle limit reached scenario
   if (limitReached) {
-    const shouldAutoContinueOnReset = argv.autoContinueOnLimitReset;
+    const shouldAutoResumeOnReset = argv.autoResumeOnLimitReset;
 
-    // If limit was reached but auto-continue-on-limit-reset is NOT enabled, fail immediately
-    if (!shouldAutoContinueOnReset) {
+    // If limit was reached but auto-resume-on-limit-reset is NOT enabled, fail immediately
+    if (!shouldAutoResumeOnReset) {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
@@ -972,9 +972,9 @@ try {
         }
       }
 
-      await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
+      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset to wait for reset');
     } else {
-      // auto-continue-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // auto-resume-on-limit-reset is enabled - attach logs and/or post waiting comment
       if (prNumber && global.limitResetTime) {
         // If --attach-logs is enabled, upload logs with usage limit details
         if (shouldAttachLogs && sessionId) {
@@ -1030,7 +1030,7 @@ try {
             // Build Claude CLI resume command
             const tool = argv.tool || 'claude';
             const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-resume is enabled with \`--auto-resume-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1044,9 +1044,9 @@ try {
     }
   }
 
-  // Handle failure cases, but skip exit if limit reached with auto-continue enabled
+  // Handle failure cases, but skip exit if limit reached with auto-resume enabled
   // This allows the code to continue to showSessionSummary() where autoContinueWhenLimitResets() is called
-  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoContinueOnLimitReset;
+  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
 
   if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
     // Show claude resume command only for --tool claude (or default) on failure

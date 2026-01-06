@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 0.54.6
+
+### Patch Changes
+
+- f734d5d: feat: Add --base-branch to /help and implement option typo suggestions
+  - Added --base-branch option to Telegram bot /help command
+  - Implemented intelligent option name suggestions using Levenshtein distance
+  - Added --base-branch to README.md solve options section
+  - Enhanced error messages with helpful suggestions for typos (e.g., --branch → --base-branch)
+
 ## 0.54.5
 
 ### Patch Changes

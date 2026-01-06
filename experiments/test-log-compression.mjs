@@ -6,14 +6,7 @@
  */
 
 import { promises as fs } from 'fs';
-import {
-  compressLogFile,
-  decompressLogFile,
-  shouldCompress,
-  formatFileSize,
-  getDecompressionInstructions,
-  splitFileIntoChunks
-} from '../src/log-compression.lib.mjs';
+import { compressLogFile, decompressLogFile, shouldCompress, formatFileSize, getDecompressionInstructions, splitFileIntoChunks } from '../src/log-compression.lib.mjs';
 
 console.log('🧪 Testing log compression utilities for issue #587\n');
 
@@ -36,13 +29,9 @@ console.log('  ✅ Should compress test passed\n');
 console.log('Test 3: Compression and decompression');
 
 // Create a test log file with repetitive content (compresses well)
-const testLogContent = Array(10000).fill(
-  '[2025-10-18 12:00:00] INFO: Processing request ID 12345\n' +
-  '[2025-10-18 12:00:01] DEBUG: Connecting to database\n' +
-  '[2025-10-18 12:00:02] INFO: Query executed successfully\n' +
-  '[2025-10-18 12:00:03] DEBUG: Fetched 100 rows\n' +
-  '[2025-10-18 12:00:04] INFO: Request completed\n'
-).join('');
+const testLogContent = Array(10000)
+  .fill('[2025-10-18 12:00:00] INFO: Processing request ID 12345\n' + '[2025-10-18 12:00:01] DEBUG: Connecting to database\n' + '[2025-10-18 12:00:02] INFO: Query executed successfully\n' + '[2025-10-18 12:00:03] DEBUG: Fetched 100 rows\n' + '[2025-10-18 12:00:04] INFO: Request completed\n')
+  .join('');
 
 const testInputFile = '/tmp/test-log-compression-input.txt';
 const testCompressedFile = '/tmp/test-log-compression-output.gz';
@@ -82,7 +71,6 @@ try {
   await fs.unlink(testCompressedFile);
   await fs.unlink(testDecompressedFile);
   console.log('  ✅ Compression/decompression test passed\n');
-
 } catch (error) {
   console.error('  ❌ Test failed:', error.message);
   process.exit(1);
@@ -115,7 +103,6 @@ try {
 
   await fs.unlink(largeTestFile);
   console.log('  ✅ File splitting test passed\n');
-
 } catch (error) {
   console.error('  ❌ Test failed:', error.message);
   process.exit(1);

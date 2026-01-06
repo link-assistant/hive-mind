@@ -14,6 +14,7 @@ contents are too large and cannot be saved
 ### File Size Limits in Codebase
 
 From `src/config.lib.mjs`:
+
 - `commentMaxSize`: 65,536 bytes (64KB) - GitHub comment size limit
 - `fileMaxSize`: 26,214,400 bytes (25MB) - Current gist size limit
 - `issueBodyMaxSize`: 60,000 bytes (60KB)
@@ -35,7 +36,9 @@ From `src/config.lib.mjs`:
 ## Alternative Solutions
 
 ### Option 1: GitHub Releases Assets ✅ RECOMMENDED
+
 **Pros:**
+
 - Can handle very large files (up to 2GB per file)
 - Native GitHub integration
 - Permanent storage
@@ -43,10 +46,12 @@ From `src/config.lib.mjs`:
 - Works with `gh` CLI
 
 **Cons:**
+
 - Requires creating a release or draft release
 - May clutter releases page if not using draft releases
 
 **Implementation:**
+
 ```bash
 # Create a draft release with log file as asset
 gh release create temp-log-$(date +%s) --draft --repo owner/repo --notes "Temporary log storage"
@@ -54,52 +59,67 @@ gh release upload temp-log-$(date +%s) logfile.txt --repo owner/repo
 ```
 
 ### Option 2: GitHub Actions Artifacts
+
 **Pros:**
+
 - Designed for log storage
 - Automatic cleanup after 90 days
 - Part of GitHub ecosystem
 
 **Cons:**
+
 - Requires a workflow run
 - More complex to set up
 - Not as directly accessible
 
 ### Option 3: Split Large Files
+
 **Pros:**
+
 - Works within existing gist infrastructure
 - No new dependencies
 
 **Cons:**
+
 - Complex to implement
 - Poor user experience (multiple links)
 - Still hits overall gist size limits
 
 ### Option 4: External Services (Pastebin, PrivateBin, etc.)
+
 **Pros:**
+
 - Designed for large text files
 - Simple API
 
 **Cons:**
+
 - External dependency
 - Security concerns (data leaves GitHub ecosystem)
 - Requires additional authentication
 
 ### Option 5: Git LFS in Temporary Branch
+
 **Pros:**
+
 - Native Git solution
 - Can handle any file size
 
 **Cons:**
+
 - Requires Git LFS setup
 - Complex implementation
 - Storage costs for repository owner
 
 ### Option 6: Chunked Upload to Multiple Gists
+
 **Pros:**
+
 - Works within current infrastructure
 - No new dependencies
 
 **Cons:**
+
 - Complex to implement
 - Poor UX (multiple links)
 - May hit API rate limits
@@ -121,21 +141,25 @@ gh release upload temp-log-$(date +%s) logfile.txt --repo owner/repo
 ## Implementation Plan
 
 ### Phase 1: Enhanced Gist Upload (25MB - 100MB)
+
 - Detect when gh gist create fails
 - Fall back to git-based gist creation
 - Test with files up to 100MB
 
 ### Phase 2: Compression (All sizes)
+
 - Always compress logs before upload
 - Include decompression instructions in comment
 - Expected 80-90% size reduction for text logs
 
 ### Phase 3: Chunking for Extreme Cases (> 100MB compressed)
+
 - Split compressed logs into 50MB chunks
 - Upload each chunk as separate gist file
 - Provide reassembly script in comment
 
 ### Phase 4: Alternative - GitHub Releases (Optional)
+
 - For repositories where releases are appropriate
 - Use draft releases to avoid cluttering release page
 - Automatic cleanup after 90 days
@@ -143,6 +167,7 @@ gh release upload temp-log-$(date +%s) logfile.txt --repo owner/repo
 ## Size Reduction Estimates
 
 For text logs:
+
 - Original: 200MB
 - After gzip compression: ~20-30MB (fits in single gist via git push)
 - Compression ratio: 10:1 to 7:1 (typical for logs)

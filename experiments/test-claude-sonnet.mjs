@@ -14,7 +14,7 @@ try {
   if (result.stderr?.toString()) {
     console.log('Stderr:', result.stderr.toString());
   }
-  
+
   if (result.code === 0) {
     console.log('✅ Claude CLI connection test passed');
   } else {

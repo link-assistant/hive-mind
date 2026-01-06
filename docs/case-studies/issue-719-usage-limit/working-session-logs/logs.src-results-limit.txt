@@ -1,0 +1,61 @@
+          // Non-conflict error
+          await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
+          await log(`   Revert output: ${revertOutput}`, { verbose: true });
+        }
+      }
+    }
+  } catch (e) {
+    reportError(e, {
+      context: 'cleanup_claude_file',
+      tempDir,
+      operation: 'revert_claude_md_commit'
+    });
+    // If revert fails, that's okay - the task is still complete
+    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+  }
+};
+
+// Show session summary and handle limit reached scenarios
+export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+  await log('\n=== Session Summary ===');
+
+  if (sessionId) {
+    await log(`✅ Session ID: ${sessionId}`);
+    // Always use absolute path for log file display
+    const path = (await use('path'));
+    const absoluteLogPath = path.resolve(getLogFile());
+    await log(`✅ Complete log file: ${absoluteLogPath}`);
+
+    if (limitReached) {
+      await log('\n⏰ LIMIT REACHED DETECTED!');
+
+      if (argv.autoContinueLimit && global.limitResetTime) {
+        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+      } else {
+        // Only show resume recommendation if --no-auto-cleanup was passed
+        if (argv.autoCleanup === false) {
+          await log('\n🔄 To resume when limit resets, use:\n');
+          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+
+          if (global.limitResetTime) {
+            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+          }
+
+          await log('\n   This will continue from where it left off with full context.\n');
+        } else {
+          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+          await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+        }
+      }
+    } else {
+      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
+      if (argv.autoCleanup === false) {
+        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
+        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
+        await log('');
+      } else {
+        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+      }

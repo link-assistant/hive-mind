@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Issue #8: getcwd() failed error
- * 
+ *
  * Problem: "sh: 0: getcwd() failed: No such file or directory" when working in deleted directories
  * Solution: Ensure working directory exists before running commands
  */
@@ -27,23 +27,23 @@ try {
   await fs.mkdir(tempDir);
   process.chdir(tempDir);
   console.log(`Created and changed to: ${tempDir}`);
-  
+
   // Verify we can run commands
   const result1 = await $`pwd`;
   console.log(`Current directory: ${result1.stdout.toString().trim()}`);
-  
+
   // Now delete the directory while we're in it
   process.chdir('/tmp');
   await fs.rmdir(tempDir);
   console.log(`Deleted directory: ${tempDir}`);
-  
+
   // Try to change back (this sets up the problem)
   try {
     process.chdir(tempDir);
   } catch (e) {
     console.log('Cannot chdir to deleted directory (expected)');
   }
-  
+
   // Try to run a command - this may show getcwd error
   console.log('\nAttempting command in invalid directory state:');
   try {
@@ -73,25 +73,24 @@ try {
   // Simulate repository cloning and cleanup
   console.log('1. Creating temp directory for repo clone...');
   await fs.mkdir(testDir);
-  
+
   console.log('2. Working in temp directory...');
   process.chdir(testDir);
-  
+
   // Do some work
   await $`echo "Working in temp directory" > work.txt`;
   console.log('   Created work.txt');
-  
+
   console.log('3. Cleaning up and returning to original directory...');
   process.chdir(originalDir);
-  
+
   // Clean up temp directory
   await fs.rm(testDir, { recursive: true });
   console.log('   Temp directory removed');
-  
+
   console.log('4. Running command after cleanup...');
   const result = await $`echo "Back in safe directory"`;
   console.log('   Success:', result.stdout.toString().trim());
-  
 } catch (error) {
   console.log('Error:', error.message);
   process.chdir(originalDir);

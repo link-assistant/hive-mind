@@ -8,23 +8,8 @@
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -71,7 +56,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -79,8 +64,8 @@ export const buildUserPrompt = (params) => {
   // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt
-  return promptLines.join('\n');
+  // Build the final prompt with trailing newline for POSIX compliance
+  return promptLines.join('\n') + '\n';
 };
 
 /**
@@ -88,7 +73,7 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
+export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
 
   // Build thinking instruction based on --think level
@@ -98,7 +83,7 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
@@ -120,20 +105,29 @@ General guidelines.
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request, use appropriate GitHub API commands.
-   - When you need latest comments on issue, use appropriate GitHub API commands.
+   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+      1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
+      2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
+      3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
+      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
+   - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;
@@ -164,7 +158,8 @@ Preparing pull request.
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.
    - When you push, push only to branch ${branchName}.
-   - When you finish, create a pull request from branch ${branchName}. (Note: PR ${prNumber} already exists, update it instead)
+   - When you finish, create a pull request from branch ${branchName}.
+   - When pr ${prNumber} already exists for this branch, update it instead of creating new one.
    - When you organize workflow, use pull requests instead of direct merges to default branch (main or master).
    - When you manage commits, preserve commit history for later analysis.
    - When you contribute, keep repository history forward-moving with regular commits, pushes, and reverts if needed.
@@ -176,11 +171,22 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.
+
+GitHub CLI command patterns.
+   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
+   - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
+   - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.`;
 };
 
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

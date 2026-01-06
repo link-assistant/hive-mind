@@ -12,7 +12,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 
-console.log("Integration test for fork creation fix...");
+console.log('Integration test for fork creation fix...');
 
 // Helper function from solve.mjs
 function formatAligned(icon, label, value, indent = 0) {

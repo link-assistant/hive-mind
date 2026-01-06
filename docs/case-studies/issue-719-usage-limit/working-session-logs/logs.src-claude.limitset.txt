@@ -1,0 +1,292 @@
+    tempDir,
+    branchName,
+    prompt,
+    systemPrompt,
+    escapedPrompt,
+    escapedSystemPrompt,
+    argv,
+    log,
+    setLogFile,
+    getLogFile,
+    formatAligned,
+    getResourceSnapshot,
+    forkedRepo,
+    feedbackLines,
+    claudePath,
+    $  // Add command-stream $ to params
+  } = params;
+  // Retry configuration for API overload errors
+  const maxRetries = 3;
+  const baseDelay = timeouts.retryBaseDelay;
+  let retryCount = 0;
+  // Function to execute with retry logic
+  const executeWithRetry = async () => {
+    // Execute claude command from the cloned repository directory
+    if (retryCount === 0) {
+      await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
+    } else {
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+    }
+    if (argv.verbose) {
+    // Output the actual model being used
+    const modelName = argv.model === 'opus' ? 'opus' : 'sonnet';
+    await log(`   Model: ${modelName}`, { verbose: true });
+    await log(`   Working directory: ${tempDir}`, { verbose: true });
+    await log(`   Branch: ${branchName}`, { verbose: true });
+    await log(`   Prompt length: ${prompt.length} chars`, { verbose: true });
+    await log(`   System prompt length: ${systemPrompt.length} chars`, { verbose: true });
+    if (feedbackLines && feedbackLines.length > 0) {
+      await log(`   Feedback info included: Yes (${feedbackLines.length} lines)`, { verbose: true });
+    } else {
+      await log('   Feedback info included: No', { verbose: true });
+    }
+  }
+  // Take resource snapshot before execution
+  const resourcesBefore = await getResourceSnapshot();
+  await log('📈 System resources before execution:', { verbose: true });
+  await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+  await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
+    // Use command-stream's async iteration for real-time streaming with file logging
+    let commandFailed = false;
+    let sessionId = null;
+    let limitReached = false;
+    let limitResetTime = null;
+    let messageCount = 0;
+    let toolUseCount = 0;
+    let lastMessage = '';
+    let isOverloadError = false;
+    let is503Error = false;
+    let stderrErrors = [];
+    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+  // Build claude command with optional resume flag
+  let execCommand;
+  // Map model alias to full ID
+  const mappedModel = mapModelToId(argv.model);
+  // Build claude command arguments
+  let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
+  if (argv.resume) {
+    await log(`🔄 Resuming from session: ${argv.resume}`);
+    claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
+  }
+  claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+  // Build the full command for display (with jq for formatting as in v0.3.2)
+  const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
+  // Print the actual raw command being executed
+  await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
+  await log(`${fullCommand}`);
+  await log('');
+  // Output prompts in verbose mode for debugging
+  if (argv.verbose) {
+    await log('📋 User prompt:', { verbose: true });
+    await log('---BEGIN USER PROMPT---', { verbose: true });
+    await log(prompt, { verbose: true });
+    await log('---END USER PROMPT---', { verbose: true });
+    await log('', { verbose: true });
+    await log('📋 System prompt:', { verbose: true });
+    await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
+    await log(systemPrompt, { verbose: true });
+    await log('---END SYSTEM PROMPT---', { verbose: true });
+    await log('', { verbose: true });
+  }
+  try {
+    if (argv.resume) {
+      // When resuming, pass prompt directly with -p flag
+      // Use simpler escaping - just escape double quotes
+      const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      execCommand = $({
+        cwd: tempDir,
+        mirror: false
+      })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+    } else {
+      // When not resuming, pass prompt via stdin
+      // For system prompt, escape it properly for shell - just escape double quotes
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
+      execCommand = $({
+        cwd: tempDir,
+        stdin: prompt,
+        mirror: false
+      })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+    }
+    await log(`${formatAligned('📋', 'Command details:', '')}`);
+    await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+    await log(formatAligned('🌿', 'Branch:', branchName, 2));
+    await log(formatAligned('🤖', 'Model:', `Claude ${argv.model.toUpperCase()}`, 2));
+    if (argv.fork && forkedRepo) {
+      await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+    }
+    await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+    // Use command-stream's async iteration for real-time streaming
+    let exitCode = 0;
+    for await (const chunk of execCommand.stream()) {
+    //
+    // See: docs/dependencies-research/claude-code-issues/README.md for full details
+    if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+      commandFailed = true;
+      await log('\n\n❌ Command failed: No messages processed and errors detected in stderr', { level: 'error' });
+      await log('Stderr errors:', { level: 'error' });
+      for (const err of stderrErrors.slice(0, 5)) {
+        await log(`   ${err.substring(0, 200)}`, { level: 'error' });
+      }
+    }
+    if (commandFailed) {
+      // Take resource snapshot after failure
+      const resourcesAfter = await getResourceSnapshot();
+      await log('\n📈 System resources after execution:', { verbose: true });
+      await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+      await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+      // Log attachment will be handled by solve.mjs when it receives success=false
+      await log('', { verbose: true });
+      return {
+        success: false,
+        sessionId,
+        limitReached,
+        limitResetTime,
+        messageCount,
+        toolUseCount
+      };
+    }
+    await log('\n\n✅ Claude command completed');
+    await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
+    // Calculate and display total token usage from session JSONL file
+    if (sessionId && tempDir) {
+      try {
+        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+        if (tokenUsage) {
+          await log('\n💰 Token Usage Summary:');
+          // Display per-model breakdown
+          if (tokenUsage.modelUsage) {
+            const modelIds = Object.keys(tokenUsage.modelUsage);
+            for (const modelId of modelIds) {
+              const usage = tokenUsage.modelUsage[modelId];
+              await log(`\n   📊 ${usage.modelName || modelId}:`);
+              await displayModelUsage(usage, log);
+            }
+            // Show totals if multiple models were used
+            if (modelIds.length > 1) {
+              await log('\n   📈 Total across all models:');
+              // Show cost comparison
+              await log('\n   💰 Cost estimation:');
+              if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+                await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
+              } else {
+                await log('      Public pricing estimate: unknown');
+              }
+              if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+                await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+                // Show comparison if both are available
+                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+                  const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
+                  const percentDiff = tokenUsage.totalCostUSD > 0 ? ((difference / tokenUsage.totalCostUSD) * 100) : 0;
+                  await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+                } else {
+                  await log('      Difference:              unknown');
+                }
+              } else {
+                await log('      Calculated by Anthropic: unknown');
+                await log('      Difference:              unknown');
+              }
+            } else {
+              // Single model - show cost comparison
+              await log('\n   💰 Cost estimation:');
+              if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+                await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
+              } else {
+                await log('      Public pricing estimate: unknown');
+              }
+              if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+                await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
+                // Show comparison if both are available
+                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+                  const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
+                  const percentDiff = tokenUsage.totalCostUSD > 0 ? ((difference / tokenUsage.totalCostUSD) * 100) : 0;
+                  await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+                } else {
+                  await log('      Difference:              unknown');
+                }
+              } else {
+                await log('      Calculated by Anthropic: unknown');
+                await log('      Difference:              unknown');
+              }
+              await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+            }
+          } else {
+            // Fallback to old format if modelUsage is not available
+            await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
+            if (tokenUsage.cacheCreationTokens > 0) {
+              await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
+            }
+            if (tokenUsage.cacheReadTokens > 0) {
+              await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
+            }
+            await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
+            await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+          }
+        }
+      } catch (tokenError) {
+        reportError(tokenError, {
+          context: 'calculate_session_tokens',
+          sessionId,
+          operation: 'read_session_jsonl'
+        });
+        await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
+      }
+    }
+    return {
+      success: true,
+      sessionId,
+      limitReached,
+      limitResetTime,
+      messageCount,
+      toolUseCount,
+      anthropicTotalCostUSD // Pass Anthropic's official total cost
+    };
+  } catch (error) {
+    reportError(error, {
+      context: 'execute_claude',
+      command: params.command,
+      claudePath: params.claudePath,
+      operation: 'run_claude_command'
+    });
+    const errorStr = error.message || error.toString();
+    if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) ||
+        (errorStr.includes('api_error') && errorStr.includes('Overloaded'))) {
+      if (retryCount < maxRetries) {
+        // Calculate exponential backoff delay
+        const delay = baseDelay * Math.pow(2, retryCount);
+        await log(`\n⚠️ API overload error in exception. Retrying in ${delay / 1000} seconds...`, { level: 'warning' });
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Increment retry count and retry
+        retryCount++;
+        return await executeWithRetry();
+      }
+    }
+    if (argv.autoResumeOnErrors &&
+        (errorStr.includes('API Error: 503') ||
+         (errorStr.includes('503') && errorStr.includes('upstream connect error')) ||
+         (errorStr.includes('503') && errorStr.includes('remote connection failure')))) {
+      if (retryCount < retryLimits.max503Retries) {
+        // Calculate exponential backoff delay starting from 5 minutes
+        const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+        const delayMinutes = Math.round(delay / (1000 * 60));
+        await log(`\n⚠️ 503 network error in exception. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        // Increment retry count and retry
+        retryCount++;
+        return await executeWithRetry();
+      }
+    }
+    await log(`\n\n❌ Error executing Claude command: ${error.message}`, { level: 'error' });
+    return {
+      success: false,
+      sessionId,
+      limitReached,
+      limitResetTime: null,
+      messageCount,
+      toolUseCount
+    };
+  }
+  }; // End of executeWithRetry function
+  // Start the execution with retry logic

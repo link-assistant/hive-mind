@@ -1,0 +1,209 @@
+Fetching PR comments...
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+## 🤖 Solution Draft Log
+This log file contains the complete execution trace of the AI solution draft process.
+
+💰 **Cost estimation:**
+- Public pricing estimate: unknown
+- Calculated by Anthropic: unknown
+- Difference: unknown
+📎 **Log file uploaded as GitHub Gist** (1426KB)
+🔗 [View complete solution draft log](https://gist.github.com/konard/4d916545732bcdc2def78bedc62fe1e1)
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+## 🔄 Auto-restart 1/3
+
+Detected uncommitted changes from previous run. Starting new session to review and commit them.
+
+**Uncommitted files:**
+```
+?? logs.git-push.txt
+```
+
+---
+*Auto-restart will stop after changes are committed or after 2 more iterations. Please wait until working session will end and give your feedback.*
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Bumped package version to 0.33.4 to satisfy the verify-version-bump check. CI has been re-triggered for commit 97aea4d.\n\nThe weekly usage limit handling (including reset time and PR comment formatting) is present in this branch via usage-limit detection in Claude/Codex/OpenCode paths and GitHub comment formatting. Once CI passes, this should be ready for review.\n\nIf any CI step still fails, I will download and analyze the logs to address it promptly.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Also fixed capturing of the usage limit reset time by assigning `global.limitResetTime` from the tool result in `src/solve.mjs`. This enables auto-continue messaging and PR comments to include the reset time as intended.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Implemented CLI flag alias support for --skip-claude-check (mapped to --skip-tool-check) in both solve and hive. Hive now also forwards and logs the flag when invoking solve. This addresses the earlier CI failure complaining about unknown arguments.\n\nPushed commit f0f83ec. Monitoring the new CI run; will download and analyze logs if any job fails.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Fixed usage-limit PR comment formatting and added sessionId to failure log uploads.\n\nChanges:\n- Treat isUsageLimit as primary condition in attachLogToGitHub (so usage-limit comments render even without a generic error message).\n- Include sessionId in failure attach to show it in the comment and resume instructions.\n\nPushed commit 7c17442. A new CI run is queued; I’ll monitor and review logs if anything fails.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Small follow-up: fixed gist fallback to always use the Usage Limit comment when isUsageLimit=true. Previously it incorrectly required errorMessage to be set, which caused non-usage-limit formatting in some long-log cases. File: src/github.lib.mjs:656-704.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Validated the latest changes for #719:
+- Confirmed usage-limit gist fallback in `src/github.lib.mjs:656` is active regardless of `errorMessage` when `isUsageLimit=true`.
+- Verified `src/solve.mjs` sets `global.limitResetTime` and passes `isUsageLimit`, `limitResetTime`, and `resumeCommand` to `attachLogToGitHub`.
+- Ran local lint; no errors (11 warnings) — see logs.lint.run.txt.
+- Reviewed CI runs: older failures reproduced before fixes; subsequent runs are green. Latest run for 419e64b is in progress; will monitor.
+
+If you want me to address lint warnings or add a small sanity test in `examples/` or `experiments/`, I can do that next.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Added case study docs and a small demo:
+
+- docs/case-studies/issue-719-usage-limit/INDEX.md
+- docs/case-studies/issue-719-usage-limit/10-LOGS.md
+- docs/case-studies/issue-719-usage-limit/20-TIMELINE.md
+- experiments/usage-limit-demo.mjs
+
+The demo prints the console-friendly usage-limit message for Claude, Codex, and OpenCode without external API calls. CI is green on recent runs. Let me know if you want me to extend the case study (e.g., add more excerpts) or wire a minimal check into local CI.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+Added the missing case study files and demo referenced in the PR body:
+- docs/case-studies/issue-719-usage-limit/INDEX.md
+- docs/case-studies/issue-719-usage-limit/10-LOGS.md
+- docs/case-studies/issue-719-usage-limit/20-TIMELINE.md
+- experiments/usage-limit-demo.mjs
+
+Local lint is clean (warnings only). CI for commit 1550f71 is running; I’ll monitor and, if anything fails, I will:
+1) List recent runs with timestamps and SHAs
+2) Download failing run logs to ci-logs/ for preservation
+3) Analyze errors with exact lines and propose targeted fixes
+
+Once this run passes, I’ll mark the PR ready for review.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI status update and validation notes:
+
+- Recent CI runs for branch `issue-719-a653aae7d4d5` are green; latest run for head SHA 1550f71 is in progress: https://github.com/deep-assistant/hive-mind/actions/runs/19320919407
+- Local lint passes (warnings only); see logs.lint.run.txt in this working session.
+- Verified usage-limit handling end-to-end:
+  - solve.mjs attaches logs with `isUsageLimit`, `limitResetTime`, `toolName`, `resumeCommand`, and `sessionId` when a limit is reached.
+  - github.lib.mjs renders the dedicated “Usage Limit Reached” comment and gist fallback independent of a generic error message.
+  - parse-reset-time experiment confirms tolerant time parsing (e.g., "12:16 PM" and "12:16PM").
+  - usage-limit-demo in `experiments/usage-limit-demo.mjs` outputs the expected console guidance for Claude, Codex, and OpenCode.
+
+I’ll monitor the in-progress job and will download and analyze logs if anything fails. If this run passes as expected, I’ll mark the PR ready.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI and readiness update for #719:
+
+- All recent CI runs on branch `issue-719-a653aae7d4d5` are green; latest head SHA `1550f715` passed (see Actions tab).
+- Older failing run logs preserved locally at `ci-logs/runs/run-19320129982.log` for audit.
+- Usage-limit handling implemented across Claude/Codex/OpenCode, including reset-time extraction, PR comment formatting, and log attachments when `--attach-logs` is used.
+- Case study docs and demo included:
+  - docs/case-studies/issue-719-usage-limit/INDEX.md
+  - docs/case-studies/issue-719-usage-limit/10-LOGS.md
+  - docs/case-studies/issue-719-usage-limit/20-TIMELINE.md
+  - experiments/usage-limit-demo.mjs
+
+PR is ready for review. If you want me to expand the case study or wire a minimal check into CI, I can follow up quickly.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI is green on the last 5 runs; PR body now references the added case-study files and usage-limit demo. I also verified locally:
+- Lint passes (0 errors, 11 warnings)
+- experiments/usage-limit-demo.mjs outputs the expected reset-time and resume instructions
+- Usage-limit PR comment paths in src/github.lib.mjs trigger correctly for isUsageLimit=true, including gist fallback
+
+If you want, I can trim the lint warnings or add a tiny unit-style check for the time parser. Otherwise this looks ready.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI and local validation update:
+- CI for branch issue-719-a653aae7d4d5 is green on the last 5 runs.
+- Local lint: 0 errors, 11 warnings (unchanged existing warnings).
+- Verified experiments/usage-limit-demo.mjs and parse-reset-time.mjs.
+If anything else is needed (e.g., trimming warnings or adding a small parser test), I can follow up quickly.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI is green on the latest runs; local lint has 0 errors (11 warnings). Verified usage-limit handling paths and demo output. Marking PR ready.
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI is green for the latest head (1550f71). The PR description has been updated to reflect the final set of changes for #719. Lint passes with warnings only; no blocking issues detected.
+
+Unless you’d like additional tweaks (e.g., silencing warnings or adding a small demo test), this is ready for review.
+
+--
+author:	konard
+association:	member
+edited:	false
+status:	none
+--
+CI and local validation update:
+- All required checks pass; merge state is CLEAN.
+- PR description is up to date and references the added case-study docs and demo.
+- Local lint passes (0 errors, 11 warnings; unchanged preexisting warnings).
+
+Unless you want me to trim the warnings or add a small parser check, this is ready for review/merge.
+
+--

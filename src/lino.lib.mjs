@@ -2,7 +2,7 @@ if (typeof use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 
-const linoModule = await use('@linksplatform/protocols-lino');
+const linoModule = await use('links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 
 const fs = await import('fs');
@@ -103,55 +103,64 @@ export class LinksNotationManager {
     return `(\n${formattedValues}\n)`;
   }
 
-  ensureCacheDir() {
-    if (!fs.existsSync(this.cacheDir)) {
-      fs.mkdirSync(this.cacheDir, { recursive: true });
+  async ensureCacheDir() {
+    try {
+      await fs.promises.access(this.cacheDir);
+      return false;
+    } catch {
+      await fs.promises.mkdir(this.cacheDir, { recursive: true });
       return true;
     }
-    return false;
   }
 
-  saveToCache(filename, values) {
-    this.ensureCacheDir();
+  async saveToCache(filename, values) {
+    await this.ensureCacheDir();
     const cacheFile = path.join(this.cacheDir, filename);
     const linksNotation = this.format(values);
-    fs.writeFileSync(cacheFile, linksNotation);
+    await fs.promises.writeFile(cacheFile, linksNotation);
     return cacheFile;
   }
 
-  loadFromCache(filename) {
+  async loadFromCache(filename) {
     const cacheFile = path.join(this.cacheDir, filename);
 
-    if (!fs.existsSync(cacheFile)) {
+    try {
+      await fs.promises.access(cacheFile);
+    } catch {
       return null;
     }
 
-    const content = fs.readFileSync(cacheFile, 'utf8');
+    const content = await fs.promises.readFile(cacheFile, 'utf8');
     return {
       raw: content,
       parsed: this.parse(content),
       numericIds: this.parseNumericIds(content),
       stringValues: this.parseStringValues(content),
-      file: cacheFile
+      file: cacheFile,
     };
   }
 
-  cacheExists(filename) {
+  async cacheExists(filename) {
     const cacheFile = path.join(this.cacheDir, filename);
-    return fs.existsSync(cacheFile);
+    try {
+      await fs.promises.access(cacheFile);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   getCachePath(filename) {
     return path.join(this.cacheDir, filename);
   }
 
-  requireCache(filename, errorMessage) {
-    const cache = this.loadFromCache(filename);
+  async requireCache(filename, errorMessage) {
+    const cache = await this.loadFromCache(filename);
 
     if (!cache) {
       const cacheFile = this.getCachePath(filename);
       console.error(`❌ ${errorMessage || `Cache file not found: ${cacheFile}`}`);
-      console.log(`💡 Run the appropriate script first to create the cache file`);
+      console.log('💡 Run the appropriate script first to create the cache file');
       process.exit(1);
     }
 
@@ -161,7 +170,7 @@ export class LinksNotationManager {
 }
 
 export const CACHE_FILES = {
-  TELEGRAM_CHATS: 'telegram-chats.lino'
+  TELEGRAM_CHATS: 'telegram-chats.lino',
 };
 
 export const lino = new LinksNotationManager();

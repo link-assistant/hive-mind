@@ -13,14 +13,14 @@ const testArgs = process.argv.slice(2);
 console.log(`Testing strict validation: ${testArgs.join(' ')}\n`);
 
 // Helper to check if a string looks like it was meant to be an option
-const looksLikeOption = (str) => {
+const looksLikeOption = str => {
   // Check for various dash characters (hyphen-minus, en-dash, em-dash, etc.)
   return /^[\u002D\u2010\u2011\u2012\u2013\u2014]+[a-zA-Z]/.test(str);
 };
 
 // Helper function to validate options strictly
-const createStrictOptionsCheck = (yargsInstance) => {
-  return (argv) => {
+const createStrictOptionsCheck = yargsInstance => {
+  return argv => {
     // Get the parsed options from yargs internal state
     const parsed = yargsInstance.parsed;
     const aliases = parsed?.aliases || {};
@@ -78,13 +78,13 @@ try {
       type: 'boolean',
       description: 'Fork the repository',
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .fail((msg, err, yargs) => {
       console.error('❌ Validation Error:');
@@ -99,7 +99,6 @@ try {
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

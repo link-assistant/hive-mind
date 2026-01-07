@@ -78,6 +78,19 @@ export const retryLimits = {
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
 };
 
+// Cache TTL configurations (in milliseconds)
+// The Usage API (Claude limits) has stricter rate limiting than regular APIs
+// See: https://github.com/link-assistant/hive-mind/issues/1074
+export const cacheTtl = {
+  // General API cache TTL (GitHub API, etc.)
+  api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
+  // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
+  // The API returns null values when called too frequently
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 20 * 60 * 1000), // 20 minutes
+  // System metrics cache TTL (RAM, CPU, disk)
+  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
+};
+
 // File and path configurations
 export const filePaths = {
   tempDir: getenv('HIVE_MIND_TEMP_DIR', '/tmp'),
@@ -177,6 +190,7 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    cacheTtl,
     filePaths,
     textProcessing,
     display,

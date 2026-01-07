@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 1.0.4
+
+### Patch Changes
+
+- 4e5e1ab: Use gh-upload-log for log file uploads (issue #587)
+  - Replace custom gist creation with gh-upload-log command
+  - Implement smart linking: 1 chunk = direct raw link, >1 chunks = repo link
+  - Update case study documentation with gh-upload-log v0.5.0 fixes
+  - Remove custom log compression in favor of gh-upload-log auto mode
+
 ## 1.0.3
 
 ### Patch Changes

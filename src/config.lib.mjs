@@ -89,6 +89,9 @@ export const claudeCode = {
   maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
 };
 
+// Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
+export const getClaudeEnv = () => ({ ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) });
+
 // Cache TTL configurations (in milliseconds)
 // The Usage API (Claude limits) has stricter rate limiting than regular APIs
 // See: https://github.com/link-assistant/hive-mind/issues/1074

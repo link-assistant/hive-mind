@@ -21,7 +21,7 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 // Import centralized limits and caching
-import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
+import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache, getCpuLoadInfo, getMemoryInfo, CACHE_TTL } from './limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling
@@ -41,6 +41,7 @@ export const QUEUE_CONFIG = {
   // Timing
   MIN_START_INTERVAL_MS: 60000, // 1 minute between starts
   CONSUMER_POLL_INTERVAL_MS: 5000, // 5 seconds between queue checks
+  MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
 
   // Process detection
   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
@@ -163,6 +164,9 @@ class SolveQueueItem {
     this.sessionName = null;
     // Message tracking - forget after STARTED
     this.messageInfo = null; // { chatId, messageId }
+    // Track when we last updated the Telegram message
+    // See: https://github.com/link-assistant/hive-mind/issues/1078
+    this.lastMessageUpdateTime = null;
   }
 
   /**
@@ -409,8 +413,10 @@ export class SolveQueue {
     // "Claude process running" only blocks if there are OTHER reasons too
     // This allows parallel execution when limits are not exceeded
     if (hasRunningClaude && reasons.length > 0) {
-      // Add claude_running info only when combined with actual limit reasons
-      reasons.unshift(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
+      // Add claude_running info at the END (not beginning) of reasons
+      // Since it's supplementary info, not the primary blocking reason
+      // See: https://github.com/link-assistant/hive-mind/issues/1078
+      reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
     }
 
     const canStart = reasons.length === 0;
@@ -430,26 +436,73 @@ export class SolveQueue {
 
   /**
    * Check system resources (RAM, CPU, disk) using cached values
+   *
+   * IMPORTANT: When a cached value exceeds a threshold, we force-refresh
+   * to avoid blocking on stale values. This prevents the queue from getting
+   * stuck when a transient spike (like CPU during claude startup) was cached.
+   * See: https://github.com/link-assistant/hive-mind/issues/1078
+   *
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
   async checkSystemResources() {
     const reasons = [];
     let oneAtATime = false;
+    const cache = getLimitCache();
 
-    // Check RAM (using cached value)
-    const memResult = await getCachedMemoryInfo(this.verbose);
+    // Check RAM (using cached value, with force-refresh if above threshold)
+    let memResult = await getCachedMemoryInfo(this.verbose);
     if (memResult.success) {
-      const usedRatio = memResult.memory.usedPercentage / 100;
+      let usedRatio = memResult.memory.usedPercentage / 100;
+
+      // If cached value exceeds threshold, force-refresh to confirm it's not stale
+      if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
+        if (this.verbose) {
+          this.log(`RAM cached at ${memResult.memory.usedPercentage}% (above threshold), refreshing...`);
+        }
+        const freshResult = await getMemoryInfo(this.verbose);
+        if (freshResult.success) {
+          usedRatio = freshResult.memory.usedPercentage / 100;
+          // Update cache with fresh value
+          cache.set('memory', freshResult, CACHE_TTL.SYSTEM);
+          memResult = freshResult;
+          if (this.verbose) {
+            this.log(`RAM fresh value: ${freshResult.memory.usedPercentage}%`);
+          }
+        }
+      }
+
+      // Only block if (refreshed) value still exceeds threshold
       if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
         reasons.push(formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.RAM_THRESHOLD));
         this.recordThrottle('ram_high');
       }
     }
 
-    // Check CPU (using cached value)
-    const cpuResult = await getCachedCpuInfo(this.verbose);
+    // Check CPU (using cached value, with force-refresh if above threshold)
+    let cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
-      const usedRatio = cpuResult.cpuLoad.usagePercentage / 100;
+      let usedRatio = cpuResult.cpuLoad.usagePercentage / 100;
+
+      // If cached value exceeds threshold, force-refresh to confirm it's not stale
+      // This is critical because CPU can spike briefly during claude startup
+      // See: https://github.com/link-assistant/hive-mind/issues/1078
+      if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
+        if (this.verbose) {
+          this.log(`CPU cached at ${cpuResult.cpuLoad.usagePercentage}% (above threshold), refreshing...`);
+        }
+        const freshResult = await getCpuLoadInfo(this.verbose);
+        if (freshResult.success) {
+          usedRatio = freshResult.cpuLoad.usagePercentage / 100;
+          // Update cache with fresh value
+          cache.set('cpu', freshResult, CACHE_TTL.SYSTEM);
+          cpuResult = freshResult;
+          if (this.verbose) {
+            this.log(`CPU fresh value: ${freshResult.cpuLoad.usagePercentage}%`);
+          }
+        }
+      }
+
+      // Only block if (refreshed) value still exceeds threshold
       if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
         reasons.push(formatWaitingReason('cpu', cpuResult.cpuLoad.usagePercentage, QUEUE_CONFIG.CPU_THRESHOLD));
         this.recordThrottle('cpu_high');
@@ -564,16 +617,31 @@ export class SolveQueue {
    * Update item message in Telegram
    * @param {SolveQueueItem} item
    * @param {string} text
+   * @param {boolean} trackUpdateTime - Whether to track this as a periodic update (default: true)
    */
-  async updateItemMessage(item, text) {
+  async updateItemMessage(item, text, trackUpdateTime = true) {
     if (!item.messageInfo || !item.ctx) return;
 
     try {
       const { chatId, messageId } = item.messageInfo;
       await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+      if (trackUpdateTime) {
+        item.lastMessageUpdateTime = Date.now();
+      }
     } catch (error) {
       this.log(`Failed to update message: ${error.message}`);
     }
+  }
+
+  /**
+   * Check if an item's message should be updated periodically
+   * @param {SolveQueueItem} item
+   * @returns {boolean}
+   */
+  shouldUpdateMessage(item) {
+    if (!item.messageInfo || !item.ctx) return false;
+    if (!item.lastMessageUpdateTime) return true; // Never updated
+    return Date.now() - item.lastMessageUpdateTime >= QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS;
   }
 
   /**
@@ -592,14 +660,20 @@ export class SolveQueue {
 
       if (!check.canStart) {
         // Update all queued items to waiting status with reason
+        // Also periodically refresh messages to show current status
+        // See: https://github.com/link-assistant/hive-mind/issues/1078
         for (const item of this.queue) {
           if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
             const previousStatus = item.status;
             const previousReason = item.waitingReason;
             item.setWaiting(check.reason);
 
-            // Update message if status or reason changed
-            if (previousStatus !== item.status || previousReason !== item.waitingReason) {
+            // Update message if:
+            // 1. Status or reason changed
+            // 2. OR it's time for a periodic update (every MESSAGE_UPDATE_INTERVAL_MS)
+            const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
+
+            if (shouldUpdate) {
               const position = this.queue.indexOf(item) + 1;
               await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${check.reason}`);
             }

@@ -78,6 +78,17 @@ export const retryLimits = {
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
 };
 
+// Claude Code CLI configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1076
+// Claude models support up to 64K output tokens, but Claude Code CLI defaults to 32K
+// Setting a higher limit allows Claude to generate longer responses without hitting the limit
+export const claudeCode = {
+  // Maximum output tokens for Claude Code CLI responses
+  // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
+  // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+};
+
 // Cache TTL configurations (in milliseconds)
 // The Usage API (Claude limits) has stricter rate limiting than regular APIs
 // See: https://github.com/link-assistant/hive-mind/issues/1074
@@ -190,6 +201,7 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    claudeCode,
     cacheTtl,
     filePaths,
     textProcessing,

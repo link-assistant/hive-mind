@@ -10,7 +10,7 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
@@ -931,6 +931,19 @@ export const executeClaudeCommand = async params => {
       await log('', { verbose: true });
     }
     try {
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS environment variable
+      // See: https://github.com/link-assistant/hive-mind/issues/1076
+      // This allows Claude to generate responses up to 64K tokens (matching model capability)
+      // instead of the default 32K limit which can cause truncation errors
+      const claudeEnv = {
+        ...process.env,
+        CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens),
+      };
+
+      if (argv.verbose) {
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      }
+
       if (argv.resume) {
         // When resuming, pass prompt directly with -p flag
         // Use simpler escaping - just escape double quotes
@@ -939,6 +952,7 @@ export const executeClaudeCommand = async params => {
         execCommand = $({
           cwd: tempDir,
           mirror: false,
+          env: claudeEnv,
         })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
         // When not resuming, pass prompt via stdin
@@ -948,6 +962,7 @@ export const executeClaudeCommand = async params => {
           cwd: tempDir,
           stdin: prompt,
           mirror: false,
+          env: claudeEnv,
         })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);

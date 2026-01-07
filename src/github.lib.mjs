@@ -55,6 +55,141 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   return costInfo;
 };
+/**
+ * Upload a log file using gh-upload-log command
+ * @param {Object} options - Upload options
+ * @param {string} options.logFile - Path to the log file to upload
+ * @param {boolean} options.isPublic - Whether to make the upload public
+ * @param {string} options.description - Description for the upload
+ * @param {boolean} [options.verbose=false] - Enable verbose logging
+ * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number}>}
+ */
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false }) => {
+  const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
+
+  try {
+    // Build command with appropriate flags
+    const publicFlag = isPublic ? '--public' : '--private';
+    const descFlag = description ? `--description "${description}"` : '';
+    const verboseFlag = verbose ? '--verbose' : '';
+
+    const command = `gh-upload-log "${logFile}" ${publicFlag} ${descFlag} ${verboseFlag}`.trim().replace(/\s+/g, ' ');
+
+    if (verbose) {
+      await log(`  📤 Running: ${command}`, { verbose: true });
+    }
+
+    const uploadResult = await $`gh-upload-log "${logFile}" ${publicFlag} ${verbose ? '--verbose' : ''}`;
+    const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
+
+    if (uploadResult.code !== 0) {
+      await log(`  ❌ gh-upload-log failed: ${output}`);
+      return result;
+    }
+
+    // Parse output to extract URL and type
+    // Look for the URL line: 🔗 https://...
+    const urlMatch = output.match(/🔗\s+(https:\/\/[^\s\n]+)/);
+    if (urlMatch) {
+      result.url = urlMatch[1].trim();
+    }
+
+    // Determine type from output
+    if (output.includes('Type: 📝 Gist') || result.url?.includes('gist.github.com')) {
+      result.type = 'gist';
+    } else if (output.includes('Type: 📦 Repository') || (result.url?.includes('github.com') && !result.url?.includes('gist'))) {
+      result.type = 'repository';
+    }
+
+    // Extract chunk count if mentioned
+    const chunkMatch = output.match(/split into (\d+) chunks/i);
+    if (chunkMatch) {
+      result.chunks = parseInt(chunkMatch[1], 10);
+    }
+
+    // Construct raw URL based on type and chunks
+    if (result.url) {
+      result.success = true;
+
+      if (result.type === 'gist') {
+        // For gist: get raw URL from gist API
+        const gistId = result.url.split('/').pop();
+        try {
+          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
+          if (gistDetailsResult.code === 0) {
+            const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
+            const gistOwner = gistDetails.owner;
+            const commitSha = gistDetails.history?.[0]?.version;
+            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
+            const fileName = fileNames.length > 0 ? fileNames[0] : 'log.txt';
+
+            if (commitSha) {
+              result.rawUrl = `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${commitSha}/${fileName}`;
+            } else {
+              result.rawUrl = `https://gist.githubusercontent.com/${gistOwner}/${gistId}/raw/${fileName}`;
+            }
+          }
+        } catch (apiError) {
+          if (verbose) {
+            await log(`  ⚠️  Could not get gist raw URL: ${apiError.message}`, { verbose: true });
+          }
+          // Use page URL as fallback
+          result.rawUrl = result.url;
+        }
+      } else if (result.type === 'repository') {
+        if (result.chunks === 1) {
+          // For single chunk repository: construct raw URL to the file
+          // Repository URL format: https://github.com/owner/repo
+          // We need to find the actual file name in the repo
+          try {
+            const repoUrl = result.url;
+            const repoPath = repoUrl.replace('https://github.com/', '');
+            const contentsResult = await $`gh api repos/${repoPath}/contents --jq '.[].name'`;
+            if (contentsResult.code === 0) {
+              const files = contentsResult.stdout
+                .toString()
+                .trim()
+                .split('\n')
+                .filter(f => f && !f.startsWith('.'));
+              if (files.length > 0) {
+                const fileName = files[0];
+                result.rawUrl = `${repoUrl}/raw/main/${fileName}`;
+              }
+            }
+          } catch (apiError) {
+            if (verbose) {
+              await log(`  ⚠️  Could not get repo file raw URL: ${apiError.message}`, { verbose: true });
+            }
+            // For single chunk, try common pattern
+            result.rawUrl = result.url;
+          }
+        } else {
+          // For multiple chunks: link to repository itself (not raw)
+          result.rawUrl = result.url;
+        }
+      }
+    }
+
+    if (verbose) {
+      await log(`  ✅ Upload successful: ${result.url}`, { verbose: true });
+      await log(`  📊 Type: ${result.type}, Chunks: ${result.chunks}`, { verbose: true });
+      if (result.rawUrl !== result.url) {
+        await log(`  🔗 Raw URL: ${result.rawUrl}`, { verbose: true });
+      }
+    }
+
+    return result;
+  } catch (error) {
+    reportError(error, {
+      context: 'upload_log_with_gh_upload_log',
+      logFile,
+      operation: 'gh_upload_log_command',
+    });
+    await log(`  ❌ Error running gh-upload-log: ${error.message}`);
+    return result;
+  }
+};
+
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
 // Helper function to get GitHub tokens from local config files
@@ -649,7 +784,7 @@ ${logContent}
     let commentResult;
     if (logComment.length > githubLimits.commentMaxSize) {
       await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
-      await log('  📎 Uploading log as GitHub Gist instead...');
+      await log('  📎 Uploading log using gh-upload-log...');
       try {
         // Check if repository is public or private
         let isPublicRepo = true;
@@ -670,49 +805,36 @@ ${logContent}
             repo,
           });
           // Default to public if we can't determine visibility
-          await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
+          await log('  ⚠️  Could not determine repository visibility, defaulting to public', { verbose: true });
         }
-        // Create gist with appropriate visibility
-        // Note: Gists don't need escaping because they are uploaded as plain text files
+        // Create temp log file with sanitized content (no compression, just gh-upload-log)
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
-        // Use the original sanitized content (before escaping) for gist since it's a text file
+        // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
-        const gistCommand = isPublicRepo ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"` : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
-        if (verbose) {
-          await log(`  🔐 Creating ${isPublicRepo ? 'public' : 'private'} gist...`, { verbose: true });
-        }
-        const gistResult = await $(gistCommand);
+
+        // Use gh-upload-log to upload the log file
+        const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
+        const uploadResult = await uploadLogWithGhUploadLog({
+          logFile: tempLogFile,
+          isPublic: isPublicRepo,
+          description: uploadDescription,
+          verbose,
+        });
         await fs.unlink(tempLogFile).catch(() => {});
-        if (gistResult.code === 0) {
-          const gistPageUrl = gistResult.stdout.toString().trim();
-          // Extract gist ID from URL
-          const gistId = gistPageUrl.split('/').pop();
-          // Construct raw file URL
-          // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
-          // We use gh api to get the gist details for owner and commit SHA
-          let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
 
-          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
-          if (gistDetailsResult.code === 0) {
-            const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
-            const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
-            // Get the actual filename from the gist API response (--filename flag only works with stdin)
-            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
-            const fileName = fileNames.length > 0 ? fileNames[0] : 'solution-draft-log.txt';
+        if (uploadResult.success) {
+          // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks)
+          // Requirements: 1 chunk = direct raw link, >1 chunks = repo link
+          const logUrl = uploadResult.chunks === 1 ? uploadResult.rawUrl : uploadResult.url;
+          const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
 
-            if (commitSha) {
-              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
-            } else {
-              // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
-              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
-            }
-          }
-          // Create comment with gist link
-          let gistComment;
+          // Create comment with log link
+          let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
           if (isUsageLimit) {
-            // Usage limit error gist format
-            gistComment = `## ⏳ Usage Limit Reached
+            // Usage limit error format
+            logUploadComment = `## ⏳ Usage Limit Reached
 
 The automated solution draft was interrupted because the ${toolName} usage limit was reached.
 
@@ -721,86 +843,86 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
             if (limitResetTime) {
-              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+              logUploadComment += `\n- **Reset Time**: ${limitResetTime}`;
             }
 
             if (sessionId) {
-              gistComment += `\n- **Session ID**: ${sessionId}`;
+              logUploadComment += `\n- **Session ID**: ${sessionId}`;
             }
 
-            gistComment += '\n\n### 🔄 How to Continue\n';
+            logUploadComment += '\n\n### 🔄 How to Continue\n';
 
             if (limitResetTime) {
-              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+              logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
             } else {
-              gistComment += 'Once the limit resets, ';
+              logUploadComment += 'Once the limit resets, ';
             }
 
             if (resumeCommand) {
-              gistComment += `you can resume this session by running:
+              logUploadComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
             } else if (sessionId) {
-              gistComment += `you can resume this session using session ID: \`${sessionId}\``;
+              logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
             } else {
-              gistComment += 'you can retry the operation.';
+              logUploadComment += 'you can retry the operation.';
             }
 
-            gistComment += `
+            logUploadComment += `
 
-📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${gistUrl})
+📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete execution log](${logUrl})
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
           } else if (errorMessage) {
-            // Failure log gist format (non-usage-limit errors)
-            gistComment = `## 🚨 Solution Draft Failed
+            // Failure log format (non-usage-limit errors)
+            logUploadComment = `## 🚨 Solution Draft Failed
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
 \`\`\`
-📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${gistUrl})
+📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete failure log](${logUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
-            // Success log gist format - use helper function for cost info
+            // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            gistComment = `## ${customTitle}
+            logUploadComment = `## ${customTitle}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
-📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${gistUrl})
+📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete solution draft log](${logUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }
-          const tempGistCommentFile = `/tmp/log-gist-comment-${targetType}-${Date.now()}.md`;
-          await fs.writeFile(tempGistCommentFile, gistComment);
-          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempGistCommentFile}"`;
-          await fs.unlink(tempGistCommentFile).catch(() => {});
+          const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
+          await fs.writeFile(tempCommentFile, logUploadComment);
+          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempCommentFile}"`;
+          await fs.unlink(tempCommentFile).catch(() => {});
           if (commentResult.code === 0) {
-            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} Gist`);
-            await log(`  🔗 Gist URL: ${gistUrl}`);
+            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}`);
+            await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             return true;
           } else {
-            await log(`  ❌ Failed to upload comment with gist link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
+            await log(`  ❌ Failed to post comment with log link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
             return false;
           }
         } else {
-          await log(`  ❌ Failed to create gist: ${gistResult.stderr ? gistResult.stderr.toString().trim() : 'unknown error'}`);
+          await log('  ❌ gh-upload-log failed');
 
           // Fallback to truncated comment
           await log('  🔄 Falling back to truncated comment...');
           return await attachTruncatedLog(options);
         }
-      } catch (gistError) {
-        reportError(gistError, {
-          context: 'create_gist',
+      } catch (uploadError) {
+        reportError(uploadError, {
+          context: 'upload_log_gh_upload_log',
           level: 'error',
         });
-        await log(`  ❌ Error creating gist: ${gistError.message}`);
+        await log(`  ❌ Error uploading log: ${uploadError.message}`);
         // Try regular comment as last resort
         return await attachRegularComment(options, logComment);
       }
@@ -1482,6 +1604,7 @@ export default {
   checkGitHubPermissions,
   checkRepositoryWritePermission,
   attachLogToGitHub,
+  uploadLogWithGhUploadLog,
   fetchAllIssuesWithPagination,
   fetchProjectIssues,
   isRateLimitError,

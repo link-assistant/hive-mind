@@ -2,8 +2,9 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Add case study documentation for issue #587 (large log file transfer)
+Use gh-upload-log for log file uploads (issue #587)
 
-- Document gh-upload-log testing results for various file sizes
-- Remove custom log compression modules in favor of existing gh-upload-log command
-- Report bug to gh-upload-log repository for HTTP 502 failures on 50MB+ gist uploads
+- Replace custom gist creation with gh-upload-log command
+- Implement smart linking: 1 chunk = direct raw link, >1 chunks = repo link
+- Update case study documentation with gh-upload-log v0.5.0 fixes
+- Remove custom log compression in favor of gh-upload-log auto mode

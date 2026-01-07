@@ -13,14 +13,16 @@ The original error occurred when running `gh gist create /home/hive/hive-2025-10
 
 ## Timeline of Events
 
-| Date       | Event                                                      |
-| ---------- | ---------------------------------------------------------- |
-| 2025-10-17 | Original failure observed with 200MB log file              |
-| 2025-10-18 | Issue #587 created to research alternatives                |
-| 2025-10-18 | Initial PR #588 created with custom compression solution   |
-| 2026-01-06 | Requirements updated: use existing `gh-upload-log` command |
-| 2026-01-06 | Comprehensive testing of `gh-upload-log` performed         |
-| 2026-01-06 | Bug reported to gh-upload-log repository (issue #19)       |
+| Date       | Event                                                                      |
+| ---------- | -------------------------------------------------------------------------- |
+| 2025-10-17 | Original failure observed with 200MB log file                              |
+| 2025-10-18 | Issue #587 created to research alternatives                                |
+| 2025-10-18 | Initial PR #588 created with custom compression solution                   |
+| 2026-01-06 | Requirements updated: use existing `gh-upload-log` command                 |
+| 2026-01-06 | Comprehensive testing of `gh-upload-log` v0.4.x performed                  |
+| 2026-01-06 | Bug reported to gh-upload-log repository (issue #19)                       |
+| 2026-01-07 | gh-upload-log v0.5.0 released with bug fixes                               |
+| 2026-01-07 | hive-mind integration updated to use gh-upload-log (no custom compression) |
 
 ## Root Cause Analysis
 
@@ -38,7 +40,7 @@ The 200MB log file exceeded both the CLI and API limits, resulting in a 422 Vali
 
 ## Solution Approaches Evaluated
 
-### 1. Custom Compression Solution (Initially Implemented)
+### 1. Custom Compression Solution (Initially Implemented, Then Removed)
 
 The first solution attempt involved:
 
@@ -47,20 +49,21 @@ The first solution attempt involved:
 - Implementing automatic compression (90-99% reduction typical)
 - Using git-based gist push for larger files
 
-**Status**: Superseded by `gh-upload-log` tool
+**Status**: Removed in favor of `gh-upload-log` tool
 
 ### 2. gh-upload-log Command (Final Solution)
 
 The `gh-upload-log` tool (https://github.com/link-foundation/gh-upload-log) provides:
 
 - Automatic strategy selection based on file size
-- Gist mode for files <100MB
+- Gist mode for files <25MB (lowered from 100MB in v0.5.0)
 - Repository mode with automatic file splitting for larger files
+- Automatic fallback from gist to repository mode on failure
 - Support for private/public uploads
 
 ## Testing Results
 
-Testing performed on 2026-01-06 with various file sizes:
+### Initial Testing (2026-01-06, gh-upload-log v0.4.x)
 
 | Original Size | Encoded Size | Upload Mode     | Result                | URL                                                             |
 | ------------- | ------------ | --------------- | --------------------- | --------------------------------------------------------------- |
@@ -72,37 +75,38 @@ Testing performed on 2026-01-06 with various file sizes:
 | 300 MB        | 405.26 MB    | repo (5 chunks) | Success               | https://github.com/konard/log-tmp-gh-upload-log-test-test-300mb |
 | 500 MB        | 675.44 MB    | repo (7 chunks) | Success               | https://github.com/konard/log-tmp-gh-upload-log-test-test-500mb |
 
-### Bug Discovered
+### Bug Discovered and Fixed
 
-**Issue**: Files between 50-100MB fail with HTTP 502 when uploaded as gists, but `gh-upload-log` incorrectly reports success.
-
-**Workaround**: Use `--only-repository` flag for files >50MB.
+**Issue**: Files between 50-100MB failed with HTTP 502 when uploaded as gists, but `gh-upload-log` incorrectly reported success.
 
 **Bug Report**: https://github.com/link-foundation/gh-upload-log/issues/19
 
-## Recommendations
+**Fix**: gh-upload-log v0.5.0 addressed this with:
 
-### For hive-mind Integration
+1. Lowered gist threshold from 100MB to 25MB to match GitHub's web interface limit
+2. Added validation to detect failed gist creation (empty URL in stdout)
+3. Added automatic fallback from gist to repository mode when gist upload fails
 
-1. Use `gh-upload-log` for all log file uploads instead of custom implementation
-2. For files >50MB, explicitly use `--only-repository` mode until bug is fixed
-3. Consider adding retry logic with fallback to repository mode
+## Final Implementation (2026-01-07)
 
-### For gh-upload-log Tool
+The hive-mind system now uses `gh-upload-log` directly for all log uploads:
 
-1. Lower the gist threshold from 100MB to ~25MB
-2. Add automatic fallback to repository mode when gist upload fails
-3. Fix the success detection bug (don't report success on failure)
+1. **No custom compression** - gh-upload-log handles everything
+2. **Smart linking logic**:
+   - For single file/chunk uploads → direct link to raw log file
+   - For multi-chunk repository uploads → link to repository root
+3. **Automatic mode** - gh-upload-log selects gist vs repository based on file size
 
 ## Files in This Case Study
 
 - `README.md` - This document
-- `test-results.json` - Raw test output data
-- `gh-upload-log-issue-19.md` - Bug report filed
+- `test-results.json` - Raw test output data from v0.4.x testing
+- `gh-upload-log-issue-19.md` - Bug report filed (now fixed in v0.5.0)
 
 ## Related Links
 
 - Original Issue: https://github.com/link-assistant/hive-mind/issues/587
 - Pull Request: https://github.com/link-assistant/hive-mind/pull/588
 - gh-upload-log Tool: https://github.com/link-foundation/gh-upload-log
-- Bug Report: https://github.com/link-foundation/gh-upload-log/issues/19
+- Bug Report (Fixed): https://github.com/link-foundation/gh-upload-log/issues/19
+- Fix PR: https://github.com/link-foundation/gh-upload-log/pull/20

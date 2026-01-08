@@ -768,6 +768,7 @@ if (isDirectExecution) {
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
             if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
+            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 

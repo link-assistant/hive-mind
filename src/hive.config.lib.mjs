@@ -286,6 +286,11 @@ export const createYargsConfig = yargsInstance => {
       description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
       default: false,
     })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
+      default: false,
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

@@ -1,5 +1,63 @@
 # @link-assistant/hive-mind
 
+## 1.2.0
+
+### Minor Changes
+
+- Add experimental --execute-tool-with-bun option to improve speed and memory usage
+
+  This feature adds the `--execute-tool-with-bun` option that allows users to execute the AI tool using `bunx claude` instead of `claude`, which may provide performance benefits in terms of speed and memory usage.
+
+  **Supported commands:**
+  - `solve` - Uses `bunx claude` when option is enabled
+  - `task` - Uses `bunx claude` when option is enabled
+  - `review` - Uses `bunx claude` when option is enabled
+  - `hive` - Passes the option through to the `solve` subprocess
+
+  **How It Works:**
+  When `--execute-tool-with-bun` is enabled, the `claudePath` variable is set to `'bunx claude'` instead of `'claude'` (or `CLAUDE_PATH` environment variable).
+
+  **Usage Examples:**
+
+  ```bash
+  # Use with solve command
+  solve https://github.com/owner/repo/issues/123 --execute-tool-with-bun
+
+  # Use with task command
+  task "implement feature X" --execute-tool-with-bun
+
+  # Use with review command
+  review https://github.com/owner/repo/pull/456 --execute-tool-with-bun
+
+  # Use with hive command (passes through to solve)
+  hive https://github.com/owner/repo --execute-tool-with-bun
+  ```
+
+  The option defaults to `false` to maintain backward compatibility.
+
+  Fixes #812
+
+  feat(hive): recheck issue conditions before processing queue items
+
+  Added `recheckIssueConditions()` function to validate issue state right before processing,
+  preventing wasted resources on issues that should be skipped due to changed conditions since queuing.
+
+  **Checks performed:**
+  - **Issue state**: Verifies the issue is still open
+  - **Open PRs**: Checks if issue has PRs (when `--skip-issues-with-prs` is enabled)
+  - **Repository status**: Confirms repository is not archived
+
+  **Benefits:**
+  - Prevents processing closed issues
+  - Avoids duplicate work when PRs already exist
+  - Stops work on newly archived repositories
+  - Saves AI model tokens and compute resources
+
+  **Performance impact:**
+  Minimal overhead per issue (~300-500ms for API calls), negligible compared to 5-15 minute solve time.
+
+  Fixes #810
+
 ## 1.1.0
 
 ### Minor Changes

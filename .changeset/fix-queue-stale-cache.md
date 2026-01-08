@@ -2,20 +2,21 @@
 '@link-assistant/hive-mind': patch
 ---
 
-fix(queue): prevent stuck queue due to stale cached resource values
+fix(queue): simplify queue logic based on PR feedback
 
-- **Force-refresh cached values when above threshold**: When CPU or RAM cached values exceed
-  their thresholds, the queue now fetches fresh values to confirm before blocking. This prevents
-  the queue from getting stuck on stale cached values from transient spikes.
+- **Use 5-minute load average for CPU**: Uses `loadAvg5` instead of instantaneous CPU usage,
+  providing a more stable metric not affected by transient spikes during claude startup.
 
-- **Reorder reason messages**: "Claude process is already running" is now shown at the end of
-  the reasons list instead of the beginning, since it's supplementary information rather than
-  the primary blocking reason.
+- **Remove RAM from blocking logic**: RAM usage was not causing queue issues, simplifying
+  the code and reducing unnecessary checks.
 
-- **Add periodic message updates**: Waiting queue messages now update every minute to show
-  current status, giving users visibility into why they're waiting.
+- **Increase MIN_START_INTERVAL_MS to 2 minutes**: Allows enough time for solve command to
+  start actual claude process, ensuring running processes are counted when API limits are checked.
 
-- **Add comprehensive unit tests**: New test suite for queue behavior with 27 tests covering
-  configuration, status transitions, message updates, throttling, and more.
+- **Increase CONSUMER_POLL_INTERVAL_MS to 1 minute**: Reduces unnecessary system checks.
+  One-minute polling is sufficient for queue management.
+
+- **Running processes not a blocking limit**: Commands can run in parallel as long as actual
+  limits (CPU, API, etc.) are not exceeded. Claude process info is only supplementary.
 
 Fixes #1078

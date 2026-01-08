@@ -110,6 +110,8 @@ if (isDirectExecution) {
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
     const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
     const { listSolutionDrafts } = solutionDraftsLib;
+    const recheckLib = await import('./hive.recheck.lib.mjs');
+    const { recheckIssueConditions } = recheckLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -712,6 +714,16 @@ if (isDirectExecution) {
         }
 
         await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
+
+        // Recheck conditions before processing to avoid wasted work
+        const recheckResult = await recheckIssueConditions(issueUrl, argv);
+        if (!recheckResult.shouldProcess) {
+          await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+          issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
 
         // Track if this issue failed
         let issueFailed = false;

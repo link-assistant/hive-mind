@@ -98,9 +98,9 @@ const testCases = [
 ];
 
 console.log('🧪 Running Telegram Markdown escaping unit tests...\n');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log('Test Suite: Telegram Markdown Escaping (Issue #580)');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log();
 
 let passed = 0;
@@ -128,9 +128,9 @@ for (const testCase of testCases) {
 }
 
 // Test the actual message construction that was failing
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log('Integration Test: Message Construction (Real-world scenario)');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log();
 
 const testUsername = 'drakonard';
@@ -159,13 +159,13 @@ console.log('   This prevents the "Can\'t find end of entity at byte offset 117"
 console.log();
 
 // Print summary
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log('Test Summary');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log(`Total tests:  ${testCases.length}`);
 console.log(`Passed:       ${passed} ✅`);
 console.log(`Failed:       ${failed} ${failed > 0 ? '❌' : ''}`);
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 console.log();
 
 if (failed === 0) {

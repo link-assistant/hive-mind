@@ -1,0 +1,58 @@
+[
+  {
+    "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682705341",
+    "html_url": "https://github.com/eg0rmaffin/vapor-rice-i3/pull/13#issuecomment-3682705341",
+    "issue_url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/13",
+    "id": 3682705341,
+    "node_id": "IC_kwDOOQgibM7bgZ-9",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-22T16:01:37Z",
+    "updated_at": "2025-12-22T16:01:37Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $2.411035 USD\n- Calculated by Anthropic: $1.882882 USD\n- Difference: $-0.528153 (-21.91%)\n📎 **Log file uploaded as GitHub Gist** (375KB)\n🔗 [View complete solution draft log](https://gist.githubusercontent.com/konard/0aeb5b24275bcdfa4e4e93ae34f98c55/raw/ffd56c6b0987a19bc575b575d6e2ad2299c48028/solution-draft-log-pr-1766419293445.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682705341/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682805175",
+    "html_url": "https://github.com/eg0rmaffin/vapor-rice-i3/pull/13#issuecomment-3682805175",
+    "issue_url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/13",
+    "id": 3682805175,
+    "node_id": "IC_kwDOOQgibM7bgyW3",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-22T16:24:42Z",
+    "updated_at": "2025-12-22T16:24:42Z",
+    "body": "🤖 **AI Work Session Started**\n\nStarting automated work session at 2025-12-22T16:24:40.460Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682805175/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682814926",
+    "html_url": "https://github.com/eg0rmaffin/vapor-rice-i3/pull/13#issuecomment-3682814926",
+    "issue_url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/13",
+    "id": 3682814926,
+    "node_id": "IC_kwDOOQgibM7bg0vO",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-22T16:27:49Z",
+    "updated_at": "2025-12-22T16:27:49Z",
+    "body": "## ✅ PR Ready for Review\n\nThe snapshot implementation is complete and ready for review. Here's what has been verified:\n\n### Implementation Summary\n- **7 files changed**: 5 new helper scripts, 1 setup script, updated README.md and install.sh\n- **All scripts validated**: Syntax checked with `bash -n` - all passed ✅\n- **No CI failures**: Repository has no CI configured, no issues to address\n- **Branch up to date**: Master branch is merged and current\n- **No uncommitted changes**: All work is committed and pushed\n\n### Features Implemented\n✅ Automatic snapshots on package updates (snap-pac)\n✅ Hourly timeline snapshots with configurable retention\n✅ Bootable snapshots via GRUB menu (grub-btrfs)\n✅ 5 helper commands: create, list, diff, delete, rollback\n✅ Graceful handling of non-Btrfs filesystems\n✅ Complete documentation in README\n\n### Files Added/Modified\n- `scripts/snapshot_setup.sh` - Main setup script (410 lines)\n- `bin/snapshot-create` - Create manual snapshots\n- `bin/snapshot-list` - List all snapshots\n- `bin/snapshot-diff` - Compare snapshots\n- `bin/snapshot-delete` - Delete snapshots\n- `bin/snapshot-rollback` - Show rollback instructions\n- `install.sh` - Integration with main installer\n- `README.md` - Documentation for snapshot features\n\nAll requirements from issue #8 have been fulfilled. The implementation improves system stability through snapshot support as requested.\n\n**PR URL**: https://github.com/eg0rmaffin/vapor-rice-i3/pull/13",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682814926/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  },
+  {
+    "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682815835",
+    "html_url": "https://github.com/eg0rmaffin/vapor-rice-i3/pull/13#issuecomment-3682815835",
+    "issue_url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/13",
+    "id": 3682815835,
+    "node_id": "IC_kwDOOQgibM7bg09b",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2025-12-22T16:28:07Z",
+    "updated_at": "2025-12-22T16:28:07Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $0.960272 USD\n- Calculated by Anthropic: $0.500346 USD\n- Difference: $-0.459926 (-47.90%)\n📎 **Log file uploaded as GitHub Gist** (210KB)\n🔗 [View complete solution draft log](https://gist.githubusercontent.com/konard/c0d334ef32eed4e037ef20c9cddac721/raw/ab32bb996761cab3deebcabb08ac0c1658401077/solution-draft-log-pr-1766420883513.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/eg0rmaffin/vapor-rice-i3/issues/comments/3682815835/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

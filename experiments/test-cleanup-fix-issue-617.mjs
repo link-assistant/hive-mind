@@ -59,7 +59,7 @@ try {
   console.log('   Creating CLAUDE.md commit...');
   await fs.promises.writeFile(path.join(testDir, 'CLAUDE.md'), 'Issue to solve: test\n');
   await $({ cwd: testDir })`git add CLAUDE.md`;
-  await $({ cwd: testDir })`git commit -m "Initial commit with task details for issue #123"`;
+  await $({ cwd: testDir })`git commit -m "Initial commit with task details"`;
 
   const claudeCommitResult = await $({ cwd: testDir })`git log --format=%H -1`;
   const claudeCommitHash = claudeCommitResult.stdout.toString().trim();
@@ -83,7 +83,8 @@ try {
   commits.forEach(c => console.log(`     ${c}`));
 
   // Check if CLAUDE.md was reverted (should not exist)
-  const claudeMdExists = await fs.promises.access(path.join(testDir, 'CLAUDE.md'))
+  const claudeMdExists = await fs.promises
+    .access(path.join(testDir, 'CLAUDE.md'))
     .then(() => true)
     .catch(() => false);
 
@@ -113,7 +114,8 @@ try {
   const afterCount = parseInt(afterCommitCount.stdout.toString().trim());
 
   // Check if CLAUDE.md still exists (should exist since no revert)
-  const claudeMdStillExists = await fs.promises.access(path.join(testDir, 'CLAUDE.md'))
+  const claudeMdStillExists = await fs.promises
+    .access(path.join(testDir, 'CLAUDE.md'))
     .then(() => true)
     .catch(() => false);
 
@@ -135,7 +137,6 @@ try {
   console.log(`     - Not found: ${claudeCommitHash.substring(0, 7)} (CLAUDE.md commit)`);
   console.log('   ✅ Our fix prevents this by skipping cleanup when claudeCommitHash is null\n');
   testsPassed++;
-
 } catch (error) {
   console.error('❌ Test failed with error:', error.message);
   console.error(error.stack);

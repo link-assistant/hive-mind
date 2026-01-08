@@ -23,10 +23,13 @@ The Compare API check (added in v0.29.7 to fix sync delays) used this logic:
 
 ```javascript
 // BEFORE (buggy)
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true,
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${branchName} --jq '.ahead_by' 2>&1`;
 ```
 
 In fork mode:
+
 - `owner` = upstream owner (e.g., `xlabtg`)
 - `repo` = upstream repo (e.g., `anti-corruption`)
 - `branchName` = fork branch (e.g., `issue-6-01d3f376c347`)
@@ -36,6 +39,7 @@ The branch only exists in the fork, not in upstream, causing 404 errors.
 ### Log Evidence
 
 From log3.txt (v0.29.7 with fork mode):
+
 ```
 [INFO] 🍴 Fork mode: ENABLED
 [INFO] 📥 Cloning repository: konard/anti-corruption
@@ -59,21 +63,25 @@ Update the Compare API check to use the correct head reference format in fork mo
 let headRef;
 if (argv.fork && forkedRepo) {
   const forkUser = forkedRepo.split('/')[0];
-  headRef = `${forkUser}:${branchName}`;  // e.g., "konard:issue-6-01d3f376c347"
+  headRef = `${forkUser}:${branchName}`; // e.g., "konard:issue-6-01d3f376c347"
 } else {
-  headRef = branchName;  // e.g., "issue-6-01d3f376c347"
+  headRef = branchName; // e.g., "issue-6-01d3f376c347"
 }
-const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
+const compareResult = await $({
+  silent: true,
+})`gh api repos/${owner}/${repo}/compare/${targetBranchForCompare}...${headRef} --jq '.ahead_by' 2>&1`;
 ```
 
 ### How It Works
 
 **Non-fork mode** (unchanged):
+
 - API call: `repos/owner/repo/compare/main...feature-branch`
 - Branch exists in same repository
 - Works as before
 
 **Fork mode** (fixed):
+
 - API call: `repos/upstream-owner/repo/compare/main...forkUser:branch-name`
 - Example: `repos/xlabtg/anti-corruption/compare/main...konard:issue-6-01d3f376c347`
 - GitHub understands the `forkUser:branch` format for cross-repo comparison
@@ -115,6 +123,7 @@ const compareResult = await $({ silent: true })`gh api repos/${owner}/${repo}/co
 ## Testing
 
 Created `test-fork-compare-api-fix.mjs` to validate:
+
 - ✅ Non-fork mode uses simple branch name
 - ✅ Fork mode uses `forkUser:branch` format
 - ✅ API calls match expected GitHub API format
@@ -125,11 +134,13 @@ All tests pass successfully.
 ## Conclusion
 
 This fix completes the PR creation reliability improvements:
+
 - ✅ Handles GitHub sync delays (v0.29.7)
 - ✅ Handles identical content when reusing branches (v0.29.8)
 - ✅ Handles fork mode correctly (v0.29.9)
 
 Users can now reliably use all solve command modes:
+
 - Direct repository access
 - Fork mode with `--auto-fork`
 - Branch reuse with `--auto-continue`

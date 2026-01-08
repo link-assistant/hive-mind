@@ -16,27 +16,27 @@ console.log('');
 // Mock argv object for testing
 const mockArgv = {
   fork: true,
-  verbose: true
+  verbose: true,
 };
 
 // Test cases to verify
 const testCases = [
   {
     name: 'Fork already exists',
-    description: 'Should detect and use existing fork'
+    description: 'Should detect and use existing fork',
   },
   {
     name: 'Fork created successfully on first try',
-    description: 'Should create fork without retries'
+    description: 'Should create fork without retries',
   },
   {
     name: 'Fork created by another worker during retry',
-    description: 'Should detect fork created by concurrent worker'
+    description: 'Should detect fork created by concurrent worker',
   },
   {
     name: 'Fork creation with retries',
-    description: 'Should retry with exponential backoff'
-  }
+    description: 'Should retry with exponential backoff',
+  },
 ];
 
 console.log('Test Implementation Notes:');
@@ -86,7 +86,7 @@ console.log('The function only exits (process.exit) when:');
 console.log('- All retry attempts are exhausted (line 144)');
 console.log('- Fork exists but is not accessible after verification retries (line 175)');
 console.log('');
-console.log('This ensures workers don\'t fail unnecessarily in concurrent scenarios.');
+console.log("This ensures workers don't fail unnecessarily in concurrent scenarios.");
 console.log('');
 
 console.log('✅ Implementation complete and ready for testing in production!');

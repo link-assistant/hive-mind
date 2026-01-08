@@ -28,6 +28,7 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
    - Docker Compose File: `docker-compose.yml`
 
 3. **Set Environment Variables**:
+
    ```bash
    GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    GITHUB_URL=https://github.com/org-or-repo-to-monitor
@@ -42,6 +43,7 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
 ### Method 2: Docker Image Deployment
 
 1. **Build and Push Image** (on your local machine):
+
    ```bash
    cd hive-mind/coolify
    docker build -t your-registry/hive-mind:latest -f Dockerfile ..
@@ -67,9 +69,9 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
 
 ### Required Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GITHUB_TOKEN` | GitHub personal access token | `ghp_xxxxxxxxxxxx` |
+| Variable         | Description                                           | Example             |
+| ---------------- | ----------------------------------------------------- | ------------------- |
+| `GITHUB_TOKEN`   | GitHub personal access token                          | `ghp_xxxxxxxxxxxx`  |
 | `CLAUDE_API_KEY` | Claude/Anthropic API key (or configure interactively) | `sk-ant-xxxxxxxxxx` |
 
 ### Specifying What to Monitor
@@ -77,6 +79,7 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
 You can specify the GitHub repository or organization to monitor in two ways:
 
 1. **As a command argument** (most flexible):
+
    ```bash
    # In Coolify, set the command to:
    node hive.mjs https://github.com/facebook/react
@@ -89,18 +92,18 @@ You can specify the GitHub repository or organization to monitor in two ways:
 
 ### Optional Variables
 
-| Variable | Default       | Description |
-|----------|---------------|-------------|
-| `MONITOR_TAG` | `help wanted` | GitHub label to monitor |
-| `ALL_ISSUES` | `false`       | Process all open issues |
-| `CONCURRENCY` | `2`           | Concurrent solve processes |
-| `INTERVAL` | `300`         | Polling interval (seconds) |
-| `MODEL` | `sonnet`      | AI model (opus/sonnet) |
-| `FORK` | `false`       | Work in fork instead of branch |
-| `MAX_ISSUES` | `0`           | Max issues to process (0=unlimited) |
-| `VERBOSE` | `false`       | Enable verbose logging |
-| `CPU_LIMIT` | `2`           | CPU core limit |
-| `MEMORY_LIMIT` | `4G`          | Memory limit |
+| Variable       | Default       | Description                         |
+| -------------- | ------------- | ----------------------------------- |
+| `MONITOR_TAG`  | `help wanted` | GitHub label to monitor             |
+| `ALL_ISSUES`   | `false`       | Process all open issues             |
+| `CONCURRENCY`  | `2`           | Concurrent solve processes          |
+| `INTERVAL`     | `300`         | Polling interval (seconds)          |
+| `MODEL`        | `sonnet`      | AI model (opus/sonnet)              |
+| `FORK`         | `false`       | Work in fork instead of branch      |
+| `MAX_ISSUES`   | `0`           | Max issues to process (0=unlimited) |
+| `VERBOSE`      | `false`       | Enable verbose logging              |
+| `CPU_LIMIT`    | `2`           | CPU core limit                      |
+| `MEMORY_LIMIT` | `4G`          | Memory limit                        |
 
 ## Setting Up Credentials
 
@@ -134,6 +137,7 @@ If you have a Claude Max subscription with unlimited usage:
    - You'll get a shell into the running container
 
 3. **Run Claude authentication interactively**:
+
    ```bash
    # For Claude Code users:
    claude
@@ -145,6 +149,7 @@ If you have a Claude Max subscription with unlimited usage:
    ```
 
 4. **Verify authentication**:
+
    ```bash
    claude api "Hello, are you working?"
    ```
@@ -158,6 +163,7 @@ This method gives you unlimited API usage through your Claude Max subscription i
 ### Git Configuration (Optional)
 
 If you need specific git config:
+
 1. Create a `.gitconfig` file locally
 2. Mount it as a volume in Coolify:
    ```yaml
@@ -171,14 +177,14 @@ If you need specific git config:
 
 The docker-compose.yml configures several persistent volumes that Coolify will manage:
 
-| Volume | Container Path | Purpose |
-|--------|---------------|---------|
-| `./claude-config` | `/home/hive/.claude` | Claude authentication & settings |
-| `./config` | `/home/hive/.config` | General config (Claude Code, etc.) |
-| `./gh-config` | `/home/hive/.config/gh` | GitHub CLI config |
-| `./output` | `/app/output` | Generated PRs and code |
-| `./logs` | `/app/claude-logs` | Execution logs |
-| `./sessions` | `/app/claude-sessions` | Session data |
+| Volume            | Container Path          | Purpose                            |
+| ----------------- | ----------------------- | ---------------------------------- |
+| `./claude-config` | `/home/hive/.claude`    | Claude authentication & settings   |
+| `./config`        | `/home/hive/.config`    | General config (Claude Code, etc.) |
+| `./gh-config`     | `/home/hive/.config/gh` | GitHub CLI config                  |
+| `./output`        | `/app/output`           | Generated PRs and code             |
+| `./logs`          | `/app/claude-logs`      | Execution logs                     |
+| `./sessions`      | `/app/claude-sessions`  | Session data                       |
 
 **Note**: These volumes are automatically created by Coolify and will persist across container updates and restarts.
 
@@ -197,6 +203,7 @@ The container includes a health check that verifies the main process is running.
 ### Access Container Terminal
 
 To access the container for debugging or configuration:
+
 1. In Coolify, go to your application
 2. Click "Terminal" tab
 3. You now have shell access for:
@@ -210,6 +217,7 @@ To access the container for debugging or configuration:
 
 **Problem**: Health check failing
 **Solution**:
+
 - Check if `GITHUB_URL` is provided
 - Verify GitHub token is valid
 - Increase memory limit if OOM
@@ -218,6 +226,7 @@ To access the container for debugging or configuration:
 
 **Problem**: Cannot access repositories
 **Solution**:
+
 - Verify `GITHUB_TOKEN` has correct permissions
 - Check token hasn't expired
 - For private repos, ensure token has `repo` scope
@@ -226,6 +235,7 @@ To access the container for debugging or configuration:
 
 **Problem**: AI features not working
 **Solution**:
+
 - Verify `CLAUDE_API_KEY` is correct
 - Check API rate limits
 - Ensure billing is active on Anthropic account
@@ -234,6 +244,7 @@ To access the container for debugging or configuration:
 
 **Problem**: Container using too much memory
 **Solution**:
+
 - Reduce `CONCURRENCY` setting
 - Increase `MEMORY_LIMIT`
 - Process fewer issues with `MAX_ISSUES`
@@ -242,6 +253,7 @@ To access the container for debugging or configuration:
 
 **Problem**: Issues taking too long
 **Solution**:
+
 - Increase `CPU_LIMIT`
 - Use `sonnet` model instead of `opus`
 - Reduce `PULL_REQUESTS_PER_ISSUE`
@@ -251,6 +263,7 @@ To access the container for debugging or configuration:
 ### Custom Command Arguments
 
 Override the default command in Coolify:
+
 ```bash
 node hive.mjs https://github.com/org/repo --all-issues --concurrency 4
 ```
@@ -258,6 +271,7 @@ node hive.mjs https://github.com/org/repo --all-issues --concurrency 4
 ### Resource Scaling
 
 For high-volume processing:
+
 ```yaml
 CPU_LIMIT=4
 MEMORY_LIMIT=8G
@@ -267,6 +281,7 @@ CONCURRENCY=4
 ### Network Configuration
 
 If you need to connect to other services:
+
 1. Create a network in Coolify
 2. Attach both services to the same network
 3. Use service names for internal communication
@@ -296,19 +311,21 @@ To update to the latest version:
 
 ## Support
 
-- **Hive-Mind Issues**: https://github.com/deep-assistant/hive-mind/issues
+- **Hive-Mind Issues**: https://github.com/link-assistant/hive-mind/issues
 - **Coolify Documentation**: https://coolify.io/docs
 - **Coolify Discord**: https://discord.gg/coolify
 
 ## Example Deployment Commands
 
 ### Monitor a specific repository
+
 ```bash
 GITHUB_URL=https://github.com/facebook/react
 MONITOR_TAG="good first issue"
 ```
 
 ### Monitor an entire organization
+
 ```bash
 GITHUB_URL=https://github.com/microsoft
 ALL_ISSUES=true
@@ -316,6 +333,7 @@ CONCURRENCY=4
 ```
 
 ### Test with dry run
+
 ```bash
 GITHUB_URL=https://github.com/test/repo
 DRY_RUN=true

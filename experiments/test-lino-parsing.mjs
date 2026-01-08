@@ -12,23 +12,23 @@ const testCases = [
   {
     name: 'Multi-line lino format',
     input: '(\n  123456789\n  987654321\n  555555555\n)',
-    expected: [123456789, 987654321, 555555555]
+    expected: [123456789, 987654321, 555555555],
   },
   {
     name: 'Single line lino format',
     input: '(123456789 987654321)',
-    expected: [123456789, 987654321]
+    expected: [123456789, 987654321],
   },
   {
     name: 'Empty lino',
     input: '()',
-    expected: []
+    expected: [],
   },
   {
     name: 'Null/undefined',
     input: null,
-    expected: []
-  }
+    expected: [],
+  },
 ];
 
 for (const testCase of testCases) {

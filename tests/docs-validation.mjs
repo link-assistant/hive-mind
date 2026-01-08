@@ -17,7 +17,7 @@ const REQUIRED_SECTIONS = ['Quick Start', 'Architecture', 'Configuration'];
 let errorsFound = 0;
 
 // Helper function to count lines in a file
-const countLines = async (filePath) => {
+const countLines = async filePath => {
   try {
     const content = await fs.readFile(filePath, 'utf8');
     return content.split('\n').length;
@@ -30,7 +30,7 @@ const countLines = async (filePath) => {
 // Check file size limits for documentation files
 const checkFileSizes = async () => {
   console.log('📏 Checking documentation file size limits...');
-  
+
   // Check docs directory if it exists
   try {
     const docsDir = 'docs';
@@ -38,11 +38,11 @@ const checkFileSizes = async () => {
     if (docsStat.isDirectory()) {
       const files = await fs.readdir(docsDir);
       const markdownFiles = files.filter(file => file.endsWith('.md'));
-      
+
       for (const file of markdownFiles) {
         const filePath = path.join(docsDir, file);
         const lineCount = await countLines(filePath);
-        
+
         if (lineCount > MAX_LINES) {
           console.log(`❌ ERROR: ${filePath} has ${lineCount} lines (max ${MAX_LINES})`);
           errorsFound++;
@@ -55,13 +55,13 @@ const checkFileSizes = async () => {
     // docs directory doesn't exist, skip
     console.log('📁 No docs directory found, skipping...');
   }
-  
+
   // Check README.md
   try {
     const readmePath = 'README.md';
     await fs.stat(readmePath);
     const readmeLines = await countLines(readmePath);
-    
+
     if (readmeLines > MAX_LINES) {
       console.log(`❌ ERROR: README.md has ${readmeLines} lines (max ${MAX_LINES})`);
       errorsFound++;
@@ -77,10 +77,10 @@ const checkFileSizes = async () => {
 // Check README structure for required sections
 const checkReadmeStructure = async () => {
   console.log('📋 Checking README structure...');
-  
+
   try {
     const content = await fs.readFile('README.md', 'utf8');
-    
+
     for (const section of REQUIRED_SECTIONS) {
       if (content.includes(section)) {
         console.log(`✅ ${section} section found`);
@@ -98,10 +98,10 @@ const checkReadmeStructure = async () => {
 // Main test execution
 const runTests = async () => {
   console.log('🚀 Starting documentation validation tests...');
-  
+
   await checkFileSizes();
   await checkReadmeStructure();
-  
+
   // Summary
   console.log('\n📊 Test Summary:');
   if (errorsFound === 0) {

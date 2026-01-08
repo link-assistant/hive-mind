@@ -21,7 +21,7 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 // Import centralized limits and caching
-import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
+import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling
@@ -33,7 +33,7 @@ import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedCpuInfo, getCach
  */
 export const QUEUE_CONFIG = {
   // Resource thresholds (usage ratios: 0.0 - 1.0)
-  // Note: RAM_THRESHOLD removed - RAM was not causing issues
+  RAM_THRESHOLD: 0.5, // Stop if RAM usage > 50%
   // CPU threshold uses 5-minute load average, not instantaneous CPU usage
   CPU_THRESHOLD: 0.5, // Stop if 5-minute load average > 50% of CPU count
   DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage > 95%
@@ -442,20 +442,27 @@ export class SolveQueue {
   }
 
   /**
-   * Check system resources (CPU, disk) using cached values
+   * Check system resources (RAM, CPU, disk) using cached values
    *
    * Uses 5-minute load average for CPU instead of instantaneous usage.
    * This provides a more stable metric that isn't affected by brief spikes
    * during claude process startup.
-   *
-   * Note: RAM checking removed - RAM was not causing queue issues.
-   * See: https://github.com/link-assistant/hive-mind/issues/1078
    *
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
   async checkSystemResources() {
     const reasons = [];
     let oneAtATime = false;
+
+    // Check RAM (using cached value)
+    const memResult = await getCachedMemoryInfo(this.verbose);
+    if (memResult.success) {
+      const usedRatio = memResult.memory.usedPercentage / 100;
+      if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
+        reasons.push(formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.RAM_THRESHOLD));
+        this.recordThrottle('ram_high');
+      }
+    }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
     // Cache TTL is 2 minutes, which is appropriate for this metric

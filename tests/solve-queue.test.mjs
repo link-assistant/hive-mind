@@ -54,8 +54,7 @@ function beforeEach() {
 console.log('\n📋 Configuration Tests\n');
 
 test('QUEUE_CONFIG has all required fields', () => {
-  // Note: RAM_THRESHOLD removed - RAM was not causing queue issues
-  // See: https://github.com/link-assistant/hive-mind/issues/1078
+  assert.ok(QUEUE_CONFIG.RAM_THRESHOLD !== undefined, 'RAM_THRESHOLD should be defined');
   assert.ok(QUEUE_CONFIG.CPU_THRESHOLD !== undefined, 'CPU_THRESHOLD should be defined');
   assert.ok(QUEUE_CONFIG.DISK_THRESHOLD !== undefined, 'DISK_THRESHOLD should be defined');
   assert.ok(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD !== undefined, 'CLAUDE_SESSION_THRESHOLD should be defined');
@@ -67,8 +66,7 @@ test('QUEUE_CONFIG has all required fields', () => {
 });
 
 test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
-  // Note: RAM_THRESHOLD removed - RAM was not causing queue issues
-  // See: https://github.com/link-assistant/hive-mind/issues/1078
+  assert.ok(QUEUE_CONFIG.RAM_THRESHOLD >= 0 && QUEUE_CONFIG.RAM_THRESHOLD <= 1, 'RAM_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.CPU_THRESHOLD >= 0 && QUEUE_CONFIG.CPU_THRESHOLD <= 1, 'CPU_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.DISK_THRESHOLD >= 0 && QUEUE_CONFIG.DISK_THRESHOLD <= 1, 'DISK_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD >= 0 && QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD <= 1, 'CLAUDE_SESSION_THRESHOLD should be between 0 and 1');

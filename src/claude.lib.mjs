@@ -10,10 +10,21 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
+// Import Claude command builder for generating resume commands
+import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
+
+// Helper to display resume command at end of session
+const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
+  if (!sessionId || !tempDir) return;
+  const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
+  await log('\n💡 To continue this session in Claude Code interactive mode:\n');
+  await log(`   ${cmd}\n`);
+};
+
 /**
  * Format numbers with spaces as thousands separator (no commas)
  * Per issue #667: Use spaces for thousands, . for decimals
@@ -922,24 +933,17 @@ export const executeClaudeCommand = async params => {
       await log('', { verbose: true });
     }
     try {
+      const claudeEnv = getClaudeEnv(); // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076)
+      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag
-        // Use simpler escaping - just escape double quotes
+        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({
-          cwd: tempDir,
-          mirror: false,
-        })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin
-        // For system prompt, escape it properly for shell - just escape double quotes
+        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({
-          cwd: tempDir,
-          stdin: prompt,
-          mirror: false,
-        })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -1252,6 +1256,7 @@ export const executeClaudeCommand = async params => {
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
         // Log attachment will be handled by solve.mjs when it receives success=false
         await log('', { verbose: true });
+        await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
         return {
           success: false,
           sessionId,
@@ -1351,6 +1356,7 @@ export const executeClaudeCommand = async params => {
           await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
         }
       }
+      await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
       return {
         success: true,
         sessionId,

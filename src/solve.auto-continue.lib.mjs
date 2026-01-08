@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Auto-continue module for solve command
+// Session continuation module for solve command
+// Handles session resumption, PR detection, and limit reset waiting
 // Extracted from solve.mjs to keep files under 1500 lines
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -103,9 +104,9 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       sessionId,
     ];
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Preserve auto-resume flag
+    if (argv.autoResumeOnLimitReset) {
+      resumeArgs.push('--auto-resume-on-limit-reset');
     }
 
     // Preserve other flags from original invocation

@@ -27,9 +27,15 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
-// Import auto-continue functions
+// Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
+
+// Import Claude-specific command builders
+// These are used to generate copy-pasteable Claude CLI resume commands for users
+// Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -348,48 +354,59 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = await use('path');
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    if (limitReached) {
-      await log('\n⏰ LIMIT REACHED DETECTED!');
+    // Show claude resume command only for --tool claude (or default)
+    // This allows users to investigate, resume, see context, and more
+    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+    const tool = argv.tool || 'claude';
+    if (tool === 'claude') {
+      // Build the Claude CLI resume command using the command builder
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
 
-      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
+      await log('');
+      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('');
+      await log(`   ${claudeResumeCmd}`);
+      await log('');
+    }
+
+    if (limitReached) {
+      await log('⏰ LIMIT REACHED DETECTED!');
+
+      if (argv.autoResumeOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
-        // Only show resume recommendation if --no-auto-cleanup was passed
-        if (argv.autoCleanup === false) {
-          await log('\n🔄 To resume when limit resets, use:\n');
-          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+        if (global.limitResetTime) {
+          await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
+        }
 
-          if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
-          }
+        await log('\n💡 After the limit resets, resume using the Claude command above.');
 
-          await log('\n   This will continue from where it left off with full context.\n');
-        } else {
-          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        if (argv.autoCleanup !== false) {
+          await log('');
+          await log('⚠️  Note: Temporary directory will be automatically cleaned up.');
           await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
         }
       }
     } else {
-      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
-      if (argv.autoCleanup === false) {
-        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-        await log('');
-      } else {
-        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+      // Show note about auto-cleanup only when enabled
+      if (argv.autoCleanup !== false) {
+        await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');
         await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
       }
     }
 
     // Don't show log preview, it's too technical
   } else {
-    await log('❌ No session ID extracted');
+    // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
+    if (argv.tool !== 'agent') {
+      await log('❌ No session ID extracted');
+    } else {
+      await log('ℹ️  Agent tool completed (session IDs not used for resuming)');
+    }
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);

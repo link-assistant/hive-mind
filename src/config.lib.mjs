@@ -78,6 +78,33 @@ export const retryLimits = {
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
 };
 
+// Claude Code CLI configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1076
+// Claude models support up to 64K output tokens, but Claude Code CLI defaults to 32K
+// Setting a higher limit allows Claude to generate longer responses without hitting the limit
+export const claudeCode = {
+  // Maximum output tokens for Claude Code CLI responses
+  // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
+  // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+};
+
+// Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
+export const getClaudeEnv = () => ({ ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) });
+
+// Cache TTL configurations (in milliseconds)
+// The Usage API (Claude limits) has stricter rate limiting than regular APIs
+// See: https://github.com/link-assistant/hive-mind/issues/1074
+export const cacheTtl = {
+  // General API cache TTL (GitHub API, etc.)
+  api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
+  // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
+  // The API returns null values when called too frequently
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 20 * 60 * 1000), // 20 minutes
+  // System metrics cache TTL (RAM, CPU, disk)
+  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
+};
+
 // File and path configurations
 export const filePaths = {
   tempDir: getenv('HIVE_MIND_TEMP_DIR', '/tmp'),
@@ -177,6 +204,8 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    claudeCode,
+    cacheTtl,
     filePaths,
     textProcessing,
     display,

@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -104,7 +104,16 @@ await log('🔧 Raw command executed:');
 await log(`   ${rawCommand}`);
 await log('');
 
-const argv = await parseArguments(yargs, hideBin);
+let argv;
+try {
+  argv = await parseArguments(yargs, hideBin);
+} catch (error) {
+  // Handle argument parsing errors with helpful messages
+  await log(`❌ ${error.message}`, { level: 'error' });
+  await log('', { level: 'error' });
+  await log('Use /help to see available options', { level: 'error' });
+  await safeExit(1, 'Invalid command-line arguments');
+}
 global.verboseMode = argv.verbose;
 
 // If user specified a custom log directory, we would need to move the log file
@@ -833,14 +842,18 @@ try {
     // Default to Claude
     // Check for Playwright MCP availability if using Claude tool
     if (argv.tool === 'claude' || !argv.tool) {
-      const { checkPlaywrightMcpAvailability } = claudeLib;
-      const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
-      if (playwrightMcpAvailable) {
-        await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
-        argv.promptPlaywrightMcp = true;
+      // If flag is true (default), check if Playwright MCP is actually available
+      if (argv.promptPlaywrightMcp) {
+        const { checkPlaywrightMcpAvailability } = claudeLib;
+        const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
+        if (playwrightMcpAvailable) {
+          await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
+        } else {
+          await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
+          argv.promptPlaywrightMcp = false;
+        }
       } else {
-        await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
-        argv.promptPlaywrightMcp = false;
+        await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
       }
     }
     const claudeResult = await executeClaude({
@@ -885,19 +898,42 @@ try {
 
   // Handle limit reached scenario
   if (limitReached) {
-    const shouldAutoContinueOnReset = argv.autoContinueOnLimitReset;
+    const shouldAutoResumeOnReset = argv.autoResumeOnLimitReset;
 
-    // If limit was reached but auto-continue-on-limit-reset is NOT enabled, fail immediately
-    if (!shouldAutoContinueOnReset) {
+    // If limit was reached but auto-resume-on-limit-reset is NOT enabled, fail immediately
+    if (!shouldAutoResumeOnReset) {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
+
+      // Always show manual resume command in console so users can resume after limit resets
+      if (sessionId) {
+        const resetTime = global.limitResetTime;
+        await log('');
+        await log(`📁 Working directory: ${tempDir}`);
+        await log(`📌 Session ID: ${sessionId}`);
+        if (resetTime) {
+          await log(`⏰ Limit resets at: ${resetTime}`);
+        }
+        await log('');
+        // Show claude resume command only for --tool claude (or default)
+        // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+        const toolForResume = argv.tool || 'claude';
+        if (toolForResume === 'claude') {
+          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+          await log('💡 To continue this session in Claude Code interactive mode:');
+          await log('');
+          await log(`   ${claudeResumeCmd}`);
+          await log('');
+        }
+      }
 
       // If --attach-logs is enabled and we have a PR, attach logs with usage limit details
       if (shouldAttachLogs && sessionId && prNumber) {
         await log('\n📄 Attaching logs to Pull Request...');
         try {
-          // Build resume command
-          const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+          // Build Claude CLI resume command
+          const tool = argv.tool || 'claude';
+          const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
           const logUploadSuccess = await attachLogToGitHub({
             logFile: getLogFile(),
             targetType: 'pr',
@@ -927,7 +963,11 @@ try {
         // Fallback: Post simple failure comment if logs are not attached
         try {
           const resetTime = global.limitResetTime;
-          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo automatically wait for the limit to reset and continue, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset\n\`\`\`` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\nThis session has failed because \`--auto-continue-on-limit-reset\` was not enabled.\n\nTo resume after the limit resets, use:\n\`\`\`bash\n./solve.mjs "${issueUrl}" --resume ${sessionId}\n\`\`\``;
+          // Build Claude CLI resume command
+          const tool = argv.tool || 'claude';
+          const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+          const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
+          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
           if (commentResult.code === 0) {
@@ -938,16 +978,17 @@ try {
         }
       }
 
-      await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
+      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset to wait for reset');
     } else {
-      // auto-continue-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // auto-resume-on-limit-reset is enabled - attach logs and/or post waiting comment
       if (prNumber && global.limitResetTime) {
         // If --attach-logs is enabled, upload logs with usage limit details
         if (shouldAttachLogs && sessionId) {
           await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
           try {
-            // Build resume command
-            const resumeCommand = `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}`;
+            // Build Claude CLI resume command
+            const tool = argv.tool || 'claude';
+            const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
             const logUploadSuccess = await attachLogToGitHub({
               logFile: getLogFile(),
               targetType: 'pr',
@@ -992,7 +1033,10 @@ try {
               return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
 
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\``;
+            // Build Claude CLI resume command
+            const tool = argv.tool || 'claude';
+            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-resume is enabled with \`--auto-resume-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1006,13 +1050,30 @@ try {
     }
   }
 
-  if (!success) {
+  // Handle failure cases, but skip exit if limit reached with auto-resume enabled
+  // This allows the code to continue to showSessionSummary() where autoContinueWhenLimitResets() is called
+  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
+
+  if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
+    // Show claude resume command only for --tool claude (or default) on failure
+    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+    const toolForFailure = argv.tool || 'claude';
+    if (sessionId && toolForFailure === 'claude') {
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+      await log('');
+      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('');
+      await log(`   ${claudeResumeCmd}`);
+      await log('');
+    }
+
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
     if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
-        // Build resume command if we have session info
-        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+        // Build Claude CLI resume command
+        const tool = argv.tool || 'claude';
+        const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',

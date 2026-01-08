@@ -1,0 +1,87 @@
+{
+  "testDate": "2026-01-06",
+  "testPurpose": "Verify gh-upload-log command works with various file sizes",
+  "environment": {
+    "os": "Linux",
+    "ghUploadLogVersion": "latest",
+    "ghVersion": "latest"
+  },
+  "testFiles": [
+    {
+      "name": "test-10mb.log",
+      "originalSize": "10 MB",
+      "encodedSize": "13.51 MB",
+      "uploadMode": "gist",
+      "result": "success",
+      "url": "https://gist.github.com/konard/c02aeb29bccd3c6ecb47bf715ca25eaa"
+    },
+    {
+      "name": "test-50mb.log",
+      "originalSize": "50 MB",
+      "encodedSize": "67.54 MB",
+      "uploadMode": "gist",
+      "result": "failed",
+      "error": "HTTP 502: Server Error",
+      "notes": "Tool incorrectly reports success despite failure"
+    },
+    {
+      "name": "test-50mb.log",
+      "originalSize": "50 MB",
+      "encodedSize": "67.54 MB",
+      "uploadMode": "repo (forced with --only-repository)",
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-50mb"
+    },
+    {
+      "name": "test-99mb.log",
+      "originalSize": "99 MB",
+      "encodedSize": "133.74 MB",
+      "uploadMode": "repo",
+      "chunks": 2,
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-99mb"
+    },
+    {
+      "name": "test-101mb.log",
+      "originalSize": "101 MB",
+      "encodedSize": "136.44 MB",
+      "uploadMode": "repo",
+      "chunks": 2,
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-101mb"
+    },
+    {
+      "name": "test-200mb.log",
+      "originalSize": "200 MB",
+      "encodedSize": "270.18 MB",
+      "uploadMode": "repo",
+      "chunks": 3,
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-200mb"
+    },
+    {
+      "name": "test-300mb.log",
+      "originalSize": "300 MB",
+      "encodedSize": "405.26 MB",
+      "uploadMode": "repo",
+      "chunks": 5,
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-300mb"
+    },
+    {
+      "name": "test-500mb.log",
+      "originalSize": "500 MB",
+      "encodedSize": "675.44 MB",
+      "uploadMode": "repo",
+      "chunks": 7,
+      "result": "success",
+      "url": "https://github.com/konard/log-tmp-gh-upload-log-test-test-500mb"
+    }
+  ],
+  "bugDiscovered": {
+    "description": "Gist upload fails for ~50MB+ files with HTTP 502, but tool reports success",
+    "workaround": "Use --only-repository flag for files >50MB",
+    "bugReport": "https://github.com/link-foundation/gh-upload-log/issues/19"
+  },
+  "conclusions": ["gh-upload-log works well for small files (<50MB) as gists", "gh-upload-log works well for large files (>100MB) as repositories with chunking", "There's a reliability issue with gist uploads for files 50-100MB", "The repository mode with file splitting is robust and handles files up to 500MB+ successfully"]
+}

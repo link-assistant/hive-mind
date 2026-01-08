@@ -731,79 +731,33 @@ if (isDirectExecution) {
             }
 
             const startTime = Date.now();
-            const forkFlag = argv.fork ? ' --fork' : '';
-            const autoForkFlag = argv.autoFork ? ' --auto-fork' : '';
-            const verboseFlag = argv.verbose ? ' --verbose' : '';
-            const attachLogsFlag = argv.attachLogs ? ' --attach-logs' : '';
-            const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
-            const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
-            const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-            const skipToolConnectionCheckFlag = argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
-            const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
-            const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
-            const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
-            const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
-            const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
-            const watchFlag = argv.watch ? ' --watch' : '';
-            const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
-            const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
-            const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
-            const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
-            const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-
             // Build arguments array to avoid shell parsing issues
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) {
-              args.push('--tool', argv.tool);
-            }
-            if (argv.fork) {
-              args.push('--fork');
-            }
-            if (argv.autoFork) {
-              args.push('--auto-fork');
-            }
-            if (argv.verbose) {
-              args.push('--verbose');
-            }
-            if (argv.attachLogs) {
-              args.push('--attach-logs');
-            }
-            if (argv.targetBranch) {
-              args.push('--target-branch', argv.targetBranch);
-            }
-            if (argv.logDir) {
-              args.push('--log-dir', argv.logDir);
-            }
-            if (argv.dryRun) {
-              args.push('--dry-run');
-            }
-            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
-              args.push('--skip-tool-connection-check');
-            }
-            if (argv.autoContinue) {
-              args.push('--auto-continue');
-            } else {
-              args.push('--no-auto-continue');
-            }
-            if (argv.think) {
-              args.push('--think', argv.think);
-            }
+            if (argv.tool) args.push('--tool', argv.tool);
+            if (argv.fork) args.push('--fork');
+            if (argv.autoFork) args.push('--auto-fork');
+            if (argv.verbose) args.push('--verbose');
+            if (argv.attachLogs) args.push('--attach-logs');
+            if (argv.targetBranch) args.push('--target-branch', argv.targetBranch);
+            if (argv.logDir) args.push('--log-dir', argv.logDir);
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
+            args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
+            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
+            if (argv.think) args.push('--think', argv.think);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) {
-              args.push('--no-sentry');
-            }
+            if (!argv.sentry) args.push('--no-sentry');
             if (argv.watch) args.push('--watch');
             if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
             if (argv.interactiveMode) args.push('--interactive-mode');
             if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-
+            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
             // Log the actual command being executed so users can investigate/reproduce
-            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}`;
-            await log(`   📋 Command: ${command}`);
+            await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 
             let exitCode = 0;
             // Create promise to handle async spawn process

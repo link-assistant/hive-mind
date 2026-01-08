@@ -168,11 +168,66 @@ apt_cleanup() {
   log_success "Cleanup completed"
 }
 
+# --- Function: cleanup duplicate APT sources ---
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  # - microsoft-edge-stable.list: Created by Playwright's install msedge
+  # - microsoft-edge.list: Created by some manual installation tutorials
+  # Both point to https://packages.microsoft.com/repos/edge stable main
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  # - google-chrome.list: Created by Chrome's official installer
+  # - google-chrome-stable.list: Created by some package managers
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  # VS Code / Microsoft products can also have duplicates
+  # - vscode.list: Created by some installers
+  # - microsoft-prod.list: Created by Microsoft's official method
+  # Note: These might contain different products, so we only remove if both exist
+  # and contain the same repo URL
+  if [ -f /etc/apt/sources.list.d/vscode.list ] && \
+     [ -f /etc/apt/sources.list.d/packages-microsoft-prod.list ]; then
+    # Check if vscode.list contains the same repo as packages-microsoft-prod.list
+    if grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/vscode.list 2>/dev/null && \
+       grep -q "packages.microsoft.com/repos/code" /etc/apt/sources.list.d/packages-microsoft-prod.list 2>/dev/null; then
+      log_info "Found duplicate VS Code APT sources"
+      log_note "Removing /etc/apt/sources.list.d/vscode.list (keeping packages-microsoft-prod.list)"
+      maybe_sudo rm -f /etc/apt/sources.list.d/vscode.list
+      duplicates_found=true
+    fi
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
+  fi
+}
+
 # --- Function: create swap file ---
 create_swap_file() {
-  log_info "Setting up 2GB total swap space..."
+  log_info "Setting up 4GB total swap space..."
 
-  local target_total_mb=2048  # 2GB target
+  local target_total_mb=4096  # 4GB target
   local current_total_mb=0
 
   # Function to get file size in MB
@@ -295,6 +350,11 @@ create_swap_file() {
 
 # --- Ensure prerequisites ---
 log_step "Installing system prerequisites"
+
+# Clean up duplicate APT sources before updating (fixes warnings on upgrade installs)
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 apt_update_safe
 
 log_info "Installing essential development tools..."
@@ -447,6 +507,39 @@ maybe_sudo() {
   else
     # Not root and sudo not available - try directly (will fail if permissions needed)
     "$@"
+  fi
+}
+
+# Function: cleanup duplicate APT sources (inside hive user script)
+# This function removes duplicate APT source files that can accumulate when
+# the script is run multiple times (upgrade mode) or when software is installed
+# through different methods. See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources() {
+  log_info "Checking for duplicate APT sources..."
+  local duplicates_found=false
+
+  # Microsoft Edge: Playwright and other installers create different files
+  if [ -f /etc/apt/sources.list.d/microsoft-edge.list ] && \
+     [ -f /etc/apt/sources.list.d/microsoft-edge-stable.list ]; then
+    log_info "Found duplicate Microsoft Edge APT sources"
+    log_note "Removing /etc/apt/sources.list.d/microsoft-edge.list (keeping microsoft-edge-stable.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/microsoft-edge.list
+    duplicates_found=true
+  fi
+
+  # Google Chrome: Similar pattern can occur
+  if [ -f /etc/apt/sources.list.d/google-chrome.list ] && \
+     [ -f /etc/apt/sources.list.d/google-chrome-stable.list ]; then
+    log_info "Found duplicate Google Chrome APT sources"
+    log_note "Removing /etc/apt/sources.list.d/google-chrome-stable.list (keeping google-chrome.list)"
+    maybe_sudo rm -f /etc/apt/sources.list.d/google-chrome-stable.list
+    duplicates_found=true
+  fi
+
+  if [ "$duplicates_found" = true ]; then
+    log_success "Duplicate APT sources cleaned up"
+  else
+    log_success "No duplicate APT sources found"
   fi
 }
 
@@ -1247,6 +1340,11 @@ npm install -g npm@latest --no-fund --silent
 log_success "npm updated to latest version"
 
 # --- Install Playwright OS dependencies first (as root via absolute npx path) ---
+# Clean up duplicate APT sources before Playwright install-deps runs apt
+# This prevents duplicate warnings like "Target Packages configured multiple times"
+# See: https://github.com/link-assistant/hive-mind/issues/1067
+cleanup_duplicate_apt_sources
+
 log_info "Installing Playwright OS dependencies (requires sudo, may take a few minutes)..."
 NPX_PATH="$(command -v npx || true)"
 if [ -z "$NPX_PATH" ]; then
@@ -1298,30 +1396,140 @@ else
 fi
 
 # --- Install Playwright MCP ---
-log_info "Installing Playwright MCP server..."
-if npm list -g @playwright/mcp &>/dev/null; then
-  log_info "Playwright MCP already installed, updating..."
-  npm update -g @playwright/mcp --no-fund --silent
-else
-  log_info "Installing Playwright MCP package..."
-  npm install -g @playwright/mcp --no-fund --silent
-fi
-log_success "Playwright MCP installed"
+# Always install/update to the latest version to get the newest features and bug fixes
+log_info "Installing Playwright MCP server (latest version)..."
+# Force reinstall to ensure latest version is used
+npm install -g @playwright/mcp@latest --no-fund --silent 2>&1 || {
+  log_warning "npm install -g @playwright/mcp@latest failed, trying update..."
+  npm update -g @playwright/mcp --no-fund --silent 2>&1 || true
+}
 
-# --- Now install Playwright browsers (after deps to avoid warnings) ---
-log_info "Installing Playwright browsers (chromium, firefox, webkit)..."
+# Verify installation
+if npm list -g @playwright/mcp &>/dev/null; then
+  PLAYWRIGHT_MCP_VERSION=$(npm list -g @playwright/mcp --depth=0 2>/dev/null | grep "@playwright/mcp" | sed 's/.*@//' || echo "unknown")
+  log_success "Playwright MCP installed: v${PLAYWRIGHT_MCP_VERSION}"
+else
+  log_warning "Playwright MCP installation could not be verified"
+fi
+
+# --- Install Playwright CLI and all browsers ---
+# Install all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
+# Reference: npx @playwright/mcp@latest --help shows --browser option supports these
+log_info "Installing Playwright browsers (all supported by Playwright MCP)..."
+log_note "Installing: chromium, chrome, firefox, webkit, msedge"
 log_note "This may take several minutes depending on network speed..."
 
 # Ensure CLI exists so we don't get the npx "install without dependencies" banner
 if ! command -v playwright >/dev/null 2>&1; then
   log_info "Installing Playwright CLI globally..."
-  npm install -g @playwright/test --no-fund --silent
+  npm install -g @playwright/test@latest --no-fund --silent
 fi
 
-playwright install chromium firefox webkit 2>&1 | grep -E "(Downloading|downloaded|Installing)" || {
-  log_warning "Failed to install some Playwright browsers. This may affect browser automation."
+# Install all browsers that Playwright MCP supports
+# Use --with-deps to also install any missing OS dependencies
+# This helps avoid the "browser_install stuck" issue from #1060
+BROWSER_INSTALL_LOG="/tmp/playwright-browser-install-$$.log"
+BROWSERS_TO_INSTALL="chromium chrome firefox webkit msedge"
+BROWSERS_FAILED=""
+BROWSERS_INSTALLED=""
+
+for browser in $BROWSERS_TO_INSTALL; do
+  log_info "Installing Playwright browser: $browser..."
+  playwright install "$browser" --with-deps > "$BROWSER_INSTALL_LOG" 2>&1
+  INSTALL_EXIT_CODE=$?
+
+  # Check the output for various conditions
+  if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+    log_success "$browser installed successfully"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "already installed on the system" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Chrome/Edge might already be system-installed (non-hermetic)
+    # This is fine - Playwright MCP can use system-installed browsers
+    log_success "$browser already installed on system (non-hermetic)"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
+  elif grep -qi "not supported\|not available\|cannot download\|unsupported" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
+    # Browser not available on this platform (e.g., msedge on some Linux distros)
+    log_note "$browser is not available on this platform (skipping)"
+  else
+    log_warning "$browser installation failed"
+    cat "$BROWSER_INSTALL_LOG" | tail -10 || true
+    BROWSERS_FAILED="$BROWSERS_FAILED $browser"
+  fi
+done
+
+# Cleanup temp log
+rm -f "$BROWSER_INSTALL_LOG"
+
+# Also install chromium headless shell (useful for CI/server environments)
+log_info "Installing chromium headless shell..."
+playwright install chromium-headless-shell --with-deps 2>&1 | grep -E "(Downloading|downloaded|complete)" || {
+  log_note "chromium-headless-shell installation skipped or already installed"
 }
-log_success "Playwright browsers installed"
+
+# Summary
+if [ -n "$BROWSERS_INSTALLED" ]; then
+  log_success "Playwright browsers installed:$BROWSERS_INSTALLED"
+fi
+
+if [ -n "$BROWSERS_FAILED" ]; then
+  log_warning "Some browsers failed to install:$BROWSERS_FAILED"
+  log_note "This may affect browser automation. You can retry with: playwright install <browser> --with-deps"
+else
+  log_success "All Playwright browsers installed successfully"
+fi
+
+# Verify what browsers are actually available
+log_info "Verifying installed Playwright browsers..."
+
+# Check the Playwright browser cache directory for installed browsers
+PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+BROWSERS_VERIFIED=""
+BROWSERS_MISSING=""
+
+# List of browsers that should be installed (Playwright-managed browsers)
+# Note: chrome and msedge may be system-installed (non-hermetic) and won't appear in cache
+PLAYWRIGHT_BROWSERS="chromium chromium_headless_shell firefox webkit ffmpeg"
+
+for browser in $PLAYWRIGHT_BROWSERS; do
+  BROWSER_DIR=$(ls -d "$PLAYWRIGHT_CACHE/${browser}"* 2>/dev/null | head -1 || true)
+  if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+    log_success "Playwright browser verified: $browser ($(basename "$BROWSER_DIR"))"
+    BROWSERS_VERIFIED="$BROWSERS_VERIFIED $browser"
+  else
+    log_warning "Playwright browser not in cache: $browser"
+    BROWSERS_MISSING="$BROWSERS_MISSING $browser"
+  fi
+done
+
+# Check for system-installed browsers (Chrome, Edge)
+log_info "Checking for system-installed browsers..."
+if command -v google-chrome &>/dev/null || command -v google-chrome-stable &>/dev/null || [ -x /opt/google/chrome/chrome ]; then
+  CHROME_VERSION=$(google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || /opt/google/chrome/chrome --version 2>/dev/null || echo "installed")
+  log_success "Google Chrome (system): $CHROME_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED chrome"
+fi
+
+if command -v microsoft-edge &>/dev/null || command -v microsoft-edge-stable &>/dev/null; then
+  EDGE_VERSION=$(microsoft-edge --version 2>/dev/null || microsoft-edge-stable --version 2>/dev/null || echo "installed")
+  log_success "Microsoft Edge (system): $EDGE_VERSION"
+  BROWSERS_VERIFIED="$BROWSERS_VERIFIED msedge"
+fi
+
+# Summary of browser verification
+if [ -n "$BROWSERS_VERIFIED" ]; then
+  log_success "Playwright browsers verified:$BROWSERS_VERIFIED"
+fi
+
+if [ -n "$BROWSERS_MISSING" ]; then
+  log_warning "Some Playwright browsers not in cache:$BROWSERS_MISSING"
+  log_note "These may be available as system browsers or may need manual installation"
+fi
+
+# Show detailed browser list for debugging
+log_info "Playwright browser cache contents:"
+playwright install --list 2>&1 | grep -E "^\s+/" | head -15 || {
+  log_note "Could not list Playwright browsers (playwright CLI may not be available)"
+}
 
 # --- Configure Playwright MCP for Claude CLI ---
 log_info "Configuring Playwright MCP for Claude CLI..."
@@ -1342,15 +1550,17 @@ if command -v claude &>/dev/null; then
   # Add the playwright MCP server to Claude CLI configuration with user scope
   # Using -s user ensures it's available for all tasks in all folders
   # Configuration flags:
-  # - @latest: Use latest version (currently 0.0.49)
+  # - @latest: Always use the latest version to get newest features and bug fixes
+  #            This ensures browsers are compatible with the MCP server
   # - --isolated: Ephemeral browser contexts (prevents memory leaks)
-  # - --headless: Reduces UI memory overhead
+  # - --headless: Reduces UI memory overhead (required for server environments)
   # - --no-sandbox: Required for server/container environments
-  # - --timeout-action=600000: 10-minute timeout to prevent hung processes
+  # - --timeout-action=600000: 10-minute timeout to prevent hung processes (fixes #1060)
+  # - --viewport-size 1920x1080: 1080p resolution for consistent screenshots
   log_info "Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)..."
-  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 2>/dev/null || {
+  claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || {
     log_warning "Could not add Playwright MCP to Claude CLI."
-    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+    log_note "You may need to run manually: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
   }
 
   # Verify the configuration
@@ -1361,7 +1571,7 @@ if command -v claude &>/dev/null; then
   fi
 else
   log_warning "Claude CLI is not available. Skipping MCP configuration."
-  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000"
+  log_note "After Claude CLI is installed, run: claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080"
 fi
 
 # --- Git setup with GitHub identity (only if authenticated) ---
@@ -1525,6 +1735,11 @@ rm -f /tmp/hive-user-setup.sh
 
 # --- Cleanup after everything (so install-deps/apt had full cache) ---
 log_step "Cleaning up"
+
+# Final cleanup of any duplicate APT sources that may have been created during installation
+# This ensures a clean state after all components are installed
+cleanup_duplicate_apt_sources
+
 apt_cleanup
 
 log_step "Setup complete!"

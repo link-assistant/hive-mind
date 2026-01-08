@@ -253,6 +253,11 @@ export const createYargsConfig = yargsInstance => {
         choices: ['claude', 'opencode', 'codex', 'agent'],
         default: 'claude',
       })
+      .option('enable-workspaces', {
+        type: 'boolean',
+        description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent). Experimental feature.',
+        default: false,
+      })
       .option('interactive-mode', {
         type: 'boolean',
         description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',

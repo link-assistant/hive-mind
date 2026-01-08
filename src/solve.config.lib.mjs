@@ -253,6 +253,11 @@ export const createYargsConfig = yargsInstance => {
         choices: ['claude', 'opencode', 'codex', 'agent'],
         default: 'claude',
       })
+      .option('execute-tool-with-bun', {
+        type: 'boolean',
+        description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+        default: false,
+      })
       .option('enable-workspaces', {
         type: 'boolean',
         description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent). Experimental feature.',

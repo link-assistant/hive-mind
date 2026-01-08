@@ -236,7 +236,7 @@ if (argv.verbose) {
   await log(`   Is Issue URL: ${!!isIssueUrl}`, { verbose: true });
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 // Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
 // The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
 // and the validation result already provides these values correctly parsed

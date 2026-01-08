@@ -95,7 +95,7 @@ const argv = yargs()
   .option('execute-tool-with-bun', {
     type: 'boolean',
     description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
-    default: false
+    default: false,
   })
   .demandCommand(1, 'The GitHub pull request URL is required')
   .parserConfiguration({
@@ -134,9 +134,7 @@ if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
 
 // Determine claude command path based on --execute-tool-with-bun option
 // When enabled, uses 'bunx claude' which may improve speed and memory usage
-const claudePath = argv.executeToolWithBun
-  ? 'bunx claude'
-  : (process.env.CLAUDE_PATH || 'claude');
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 
 // Extract repository and PR number from URL
 const urlParts = prUrl.split('/');

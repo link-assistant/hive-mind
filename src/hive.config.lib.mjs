@@ -289,7 +289,7 @@ export const createYargsConfig = yargsInstance => {
     .option('execute-tool-with-bun', {
       type: 'boolean',
       description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
-      default: false
+      default: false,
     })
     .parserConfiguration({
       'boolean-negation': true,

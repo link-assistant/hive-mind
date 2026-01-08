@@ -5,12 +5,7 @@ import { formatResetTimeWithRelative, parseResetTime, formatRelativeTime } from 
 console.log('Testing relative time formatting...\n');
 
 // Test different time formats
-const testTimes = [
-  '11:00 PM',
-  '5:00 AM',
-  '12:30 PM',
-  '1:15 AM'
-];
+const testTimes = ['11:00 PM', '5:00 AM', '12:30 PM', '1:15 AM'];
 
 for (const testTime of testTimes) {
   console.log(`Input: "${testTime}"`);

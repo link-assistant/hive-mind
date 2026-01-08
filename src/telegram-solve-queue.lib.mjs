@@ -26,11 +26,16 @@ import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getC
 /**
  * Configuration constants for queue throttling
  * All thresholds use ratios (0.0 - 1.0) representing usage percentage
+ *
+ * IMPORTANT: Running claude processes is NOT a blocking limit by itself.
+ * Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded.
+ * See: https://github.com/link-assistant/hive-mind/issues/1078
  */
 export const QUEUE_CONFIG = {
   // Resource thresholds (usage ratios: 0.0 - 1.0)
   RAM_THRESHOLD: 0.5, // Stop if RAM usage > 50%
-  CPU_THRESHOLD: 0.5, // Stop if CPU usage > 50%
+  // CPU threshold uses 5-minute load average, not instantaneous CPU usage
+  CPU_THRESHOLD: 0.5, // Stop if 5-minute load average > 50% of CPU count
   DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage > 95%
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
@@ -39,8 +44,11 @@ export const QUEUE_CONFIG = {
   GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub > 80% with parallel claude
 
   // Timing
-  MIN_START_INTERVAL_MS: 60000, // 1 minute between starts
-  CONSUMER_POLL_INTERVAL_MS: 5000, // 5 seconds between queue checks
+  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
+  // This ensures that when API limits are checked, the running process is counted
+  MIN_START_INTERVAL_MS: 120000, // 2 minutes between starts (was 1 minute)
+  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks (was 5 seconds)
+  MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
 
   // Process detection
   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
@@ -163,6 +171,9 @@ class SolveQueueItem {
     this.sessionName = null;
     // Message tracking - forget after STARTED
     this.messageInfo = null; // { chatId, messageId }
+    // Track when we last updated the Telegram message
+    // See: https://github.com/link-assistant/hive-mind/issues/1078
+    this.lastMessageUpdateTime = null;
   }
 
   /**
@@ -409,8 +420,10 @@ export class SolveQueue {
     // "Claude process running" only blocks if there are OTHER reasons too
     // This allows parallel execution when limits are not exceeded
     if (hasRunningClaude && reasons.length > 0) {
-      // Add claude_running info only when combined with actual limit reasons
-      reasons.unshift(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
+      // Add claude_running info at the END (not beginning) of reasons
+      // Since it's supplementary info, not the primary blocking reason
+      // See: https://github.com/link-assistant/hive-mind/issues/1078
+      reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
     }
 
     const canStart = reasons.length === 0;
@@ -430,6 +443,11 @@ export class SolveQueue {
 
   /**
    * Check system resources (RAM, CPU, disk) using cached values
+   *
+   * Uses 5-minute load average for CPU instead of instantaneous usage.
+   * This provides a more stable metric that isn't affected by brief spikes
+   * during claude process startup.
+   *
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
   async checkSystemResources() {
@@ -446,12 +464,25 @@ export class SolveQueue {
       }
     }
 
-    // Check CPU (using cached value)
+    // Check CPU using 5-minute load average (more stable than 1-minute)
+    // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
-      const usedRatio = cpuResult.cpuLoad.usagePercentage / 100;
-      if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
-        reasons.push(formatWaitingReason('cpu', cpuResult.cpuLoad.usagePercentage, QUEUE_CONFIG.CPU_THRESHOLD));
+      // Use loadAvg5 (5-minute average) instead of usagePercentage (1-minute based)
+      // This provides a more stable metric that isn't affected by transient spikes
+      const loadAvg5 = cpuResult.cpuLoad.loadAvg5;
+      const cpuCount = cpuResult.cpuLoad.cpuCount;
+      // Calculate usage ratio: loadAvg5 / cpuCount
+      // Load average of 1.0 per CPU = 100% utilization
+      const usageRatio = loadAvg5 / cpuCount;
+      const usagePercent = Math.min(100, Math.round(usageRatio * 100));
+
+      if (this.verbose) {
+        this.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
+      }
+
+      if (usageRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
+        reasons.push(formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.CPU_THRESHOLD));
         this.recordThrottle('cpu_high');
       }
     }
@@ -564,16 +595,31 @@ export class SolveQueue {
    * Update item message in Telegram
    * @param {SolveQueueItem} item
    * @param {string} text
+   * @param {boolean} trackUpdateTime - Whether to track this as a periodic update (default: true)
    */
-  async updateItemMessage(item, text) {
+  async updateItemMessage(item, text, trackUpdateTime = true) {
     if (!item.messageInfo || !item.ctx) return;
 
     try {
       const { chatId, messageId } = item.messageInfo;
       await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+      if (trackUpdateTime) {
+        item.lastMessageUpdateTime = Date.now();
+      }
     } catch (error) {
       this.log(`Failed to update message: ${error.message}`);
     }
+  }
+
+  /**
+   * Check if an item's message should be updated periodically
+   * @param {SolveQueueItem} item
+   * @returns {boolean}
+   */
+  shouldUpdateMessage(item) {
+    if (!item.messageInfo || !item.ctx) return false;
+    if (!item.lastMessageUpdateTime) return true; // Never updated
+    return Date.now() - item.lastMessageUpdateTime >= QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS;
   }
 
   /**
@@ -592,14 +638,20 @@ export class SolveQueue {
 
       if (!check.canStart) {
         // Update all queued items to waiting status with reason
+        // Also periodically refresh messages to show current status
+        // See: https://github.com/link-assistant/hive-mind/issues/1078
         for (const item of this.queue) {
           if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
             const previousStatus = item.status;
             const previousReason = item.waitingReason;
             item.setWaiting(check.reason);
 
-            // Update message if status or reason changed
-            if (previousStatus !== item.status || previousReason !== item.waitingReason) {
+            // Update message if:
+            // 1. Status or reason changed
+            // 2. OR it's time for a periodic update (every MESSAGE_UPDATE_INTERVAL_MS)
+            const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
+
+            if (shouldUpdate) {
               const position = this.queue.indexOf(item) + 1;
               await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${check.reason}`);
             }
@@ -622,13 +674,10 @@ export class SolveQueue {
       const item = this.queue.shift();
       if (!item) continue;
 
-      // Check if this item uses claude tool and claude is running
-      if (item.tool === 'claude' && check.claudeProcesses > 0) {
-        this.queue.unshift(item);
-        this.log(`Claude tool item queued but claude running, waiting...`);
-        await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
-        continue;
-      }
+      // NOTE: Running claude processes is NOT a blocking limit by itself
+      // Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded
+      // The MIN_START_INTERVAL_MS ensures enough time for processes to be counted
+      // See: https://github.com/link-assistant/hive-mind/issues/1078
 
       // Update status to Starting
       item.setStarting();

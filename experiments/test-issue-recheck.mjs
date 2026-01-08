@@ -16,11 +16,7 @@ console.log('🧪 Testing Issue Recheck Logic\n');
 
 // Test URL parsing
 console.log('Test 1: URL Parsing');
-const testUrls = [
-  'https://github.com/link-assistant/hive-mind/issues/810',
-  'https://github.com/octocat/Hello-World/issues/1',
-  'invalid-url',
-];
+const testUrls = ['https://github.com/link-assistant/hive-mind/issues/810', 'https://github.com/octocat/Hello-World/issues/1', 'invalid-url'];
 
 for (const url of testUrls) {
   const urlMatch = url.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);

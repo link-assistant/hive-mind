@@ -53,6 +53,7 @@ $ hive https://github.com/owner/repo --concurrency 2 --max-issues 100
 ```
 
 Output with new behavior:
+
 ```
 👷 Worker 1 processing: https://github.com/owner/repo/issues/50
    🔍 Rechecking conditions for issue #50...
@@ -76,6 +77,7 @@ $ hive https://github.com/owner/repo --skip-issues-with-prs --concurrency 2
 ```
 
 Output:
+
 ```
 👷 Worker 2 processing: https://github.com/owner/repo/issues/75
    🔍 Rechecking conditions for issue #75...
@@ -99,6 +101,7 @@ $ hive https://github.com/owner --concurrency 2
 ```
 
 Output:
+
 ```
 👷 Worker 1 processing: https://github.com/owner/repo-alpha/issues/10
    🔍 Rechecking conditions for issue #10...
@@ -112,6 +115,7 @@ Output:
 ## Performance Impact
 
 The recheck adds minimal overhead:
+
 - **Issue state check**: 1 GitHub API call (~100ms)
 - **PR check**: Only if `--skip-issues-with-prs` is enabled (batched GraphQL, ~200ms)
 - **Archive check**: Batched GraphQL (~200ms)

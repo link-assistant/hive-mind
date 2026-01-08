@@ -30,13 +30,13 @@ export async function recheckIssueConditions(issueUrl, argv) {
     try {
       const { execSync } = await import('child_process');
       const issueState = execSync(`gh api repos/${owner}/${repo}/issues/${issueNum} --jq .state`, {
-        encoding: 'utf8'
+        encoding: 'utf8',
       }).trim();
 
       if (issueState === 'closed') {
         return {
           shouldProcess: false,
-          reason: 'Issue is now closed'
+          reason: 'Issue is now closed',
         };
       }
       await log(`      ✅ Issue is still open`, { verbose: true });
@@ -53,7 +53,7 @@ export async function recheckIssueConditions(issueUrl, argv) {
       if (prInfo && prInfo.openPRCount > 0) {
         return {
           shouldProcess: false,
-          reason: `Issue now has ${prInfo.openPRCount} open PR${prInfo.openPRCount > 1 ? 's' : ''}`
+          reason: `Issue now has ${prInfo.openPRCount} open PR${prInfo.openPRCount > 1 ? 's' : ''}`,
         };
       }
       await log(`      ✅ Issue still has no open PRs`, { verbose: true });
@@ -66,19 +66,18 @@ export async function recheckIssueConditions(issueUrl, argv) {
     if (archivedStatusMap[repoKey] === true) {
       return {
         shouldProcess: false,
-        reason: 'Repository is now archived'
+        reason: 'Repository is now archived',
       };
     }
     await log(`      ✅ Repository is not archived`, { verbose: true });
 
     await log(`      ✅ All conditions passed, proceeding with processing`, { verbose: true });
     return { shouldProcess: true };
-
   } catch (error) {
     reportError(error, {
       context: 'recheck_issue_conditions',
       issueUrl,
-      operation: 'recheck_conditions'
+      operation: 'recheck_conditions',
     });
     await log(`      ⚠️  Error rechecking conditions: ${cleanErrorMessage(error)}`, { level: 'warning' });
     // On error, allow processing to continue (fail open)

@@ -1,5 +1,331 @@
 # @link-assistant/hive-mind
 
+## 1.2.0
+
+### Minor Changes
+
+- Add experimental --execute-tool-with-bun option to improve speed and memory usage
+
+  This feature adds the `--execute-tool-with-bun` option that allows users to execute the AI tool using `bunx claude` instead of `claude`, which may provide performance benefits in terms of speed and memory usage.
+
+  **Supported commands:**
+  - `solve` - Uses `bunx claude` when option is enabled
+  - `task` - Uses `bunx claude` when option is enabled
+  - `review` - Uses `bunx claude` when option is enabled
+  - `hive` - Passes the option through to the `solve` subprocess
+
+  **How It Works:**
+  When `--execute-tool-with-bun` is enabled, the `claudePath` variable is set to `'bunx claude'` instead of `'claude'` (or `CLAUDE_PATH` environment variable).
+
+  **Usage Examples:**
+
+  ```bash
+  # Use with solve command
+  solve https://github.com/owner/repo/issues/123 --execute-tool-with-bun
+
+  # Use with task command
+  task "implement feature X" --execute-tool-with-bun
+
+  # Use with review command
+  review https://github.com/owner/repo/pull/456 --execute-tool-with-bun
+
+  # Use with hive command (passes through to solve)
+  hive https://github.com/owner/repo --execute-tool-with-bun
+  ```
+
+  The option defaults to `false` to maintain backward compatibility.
+
+  Fixes #812
+
+  feat(hive): recheck issue conditions before processing queue items
+
+  Added `recheckIssueConditions()` function to validate issue state right before processing,
+  preventing wasted resources on issues that should be skipped due to changed conditions since queuing.
+
+  **Checks performed:**
+  - **Issue state**: Verifies the issue is still open
+  - **Open PRs**: Checks if issue has PRs (when `--skip-issues-with-prs` is enabled)
+  - **Repository status**: Confirms repository is not archived
+
+  **Benefits:**
+  - Prevents processing closed issues
+  - Avoids duplicate work when PRs already exist
+  - Stops work on newly archived repositories
+  - Saves AI model tokens and compute resources
+
+  **Performance impact:**
+  Minimal overhead per issue (~300-500ms for API calls), negligible compared to 5-15 minute solve time.
+
+  Fixes #810
+
+## 1.1.0
+
+### Minor Changes
+
+- 4c46685: Add --enable-workspaces option for separate workspace directories
+
+  This feature adds support for creating separate workspace directories for all AI tools (claude, opencode, codex, agent). When enabled with `--enable-workspaces`, the tool creates a structured workspace:
+  - `/tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}/repository` - for the cloned repo
+  - `/tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}/tmp` - for temp files, logs, downloads
+
+  The workspace tmp directory is passed to all tool prompts, with explicit examples for saving CI logs, diffs, and command outputs.
+
+- Add relative time display for usage limit reset messages in GitHub comments
+
+  When the AI tool hits its usage limit, GitHub comments now show the reset time in a more user-friendly format:
+  - Before: `11:00 PM`
+  - After: `in 1h 23m (11:00 PM UTC)`
+
+  This helps users in different timezones understand when the limit will reset more quickly.
+
+## 1.0.5
+
+### Patch Changes
+
+- a68a9f2: fix(queue): simplify queue logic based on PR feedback
+  - **Use 5-minute load average for CPU**: Uses `loadAvg5` instead of instantaneous CPU usage,
+    providing a more stable metric not affected by transient spikes during claude startup.
+    Cache TTL is 2 minutes.
+  - **Keep RAM threshold with caching**: RAM_THRESHOLD (50%) is still checked but uses cached
+    values only (no uncached rechecks) to simplify the logic.
+  - **Increase MIN_START_INTERVAL_MS to 2 minutes**: Allows enough time for solve command to
+    start actual claude process, ensuring running processes are counted when API limits are checked.
+  - **Increase CONSUMER_POLL_INTERVAL_MS to 1 minute**: Reduces unnecessary system checks.
+    One-minute polling is sufficient for queue management.
+  - **Running processes not a blocking limit**: Commands can run in parallel as long as actual
+    limits (CPU, API, etc.) are not exceeded. Claude process info is only supplementary.
+
+  Fixes #1078
+
+## 1.0.4
+
+### Patch Changes
+
+- 4e5e1ab: Use gh-upload-log for log file uploads (issue #587)
+  - Replace custom gist creation with gh-upload-log command
+  - Implement smart linking: 1 chunk = direct raw link, >1 chunks = repo link
+  - Update case study documentation with gh-upload-log v0.5.0 fixes
+  - Remove custom log compression in favor of gh-upload-log auto mode
+
+## 1.0.3
+
+### Patch Changes
+
+- 26b69f2: Fix Claude Code output token limit by setting CLAUDE_CODE_MAX_OUTPUT_TOKENS to 64000
+  - Claude Code CLI defaults to 32K output token limit, but Claude Sonnet/Opus/Haiku 4.5 models support 64K
+  - Added `claudeCode.maxOutputTokens` configuration in `config.lib.mjs` (default: 64000)
+  - Pass `CLAUDE_CODE_MAX_OUTPUT_TOKENS` environment variable when executing Claude CLI
+  - Configuration can be overridden via `CLAUDE_CODE_MAX_OUTPUT_TOKENS` or `HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS` environment variables
+  - Added comprehensive case study analysis in `docs/case-studies/issue-1076/`
+
+  See: https://github.com/link-assistant/hive-mind/issues/1076
+
+## 1.0.2
+
+### Patch Changes
+
+- 1a96d9f: Fix Claude Usage API rate limiting by increasing cache TTL to 20 minutes
+  - The Claude Usage API (`/api/oauth/usage`) was returning null values due to rate limiting when called too frequently
+  - Increased default cache TTL from 3 minutes to 20 minutes for Claude Usage API
+  - Added configurable environment variable `HIVE_MIND_USAGE_API_CACHE_TTL_MS` (default: 1200000ms = 20 minutes)
+  - Added HTTP response status logging for easier debugging
+  - Added explicit 429 rate limit error handling
+  - Updated documentation in `docs/CONFIGURATION.md`
+
+  See: https://github.com/link-assistant/hive-mind/issues/1074
+
+## 1.0.1
+
+### Patch Changes
+
+- 2a3848d: Add --prompt-architecture-care flag for managing REQUIREMENTS.md and ARCHITECTURE.md files
+
+  Adds an optional experimental flag `--prompt-architecture-care` that provides guidance for:
+  - Managing REQUIREMENTS.md (high-level why/what documentation)
+  - Managing ARCHITECTURE.md (high-level how documentation)
+  - TODO.md workflow management for task persistence across sessions
+
+  The flag is disabled by default and works with all tools (claude, agent, opencode, codex).
+
+- a18a664: Fix session ID extraction error for --tool agent
+  - Fixed JSON parsing logic in agent tool to extract session IDs from NDJSON output
+  - Modified session summary to show informational message for agent tool instead of error
+
+## 1.0.0
+
+### Major Changes
+
+- 4e8d141: Rename `--auto-continue-on-limit-reset` to `--auto-resume-on-limit-reset` for clarity
+
+  BREAKING CHANGE: The `--auto-continue-on-limit-reset` option has been renamed to `--auto-resume-on-limit-reset`. Users must update their commands and configurations to use the new flag name.
+
+  The option is related to `--resume` for `claude` command and has an entirely different meaning from `--auto-continue` mode. This rename makes the distinction clearer and aligns the terminology with the resume functionality.
+
+  Migration:
+  - Replace `--auto-continue-on-limit-reset` with `--auto-resume-on-limit-reset` in all commands
+  - Update environment variables and configuration files accordingly
+
+## 0.54.6
+
+### Patch Changes
+
+- f734d5d: feat: Add --base-branch to /help and implement option typo suggestions
+  - Added --base-branch option to Telegram bot /help command
+  - Implemented intelligent option name suggestions using Levenshtein distance
+  - Added --base-branch to README.md solve options section
+  - Enhanced error messages with helpful suggestions for typos (e.g., --branch → --base-branch)
+
+## 0.54.5
+
+### Patch Changes
+
+- Fix duplicate APT sources warning in installation script
+  - Add `cleanup_duplicate_apt_sources()` function to detect and remove duplicate APT source files
+  - Clean up duplicate Microsoft Edge sources (`microsoft-edge.list` vs `microsoft-edge-stable.list`)
+  - Clean up duplicate Google Chrome sources (`google-chrome.list` vs `google-chrome-stable.list`)
+  - Run cleanup before `apt update` to prevent "Target Packages configured multiple times" warnings
+  - Ensures script supports clean upgrade mode when run on previously installed systems
+
+  Improve Telegram bot error messages for better user experience (issue #1070)
+  - Enhanced URL validation to provide specific, actionable error messages based on URL type (issues list, pulls list, repository)
+  - Added step-by-step fix instructions with examples when users provide wrong URL formats
+  - Improved global error handler to properly escape Markdown special characters, preventing "400: Bad Request: can't parse entities" errors
+  - Added special handling for Telegram API parsing errors with clearer messaging
+  - Added `cleanNonPrintableChars()` to automatically remove invisible Unicode characters from user input
+  - Added `makeSpecialCharsVisible()` to show users exactly where problematic special characters are in their input
+  - Enhanced error messages to display user input with special characters made visible for easier debugging
+  - Refactored telegram-bot.mjs to meet 1500 line limit requirement
+  - Created comprehensive test suites to verify URL validation improvements and special character handling
+  - Documented case study analysis in docs/case-studies/issue-1070/ANALYSIS.md
+
+## 0.54.4
+
+### Patch Changes
+
+- 4e53d67: fix: resolve TypeError in telegram-bot when using --tokens-budget-stats
+
+  Fixed type safety bug that prevented the --tokens-budget-stats option from working via telegram bot configuration overrides. Changed from lino.parse() to lino.parseStringValues() to ensure only string values are returned, making .trim() safe to call. The feature was already fully implemented but crashed when used via TELEGRAM_HIVE_OVERRIDES or TELEGRAM_SOLVE_OVERRIDES.
+
+## 0.54.3
+
+### Patch Changes
+
+- 4d4b461: Add Playwright browser verification to installation script and CI
+  - Enhanced `scripts/ubuntu-24-server-install.sh` with detailed browser verification after installation
+  - Added CI checks in `.github/workflows/release.yml` to verify required Playwright browsers (chromium, firefox, webkit) are installed
+  - CI now fails if required browsers are missing, ensuring Playwright MCP server has all dependencies
+
+## 0.54.2
+
+### Patch Changes
+
+- c5f5194: Fix Telegram message getting stuck at "Starting solve command..."
+  - Add error handling to `executeAndUpdateMessage` function to catch Telegram API errors
+  - Fix critical bug where `messageInfo` was being cleared before the final message update
+  - Add proper error logging for message edit failures in both immediate and queued execution paths
+
+## 0.54.1
+
+### Patch Changes
+
+- 55576af: fix: allow parallel queue execution when no limits exceeded
+
+  Previously, "Claude process is already running" was treated as a blocking reason on its own, preventing parallel execution even when all system and API limits were within thresholds.
+
+  Changes:
+  - `claude_running` is now tracked as a metric, not a blocking reason
+  - Commands can run in parallel as long as actual limits are not exceeded
+  - When any limit >= threshold, allow exactly one claude command to pass
+
+## 0.54.0
+
+### Minor Changes
+
+- 4af584c: Add producer/consumer queue for /solve command in Telegram bot
+
+  This feature implements resource-aware throttling to prevent system overload when multiple /solve commands are submitted simultaneously.
+
+  **Queue Configuration (using usage ratios 0.0-1.0):**
+  - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
+  - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
+  - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
+  - `CLAUDE_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
+  - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
+  - 1-minute minimum interval between command starts
+  - Running claude process detection
+
+  **Status Flow:**
+  - `Queued` - Initial status when command is added to queue
+  - `Waiting` - When start conditions are not met (with human-readable reason)
+  - `Starting` - When command is being started
+  - `Started` - Terminal status with session info (message tracking is released)
+
+  **Caching:**
+  - API calls (Claude, GitHub): 3-minute cache
+  - System metrics (RAM, CPU, disk): 2-minute cache
+  - Shared cache between /solve queue and /limits command
+
+  **Files Changed:**
+  - `limits.lib.mjs` - Merged from `claude-limits.lib.mjs` with added caching layer (replaces both `claude-limits.lib.mjs` and `telegram-limits.lib.mjs`)
+  - `telegram-solve-queue.lib.mjs` - Queue implementation with status tracking
+
+  **User Experience:**
+  - Messages are updated in-place as status changes
+  - Clear waiting reasons displayed (e.g., "Disk usage is 96% (threshold: 95%)")
+  - Queue status added to /limits command output
+
+## 0.53.2
+
+### Patch Changes
+
+- 5030fe1: Fix --auto-continue-on-limit-reset flag not working
+
+  When Claude hit its usage limit with --auto-continue-on-limit-reset enabled, the code would exit early
+  via the failure branch before reaching showSessionSummary() where autoContinueWhenLimitResets() is called.
+
+  This patch adds a condition to skip the failure exit when limit is reached with auto-continue enabled,
+  allowing the code to properly wait for the limit to reset and resume the session.
+
+## 0.53.1
+
+### Patch Changes
+
+- 6d7fb43: Add --auto-continue-on-limit-reset option to hive command
+
+  The hive command was missing the --auto-continue-on-limit-reset option that is available
+  in the solve command. This caused yargs strict mode to reject the option with an
+  "Unknown arguments" error. The option is now properly defined in hive.config.lib.mjs
+  and passed to the solve command when spawning workers.
+
+## 0.53.0
+
+### Minor Changes
+
+- b750286: Add `--prompt-check-sibling-pull-requests` flag (default: true) to control whether the AI is prompted to study related/sibling pull requests during issue solving
+
+## 0.52.1
+
+### Patch Changes
+
+- 1a4f1a2: Reduce Telegram messages by updating instead of sending new ones
+
+  The `/solve` and `/hive` commands now update the initial "Starting..." message with the success/error result instead of sending a separate message. This follows the same pattern already used by the `/limits` command.
+
+  **Before:** Two separate messages per command
+  **After:** Single message that gets updated with the result
+
+## 0.52.0
+
+### Minor Changes
+
+- b280bcc: Add `--prompt-playwright-mcp` flag to control Playwright MCP hints in system prompt
+
+  Users can now explicitly control whether Playwright MCP browser automation hints appear in the AI's system prompt:
+  - Use `--no-prompt-playwright-mcp` to disable hints even when Playwright MCP is installed
+  - Use `--prompt-playwright-mcp` to explicitly enable hints
+  - Omit the flag to keep the default auto-detection behavior
+
 ## 0.51.21
 
 ### Patch Changes

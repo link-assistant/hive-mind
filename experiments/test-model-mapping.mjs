@@ -2,15 +2,15 @@
 
 // Test script to verify the opencode model mapping (standalone)
 
-const mapModelToId = (model) => {
+const mapModelToId = model => {
   const modelMap = {
-    'gpt4': 'openai/gpt-4',
-    'gpt4o': 'openai/gpt-4o',
-    'claude': 'anthropic/claude-3-5-sonnet',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'opus': 'anthropic/claude-3-opus',
-    'gemini': 'google/gemini-pro',
-    'grok': 'opencode/grok-code',
+    gpt4: 'openai/gpt-4',
+    gpt4o: 'openai/gpt-4o',
+    claude: 'anthropic/claude-3-5-sonnet',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    opus: 'anthropic/claude-3-opus',
+    gemini: 'google/gemini-pro',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
   };

@@ -19,7 +19,7 @@ try {
 }
 
 // Test 2: Test with reasonable threshold (should pass)
-console.log('✅ Test 2: Testing with reasonable threshold (500MB)');
+console.log('✅ Test 2: Testing with reasonable threshold (2048MB)');
 const testResult1 = await $`./solve.mjs --help | grep -q "min-disk-space"`;
 if (testResult1.code === 0) {
   console.log('   Option available in solve.mjs ✅');
@@ -36,5 +36,5 @@ if (testResult2.code === 0) {
 
 console.log('\n🎯 Disk space validation has been successfully implemented!');
 console.log('   Both hive.mjs and solve.mjs now check disk space before operation');
-console.log('   Default threshold: 500MB (configurable via --min-disk-space)');
+console.log('   Default threshold: 2048MB (configurable via --min-disk-space)');
 console.log('   Scripts exit with error code 1 if insufficient space detected');

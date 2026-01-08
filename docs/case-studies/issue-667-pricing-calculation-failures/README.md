@@ -1,8 +1,9 @@
 # Case Study: Pricing Calculation Failures at PR Generation
 
 ## Issue Reference
-- **Issue**: [#667 - Make a detailed case study on why pricing calculation does not work at Pull Request generation of solve command](https://github.com/deep-assistant/hive-mind/issues/667)
-- **Pull Request**: [#668](https://github.com/deep-assistant/hive-mind/pull/668)
+
+- **Issue**: [#667 - Make a detailed case study on why pricing calculation does not work at Pull Request generation of solve command](https://github.com/link-assistant/hive-mind/issues/667)
+- **Pull Request**: [#668](https://github.com/link-assistant/hive-mind/pull/668)
 - **Referenced PR with failures**: [konard/hh-job-application-automation#49](https://github.com/konard/hh-job-application-automation/pull/49)
 
 ## Executive Summary
@@ -17,7 +18,9 @@ These failures occur due to timing issues and variable scope problems in the log
 ## Evidence from PR #49
 
 ### First Run (2025-11-04T04:53:41Z)
+
 **PR Comment**:
+
 ```
 💰 **Cost estimation:**
 - Public pricing estimate: $1.615948 USD ✅
@@ -26,6 +29,7 @@ These failures occur due to timing issues and variable scope problems in the log
 ```
 
 **Actual Log Data** (from gist):
+
 ```
 [2025-11-04T04:53:32.287Z] [INFO] 💰 Anthropic official cost captured: $0.964416
 [2025-11-04T04:53:32.663Z] [INFO]       Public pricing estimate: $1.615948 USD
@@ -34,7 +38,9 @@ These failures occur due to timing issues and variable scope problems in the log
 ```
 
 ### Second Run / Auto-restart 1/3 (2025-11-04T04:57:44Z)
+
 **PR Comment**:
+
 ```
 💰 **Cost estimation:**
 - Public pricing estimate: unknown ❌
@@ -43,6 +49,7 @@ These failures occur due to timing issues and variable scope problems in the log
 ```
 
 **Actual Log Data**:
+
 - Both calculations succeeded internally
 - Terminal output showed both values correctly
 - Only PR comment generation received incorrect data
@@ -54,16 +61,18 @@ These failures occur due to timing issues and variable scope problems in the log
 The pricing calculation involves multiple components:
 
 #### A. Session Token Calculation (`claude.lib.mjs:619`)
+
 ```javascript
 export const calculateSessionTokens = async (sessionId, tempDir) => {
   // Reads session JSONL file
   // Fetches model pricing from models.dev
   // Calculates per-model costs
   // Returns { totalCostUSD, modelUsage, ... }
-}
+};
 ```
 
 #### B. Anthropic Official Cost Capture (`claude.lib.mjs:931`)
+
 ```javascript
 if (data.type === 'result') {
   if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
@@ -74,6 +83,7 @@ if (data.type === 'result') {
 ```
 
 #### C. Return from executeClaudeCommand (`claude.lib.mjs:1242`)
+
 ```javascript
 return {
   success: true,
@@ -81,7 +91,7 @@ return {
   limitReached,
   messageCount,
   toolUseCount,
-  anthropicTotalCostUSD // Pass Anthropic's official total cost
+  anthropicTotalCostUSD, // Pass Anthropic's official total cost
 };
 ```
 
@@ -99,10 +109,9 @@ However, this variable is scoped to the main function. When the code reaches lin
 
 ```javascript
 const logUploadSuccess = await attachLogToGitHub({
-  ...
-  sessionId,  // This is from the FIRST session
+  ...sessionId, // This is from the FIRST session
   tempDir: argv.tempDir || process.cwd(),
-  anthropicTotalCostUSD  // This is from the FIRST session
+  anthropicTotalCostUSD, // This is from the FIRST session
 });
 ```
 
@@ -131,6 +140,7 @@ This new `toolResult` contains a fresh `anthropicTotalCostUSD` and `sessionId`. 
 5. **Log upload happens** → Uses OLD `sessionId` from first run, not the new one
 
 **Code Location** (`github.lib.mjs:462-481`):
+
 ```javascript
 // Calculate token usage if sessionId and tempDir are provided
 let totalCostUSD = null;
@@ -153,6 +163,7 @@ if (sessionId && tempDir && !errorMessage) {
 ```
 
 **What Happens**:
+
 - `sessionId` from first run is used
 - `calculateSessionTokens` tries to read the FIRST session's JSONL file
 - But the SECOND session (auto-restart) has created a NEW JSONL file with a different session ID
@@ -162,6 +173,7 @@ if (sessionId && tempDir && !errorMessage) {
 ### 4. Session File Path Mismatch
 
 The session files are stored as:
+
 ```
 ~/.claude/projects/<project-dir>/<session-id>.jsonl
 ```
@@ -169,6 +181,7 @@ The session files are stored as:
 Where `<project-dir>` is derived from `tempDir.replace(/\//g, '-')`.
 
 **Example**:
+
 - First session: `~/.claude/projects/-tmp-gh-issue-solver-1234/session-abc.jsonl`
 - Auto-restart session: `~/.claude/projects/-tmp-gh-issue-solver-1234/session-xyz.jsonl`
 
@@ -200,7 +213,7 @@ if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
   costInfo += `\n- Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`;
   if (totalCostUSD !== null) {
     const difference = anthropicTotalCostUSD - totalCostUSD;
-    const percentDiff = totalCostUSD > 0 ? ((difference / totalCostUSD) * 100) : 0;
+    const percentDiff = totalCostUSD > 0 ? (difference / totalCostUSD) * 100 : 0;
     costInfo += `\n- Difference: $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`;
   }
 }
@@ -209,16 +222,19 @@ if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
 ## Impact Analysis
 
 ### User Experience Impact
+
 - **Confusion**: Users see "unknown" for pricing, making it hard to estimate costs
 - **Trust**: Discrepancy between terminal output (showing both values) and PR comment (showing unknown) reduces confidence
 - **Decision Making**: Cannot compare public pricing vs Anthropic official pricing
 
 ### Data Accuracy
+
 - The terminal output DOES show correct values
 - Only the PR comment generation has incorrect data
 - Logs contain correct information but are in large gist files
 
 ### Frequency
+
 - Occurs on EVERY auto-restart scenario
 - First run may or may not have the issue depending on timing
 - Likely affects a significant portion of PR-generating solve commands
@@ -226,16 +242,19 @@ if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
 ## Files Analyzed
 
 ### Primary Files
+
 - `/tmp/gh-issue-solver-1762234422910/src/solve.mjs` - Main orchestration
 - `/tmp/gh-issue-solver-1762234422910/src/claude.lib.mjs` - Claude execution and pricing
 - `/tmp/gh-issue-solver-1762234422910/src/github.lib.mjs` - GitHub log attachment
 - `/tmp/gh-issue-solver-1762234422910/src/solve.watch.lib.mjs` - Watch/auto-restart mode
 
 ### Supporting Files
+
 - `/tmp/gh-issue-solver-1762234422910/experiments/test-token-calculation.mjs` - Token testing
 - `/tmp/gh-issue-solver-1762234422910/experiments/test-per-model-usage-calculation.mjs` - Model cost testing
 
 ### Log Files
+
 - `pr49-run1-log.txt` - First run showing Anthropic cost captured but not passed
 - `pr49-run2-log.txt` - Auto-restart showing public pricing not calculated
 
@@ -248,6 +267,7 @@ if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
 **Changes Required**:
 
 1. **In `solve.watch.lib.mjs`** - Modify return value:
+
 ```javascript
 export const watchForFeedback = async (params) => {
   // ... existing code ...
@@ -278,6 +298,7 @@ export const watchForFeedback = async (params) => {
 ```
 
 2. **In `solve.mjs`** - Capture returned data:
+
 ```javascript
 const watchResult = await startWatchMode({ ... });
 
@@ -298,12 +319,14 @@ if (temporaryWatchMode && shouldAttachLogs && prNumber) {
 ```
 
 **Pros**:
+
 - Fixes both failure modes
 - Minimal code changes
 - Maintains backward compatibility
 - Properly represents the final state after auto-restart
 
 **Cons**:
+
 - Requires changes in two files
 - Need to handle multiple session cost aggregation if needed
 
@@ -316,11 +339,13 @@ if (temporaryWatchMode && shouldAttachLogs && prNumber) {
 In `github.lib.mjs:attachLogToGitHub`, always call `calculateSessionTokens` regardless of parameters, and handle the anthropicTotalCostUSD from current session state.
 
 **Pros**:
+
 - Self-contained fix
 - No variable passing needed
 - Always uses fresh data
 
 **Cons**:
+
 - Requires session JSONL file to exist
 - May calculate costs twice (once in claude.lib.mjs, once in github.lib.mjs)
 - Loses Anthropic official cost if session file doesn't contain it
@@ -330,10 +355,12 @@ In `github.lib.mjs:attachLogToGitHub`, always call `calculateSessionTokens` rega
 **Approach**: Maintain an array of all session IDs and their costs throughout the execution, then aggregate them at upload time.
 
 **Pros**:
+
 - Complete historical record
 - Accurate total cost across all sessions
 
 **Cons**:
+
 - Complex implementation
 - Requires significant refactoring
 - May be overkill for the problem
@@ -341,17 +368,20 @@ In `github.lib.mjs:attachLogToGitHub`, always call `calculateSessionTokens` rega
 ## Recommended Implementation Plan
 
 ### Phase 1: Immediate Fix (Solution 1)
+
 1. Modify `solve.watch.lib.mjs` to return latest session data
 2. Update `solve.mjs` to use returned session data
 3. Test with auto-restart scenarios
 4. Verify both pricing values appear in PR comments
 
 ### Phase 2: Validation
+
 1. Add unit tests for pricing calculation
 2. Add integration tests for auto-restart scenarios
 3. Verify session file handling
 
 ### Phase 3: Enhancement
+
 1. Add logging for which session data is being used
 2. Add validation that sessionId matches what's expected
 3. Consider aggregating costs if multiple sessions occur

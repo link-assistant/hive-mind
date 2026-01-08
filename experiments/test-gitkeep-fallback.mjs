@@ -89,7 +89,6 @@ async function runTest() {
 
     console.log('\n✅ All tests passed!');
     return true;
-
   } catch (error) {
     console.error('\n❌ Test failed with error:', error.message);
     return false;

@@ -1,8 +1,23 @@
 import js from '@eslint/js';
+import prettier from 'eslint-plugin-prettier';
+import prettierConfig from 'eslint-config-prettier';
+import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
+
+// Create custom plugin for gh paginate rule
+const ghPaginatePlugin = {
+  rules: {
+    'require-gh-paginate': requireGhPaginate,
+  },
+};
 
 export default [
   js.configs.recommended,
+  prettierConfig,
   {
+    plugins: {
+      prettier,
+      'gh-paginate': ghPaginatePlugin,
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -30,26 +45,31 @@ export default [
         // Custom globals
         use: 'readonly',
         fetch: 'readonly',
-        URL: 'readonly'
-      }
+        URL: 'readonly',
+      },
     },
     files: ['src/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
       'no-unused-vars': ['error'],
       'no-console': 'off',
-      'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }],
       'no-useless-escape': 'warn',
       'no-case-declarations': 'warn',
       'no-empty': 'error',
-      'camelcase': ['error', {
-        properties: 'never',
-        ignoreDestructuring: true,
-        ignoreImports: false,
-        ignoreGlobals: false,
-        allow: ['^[A-Z_]+$']
-      }]
-    }
-  }
+      camelcase: [
+        'error',
+        {
+          properties: 'never',
+          ignoreDestructuring: true,
+          ignoreImports: false,
+          ignoreGlobals: false,
+          allow: ['^[A-Z_]+$'],
+        },
+      ],
+      'prettier/prettier': 'warn',
+      // Require --paginate on gh api calls that return lists
+      // This prevents missing data when GitHub API returns more than 30 results
+      'gh-paginate/require-gh-paginate': 'warn',
+    },
+  },
 ];

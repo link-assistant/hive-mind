@@ -20,8 +20,7 @@ if (hiveContent.includes(".option('auto-continue', {")) {
 
 // Test 2: Check if the option is processed in the worker function
 console.log('\nTest 2: Checking if auto-continue is passed to solve.mjs...');
-if (hiveContent.includes("if (argv.autoContinue) {") &&
-    hiveContent.includes("args.push('--auto-continue');")) {
+if (hiveContent.includes('if (argv.autoContinue) {') && hiveContent.includes("args.push('--auto-continue');")) {
   console.log('✅ auto-continue flag is pushed to args array');
 } else {
   console.log('❌ auto-continue flag NOT properly pushed to args');
@@ -37,7 +36,7 @@ if (hiveContent.includes("const autoContinueFlag = argv.autoContinue ? ' --auto-
 
 // Test 4: Check if the flag is included in the command log
 console.log('\nTest 4: Checking if auto-continue is in command logging...');
-if (hiveContent.includes("${autoContinueFlag}")) {
+if (hiveContent.includes('${autoContinueFlag}')) {
   console.log('✅ autoContinueFlag included in command logging');
 } else {
   console.log('❌ autoContinueFlag NOT included in command logging');
@@ -45,8 +44,7 @@ if (hiveContent.includes("${autoContinueFlag}")) {
 
 // Test 5: Check if auto-continue status is displayed in monitoring config
 console.log('\nTest 5: Checking if auto-continue status is displayed...');
-if (hiveContent.includes("if (argv.autoContinue) {") &&
-    hiveContent.includes("Auto-Continue: ENABLED")) {
+if (hiveContent.includes('if (argv.autoContinue) {') && hiveContent.includes('Auto-Continue: ENABLED')) {
   console.log('✅ Auto-continue status display found');
 } else {
   console.log('❌ Auto-continue status display NOT found');

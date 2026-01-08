@@ -65,6 +65,7 @@ Instead of parsing CLI output, we discovered that Claude Code uses an OAuth API 
 **Endpoint:** `https://api.anthropic.com/api/oauth/usage`
 
 This API:
+
 - Returns JSON with usage percentages and reset times
 - Uses the same credentials stored in `~/.claude/.credentials.json`
 - Is more reliable and doesn't require external tools like `expect`
@@ -90,10 +91,10 @@ This API:
 
 ### Mapping to Display Fields
 
-| API Field | Display Label |
-|-----------|---------------|
-| `five_hour` | Current session |
-| `seven_day` | Current week (all models) |
+| API Field          | Display Label              |
+| ------------------ | -------------------------- |
+| `five_hour`        | Current session            |
+| `seven_day`        | Current week (all models)  |
 | `seven_day_sonnet` | Current week (Sonnet only) |
 
 ## Implementation Changes
@@ -148,6 +149,7 @@ Sonnet only: 35% - PASS
 ## Screenshots
 
 See `docs/case-studies/issue-791/` for original screenshots:
+
 - `screenshot1-expected-format.png` - Expected output format from Claude CLI
 - `screenshot2-error.png` - Error shown in Telegram bot
 

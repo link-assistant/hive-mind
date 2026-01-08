@@ -13,7 +13,7 @@ function parseGitHubUrl(url) {
   if (!url || typeof url !== 'string') {
     return {
       valid: false,
-      error: 'Invalid input: URL must be a non-empty string'
+      error: 'Invalid input: URL must be a non-empty string',
     };
   }
 
@@ -24,7 +24,7 @@ function parseGitHubUrl(url) {
     if (!parsed || !parsed.owner || !parsed.name) {
       return {
         valid: false,
-        error: 'Invalid GitHub URL: missing owner/repo'
+        error: 'Invalid GitHub URL: missing owner/repo',
       };
     }
 
@@ -36,7 +36,7 @@ function parseGitHubUrl(url) {
       repo: parsed.name,
       type: 'unknown',
       path: parsed.filepath || '',
-      number: null
+      number: null,
     };
 
     // Determine the type based on branch and filepath
@@ -57,7 +57,7 @@ function parseGitHubUrl(url) {
   } catch (error) {
     return {
       valid: false,
-      error: 'Invalid GitHub URL format: ' + error.message
+      error: 'Invalid GitHub URL format: ' + error.message,
     };
   }
 }
@@ -100,26 +100,26 @@ const testCases = [
     command: 'solve',
     url: 'https://github.com/veb86/zcadvelecAI/issues/19',
     expected: 'solve-veb86-zcadvelecAI-19',
-    description: 'Issue #19 from the bug report'
+    description: 'Issue #19 from the bug report',
   },
   {
     command: 'solve',
-    url: 'https://github.com/deep-assistant/hive-mind/issues/348',
-    expected: 'solve-deep-assistant-hive-mind-348',
-    description: 'Current issue being fixed'
+    url: 'https://github.com/link-assistant/hive-mind/issues/348',
+    expected: 'solve-link-assistant-hive-mind-348',
+    description: 'Current issue being fixed',
   },
   {
     command: 'hive',
     url: 'https://github.com/veb86/zcadvelecAI',
     expected: 'hive-veb86-zcadvelecAI',
-    description: 'Repository without issue number'
+    description: 'Repository without issue number',
   },
   {
     command: 'solve',
     url: 'https://github.com/openai/gpt-4/pull/100',
     expected: 'solve-openai-gpt-4-100',
-    description: 'Pull request URL'
-  }
+    description: 'Pull request URL',
+  },
 ];
 
 let allPassed = true;

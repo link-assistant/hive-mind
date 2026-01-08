@@ -3,27 +3,15 @@
  * Handles building prompts for Claude commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Claude
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    forkedRepo,
-    feedbackLines,
-    owner,
-    repo,
-    argv,
-    contributingGuidelines
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
 
   const promptLines = [];
 
@@ -37,6 +25,11 @@ export const buildUserPrompt = (params) => {
   // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
+
+  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
+  if (workspaceTmpDir) {
+    promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
+  }
 
   // PR info if available
   if (prUrl) {
@@ -76,7 +69,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -84,8 +77,8 @@ export const buildUserPrompt = (params) => {
   // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt
-  return promptLines.join('\n');
+  // Build the final prompt with trailing newline for POSIX compliance
+  return promptLines.join('\n') + '\n';
 };
 
 /**
@@ -93,8 +86,8 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
-  const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
+export const buildSystemPrompt = params => {
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
   // Build thinking instruction based on --think level
   let thinkLine = '';
@@ -103,18 +96,57 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
+  // Build workspace-specific instructions and examples
+  let workspaceInstructions = '';
+  if (workspaceTmpDir) {
+    workspaceInstructions = `
+Workspace tmp directory.
+   - Use ${workspaceTmpDir} for all temporary files, logs, and downloads.
+   - When saving command output to files, save to ${workspaceTmpDir}/command-output.log.
+   - When downloading CI logs, save to ${workspaceTmpDir}/ci-logs/.
+   - When saving diffs for review, save to ${workspaceTmpDir}/diffs/.
+   - When creating debug files, save to ${workspaceTmpDir}/debug/.
+
+`;
+  }
+
+  // Build CI command examples with workspace tmp paths
+  let ciExamples = '';
+  if (workspaceTmpDir) {
+    ciExamples = `
+CI investigation with workspace tmp directory.
+   - When downloading CI run logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log > ${workspaceTmpDir}/ci-logs/run-RUN_ID.log
+   - When downloading failed job logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log-failed > ${workspaceTmpDir}/ci-logs/run-RUN_ID-failed.log
+   - When listing CI runs with details:
+      gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha > ${workspaceTmpDir}/ci-logs/recent-runs.json
+   - When saving PR diff for review:
+      gh pr diff ${prNumber} --repo ${owner}/${repo} > ${workspaceTmpDir}/diffs/pr-${prNumber}.diff
+   - When saving command output with stderr:
+      npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
+   - When investigating issue details:
+      gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+
+`;
+  }
+
   // Use backticks for jq commands to avoid quote escaping issues
   return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}
-
-General guidelines.
+${workspaceInstructions}General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.
    - When running commands, do not set a timeout yourself — let them run as long as needed (default timeout - 2 minutes is more than enough), and once they finish, review the logs in the file.
-   - When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.
+   - When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.${
+     argv && argv.promptIssueReporting
+       ? `
+   - When you spot any errors or bugs or minor issues during working session that are not related to requirements of the main task, create issues to track them if they do not exist yet. The issue should contain reproducible examples (ideally minimum reproducible example), workarounds, and suggestions for fixing the issue in code. For issues in the current repository, use gh issue create --repo ${owner}/${repo} --title "Issue title" --body "Issue description". For issues in third-party repositories on GitHub (libraries/components used in the working repository), use gh issue create --repo owner/repo --title "Issue title" --body "Issue description". Always check first if similar issues already exist using gh issue list --repo owner/repo --search "keywords" to avoid duplicates. If a similar issue already exists, add a comment to that issue using gh issue comment <issue-number> --repo owner/repo --body "Comment text" describing your specific case, including logs (anonymized with redacted personal and sensitive data), ways to reproduce, ideally minimum reproducible example, workarounds, and suggestions for fix - similar to how you would describe the issue if it didn't exist yet.`
+       : ''
+   }
    - When CI is failing or user reports failures, consider adding a detailed investigation protocol to your todo list with these steps:
       Step 1: List recent runs with timestamps using: gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha
       Step 2: Verify runs are after the latest commit by checking timestamps and SHA
@@ -134,20 +166,44 @@ Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) List recent CI runs with timestamps, (2) Download logs from failed runs to ci-logs/ directory, (3) Analyze error messages and identify root cause, (4) Implement fix, (5) Verify fix resolves the specific errors found in logs.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv && argv.promptExploreSubAgent
+       ? `
+   - When you need to learn something about the codebase structure, patterns, or how things work, use the Task tool with subagent_type=Explore to thoroughly explore the codebase.`
+       : ''
+   }${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request (sorted newest first), use appropriate GitHub API commands.
-   - When you need latest comments on issue (sorted newest first), use appropriate GitHub API commands.
+   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+      1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
+      2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
+      3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
+      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${
+     argv && argv.promptGeneralPurposeSubAgent
+       ? `
+   - When the task is big and requires processing of lots of files or folders, you should use the \`general-purpose\` sub agents to delegate work. Each separate file or folder can be delegated to a sub agent for more efficient processing.`
+       : ''
+   }${
+     argv && argv.promptCaseStudies
+       ? `
+   - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory. Download all logs and data related to the issue to the repository. Perform deep case study analysis by searching online for additional facts and data, reconstructing the timeline/sequence of events, identifying root causes of the problem, and proposing possible solutions. Include files like README.md (executive summary, problem statement, timeline, root cause), TECHNICAL_SUMMARY.md (deep technical analysis), ANALYSIS.md (detailed investigation findings), improvements.md (proposed solutions), and supporting logs/data files.`
+       : ''
+   }
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
+   - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;
@@ -171,6 +227,7 @@ Preparing pull request.
       make sure no uncommitted changes corresponding to the original requirements are left behind,
       make sure the default branch is merged to the pull request's branch,
       make sure all CI checks passing if they exist before you finish,
+      check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request answer to original requirements of the issue,
       make sure no new new bugs are introduced in pull request by carefully reading gh pr diff,
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
@@ -190,12 +247,46 @@ Workflow and collaboration.
 
 Self review.
    - When you check your solution draft, run all tests locally.
+   - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.`;
+   - When you finalize, confirm code, tests, and description are consistent.
+
+GitHub CLI command patterns.
+   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
+   - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
+   - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
+   - When filtering with jq, use gh api repos/\${owner}/\${repo}/pulls/\${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${
+     argv && argv.promptPlaywrightMcp
+       ? `
+
+Playwright MCP usage (browser automation via mcp__playwright__* tools).
+   - When you develop frontend web applications (HTML, CSS, JavaScript, React, Vue, Angular, etc.), use Playwright MCP tools to test the UI in a real browser.
+   - When WebFetch tool fails to retrieve expected content (e.g., returns empty content, JavaScript-rendered pages, or login-protected pages), use Playwright MCP tools (browser_navigate, browser_snapshot) as a fallback for web browsing.
+   - When you need to interact with dynamic web pages that require JavaScript execution, use Playwright MCP tools.
+   - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
+   - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
+   - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
+   - When you finish using the browser, always close it with browser_close to free resources.`
+       : ''
+   }${
+     argv && argv.promptPlanSubAgent
+       ? `
+
+Plan sub-agent usage.
+   - When you start working on a task, consider using the Plan sub-agent to research the codebase and create an implementation plan.
+   - When using the Plan sub-agent, you can add it as the first item in your todo list.
+   - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
+       : ''
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

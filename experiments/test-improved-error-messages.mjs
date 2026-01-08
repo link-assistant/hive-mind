@@ -3,20 +3,20 @@
 // Test script to verify improved error messages for fork-related issues
 
 // Mock the log function
-const log = async (msg) => console.log(msg);
+const log = async msg => console.log(msg);
 const formatAligned = (icon, text, value) => `${icon} ${text} ${value}`.trim();
 
 // Mock data
-const owner = "1dNDN";
-const repo = "BitrotBruteforce";
+const owner = '1dNDN';
+const repo = 'BitrotBruteforce';
 const prNumber = 10;
-const branchName = "issue-9-231cfae8";
-const tempDir = "/tmp/gh-issue-solver-test";
-const issueUrl = "https://github.com/1dNDN/BitrotBruteforce/pull/10";
+const branchName = 'issue-9-231cfae8';
+const tempDir = '/tmp/gh-issue-solver-test';
+const issueUrl = 'https://github.com/1dNDN/BitrotBruteforce/pull/10';
 const argv = { verbose: false };
 
 // Mock $ function for testing
-const $ = async (cmd) => {
+const $ = async cmd => {
   const cmdStr = typeof cmd === 'string' ? cmd : cmd.toString();
 
   if (cmdStr.includes('gh api user')) {
@@ -30,9 +30,9 @@ const $ = async (cmd) => {
       stdout: JSON.stringify({
         parent: {
           owner: { login: '1dNDN' },
-          name: 'BitrotBruteforce'
-        }
-      })
+          name: 'BitrotBruteforce',
+        },
+      }),
     };
   }
 
@@ -40,8 +40,8 @@ const $ = async (cmd) => {
     return {
       code: 0,
       stdout: JSON.stringify({
-        headRepositoryOwner: { login: 'anotheruser' }
-      })
+        headRepositoryOwner: { login: 'anotheruser' },
+      }),
     };
   }
 
@@ -99,7 +99,7 @@ async function testForkPRWithExistingFork() {
   await log('  🔍 What happened:');
   await log(`     Failed to checkout the branch '${branchName}' for PR #${prNumber}.`);
   if (errorOutput.includes('is not a commit')) {
-    await log('     The branch doesn\'t exist in the current repository.');
+    await log("     The branch doesn't exist in the current repository.");
   } else {
     await log('     Git was unable to find or access the branch.');
   }
@@ -170,7 +170,7 @@ async function testNonForkPRWithUserFork() {
 
   await log('  🔍 What happened:');
   await log(`     Failed to checkout the branch 'feature-branch' for PR #123.`);
-  await log('     The branch doesn\'t exist in the current repository.');
+  await log("     The branch doesn't exist in the current repository.");
   await log('');
 
   await log('  💡 Why this happened:');
@@ -196,12 +196,12 @@ async function testNonForkPRWithUserFork() {
 // Run tests
 async function runTests() {
   console.log('Testing improved error messages for fork-related issues');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   await testForkPRWithExistingFork();
   await testNonForkPRWithUserFork();
 
-  console.log('\n' + '=' .repeat(60));
+  console.log('\n' + '='.repeat(60));
   console.log('Tests completed successfully!');
   console.log('\nKey improvements:');
   console.log('✓ Clearer explanation of what happened');

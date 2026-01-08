@@ -74,7 +74,6 @@ try {
   console.log('- All bot replies now include reply_to_message_id parameter');
   console.log('- This creates a visual thread in Telegram that links responses to the original command');
   console.log('- Multiple users can now issue commands simultaneously without confusion');
-
 } catch (error) {
   console.error('❌ Test failed with error:', error.message);
   process.exit(1);

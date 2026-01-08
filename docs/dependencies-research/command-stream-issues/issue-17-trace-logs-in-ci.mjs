@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
  * Issue #17: command-stream emits trace logs in CI environments
- * 
+ *
  * Problem: When CI environment variable is set to 'true', command-stream emits
  * verbose trace logs to stderr that interfere with JSON parsing and test output.
- * 
+ *
  * Environment: Any environment where process.env.CI === 'true'
  * - GitHub Actions (sets CI=true automatically)
  * - GitLab CI
  * - CircleCI
  * - Jenkins with CI plugin
  * - Local testing with CI=true
- * 
+ *
  * Affected: All commands executed via command-stream's $ function
  * Severity: Critical - breaks JSON parsing, test assertions, output validation
  */
@@ -55,9 +55,9 @@ try {
   console.log('Executing: echo \'{"status":"ok","value":42}\'');
   const result = await $silent`echo '{"status":"ok","value":42}'`;
   const output = result.stdout || result;
-  
+
   console.log('Raw output:', output);
-  
+
   // Try to parse as JSON
   try {
     const parsed = JSON.parse(output.toString().trim());
@@ -90,7 +90,7 @@ try {
   console.log('Executing: echo \'{"status":"ok"}\' 2>/dev/null');
   const result = await $silent`echo '{"status":"ok"}' 2>/dev/null`;
   const output = result.stdout || result;
-  
+
   try {
     const parsed = JSON.parse(output.toString().trim());
     console.log('Parsed JSON:', parsed);
@@ -218,7 +218,7 @@ console.log('');
 console.log('Workarounds:');
 console.log('  1. Redirect stderr to /dev/null in each command: `df -m 2>/dev/null`');
 console.log('  2. Filter trace logs from output before parsing (see filterTraceLogs)');
-console.log('  3. Don\'t capture stderr in tests when JSON output expected');
+console.log("  3. Don't capture stderr in tests when JSON output expected");
 console.log('  4. Unset CI variable temporarily (not recommended in CI)');
 console.log('  5. Use execSync from child_process instead of command-stream');
 console.log('');

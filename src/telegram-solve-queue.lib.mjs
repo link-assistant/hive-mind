@@ -21,16 +21,21 @@ import { promisify } from 'node:util';
 const execAsync = promisify(exec);
 
 // Import centralized limits and caching
-import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache, getCpuLoadInfo, getMemoryInfo, CACHE_TTL } from './limits.lib.mjs';
+import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
 /**
  * Configuration constants for queue throttling
  * All thresholds use ratios (0.0 - 1.0) representing usage percentage
+ *
+ * IMPORTANT: Running claude processes is NOT a blocking limit by itself.
+ * Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded.
+ * See: https://github.com/link-assistant/hive-mind/issues/1078
  */
 export const QUEUE_CONFIG = {
   // Resource thresholds (usage ratios: 0.0 - 1.0)
-  RAM_THRESHOLD: 0.5, // Stop if RAM usage > 50%
-  CPU_THRESHOLD: 0.5, // Stop if CPU usage > 50%
+  // Note: RAM_THRESHOLD removed - RAM was not causing issues
+  // CPU threshold uses 5-minute load average, not instantaneous CPU usage
+  CPU_THRESHOLD: 0.5, // Stop if 5-minute load average > 50% of CPU count
   DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage > 95%
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
@@ -39,8 +44,10 @@ export const QUEUE_CONFIG = {
   GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub > 80% with parallel claude
 
   // Timing
-  MIN_START_INTERVAL_MS: 60000, // 1 minute between starts
-  CONSUMER_POLL_INTERVAL_MS: 5000, // 5 seconds between queue checks
+  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
+  // This ensures that when API limits are checked, the running process is counted
+  MIN_START_INTERVAL_MS: 120000, // 2 minutes between starts (was 1 minute)
+  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks (was 5 seconds)
   MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
 
   // Process detection
@@ -435,11 +442,13 @@ export class SolveQueue {
   }
 
   /**
-   * Check system resources (RAM, CPU, disk) using cached values
+   * Check system resources (CPU, disk) using cached values
    *
-   * IMPORTANT: When a cached value exceeds a threshold, we force-refresh
-   * to avoid blocking on stale values. This prevents the queue from getting
-   * stuck when a transient spike (like CPU during claude startup) was cached.
+   * Uses 5-minute load average for CPU instead of instantaneous usage.
+   * This provides a more stable metric that isn't affected by brief spikes
+   * during claude process startup.
+   *
+   * Note: RAM checking removed - RAM was not causing queue issues.
    * See: https://github.com/link-assistant/hive-mind/issues/1078
    *
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
@@ -447,64 +456,26 @@ export class SolveQueue {
   async checkSystemResources() {
     const reasons = [];
     let oneAtATime = false;
-    const cache = getLimitCache();
 
-    // Check RAM (using cached value, with force-refresh if above threshold)
-    let memResult = await getCachedMemoryInfo(this.verbose);
-    if (memResult.success) {
-      let usedRatio = memResult.memory.usedPercentage / 100;
-
-      // If cached value exceeds threshold, force-refresh to confirm it's not stale
-      if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
-        if (this.verbose) {
-          this.log(`RAM cached at ${memResult.memory.usedPercentage}% (above threshold), refreshing...`);
-        }
-        const freshResult = await getMemoryInfo(this.verbose);
-        if (freshResult.success) {
-          usedRatio = freshResult.memory.usedPercentage / 100;
-          // Update cache with fresh value
-          cache.set('memory', freshResult, CACHE_TTL.SYSTEM);
-          memResult = freshResult;
-          if (this.verbose) {
-            this.log(`RAM fresh value: ${freshResult.memory.usedPercentage}%`);
-          }
-        }
-      }
-
-      // Only block if (refreshed) value still exceeds threshold
-      if (usedRatio > QUEUE_CONFIG.RAM_THRESHOLD) {
-        reasons.push(formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.RAM_THRESHOLD));
-        this.recordThrottle('ram_high');
-      }
-    }
-
-    // Check CPU (using cached value, with force-refresh if above threshold)
-    let cpuResult = await getCachedCpuInfo(this.verbose);
+    // Check CPU using 5-minute load average (more stable than 1-minute)
+    // Cache TTL is 2 minutes, which is appropriate for this metric
+    const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
-      let usedRatio = cpuResult.cpuLoad.usagePercentage / 100;
+      // Use loadAvg5 (5-minute average) instead of usagePercentage (1-minute based)
+      // This provides a more stable metric that isn't affected by transient spikes
+      const loadAvg5 = cpuResult.cpuLoad.loadAvg5;
+      const cpuCount = cpuResult.cpuLoad.cpuCount;
+      // Calculate usage ratio: loadAvg5 / cpuCount
+      // Load average of 1.0 per CPU = 100% utilization
+      const usageRatio = loadAvg5 / cpuCount;
+      const usagePercent = Math.min(100, Math.round(usageRatio * 100));
 
-      // If cached value exceeds threshold, force-refresh to confirm it's not stale
-      // This is critical because CPU can spike briefly during claude startup
-      // See: https://github.com/link-assistant/hive-mind/issues/1078
-      if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
-        if (this.verbose) {
-          this.log(`CPU cached at ${cpuResult.cpuLoad.usagePercentage}% (above threshold), refreshing...`);
-        }
-        const freshResult = await getCpuLoadInfo(this.verbose);
-        if (freshResult.success) {
-          usedRatio = freshResult.cpuLoad.usagePercentage / 100;
-          // Update cache with fresh value
-          cache.set('cpu', freshResult, CACHE_TTL.SYSTEM);
-          cpuResult = freshResult;
-          if (this.verbose) {
-            this.log(`CPU fresh value: ${freshResult.cpuLoad.usagePercentage}%`);
-          }
-        }
+      if (this.verbose) {
+        this.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
       }
 
-      // Only block if (refreshed) value still exceeds threshold
-      if (usedRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
-        reasons.push(formatWaitingReason('cpu', cpuResult.cpuLoad.usagePercentage, QUEUE_CONFIG.CPU_THRESHOLD));
+      if (usageRatio > QUEUE_CONFIG.CPU_THRESHOLD) {
+        reasons.push(formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.CPU_THRESHOLD));
         this.recordThrottle('cpu_high');
       }
     }
@@ -696,13 +667,10 @@ export class SolveQueue {
       const item = this.queue.shift();
       if (!item) continue;
 
-      // Check if this item uses claude tool and claude is running
-      if (item.tool === 'claude' && check.claudeProcesses > 0) {
-        this.queue.unshift(item);
-        this.log(`Claude tool item queued but claude running, waiting...`);
-        await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
-        continue;
-      }
+      // NOTE: Running claude processes is NOT a blocking limit by itself
+      // Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded
+      // The MIN_START_INTERVAL_MS ensures enough time for processes to be counted
+      // See: https://github.com/link-assistant/hive-mind/issues/1078
 
       // Update status to Starting
       item.setStarting();

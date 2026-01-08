@@ -54,7 +54,8 @@ function beforeEach() {
 console.log('\n📋 Configuration Tests\n');
 
 test('QUEUE_CONFIG has all required fields', () => {
-  assert.ok(QUEUE_CONFIG.RAM_THRESHOLD !== undefined, 'RAM_THRESHOLD should be defined');
+  // Note: RAM_THRESHOLD removed - RAM was not causing queue issues
+  // See: https://github.com/link-assistant/hive-mind/issues/1078
   assert.ok(QUEUE_CONFIG.CPU_THRESHOLD !== undefined, 'CPU_THRESHOLD should be defined');
   assert.ok(QUEUE_CONFIG.DISK_THRESHOLD !== undefined, 'DISK_THRESHOLD should be defined');
   assert.ok(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD !== undefined, 'CLAUDE_SESSION_THRESHOLD should be defined');
@@ -66,7 +67,8 @@ test('QUEUE_CONFIG has all required fields', () => {
 });
 
 test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
-  assert.ok(QUEUE_CONFIG.RAM_THRESHOLD >= 0 && QUEUE_CONFIG.RAM_THRESHOLD <= 1, 'RAM_THRESHOLD should be between 0 and 1');
+  // Note: RAM_THRESHOLD removed - RAM was not causing queue issues
+  // See: https://github.com/link-assistant/hive-mind/issues/1078
   assert.ok(QUEUE_CONFIG.CPU_THRESHOLD >= 0 && QUEUE_CONFIG.CPU_THRESHOLD <= 1, 'CPU_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.DISK_THRESHOLD >= 0 && QUEUE_CONFIG.DISK_THRESHOLD <= 1, 'DISK_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD >= 0 && QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD <= 1, 'CLAUDE_SESSION_THRESHOLD should be between 0 and 1');
@@ -77,6 +79,19 @@ test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
 test('MESSAGE_UPDATE_INTERVAL_MS is reasonable', () => {
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS >= 30000, 'MESSAGE_UPDATE_INTERVAL_MS should be at least 30 seconds');
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS <= 300000, 'MESSAGE_UPDATE_INTERVAL_MS should be at most 5 minutes');
+});
+
+test('MIN_START_INTERVAL_MS is 2 minutes', () => {
+  // 2 minutes allows enough time for solve command to start actual claude process
+  // This ensures when API limits are checked, the running process is counted
+  // See: https://github.com/link-assistant/hive-mind/issues/1078
+  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 120000, 'MIN_START_INTERVAL_MS should be 2 minutes (120000ms)');
+});
+
+test('CONSUMER_POLL_INTERVAL_MS is 1 minute', () => {
+  // 1 minute poll interval reduces unnecessary system checks
+  // See: https://github.com/link-assistant/hive-mind/issues/1078
+  assert.equal(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS, 60000, 'CONSUMER_POLL_INTERVAL_MS should be 1 minute (60000ms)');
 });
 
 // ============================================================================

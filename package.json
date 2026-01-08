@@ -61,8 +61,11 @@
     "prettier": "^3.6.2"
   },
   "dependencies": {
+    "@secretlint/core": "^11.2.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
-    "@sentry/profiling-node": "^10.15.0"
+    "@sentry/profiling-node": "^10.15.0",
+    "secretlint": "^11.2.5"
   },
   "lint-staged": {
     "*.{js,mjs,json,md}": [

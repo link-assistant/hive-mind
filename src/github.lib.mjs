@@ -5,9 +5,6 @@
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
-const fs = (await use('fs')).promises;
-const os = (await use('os')).default;
-const path = (await use('path')).default;
 // Use command-stream for consistent $ behavior
 const { $ } = await use('command-stream');
 // Import log and maskToken from general lib
@@ -16,6 +13,10 @@ import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 // Import batch operations from separate module
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
+// Import token sanitization from dedicated module (Issue #1037 fix)
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent } from './token-sanitization.lib.mjs';
+// Re-export token sanitization functions for backward compatibility
+export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent };
 // Import log upload function from separate module
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 
@@ -60,139 +61,8 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
 
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
-// Helper function to get GitHub tokens from local config files
-export const getGitHubTokensFromFiles = async () => {
-  const tokens = [];
-
-  try {
-    // Check ~/.config/gh/hosts.yml
-    const hostsFile = path.join(os.homedir(), '.config/gh/hosts.yml');
-    if (
-      await fs
-        .access(hostsFile)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      const hostsContent = await fs.readFile(hostsFile, 'utf8');
-
-      // Look for oauth_token and api_token patterns
-      const oauthMatches = hostsContent.match(/oauth_token:\s*([^\s\n]+)/g);
-      if (oauthMatches) {
-        for (const match of oauthMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-
-      const apiMatches = hostsContent.match(/api_token:\s*([^\s\n]+)/g);
-      if (apiMatches) {
-        for (const match of apiMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // File access errors are expected when config doesn't exist
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_file_access',
-        level: 'debug',
-      });
-    }
-  }
-
-  return tokens;
-};
-// Helper function to get GitHub tokens from gh command output
-export const getGitHubTokensFromCommand = async () => {
-  const { $ } = await use('command-stream');
-  const tokens = [];
-
-  try {
-    // Run gh auth status to get token info
-    const authResult = await $`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
-    const authOutput = authResult.stdout?.toString() + authResult.stderr?.toString() || '';
-
-    // Look for token patterns in the output
-    const tokenPatterns = [/(?:token|oauth|api)[:\s]*([a-zA-Z0-9_]{20,})/gi, /gh[pou]_[a-zA-Z0-9_]{20,}/gi];
-
-    for (const pattern of tokenPatterns) {
-      const matches = authOutput.match(pattern);
-      if (matches) {
-        for (let match of matches) {
-          // Clean up the match
-          const token = match.replace(/^(?:token|oauth|api)[:\s]*/, '').trim();
-          if (token && token.length >= 20 && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // Command errors are expected when gh is not configured
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_gh_auth',
-        level: 'debug',
-      });
-    }
-  }
-
-  return tokens;
-};
 // Escape ``` in logs for safe markdown embedding (replaces with \`\`\` to prevent code block closure)
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`');
-// Helper function to sanitize log content by masking GitHub tokens
-export const sanitizeLogContent = async logContent => {
-  let sanitized = logContent;
-
-  try {
-    // Get tokens from both sources
-    const fileTokens = await getGitHubTokensFromFiles();
-    const commandTokens = await getGitHubTokensFromCommand();
-    const allTokens = [...new Set([...fileTokens, ...commandTokens])];
-
-    // Mask each token found
-    for (const token of allTokens) {
-      if (token && token.length >= 12) {
-        const maskedToken = maskToken(token);
-        // Use global replace to mask all occurrences
-        sanitized = sanitized.split(token).join(maskedToken);
-      }
-    }
-
-    // Also look for and mask common GitHub token patterns directly in the log
-    const tokenPatterns = [
-      /gh[pou]_[a-zA-Z0-9_]{20,}/g,
-      /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm, // 40-char hex tokens (like personal access tokens)
-      /(?:^|[\s:=])([a-zA-Z0-9_]{20,})(?=[\s\n]|$)/gm, // General long tokens
-    ];
-
-    for (const pattern of tokenPatterns) {
-      sanitized = sanitized.replace(pattern, (match, token) => {
-        if (token && token.length >= 20) {
-          return match.replace(token, maskToken(token));
-        }
-        return match;
-      });
-    }
-
-    await log(`  🔒 Sanitized ${allTokens.length} detected GitHub tokens in log content`, { verbose: true });
-  } catch (error) {
-    reportError(error, {
-      context: 'sanitize_log_content',
-      level: 'warning',
-    });
-    await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
-  }
-
-  return sanitized;
-};
 // Helper function to check if a file exists in a GitHub branch
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
@@ -1469,6 +1339,8 @@ export default {
   getGitHubTokensFromFiles,
   getGitHubTokensFromCommand,
   escapeCodeBlocksInLog,
+  isSafeToken,
+  isHexInSafeContext,
   sanitizeLogContent,
   checkFileInBranch,
   checkGitHubPermissions,

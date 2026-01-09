@@ -166,6 +166,17 @@ fi
 
 1. [x] Identify root cause
 2. [x] Document the issue
-3. [ ] Implement fix in `scripts/ubuntu-24-server-install.sh`
-4. [ ] Test locally on arm64 if possible
-5. [ ] Update PR and verify CI passes
+3. [x] Implement fix in `scripts/ubuntu-24-server-install.sh`
+4. [ ] Test locally on arm64 if possible (requires arm64 hardware or emulation)
+5. [x] Update PR and verify CI passes
+
+## Implementation Notes
+
+The fix was implemented by:
+
+1. Adding architecture detection using `uname -m` to check for `aarch64` or `arm64`
+2. On arm64: Installing only `chromium firefox webkit` (skipping Chrome and Edge)
+3. On x86_64: Installing all browsers `chromium chrome firefox webkit msedge`
+4. Improving error handling with `|| true` to prevent `set -e` from exiting on non-fatal failures
+
+The PR check only tests amd64 builds. The arm64 build will be tested when the PR is merged and the Docker publish job runs during release.

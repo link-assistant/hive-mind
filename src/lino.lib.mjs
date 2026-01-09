@@ -75,34 +75,22 @@ export class LinksNotationManager {
 
     if (parsed && parsed.length > 0) {
       const link = parsed[0];
+      const links = [];
 
-      // Recursively extract all string values from nested structures
-      // This handles cases where options are placed on the same line,
-      // which creates nested tuples in LINO format (issue #1086)
-      const extractStrings = linkNode => {
-        const results = [];
-
-        // If the node has an 'id', add it to results
-        if (linkNode.id && typeof linkNode.id === 'string') {
-          results.push(linkNode.id);
-        }
-
-        // Recursively process nested values
-        if (linkNode.values && linkNode.values.length > 0) {
-          for (const value of linkNode.values) {
-            if (typeof value === 'string') {
-              results.push(value);
-            } else if (value && typeof value === 'object') {
-              // Recursively extract from nested objects
-              results.push(...extractStrings(value));
-            }
+      if (link.values && link.values.length > 0) {
+        for (const value of link.values) {
+          const linkStr = value.id || value;
+          if (typeof linkStr === 'string') {
+            links.push(linkStr);
           }
         }
+      } else if (link.id) {
+        if (typeof link.id === 'string') {
+          links.push(link.id);
+        }
+      }
 
-        return results;
-      };
-
-      return extractStrings(link);
+      return links;
     }
 
     return [];

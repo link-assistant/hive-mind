@@ -16,7 +16,8 @@ When configuring the Telegram bot with `TELEGRAM_HIVE_OVERRIDES`, some options (
 ### Configuration Provided
 
 ```yaml
-TELEGRAM_HIVE_OVERRIDES: --all-issues
+TELEGRAM_HIVE_OVERRIDES:
+  --all-issues
   --once
   --skip-issues-with-prs
   --attach-logs
@@ -45,7 +46,10 @@ Hive overrides (lino): (
 
 ### Discovery
 
-Through experimental reproduction, I identified that the issue stems from how the LINO (Links Notation) parser handles options placed on the same line.
+The configuration has two issues:
+
+1. **Typo**: `--auto-resume-on-limit-reset?` contains an invalid character `?`
+2. **Format error**: Two options are placed on the same line (`--auto-resume-on-limit-reset?  --tokens-budget-stats`)
 
 ### The Parsing Chain
 
@@ -68,134 +72,95 @@ TELEGRAM_HIVE_OVERRIDES:
 
 **LINO Parser Output:**
 
-```
-"TELEGRAM_HIVE_OVERRIDES": "(\n  ...\n  (--auto-resume-on-limit-reset? --tokens-budget-stats)\n)"
-```
-
-Note: The last two options are wrapped in **parentheses**, creating a nested structure.
-
-### Why Options Are Lost
-
-The `parseStringValues()` function in `lino.lib.mjs` only extracts the `id` property of each value:
-
 ```javascript
-if (link.values && link.values.length > 0) {
-  for (const value of link.values) {
-    const linkStr = value.id || value; // Only gets the 'id', not nested values
-    if (typeof linkStr === 'string') {
-      links.push(linkStr);
+{
+  "id": "TELEGRAM_HIVE_OVERRIDES",
+  "values": [
+    { "id": "--all-issues", "values": [] },
+    // ... other options ...
+    {
+      "id": null,  // <-- No id for nested tuple!
+      "values": [
+        { "id": "--auto-resume-on-limit-reset?", "values": [] },
+        { "id": "--tokens-budget-stats", "values": [] }
+      ]
     }
-  }
+  ]
 }
 ```
 
-When a value is a nested link (has its own `values` array instead of just an `id`), the nested values are silently dropped.
+The `lenv-reader.lib.mjs` code was extracting `v.id` for each value. When `v.id` is `null` (nested tuple), the value is converted to `"[object Object]"` and formatted incorrectly.
 
-## Technical Details
+## Solution Approach
 
-### Reproduction Steps
+Based on user feedback, the correct approach is to **reject invalid input with clear error messages** rather than silently parsing or dropping values.
 
-1. Create a configuration with options on the same line:
+### Implemented Changes
 
-```yaml
-TELEGRAM_HIVE_OVERRIDES: --option1
-  --option2  --option3
+1. **Reject same-line options**: When the LINO parser creates nested structures (mixed direct values and nested tuples), throw an error with a clear message showing the problematic values.
+
+2. **Reject invalid characters**: When an option-like value (starting with `-`) contains invalid characters like `?`, `@`, `!`, etc., throw an error with the problematic value.
+
+3. **Preserve valid behavior**: Valid configurations continue to work:
+   - Explicit parenthesized lists: `VAR: ( 1 2 3 )`
+   - Options with `=` values: `--model=opus`
+   - Hyphenated options: `--auto-resume-on-limit-reset`
+   - Non-option values (tokens, chat IDs) are not validated for special characters
+
+### Example Error Messages
+
+**Same-line options:**
+```
+Invalid LINO format in "TELEGRAM_HIVE_OVERRIDES": Multiple values on the same line are not supported.
+Found: "--auto-resume-on-limit-reset? --tokens-budget-stats"
+Each value must be on its own line with proper indentation.
 ```
 
-2. Parse with lenv-reader
-3. Extract with `lino.parseStringValues()`
-4. Observe that `--option2` and `--option3` are lost
-
-### Expected vs Actual Parsing
-
-| Input Structure           | Expected Output                   | Actual Output                    |
-| ------------------------- | --------------------------------- | -------------------------------- |
-| Options on separate lines | All options extracted             | All options extracted            |
-| Options on same line      | All options extracted (flattened) | Only top-level options extracted |
-
-## Timeline of Events
-
-1. **Configuration Creation**: User creates configuration with options, accidentally putting two options on same line
-2. **Bot Startup**: Bot loads configuration via `loadLenvConfig()`
-3. **Parsing**: LINO parser creates nested structure for same-line options
-4. **Extraction**: `parseStringValues()` extracts only top-level values
-5. **Validation**: Validation passes (it validates the full config, not individual values)
-6. **Display**: Only 6 options displayed instead of 8
-7. **Issue Report**: User notices missing options and reports issue
-
-## Proposed Solutions
-
-### Solution 1: Flatten Nested Values in parseStringValues() (Recommended)
-
-Modify `lino.lib.mjs` to recursively extract all string values from nested structures:
-
-```javascript
-parseStringValues(input) {
-  if (!input) return [];
-
-  const parsed = this.parser.parse(input);
-  if (!parsed || parsed.length === 0) return [];
-
-  const extractValues = (link) => {
-    const results = [];
-
-    if (link.id && typeof link.id === 'string') {
-      results.push(link.id);
-    }
-
-    if (link.values && link.values.length > 0) {
-      for (const value of link.values) {
-        if (typeof value === 'string') {
-          results.push(value);
-        } else if (value && typeof value === 'object') {
-          results.push(...extractValues(value));
-        }
-      }
-    }
-
-    return results;
-  };
-
-  return extractValues(parsed[0]);
-}
+**Invalid character:**
+```
+Invalid LINO format in "TELEGRAM_HIVE_OVERRIDES": Unrecognized character "?" in option.
+Found: "--auto-resume-on-limit-reset?"
+Options should only contain letters, numbers, hyphens, underscores, and equals signs.
 ```
 
-### Solution 2: Input Validation with User Warning
+## Testing
 
-Add a warning when the configuration contains options on the same line:
+### Unit Tests Added
 
-```javascript
-// In telegram-bot.mjs
-if (resolvedHiveOverrides.includes('  ')) {
-  console.warn('⚠️  Warning: Multiple options detected on same line. Each option should be on a separate line.');
-}
+1. **test-lino.mjs**: 28 tests for LINO parsing functionality
+   - Export tests
+   - parse() method tests
+   - parseNumericIds() method tests
+   - parseStringValues() method tests
+   - format() method tests
+   - Round-trip tests
+   - Edge case tests
+
+2. **test-lenv-reader.mjs**: Extended with 8 validation tests
+   - Reject same-line options
+   - Reject invalid characters (?, @)
+   - Accept valid options with =
+   - Accept valid hyphenated options
+   - Non-option values bypass validation
+   - Accept explicit parenthesized lists
+   - Error message includes problematic value
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test && node tests/test-lenv-reader.mjs && node tests/test-lino.mjs
+
+# Run specific test file
+node tests/test-lino.mjs
+node tests/test-lenv-reader.mjs
 ```
 
-### Solution 3: Preprocessing in lenv-reader
+## Conclusion
 
-Normalize input before parsing to ensure each option is on its own line.
+The issue was caused by invalid user input (typo `?` and same-line options). The fix adds validation to detect and reject such errors early with helpful error messages, helping users identify and correct configuration problems.
 
-## Recommendation
-
-**Solution 1 is recommended** because:
-
-1. It handles edge cases gracefully
-2. It's backward compatible
-3. It doesn't require users to change their configuration
-4. It aligns with user expectations (options should work regardless of line arrangement)
-
-## Impact Assessment
-
-- **Severity**: Medium - Options are silently ignored
-- **Affected Components**: `lino.lib.mjs`, potentially affects all LINO-based configurations
-- **User Impact**: Configuration options may not take effect
-
-## Files to Modify
-
-1. `src/lino.lib.mjs` - Update `parseStringValues()` to handle nested values
-2. `experiments/test-lino-parsing-issue-1086.mjs` - Test for the fix (already created)
-3. `tests/` - Add unit tests for the fix
-
-## Additional Notes
-
-The `?` character after `--auto-resume-on-limit-reset` in the issue report appears to be unintentional (possibly a rendering artifact or typo). However, this doesn't affect the root cause - the issue is the same-line placement of options.
+This is preferred over silently parsing invalid input because:
+1. It helps users discover typos immediately
+2. It prevents treating `--option-with-value` as two separate options
+3. Clear error messages guide users to the correct format

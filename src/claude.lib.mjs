@@ -680,6 +680,24 @@ const displayModelUsage = async (usage, log) => {
     await log('      Cost: Not available (could not fetch pricing)');
   }
 };
+/**
+ * Display cost comparison between public pricing and Anthropic's official cost
+ * @param {number|null} publicCost - Public pricing estimate
+ * @param {number|null} anthropicCost - Anthropic's official cost
+ * @param {Function} log - Logging function
+ */
+const displayCostComparison = async (publicCost, anthropicCost, log) => {
+  await log('\n   💰 Cost estimation:');
+  await log(`      Public pricing estimate: ${publicCost !== null && publicCost !== undefined ? `$${publicCost.toFixed(6)} USD` : 'unknown'}`);
+  await log(`      Calculated by Anthropic: ${anthropicCost !== null && anthropicCost !== undefined ? `$${anthropicCost.toFixed(6)} USD` : 'unknown'}`);
+  if (publicCost !== null && publicCost !== undefined && anthropicCost !== null && anthropicCost !== undefined) {
+    const difference = anthropicCost - publicCost;
+    const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
+    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+  } else {
+    await log('      Difference:              unknown');
+  }
+};
 export const calculateSessionTokens = async (sessionId, tempDir) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
@@ -1300,49 +1318,11 @@ export const executeClaudeCommand = async params => {
               // Show totals if multiple models were used
               if (modelIds.length > 1) {
                 await log('\n   📈 Total across all models:');
-                // Show cost comparison
-                await log('\n   💰 Cost estimation:');
-                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                  await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
-                } else {
-                  await log('      Public pricing estimate: unknown');
-                }
-                if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-                  await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
-                  // Show comparison if both are available
-                  if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                    const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
-                    const percentDiff = tokenUsage.totalCostUSD > 0 ? (difference / tokenUsage.totalCostUSD) * 100 : 0;
-                    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
-                  } else {
-                    await log('      Difference:              unknown');
-                  }
-                } else {
-                  await log('      Calculated by Anthropic: unknown');
-                  await log('      Difference:              unknown');
-                }
-              } else {
-                // Single model - show cost comparison
-                await log('\n   💰 Cost estimation:');
-                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                  await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
-                } else {
-                  await log('      Public pricing estimate: unknown');
-                }
-                if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-                  await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
-                  // Show comparison if both are available
-                  if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                    const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
-                    const percentDiff = tokenUsage.totalCostUSD > 0 ? (difference / tokenUsage.totalCostUSD) * 100 : 0;
-                    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
-                  } else {
-                    await log('      Difference:              unknown');
-                  }
-                } else {
-                  await log('      Calculated by Anthropic: unknown');
-                  await log('      Difference:              unknown');
-                }
+              }
+              // Show cost comparison (for both single and multiple models)
+              await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
+              // Show total tokens for single model only
+              if (modelIds.length === 1) {
                 await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
               }
             } else {

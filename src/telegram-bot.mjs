@@ -1473,6 +1473,22 @@ process.once('SIGINT', () => {
     console.log('[VERBOSE] Process ID:', process.pid);
     console.log('[VERBOSE] Parent Process ID:', process.ppid);
   }
+
+  // Stop the solve queue consumer loop to allow clean exit
+  // See: https://github.com/link-assistant/hive-mind/issues/1083
+  try {
+    const solveQueue = getSolveQueue({ verbose: VERBOSE });
+    solveQueue.stop();
+    if (VERBOSE) {
+      console.log('[VERBOSE] Solve queue stopped');
+    }
+  } catch (err) {
+    // Queue may not be initialized, ignore
+    if (VERBOSE) {
+      console.log('[VERBOSE] Could not stop solve queue:', err.message);
+    }
+  }
+
   bot.stop('SIGINT');
 });
 
@@ -1496,5 +1512,21 @@ process.once('SIGTERM', () => {
   console.log('   - Manual termination (kill command)');
   console.log('   - Container/orchestration platform');
   console.log('💡 Check system logs for more details: journalctl -u <service> or dmesg');
+
+  // Stop the solve queue consumer loop to allow clean exit
+  // See: https://github.com/link-assistant/hive-mind/issues/1083
+  try {
+    const solveQueue = getSolveQueue({ verbose: VERBOSE });
+    solveQueue.stop();
+    if (VERBOSE) {
+      console.log('[VERBOSE] Solve queue stopped');
+    }
+  } catch (err) {
+    // Queue may not be initialized, ignore
+    if (VERBOSE) {
+      console.log('[VERBOSE] Could not stop solve queue:', err.message);
+    }
+  }
+
   bot.stop('SIGTERM');
 });

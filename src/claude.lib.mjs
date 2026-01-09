@@ -885,6 +885,7 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+    let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
 
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
@@ -1023,6 +1024,7 @@ export const executeClaudeCommand = async params => {
                   const subtype = data.subtype || 'unknown';
                   // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
                   if (subtype === 'error_during_execution') {
+                    errorDuringExecution = true;
                     await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
                   } else {
                     commandFailed = true;
@@ -1266,9 +1268,16 @@ export const executeClaudeCommand = async params => {
           limitResetTime,
           messageCount,
           toolUseCount,
+          errorDuringExecution,
         };
       }
-      await log('\n\n✅ Claude command completed');
+      // Issue #1088: If error_during_execution occurred but command didn't fail,
+      // log it as "Finished with errors" instead of pure success
+      if (errorDuringExecution) {
+        await log('\n\n⚠️ Claude command finished with errors');
+      } else {
+        await log('\n\n✅ Claude command completed');
+      }
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
       // Calculate and display total token usage from session JSONL file
       if (sessionId && tempDir) {
@@ -1367,6 +1376,7 @@ export const executeClaudeCommand = async params => {
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
+        errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
       };
     } catch (error) {
       reportError(error, {

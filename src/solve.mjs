@@ -891,6 +891,7 @@ try {
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
+  let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1127,7 +1128,8 @@ try {
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
+  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

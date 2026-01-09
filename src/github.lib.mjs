@@ -380,6 +380,8 @@ export async function attachLogToGitHub(options) {
     // New parameters for agent tool pricing support
     publicPricingEstimate = null,
     pricingInfo = null,
+    // Issue #1088: Track error_during_execution for "Finished with errors" state
+    errorDuringExecution = false,
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -491,6 +493,25 @@ ${errorMessage}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+    } else if (errorDuringExecution) {
+      // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      logComment = `## ⚠️ Solution Draft Finished with Errors
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+
+**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+
+<details>
+<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
 
 \`\`\`
 ${logContent}
@@ -623,6 +644,18 @@ ${errorMessage}
 \`\`\`
 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete failure log](${logUrl})
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+          } else if (errorDuringExecution) {
+            // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            logUploadComment = `## ⚠️ Solution Draft Finished with Errors
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+
+**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+
+📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+🔗 [View complete solution draft log](${logUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {

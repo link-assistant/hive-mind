@@ -1011,21 +1011,23 @@ export const executeClaudeCommand = async params => {
               } else if (data.type === 'tool_use') {
                 toolUseCount++;
               }
-              // Handle session result type from Claude CLI
-              // This is emitted when a session completes, either successfully or with an error
-              // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+              // Handle session result type from Claude CLI (emitted when session completes)
+              // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
-                // Capture Anthropic's official total_cost_usd from the result
                 if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, {
-                    verbose: true,
-                  });
+                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
                 }
                 if (data.is_error === true) {
-                  commandFailed = true;
                   lastMessage = data.result || JSON.stringify(data);
-                  await log('⚠️ Detected error result from Claude CLI', { verbose: true });
+                  const subtype = data.subtype || 'unknown';
+                  // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
+                  if (subtype === 'error_during_execution') {
+                    await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                  } else {
+                    commandFailed = true;
+                    await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
+                  }
                   if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
                     limitReached = true;
                     await log('⚠️ Detected session limit in result', { verbose: true });

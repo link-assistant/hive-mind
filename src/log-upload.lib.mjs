@@ -44,7 +44,12 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       await log(`  📤 Running: ${command}`, { verbose: true });
     }
 
-    const uploadResult = await $`gh-upload-log "${logFile}" ${publicFlag} ${verbose ? '--verbose' : ''}`;
+    // Build command arguments array, filtering out empty strings to prevent "Unknown argument: ''" error
+    const commandArgs = [`"${logFile}"`, publicFlag];
+    if (verbose) {
+      commandArgs.push('--verbose');
+    }
+    const uploadResult = await $`gh-upload-log ${commandArgs.join(' ')}`;
     const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
 
     if (uploadResult.code !== 0) {

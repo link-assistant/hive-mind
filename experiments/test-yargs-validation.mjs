@@ -12,9 +12,9 @@ const { createYargsConfig: createHiveYargsConfig } = await import('../src/hive.c
 
 // Test options
 const testCases = [
-  ['https://github.com/test/test', '--auto-resume-on-limit-reset', '--tokens-budget-stats'],  // Valid
+  ['https://github.com/test/test', '--auto-resume-on-limit-reset', '--tokens-budget-stats'], // Valid
   ['https://github.com/test/test', '--auto-resume-on-limit-reset?', '--tokens-budget-stats'], // Invalid (?)
-  ['https://github.com/test/test', '--unknown-option', '--tokens-budget-stats'],              // Invalid (unknown)
+  ['https://github.com/test/test', '--unknown-option', '--tokens-budget-stats'], // Invalid (unknown)
 ];
 
 for (let i = 0; i < testCases.length; i++) {

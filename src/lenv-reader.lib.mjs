@@ -83,20 +83,14 @@ export class LenvReader {
           // However, if the entire list is a SINGLE nested tuple (e.g., "VAR: (\n  1\n  2\n)"),
           // that's valid parenthesized syntax
           const hasDirectValues = link.values.some(v => v && typeof v === 'object' && v.id !== null);
-          const hasNestedTuples = link.values.some(
-            v => v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0
-          );
+          const hasNestedTuples = link.values.some(v => v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0);
 
           if (hasDirectValues && hasNestedTuples) {
             // Mixed direct values and nested tuples indicates same-line grouping
             for (const v of link.values) {
               if (v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0) {
                 const nestedItems = v.values.map(nested => nested.id || nested).join(' ');
-                throw new Error(
-                  `Invalid LINO format in "${varName}": Multiple values on the same line are not supported.\n` +
-                    `Found: "${nestedItems}"\n` +
-                    `Each value must be on its own line with proper indentation.`
-                );
+                throw new Error(`Invalid LINO format in "${varName}": Multiple values on the same line are not supported.\n` + `Found: "${nestedItems}"\n` + `Each value must be on its own line with proper indentation.`);
               }
             }
           }
@@ -104,13 +98,7 @@ export class LenvReader {
           // Determine which values to validate for invalid characters
           // If it's a single nested tuple (parenthesized list), unwrap it for validation
           let valuesToValidate = link.values;
-          if (
-            link.values.length === 1 &&
-            link.values[0] &&
-            typeof link.values[0] === 'object' &&
-            link.values[0].id === null &&
-            link.values[0].values
-          ) {
+          if (link.values.length === 1 && link.values[0] && typeof link.values[0] === 'object' && link.values[0].id === null && link.values[0].values) {
             // Single parenthesized list - use inner values
             valuesToValidate = link.values[0].values;
           }
@@ -125,11 +113,7 @@ export class LenvReader {
               // Invalid characters: ?, !, @, #, $, %, ^, &, *, etc.
               const invalidCharMatch = valueStr.match(/[^a-zA-Z0-9=_.-]/);
               if (invalidCharMatch) {
-                throw new Error(
-                  `Invalid LINO format in "${varName}": Unrecognized character "${invalidCharMatch[0]}" in option.\n` +
-                    `Found: "${valueStr}"\n` +
-                    `Options should only contain letters, numbers, hyphens, underscores, and equals signs.`
-                );
+                throw new Error(`Invalid LINO format in "${varName}": Unrecognized character "${invalidCharMatch[0]}" in option.\n` + `Found: "${valueStr}"\n` + `Options should only contain letters, numbers, hyphens, underscores, and equals signs.`);
               }
             }
           }

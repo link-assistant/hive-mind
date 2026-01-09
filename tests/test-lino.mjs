@@ -290,11 +290,7 @@ runTest('parseStringValues with hyphenated options', () => {
   --skip-issues-with-prs
 )`;
   const result = lino.parseStringValues(input);
-  assertEqual(
-    result,
-    ['--auto-resume-on-limit-reset', '--skip-issues-with-prs'],
-    'Should preserve hyphens in options'
-  );
+  assertEqual(result, ['--auto-resume-on-limit-reset', '--skip-issues-with-prs'], 'Should preserve hyphens in options');
 });
 
 // Test 26: Short options

@@ -16,8 +16,7 @@ When configuring the Telegram bot with `TELEGRAM_HIVE_OVERRIDES`, some options (
 ### Configuration Provided
 
 ```yaml
-TELEGRAM_HIVE_OVERRIDES:
-  --all-issues
+TELEGRAM_HIVE_OVERRIDES: --all-issues
   --once
   --skip-issues-with-prs
   --attach-logs
@@ -110,6 +109,7 @@ Based on user feedback, the correct approach is to **reject invalid input with c
 ### Example Error Messages
 
 **Same-line options:**
+
 ```
 Invalid LINO format in "TELEGRAM_HIVE_OVERRIDES": Multiple values on the same line are not supported.
 Found: "--auto-resume-on-limit-reset? --tokens-budget-stats"
@@ -117,6 +117,7 @@ Each value must be on its own line with proper indentation.
 ```
 
 **Invalid character:**
+
 ```
 Invalid LINO format in "TELEGRAM_HIVE_OVERRIDES": Unrecognized character "?" in option.
 Found: "--auto-resume-on-limit-reset?"
@@ -161,6 +162,7 @@ node tests/test-lenv-reader.mjs
 The issue was caused by invalid user input (typo `?` and same-line options). The fix adds validation to detect and reject such errors early with helpful error messages, helping users identify and correct configuration problems.
 
 This is preferred over silently parsing invalid input because:
+
 1. It helps users discover typos immediately
 2. It prevents treating `--option-with-value` as two separate options
 3. Clear error messages guide users to the correct format

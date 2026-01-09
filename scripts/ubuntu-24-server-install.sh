@@ -1416,8 +1416,6 @@ fi
 # Install all browsers supported by Playwright MCP: chrome, firefox, webkit, msedge
 # Reference: npx @playwright/mcp@latest --help shows --browser option supports these
 log_info "Installing Playwright browsers (all supported by Playwright MCP)..."
-log_note "Installing: chromium, chrome, firefox, webkit, msedge"
-log_note "This may take several minutes depending on network speed..."
 
 # Ensure CLI exists so we don't get the npx "install without dependencies" banner
 if ! command -v playwright >/dev/null 2>&1; then
@@ -1425,21 +1423,41 @@ if ! command -v playwright >/dev/null 2>&1; then
   npm install -g @playwright/test@latest --no-fund --silent
 fi
 
+# Detect architecture and set browser list accordingly
+# Chrome and Edge are NOT available for Linux arm64 through Playwright
+# See: https://github.com/link-assistant/hive-mind/issues/1084
+# Reference: https://playwright.dev/docs/browsers
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  # On arm64 Linux, Chrome and Edge are not available
+  # Chromium is functionally equivalent to Chrome for most use cases
+  log_note "Running on arm64 architecture"
+  log_note "Chrome and Edge are not available for Linux arm64 - using Chromium instead"
+  BROWSERS_TO_INSTALL="chromium firefox webkit"
+else
+  # On x86_64, install all browsers including Chrome and Edge
+  BROWSERS_TO_INSTALL="chromium chrome firefox webkit msedge"
+fi
+
+log_note "Installing: $BROWSERS_TO_INSTALL"
+log_note "This may take several minutes depending on network speed..."
+
 # Install all browsers that Playwright MCP supports
 # Use --with-deps to also install any missing OS dependencies
 # This helps avoid the "browser_install stuck" issue from #1060
 BROWSER_INSTALL_LOG="/tmp/playwright-browser-install-$$.log"
-BROWSERS_TO_INSTALL="chromium chrome firefox webkit msedge"
 BROWSERS_FAILED=""
 BROWSERS_INSTALLED=""
 
 for browser in $BROWSERS_TO_INSTALL; do
   log_info "Installing Playwright browser: $browser..."
-  playwright install "$browser" --with-deps > "$BROWSER_INSTALL_LOG" 2>&1
-  INSTALL_EXIT_CODE=$?
+  # Use || true to prevent set -e from exiting the script on failure
+  # This allows us to capture the exit code and handle platform-specific failures gracefully
+  playwright install "$browser" --with-deps > "$BROWSER_INSTALL_LOG" 2>&1 || true
+  INSTALL_EXIT_CODE=${PIPESTATUS[0]:-$?}
 
-  # Check the output for various conditions
-  if [ $INSTALL_EXIT_CODE -eq 0 ]; then
+  # Re-check if installation succeeded by verifying the log
+  if [ -s "$BROWSER_INSTALL_LOG" ] && ! grep -qi "error\|failed\|not supported\|not available" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
     log_success "$browser installed successfully"
     BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
   elif grep -qi "already installed on the system" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
@@ -1450,6 +1468,10 @@ for browser in $BROWSERS_TO_INSTALL; do
   elif grep -qi "not supported\|not available\|cannot download\|unsupported" "$BROWSER_INSTALL_LOG" 2>/dev/null; then
     # Browser not available on this platform (e.g., msedge on some Linux distros)
     log_note "$browser is not available on this platform (skipping)"
+  elif [ $INSTALL_EXIT_CODE -eq 0 ]; then
+    # Exit code was 0 but we didn't match other conditions - assume success
+    log_success "$browser installed successfully"
+    BROWSERS_INSTALLED="$BROWSERS_INSTALLED $browser"
   else
     log_warning "$browser installation failed"
     cat "$BROWSER_INSTALL_LOG" | tail -10 || true

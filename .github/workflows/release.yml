@@ -319,6 +319,11 @@ jobs:
         echo "Running test suite for lenv-reader.lib.mjs..."
         node tests/test-lenv-reader.mjs
 
+    - name: Run lino test (Issue #1086)
+      run: |
+        echo "Running test suite for lino.lib.mjs..."
+        node tests/test-lino.mjs
+
     - name: Run Telegram URL extraction test (Issue #603)
       run: |
         echo "Running test suite for Telegram URL extraction..."

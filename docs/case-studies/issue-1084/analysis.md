@@ -6,18 +6,18 @@ The Docker publish workflow failed on arm64 architecture due to Google Chrome no
 
 ## Timeline of Events
 
-| Time (UTC) | Event |
-|------------|-------|
-| 2026-01-08 04:42:38 | CI workflow triggered on `main` branch |
-| 2026-01-08 04:48:22 | npm publish succeeded (v1.2.1) |
-| 2026-01-08 04:48:29 | GitHub release v1.2.1 created |
-| 2026-01-08 04:48:47 | Docker Publish (linux/amd64) started |
-| 2026-01-08 04:48:51 | Docker Publish (linux/arm64) started |
+| Time (UTC)          | Event                                               |
+| ------------------- | --------------------------------------------------- |
+| 2026-01-08 04:42:38 | CI workflow triggered on `main` branch              |
+| 2026-01-08 04:48:22 | npm publish succeeded (v1.2.1)                      |
+| 2026-01-08 04:48:29 | GitHub release v1.2.1 created                       |
+| 2026-01-08 04:48:47 | Docker Publish (linux/amd64) started                |
+| 2026-01-08 04:48:51 | Docker Publish (linux/arm64) started                |
 | 2026-01-08 04:50:33 | Docker Publish (linux/amd64) completed successfully |
-| 2026-01-08 05:04:59 | arm64: Chromium installed successfully |
-| 2026-01-08 05:04:59 | arm64: Chrome installation started |
-| 2026-01-08 05:05:11 | arm64: Chrome installation failed with exit code 1 |
-| 2026-01-08 05:05:12 | Docker Publish (linux/arm64) failed |
+| 2026-01-08 05:04:59 | arm64: Chromium installed successfully              |
+| 2026-01-08 05:04:59 | arm64: Chrome installation started                  |
+| 2026-01-08 05:05:11 | arm64: Chrome installation failed with exit code 1  |
+| 2026-01-08 05:05:12 | Docker Publish (linux/arm64) failed                 |
 
 ## Root Cause Analysis
 
@@ -57,6 +57,7 @@ ERROR: not supported on Linux Arm64
 ### Why amd64 Succeeded
 
 The amd64 build completed successfully because:
+
 1. Chrome stable is available for Linux x86_64
 2. All browsers (chromium, chrome, firefox, webkit, msedge) installed without issues
 
@@ -70,11 +71,13 @@ Docker Publish (linux/arm64) 2026-01-08T05:05:11.4467920Z #10 ERROR: process "/b
 ## Impact Assessment
 
 ### Affected Components
+
 - Docker image for arm64 architecture not published to Docker Hub
 - Users on Apple Silicon Macs (M1/M2/M3) cannot use the Docker image
 - ARM-based servers (AWS Graviton, Azure Ampere, etc.) cannot use the Docker image
 
 ### What Still Works
+
 - npm package v1.2.1 was published successfully
 - GitHub release v1.2.1 was created
 - amd64 Docker image was published (if manifest was created conditionally)
@@ -98,11 +101,13 @@ fi
 ```
 
 **Pros:**
+
 - Simple fix
 - arm64 builds will succeed
 - Users still get the most important browsers (Chromium, Firefox, WebKit)
 
 **Cons:**
+
 - arm64 users won't have Chrome/Edge in the container (but Chromium is functionally equivalent)
 
 ### Option 2: Continue on Failure (Workaround)

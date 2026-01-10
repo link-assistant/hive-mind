@@ -111,12 +111,16 @@ All evidence has been saved to `./evidence/`:
 
 ### Immediate Workarounds
 
-1. **Use Node.js Instead of Bun for Critical Operations**
+1. **Retry the Operation**
+   - The error is often transient and succeeds on retry
+   - Most reliable immediate workaround
+
+2. **Use Node.js Instead of Bun for Critical Operations**
    - The fetch issues are specific to Bun's implementation
    - Node.js does not exhibit these socket timeout issues
    - Could wrap the agent CLI execution with Node.js
 
-2. **Enable `verbose: true` in Fetch Calls**
+3. **Enable `verbose: true` in Fetch Calls**
    - Add verbose mode to fetch calls to capture more diagnostic information
    - In `provider.ts`, modify the custom fetch wrapper:
 
@@ -130,7 +134,7 @@ All evidence has been saved to `./evidence/`:
    };
    ```
 
-3. **Increase Timeout/IdleTimeout Configuration**
+4. **Increase Timeout/IdleTimeout Configuration**
    - Set explicit timeout values higher than the default 10 seconds
    - The agent already has timeout configuration in `provider.ts`:
 
@@ -142,9 +146,11 @@ All evidence has been saved to `./evidence/`:
 
    - Ensure this is set appropriately (e.g., 120000ms = 2 minutes)
 
-4. **Retry Logic for Transient Failures**
-   - Implement automatic retry when socket connection errors occur
-   - The error is often transient and succeeds on retry
+5. **Clear Cache/Snapshots**
+   - If running in a git directory, try clearing OpenCode snapshots:
+     ```bash
+     rm -rf ~/.local/share/opencode/project/<project-name>/snapshots/
+     ```
 
 ### Long-term Solutions for link-assistant/agent
 
@@ -165,37 +171,22 @@ All evidence has been saved to `./evidence/`:
    - Create a minimal reproducible example for the Bun team
    - Link to existing related issues for context
 
-## Recommendations for Issue Report to link-assistant/agent
+## Issue Created at link-assistant/agent
 
-A new issue should be created at https://github.com/link-assistant/agent with:
+An issue has been created at the agent repository with full details:
 
-1. **Title**: `Socket connection closed unexpectedly during streaming API responses with Bun`
+**Issue**: [link-assistant/agent#109](https://github.com/link-assistant/agent/issues/109) - Socket connection closed unexpectedly during streaming API responses with Bun
 
-2. **Reproducible Example**:
-
-   ```bash
-   # Using agent with grok-code model
-   echo '{"message": "Hello"}' | agent --model opencode/grok-code
-   # Or via solve.mjs
-   node solve.mjs https://github.com/example/repo/issues/1 --tool agent
-   ```
-
-3. **Expected Behavior**: Agent should successfully process the request and return a response
-
-4. **Actual Behavior**: After ~10-12 seconds, the connection fails with socket closed error
-
-5. **Workaround**:
-   - Use a different tool (e.g., Claude Code) instead of agent
-   - Retry the operation (often succeeds on second attempt)
-
-6. **Suggested Fix**:
-   - Add retry logic for socket errors
-   - Increase default timeouts
-   - Add verbose mode for better debugging
+The issue contains:
+- Reproducible example using the agent CLI
+- Root cause analysis pointing to Bun's `idleTimeout`
+- Suggested code fixes with retry logic and timeout configuration
+- Links to related Bun issues
 
 ## References
 
-- Issue: https://github.com/link-assistant/hive-mind/issues/1098
+- Original Issue: https://github.com/link-assistant/hive-mind/issues/1098
+- **Agent Issue (Created)**: https://github.com/link-assistant/agent/issues/109
 - Failed PR: https://github.com/veb86/GristWidgets/pull/2
 - PR Comment with Log: https://github.com/veb86/GristWidgets/pull/2#issuecomment-3733564917
 - Bun Issue (10s timeout): https://github.com/oven-sh/bun/issues/14439

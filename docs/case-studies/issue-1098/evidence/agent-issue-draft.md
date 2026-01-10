@@ -1,5 +1,8 @@
 # Draft Issue for link-assistant/agent
 
+> **Note**: This issue has been submitted to the agent repository.
+> See: https://github.com/link-assistant/agent/issues/109
+
 ## Title
 
 Socket connection closed unexpectedly during streaming API responses with Bun
@@ -84,8 +87,8 @@ This is a **known issue with Bun's `fetch()` implementation**:
 ### Workarounds
 
 1. **Retry the operation** - The error is often transient and succeeds on retry
-2. **Use a different tool** - Claude Code (`--tool claude`) doesn't have this issue
-3. **Use Node.js** - Node's fetch doesn't have this timeout issue
+2. **Use Node.js** - Node's fetch doesn't have this timeout issue
+3. **Clear cache/snapshots** - If running in a git directory, try clearing OpenCode snapshots
 
 ### Suggested Fix
 

@@ -1465,68 +1465,31 @@ bot.telegram
     process.exit(1);
   });
 
+// Helper to stop solve queue gracefully on shutdown
+// See: https://github.com/link-assistant/hive-mind/issues/1083
+const stopSolveQueue = () => {
+  try {
+    getSolveQueue({ verbose: VERBOSE }).stop();
+    if (VERBOSE) console.log('[VERBOSE] Solve queue stopped');
+  } catch (err) {
+    if (VERBOSE) console.log('[VERBOSE] Could not stop solve queue:', err.message);
+  }
+};
+
 process.once('SIGINT', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
-  if (VERBOSE) {
-    console.log('[VERBOSE] Signal: SIGINT');
-    console.log('[VERBOSE] Process ID:', process.pid);
-    console.log('[VERBOSE] Parent Process ID:', process.ppid);
-  }
-
-  // Stop the solve queue consumer loop to allow clean exit
-  // See: https://github.com/link-assistant/hive-mind/issues/1083
-  try {
-    const solveQueue = getSolveQueue({ verbose: VERBOSE });
-    solveQueue.stop();
-    if (VERBOSE) {
-      console.log('[VERBOSE] Solve queue stopped');
-    }
-  } catch (err) {
-    // Queue may not be initialized, ignore
-    if (VERBOSE) {
-      console.log('[VERBOSE] Could not stop solve queue:', err.message);
-    }
-  }
-
+  if (VERBOSE) console.log(`[VERBOSE] Signal: SIGINT, PID: ${process.pid}, PPID: ${process.ppid}`);
+  stopSolveQueue();
   bot.stop('SIGINT');
 });
 
 process.once('SIGTERM', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGTERM, stopping bot...');
-  if (VERBOSE) {
-    console.log('[VERBOSE] Signal: SIGTERM');
-    console.log('[VERBOSE] Process ID:', process.pid);
-    console.log('[VERBOSE] Parent Process ID:', process.ppid);
-    console.log('[VERBOSE] Possible causes:');
-    console.log('[VERBOSE]   - System shutdown/restart');
-    console.log('[VERBOSE]   - Process manager (systemd, pm2, etc.) stopping the service');
-    console.log('[VERBOSE]   - Manual kill command: kill <pid>');
-    console.log('[VERBOSE]   - Container orchestration (Docker, Kubernetes) stopping container');
-    console.log('[VERBOSE]   - Out of memory (OOM) killer');
-  }
-  console.log('ℹ️  SIGTERM is typically sent by:');
-  console.log('   - System shutdown/restart');
-  console.log('   - Process manager stopping the service');
-  console.log('   - Manual termination (kill command)');
-  console.log('   - Container/orchestration platform');
-  console.log('💡 Check system logs for more details: journalctl -u <service> or dmesg');
-
-  // Stop the solve queue consumer loop to allow clean exit
-  // See: https://github.com/link-assistant/hive-mind/issues/1083
-  try {
-    const solveQueue = getSolveQueue({ verbose: VERBOSE });
-    solveQueue.stop();
-    if (VERBOSE) {
-      console.log('[VERBOSE] Solve queue stopped');
-    }
-  } catch (err) {
-    // Queue may not be initialized, ignore
-    if (VERBOSE) {
-      console.log('[VERBOSE] Could not stop solve queue:', err.message);
-    }
-  }
-
+  if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
+  console.log('ℹ️  SIGTERM is typically sent by: system shutdown, process manager, kill command, or container orchestration');
+  console.log('💡 Check system logs for details: journalctl -u <service> or dmesg');
+  stopSolveQueue();
   bot.stop('SIGTERM');
 });

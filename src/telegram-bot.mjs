@@ -32,18 +32,12 @@ const yargs = yargsModule.default || yargsModule;
 const { hideBin } = await use('yargs@17.7.2/helpers');
 
 // Import solve and hive yargs configurations for validation
-const solveConfigLib = await import('./solve.config.lib.mjs');
-const { createYargsConfig: createSolveYargsConfig } = solveConfigLib;
-
-const hiveConfigLib = await import('./hive.config.lib.mjs');
-const { createYargsConfig: createHiveYargsConfig } = hiveConfigLib;
-
+const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
+const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 // Import GitHub URL parser for extracting URLs from messages
 const { parseGitHubUrl } = await import('./github.lib.mjs');
-
 // Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
-
 // Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -1066,7 +1060,12 @@ bot.command(/^solve$/i, async ctx => {
     await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
-
+  // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
+  const { malformed, errors: malformedErrors } = detectMalformedFlags(args);
+  if (malformed.length > 0) {
+    await ctx.reply(`❌ ${malformedErrors.join('\n')}\n\nPlease check your option syntax.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
   // Validate merged arguments using solve's yargs config
   try {
     // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works

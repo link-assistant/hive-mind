@@ -33,23 +33,30 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
 
   try {
-    // Build command with appropriate flags
+    // Build command flags
+    // IMPORTANT: When using command-stream's $ template tag, each ${} interpolation is treated
+    // as a single argument. DO NOT use commandArgs.join(' ') as it will make all flags part
+    // of the first positional argument, causing "File does not exist" errors.
+    // See case study: docs/case-studies/issue-1096/README.md
     const publicFlag = isPublic ? '--public' : '--private';
-    const descFlag = description ? `--description "${description}"` : '';
-    const verboseFlag = verbose ? '--verbose' : '';
-
-    const command = `gh-upload-log "${logFile}" ${publicFlag} ${descFlag} ${verboseFlag}`.trim().replace(/\s+/g, ' ');
 
     if (verbose) {
-      await log(`  📤 Running: ${command}`, { verbose: true });
+      const descDisplay = description ? ` --description "${description}"` : '';
+      await log(`  📤 Running: gh-upload-log "${logFile}" ${publicFlag}${descDisplay} --verbose`, { verbose: true });
     }
 
-    // Build command arguments array, filtering out empty strings to prevent "Unknown argument: ''" error
-    const commandArgs = [`"${logFile}"`, publicFlag];
-    if (verbose) {
-      commandArgs.push('--verbose');
+    // Execute command with separate interpolations for each argument
+    // Each ${} is properly passed as a separate argument to the shell
+    let uploadResult;
+    if (description && verbose) {
+      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description} --verbose`;
+    } else if (description) {
+      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --description ${description}`;
+    } else if (verbose) {
+      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag} --verbose`;
+    } else {
+      uploadResult = await $`gh-upload-log ${logFile} ${publicFlag}`;
     }
-    const uploadResult = await $`gh-upload-log ${commandArgs.join(' ')}`;
     const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
 
     if (uploadResult.code !== 0) {

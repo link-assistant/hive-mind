@@ -178,6 +178,7 @@ An issue has been created at the agent repository with full details:
 **Issue**: [link-assistant/agent#109](https://github.com/link-assistant/agent/issues/109) - Socket connection closed unexpectedly during streaming API responses with Bun
 
 The issue contains:
+
 - Reproducible example using the agent CLI
 - Root cause analysis pointing to Bun's `idleTimeout`
 - Suggested code fixes with retry logic and timeout configuration

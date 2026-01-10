@@ -13,6 +13,7 @@ This case study documents an incident where an AI issue solver using Claude Code
 ### Task Description
 
 The AI solver was assigned to solve [issue #21](https://github.com/bpmbpm/draw-vad/issues/21) in the `bpmbpm/draw-vad` repository, which requested:
+
 - Full translation of a PDF document (`10-0sr6_Method_Manual.pdf`)
 - Split into 17 separate PDF files (one per chapter)
 - Upload translated files to the repository
@@ -23,17 +24,17 @@ The AI solver attempted to read the source PDF file (4.4MB, 372+ pages) using Cl
 
 ## Timeline of Events
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
-| 18:28:37 | Solve v0.54.4 started for issue #21 |
-| 18:28:49 | Repository cloned successfully |
-| 18:28:55 | Issue details fetched - task requires translating a PDF |
-| 18:29:08 | Claude Code execution started (Opus model) |
-| 18:29:19 | AI reviewed issue and identified source PDF |
-| 18:30:03 | AI downloaded PDF (4.4MB) via curl |
-| 18:30:09 | AI attempted to read PDF using Read tool |
-| 18:30:10 | **Error**: "PDF too large. Please double press esc to edit your message and try again." |
-| 18:30:11 | Session terminated with error |
+| Timestamp (UTC) | Event                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------- |
+| 18:28:37        | Solve v0.54.4 started for issue #21                                                     |
+| 18:28:49        | Repository cloned successfully                                                          |
+| 18:28:55        | Issue details fetched - task requires translating a PDF                                 |
+| 18:29:08        | Claude Code execution started (Opus model)                                              |
+| 18:29:19        | AI reviewed issue and identified source PDF                                             |
+| 18:30:03        | AI downloaded PDF (4.4MB) via curl                                                      |
+| 18:30:09        | AI attempted to read PDF using Read tool                                                |
+| 18:30:10        | **Error**: "PDF too large. Please double press esc to edit your message and try again." |
+| 18:30:11        | Session terminated with error                                                           |
 
 **Total session duration**: ~1 minute 34 seconds
 **API turns**: 16
@@ -43,6 +44,7 @@ The AI solver attempted to read the source PDF file (4.4MB, 372+ pages) using Cl
 ### Primary Cause
 
 Claude Code CLI has a hard limit on PDF file processing. The limits include:
+
 - **Token limit**: 25,000 tokens maximum for file reading
 - **Page limit**: 100 pages maximum for standard vision analysis
 - **Size limit**: Files exceeding ~32MB trigger immediate errors
@@ -81,13 +83,13 @@ PDF file read: /tmp/gh-issue-solver-1767896925304/experiments/10-0sr6_Method_Man
 
 This error is a known, persistent bug in Claude Code CLI with multiple reports:
 
-| Issue | Title | Status | Date |
-|-------|-------|--------|------|
-| [#13518](https://github.com/anthropics/claude-code/issues/13518) | "PDF too large" error persists and blocks all PDF reading | OPEN | Dec 2025 |
-| [#11527](https://github.com/anthropics/claude-code/issues/11527) | Oversized PDF kills the REPL | OPEN | Nov 2025 |
-| [#9789](https://github.com/anthropics/claude-code/issues/9789) | PDF too large | Closed (Duplicate) | Oct 2025 |
+| Issue                                                            | Title                                                      | Status             | Date     |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- | ------------------ | -------- |
+| [#13518](https://github.com/anthropics/claude-code/issues/13518) | "PDF too large" error persists and blocks all PDF reading  | OPEN               | Dec 2025 |
+| [#11527](https://github.com/anthropics/claude-code/issues/11527) | Oversized PDF kills the REPL                               | OPEN               | Nov 2025 |
+| [#9789](https://github.com/anthropics/claude-code/issues/9789)   | PDF too large                                              | Closed (Duplicate) | Oct 2025 |
 | [#15054](https://github.com/anthropics/claude-code/issues/15054) | PDF file size limit prevents processing of large documents | Closed (Duplicate) | Dec 2025 |
-| [#8077](https://github.com/anthropics/claude-code/issues/8077) | Claude Code crashes when reading large PDF files | OPEN | Sep 2025 |
+| [#8077](https://github.com/anthropics/claude-code/issues/8077)   | Claude Code crashes when reading large PDF files           | OPEN               | Sep 2025 |
 
 ### Bug Characteristics
 
@@ -108,10 +110,13 @@ Add to `.claude/CLAUDE.md` or system prompts:
 ## PDF Processing
 
 # NEVER use the Read tool to open PDF files directly
+
 # ALWAYS extract PDFs to text first using pdftotext via Bash
+
 # Reading large PDFs can cause crashes and loss of work
 
 ### Workflow:
+
 1. Check PDF file size and page count before processing
 2. Use pdftotext or similar tools to extract text first
 3. Process the text file instead of the PDF
@@ -119,6 +124,7 @@ Add to `.claude/CLAUDE.md` or system prompts:
 ```
 
 **Example command:**
+
 ```bash
 pdftotext document.pdf document.txt
 # Then read document.txt instead
@@ -165,9 +171,11 @@ fi
 #### 4. Use `/rewind` Command
 
 If the error occurs in interactive mode:
+
 ```
 /rewind
 ```
+
 This reverts to the state before the failed PDF read.
 
 ### Suggested Fix for Claude Code CLI
@@ -197,8 +205,9 @@ This reverts to the state before the failed PDF read.
 
 ## Files in This Case Study
 
-- `README.md` - This analysis document
-- `solution-draft-log.txt` - Full log file from the failed session
+- `ANALYSIS.md` - This analysis document
+- `DEEP-ROOT-CAUSE-ANALYSIS.md` - Deep technical investigation into the 25K token limit
+- `log-excerpts.md` - Key excerpts from the failed session log
 - `workarounds.md` - Detailed workaround implementations
 
 ## References

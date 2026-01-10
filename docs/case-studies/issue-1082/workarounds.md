@@ -60,11 +60,11 @@ fi
 
 Based on error reports and testing, the approximate limits are:
 
-| Metric | Safe Limit | May Work | Likely to Fail |
-|--------|------------|----------|----------------|
-| File Size | < 3MB | 3-10MB | > 10MB |
-| Page Count | < 30 pages | 30-75 pages | > 75 pages |
-| Token Count | < 20,000 | 20,000-25,000 | > 25,000 |
+| Metric      | Safe Limit | May Work      | Likely to Fail |
+| ----------- | ---------- | ------------- | -------------- |
+| File Size   | < 3MB      | 3-10MB        | > 10MB         |
+| Page Count  | < 30 pages | 30-75 pages   | > 75 pages     |
+| Token Count | < 20,000   | 20,000-25,000 | > 25,000       |
 
 ---
 
@@ -276,6 +276,7 @@ qpdf input.pdf --pages . 26-50 -- output_part2.pdf
 ### If You're in Interactive Mode
 
 1. **Use `/rewind` command** to go back before the failed read:
+
    ```
    /rewind
    ```
@@ -290,18 +291,18 @@ qpdf input.pdf --pages . 26-50 -- output_part2.pdf
 
 ```javascript
 async function safeReadPdf(pdfPath) {
-    // Check file size first
-    const stats = await fs.stat(pdfPath);
-    const sizeMB = stats.size / (1024 * 1024);
+  // Check file size first
+  const stats = await fs.stat(pdfPath);
+  const sizeMB = stats.size / (1024 * 1024);
 
-    if (sizeMB > 4) {
-        console.log(`PDF too large (${sizeMB.toFixed(1)}MB), extracting text...`);
-        const txtPath = pdfPath.replace('.pdf', '.txt');
-        await exec(`pdftotext "${pdfPath}" "${txtPath}"`);
-        return { type: 'text', path: txtPath };
-    }
+  if (sizeMB > 4) {
+    console.log(`PDF too large (${sizeMB.toFixed(1)}MB), extracting text...`);
+    const txtPath = pdfPath.replace('.pdf', '.txt');
+    await exec(`pdftotext "${pdfPath}" "${txtPath}"`);
+    return { type: 'text', path: txtPath };
+  }
 
-    return { type: 'pdf', path: pdfPath };
+  return { type: 'pdf', path: pdfPath };
 }
 ```
 
@@ -315,7 +316,7 @@ async function safeReadPdf(pdfPath) {
 
 Add to your project's `.claude/CLAUDE.md` or `CLAUDE.md`:
 
-```markdown
+````markdown
 ## PDF Processing Guidelines
 
 ### IMPORTANT: Handling PDF Files
@@ -329,8 +330,10 @@ To avoid the "PDF too large" error that crashes sessions:
    ls -la file.pdf
    pdfinfo file.pdf | grep Pages
    ```
+````
 
 4. **ALWAYS** extract text from large PDFs before processing:
+
    ```bash
    pdftotext large_document.pdf large_document.txt
    ```
@@ -345,25 +348,27 @@ To avoid the "PDF too large" error that crashes sessions:
 
 ### Recommended Thresholds
 
-| File Size | Action |
-|-----------|--------|
-| < 3MB | Can try direct Read |
-| 3-10MB | Extract text first |
-| > 10MB | Split + extract text |
+| File Size | Action               |
+| --------- | -------------------- |
+| < 3MB     | Can try direct Read  |
+| 3-10MB    | Extract text first   |
+| > 10MB    | Split + extract text |
 
-| Page Count | Action |
-|------------|--------|
-| < 30 pages | Can try direct Read |
-| 30-75 pages | Extract text first |
-| > 75 pages | Split into chunks |
+| Page Count  | Action              |
+| ----------- | ------------------- |
+| < 30 pages  | Can try direct Read |
+| 30-75 pages | Extract text first  |
+| > 75 pages  | Split into chunks   |
 
 ### If Error Occurs
 
 If you see "PDF too large" error:
+
 1. Use `/rewind` to go back
 2. Extract text using pdftotext
 3. Process the text file instead
-```
+
+````
 
 ### Environment Setup Script
 
@@ -392,7 +397,7 @@ echo "  pdftotext - Extract text from PDF"
 echo "  pdfinfo   - Get PDF information"
 echo "  qpdf      - Split/merge PDFs"
 echo "  pdftk     - PDF toolkit"
-```
+````
 
 ---
 

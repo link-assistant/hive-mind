@@ -9,6 +9,9 @@
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 
+// Re-export for use by telegram-bot.mjs (avoids extra import lines there)
+export { detectMalformedFlags };
+
 // Export an initialization function that accepts 'use'
 export const initializeConfig = async use => {
   // Import yargs with specific version for hideBin support

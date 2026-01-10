@@ -1,9 +1,11 @@
 # Draft Issue for link-assistant/agent
 
 ## Title
+
 Socket connection closed unexpectedly during streaming API responses with Bun
 
 ## Labels
+
 bug, bun, network
 
 ## Body
@@ -26,11 +28,13 @@ Error: The socket connection was closed unexpectedly. For more information, pass
 ### Steps to Reproduce
 
 1. Use the agent CLI via stdin with a streaming model:
+
    ```bash
    echo '{"message": "Hello, please analyze this code..."}' | agent --model opencode/grok-code
    ```
 
 2. Or via solve.mjs with --tool agent:
+
    ```bash
    node solve.mjs https://github.com/example/repo/issues/1 --tool agent
    ```
@@ -46,6 +50,7 @@ The agent should successfully complete the streaming API request and return a re
 ### Actual Behavior
 
 The connection fails with:
+
 ```json
 {
   "type": "error",
@@ -85,6 +90,7 @@ This is a **known issue with Bun's `fetch()` implementation**:
 ### Suggested Fix
 
 1. **Add retry logic for socket errors** in the provider/session code:
+
    ```typescript
    async function fetchWithRetry(url, options, maxRetries = 3) {
      for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -102,6 +108,7 @@ This is a **known issue with Bun's `fetch()` implementation**:
    ```
 
 2. **Set explicit timeout > 10 seconds** for streaming operations:
+
    ```typescript
    options['fetch'] = async (input, init) => {
      return fetch(input, {

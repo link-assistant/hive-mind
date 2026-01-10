@@ -12,19 +12,19 @@ This is a **known issue with Bun's `fetch()` implementation** that affects long-
 
 ## Timeline of Events
 
-| Timestamp (UTC)          | Event                                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| 2026-01-10T21:19:50.024Z | Solve v0.54.4 initiated with Grok Code Fast model                                       |
-| 2026-01-10T21:19:55.929Z | Disk/memory checks passed, validation skipped                                           |
-| 2026-01-10T21:20:00.888Z | Fork created: `konard/veb86-GristWidgets`                                               |
-| 2026-01-10T21:20:07.502Z | Initial commit with CLAUDE.md created                                                   |
-| 2026-01-10T21:20:15.688Z | Draft PR #2 created successfully                                                        |
-| 2026-01-10T21:20:22.852Z | Agent CLI execution started with `opencode/grok-code` model                             |
-| 2026-01-10T21:20:23.285Z | Agent entered continuous listening mode (stdin-stream)                                  |
-| 2026-01-10T21:20:34.712Z | **FAILURE**: Socket connection closed unexpectedly (~12 seconds after agent start)     |
-| 2026-01-10T21:20:34.713Z | UnhandledRejection error propagated                                                     |
-| 2026-01-10T21:20:35.036Z | Cleanup: CLAUDE.md commit reverted                                                      |
-| 2026-01-10T21:20:37.799Z | PR converted from draft to ready for review                                             |
+| Timestamp (UTC)          | Event                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| 2026-01-10T21:19:50.024Z | Solve v0.54.4 initiated with Grok Code Fast model                                  |
+| 2026-01-10T21:19:55.929Z | Disk/memory checks passed, validation skipped                                      |
+| 2026-01-10T21:20:00.888Z | Fork created: `konard/veb86-GristWidgets`                                          |
+| 2026-01-10T21:20:07.502Z | Initial commit with CLAUDE.md created                                              |
+| 2026-01-10T21:20:15.688Z | Draft PR #2 created successfully                                                   |
+| 2026-01-10T21:20:22.852Z | Agent CLI execution started with `opencode/grok-code` model                        |
+| 2026-01-10T21:20:23.285Z | Agent entered continuous listening mode (stdin-stream)                             |
+| 2026-01-10T21:20:34.712Z | **FAILURE**: Socket connection closed unexpectedly (~12 seconds after agent start) |
+| 2026-01-10T21:20:34.713Z | UnhandledRejection error propagated                                                |
+| 2026-01-10T21:20:35.036Z | Cleanup: CLAUDE.md commit reverted                                                 |
+| 2026-01-10T21:20:37.799Z | PR converted from draft to ready for review                                        |
 
 **Key observation**: The failure occurred ~12 seconds after the agent started, which aligns with Bun's default `idleTimeout` of 10 seconds in `Bun.serve()` contexts.
 
@@ -71,6 +71,7 @@ The error is a **known bug in Bun** affecting its `fetch()` API implementation. 
 ```
 
 The error manifests as:
+
 - `UnknownError` error type
 - `UnhandledRejection` exception type
 - No additional verbose information was collected (verbose mode not enabled)
@@ -86,6 +87,7 @@ All evidence has been saved to `./evidence/`:
 ## Related Issues Across Projects
 
 ### Bun (oven-sh/bun)
+
 - [#14439](https://github.com/oven-sh/bun/issues/14439) - ConnectionClosed when fetch > 10s (CLOSED)
 - [#16719](https://github.com/oven-sh/bun/issues/16719) - Dev server fails after 10+ minutes (OPEN)
 - [#9881](https://github.com/oven-sh/bun/issues/9881) - ConnectionClosed with various URLs (OPEN)
@@ -93,6 +95,7 @@ All evidence has been saved to `./evidence/`:
 - [#17434](https://github.com/oven-sh/bun/issues/17434) - Fetch not working with proxy (OPEN)
 
 ### OpenCode (sst/opencode, anomalyco/opencode)
+
 - [#1692](https://github.com/sst/opencode/issues/1692) - Same socket error
 - [#3511](https://github.com/anomalyco/opencode/issues/3511) - Socket error from MCP server
 - [#2304](https://github.com/sst/opencode/issues/2304) - Error with .git folder (CLOSED)
@@ -100,6 +103,7 @@ All evidence has been saved to `./evidence/`:
 - [#2519](https://github.com/anomalyco/opencode/issues/2519) - Tool calling frequently fails
 
 ### Other Projects
+
 - [Factory-AI/factory#570](https://github.com/Factory-AI/factory/issues/570) - Connection issues
 - [onlook-dev/onlook#3030](https://github.com/onlook-dev/onlook/issues/3030) - Self-hosted web client fails
 
@@ -115,12 +119,13 @@ All evidence has been saved to `./evidence/`:
 2. **Enable `verbose: true` in Fetch Calls**
    - Add verbose mode to fetch calls to capture more diagnostic information
    - In `provider.ts`, modify the custom fetch wrapper:
+
    ```typescript
    options['fetch'] = async (input: any, init?: BunFetchRequestInit) => {
      return fetchFn(input, {
        ...rest,
        signal: combined,
-       verbose: true,  // Add this for debugging
+       verbose: true, // Add this for debugging
      });
    };
    ```
@@ -128,11 +133,13 @@ All evidence has been saved to `./evidence/`:
 3. **Increase Timeout/IdleTimeout Configuration**
    - Set explicit timeout values higher than the default 10 seconds
    - The agent already has timeout configuration in `provider.ts`:
+
    ```typescript
    if (options['timeout'] !== undefined && options['timeout'] !== null) {
      signals.push(AbortSignal.timeout(options['timeout']));
    }
    ```
+
    - Ensure this is set appropriately (e.g., 120000ms = 2 minutes)
 
 4. **Retry Logic for Transient Failures**
@@ -165,6 +172,7 @@ A new issue should be created at https://github.com/link-assistant/agent with:
 1. **Title**: `Socket connection closed unexpectedly during streaming API responses with Bun`
 
 2. **Reproducible Example**:
+
    ```bash
    # Using agent with grok-code model
    echo '{"message": "Hello"}' | agent --model opencode/grok-code
@@ -196,6 +204,7 @@ A new issue should be created at https://github.com/link-assistant/agent with:
 ## Conclusion
 
 The socket connection error is a known issue with Bun's `fetch()` implementation, particularly affecting:
+
 - Long-running HTTP connections (> 10 seconds)
 - Streaming API responses
 - Operations in git repository contexts

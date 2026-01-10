@@ -7,7 +7,7 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
-import { enhanceErrorMessage } from './option-suggestions.lib.mjs';
+import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 
 // Export an initialization function that accepts 'use'
 export const initializeConfig = async use => {
@@ -322,6 +322,16 @@ export const createYargsConfig = yargsInstance => {
 // Parse command line arguments - now needs yargs and hideBin passed in
 export const parseArguments = async (yargs, hideBin) => {
   const rawArgs = hideBin(process.argv);
+
+  // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
+  // This catches cases like "-- model" which yargs silently treats as positional arguments
+  const malformedResult = detectMalformedFlags(rawArgs);
+  if (malformedResult.malformed.length > 0) {
+    const error = new Error(malformedResult.errors.join('\n'));
+    error.name = 'MalformedArgumentError';
+    throw error;
+  }
+
   // Use .parse() instead of .argv to ensure .strict() mode works correctly
   // When you call yargs(args) and use .argv, strict mode doesn't trigger
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()

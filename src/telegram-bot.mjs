@@ -44,6 +44,9 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 // Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
 
+// Import malformed flag detection for Issue #1092
+const { detectMalformedFlags } = await import('./option-suggestions.lib.mjs');
+
 // Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
@@ -1064,6 +1067,14 @@ bot.command(/^solve$/i, async ctx => {
   const modelError = validateModelInArgs(args, solveTool);
   if (modelError) {
     await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
+  // This catches cases where users accidentally type "-- model" instead of "--model"
+  const malformedResult = detectMalformedFlags(args);
+  if (malformedResult.malformed.length > 0) {
+    await ctx.reply(`❌ ${malformedResult.errors.join('\n')}\n\nPlease check your option syntax and try again.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 

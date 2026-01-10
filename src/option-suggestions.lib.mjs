@@ -147,6 +147,126 @@ export function formatSuggestions(suggestions) {
 }
 
 /**
+ * Known valid option names that we use for detecting "-- optionname" typos.
+ * These are common options that users might accidentally type with a space after --.
+ */
+const KNOWN_OPTION_NAMES = [
+  'model',
+  'verbose',
+  'help',
+  'version',
+  'resume',
+  'fork',
+  'dry-run',
+  'tool',
+  'think',
+  'watch',
+  'sentry',
+  'attach-logs',
+  'auto-continue',
+  'auto-fork',
+  'auto-cleanup',
+  'base-branch',
+  'log-dir',
+  'skip-tool-check',
+  'skip-tool-connection-check',
+  'auto-resume-on-limit-reset',
+  'auto-resume-on-errors',
+  'auto-close-pull-request-on-fail',
+  'auto-pull-request-creation',
+  'auto-commit-uncommitted-changes',
+  'auto-restart-on-uncommitted-changes',
+  'continue-only-on-feedback',
+  'claude-file',
+  'gitkeep-file',
+  'interactive-mode',
+  'prompt-plan-sub-agent',
+  'prompt-explore-sub-agent',
+  'prompt-general-purpose-sub-agent',
+  'prompt-issue-reporting',
+  'prompt-architecture-care',
+  'prompt-case-studies',
+  'prompt-playwright-mcp',
+  'prompt-check-sibling-pull-requests',
+  'enable-workspaces',
+  'execute-tool-with-bun',
+  'tokens-budget-stats',
+  'min-disk-space',
+  'watch-interval',
+  'only-prepare-command',
+  'auto-merge-default-branch-to-pull-request-branch',
+  'allow-fork-divergence-resolution-using-force-push-with-lease',
+  'allow-to-push-to-contributors-pull-requests-as-maintainer',
+  'prefix-fork-name-with-owner-name',
+  'auto-restart-max-iterations',
+  'auto-continue-only-on-new-comments',
+];
+
+/**
+ * Detect malformed flag patterns in command line arguments.
+ * These are arguments that look like they were intended to be flags
+ * but have incorrect formatting (e.g., "-- model" instead of "--model").
+ *
+ * Issue #1092: When user types "-- model" (with space), yargs silently ignores it
+ * as a positional argument instead of producing an error.
+ *
+ * @param {string[]} args - Array of command line arguments
+ * @returns {{ malformed: string[], errors: string[] }} - Detected malformed arguments and error messages
+ */
+export function detectMalformedFlags(args) {
+  const malformed = [];
+  const errors = [];
+
+  // Patterns that suggest user intended to type a flag but made a mistake
+  const malformedPatterns = [
+    // "-- option" - space between dashes and option name (Issue #1092)
+    { regex: /^-- +\w/, description: 'Space after "--"', suggestion: arg => `--${arg.replace(/^-- +/, '')}` },
+    // "- -option" - space between dashes
+    { regex: /^- +-/, description: 'Space between dashes', suggestion: arg => arg.replace(/^- +/, '') },
+    // "-option" for what looks like a long option (more than 1 char after single dash)
+    // Only flag this for known-looking patterns to avoid false positives
+    {
+      regex: /^-[a-z][a-z]+-?[a-z]*$/i,
+      description: 'Single dash for long option',
+      suggestion: arg => `-${arg}`,
+    },
+    // "---option" - triple dash or more
+    { regex: /^---+\w/, description: 'Too many dashes', suggestion: arg => arg.replace(/^-+/, '--') },
+  ];
+
+  for (const arg of args) {
+    for (const pattern of malformedPatterns) {
+      if (pattern.regex.test(arg)) {
+        malformed.push(arg);
+        const suggestion = pattern.suggestion(arg);
+        errors.push(`Malformed option "${arg}": ${pattern.description}. Did you mean "${suggestion}"?`);
+        break; // Don't double-report the same argument
+      }
+    }
+  }
+
+  // Issue #1092: Detect "-- optionname" pattern where the space caused
+  // the argument to be split into ['--', 'optionname'] by the tokenizer.
+  // Look for standalone '--' followed by a known option name.
+  for (let i = 0; i < args.length - 1; i++) {
+    if (args[i] === '--') {
+      const nextArg = args[i + 1];
+      // Check if next argument looks like an option name (not a URL or path)
+      // and is a known option name
+      if (nextArg && !nextArg.startsWith('-') && !nextArg.includes('/') && !nextArg.includes(':')) {
+        const lowerNextArg = nextArg.toLowerCase();
+        if (KNOWN_OPTION_NAMES.includes(lowerNextArg)) {
+          malformed.push(`-- ${nextArg}`);
+          errors.push(`Malformed option "-- ${nextArg}": Space after "--". Did you mean "--${nextArg}"?`);
+        }
+      }
+    }
+  }
+
+  return { malformed, errors };
+}
+
+/**
  * Create an enhanced error message with suggestions for unknown arguments
  *
  * @param {string} originalError - The original error message from yargs

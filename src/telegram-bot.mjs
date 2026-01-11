@@ -595,71 +595,27 @@ function mergeArgsWithOverrides(userArgs, overrides) {
   return [...filteredArgs, ...overrides];
 }
 
-/**
- * Validate GitHub URL for Telegram bot commands
- *
- * @param {string[]} args - Command arguments (first arg should be URL)
- * @param {Object} options - Validation options
- * @param {string[]} options.allowedTypes - Allowed URL types (e.g., ['issue', 'pull'] or ['repository', 'organization', 'user'])
- * @param {string} options.commandName - Command name for error messages (e.g., 'solve' or 'hive')
- * @param {string} options.exampleUrl - Example URL for error messages
- * @returns {{ valid: boolean, error?: string, parsed?: Object, normalizedUrl?: string }}
- */
+/** Validate GitHub URL for Telegram bot commands. Returns { valid, error?, parsed?, normalizedUrl? } */
 function validateGitHubUrl(args, options = {}) {
-  // Default options for /solve command (backward compatibility)
   const { allowedTypes = ['issue', 'pull'], commandName = 'solve' } = options;
-
-  if (args.length === 0) {
-    return {
-      valid: false,
-      error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]`,
-    };
-  }
-
-  // Clean non-printable characters from the URL (Issue #1102)
-  // This handles invisible chars like Zero-Width Space that can be copy-pasted from Telegram/browsers
+  if (args.length === 0) return { valid: false, error: `Missing GitHub URL. Usage: /${commandName} <github-url> [options]` };
+  // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
   const url = cleanNonPrintableChars(args[0]);
-  if (!url.includes('github.com')) {
-    return {
-      valid: false,
-      error: 'First argument must be a GitHub URL',
-    };
-  }
-
-  // Parse the URL to validate structure
+  if (!url.includes('github.com')) return { valid: false, error: 'First argument must be a GitHub URL' };
   const parsed = parseGitHubUrl(url);
-  if (!parsed.valid) {
-    return {
-      valid: false,
-      error: parsed.error || 'Invalid GitHub URL',
-      suggestion: parsed.suggestion,
-    };
-  }
-
-  // Check if the URL type is allowed for this command
+  if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
   if (!allowedTypes.includes(parsed.type)) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
     const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
-    // Escape URLs in error messages to prevent Markdown parsing errors (Issue #1102)
-    const escapedUrl = escapeMarkdown(url);
-    const escapedBaseUrl = escapeMarkdown(baseUrl);
-
-    // Provide specific, helpful error messages based on the URL type
+    const escapedUrl = escapeMarkdown(url),
+      escapedBaseUrl = escapeMarkdown(baseUrl); // Issue #1102: escape for Markdown
     let error;
-    if (parsed.type === 'issues_list') {
-      error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${escapedBaseUrl}/issues/1\``;
-    } else if (parsed.type === 'pulls_list') {
-      error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${escapedBaseUrl}/pull/1\``;
-    } else if (parsed.type === 'repo') {
-      error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${escapedUrl}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${escapedBaseUrl}/issues/1\``;
-    } else {
-      error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
-    }
-
+    if (parsed.type === 'issues_list') error = `URL points to the issues list page, but you need a specific issue\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific issue\n3. Copy the URL (it should end with /issues/NUMBER)\n\nExample: \`${escapedBaseUrl}/issues/1\``;
+    else if (parsed.type === 'pulls_list') error = `URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: ${escapedUrl}\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: \`${escapedBaseUrl}/pull/1\``;
+    else if (parsed.type === 'repo') error = `URL points to a repository, but you need a specific ${allowedTypesStr}\n\n💡 How to fix:\n1. Go to: ${escapedUrl}/issues\n2. Click on an issue to solve\n3. Use the full URL with the issue number\n\nExample: \`${escapedBaseUrl}/issues/1\``;
+    else error = `URL must be a GitHub ${allowedTypesStr} (not ${parsed.type.replace('_', ' ')})`;
     return { valid: false, error };
   }
-
-  // Return parsed data and normalized URL for callers that need it
   return { valid: true, parsed, normalizedUrl: url };
 }
 
@@ -1180,36 +1136,22 @@ bot.command(/^hive$/i, async ctx => {
 
   const userArgs = parseCommandArgs(ctx.message.text);
 
-  // Issue #1102: Allow issues_list and pulls_list URLs for /hive command
-  // These are commonly copied when users want to process a repository's issues
-  const validation = validateGitHubUrl(userArgs, {
-    allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'],
-    commandName: 'hive',
-    exampleUrl: 'https://github.com/owner/repo',
-  });
+  // Issue #1102: Allow issues_list/pulls_list URLs and normalize to repo URLs
+  const validation = validateGitHubUrl(userArgs, { allowedTypes: ['repo', 'organization', 'user', 'issues_list', 'pulls_list'], commandName: 'hive' });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
-    if (validation.suggestion) {
-      errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
-    }
+    if (validation.suggestion) errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
     errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
     await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
-
-  // Issue #1102: Normalize issues_list and pulls_list URLs to base repo URLs
-  // e.g., https://github.com/owner/repo/issues -> https://github.com/owner/repo
+  // Normalize issues_list/pulls_list to base repo URL, or use cleaned URL
   let normalizedArgs = [...userArgs];
-  if (validation.parsed && (validation.parsed.type === 'issues_list' || validation.parsed.type === 'pulls_list')) {
-    const baseRepoUrl = `https://github.com/${validation.parsed.owner}/${validation.parsed.repo}`;
-    normalizedArgs[0] = baseRepoUrl;
-    if (VERBOSE) {
-      console.log(`[VERBOSE] /hive: Normalized ${validation.parsed.type} URL to repo URL: ${baseRepoUrl}`);
-    }
-  } else if (validation.normalizedUrl && validation.normalizedUrl !== userArgs[0]) {
-    // Use the cleaned URL (with non-printable chars removed)
-    normalizedArgs[0] = validation.normalizedUrl;
-  }
+  const p = validation.parsed;
+  if (p && (p.type === 'issues_list' || p.type === 'pulls_list')) {
+    normalizedArgs[0] = `https://github.com/${p.owner}/${p.repo}`;
+    if (VERBOSE) console.log(`[VERBOSE] /hive: Normalized ${p.type} URL to repo URL: ${normalizedArgs[0]}`);
+  } else if (validation.normalizedUrl && validation.normalizedUrl !== userArgs[0]) normalizedArgs[0] = validation.normalizedUrl;
 
   // Merge user args with overrides
   const args = mergeArgsWithOverrides(normalizedArgs, hiveOverrides);

@@ -13,7 +13,7 @@ const testContinueModePrompt = () => {
   const tempDir = '/tmp/test-dir';
   const prUrl = 'https://github.com/link-assistant/hive-mind/pull/72';
   const mergeStateStatus = 'CLEAN';
-  
+
   // This is the same logic as in solve.mjs
   let prompt;
   if (isContinueMode) {
@@ -25,16 +25,16 @@ Existing pull request's merge state status: ${mergeStateStatus}
 
 Continue.`;
   }
-  
+
   console.log('Generated continue mode prompt:');
   console.log('=====================================');
   console.log(prompt);
   console.log('=====================================');
-  
+
   // Verify mergeStateStatus is mentioned with actual value
-  const containsMergeStateStatus = prompt.includes('Existing pull request\'s merge state status: CLEAN');
+  const containsMergeStateStatus = prompt.includes("Existing pull request's merge state status: CLEAN");
   console.log(`\nTest result: mergeStateStatus with actual value included = ${containsMergeStateStatus}`);
-  
+
   return containsMergeStateStatus;
 };
 

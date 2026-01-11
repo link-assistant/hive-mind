@@ -21,6 +21,7 @@ According to the IDP Survey 2025, **66% of enterprises are replacing legacy OCR 
 **Description**: The most popular open-source OCR engine, maintained by Google.
 
 **Key Features**:
+
 - Free and open source
 - 100+ language support
 - Active community
@@ -28,6 +29,7 @@ According to the IDP Survey 2025, **66% of enterprises are replacing legacy OCR 
 - Command-line and API access
 
 **Strengths**:
+
 - Reliable for standard text extraction
 - Well-documented
 - Extensive language support
@@ -35,6 +37,7 @@ According to the IDP Survey 2025, **66% of enterprises are replacing legacy OCR 
 - Works offline
 
 **Limitations**:
+
 - Struggles with complex layouts
 - Poor handwritten text recognition
 - Requires significant image preprocessing
@@ -42,6 +45,7 @@ According to the IDP Survey 2025, **66% of enterprises are replacing legacy OCR 
 - Limited table/form recognition
 
 **Installation**:
+
 ```bash
 # Ubuntu/Debian
 apt-get install tesseract-ocr
@@ -57,6 +61,7 @@ npm install tesseract.js
 ```
 
 **Example Usage (Python)**:
+
 ```python
 import pytesseract
 from PIL import Image
@@ -66,6 +71,7 @@ text = pytesseract.image_to_string(image, lang='eng')
 ```
 
 **Best For**:
+
 - Simple documents with clear text
 - Budget-constrained projects
 - Offline processing requirements
@@ -84,6 +90,7 @@ text = pytesseract.image_to_string(image, lang='eng')
 **Description**: Developed by Baidu, PaddleOCR uses deep learning for superior accuracy on complex layouts.
 
 **Key Features**:
+
 - Multi-language support (80+ languages)
 - Excellent table and form recognition
 - Complex layout handling
@@ -92,16 +99,19 @@ text = pytesseract.image_to_string(image, lang='eng')
 - GPU acceleration
 
 **Performance**:
+
 - **Significantly better** than Tesseract for multi-language documents
 - Excellent with complex layouts (tables, mixed formatting)
 - High accuracy on challenging documents
 
 **Installation**:
+
 ```bash
 pip install paddlepaddle paddleocr
 ```
 
 **Example Usage**:
+
 ```python
 from paddleocr import PaddleOCR
 
@@ -113,12 +123,14 @@ for line in result[0]:
 ```
 
 **Best For**:
+
 - Multi-language documents
 - Complex layouts (tables, forms)
 - Production environments requiring high accuracy
 - Documents with mixed formatting
 
 **Considerations**:
+
 - Larger model size than Tesseract
 - Higher computational requirements
 - GPU recommended for best performance
@@ -132,6 +144,7 @@ for line in result[0]:
 **Description**: User-friendly OCR with deep learning, supporting 80+ languages.
 
 **Key Features**:
+
 - Very easy to integrate
 - 80+ language support
 - Good performance with medium-quality images
@@ -140,16 +153,19 @@ for line in result[0]:
 - Lightweight API
 
 **Performance**:
+
 - Better than Tesseract on medium-quality images
 - Good balance of accuracy and ease of use
 - Moderate computational requirements
 
 **Installation**:
+
 ```bash
 pip install easyocr
 ```
 
 **Example Usage**:
+
 ```python
 import easyocr
 
@@ -161,12 +177,14 @@ for detection in result:
 ```
 
 **Best For**:
+
 - Python projects needing quick OCR integration
 - Multi-language support
 - Medium-complexity documents
 - Prototyping and development
 
 **Considerations**:
+
 - Requires more resources than Tesseract
 - Model download needed on first use
 
@@ -179,6 +197,7 @@ for detection in result:
 **Description**: Specialized tool for adding OCR text layers to PDF files.
 
 **Key Features**:
+
 - Adds searchable text layer to PDFs
 - Preserves original PDF
 - Uses Tesseract under the hood but with optimizations
@@ -187,22 +206,26 @@ for detection in result:
 - PDF/A compliance
 
 **Installation**:
+
 ```bash
 pip install ocrmypdf
 ```
 
 **Example Usage**:
+
 ```bash
 ocrmypdf input.pdf output.pdf
 ```
 
 **Best For**:
+
 - Creating searchable PDFs
 - PDF archiving workflows
 - When you need the original PDF with OCR layer
 - Batch PDF processing
 
 **Considerations**:
+
 - Uses Tesseract, so inherits its limitations
 - Best for adding OCR to PDFs, not general text extraction
 
@@ -213,6 +236,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Open-source document processing toolkit that integrates multiple OCR engines.
 
 **Key Features**:
+
 - Integrates Tesseract, EasyOCR, and RapidOCR
 - Automatic layout analysis
 - Table structure recognition
@@ -220,12 +244,14 @@ ocrmypdf input.pdf output.pdf
 - Flexible OCR engine selection
 
 **Best For**:
+
 - Complex document workflows
 - When you need layout analysis + OCR
 - Flexibility to choose OCR engine
 - Research and experimentation
 
 **Considerations**:
+
 - Higher resource demands
 - More complex setup
 - Best combined with layout analysis needs
@@ -241,6 +267,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Microsoft's cloud-based document AI service.
 
 **Key Features**:
+
 - Pre-built models for common documents (invoices, receipts, IDs)
 - Custom model training
 - Table extraction
@@ -249,22 +276,26 @@ ocrmypdf input.pdf output.pdf
 - Layout analysis
 
 **Performance**:
+
 - Industry-leading accuracy
 - Excellent handwriting recognition
 - Strong table/form extraction
 
 **Pricing**:
+
 - Pay per page
 - Free tier available
 - Scales automatically
 
 **Best For**:
+
 - Enterprise applications
 - Document processing pipelines
 - When accuracy is critical
 - Multi-document type workflows
 
 **Considerations**:
+
 - Requires internet connection
 - Costs can add up at scale
 - Data sent to cloud
@@ -278,6 +309,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: AWS's document analysis service.
 
 **Key Features**:
+
 - Text and data extraction
 - Table extraction
 - Form field extraction
@@ -286,21 +318,25 @@ ocrmypdf input.pdf output.pdf
 - Document analysis API
 
 **Performance**:
+
 - High accuracy
 - Fast processing
 - Scalable infrastructure
 
 **Pricing**:
+
 - Pay per page
 - Free tier available
 
 **Best For**:
+
 - AWS-based infrastructures
 - Enterprise scale
 - Document automation workflows
 - Integration with other AWS services
 
 **Considerations**:
+
 - Cloud-only
 - Per-page costs
 - Vendor lock-in
@@ -314,6 +350,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Professional OCR software with extensive language and document support.
 
 **Key Features**:
+
 - 130+ language support
 - Handwriting recognition
 - Complex layout handling
@@ -322,17 +359,20 @@ ocrmypdf input.pdf output.pdf
 - Batch processing
 
 **Performance**:
+
 - Very high accuracy
 - Excellent multi-language support
 - Professional-grade output
 
 **Best For**:
+
 - Professional document processing
 - Multi-language requirements
 - Complex handwriting
 - Enterprise document management
 
 **Considerations**:
+
 - Commercial license required
 - Higher cost than cloud services
 - Desktop/server software
@@ -346,6 +386,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Modern AI-powered document processing platform.
 
 **Key Features**:
+
 - Higher accuracy than Tesseract
 - Document classification
 - Authenticity verification
@@ -354,12 +395,14 @@ ocrmypdf input.pdf output.pdf
 - API-first design
 
 **Best For**:
+
 - Financial document processing
 - Identity verification
 - Fraud prevention
 - Enterprise document workflows
 
 **Considerations**:
+
 - Commercial service
 - Focused on specific use cases
 - Requires integration
@@ -375,6 +418,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Free and open-source GUI for Tesseract OCR.
 
 **Key Features**:
+
 - User-friendly interface
 - Integrates with Tesseract
 - PDF and image support
@@ -382,12 +426,14 @@ ocrmypdf input.pdf output.pdf
 - Batch processing
 
 **Best For**:
+
 - Small businesses
 - Desktop users
 - Manual document processing
 - When GUI is preferred over CLI
 
 **Considerations**:
+
 - Uses Tesseract (same limitations)
 - Desktop application only
 
@@ -400,6 +446,7 @@ ocrmypdf input.pdf output.pdf
 **Description**: Open-source OCR platform for developers seeking customizable solutions.
 
 **Key Features**:
+
 - Customizable and flexible
 - Web-based interface
 - Supports various document types
@@ -407,12 +454,14 @@ ocrmypdf input.pdf output.pdf
 - Collaborative features
 
 **Best For**:
+
 - Research projects
 - Customizable workflows
 - Team collaboration
 - Academic institutions
 
 **Considerations**:
+
 - More complex setup
 - Requires server deployment
 
@@ -420,34 +469,37 @@ ocrmypdf input.pdf output.pdf
 
 ## Comparison Matrix
 
-| Tool | Type | Accuracy | Speed | Languages | Tables | Handwriting | Cost | Best Use Case |
-|------|------|----------|-------|-----------|--------|-------------|------|---------------|
-| **Tesseract** | OSS | ⭐⭐ | ⭐⭐⭐ | 100+ | ⭐ | ⭐ | Free | Simple text |
-| **PaddleOCR** | OSS | ⭐⭐⭐⭐ | ⭐⭐ | 80+ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Free | Complex layouts |
-| **EasyOCR** | OSS | ⭐⭐⭐ | ⭐⭐ | 80+ | ⭐⭐ | ⭐⭐ | Free | Easy integration |
-| **OCRmyPDF** | OSS | ⭐⭐ | ⭐⭐⭐ | 100+ | ⭐ | ⭐ | Free | Searchable PDFs |
-| **Docling** | OSS | ⭐⭐⭐ | ⭐⭐ | Varies | ⭐⭐⭐ | ⭐⭐ | Free | Complex docs |
-| **Azure AI** | Cloud | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Many | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | $$$ | Enterprise |
-| **Textract** | Cloud | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Many | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | $$$ | AWS ecosystem |
-| **ABBYY** | Commercial | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 130+ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | $$$$ | Professional |
-| **DocHorizon** | Cloud | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Many | ⭐⭐⭐⭐ | ⭐⭐⭐ | $$$ | Financial docs |
+| Tool           | Type       | Accuracy   | Speed    | Languages | Tables     | Handwriting | Cost | Best Use Case    |
+| -------------- | ---------- | ---------- | -------- | --------- | ---------- | ----------- | ---- | ---------------- |
+| **Tesseract**  | OSS        | ⭐⭐       | ⭐⭐⭐   | 100+      | ⭐         | ⭐          | Free | Simple text      |
+| **PaddleOCR**  | OSS        | ⭐⭐⭐⭐   | ⭐⭐     | 80+       | ⭐⭐⭐⭐   | ⭐⭐⭐      | Free | Complex layouts  |
+| **EasyOCR**    | OSS        | ⭐⭐⭐     | ⭐⭐     | 80+       | ⭐⭐       | ⭐⭐        | Free | Easy integration |
+| **OCRmyPDF**   | OSS        | ⭐⭐       | ⭐⭐⭐   | 100+      | ⭐         | ⭐          | Free | Searchable PDFs  |
+| **Docling**    | OSS        | ⭐⭐⭐     | ⭐⭐     | Varies    | ⭐⭐⭐     | ⭐⭐        | Free | Complex docs     |
+| **Azure AI**   | Cloud      | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Many      | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐  | $$$  | Enterprise       |
+| **Textract**   | Cloud      | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | Many      | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐    | $$$  | AWS ecosystem    |
+| **ABBYY**      | Commercial | ⭐⭐⭐⭐⭐ | ⭐⭐⭐   | 130+      | ⭐⭐⭐⭐   | ⭐⭐⭐⭐⭐  | $$$$ | Professional     |
+| **DocHorizon** | Cloud      | ⭐⭐⭐⭐   | ⭐⭐⭐⭐ | Many      | ⭐⭐⭐⭐   | ⭐⭐⭐      | $$$  | Financial docs   |
 
 ## Recommendations by Use Case
 
 ### For Hive-Mind Integration
 
 **Primary Recommendation**: **PaddleOCR**
+
 - Best balance of accuracy and cost (free)
 - Excellent with complex layouts
 - Good multi-language support
 - Can run locally (privacy, cost control)
 
 **Secondary Option**: **EasyOCR**
+
 - Very easy to integrate
 - Good accuracy
 - Lower resource requirements than PaddleOCR
 
 **Budget Alternative**: **Tesseract + Preprocessing**
+
 - Free and lightweight
 - Good enough for simple documents
 - Combine with image preprocessing for better results
@@ -455,6 +507,7 @@ ocrmypdf input.pdf output.pdf
 ### For Enterprise Applications
 
 **Best Choice**: **Azure Document Intelligence** or **Amazon Textract**
+
 - Highest accuracy
 - Scalable infrastructure
 - Comprehensive features
@@ -463,6 +516,7 @@ ocrmypdf input.pdf output.pdf
 ### For Academic/Research Documents
 
 **Best Choice**: **PaddleOCR** or **MinerU** (with OCR)
+
 - Handle complex academic layouts
 - Good with formulas and symbols
 - Free and open source
@@ -470,6 +524,7 @@ ocrmypdf input.pdf output.pdf
 ### For Scanned Archive Processing
 
 **Best Choice**: **OCRmyPDF**
+
 - Purpose-built for PDFs
 - Creates searchable archives
 - Batch processing
@@ -478,6 +533,7 @@ ocrmypdf input.pdf output.pdf
 ### For Multi-Language Documents
 
 **Best Choice**: **ABBYY FineReader** (commercial) or **PaddleOCR** (open source)
+
 - Extensive language support
 - High accuracy across languages
 - Good with mixed-language documents
@@ -572,7 +628,7 @@ async function processPDFWithOCR(pdfPath, outputPath) {
     density: 150,
     format: 'png',
     width: 2000,
-    height: 2000
+    height: 2000,
   });
 
   // Get page count
@@ -584,11 +640,9 @@ async function processPDFWithOCR(pdfPath, outputPath) {
     const page = await converter(i);
 
     // Perform OCR
-    const { data: { text } } = await Tesseract.recognize(
-      page.path,
-      'eng',
-      { logger: m => console.log(m) }
-    );
+    const {
+      data: { text },
+    } = await Tesseract.recognize(page.path, 'eng', { logger: m => console.log(m) });
 
     allText.push(`--- Page ${i} ---\n${text}`);
   }
@@ -605,34 +659,38 @@ async function processPDFWithOCR(pdfPath, outputPath) {
 
 ### Processing Time
 
-| Tool | Pages/Min | Quality |
-|------|-----------|---------|
-| Tesseract | 10-15 | Medium |
-| PaddleOCR (CPU) | 5-8 | High |
-| PaddleOCR (GPU) | 20-30 | High |
-| EasyOCR (CPU) | 3-5 | Medium-High |
-| Azure AI | 30-50 | Very High |
+| Tool            | Pages/Min | Quality     |
+| --------------- | --------- | ----------- |
+| Tesseract       | 10-15     | Medium      |
+| PaddleOCR (CPU) | 5-8       | High        |
+| PaddleOCR (GPU) | 20-30     | High        |
+| EasyOCR (CPU)   | 3-5       | Medium-High |
+| Azure AI        | 30-50     | Very High   |
 
 ### Resource Requirements
 
 **Tesseract**:
+
 - CPU: Low
 - RAM: <500MB
 - Disk: <100MB
 
 **PaddleOCR**:
+
 - CPU: Medium-High
 - RAM: 2-4GB
 - Disk: ~500MB (models)
 - GPU: Optional but recommended
 
 **EasyOCR**:
+
 - CPU: Medium
 - RAM: 1-2GB
 - Disk: ~400MB (models)
 - GPU: Optional
 
 **Cloud Services**:
+
 - CPU/RAM: N/A (cloud-managed)
 - Network: Required
 - Costs: Per-page pricing
@@ -694,11 +752,13 @@ def preprocess_for_ocr(image_path):
 ### Cloud Services (Pay-per-use)
 
 **Azure Document Intelligence**:
+
 - Read API: $1.50 per 1000 pages
 - Layout API: $10 per 1000 pages
 - Free tier: 5000 pages/month
 
 **Amazon Textract**:
+
 - DetectDocumentText: $1.50 per 1000 pages
 - AnalyzeDocument: $50-$65 per 1000 pages
 - Free tier: 1000 pages/month (first 3 months)
@@ -725,6 +785,7 @@ For the hive-mind solver dealing with Issue #655:
 4. **For creating searchable PDFs**: **OCRmyPDF**
 
 The recommended pipeline is:
+
 1. Check if PDF has digital text
 2. If yes: Use PDF-to-Markdown tools (see PDF_TO_MARKDOWN_TOOLS.md)
 3. If no: Use PDF-to-Images (see PDF_TO_IMAGES_TOOLS.md) + PaddleOCR/EasyOCR

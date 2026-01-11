@@ -16,9 +16,7 @@ import { readFileSync, appendFileSync } from 'fs';
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -43,7 +41,7 @@ const RETRY_DELAY = 10000; // 10 seconds
  * @param {number} ms
  */
 function sleep(ms) {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+  return new Promise(resolve => globalThis.setTimeout(resolve, ms));
 }
 
 /**
@@ -54,7 +52,12 @@ function sleep(ms) {
 function setOutput(key, value) {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
-    appendFileSync(outputFile, `${key}=${value}\n`);
+    const content = `${key}=${value}\n`;
+    console.log(`Setting GitHub output: ${key}=${value}`);
+    appendFileSync(outputFile, content);
+    console.log(`Output written to ${outputFile}`);
+  } else {
+    console.log(`GITHUB_OUTPUT not set, would have set: ${key}=${value}`);
   }
 }
 
@@ -71,13 +74,10 @@ async function main() {
     console.log(`Current version to publish: ${currentVersion}`);
 
     // Check if this version is already published on npm
-    console.log(
-      `Checking if version ${currentVersion} is already published...`
-    );
-    const checkResult =
-      await $`npm view "${PACKAGE_NAME}@${currentVersion}" version`.run({
-        capture: true,
-      });
+    console.log(`Checking if version ${currentVersion} is already published...`);
+    const checkResult = await $`npm view "${PACKAGE_NAME}@${currentVersion}" version`.run({
+      capture: true,
+    });
 
     // command-stream returns { code: 0 } on success, { code: 1 } on failure (e.g., E404)
     // Exit code 0 means version exists, non-zero means version not found
@@ -89,9 +89,7 @@ async function main() {
       return;
     } else {
       // Version not found on npm (E404), proceed with publish
-      console.log(
-        `Version ${currentVersion} not found on npm, proceeding with publish...`
-      );
+      console.log(`Version ${currentVersion} not found on npm, proceeding with publish...`);
     }
 
     // Publish to npm using OIDC trusted publishing with retry logic
@@ -105,9 +103,7 @@ async function main() {
         return;
       } catch (_error) {
         if (i < MAX_RETRIES) {
-          console.log(
-            `Publish failed, waiting ${RETRY_DELAY / 1000}s before retry...`
-          );
+          console.log(`Publish failed, waiting ${RETRY_DELAY / 1000}s before retry...`);
           await sleep(RETRY_DELAY);
         }
       }

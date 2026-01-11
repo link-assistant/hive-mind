@@ -3,27 +3,15 @@
  * Handles building prompts for Agent commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Agent
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
-export const buildUserPrompt = (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv
-  } = params;
+export const buildUserPrompt = params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -37,6 +25,11 @@ export const buildUserPrompt = (params) => {
   // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
+
+  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
+  if (workspaceTmpDir) {
+    promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
+  }
 
   // PR info if available
   if (prUrl) {
@@ -70,7 +63,7 @@ export const buildUserPrompt = (params) => {
       low: 'Think.',
       medium: 'Think hard.',
       high: 'Think harder.',
-      max: 'Ultrathink.'
+      max: 'Ultrathink.',
     };
     promptLines.push(thinkMessages[argv.think]);
   }
@@ -78,8 +71,8 @@ export const buildUserPrompt = (params) => {
   // Final instruction
   promptLines.push(isContinueMode ? 'Continue.' : 'Proceed.');
 
-  // Build the final prompt
-  return promptLines.join('\n');
+  // Build the final prompt with trailing newline for POSIX compliance
+  return promptLines.join('\n') + '\n';
 };
 
 /**
@@ -87,8 +80,8 @@ export const buildUserPrompt = (params) => {
  * @param {Object} params - Parameters for building the prompt
  * @returns {string} The formatted system prompt
  */
-export const buildSystemPrompt = (params) => {
-  const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
+export const buildSystemPrompt = params => {
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
   // Build thinking instruction based on --think level
   let thinkLine = '';
@@ -97,14 +90,47 @@ export const buildSystemPrompt = (params) => {
       low: 'You always think on every step.',
       medium: 'You always think hard on every step.',
       high: 'You always think harder on every step.',
-      max: 'You always ultrathink on every step.'
+      max: 'You always ultrathink on every step.',
     };
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
-  return `You are AI issue solver using @link-assistant/agent.${thinkLine}
+  // Build workspace-specific instructions and examples
+  let workspaceInstructions = '';
+  if (workspaceTmpDir) {
+    workspaceInstructions = `
+Workspace tmp directory.
+   - Use ${workspaceTmpDir} for all temporary files, logs, and downloads.
+   - When saving command output to files, save to ${workspaceTmpDir}/command-output.log.
+   - When downloading CI logs, save to ${workspaceTmpDir}/ci-logs/.
+   - When saving diffs for review, save to ${workspaceTmpDir}/diffs/.
+   - When creating debug files, save to ${workspaceTmpDir}/debug/.
 
-General guidelines.
+`;
+  }
+
+  // Build CI command examples with workspace tmp paths
+  let ciExamples = '';
+  if (workspaceTmpDir) {
+    ciExamples = `
+CI investigation with workspace tmp directory.
+   - When downloading CI run logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log > ${workspaceTmpDir}/ci-logs/run-RUN_ID.log
+   - When downloading failed job logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log-failed > ${workspaceTmpDir}/ci-logs/run-RUN_ID-failed.log
+   - When listing CI runs with details:
+      gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha > ${workspaceTmpDir}/ci-logs/recent-runs.json
+   - When saving PR diff for review:
+      gh pr diff ${prNumber} --repo ${owner}/${repo} > ${workspaceTmpDir}/diffs/pr-${prNumber}.diff
+   - When saving command output with stderr:
+      npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
+   - When investigating issue details:
+      gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+`;
+  }
+
+  return `You are AI issue solver using @link-assistant/agent.${thinkLine}
+${workspaceInstructions}General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.
    - When running commands, do not set a timeout yourself — let them run as long as needed.
    - When running sudo commands (especially package installations), always run them in the background to avoid timeout issues.
@@ -122,14 +148,22 @@ Initial research.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need latest comments on pull request, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments.
-   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments.
+   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+      1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
+      2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
+      3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
+      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+   - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
    - When issue is solvable, implement code with tests.
@@ -181,16 +215,19 @@ Self review.
    - When you finalize, confirm code, tests, and description are consistent.
 
 GitHub CLI command patterns.
-   - When listing PR comments, use gh api repos/OWNER/REPO/pulls/NUMBER/comments.
-   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments.
+   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
+   - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
+   - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
+   - When listing issue comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --jq 'reverse | .[0:5]'.`;
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too
 export default {
   buildUserPrompt,
-  buildSystemPrompt
+  buildSystemPrompt,
 };

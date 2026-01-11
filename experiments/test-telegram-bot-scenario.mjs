@@ -6,15 +6,7 @@ console.log('Testing telegram-bot scenario...');
 console.log('Simulating process.argv for: hive-telegram-bot --token XXX --allowed-chats "..." --no-hive');
 
 // Set up process.argv to simulate the command from the issue
-process.argv = [
-  '/usr/bin/node',
-  '/tmp/test-telegram-bot.mjs',
-  '--token',
-  '849052...aOEM',
-  '--allowed-chats',
-  '(-1002975819706 -1002861722681)',
-  '--no-hive'
-];
+process.argv = ['/usr/bin/node', '/tmp/test-telegram-bot.mjs', '--token', '849052...aOEM', '--allowed-chats', '(-1002975819706 -1002861722681)', '--no-hive'];
 
 console.log('Current process.argv:', process.argv);
 

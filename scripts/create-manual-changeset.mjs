@@ -16,9 +16,7 @@ import { randomBytes } from 'crypto';
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -48,9 +46,7 @@ try {
   const description = descriptionArg || `Manual ${bumpType} release`;
 
   if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
-    console.error(
-      'Usage: node scripts/create-manual-changeset.mjs --bump-type <major|minor|patch> [--description <description>]'
-    );
+    console.error('Usage: node scripts/create-manual-changeset.mjs --bump-type <major|minor|patch> [--description <description>]');
     process.exit(1);
   }
 

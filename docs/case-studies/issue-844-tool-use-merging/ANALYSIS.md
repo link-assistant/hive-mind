@@ -26,6 +26,7 @@ This case study analyzes the root cause of why tool use and tool result comments
 ### The Problem
 
 The interactive mode code was designed to:
+
 1. Post a tool_use comment with "⏳ Waiting for result..."
 2. Capture the GitHub comment ID
 3. Store the ID in `pendingToolCalls` Map keyed by tool_use_id
@@ -78,8 +79,9 @@ Comment 3620999797: 19:26:18 - Tool result: Success (SEPARATE comment, NOT merge
 ### Code Changes
 
 #### State Structure (updated)
+
 ```javascript
-state.pendingToolCalls = new Map()
+state.pendingToolCalls = new Map();
 // Map<tool_use_id, {
 //   commentId: string|null,  // null if queued, set when posted
 //   commentIdPromise: Promise<string>,  // Resolves when comment is posted
@@ -89,6 +91,7 @@ state.pendingToolCalls = new Map()
 ```
 
 #### Queue Structure (updated)
+
 ```javascript
 state.commentQueue = [
   { body: string, toolId?: string }  // toolId added for tracking
@@ -109,6 +112,7 @@ state.commentQueue = [
 Created `experiments/test-interactive-mode-flow.mjs` to simulate rapid Claude events:
 
 **Before fix:**
+
 ```
 pendingToolCalls size: 0
 ❌ Tool use is NOT in pendingToolCalls!
@@ -117,6 +121,7 @@ Total comments created: 4
 ```
 
 **After fix:**
+
 ```
 pendingToolCalls size: 1
   commentId: 1000002 (set after queue processing)

@@ -35,14 +35,14 @@ async function testErrorWithLogPath() {
     what: 'This is a simulated error to test log path display',
     details: 'The error occurred during testing',
     causes: ['Test cause 1', 'Test cause 2'],
-    fixes: ['Check the full log file for details', 'Review error messages']
+    fixes: ['Check the full log file for details', 'Review error messages'],
   });
 
   // Test unhandled error handler
   console.log('\n📝 Testing unhandled error handler...');
 
   // Simulate uncaught exception
-  process.on('uncaughtException', async (error) => {
+  process.on('uncaughtException', async error => {
     await log(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
     await log(`   📁 Full log file: ${absolutePath}`, { level: 'error' });
 

@@ -56,14 +56,14 @@ const generateProgressBar = (percentage, width = CONFIG.PROGRESS_BAR_WIDTH) => {
  * @param {Array<Object>} todos - Array of TODO items with status property
  * @returns {Object} Progress statistics
  */
-const calculateProgress = (todos) => {
+const calculateProgress = todos => {
   if (!todos || !Array.isArray(todos) || todos.length === 0) {
     return {
       total: 0,
       completed: 0,
       inProgress: 0,
       pending: 0,
-      percentage: 0
+      percentage: 0,
     };
   }
 
@@ -88,12 +88,16 @@ const formatTodoList = (todos, maxDisplay = 0) => {
     return '_No tasks yet_';
   }
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = status => {
     switch (status) {
-      case 'completed': return '[x]';
-      case 'in_progress': return '[~]';
-      case 'pending': return '[ ]';
-      default: return '[ ]';
+      case 'completed':
+        return '[x]';
+      case 'in_progress':
+        return '[~]';
+      case 'pending':
+        return '[ ]';
+      default:
+        return '[ ]';
     }
   };
 
@@ -104,15 +108,11 @@ const formatTodoList = (todos, maxDisplay = 0) => {
     const secondHalf = todos.slice(-half);
     const skipped = todos.length - maxDisplay;
 
-    todosToShow = [
-      ...firstHalf,
-      { content: `_...and ${skipped} more tasks_`, status: 'info' },
-      ...secondHalf
-    ];
+    todosToShow = [...firstHalf, { content: `_...and ${skipped} more tasks_`, status: 'info' }, ...secondHalf];
   }
 
   return todosToShow
-    .map((todo, idx) => {
+    .map(todo => {
       if (todo.status === 'info') {
         return `- ${todo.content}`;
       }
@@ -174,7 +174,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
   const state = {
     lastUpdate: 0,
     currentTodos: null,
-    sessionId: sessionId || `session-${Date.now()}`
+    sessionId: sessionId || `session-${Date.now()}`,
   };
 
   /**
@@ -188,7 +188,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     const now = Date.now();
 
     // Rate limiting: don't update too frequently unless forced
-    if (!force && (now - state.lastUpdate) < CONFIG.MIN_UPDATE_INTERVAL) {
+    if (!force && now - state.lastUpdate < CONFIG.MIN_UPDATE_INTERVAL) {
       if (verbose) {
         await log(`⏭️  Skipping PR progress update (rate limited, ${Math.round((CONFIG.MIN_UPDATE_INTERVAL - (now - state.lastUpdate)) / 1000)}s remaining)`, { verbose: true });
       }
@@ -217,10 +217,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         const endIdx = currentBody.indexOf(CONFIG.PROGRESS_SECTION_END);
 
         if (startIdx !== -1 && endIdx !== -1) {
-          updatedBody =
-            currentBody.substring(0, startIdx) +
-            progressSection +
-            currentBody.substring(endIdx + CONFIG.PROGRESS_SECTION_END.length);
+          updatedBody = currentBody.substring(0, startIdx) + progressSection + currentBody.substring(endIdx + CONFIG.PROGRESS_SECTION_END.length);
         } else {
           // Malformed markers, append new section
           updatedBody = currentBody + '\n\n' + progressSection;
@@ -266,7 +263,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
    * @param {Array<Object>} todos - Array of TODO items
    * @returns {string} Progress section markdown
    */
-  const generateSection = (todos) => {
+  const generateSection = todos => {
     return generateProgressSection(todos, state.sessionId);
   };
 
@@ -279,7 +276,7 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     },
     get sessionId() {
       return state.sessionId;
-    }
+    },
   };
 };
 
@@ -291,5 +288,5 @@ export const utils = {
   calculateProgress,
   formatTodoList,
   generateProgressSection,
-  CONFIG
+  CONFIG,
 };

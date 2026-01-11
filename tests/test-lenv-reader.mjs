@@ -175,7 +175,7 @@ TEST_CONFIG_VAR2: value2`;
     const result = await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_CONFIG_VAR1 !== 'value1') {
@@ -220,7 +220,7 @@ runTest('config() with file', async () => {
     const result = await reader.config({
       path: testFile,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_FILE_VAR !== 'file_value') {
@@ -257,7 +257,7 @@ runTest('config() respects override flag', async () => {
     await reader.config({
       configuration: config,
       override: false,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'original') {
@@ -268,7 +268,7 @@ runTest('config() respects override flag', async () => {
     await reader.config({
       configuration: config,
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (process.env.TEST_OVERRIDE_VAR !== 'new_value') {
@@ -351,7 +351,7 @@ runTest('loadLenvConfig function', async () => {
     const result = await loadLenvConfig({
       configuration: 'TEST_LOAD_VAR: loaded',
       override: true,
-      quiet: true
+      quiet: true,
     });
 
     if (result.TEST_LOAD_VAR !== 'loaded') {
@@ -368,6 +368,171 @@ runTest('loadLenvConfig function', async () => {
     } else {
       delete process.env.TEST_LOAD_VAR;
     }
+  }
+});
+
+// ===============================================
+// Validation Tests (Issue #1086)
+// ===============================================
+
+// Test 17: Reject same-line options
+runTest('reject same-line options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --option1
+  --option2  --option3`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for same-line options, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Multiple values on the same line')) {
+    throw new Error(`Expected 'Multiple values on the same line' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 18: Reject invalid character ? in options
+runTest('reject invalid character ? in options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --auto-resume-on-limit-reset?
+  --verbose`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for invalid character ?, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Unrecognized character "?"')) {
+    throw new Error(`Expected 'Unrecognized character "?"' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 19: Reject invalid character @ in options
+runTest('reject invalid character @ in options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --option@name`;
+
+  let errorThrown = false;
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorThrown = true;
+    errorMessage = error.message;
+  }
+
+  if (!errorThrown) {
+    throw new Error('Expected error for invalid character @, but no error was thrown');
+  }
+
+  if (!errorMessage.includes('Unrecognized character "@"')) {
+    throw new Error(`Expected 'Unrecognized character "@"' error, got: ${errorMessage}`);
+  }
+});
+
+// Test 20: Accept valid options with = sign
+runTest('accept valid options with = sign', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --model=opus
+  --verbose`;
+
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES) {
+    throw new Error('TELEGRAM_HIVE_OVERRIDES not found in result');
+  }
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--model=opus')) {
+    throw new Error('Expected --model=opus to be preserved');
+  }
+});
+
+// Test 21: Accept valid hyphenated options
+runTest('accept valid hyphenated options', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --auto-resume-on-limit-reset
+  --skip-issues-with-prs`;
+
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES) {
+    throw new Error('TELEGRAM_HIVE_OVERRIDES not found in result');
+  }
+
+  if (!result.TELEGRAM_HIVE_OVERRIDES.includes('--auto-resume-on-limit-reset')) {
+    throw new Error('Expected --auto-resume-on-limit-reset to be preserved');
+  }
+});
+
+// Test 22: Non-option values should NOT be validated for special chars
+runTest('non-option values are not validated', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_BOT_TOKEN: some-token-with-special!@#
+TELEGRAM_ALLOWED_CHATS:
+  -1002975819706
+  1234567890`;
+
+  // This should NOT throw - only option-like values starting with -- are validated
+  const result = reader.parse(config);
+
+  if (!result.TELEGRAM_BOT_TOKEN) {
+    throw new Error('TELEGRAM_BOT_TOKEN not found');
+  }
+});
+
+// Test 23: Accept explicit parenthesized lists
+runTest('accept explicit parenthesized lists', () => {
+  const reader = new LenvReader();
+  const config = `LINO_LIST: (
+  1
+  2
+  3
+)`;
+
+  // Parenthesized lists should be valid
+  const result = reader.parse(config);
+
+  if (!result.LINO_LIST) {
+    throw new Error('LINO_LIST not found in result');
+  }
+});
+
+// Test 24: Validation error message includes the problematic value
+runTest('validation error message includes problematic value', () => {
+  const reader = new LenvReader();
+  const config = `TELEGRAM_HIVE_OVERRIDES:
+  --problematic-option?with?multiple?marks`;
+
+  let errorMessage = '';
+  try {
+    reader.parse(config);
+  } catch (error) {
+    errorMessage = error.message;
+  }
+
+  if (!errorMessage.includes('--problematic-option?with?multiple?marks')) {
+    throw new Error(`Error message should include the problematic value, got: ${errorMessage}`);
   }
 });
 

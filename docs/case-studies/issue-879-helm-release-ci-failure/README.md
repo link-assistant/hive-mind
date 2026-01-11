@@ -18,6 +18,7 @@
 ### Root Cause
 
 The CI workflow was failing with:
+
 ```
 The following paths are ignored by one of your .gitignore files:
 hive-mind-0.37.28.tgz
@@ -25,6 +26,7 @@ hint: Use -f if you really want to add them.
 ```
 
 **Analysis**:
+
 - The `.gitignore` file contains `*.tgz` to ignore npm pack outputs
 - The helm-release job packages helm charts into `.tgz` files
 - These `.tgz` files need to be committed to the `gh-pages` branch for the Helm repository
@@ -59,4 +61,4 @@ This forces git to include the ignored `.tgz` files in the commit, allowing the 
 
 - Issue #830: Previous helm chart release duplicate tag issue
 - Issue #834: Previous helm release failure (different cause)</content>
-<parameter name="filePath">docs/case-studies/issue-879-helm-release-ci-failure/README.md
+  <parameter name="filePath">docs/case-studies/issue-879-helm-release-ci-failure/README.md

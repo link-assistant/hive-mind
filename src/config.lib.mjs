@@ -64,7 +64,7 @@ export const githubLimits = {
 
 // Memory and disk configurations
 export const systemLimits = {
-  minDiskSpaceMb: parseIntWithDefault('HIVE_MIND_MIN_DISK_SPACE_MB', 500),
+  minDiskSpaceMb: parseIntWithDefault('HIVE_MIND_MIN_DISK_SPACE_MB', 2048),
   defaultPageSizeKb: parseIntWithDefault('HIVE_MIND_DEFAULT_PAGE_SIZE_KB', 16),
 };
 
@@ -76,6 +76,33 @@ export const retryLimits = {
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   max503Retries: parseIntWithDefault('HIVE_MIND_MAX_503_RETRIES', 3),
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+};
+
+// Claude Code CLI configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1076
+// Claude models support up to 64K output tokens, but Claude Code CLI defaults to 32K
+// Setting a higher limit allows Claude to generate longer responses without hitting the limit
+export const claudeCode = {
+  // Maximum output tokens for Claude Code CLI responses
+  // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
+  // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+};
+
+// Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
+export const getClaudeEnv = () => ({ ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) });
+
+// Cache TTL configurations (in milliseconds)
+// The Usage API (Claude limits) has stricter rate limiting than regular APIs
+// See: https://github.com/link-assistant/hive-mind/issues/1074
+export const cacheTtl = {
+  // General API cache TTL (GitHub API, etc.)
+  api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
+  // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
+  // The API returns null values when called too frequently
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 20 * 60 * 1000), // 20 minutes
+  // System metrics cache TTL (RAM, CPU, disk)
+  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
 };
 
 // File and path configurations
@@ -144,15 +171,7 @@ export const version = {
 // Helper function to validate configuration values
 export function validateConfig() {
   // Ensure all numeric values are valid
-  const numericConfigs = [
-    ...Object.values(timeouts),
-    ...Object.values(githubLimits),
-    ...Object.values(systemLimits),
-    ...Object.values(retryLimits).filter(v => typeof v === 'number'),
-    ...Object.values(textProcessing),
-    display.labelWidth,
-    autoContinue.ageThresholdHours,
-  ];
+  const numericConfigs = [...Object.values(timeouts), ...Object.values(githubLimits), ...Object.values(systemLimits), ...Object.values(retryLimits).filter(v => typeof v === 'number'), ...Object.values(textProcessing), display.labelWidth, autoContinue.ageThresholdHours];
 
   for (const value of numericConfigs) {
     if (isNaN(value) || value < 0) {
@@ -161,12 +180,7 @@ export function validateConfig() {
   }
 
   // Ensure sample rates are between 0 and 1
-  const sampleRates = [
-    sentry.tracesSampleRateDev,
-    sentry.tracesSampleRateProd,
-    sentry.profileSessionSampleRateDev,
-    sentry.profileSessionSampleRateProd,
-  ];
+  const sampleRates = [sentry.tracesSampleRateDev, sentry.tracesSampleRateProd, sentry.profileSessionSampleRateDev, sentry.profileSessionSampleRateProd];
 
   for (const rate of sampleRates) {
     if (isNaN(rate) || rate < 0 || rate > 1) {
@@ -190,6 +204,8 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    claudeCode,
+    cacheTtl,
     filePaths,
     textProcessing,
     display,

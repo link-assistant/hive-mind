@@ -24,9 +24,7 @@
 const PACKAGE_NAME = '@link-assistant/hive-mind';
 
 // Load use-m dynamically
-const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
-);
+const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
 
 // Import link-foundation libraries
 const { $ } = await use('command-stream');
@@ -65,9 +63,7 @@ const repository = config.repository;
 const passedCommitSha = config.commitSha;
 
 if (!releaseId || !version || !repository) {
-  console.error(
-    'Usage: format-release-notes.mjs --release-id <releaseId> --release-version <version> --repository <repository> [--commit-sha <sha>]'
-  );
+  console.error('Usage: format-release-notes.mjs --release-id <releaseId> --release-version <version> --repository <repository> [--commit-sha <sha>]');
   process.exit(1);
 }
 
@@ -90,12 +86,8 @@ try {
   // This regex handles two formats:
   // 1. With commit hash: "- abc1234: Description"
   // 2. Without commit hash: "- Description"
-  const patchChangesMatchWithHash = currentBody.match(
-    /### Patch Changes\s*\n\s*-\s+([a-f0-9]+):\s+(.+?)$/s
-  );
-  const patchChangesMatchNoHash = currentBody.match(
-    /### Patch Changes\s*\n\s*-\s+(.+?)$/s
-  );
+  const patchChangesMatchWithHash = currentBody.match(/### Patch Changes\s*\n\s*-\s+([a-f0-9]+):\s+(.+?)$/s);
+  const patchChangesMatchNoHash = currentBody.match(/### Patch Changes\s*\n\s*-\s+(.+?)$/s);
 
   let commitHash = null;
   let rawDescription = null;
@@ -125,7 +117,7 @@ try {
     .replace(/---.*$/s, '') // Remove any existing separators and everything after
     .trim()
     .split('\n') // Split by lines
-    .map((line) => line.trim()) // Trim whitespace from each line
+    .map(line => line.trim()) // Trim whitespace from each line
     .join('\n') // Rejoin with newlines
     .replace(/\n{3,}/g, '\n\n'); // Normalize excessive blank lines (3+ becomes 2)
 
@@ -138,21 +130,14 @@ try {
 
   if (commitShaToLookup) {
     const source = commitHash ? 'changelog' : 'workflow';
-    console.log(
-      `Looking up PR for commit ${commitShaToLookup} (from ${source})`
-    );
+    console.log(`Looking up PR for commit ${commitShaToLookup} (from ${source})`);
 
     try {
-      const prResult =
-        await $`gh api "repos/${repository}/commits/${commitShaToLookup}/pulls"`.run(
-          { capture: true }
-        );
+      const prResult = await $`gh api "repos/${repository}/commits/${commitShaToLookup}/pulls"`.run({ capture: true });
       const prsData = JSON.parse(prResult.stdout);
 
       // Find the PR that's not the version bump PR (not "chore: version packages")
-      const relevantPr = prsData.find(
-        (pr) => !pr.title.includes('version packages')
-      );
+      const relevantPr = prsData.find(pr => !pr.title.includes('version packages'));
 
       if (relevantPr) {
         prNumber = relevantPr.number;
@@ -190,9 +175,7 @@ try {
 
   // Update the release using JSON input to properly handle special characters
   const updatePayload = JSON.stringify({ body: formattedBody });
-  await $`gh api repos/${repository}/releases/${releaseId} -X PATCH --input -`.run(
-    { stdin: updatePayload }
-  );
+  await $`gh api repos/${repository}/releases/${releaseId} -X PATCH --input -`.run({ stdin: updatePayload });
 
   console.log(`Formatted release notes for v${versionWithoutV}`);
   if (prNumber) {

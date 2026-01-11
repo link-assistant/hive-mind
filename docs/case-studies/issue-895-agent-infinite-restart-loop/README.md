@@ -16,18 +16,22 @@ When using `solve` with `--tool agent` flag, the tool entered an infinite restar
 ## Problem Statement
 
 ### Symptom
+
 The solve command with `--tool agent` flag got stuck in an infinite restart loop:
+
 - Agent execution completed successfully with all todos marked as "completed"
 - After completion, solve tool detected "Pull request description was edited after last commit"
 - This triggered a restart of the agent
 - The cycle repeated indefinitely until manually interrupted (CTRL+C)
 
 ### Command Executed
+
 ```bash
 /home/hive/.nvm/versions/node/v20.19.6/bin/node /home/hive/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/892 --tool agent --attach-logs --verbose --no-tool-check
 ```
 
 ### Expected Behavior
+
 - Agent should complete its work
 - Agent should update PR description with final summary
 - Solve tool should recognize that the PR description edit was made BY the agent (not external feedback)
@@ -38,36 +42,38 @@ The solve command with `--tool agent` flag got stuck in an infinite restart loop
 ## Timeline of Events
 
 ### Execution Started
-| Time | Event |
-|------|-------|
-| 19:19:29 | solve v0.38.1 started |
-| 19:19:42 | Branch `issue-892-cd9b9839e813` created |
-| 19:19:50 | PR #893 created |
+
+| Time     | Event                                                                              |
+| -------- | ---------------------------------------------------------------------------------- |
+| 19:19:29 | solve v0.38.1 started                                                              |
+| 19:19:42 | Branch `issue-892-cd9b9839e813` created                                            |
+| 19:19:50 | PR #893 created                                                                    |
 | 19:19:56 | Initial feedback detected: "Pull request description was edited after last commit" |
-| 19:19:57 | First agent execution started |
+| 19:19:57 | First agent execution started                                                      |
 
 ### Infinite Loop Pattern
-| Time | Event |
-|------|-------|
-| 19:25:52 | Agent completed work, 0 new comments |
+
+| Time         | Event                                                                          |
+| ------------ | ------------------------------------------------------------------------------ |
+| 19:25:52     | Agent completed work, 0 new comments                                           |
 | **19:25:54** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:25:54 | Restart #1 triggered |
-| 19:30:07 | Agent completed work, 0 new comments |
+| 19:25:54     | Restart #1 triggered                                                           |
+| 19:30:07     | Agent completed work, 0 new comments                                           |
 | **19:30:10** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:30:10 | Restart #2 triggered |
-| 19:37:22 | Agent completed work, 0 new comments |
+| 19:30:10     | Restart #2 triggered                                                           |
+| 19:37:22     | Agent completed work, 0 new comments                                           |
 | **19:37:25** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:37:25 | Restart #3 triggered |
-| 19:42:20 | Agent completed work, 0 new comments |
+| 19:37:25     | Restart #3 triggered                                                           |
+| 19:42:20     | Agent completed work, 0 new comments                                           |
 | **19:42:23** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:42:23 | Restart #4 triggered |
-| 19:44:02 | Agent completed work, 0 new comments |
+| 19:42:23     | Restart #4 triggered                                                           |
+| 19:44:02     | Agent completed work, 0 new comments                                           |
 | **19:44:04** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:44:04 | Restart #5 triggered |
-| 19:47:48 | Agent completed work, 0 new comments |
+| 19:44:04     | Restart #5 triggered                                                           |
+| 19:47:48     | Agent completed work, 0 new comments                                           |
 | **19:47:50** | **FEEDBACK DETECTED: "Pull request description was edited after last commit"** |
-| 19:47:50 | Restart #6 triggered |
-| **19:47:51** | **User interrupted with CTRL+C** |
+| 19:47:50     | Restart #6 triggered                                                           |
+| **19:47:51** | **User interrupted with CTRL+C**                                               |
 
 **Total Duration**: ~28 minutes
 **Restart Count**: 6 restarts before manual interruption
@@ -82,6 +88,7 @@ The solve command with `--tool agent` flag got stuck in an infinite restart loop
 **Location**: `src/solve.feedback.lib.mjs`, lines 221-231
 
 **The Problematic Code**:
+
 ```javascript
 // Check PR description edit time
 const prDetailsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
@@ -97,6 +104,7 @@ if (prDetailsResult.code === 0) {
 ```
 
 **What Happens**:
+
 1. Agent completes its work successfully
 2. Agent may update the PR description (via `gh pr edit`) as part of finalizing its work
 3. This updates the PR's `updated_at` timestamp via the GitHub API
@@ -122,6 +130,7 @@ Since the agent typically updates the PR description as part of its workflow (ad
 ## Technical Analysis
 
 ### Data Flow
+
 ```
 Agent Execution
     |
@@ -157,6 +166,7 @@ Restart Decision
 ### Key Observation from Log
 
 Looking at the log, we can see the pattern clearly:
+
 - At each restart, there are **0 new PR comments** and **0 new issue comments**
 - The ONLY feedback source is "Pull request description was edited after last commit"
 - The agent successfully completes all its todos before each restart
@@ -197,10 +207,12 @@ if (prUpdatedAt > lastCommitTime) {
 ```
 
 **Pros**:
+
 - Accurately distinguishes between self-edits and external edits
 - No false positives
 
 **Cons**:
+
 - Requires tracking state across agent execution
 
 ### Solution 2: Use Commit Time as Anchor, Not PR Updated Time
@@ -225,9 +237,11 @@ if (prUpdatedAt > lastCommitTime && prUpdatedBy !== currentUser) {
 ```
 
 **Pros**:
+
 - More accurate detection of actual feedback
 
 **Cons**:
+
 - GitHub API doesn't provide "last edited by" information easily
 - Requires storing previous state
 
@@ -252,11 +266,13 @@ if (prUpdatedAt > lastCommitTime) {
 ```
 
 **Pros**:
+
 - Simple implementation
 - Uses existing `workStartTime` parameter
 - Consistent with comment filtering logic
 
 **Cons**:
+
 - May miss legitimate external edits made during long-running agent sessions (edge case)
 
 ### Solution 4: Add Max Restart Limit
@@ -278,10 +294,12 @@ if (feedbackSources.includes('PR description edited')) {
 ```
 
 **Pros**:
+
 - Prevents infinite loops as a safety net
 - Simple to implement
 
 **Cons**:
+
 - May limit legitimate restart scenarios
 - Doesn't fix the root cause
 
@@ -292,6 +310,7 @@ if (feedbackSources.includes('PR description edited')) {
 **Implement Solution 3 (Work-Start Timestamp Filter) as the primary fix**, combined with **Solution 4 (Max Restart Limit) as a safety net**.
 
 Rationale:
+
 1. Solution 3 is consistent with existing logic for filtering comments
 2. It's simple to implement and understand
 3. Solution 4 provides a safety net for any edge cases
@@ -302,14 +321,14 @@ The combination addresses the immediate issue while providing protection against
 
 ## Comparison with Issue #882
 
-| Aspect | Issue #882 | Issue #895 |
-|--------|-----------|-----------|
-| **Symptom** | Infinite loop | Infinite restart loop |
-| **Root Cause** | Model mismatch (Claude CLI receiving agent model) | PR description edit detection triggering false feedback |
-| **API Errors** | Yes (404 model not found) | No (all operations successful) |
-| **Trigger** | Watch mode tool dispatch bug | Feedback detection mechanism |
-| **Loop Type** | Retry loop (errors) | Restart loop (false positive feedback) |
-| **Agent Status** | Failed to execute properly | Executed successfully each time |
+| Aspect           | Issue #882                                        | Issue #895                                              |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------------- |
+| **Symptom**      | Infinite loop                                     | Infinite restart loop                                   |
+| **Root Cause**   | Model mismatch (Claude CLI receiving agent model) | PR description edit detection triggering false feedback |
+| **API Errors**   | Yes (404 model not found)                         | No (all operations successful)                          |
+| **Trigger**      | Watch mode tool dispatch bug                      | Feedback detection mechanism                            |
+| **Loop Type**    | Retry loop (errors)                               | Restart loop (false positive feedback)                  |
+| **Agent Status** | Failed to execute properly                        | Executed successfully each time                         |
 
 **Key Difference**: Issue #882 was about errors causing retries. Issue #895 is about **successful** execution causing restarts due to false feedback detection.
 
@@ -317,10 +336,10 @@ The combination addresses the immediate issue while providing protection against
 
 ## Affected Files
 
-| File | Description |
-|------|-------------|
+| File                         | Description                                        |
+| ---------------------------- | -------------------------------------------------- |
 | `src/solve.feedback.lib.mjs` | Lines 221-231: PR description edit detection logic |
-| `src/solve.watch.lib.mjs` | Restart logic based on feedback detection |
+| `src/solve.watch.lib.mjs`    | Restart logic based on feedback detection          |
 
 ---
 
@@ -346,6 +365,7 @@ The combination addresses the immediate issue while providing protection against
 The fix adds a check to see if the PR/issue description edit occurred during the current work session. If so, it's considered the agent's own edit and is not treated as external feedback.
 
 **Code Change (lines 220-270)**:
+
 ```javascript
 // 2. Check for edited descriptions
 // Issue #895: Filter out edits made during current work session to prevent

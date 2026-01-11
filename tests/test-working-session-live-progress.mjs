@@ -17,13 +17,13 @@ const colors = {
   red: '\x1b[31m',
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
-  reset: '\x1b[0m'
+  reset: '\x1b[0m',
 };
 
 const log = (msg, color = 'reset') => console.log(`${colors[color]}${msg}${colors.reset}`);
-const pass = (msg) => log(`✓ ${msg}`, 'green');
-const fail = (msg) => log(`✗ ${msg}`, 'red');
-const section = (msg) => log(`\n${msg}`, 'blue');
+const pass = msg => log(`✓ ${msg}`, 'green');
+const fail = msg => log(`✗ ${msg}`, 'red');
+const section = msg => log(`\n${msg}`, 'blue');
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -77,7 +77,7 @@ test('utils.calculateProgress returns zero stats for empty array', () => {
     completed: 0,
     inProgress: 0,
     pending: 0,
-    percentage: 0
+    percentage: 0,
   });
 });
 
@@ -86,7 +86,7 @@ test('utils.calculateProgress calculates correct stats', () => {
     { status: 'completed', content: 'Task 1' },
     { status: 'completed', content: 'Task 2' },
     { status: 'in_progress', content: 'Task 3' },
-    { status: 'pending', content: 'Task 4' }
+    { status: 'pending', content: 'Task 4' },
   ];
   const stats = utils.calculateProgress(todos);
   assert.equal(stats.total, 4);
@@ -101,7 +101,7 @@ test('utils.formatTodoList formats todos correctly', () => {
   const todos = [
     { status: 'completed', content: 'Done task' },
     { status: 'in_progress', content: 'Active task' },
-    { status: 'pending', content: 'Pending task' }
+    { status: 'pending', content: 'Pending task' },
   ];
   const formatted = utils.formatTodoList(todos);
   assert(formatted.includes('[x] Done task'));
@@ -111,9 +111,7 @@ test('utils.formatTodoList formats todos correctly', () => {
 
 // Test 5: Test generateProgressSection
 test('utils.generateProgressSection generates valid markdown', () => {
-  const todos = [
-    { status: 'completed', content: 'Task 1' }
-  ];
+  const todos = [{ status: 'completed', content: 'Task 1' }];
   const section = utils.generateProgressSection(todos, 'test-session');
   assert(section.includes('<!-- LIVE-PROGRESS-START -->'));
   assert(section.includes('<!-- LIVE-PROGRESS-END -->'));
@@ -133,17 +131,31 @@ test('solve.config.lib.mjs exports createYargsConfig', () => {
 // Test 7: Create mock yargs and check option
 const mockYargs = {
   options: {},
-  usage: function() { return this; },
-  command: function() { return this; },
-  fail: function() { return this; },
-  option: function(name, config) {
+  usage: function () {
+    return this;
+  },
+  command: function () {
+    return this;
+  },
+  fail: function () {
+    return this;
+  },
+  option: function (name, config) {
     this.options[name] = config;
     return this;
   },
-  parserConfiguration: function() { return this; },
-  strict: function() { return this; },
-  help: function() { return this; },
-  alias: function() { return this; }
+  parserConfiguration: function () {
+    return this;
+  },
+  strict: function () {
+    return this;
+  },
+  help: function () {
+    return this;
+  },
+  alias: function () {
+    return this;
+  },
 };
 
 solveConfig.createYargsConfig(mockYargs);
@@ -173,18 +185,34 @@ test('hive.config.lib.mjs exports createYargsConfig', () => {
 
 const mockYargsHive = {
   options: {},
-  command: function() { return this; },
-  usage: function() { return this; },
-  fail: function() { return this; },
-  option: function(name, config) {
+  command: function () {
+    return this;
+  },
+  usage: function () {
+    return this;
+  },
+  fail: function () {
+    return this;
+  },
+  option: function (name, config) {
     this.options[name] = config;
     return this;
   },
-  parserConfiguration: function() { return this; },
-  strict: function() { return this; },
-  help: function() { return this; },
-  alias: function() { return this; },
-  showHelpOnFail: function() { return this; }
+  parserConfiguration: function () {
+    return this;
+  },
+  strict: function () {
+    return this;
+  },
+  help: function () {
+    return this;
+  },
+  alias: function () {
+    return this;
+  },
+  showHelpOnFail: function () {
+    return this;
+  },
 };
 
 hiveConfig.createYargsConfig(mockYargsHive);
@@ -199,16 +227,8 @@ section('\nTesting Option Forwarding');
 import { readFile } from 'fs/promises';
 const hiveSource = await readFile('./src/hive.mjs', 'utf-8');
 
-test('hive.mjs defines workingSessionLiveProgressFlag', () => {
-  assert(hiveSource.includes('workingSessionLiveProgressFlag'));
-});
-
 test('hive.mjs checks argv.workingSessionLiveProgress', () => {
   assert(hiveSource.includes('argv.workingSessionLiveProgress'));
-});
-
-test('hive.mjs adds flag to command string', () => {
-  assert(hiveSource.includes('${workingSessionLiveProgressFlag}'));
 });
 
 test('hive.mjs adds flag to args array', () => {

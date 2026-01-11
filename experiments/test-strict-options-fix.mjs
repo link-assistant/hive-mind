@@ -20,35 +20,33 @@ try {
     .positional('github-url', {
       type: 'string',
       description: 'GitHub organization, repository, or user URL to monitor',
-      demandOption: true
+      demandOption: true,
     })
     .option('fork', {
       type: 'boolean',
-      description: 'Fork the repository if you don\'t have write access',
+      description: "Fork the repository if you don't have write access",
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
     .help('h')
     .alias('h', 'help')
-    .strictOptions()  // This should reject unknown options
+    .strictOptions() // This should reject unknown options
     .fail((msg, err, yargs) => {
       console.error('\n❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('\n✅ Parsing succeeded:');
   console.log('   github-url:', argv['github-url']);
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
-
 } catch (error) {
   console.error('\n❌ Caught error:', error.message);
   process.exit(1);

@@ -5,13 +5,7 @@
  * Tests solve.branch.lib.mjs functions for validating and parsing branch names
  */
 
-import {
-  isValidIssueBranchName,
-  parseIssueBranchName,
-  getIssueBranchPrefix,
-  matchesIssuePattern,
-  detectBranchFormat
-} from '../src/solve.branch.lib.mjs';
+import { isValidIssueBranchName, parseIssueBranchName, getIssueBranchPrefix, matchesIssuePattern, detectBranchFormat } from '../src/solve.branch.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -91,21 +85,9 @@ runTest('isValidIssueBranchName - with specific issue number', () => {
 
 // Test parseIssueBranchName
 runTest('parseIssueBranchName - valid branches', () => {
-  assertDeepEqual(
-    parseIssueBranchName('issue-647-2b8599cb'),
-    { issueNumber: '647', randomId: '2b8599cb' },
-    'Should parse legacy format correctly'
-  );
-  assertDeepEqual(
-    parseIssueBranchName('issue-647-2b8599cb1234'),
-    { issueNumber: '647', randomId: '2b8599cb1234' },
-    'Should parse new format correctly'
-  );
-  assertDeepEqual(
-    parseIssueBranchName('issue-1-abcdef12'),
-    { issueNumber: '1', randomId: 'abcdef12' },
-    'Should parse single digit issue number'
-  );
+  assertDeepEqual(parseIssueBranchName('issue-647-2b8599cb'), { issueNumber: '647', randomId: '2b8599cb' }, 'Should parse legacy format correctly');
+  assertDeepEqual(parseIssueBranchName('issue-647-2b8599cb1234'), { issueNumber: '647', randomId: '2b8599cb1234' }, 'Should parse new format correctly');
+  assertDeepEqual(parseIssueBranchName('issue-1-abcdef12'), { issueNumber: '1', randomId: 'abcdef12' }, 'Should parse single digit issue number');
 });
 
 // Test parseIssueBranchName - invalid branches

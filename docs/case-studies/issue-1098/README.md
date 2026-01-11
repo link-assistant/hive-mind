@@ -173,22 +173,37 @@ All evidence has been saved to `./evidence/`:
 
 ## Issue Created at link-assistant/agent
 
-An issue has been created at the agent repository with full details:
+An issue was created at the agent repository with full details:
 
 **Issue**: [link-assistant/agent#109](https://github.com/link-assistant/agent/issues/109) - Socket connection closed unexpectedly during streaming API responses with Bun
 
-The issue contains:
+The issue contained:
 
 - Reproducible example using the agent CLI
 - Root cause analysis pointing to Bun's `idleTimeout`
 - Suggested code fixes with retry logic and timeout configuration
 - Links to related Bun issues
 
+## Resolution
+
+✅ **RESOLVED** - The issue has been fixed in `@link-assistant/agent@0.8.1`.
+
+| Date                 | Event                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-01-10T22:10:24Z | Issue [#109](https://github.com/link-assistant/agent/issues/109) created at link-assistant/agent                                     |
+| 2026-01-10T22:13:34Z | Fix merged via [PR #110](https://github.com/link-assistant/agent/pull/110) - "fix: Add retry logic for Bun socket connection errors" |
+| 2026-01-10T22:39:02Z | Issue [#109](https://github.com/link-assistant/agent/issues/109) closed                                                              |
+| 2026-01-11T00:10:03Z | Fix released in [@link-assistant/agent@0.8.1](https://github.com/link-assistant/agent/releases/tag/js-v0.8.1)                        |
+
+The fix implements retry logic with exponential backoff for Bun socket connection errors, as suggested in the case study analysis.
+
 ## References
 
 - Original Issue: https://github.com/link-assistant/hive-mind/issues/1098
-- **Agent Issue (Created)**: https://github.com/link-assistant/agent/issues/109
-- Failed PR: https://github.com/veb86/GristWidgets/pull/2
+- **Agent Issue**: https://github.com/link-assistant/agent/issues/109 (CLOSED)
+- **Fix PR**: https://github.com/link-assistant/agent/pull/110
+- **Release**: https://github.com/link-assistant/agent/releases/tag/js-v0.8.1
+- Failed PR (Original incident): https://github.com/veb86/GristWidgets/pull/2
 - PR Comment with Log: https://github.com/veb86/GristWidgets/pull/2#issuecomment-3733564917
 - Bun Issue (10s timeout): https://github.com/oven-sh/bun/issues/14439
 - OpenCode .git Issue: https://github.com/sst/opencode/issues/2304
@@ -201,4 +216,4 @@ The socket connection error is a known issue with Bun's `fetch()` implementation
 - Streaming API responses
 - Operations in git repository contexts
 
-The most effective immediate workaround is implementing retry logic, as the error is often transient. Long-term, the agent CLI should either switch to Node.js for these operations or implement robust error handling with retry mechanisms.
+This case study led to the identification of the root cause and implementation of a fix in `@link-assistant/agent@0.8.1`. The fix implements retry logic with exponential backoff for socket connection errors, making the agent CLI more resilient to Bun's `fetch()` timeout issues.

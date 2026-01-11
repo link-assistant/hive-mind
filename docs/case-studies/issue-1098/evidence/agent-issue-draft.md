@@ -1,7 +1,10 @@
 # Draft Issue for link-assistant/agent
 
-> **Note**: This issue has been submitted to the agent repository.
-> See: https://github.com/link-assistant/agent/issues/109
+> **Note**: This issue has been submitted and resolved.
+>
+> - Issue: https://github.com/link-assistant/agent/issues/109 (CLOSED)
+> - Fix: https://github.com/link-assistant/agent/pull/110 (MERGED)
+> - Release: https://github.com/link-assistant/agent/releases/tag/js-v0.8.1
 
 ## Title
 

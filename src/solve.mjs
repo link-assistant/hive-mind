@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -919,14 +919,21 @@ try {
           await log(`⏰ Limit resets at: ${resetTime}`);
         }
         await log('');
-        // Show claude resume command only for --tool claude (or default)
-        // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+        // Show claude resume commands only for --tool claude (or default)
+        // Two types of resume commands are provided:
+        // 1. Interactive resume: Opens Claude Code in interactive mode for user interaction
+        // 2. Autonomous resume: Continues the work autonomously without user interaction
         const toolForResume = argv.tool || 'claude';
         if (toolForResume === 'claude') {
-          const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-          await log('💡 To continue this session in Claude Code interactive mode:');
+          const interactiveResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+          const autonomousResumeCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
+          await log('💡 To continue this session:');
           await log('');
-          await log(`   ${claudeResumeCmd}`);
+          await log('   Interactive mode (opens Claude Code for user interaction):');
+          await log(`   ${interactiveResumeCmd}`);
+          await log('');
+          await log('   Autonomous mode (continues work without user interaction):');
+          await log(`   ${autonomousResumeCmd}`);
           await log('');
         }
       }
@@ -1061,15 +1068,22 @@ try {
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
 
   if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
-    // Show claude resume command only for --tool claude (or default) on failure
-    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+    // Show claude resume commands only for --tool claude (or default) on failure
+    // Two types of resume commands are provided:
+    // 1. Interactive resume: Opens Claude Code in interactive mode for user interaction
+    // 2. Autonomous resume: Continues the work autonomously without user interaction
     const toolForFailure = argv.tool || 'claude';
     if (sessionId && toolForFailure === 'claude') {
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+      const interactiveResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+      const autonomousResumeCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
       await log('');
-      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('💡 To continue this session:');
       await log('');
-      await log(`   ${claudeResumeCmd}`);
+      await log('   Interactive mode (opens Claude Code for user interaction):');
+      await log(`   ${interactiveResumeCmd}`);
+      await log('');
+      await log('   Autonomous mode (continues work without user interaction):');
+      await log(`   ${autonomousResumeCmd}`);
       await log('');
     }
 

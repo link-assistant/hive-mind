@@ -15,14 +15,22 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 // Import Claude command builder for generating resume commands
-import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
+// Two types of resume commands are supported:
+// 1. Interactive resume: Short command that opens interactive mode
+// 2. Autonomous resume: Full command with all flags to run autonomously
+import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
 
-// Helper to display resume command at end of session
+// Helper to display resume commands at end of session
+// Shows both interactive and autonomous resume options
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
-  const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
-  await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-  await log(`   ${cmd}\n`);
+  const interactiveCmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
+  const autonomousCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model });
+  await log('\n💡 To continue this session:\n');
+  await log('   Interactive mode (opens Claude Code for user interaction):');
+  await log(`   ${interactiveCmd}\n`);
+  await log('   Autonomous mode (continues work without user interaction):');
+  await log(`   ${autonomousCmd}\n`);
 };
 
 /**
@@ -1221,12 +1229,13 @@ export const executeClaudeCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
-          // Format and display user-friendly message with Claude CLI resume command
+          // Format and display user-friendly message with both Claude CLI resume commands
           const messageLines = formatUsageLimitMessage({
             tool: 'Claude',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: tempDir && sessionId ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            interactiveResumeCommand: tempDir && sessionId ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            autonomousResumeCommand: tempDir && sessionId ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
           });
 
           for (const line of messageLines) {
@@ -1237,7 +1246,12 @@ export const executeClaudeCommand = async params => {
         } else {
           await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
-            await log(`📌 Session ID: ${sessionId}\nTo resume in Claude Code interactive mode:   ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+            const interactiveCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+            const autonomousCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
+            await log(`📌 Session ID: ${sessionId}`);
+            await log('\n💡 To continue this session:');
+            await log(`   Interactive mode: ${interactiveCmd}`);
+            await log(`   Autonomous mode: ${autonomousCmd}`);
           }
         }
       }

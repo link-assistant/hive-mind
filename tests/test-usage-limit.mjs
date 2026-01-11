@@ -158,6 +158,64 @@ runTest('formatUsageLimitMessage: handles missing session ID', () => {
   assertFalse(message.includes('--resume'), 'Should not include resume command without session');
 });
 
+// === formatUsageLimitMessage tests for dual command format ===
+
+runTest('formatUsageLimitMessage: includes both interactive and autonomous commands', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+    autonomousResumeCommand: '(cd "/tmp/work" && claude --resume abc123 --output-format stream-json --dangerously-skip-permissions -p "Continue.")',
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertTrue(message.includes('Autonomous mode'), 'Should include Autonomous mode label');
+  assertTrue(message.includes('--dangerously-skip-permissions'), 'Should include autonomous command flags');
+});
+
+runTest('formatUsageLimitMessage: backwards compatible with legacy resumeCommand', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    resumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertTrue(message.includes('claude --resume'), 'Should include legacy resume command');
+});
+
+runTest('formatUsageLimitMessage: handles only interactive command', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+    autonomousResumeCommand: null,
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertFalse(message.includes('Autonomous mode'), 'Should NOT include Autonomous mode without command');
+});
+
+runTest('formatUsageLimitMessage: handles only autonomous command', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: null,
+    autonomousResumeCommand: '(cd "/tmp/work" && claude --resume abc123 --output-format stream-json --dangerously-skip-permissions -p "Continue.")',
+  });
+
+  const message = lines.join('\n');
+  assertFalse(message.includes('Interactive mode'), 'Should NOT include Interactive mode without command');
+  assertTrue(message.includes('Autonomous mode'), 'Should include Autonomous mode label');
+});
+
 // === parseUsageLimitJson tests ===
 
 runTest('parseUsageLimitJson: parses error type JSON', () => {

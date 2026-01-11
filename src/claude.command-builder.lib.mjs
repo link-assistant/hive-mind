@@ -53,6 +53,43 @@ export const buildClaudeResumeCommand = ({ tempDir, sessionId, claudePath = 'cla
 };
 
 /**
+ * Build the Claude CLI autonomous resume command
+ *
+ * This generates a fully autonomous command that includes all flags needed to run
+ * without user interaction. The user can copy-paste this command and it will
+ * continue the session autonomously.
+ *
+ * The command includes:
+ * - --resume <sessionId>: Resume from the specified session
+ * - --output-format stream-json: For streaming output
+ * - --dangerously-skip-permissions: Skip interactive permission prompts
+ * - --model <model>: Use the same model as the original session
+ * - -p "Continue.": Simple prompt to continue the work
+ *
+ * Note: This function is specifically designed for Claude CLI (--tool claude)
+ * and should only be used when the tool is 'claude' or undefined (defaults to claude).
+ *
+ * @param {Object} options - Options for building the command
+ * @param {string} options.tempDir - The working directory (e.g., /tmp/gh-issue-solver-...)
+ * @param {string} options.sessionId - The session ID to resume
+ * @param {string} options.claudePath - Path to the claude CLI binary (defaults to 'claude')
+ * @param {string} [options.model] - The model to use (e.g., 'sonnet', 'opus', 'claude-sonnet-4-20250514')
+ * @returns {string} - The full autonomous resume command
+ */
+export const buildClaudeAutonomousResumeCommand = ({ tempDir, sessionId, claudePath = 'claude', model }) => {
+  let args = `--resume ${sessionId} --output-format stream-json --dangerously-skip-permissions`;
+
+  if (model) {
+    args += ` --model ${model}`;
+  }
+
+  // Add a simple "Continue." prompt to continue the autonomous work
+  args += ` -p "Continue."`;
+
+  return `(cd "${tempDir}" && ${claudePath} ${args})`;
+};
+
+/**
  * Build the Claude CLI initial command with the (cd ... && claude ...) pattern
  *
  * This generates the command pattern used when starting a new Claude session.
@@ -85,5 +122,6 @@ export const buildClaudeInitialCommand = ({ tempDir, claudePath = 'claude', mode
 // Export default object for compatibility
 export default {
   buildClaudeResumeCommand,
+  buildClaudeAutonomousResumeCommand,
   buildClaudeInitialCommand,
 };

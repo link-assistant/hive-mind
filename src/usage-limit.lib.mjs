@@ -254,10 +254,12 @@ export function formatResetTimeWithRelative(resetTime) {
  * @param {string} options.tool - Tool name (claude, codex, opencode)
  * @param {string|null} options.resetTime - Time when limit resets
  * @param {string|null} options.sessionId - Session ID for resuming
- * @param {string|null} options.resumeCommand - Command to resume session
+ * @param {string|null} options.resumeCommand - Interactive resume command (legacy, for backward compatibility)
+ * @param {string|null} options.interactiveResumeCommand - Command to resume in interactive mode
+ * @param {string|null} options.autonomousResumeCommand - Command to resume in autonomous mode
  * @returns {string[]} - Array of formatted message lines
  */
-export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
+export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand, interactiveResumeCommand, autonomousResumeCommand }) {
   const lines = ['', '⏳ Usage Limit Reached!', '', `Your ${tool || 'AI tool'} usage limit has been reached.`];
 
   if (resetTime) {
@@ -266,12 +268,24 @@ export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeComm
     lines.push('Please wait for the limit to reset.');
   }
 
-  if (sessionId && resumeCommand) {
+  // Support both new (dual command) and legacy (single command) formats
+  const interactiveCmd = interactiveResumeCommand || resumeCommand;
+
+  if (sessionId && (interactiveCmd || autonomousResumeCommand)) {
     lines.push('');
     lines.push(`📌 Session ID: ${sessionId}`);
     lines.push('');
-    lines.push('To resume this session after the limit resets, run:');
-    lines.push(`   ${resumeCommand}`);
+    lines.push('To resume this session after the limit resets:');
+    if (interactiveCmd) {
+      lines.push('');
+      lines.push('   Interactive mode (opens Claude Code for user interaction):');
+      lines.push(`   ${interactiveCmd}`);
+    }
+    if (autonomousResumeCommand) {
+      lines.push('');
+      lines.push('   Autonomous mode (continues work without user interaction):');
+      lines.push(`   ${autonomousResumeCommand}`);
+    }
   }
 
   lines.push('');

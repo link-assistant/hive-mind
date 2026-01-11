@@ -34,8 +34,11 @@ const { autoContinueWhenLimitResets } = autoContinue;
 // Import Claude-specific command builders
 // These are used to generate copy-pasteable Claude CLI resume commands for users
 // Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+// Two types of resume commands are supported:
+// 1. Interactive resume: Short command that opens interactive mode
+// 2. Autonomous resume: Full command with all flags to run autonomously
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
-export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
+export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -357,18 +360,25 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    // Show claude resume command only for --tool claude (or default)
+    // Show claude resume commands only for --tool claude (or default)
     // This allows users to investigate, resume, see context, and more
-    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+    // Two types of resume commands are provided:
+    // 1. Interactive resume: Opens Claude Code in interactive mode for user interaction
+    // 2. Autonomous resume: Continues the work autonomously without user interaction
     const tool = argv.tool || 'claude';
     if (tool === 'claude') {
-      // Build the Claude CLI resume command using the command builder
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+      // Build both resume commands using the command builder
+      const interactiveResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
+      const autonomousResumeCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
 
       await log('');
-      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('💡 To continue this session:');
       await log('');
-      await log(`   ${claudeResumeCmd}`);
+      await log('   Interactive mode (opens Claude Code for user interaction):');
+      await log(`   ${interactiveResumeCmd}`);
+      await log('');
+      await log('   Autonomous mode (continues work without user interaction):');
+      await log(`   ${autonomousResumeCmd}`);
       await log('');
     }
 

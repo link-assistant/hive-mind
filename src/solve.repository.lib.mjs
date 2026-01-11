@@ -35,11 +35,19 @@ const { checkRepositoryWritePermission } = githubLib;
 
 // Get the root repository of any repository
 // Returns the source (root) repository if the repo is a fork, otherwise returns the repo itself
+// Returns null if repository is not accessible (404 or other errors)
 export const getRootRepository = async (owner, repo) => {
   try {
-    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}'`;
+    const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
 
     if (result.code !== 0) {
+      // Check if it's a 404 error - repository doesn't exist or no permissions
+      const errorOutput = (result.stderr || result.stdout || '').toString();
+      if (errorOutput.includes('HTTP 404') || errorOutput.includes('Not Found')) {
+        // Repository not accessible - this will be handled by fork creation logic
+        // Return null to indicate we couldn't determine root repo
+        return null;
+      }
       return null;
     }
 
@@ -191,10 +199,34 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
   }
 };
 
+/**
+ * Build workspace directory name according to the specification:
+ * /tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number|string} issueNumber - Issue number
+ * @param {number} timestamp - Unix timestamp
+ * @returns {string} The workspace directory path
+ */
+export const buildWorkspacePath = (owner, repo, issueNumber, timestamp) => {
+  // Format: /tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}
+  const baseDir = path.join(os.tmpdir(), `hive-mind-solve-gh-${owner}`);
+  const workspaceDir = path.join(baseDir, `${repo}-issue-${issueNumber}-workspace-${timestamp}`);
+  return workspaceDir;
+};
+
 // Create or find temporary directory for cloning the repository
-export const setupTempDirectory = async argv => {
+// When --enable-workspaces is used, creates:
+//   {workspace}/repository - for the cloned repo
+//   {workspace}/tmp - for temp files, logs, downloads
+export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   let tempDir;
+  let workspaceTmpDir = null;
   let isResuming = argv.resume;
+
+  // Check if workspace mode should be enabled (works with all tools)
+  const useWorkspaces = argv.enableWorkspaces;
 
   if (isResuming) {
     // When resuming, try to find existing directory or create a new one
@@ -221,13 +253,34 @@ export const setupTempDirectory = async argv => {
       await fs.mkdir(tempDir, { recursive: true });
       await log(`Creating temporary directory for resumed session: ${tempDir}`);
     }
+  } else if (useWorkspaces && workspaceInfo) {
+    // Workspace mode: create structured workspace with repository/ and tmp/ subdirectories
+    const { owner, repo, issueNumber } = workspaceInfo;
+    const timestamp = Date.now();
+    const workspaceDir = buildWorkspacePath(owner, repo, issueNumber, timestamp);
+
+    // Create the workspace structure:
+    // {workspace}/repository - where the repo will be cloned
+    // {workspace}/tmp - for temp files, logs, command outputs
+    const repoDir = path.join(workspaceDir, 'repository');
+    workspaceTmpDir = path.join(workspaceDir, 'tmp');
+
+    await fs.mkdir(repoDir, { recursive: true });
+    await fs.mkdir(workspaceTmpDir, { recursive: true });
+
+    tempDir = repoDir;
+
+    await log(`\n${formatAligned('📂', 'Workspace mode:', 'ENABLED')}`);
+    await log(formatAligned('', 'Workspace root:', workspaceDir, 2));
+    await log(formatAligned('', 'Repository dir:', repoDir, 2));
+    await log(formatAligned('', 'Temp dir:', workspaceTmpDir, 2));
   } else {
     tempDir = path.join(os.tmpdir(), `gh-issue-solver-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
     await log(`\nCreating temporary directory: ${tempDir}`);
   }
 
-  return { tempDir, isResuming };
+  return { tempDir, workspaceTmpDir, isResuming };
 };
 
 // Try to initialize an empty repository by creating a simple README.md
@@ -520,6 +573,43 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log(`${formatAligned('ℹ️', 'Fork exists:', actualForkName)}`);
             forkExists = true;
             break;
+          }
+
+          // Check if it's a 404 error (repository doesn't exist or insufficient permissions)
+          if (forkOutput.includes('HTTP 404') || forkOutput.includes('Not Found')) {
+            // 404 error - do NOT retry, this is not a transient error
+            await log('');
+            await log(`${formatAligned('❌', 'REPOSITORY NOT ACCESSIBLE', '')}`, { level: 'error' });
+            await log('');
+            await log('  🔍 What happened:');
+            await log(`     Failed to access repository: ${owner}/${repo}`);
+            await log('     GitHub returned HTTP 404 (Not Found)');
+            await log('');
+            await log('  💡 Common causes:');
+            await log("     1. Repository doesn't exist or was deleted");
+            await log("     2. Repository is private and you don't have access");
+            await log('     3. Insufficient permissions to view the repository');
+            await log('     4. Your GitHub token may lack required scopes');
+            await log('');
+            await log('  🔧 How to resolve:');
+            await log('     Step 1: Verify the repository exists');
+            await log(`            Visit: https://github.com/${owner}/${repo}`);
+            await log('');
+            await log('     Step 2: Check your GitHub permissions');
+            await log('            • Are you logged in with the correct account?');
+            await log('            • Do you have access to this repository?');
+            await log(`            • Run: gh repo view ${owner}/${repo}`);
+            await log('');
+            await log('     Step 3: Verify authentication');
+            await log('            • Check auth status: gh auth status');
+            await log('            • Login if needed: gh auth login');
+            await log('            • Ensure "repo" scope is granted');
+            await log('');
+            await log('     Step 4: Request access');
+            await log('            • If repository is private, ask owner for access');
+            await log('            • Check if you need to be added as a collaborator');
+            await log('');
+            await safeExit(1, 'Repository setup failed - repository not accessible (HTTP 404)');
           }
 
           // Check if it's an empty repository (HTTP 403) - try to auto-fix
@@ -946,28 +1036,25 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
                     }
                   } else {
                     // Flag is not enabled - provide guidance
-                    await log('  ⚠️  RISKS of force-pushing:');
-                    await log('     • Overwrites fork history - any unique commits in your fork will be LOST');
-                    await log('     • Other collaborators working on your fork may face conflicts');
-                    await log('     • Cannot be undone - use with extreme caution');
-                    await log('');
                     await log('  💡 Your options:');
                     await log('');
-                    await log('     Option 1: Enable automatic force-push (DANGEROUS)');
+                    await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
+                    await log(`              gh repo delete ${forkedRepo}`);
+                    await log('              Then run the solve command again - the fork will be recreated automatically');
+                    await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
+                    await log('');
+                    await log('     Option 2: Enable automatic force-push (DANGEROUS)');
                     await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
                     await log('              This will automatically sync your fork with upstream using force-with-lease');
+                    await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
                     await log('');
-                    await log('     Option 2: Manually resolve the divergence');
+                    await log('     Option 3: Manually resolve the divergence');
                     await log('              1. Decide if you need any commits unique to your fork');
                     await log('              2. If yes, cherry-pick them after syncing');
                     await log('              3. If no, manually force-push:');
                     await log('                 git fetch upstream');
                     await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
                     await log(`                 git push --force origin ${upstreamDefaultBranch}`);
-                    await log('');
-                    await log('     Option 3: Work without syncing fork (NOT RECOMMENDED)');
-                    await log('              Your fork will remain out-of-sync with upstream');
-                    await log('              May cause merge conflicts in pull requests');
                     await log('');
                     await log('  🔧 To proceed with auto-resolution, restart with:');
                     await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);
@@ -1129,7 +1216,7 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
 // Cleanup temporary directory
 export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   // Determine if we should skip cleanup
-  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueOnLimitReset && global.limitResetTime);
+  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoResumeOnLimitReset && global.limitResetTime);
 
   if (!shouldKeepDirectory) {
     try {

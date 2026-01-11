@@ -2,23 +2,26 @@
 
 ## Overview
 
-This case study documents the implementation of the `--tokens-budget-stats` feature for the `hive-mind` project, which provides detailed token usage statistics when using the Claude AI tool.
+This case study documents the investigation and resolution of Issue #944. What appeared to be a feature request turned out to be a bug fix - the `--tokens-budget-stats` feature was already fully implemented in version 0.54.0 but had a critical bug preventing its use via the telegram bot.
 
 **Issue:** [#944 - For `--tool claude` please add option `--tokens-budget-stats`](https://github.com/link-assistant/hive-mind/issues/944)
-**Pull Request:** [#945](https://github.com/link-assistant/hive-mind/pull/945)
+**Pull Request:** [#1059](https://github.com/link-assistant/hive-mind/pull/1059)
 **Created:** 2025-12-20T20:31:29Z
 **Author:** @konard (Konstantin Diachenko)
 **Labels:** enhancement
+**Actual Type:** Bug Fix
 
 ## Problem Statement
 
-The hive-mind project needed an experimental option that provides users with detailed statistics about token budget usage when using the Claude AI tool (`--tool claude`). The requirements were:
+The issue initially appeared as a feature request, but investigation revealed the feature was already implemented with all requirements met:
 
-1. Show context window usage in absolute values and ratios
-2. Display how much of the maximum input and output token limits were used
-3. Fetch maximum token limits from models.dev API
-4. Make this option disabled by default (experimental feature)
-5. Work only with `--tool claude`
+1. ✅ Show context window usage in absolute values and ratios
+2. ✅ Display how much of the maximum input and output token limits were used
+3. ✅ Fetch maximum token limits from models.dev API
+4. ✅ Make this option disabled by default (experimental feature)
+5. ✅ Work only with `--tool claude`
+
+**The Actual Problem:** A type safety bug in telegram-bot.mjs prevented the feature from working when passed via configuration overrides, causing a crash: `TypeError: line.trim is not a function`
 
 ## Requirements Analysis
 
@@ -76,13 +79,59 @@ The hive-mind project already had:
 
 This meant we could build on existing infrastructure rather than creating new systems.
 
-## Implementation
+## Bug Analysis
 
-### 1. CLI Option Addition
+### Root Cause
 
-Added `--tokens-budget-stats` option to two configuration files:
+**Location:** `src/telegram-bot.mjs:162`
 
-**File: `src/solve.config.lib.mjs`**
+**Problematic Code:**
+
+```javascript
+const hiveOverrides = resolvedHiveOverrides
+  ? lino
+      .parse(resolvedHiveOverrides) // ❌ Returns mixed types
+      .map(line => line.trim()) // ❌ Fails on non-strings
+      .filter(line => line)
+  : [];
+```
+
+**Why It Failed:**
+
+- `lino.parse()` can return non-string values (objects)
+- Calling `.trim()` on an object throws `TypeError`
+- Bug only manifested when using telegram bot configuration overrides
+- Feature worked fine when used directly via CLI
+
+### The Fix
+
+**New Code:**
+
+```javascript
+const hiveOverrides = resolvedHiveOverrides
+  ? lino
+      .parseStringValues(resolvedHiveOverrides) // ✅ Returns only strings
+      .map(line => line.trim()) // ✅ Safe to call
+      .filter(line => line)
+  : [];
+```
+
+**Why It Works:**
+
+- `lino.parseStringValues()` explicitly filters for string types
+- Type guard ensures only strings are returned
+- Safe to call `.trim()` on guaranteed string values
+
+**Files Changed:** `src/telegram-bot.mjs` (lines 153 and 161)
+**Lines Modified:** 2
+
+## Already Implemented Features
+
+The investigation revealed that all requested functionality was already complete in version 0.54.0:
+
+### 1. CLI Option (✅ Already Exists)
+
+Defined in `src/solve.config.lib.mjs:269` and `src/hive.config.lib.mjs:259`:
 
 ```javascript
 .option('tokens-budget-stats', {
@@ -92,21 +141,9 @@ Added `--tokens-budget-stats` option to two configuration files:
 })
 ```
 
-**File: `src/hive.config.lib.mjs`**
+### 2. Budget Statistics Display Function (✅ Already Exists)
 
-```javascript
-.option('tokens-budget-stats', {
-  type: 'boolean',
-  description: '[EXPERIMENTAL] Show detailed token budget statistics including context window usage and ratios. Only supported for --tool claude.',
-  default: false
-})
-```
-
-Both files were updated to ensure the option works in both `solve` and `hive` commands.
-
-### 2. Budget Statistics Display Function
-
-Created new `displayBudgetStats()` function in `src/claude.lib.mjs`:
+Implemented in `src/claude.budget-stats.lib.mjs`:
 
 **Key Features:**
 
@@ -159,9 +196,9 @@ const displayBudgetStats = async (usage, log) => {
 };
 ```
 
-### 3. Integration with Existing Code
+### 3. Integration with Existing Code (✅ Already Exists)
 
-Modified the `executeClaudeCommand()` function to call `displayBudgetStats()` when the flag is enabled:
+The `executeClaudeCommand()` function in `src/claude.lib.mjs:1290` already calls `displayBudgetStats()`:
 
 ```javascript
 if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
@@ -174,6 +211,26 @@ This ensures:
 - Budget stats only display when the flag is enabled
 - Only displays when model limit information is available
 - Integrates seamlessly with existing per-model usage display
+
+### 4. Model Limits Fetching (✅ Already Exists)
+
+The `fetchModelInfo()` function in `src/claude.lib.mjs:508` fetches data from https://models.dev/api.json:
+
+```javascript
+export const fetchModelInfo = async modelId => {
+  // Fetches from https://models.dev/api.json
+  // Returns model data including:
+  // - limit.context (max context window)
+  // - limit.output (max output tokens)
+  // - cost information
+};
+```
+
+**Current API Coverage** (as of 2026-01-04):
+
+- 21 Claude models in Anthropic provider
+- All models include `limit.context` and `limit.output` fields
+- Example: claude-opus-4-0 has context: 200,000, output: 32,000
 
 ## Technical Design Decisions
 
@@ -264,11 +321,18 @@ This provides clear visibility into:
 
 ## Files Modified
 
-1. `src/solve.config.lib.mjs` - Added CLI option for solve command
-2. `src/hive.config.lib.mjs` - Added CLI option for hive command
-3. `src/claude.lib.mjs` - Added `displayBudgetStats()` function and integration
+1. `src/telegram-bot.mjs` - Fixed type safety bug in configuration parsing (lines 153, 161)
 
-**Total changes:** 3 files, ~60 lines added
+**Total changes:** 1 file, 2 lines modified
+
+## Case Study Documents
+
+This case study includes:
+
+1. **README.md** (this file) - Overview and summary
+2. **timeline.md** - Chronological sequence of events
+3. **root-cause-analysis.md** - Deep technical analysis
+4. **issue-data.json** - Raw issue data from GitHub
 
 ## Integration Points
 
@@ -292,21 +356,22 @@ Potential improvements for future iterations:
 
 ## Lessons Learned
 
-1. **Leverage existing infrastructure:** The project already had token tracking and model info fetching, which made implementation straightforward
-2. **Separation of concerns:** Keeping calculation and display separate made the feature easy to add without modifying core logic
-3. **Documentation-first:** The issue requested case study documentation, which helps with knowledge transfer
-4. **Experimental flags:** Using `[EXPERIMENTAL]` tag sets proper expectations
+1. **Type Safety Matters:** Always use type-safe methods when available (`parseStringValues()` vs `parse()`)
+2. **Test Integration Points:** Features may work in CLI but fail in other contexts (config files, bots)
+3. **Understand Dependencies:** Know what types library methods return before using them
+4. **Investigation Pays Off:** What seemed like a feature request was actually a bug fix
+5. **Documentation-first:** The issue requested case study documentation, which helps with knowledge transfer
 
 ## Related Issues and Pull Requests
 
-- Issue #944: Original feature request
-- PR #945: Implementation pull request
+- Issue #944: Original issue
+- PR #1059: Bug fix implementation
 
 ## Conclusion
 
-The `--tokens-budget-stats` feature provides valuable insights into Claude API usage without affecting the default user experience. By building on existing infrastructure and following the project's patterns, the implementation is clean, maintainable, and easy to extend in the future.
+This case study reveals a valuable lesson: thorough investigation can uncover that what appears to be a feature request is actually a bug preventing an already-implemented feature from working correctly.
 
-The feature addresses all stated requirements:
+The `--tokens-budget-stats` feature was already fully implemented in version 0.54.0 with all requirements met:
 
 - ✅ Shows context usage in absolute values and ratios
 - ✅ Displays usage against maximum input/output limits
@@ -314,8 +379,10 @@ The feature addresses all stated requirements:
 - ✅ Disabled by default
 - ✅ Works only with `--tool claude`
 
+The bug prevented the feature from working when passed via telegram bot configuration overrides. The fix was minimal (2 lines) but critical - using the type-safe `parseStringValues()` method ensures the feature works across all integration points.
+
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-12-20
-**Status:** Implementation Complete
+**Document Version:** 2.0
+**Last Updated:** 2026-01-04
+**Status:** Bug Fix Complete

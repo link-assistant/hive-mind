@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "0.51.7",
+  "version": "1.2.7",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -13,7 +13,8 @@
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/solve-queue.test.mjs",
+    "test:queue": "node tests/solve-queue.test.mjs",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
     "format": "prettier --write \"**/*.{js,mjs,json,md}\"",
@@ -60,8 +61,11 @@
     "prettier": "^3.6.2"
   },
   "dependencies": {
+    "@secretlint/core": "^11.2.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
-    "@sentry/profiling-node": "^10.15.0"
+    "@sentry/profiling-node": "^10.15.0",
+    "secretlint": "^11.2.5"
   },
   "lint-staged": {
     "*.{js,mjs,json,md}": [

@@ -10,6 +10,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+// Import cache TTL configuration
+import { cacheTtl } from './config.lib.mjs';
+
 const execAsync = promisify(exec);
 
 /**
@@ -225,6 +228,184 @@ export async function getGitHubRateLimits(verbose = false) {
 }
 
 /**
+ * Get CPU load average information
+ * Returns 1-minute, 5-minute, and 15-minute load averages
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either CPU load data or error message
+ */
+export async function getCpuLoadInfo(verbose = false) {
+  try {
+    let loadAvg1, loadAvg5, loadAvg15, cpuCount;
+
+    if (process.platform === 'win32') {
+      // Windows: Get CPU count and approximate load
+      const { stdout: cpuStdout } = await execAsync('wmic cpu get NumberOfCores /format:value 2>nul');
+      const coresMatch = cpuStdout.match(/NumberOfCores=(\d+)/);
+      cpuCount = coresMatch ? parseInt(coresMatch[1]) : 1;
+
+      // Windows doesn't have load average, use current CPU usage as approximation
+      const { stdout: loadStdout } = await execAsync('wmic cpu get LoadPercentage /format:value 2>nul');
+      const loadMatch = loadStdout.match(/LoadPercentage=(\d+)/);
+      const currentLoad = loadMatch ? (parseFloat(loadMatch[1]) / 100) * cpuCount : 0;
+      loadAvg1 = loadAvg5 = loadAvg15 = currentLoad;
+    } else {
+      // Unix-like systems (Linux, macOS)
+      const { stdout: loadStdout } = await execAsync('cat /proc/loadavg 2>/dev/null || uptime');
+      const numbers = loadStdout.match(/[\d.]+/g);
+
+      if (numbers && numbers.length >= 3) {
+        loadAvg1 = parseFloat(numbers[0]);
+        loadAvg5 = parseFloat(numbers[1]);
+        loadAvg15 = parseFloat(numbers[2]);
+      }
+
+      // Get CPU count
+      if (process.platform === 'darwin') {
+        const { stdout: cpuStdout } = await execAsync('sysctl -n hw.ncpu 2>/dev/null');
+        cpuCount = parseInt(cpuStdout.trim()) || 1;
+      } else {
+        const { stdout: cpuStdout } = await execAsync('nproc 2>/dev/null || grep -c processor /proc/cpuinfo 2>/dev/null');
+        cpuCount = parseInt(cpuStdout.trim()) || 1;
+      }
+    }
+
+    if (isNaN(loadAvg1) || isNaN(cpuCount)) {
+      return {
+        success: false,
+        error: 'Failed to parse CPU load information',
+      };
+    }
+
+    // Calculate usage percentage based on load average vs CPU count
+    // Load average of 1.0 per CPU = 100% utilization
+    const usagePercentage = Math.min(100, Math.round((loadAvg1 / cpuCount) * 100));
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
+    }
+
+    return {
+      success: true,
+      cpuLoad: {
+        loadAvg1,
+        loadAvg5,
+        loadAvg15,
+        cpuCount,
+        usagePercentage,
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits CPU load error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get CPU load info: ${error.message}`,
+    };
+  }
+}
+
+/**
+ * Get RAM/memory usage information
+ * Returns total, used, and available memory with usage percentage
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Object with success boolean, and either memory data or error message
+ */
+export async function getMemoryInfo(verbose = false) {
+  try {
+    let totalMB, usedMB, availableMB;
+
+    if (process.platform === 'darwin') {
+      // macOS: use vm_stat and sysctl
+      const { stdout: memTotal } = await execAsync('sysctl -n hw.memsize 2>/dev/null');
+      const totalBytes = parseInt(memTotal.trim());
+      totalMB = Math.round(totalBytes / (1024 * 1024));
+
+      const { stdout: vmStat } = await execAsync('vm_stat 2>/dev/null');
+      const pageSize = 4096; // Default page size on macOS
+      const freeMatch = vmStat.match(/Pages free:\s+(\d+)/);
+      const inactiveMatch = vmStat.match(/Pages inactive:\s+(\d+)/);
+      const speculativeMatch = vmStat.match(/Pages speculative:\s+(\d+)/);
+
+      const freePages = freeMatch ? parseInt(freeMatch[1]) : 0;
+      const inactivePages = inactiveMatch ? parseInt(inactiveMatch[1]) : 0;
+      const speculativePages = speculativeMatch ? parseInt(speculativeMatch[1]) : 0;
+
+      // Available = free + inactive + speculative (approximately)
+      availableMB = Math.round(((freePages + inactivePages + speculativePages) * pageSize) / (1024 * 1024));
+      usedMB = totalMB - availableMB;
+    } else if (process.platform === 'win32') {
+      // Windows: use wmic
+      const { stdout } = await execAsync('wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /format:value 2>nul');
+      const freeMatch = stdout.match(/FreePhysicalMemory=(\d+)/);
+      const totalMatch = stdout.match(/TotalVisibleMemorySize=(\d+)/);
+
+      if (freeMatch && totalMatch) {
+        const freeKB = parseInt(freeMatch[1]);
+        const totalKB = parseInt(totalMatch[1]);
+        totalMB = Math.round(totalKB / 1024);
+        availableMB = Math.round(freeKB / 1024);
+        usedMB = totalMB - availableMB;
+      }
+    } else {
+      // Linux: use /proc/meminfo
+      const { stdout } = await execAsync("grep -E '^(MemTotal|MemAvailable):' /proc/meminfo 2>/dev/null");
+      const totalMatch = stdout.match(/MemTotal:\s+(\d+)/);
+      const availableMatch = stdout.match(/MemAvailable:\s+(\d+)/);
+
+      if (totalMatch && availableMatch) {
+        const totalKB = parseInt(totalMatch[1]);
+        const availableKB = parseInt(availableMatch[1]);
+        totalMB = Math.round(totalKB / 1024);
+        availableMB = Math.round(availableKB / 1024);
+        usedMB = totalMB - availableMB;
+      }
+    }
+
+    if (isNaN(totalMB) || isNaN(usedMB) || isNaN(availableMB)) {
+      return {
+        success: false,
+        error: 'Failed to parse memory information',
+      };
+    }
+
+    // Calculate used percentage
+    const usedPercentage = Math.round((usedMB / totalMB) * 100);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /limits memory: ${usedMB}MB used of ${totalMB}MB total (${usedPercentage}% used)`);
+    }
+
+    return {
+      success: true,
+      memory: {
+        totalMB,
+        usedMB,
+        availableMB,
+        totalBytes: totalMB * 1024 * 1024,
+        usedBytes: usedMB * 1024 * 1024,
+        availableBytes: availableMB * 1024 * 1024,
+        usedPercentage,
+        freePercentage: 100 - usedPercentage,
+        totalFormatted: formatBytes(totalMB * 1024 * 1024),
+        usedFormatted: formatBytes(usedMB * 1024 * 1024),
+        availableFormatted: formatBytes(availableMB * 1024 * 1024),
+      },
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /limits memory error:', error);
+    }
+    return {
+      success: false,
+      error: `Failed to get memory info: ${error.message}`,
+    };
+  }
+}
+
+/**
  * Get disk space information for the current filesystem
  * Returns total, used, available space and usage percentage
  *
@@ -354,6 +535,11 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       },
     });
 
+    // Log HTTP response status for debugging (always, not just on error)
+    if (verbose) {
+      console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       if (verbose) {
@@ -365,6 +551,15 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         return {
           success: false,
           error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+        };
+      }
+
+      // Check for rate limiting (429 Too Many Requests)
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        return {
+          success: false,
+          error: `Rate limited by Claude Usage API. ${retryAfter ? `Retry after: ${retryAfter}s` : 'Try again later.'}`,
         };
       }
 
@@ -463,14 +658,33 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * @param {Object} usage - The usage object from getClaudeUsageLimits
  * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
  * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
+ * @param {Object} cpuLoad - Optional CPU load info from getCpuLoadInfo
+ * @param {Object} memory - Optional memory info from getMemoryInfo
  * @returns {string} Formatted message
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null) {
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
   // Show current time
   message += `Current time: ${formatCurrentTime()}\n\n`;
+
+  // CPU load section (if provided)
+  if (cpuLoad) {
+    message += 'CPU\n';
+    const usedBar = getProgressBar(cpuLoad.usagePercentage);
+    message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
+    message += `Load avg: ${cpuLoad.loadAvg1.toFixed(2)} (1m) ${cpuLoad.loadAvg5.toFixed(2)} (5m) ${cpuLoad.loadAvg15.toFixed(2)} (15m)\n`;
+    message += `${cpuLoad.cpuCount} CPU core${cpuLoad.cpuCount > 1 ? 's' : ''}\n\n`;
+  }
+
+  // Memory section (if provided)
+  if (memory) {
+    message += 'RAM\n';
+    const usedBar = getProgressBar(memory.usedPercentage);
+    message += `${usedBar} ${memory.usedPercentage}% used\n`;
+    message += `${memory.usedFormatted} used of ${memory.totalFormatted}\n\n`;
+  }
 
   // Disk space section (if provided)
   if (diskSpace) {
@@ -583,11 +797,175 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   return message;
 }
 
+// ============================================================================
+// Caching Layer
+// ============================================================================
+
+/**
+ * Cache TTL constants (in milliseconds)
+ * Values are loaded from config.lib.mjs which supports environment variable overrides.
+ *
+ * IMPORTANT: The Claude Usage API has stricter rate limiting than regular APIs.
+ * Calling it more frequently than every 20 minutes may result in null values being returned.
+ * See: https://github.com/link-assistant/hive-mind/issues/1074
+ *
+ * Configurable via environment variables:
+ * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
+ * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 1200000 = 20 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
+ */
+export const CACHE_TTL = {
+  API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
+  USAGE_API: cacheTtl.usageApi, // 20 minutes for Claude Usage API (rate limited)
+  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
+};
+
+/**
+ * Generic cache class with configurable TTL
+ */
+class LimitCache {
+  constructor(defaultTtlMs = CACHE_TTL.API) {
+    this.defaultTtlMs = defaultTtlMs;
+    this.cache = new Map();
+  }
+
+  get(key, ttlMs) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    const effectiveTtl = ttlMs ?? entry.ttlMs ?? this.defaultTtlMs;
+    if (Date.now() - entry.timestamp > effectiveTtl) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  set(key, value, ttlMs) {
+    this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  getStats() {
+    const now = Date.now();
+    let validEntries = 0;
+    let expiredEntries = 0;
+    for (const [, entry] of this.cache) {
+      const effectiveTtl = entry.ttlMs ?? this.defaultTtlMs;
+      if (now - entry.timestamp > effectiveTtl) {
+        expiredEntries++;
+      } else {
+        validEntries++;
+      }
+    }
+    return { validEntries, expiredEntries, totalEntries: this.cache.size };
+  }
+}
+
+let globalCache = null;
+
+export function getLimitCache() {
+  if (!globalCache) globalCache = new LimitCache();
+  return globalCache;
+}
+
+export function resetLimitCache() {
+  if (globalCache) {
+    globalCache.clear();
+    globalCache = null;
+  }
+}
+
+export async function getCachedClaudeLimits(verbose = false) {
+  const cache = getLimitCache();
+  // Use USAGE_API TTL (20 minutes) for Claude limits to avoid rate limiting
+  // The Claude Usage API returns null values when called too frequently
+  // See: https://github.com/link-assistant/hive-mind/issues/1074
+  const cached = cache.get('claude', CACHE_TTL.USAGE_API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
+    return cached;
+  }
+  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...');
+  const result = await getClaudeUsageLimits(verbose);
+  if (result.success) cache.set('claude', result, CACHE_TTL.USAGE_API);
+  return result;
+}
+
+export async function getCachedGitHubLimits(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('github', CACHE_TTL.API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached GitHub limits');
+    return cached;
+  }
+  const result = await getGitHubRateLimits(verbose);
+  if (result.success) cache.set('github', result, CACHE_TTL.API);
+  return result;
+}
+
+export async function getCachedMemoryInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('memory', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached memory info');
+    return cached;
+  }
+  const result = await getMemoryInfo(verbose);
+  if (result.success) cache.set('memory', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedCpuInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('cpu', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached CPU info');
+    return cached;
+  }
+  const result = await getCpuLoadInfo(verbose);
+  if (result.success) cache.set('cpu', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedDiskInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('disk', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached disk info');
+    return cached;
+  }
+  const result = await getDiskSpaceInfo(verbose);
+  if (result.success) cache.set('disk', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getAllCachedLimits(verbose = false) {
+  const [claude, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
+  return { claude, github, memory, cpu, disk };
+}
+
 export default {
+  // Raw functions (no caching)
   getClaudeUsageLimits,
+  getCpuLoadInfo,
+  getMemoryInfo,
   getDiskSpaceInfo,
   getGitHubRateLimits,
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  // Cache management
+  CACHE_TTL,
+  getLimitCache,
+  resetLimitCache,
+  // Cached functions
+  getCachedClaudeLimits,
+  getCachedGitHubLimits,
+  getCachedMemoryInfo,
+  getCachedCpuInfo,
+  getCachedDiskInfo,
+  getAllCachedLimits,
 };

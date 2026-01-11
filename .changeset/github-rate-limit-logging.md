@@ -10,8 +10,8 @@ Features:
 
 - Logs rate limit status at session start, after repository setup, after PR setup, after AI tool execution, and provides a summary at session end
 - Shows delta tracking to identify how many API calls each operation consumes
-- Configurable via `--github-rate-limits-logging` flag (enabled by default)
-- Can be disabled with `--no-github-rate-limits-logging`
+- Configurable via `--github-rate-limits-logging` flag (disabled by default)
+- Enable with `--github-rate-limits-logging` when debugging API usage
 - New `github-rate-limit-logger.lib.mjs` module for reusable rate limit tracking
 
 Example output:

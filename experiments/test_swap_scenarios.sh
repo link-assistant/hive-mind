@@ -57,7 +57,7 @@ echo ""
 
 # Run our logic simulation
 echo "[SCENARIO] Simulating swap creation logic:"
-target_total_mb=2048
+target_total_mb=4096
 current_total_mb=0
 
 for i in "" 1 2 3 4 5; do
@@ -110,7 +110,7 @@ else
 fi
 echo ""
 
-# Scenario 3: Multiple small swap files totaling < 2GB
+# Scenario 3: Multiple small swap files totaling < 4GB
 echo "=== SCENARIO 3: Multiple small swap files (500MB + 500MB) ==="
 cleanup_test_files
 create_test_small_swap "/swapfile" 512
@@ -143,10 +143,10 @@ else
 fi
 echo ""
 
-# Scenario 4: Already sufficient swap (2.5GB)
-echo "=== SCENARIO 4: Already sufficient swap (2.5GB) ==="
+# Scenario 4: Already sufficient swap (4.5GB)
+echo "=== SCENARIO 4: Already sufficient swap (4.5GB) ==="
 cleanup_test_files
-create_test_small_swap "/swapfile" 2560  # 2.5GB
+create_test_small_swap "/swapfile" 4608  # 4.5GB
 sudo swapon /swapfile
 
 echo "Current swap status:"
@@ -179,7 +179,7 @@ cleanup_test_files
 echo "[SCENARIO TEST] All scenario tests completed!"
 echo ""
 echo "Summary of behavior:"
-echo "- No swap files: Creates /swapfile with 2048MB"
+echo "- No swap files: Creates /swapfile with 4096MB"
 echo "- Small existing swap: Keeps existing, creates additional file for remainder"
 echo "- Multiple small files: Keeps all existing, creates additional for remainder"
 echo "- Already sufficient: No action needed"

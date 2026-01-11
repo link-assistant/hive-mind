@@ -202,6 +202,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
       default: true,
     })
+    .option('auto-resume-on-limit-reset', {
+      type: 'boolean',
+      description: 'Automatically resume when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
+      default: false,
+    })
     .option('think', {
       type: 'string',
       description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
@@ -264,6 +269,26 @@ export const createYargsConfig = yargsInstance => {
     .option('prompt-case-studies', {
       type: 'boolean',
       description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
+      default: false,
+    })
+    .option('prompt-playwright-mcp', {
+      type: 'boolean',
+      description: 'Enable Playwright MCP browser automation hints in system prompt (enabled by default, only takes effect if Playwright MCP is installed). Use --no-prompt-playwright-mcp to disable. Only supported for --tool claude.',
+      default: true,
+    })
+    .option('prompt-check-sibling-pull-requests', {
+      type: 'boolean',
+      description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
+      default: true,
+    })
+    .option('prompt-architecture-care', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
+      default: false,
+    })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
       default: false,
     })
     .parserConfiguration({

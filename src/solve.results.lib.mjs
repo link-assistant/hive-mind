@@ -27,9 +27,15 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
-// Import auto-continue functions
+// Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
+
+// Import Claude-specific command builders
+// These are used to generate copy-pasteable Claude CLI resume commands for users
+// Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -348,48 +354,59 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = await use('path');
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
-    if (limitReached) {
-      await log('\n⏰ LIMIT REACHED DETECTED!');
+    // Show claude resume command only for --tool claude (or default)
+    // This allows users to investigate, resume, see context, and more
+    // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
+    const tool = argv.tool || 'claude';
+    if (tool === 'claude') {
+      // Build the Claude CLI resume command using the command builder
+      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
 
-      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
+      await log('');
+      await log('💡 To continue this session in Claude Code interactive mode:');
+      await log('');
+      await log(`   ${claudeResumeCmd}`);
+      await log('');
+    }
+
+    if (limitReached) {
+      await log('⏰ LIMIT REACHED DETECTED!');
+
+      if (argv.autoResumeOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
         await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
       } else {
-        // Only show resume recommendation if --no-auto-cleanup was passed
-        if (argv.autoCleanup === false) {
-          await log('\n🔄 To resume when limit resets, use:\n');
-          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+        if (global.limitResetTime) {
+          await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
+        }
 
-          if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-on-limit-reset to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-on-limit-reset`);
-          }
+        await log('\n💡 After the limit resets, resume using the Claude command above.');
 
-          await log('\n   This will continue from where it left off with full context.\n');
-        } else {
-          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        if (argv.autoCleanup !== false) {
+          await log('');
+          await log('⚠️  Note: Temporary directory will be automatically cleaned up.');
           await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
         }
       }
     } else {
-      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
-      if (argv.autoCleanup === false) {
-        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-        await log('');
-      } else {
-        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+      // Show note about auto-cleanup only when enabled
+      if (argv.autoCleanup !== false) {
+        await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');
         await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
       }
     }
 
     // Don't show log preview, it's too technical
   } else {
-    await log('❌ No session ID extracted');
+    // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
+    if (argv.tool !== 'agent') {
+      await log('❌ No session ID extracted');
+    } else {
+      await log('ℹ️  Agent tool completed (session IDs not used for resuming)');
+    }
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
@@ -397,7 +414,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -417,7 +434,9 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     await log('\n🔍 Checking for pull requests from branch ' + branchName + '...');
 
     // First, get all PRs from our branch
-    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
+    // IMPORTANT: Use --state all to find PRs that may have been merged during the session (Issue #1008)
+    // Without --state all, gh pr list only returns OPEN PRs, missing merged ones
+    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
 
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
@@ -438,63 +457,72 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
 
-        // Check if PR body has proper issue linking keywords
-        const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
-        if (prBodyResult.code === 0) {
-          const prBody = prBodyResult.stdout.toString();
-          const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
-
-          // Use the new GitHub linking detection library to check for valid keywords
-          // This ensures we only detect actual GitHub-recognized linking keywords
-          // (fixes, closes, resolves and their variants) in proper format
-          // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-          const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
-
-          if (!hasLinkingKeyword) {
-            await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
-            // Add proper issue reference to the PR body
-            const linkingText = `\n\nFixes ${issueRef}`;
-            const updatedBody = prBody + linkingText;
-
-            // Use --body-file instead of --body to avoid command-line length limits
-            // and special character escaping issues that can cause hangs/timeouts
-            const fs = (await use('fs')).promises;
-            const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
-            await fs.writeFile(tempBodyFile, updatedBody);
-
-            try {
-              const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-
-              // Clean up temp file
-              await fs.unlink(tempBodyFile).catch(() => {});
-
-              if (updateResult.code === 0) {
-                await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-              } else {
-                await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-              }
-            } catch (updateError) {
-              // Clean up temp file on error
-              await fs.unlink(tempBodyFile).catch(() => {});
-              throw updateError;
-            }
-          } else {
-            await log('  ✅ PR body already contains issue reference');
-          }
+        // Check if PR was merged during the session (Issue #1008)
+        const isPrMerged = pr.state === 'MERGED';
+        if (isPrMerged) {
+          await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
 
-        // Check if PR is ready for review (convert from draft if necessary)
-        if (pr.isDraft) {
-          await log('  🔄 Converting PR from draft to ready for review...');
-          const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
-          if (readyResult.code === 0) {
-            await log('  ✅ PR converted to ready for review');
-          } else {
-            await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
+        // Skip PR body update and ready conversion for merged PRs (they can't be edited)
+        if (!isPrMerged) {
+          // Check if PR body has proper issue linking keywords
+          const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
+          if (prBodyResult.code === 0) {
+            const prBody = prBodyResult.stdout.toString();
+            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+
+            // Use the new GitHub linking detection library to check for valid keywords
+            // This ensures we only detect actual GitHub-recognized linking keywords
+            // (fixes, closes, resolves and their variants) in proper format
+            // See: https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
+            const hasLinkingKeyword = hasGitHubLinkingKeyword(prBody, issueNumber, argv.fork ? owner : null, argv.fork ? repo : null);
+
+            if (!hasLinkingKeyword) {
+              await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
+
+              // Add proper issue reference to the PR body
+              const linkingText = `\n\nFixes ${issueRef}`;
+              const updatedBody = prBody + linkingText;
+
+              // Use --body-file instead of --body to avoid command-line length limits
+              // and special character escaping issues that can cause hangs/timeouts
+              const fs = (await use('fs')).promises;
+              const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
+              await fs.writeFile(tempBodyFile, updatedBody);
+
+              try {
+                const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+
+                // Clean up temp file
+                await fs.unlink(tempBodyFile).catch(() => {});
+
+                if (updateResult.code === 0) {
+                  await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
+                } else {
+                  await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
+                }
+              } catch (updateError) {
+                // Clean up temp file on error
+                await fs.unlink(tempBodyFile).catch(() => {});
+                throw updateError;
+              }
+            } else {
+              await log('  ✅ PR body already contains issue reference');
+            }
           }
-        } else {
-          await log('  ✅ PR is already ready for review', { verbose: true });
+
+          // Check if PR is ready for review (convert from draft if necessary)
+          if (pr.isDraft) {
+            await log('  🔄 Converting PR from draft to ready for review...');
+            const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
+            if (readyResult.code === 0) {
+              await log('  ✅ PR converted to ready for review');
+            } else {
+              await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
+            }
+          } else {
+            await log('  ✅ PR is already ready for review', { verbose: true });
+          }
         }
 
         // Upload log file to PR if requested
@@ -517,6 +545,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // Pass agent tool pricing data when available
             publicPricingEstimate,
             pricingInfo,
+            // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+            errorDuringExecution,
           });
         }
 
@@ -544,7 +574,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
 
     // Get all comments and filter them
-    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+    // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');
@@ -579,6 +610,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           // Pass agent tool pricing data when available
           publicPricingEstimate,
           pricingInfo,
+          // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+          errorDuringExecution,
         });
       }
 

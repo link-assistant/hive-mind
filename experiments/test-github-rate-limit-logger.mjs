@@ -18,8 +18,18 @@ async function main() {
   console.log('🧪 Testing GitHub Rate Limit Logger\n');
   console.log('='.repeat(50));
 
-  // Test 1: Check if rate limit logging is enabled by default
-  console.log('\n1. Testing default state...');
+  // Test 1: Check if rate limit logging is disabled by default
+  console.log('\n1. Testing default state (should be disabled)...');
+  console.log(`   Rate limit logging enabled: ${isRateLimitLoggingEnabled()}`);
+  if (isRateLimitLoggingEnabled()) {
+    console.log('   ❌ FAIL: Should be disabled by default');
+  } else {
+    console.log('   ✅ Correctly disabled by default');
+  }
+
+  // Enable logging for the rest of the tests
+  console.log('\n1b. Enabling logging for tests...');
+  setRateLimitLoggingEnabled(true);
   console.log(`   Rate limit logging enabled: ${isRateLimitLoggingEnabled()}`);
 
   // Test 2: Get current rate limit

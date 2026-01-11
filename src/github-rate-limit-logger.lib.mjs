@@ -21,8 +21,8 @@ const execAsync = promisify(exec);
 // Track the last known rate limit for delta calculations
 let lastRateLimit = null;
 
-// Global flag to enable/disable rate limit logging
-let rateLimitLoggingEnabled = true;
+// Global flag to enable/disable rate limit logging (disabled by default)
+let rateLimitLoggingEnabled = false;
 
 /**
  * Enable or disable rate limit logging globally

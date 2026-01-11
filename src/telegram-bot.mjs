@@ -1241,27 +1241,12 @@ bot.command(/^hive$/i, async ctx => {
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 });
 
-// Register /top command from separate module
-// This keeps telegram-bot.mjs under the 1500 line limit
+// Register commands from separate modules (keeps telegram-bot.mjs under line limit)
+const commandOptions = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized };
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
-registerTopCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat,
-  isChatAuthorized,
-});
-
-// Register /start and /stop commands from separate module (issue #1081)
-// These allow chat owners to control whether the bot accepts new tasks
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
-registerStartStopCommands(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat,
-  isChatAuthorized,
-});
+registerTopCommand(bot, commandOptions);
+registerStartStopCommands(bot, commandOptions); // issue #1081
 
 // Add message listener for verbose debugging
 if (VERBOSE) {

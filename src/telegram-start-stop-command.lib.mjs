@@ -162,23 +162,10 @@ export function registerStartStopCommands(bot, options) {
       console.log(`[VERBOSE] Chat ${chatId} is now stopped`);
     }
 
-    await ctx.reply(
-      '🛑 *Bot Stopped*\n\n' +
-        'This bot is now in read-only mode for this chat.\n\n' +
-        '*Disabled commands:*\n' +
-        '• /solve - No new issues will be accepted\n' +
-        '• /hive - No new hive commands will be accepted\n\n' +
-        '*Still available:*\n' +
-        '• /help - Show help\n' +
-        '• /limits - Show usage limits\n' +
-        '• /version - Show version info\n' +
-        '• /start - Resume accepting tasks (owner only)\n\n' +
-        '💡 Any tasks already in queue will continue to process.',
-      {
-        parse_mode: 'Markdown',
-        reply_to_message_id: ctx.message.message_id,
-      }
-    );
+    await ctx.reply('🛑 *Bot Stopped*\n\n' + 'This bot is now in read-only mode for this chat.\n\n' + '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.', {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message.message_id,
+    });
   });
 
   // /start command - resume accepting new tasks in this chat
@@ -211,18 +198,9 @@ export function registerStartStopCommands(bot, options) {
       if (VERBOSE) {
         console.log('[VERBOSE] /start in private chat: showing welcome');
       }
-      await ctx.reply(
-        '👋 *Welcome to SwarmMindBot!*\n\n' +
-          'This bot helps solve GitHub issues using AI.\n\n' +
-          'To use this bot:\n' +
-          '1. Add me to a group chat\n' +
-          '2. Make me an admin\n' +
-          '3. Use /solve to solve GitHub issues\n\n' +
-          'Use /help in a group chat for more information.',
-        {
-          parse_mode: 'Markdown',
-        }
-      );
+      await ctx.reply('👋 *Welcome to SwarmMindBot!*\n\n' + 'This bot helps solve GitHub issues using AI.\n\n' + 'To use this bot:\n' + '1. Add me to a group chat\n' + '2. Make me an admin\n' + '3. Use /solve to solve GitHub issues\n\n' + 'Use /help in a group chat for more information.', {
+        parse_mode: 'Markdown',
+      });
       return;
     }
 
@@ -289,12 +267,9 @@ export function registerStartStopCommands(bot, options) {
       }
     }
 
-    await ctx.reply(
-      '✅ *Bot Started*\n\n' + 'This bot is now accepting tasks in this chat.\n\n' + (durationStr ? `Bot was stopped for ${durationStr}.\n\n` : '') + 'Use /help to see available commands.',
-      {
-        parse_mode: 'Markdown',
-        reply_to_message_id: ctx.message.message_id,
-      }
-    );
+    await ctx.reply('✅ *Bot Started*\n\n' + 'This bot is now accepting tasks in this chat.\n\n' + (durationStr ? `Bot was stopped for ${durationStr}.\n\n` : '') + 'Use /help to see available commands.', {
+      parse_mode: 'Markdown',
+      reply_to_message_id: ctx.message.message_id,
+    });
   });
 }

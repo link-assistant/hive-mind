@@ -319,6 +319,11 @@ jobs:
         echo "Running test suite for lenv-reader.lib.mjs..."
         node tests/test-lenv-reader.mjs
 
+    - name: Run lino test (Issue #1086)
+      run: |
+        echo "Running test suite for lino.lib.mjs..."
+        node tests/test-lino.mjs
+
     - name: Run Telegram URL extraction test (Issue #603)
       run: |
         echo "Running test suite for Telegram URL extraction..."
@@ -343,6 +348,16 @@ jobs:
       run: |
         echo "Running test suite for buildCostInfoString..."
         node tests/test-build-cost-info-string.mjs
+
+    - name: Run token sanitization test (Issue #1037)
+      run: |
+        echo "Running test suite for token sanitization..."
+        node tests/test-token-sanitization.mjs
+
+    - name: Run Telegram special character handling test (Issue #1070)
+      run: |
+        echo "Running test suite for Telegram special character handling..."
+        node tests/test-telegram-special-char-handling.mjs
 
   # === EXECUTION TESTS ===
   test-execution:
@@ -657,12 +672,6 @@ jobs:
 
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image with log capture
         run: |
@@ -1007,6 +1016,44 @@ jobs:
             echo "WARNING: Playwright success message not found in logs"
           fi
 
+          # Verify Playwright browsers were installed during build
+          echo ""
+          echo "Verifying Playwright browser installation in build logs..."
+          PLAYWRIGHT_BROWSERS_VERIFIED=true
+
+          # Check for required browsers (chromium, firefox, webkit)
+          if grep -E '\[✓\] Playwright browser verified: chromium' build-output.log; then
+            echo "Chromium browser installation verified in build logs"
+          elif grep -E 'chromium installed successfully' build-output.log; then
+            echo "Chromium browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: Chromium browser verification not found in build logs"
+            # Don't fail here - will be verified in container step
+          fi
+
+          if grep -E '\[✓\] Playwright browser verified: firefox' build-output.log; then
+            echo "Firefox browser installation verified in build logs"
+          elif grep -E 'firefox installed successfully' build-output.log; then
+            echo "Firefox browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: Firefox browser verification not found in build logs"
+          fi
+
+          if grep -E '\[✓\] Playwright browser verified: webkit' build-output.log; then
+            echo "WebKit browser installation verified in build logs"
+          elif grep -E 'webkit installed successfully' build-output.log; then
+            echo "WebKit browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: WebKit browser verification not found in build logs"
+          fi
+
+          # Check if any browser installation failed
+          if grep -E '\[!\] Failed to install some Playwright browsers' build-output.log; then
+            echo "WARNING: Some Playwright browsers failed during build - will verify in container step"
+          fi
+
+          echo ""
+
           if grep -E '\[✓\] Python:' build-output.log; then
             echo "Python installation verified in build logs"
           else
@@ -1342,6 +1389,41 @@ jobs:
             else
               echo 'Playwright command not found in container'
               exit 1
+            fi
+
+            echo ''
+            echo 'Checking Playwright browsers...'
+            PLAYWRIGHT_CACHE=\"\$HOME/.cache/ms-playwright\"
+            BROWSERS_REQUIRED=\"chromium firefox webkit\"
+            BROWSERS_MISSING=\"\"
+
+            for browser in \$BROWSERS_REQUIRED; do
+              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
+              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
+                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
+              else
+                echo \"  \$browser: MISSING\"
+                BROWSERS_MISSING=\"\$BROWSERS_MISSING \$browser\"
+              fi
+            done
+
+            # Check optional browsers (chromium_headless_shell, ffmpeg)
+            for browser in chromium_headless_shell ffmpeg; do
+              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
+              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
+                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
+              else
+                echo \"  \$browser: not installed (optional)\"
+              fi
+            done
+
+            if [ -n \"\$BROWSERS_MISSING\" ]; then
+              echo 'ERROR: Required Playwright browsers missing:\$BROWSERS_MISSING'
+              echo 'The Playwright MCP server requires these browsers to function properly.'
+              echo 'See issue #1060 for more details.'
+              exit 1
+            else
+              echo 'All required Playwright browsers are installed'
             fi
 
             echo ''

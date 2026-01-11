@@ -245,7 +245,7 @@ export const handleAgentRuntimeSwitch = async () => {
 
 // Main function to execute Agent with prompts and settings
 export const executeAgent = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
 
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
@@ -258,6 +258,7 @@ export const executeAgent = async params => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -276,6 +277,7 @@ export const executeAgent = async params => {
     prNumber,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
     argv,
@@ -405,7 +407,26 @@ export const executeAgentCommand = async params => {
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          await log(output);
+          // Split output into individual lines for NDJSON parsing
+          // Agent outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+          // This allows us to parse each event independently and extract structured data like session IDs
+          const lines = output.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              // Output formatted JSON
+              await log(JSON.stringify(data, null, 2));
+              // Capture session ID from the first message
+              if (!sessionId && data.sessionID) {
+                sessionId = data.sessionID;
+                await log(`📌 Session ID: ${sessionId}`);
+              }
+            } catch {
+              // Not JSON - log as plain text
+              await log(line);
+            }
+          }
           lastMessage = output;
           fullOutput += output; // Collect for both pricing calculation and error detection
         }

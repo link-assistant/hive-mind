@@ -223,12 +223,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_SOLVE_OVERRIDES:
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -250,12 +250,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --solve-overrides "(
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -332,10 +332,11 @@ solve <issue-url> [options]
 
 **Most frequently used options:**
 
-| Option    | Alias | Description                             | Default |
-| --------- | ----- | --------------------------------------- | ------- |
-| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
-| `--think` |       | Thinking level (low, medium, high, max) | -       |
+| Option          | Alias | Description                             | Default   |
+| --------------- | ----- | --------------------------------------- | --------- |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--think`       |       | Thinking level (low, medium, high, max) | -         |
+| `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
 **Other useful options:**
 

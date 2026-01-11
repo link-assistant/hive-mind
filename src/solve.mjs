@@ -65,6 +65,9 @@ const { executeClaude } = claudeLib;
 const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
 
+const usageLimitLib = await import('./usage-limit.lib.mjs');
+const { formatResetTimeWithRelative } = usageLimitLib;
+
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
 const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = errorHandlers;
 
@@ -104,7 +107,16 @@ await log('🔧 Raw command executed:');
 await log(`   ${rawCommand}`);
 await log('');
 
-const argv = await parseArguments(yargs, hideBin);
+let argv;
+try {
+  argv = await parseArguments(yargs, hideBin);
+} catch (error) {
+  // Handle argument parsing errors with helpful messages
+  await log(`❌ ${error.message}`, { level: 'error' });
+  await log('', { level: 'error' });
+  await log('Use /help to see available options', { level: 'error' });
+  await safeExit(1, 'Invalid command-line arguments');
+}
 global.verboseMode = argv.verbose;
 
 // If user specified a custom log directory, we would need to move the log file
@@ -224,7 +236,7 @@ if (argv.verbose) {
   await log(`   Is Issue URL: ${!!isIssueUrl}`, { verbose: true });
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 // Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
 // The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
 // and the validation result already provides these values correctly parsed
@@ -499,7 +511,9 @@ if (isPrUrl) {
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
 // Create or find temporary directory for cloning the repository
-const { tempDir } = await setupTempDirectory(argv);
+// Pass workspace info for --enable-workspaces mode (works with all tools)
+const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
+const { tempDir, workspaceTmpDir } = await setupTempDirectory(argv, workspaceInfo);
 // Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
@@ -752,6 +766,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,
@@ -780,6 +795,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,
@@ -808,6 +824,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,
@@ -849,6 +866,7 @@ try {
       prUrl,
       branchName,
       tempDir,
+      workspaceTmpDir,
       isContinueMode,
       mergeStateStatus,
       forkedRepo,
@@ -873,6 +891,7 @@ try {
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
+  let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -883,10 +902,10 @@ try {
 
   // Handle limit reached scenario
   if (limitReached) {
-    const shouldAutoContinueOnReset = argv.autoContinueOnLimitReset;
+    const shouldAutoResumeOnReset = argv.autoResumeOnLimitReset;
 
-    // If limit was reached but auto-continue-on-limit-reset is NOT enabled, fail immediately
-    if (!shouldAutoContinueOnReset) {
+    // If limit was reached but auto-resume-on-limit-reset is NOT enabled, fail immediately
+    if (!shouldAutoResumeOnReset) {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
@@ -949,8 +968,12 @@ try {
         // Note: Commands should not be in GitHub comments - only mention the option
         try {
           const resetTime = global.limitResetTime;
+          // Note: Commands should not be in GitHub comments - only mention the option
+          // The resume command is available in the logs (collapsed block or gist link) for advanced users
           const resumeSection = sessionId ? `Session ID: \`${sessionId}\`\n\nUse the \`--auto-continue-on-limit-reset\` option to automatically resume when the limit resets.` : 'Use the `--auto-continue-on-limit-reset` option to automatically resume when the limit resets.';
-          const failureComment = resetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${resetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
+          // Format the reset time with relative time if available
+          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime) : null;
+          const failureComment = formattedResetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
           if (commentResult.code === 0) {
@@ -961,9 +984,9 @@ try {
         }
       }
 
-      await safeExit(1, 'Usage limit reached - use --auto-continue-on-limit-reset to wait for reset');
+      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset to wait for reset');
     } else {
-      // auto-continue-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // auto-resume-on-limit-reset is enabled - attach logs and/or post waiting comment
       if (prNumber && global.limitResetTime) {
         // If --attach-logs is enabled, upload logs with usage limit details
         if (shouldAttachLogs && sessionId) {
@@ -1019,7 +1042,7 @@ try {
             // Build Claude CLI resume command
             const tool = argv.tool || 'claude';
             const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-continue is enabled with \`--auto-continue-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-resume is enabled with \`--auto-resume-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1033,7 +1056,11 @@ try {
     }
   }
 
-  if (!success) {
+  // Handle failure cases, but skip exit if limit reached with auto-resume enabled
+  // This allows the code to continue to showSessionSummary() where autoContinueWhenLimitResets() is called
+  const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
+
+  if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
     // Show claude resume command only for --tool claude (or default) on failure
     // Uses the (cd ... && claude --resume ...) pattern for a fully copyable, executable command
     const toolForFailure = argv.tool || 'claude';
@@ -1101,7 +1128,8 @@ try {
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo);
+  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {

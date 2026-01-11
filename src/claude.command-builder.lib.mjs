@@ -9,7 +9,7 @@
  *
  *   (cd "/path/to/workdir" && claude --resume <session-id>)
  *
- * This is the same pattern used by --auto-continue-on-limit-reset and allows users to:
+ * This is the same pattern used by --auto-resume-on-limit-reset and allows users to:
  * 1. Resume sessions directly using Claude CLI (not through solve.mjs)
  * 2. Investigate issues interactively in the working directory
  * 3. Continue work after usage limits reset
@@ -26,7 +26,7 @@
  *
  * This generates a copy-pasteable command that users can execute directly
  * to resume a Claude session in interactive mode. This is the same pattern
- * used by --auto-continue-on-limit-reset.
+ * used by --auto-resume-on-limit-reset.
  *
  * The command includes all necessary flags to match how the original session was run:
  * - --resume <sessionId>: Resume from the specified session

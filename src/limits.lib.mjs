@@ -10,6 +10,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+// Import cache TTL configuration
+import { cacheTtl } from './config.lib.mjs';
+
 const execAsync = promisify(exec);
 
 /**
@@ -532,6 +535,11 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       },
     });
 
+    // Log HTTP response status for debugging (always, not just on error)
+    if (verbose) {
+      console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       if (verbose) {
@@ -543,6 +551,15 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         return {
           success: false,
           error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+        };
+      }
+
+      // Check for rate limiting (429 Too Many Requests)
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        return {
+          success: false,
+          error: `Rate limited by Claude Usage API. ${retryAfter ? `Retry after: ${retryAfter}s` : 'Try again later.'}`,
         };
       }
 
@@ -780,7 +797,158 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   return message;
 }
 
+// ============================================================================
+// Caching Layer
+// ============================================================================
+
+/**
+ * Cache TTL constants (in milliseconds)
+ * Values are loaded from config.lib.mjs which supports environment variable overrides.
+ *
+ * IMPORTANT: The Claude Usage API has stricter rate limiting than regular APIs.
+ * Calling it more frequently than every 20 minutes may result in null values being returned.
+ * See: https://github.com/link-assistant/hive-mind/issues/1074
+ *
+ * Configurable via environment variables:
+ * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
+ * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 1200000 = 20 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
+ */
+export const CACHE_TTL = {
+  API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
+  USAGE_API: cacheTtl.usageApi, // 20 minutes for Claude Usage API (rate limited)
+  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
+};
+
+/**
+ * Generic cache class with configurable TTL
+ */
+class LimitCache {
+  constructor(defaultTtlMs = CACHE_TTL.API) {
+    this.defaultTtlMs = defaultTtlMs;
+    this.cache = new Map();
+  }
+
+  get(key, ttlMs) {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    const effectiveTtl = ttlMs ?? entry.ttlMs ?? this.defaultTtlMs;
+    if (Date.now() - entry.timestamp > effectiveTtl) {
+      this.cache.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
+  set(key, value, ttlMs) {
+    this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+
+  getStats() {
+    const now = Date.now();
+    let validEntries = 0;
+    let expiredEntries = 0;
+    for (const [, entry] of this.cache) {
+      const effectiveTtl = entry.ttlMs ?? this.defaultTtlMs;
+      if (now - entry.timestamp > effectiveTtl) {
+        expiredEntries++;
+      } else {
+        validEntries++;
+      }
+    }
+    return { validEntries, expiredEntries, totalEntries: this.cache.size };
+  }
+}
+
+let globalCache = null;
+
+export function getLimitCache() {
+  if (!globalCache) globalCache = new LimitCache();
+  return globalCache;
+}
+
+export function resetLimitCache() {
+  if (globalCache) {
+    globalCache.clear();
+    globalCache = null;
+  }
+}
+
+export async function getCachedClaudeLimits(verbose = false) {
+  const cache = getLimitCache();
+  // Use USAGE_API TTL (20 minutes) for Claude limits to avoid rate limiting
+  // The Claude Usage API returns null values when called too frequently
+  // See: https://github.com/link-assistant/hive-mind/issues/1074
+  const cached = cache.get('claude', CACHE_TTL.USAGE_API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
+    return cached;
+  }
+  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...');
+  const result = await getClaudeUsageLimits(verbose);
+  if (result.success) cache.set('claude', result, CACHE_TTL.USAGE_API);
+  return result;
+}
+
+export async function getCachedGitHubLimits(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('github', CACHE_TTL.API);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached GitHub limits');
+    return cached;
+  }
+  const result = await getGitHubRateLimits(verbose);
+  if (result.success) cache.set('github', result, CACHE_TTL.API);
+  return result;
+}
+
+export async function getCachedMemoryInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('memory', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached memory info');
+    return cached;
+  }
+  const result = await getMemoryInfo(verbose);
+  if (result.success) cache.set('memory', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedCpuInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('cpu', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached CPU info');
+    return cached;
+  }
+  const result = await getCpuLoadInfo(verbose);
+  if (result.success) cache.set('cpu', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getCachedDiskInfo(verbose = false) {
+  const cache = getLimitCache();
+  const cached = cache.get('disk', CACHE_TTL.SYSTEM);
+  if (cached) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached disk info');
+    return cached;
+  }
+  const result = await getDiskSpaceInfo(verbose);
+  if (result.success) cache.set('disk', result, CACHE_TTL.SYSTEM);
+  return result;
+}
+
+export async function getAllCachedLimits(verbose = false) {
+  const [claude, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
+  return { claude, github, memory, cpu, disk };
+}
+
 export default {
+  // Raw functions (no caching)
   getClaudeUsageLimits,
   getCpuLoadInfo,
   getMemoryInfo,
@@ -789,4 +957,15 @@ export default {
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  // Cache management
+  CACHE_TTL,
+  getLimitCache,
+  resetLimitCache,
+  // Cached functions
+  getCachedClaudeLimits,
+  getCachedGitHubLimits,
+  getCachedMemoryInfo,
+  getCachedCpuInfo,
+  getCachedDiskInfo,
+  getAllCachedLimits,
 };

@@ -115,7 +115,7 @@ export const handleCodexRuntimeSwitch = async () => {
 
 // Main function to execute Codex with prompts and settings
 export const executeCodex = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, codexPath = 'codex', $ } = params;
 
   // Import prompt building functions from codex.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./codex.prompts.lib.mjs');
@@ -128,6 +128,7 @@ export const executeCodex = async params => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -146,6 +147,7 @@ export const executeCodex = async params => {
     prNumber,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
     argv,

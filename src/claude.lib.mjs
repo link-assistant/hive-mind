@@ -1033,9 +1033,18 @@ export const executeClaudeCommand = async params => {
               // Handle session result type from Claude CLI (emitted when session completes)
               // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
-                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                // Issue #1104: Only update cost if the new value is positive, and keep the highest value
+                // This handles cases where error_during_execution results have total_cost_usd: 0
+                // but a previous success result had the actual cost
+                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null && data.total_cost_usd > 0) {
+                  if (anthropicTotalCostUSD === null || data.total_cost_usd > anthropicTotalCostUSD) {
+                    anthropicTotalCostUSD = data.total_cost_usd;
+                    await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                  } else {
+                    await log(`💰 Anthropic cost update skipped (current: $${anthropicTotalCostUSD.toFixed(6)}, new: $${data.total_cost_usd.toFixed(6)})`, { verbose: true });
+                  }
+                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  await log(`💰 Anthropic cost ignored (zero or negative): $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1164,6 +1173,7 @@ export const executeClaudeCommand = async params => {
             limitResetTime: null,
             messageCount,
             toolUseCount,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1211,6 +1221,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             is503Error: true,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1287,6 +1298,7 @@ export const executeClaudeCommand = async params => {
           messageCount,
           toolUseCount,
           errorDuringExecution,
+          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         };
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
@@ -1403,6 +1415,7 @@ export const executeClaudeCommand = async params => {
         limitResetTime: null,
         messageCount,
         toolUseCount,
+        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
       };
     }
   }; // End of executeWithRetry function

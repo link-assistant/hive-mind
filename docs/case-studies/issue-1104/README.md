@@ -205,7 +205,7 @@ if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
 **Pros:** Handles multiple result events correctly
 **Cons:** May double-count if Claude Code changes behavior
 
-### Solution 3: Keep Maximum Non-Zero Cost (Recommended)
+### Solution 3: Keep Maximum Non-Zero Cost
 
 Only update the cost if the new value is non-zero:
 
@@ -219,11 +219,25 @@ if (data.total_cost_usd !== undefined && data.total_cost_usd !== null && data.to
 ```
 
 **Pros:** Ignores zero-cost error results, keeps highest valid cost
-**Cons:** More complex logic
+**Cons:** More complex logic, relies on implicit behavior
+
+### Solution 4: Only Extract from Success Subtype (Recommended)
+
+Only capture cost from results with `subtype === 'success'`:
+
+```javascript
+if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+  anthropicTotalCostUSD = data.total_cost_usd;
+  await log(`Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`);
+}
+```
+
+**Pros:** Explicit and reliable, uses the semantic meaning of the result subtype
+**Cons:** None - this is the cleanest approach
 
 ### Recommended Implementation
 
-Implement Solution 1 (minimal fix) immediately, with Solution 3 as a follow-up enhancement.
+Implement Solution 4 (only extract from success subtype) combined with Solution 1 (add missing field to failure returns). This approach is explicit, reliable, and semantically correct.
 
 ## Files Involved
 
@@ -248,4 +262,13 @@ Implement Solution 1 (minimal fix) immediately, with Solution 3 as a follow-up e
 
 ## Conclusion
 
-The bug is caused by a missing `anthropicTotalCostUSD` field in the failure return path of `executeClaudeCommand()`. The fix is straightforward: add the missing field to the return statement. This ensures cost information is preserved even when sessions encounter `error_during_execution` errors.
+The bug has two root causes:
+
+1. **Missing field in failure returns**: The `anthropicTotalCostUSD` field was missing from failure return paths in `executeClaudeCommand()`.
+
+2. **Cost overwriting by error results**: When multiple result events are emitted (success followed by error_during_execution), the zero-cost error result was overwriting the valid cost from the success result.
+
+The fix implements two improvements:
+
+1. Added `anthropicTotalCostUSD` to all failure return statements.
+2. Changed cost capture logic to only extract from `subtype === 'success'` results. This is explicit and reliable, using the semantic meaning of the result subtype rather than relying on complex value comparison logic.

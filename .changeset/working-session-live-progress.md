@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": minor
+'@link-assistant/hive-mind': minor
 ---
 
 Add experimental live progress monitoring for work sessions

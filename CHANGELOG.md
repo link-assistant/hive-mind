@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 1.2.7
+
+### Patch Changes
+
+- 12831a1: fix: Allow issues_list and pulls_list URLs for /hive command (Issue #1102)
+  - Accept issues_list URLs (e.g., `https://github.com/owner/repo/issues`) for /hive command
+  - Clean non-printable characters from URLs to prevent Markdown parsing errors
+  - Escape special characters in error messages
+  - Normalize issues_list URLs to base repo URLs before processing
+
 ## 1.2.6
 
 ### Patch Changes

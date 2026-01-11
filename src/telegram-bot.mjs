@@ -43,6 +43,7 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { isChatStopped, getChatStopInfo } = await import('./telegram-start-stop-command.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -728,6 +729,18 @@ bot.command('help', async ctx => {
   const chatTitle = ctx.chat.title || 'Private Chat';
 
   let message = '🤖 *SwarmMindBot Help*\n\n';
+
+  // Show stopped status if chat is stopped (issue #1081)
+  if (isChatStopped(chatId)) {
+    const stopInfo = getChatStopInfo(chatId);
+    message += '🛑 *Bot Status: STOPPED*\n';
+    message += 'This bot is not accepting new tasks in this chat.\n';
+    if (stopInfo?.stoppedAt) {
+      message += `Stopped: ${stopInfo.stoppedAt.toISOString()}\n`;
+    }
+    message += 'Use /start (chat owner only) to resume.\n\n';
+  }
+
   message += '📋 *Diagnostic Information:*\n';
   message += `• Chat ID: \`${chatId}\`\n`;
   message += `• Chat Type: ${chatType}\n`;
@@ -761,8 +774,10 @@ bot.command('help', async ctx => {
 
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
-  message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
+  message += '*/help* - Show this help message\n';
+  message += '*/stop* - Stop accepting new tasks (owner only)\n';
+  message += '*/start* - Resume accepting tasks (owner only)\n\n';
+  message += '⚠️ *Note:* Most commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -944,6 +959,15 @@ bot.command(/^solve$/i, async ctx => {
       console.log('[VERBOSE] /solve ignored: chat not authorized');
     }
     await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
+  // Check if chat is stopped (issue #1081)
+  if (isChatStopped(chatId)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /solve ignored: chat is stopped');
+    }
+    await ctx.reply('❌ This bot is currently stopped in this chat and not accepting new tasks.\n\nUse /start to resume (chat owner only).', { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1130,6 +1154,15 @@ bot.command(/^hive$/i, async ctx => {
     return;
   }
 
+  // Check if chat is stopped (issue #1081)
+  if (isChatStopped(chatId)) {
+    if (VERBOSE) {
+      console.log('[VERBOSE] /hive ignored: chat is stopped');
+    }
+    await ctx.reply('❌ This bot is currently stopped in this chat and not accepting new tasks.\n\nUse /start to resume (chat owner only).', { reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   if (VERBOSE) {
     console.log('[VERBOSE] /hive passed all checks, executing...');
   }
@@ -1212,6 +1245,17 @@ bot.command(/^hive$/i, async ctx => {
 // This keeps telegram-bot.mjs under the 1500 line limit
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 registerTopCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
+});
+
+// Register /start and /stop commands from separate module (issue #1081)
+// These allow chat owners to control whether the bot accepts new tasks
+const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
+registerStartStopCommands(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,

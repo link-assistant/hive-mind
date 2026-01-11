@@ -48,18 +48,15 @@ const tokens = {
   output: input.usage.outputTokens ?? 0,
   reasoning: input.usage?.reasoningTokens ?? 0,
   cache: {
-    write: (input.metadata?.['anthropic']?.['cacheCreationInputTokens'] ??
-      input.metadata?.['bedrock']?.['usage']?.['cacheWriteInputTokens'] ??
-      0) as number,
+    write: (input.metadata?.['anthropic']?.['cacheCreationInputTokens'] ?? input.metadata?.['bedrock']?.['usage']?.['cacheWriteInputTokens'] ?? 0) as number,
     read: cachedInputTokens,
   },
 };
 
 // Cost calculation using Decimal
 return {
-  cost: new Decimal(0)
-    .add(new Decimal(tokens.input).mul(costInfo?.input ?? 0).div(1_000_000))
-    // ... more calculations
+  cost: new Decimal(0).add(new Decimal(tokens.input).mul(costInfo?.input ?? 0).div(1_000_000)),
+  // ... more calculations
 };
 ```
 
@@ -68,11 +65,12 @@ return {
 Unlike the upstream OpenCode implementation, the `link-assistant/agent` fork is missing the `safe()` wrapper function that sanitizes numeric inputs:
 
 **OpenCode (upstream) has:**
+
 ```typescript
 const safe = (value: number) => {
-  if (!Number.isFinite(value)) return 0
-  return value
-}
+  if (!Number.isFinite(value)) return 0;
+  return value;
+};
 
 const tokens = {
   input: safe(adjustedInputTokens),
@@ -86,6 +84,7 @@ const tokens = {
 ### Root Cause: Provider Returns Object Instead of Number
 
 When certain providers (like OpenCode Zen with `grok-code` model) return usage metadata, they may include:
+
 1. An object where a number is expected
 2. `undefined` or `null` values
 3. Non-finite numbers like `NaN` or `Infinity`
@@ -95,11 +94,13 @@ The `decimal.js` library throws `[DecimalError] Invalid argument: [object Object
 ## Evidence
 
 ### Related Issues
+
 - [sst/opencode#6161](https://github.com/sst/opencode/issues/6161) - Same error pattern, resolved by upgrading
 - [recharts/recharts#1738](https://github.com/recharts/recharts/issues/1738) - DecimalError with NaN
 - [prisma/prisma#28674](https://github.com/prisma/prisma/issues/28674) - DecimalError with objects
 
 ### Key Observations
+
 1. Error occurs during the `finish-step` event when usage data is processed
 2. The `todowrite` tool itself completed successfully - error happened in usage calculation after
 3. The `grok-code` model from OpenCode Zen has $0 cost (free tier), which may cause unusual metadata handling
@@ -120,14 +121,14 @@ const safe = (value: unknown): number => {
 ```
 
 Apply to all token values:
+
 ```typescript
 const tokens = {
   input: safe(adjustedInputTokens),
   output: safe(input.usage.outputTokens),
   reasoning: safe(input.usage?.reasoningTokens),
   cache: {
-    write: safe(input.metadata?.['anthropic']?.['cacheCreationInputTokens'] ??
-      input.metadata?.['bedrock']?.['usage']?.['cacheWriteInputTokens']),
+    write: safe(input.metadata?.['anthropic']?.['cacheCreationInputTokens'] ?? input.metadata?.['bedrock']?.['usage']?.['cacheWriteInputTokens']),
     read: safe(cachedInputTokens),
   },
 };
@@ -158,6 +159,7 @@ try {
 ### Workaround: Use Different Model
 
 Until fixed, users can work around by:
+
 1. Using a different provider/model that returns properly formatted usage data
 2. Running with models that have known-good metadata handling (e.g., Anthropic Claude models)
 

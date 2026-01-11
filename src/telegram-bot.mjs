@@ -1051,18 +1051,32 @@ bot.command(/^solve$/i, async ctx => {
     return;
   }
 
+  // Use normalized URL from validation to ensure consistent duplicate detection
+  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  const normalizedUrl = validation.parsed.normalized;
+
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(args[0])}\nOptions: ${optionsText}`;
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\nOptions: ${optionsText}`;
   if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
+
+  // Check for duplicate URL in queue
+  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  const existingItem = solveQueue.findByUrl(normalizedUrl);
+  if (existingItem) {
+    const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
+    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve-queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   const check = await solveQueue.canStartCommand();
   const queueStats = solveQueue.getStats();
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
-    const queueItem = solveQueue.enqueue({ url: args[0], args, ctx, requester, infoBlock, tool: solveTool });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
     const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

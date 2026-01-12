@@ -1,12 +1,98 @@
-{"number":827,"state":"CLOSED","title":"Optimize $mol_charset_ucf encode/decode performance","createdAt":"2026-01-08T07:24:05Z","closedAt":"2026-01-08T08:41:46Z","mergedAt":null}
-{"number":824,"state":"CLOSED","title":"$mol_pop: переход на CSS Popover API с $mol_follower","createdAt":"2025-12-22T10:49:39Z","closedAt":"2026-01-08T08:44:29Z","mergedAt":null}
-{"number":816,"state":"CLOSED","title":"Fix type check errors not being reported (preserve watch mode)","createdAt":"2025-12-08T10:30:59Z","closedAt":"2026-01-08T08:43:24Z","mergedAt":null}
-{"number":807,"state":"CLOSED","title":"Оптимизируй $mol_vary","createdAt":"2025-11-14T15:58:57Z","closedAt":"2025-11-16T22:28:35Z","mergedAt":null}
-{"number":803,"state":"CLOSED","title":"Optimize $mol_vary performance","createdAt":"2025-11-10T13:05:23Z","closedAt":"2025-11-11T12:41:19Z","mergedAt":null}
-{"number":802,"state":"CLOSED","title":"Add comprehensive edge case tests for $mol_vary","createdAt":"2025-11-10T13:05:18Z","closedAt":"2025-11-11T12:56:44Z","mergedAt":null}
-{"number":789,"state":"OPEN","title":": focus graph on click","createdAt":"2025-10-01T22:40:43Z","closedAt":null,"mergedAt":null}
-{"number":787,"state":"MERGED","title":"Fix: Email input keyboard and selection issues in ","createdAt":"2025-09-29T16:58:00Z","closedAt":"2025-09-29T17:05:02Z","mergedAt":"2025-09-29T17:05:02Z"}
-{"number":786,"state":"MERGED","title":"fix: add  component with proper input type for email fields","createdAt":"2025-09-29T15:04:47Z","closedAt":"2025-09-29T15:13:22Z","mergedAt":"2025-09-29T15:13:21Z"}
-{"number":785,"state":"MERGED","title":"feat: add $mol_email component with email input type","createdAt":"2025-09-29T11:12:46Z","closedAt":"2025-09-29T14:13:32Z","mergedAt":"2025-09-29T14:13:32Z"}
-{"number":784,"state":"OPEN","title":"Fix:  now uses  for layout","createdAt":"2025-09-28T17:08:27Z","closedAt":null,"mergedAt":null}
-{"number":783,"state":"OPEN","title":"Не работает деструктор в экшене при перезапуске родительского mem-а","createdAt":"2025-09-27T16:42:15Z","closedAt":null,"mergedAt":null}
+[
+  {
+    "closedAt": "2026-01-08T08:41:46Z",
+    "createdAt": "2026-01-08T07:24:05Z",
+    "mergedAt": null,
+    "number": 827,
+    "state": "CLOSED",
+    "title": "Optimize $mol_charset_ucf encode/decode performance"
+  },
+  {
+    "closedAt": "2026-01-08T08:44:29Z",
+    "createdAt": "2025-12-22T10:49:39Z",
+    "mergedAt": null,
+    "number": 824,
+    "state": "CLOSED",
+    "title": "$mol_pop: переход на CSS Popover API с $mol_follower"
+  },
+  {
+    "closedAt": "2026-01-08T08:43:24Z",
+    "createdAt": "2025-12-08T10:30:59Z",
+    "mergedAt": null,
+    "number": 816,
+    "state": "CLOSED",
+    "title": "Fix type check errors not being reported (preserve watch mode)"
+  },
+  {
+    "closedAt": "2025-11-16T22:28:35Z",
+    "createdAt": "2025-11-14T15:58:57Z",
+    "mergedAt": null,
+    "number": 807,
+    "state": "CLOSED",
+    "title": "Оптимизируй $mol_vary"
+  },
+  {
+    "closedAt": "2025-11-11T12:41:19Z",
+    "createdAt": "2025-11-10T13:05:23Z",
+    "mergedAt": null,
+    "number": 803,
+    "state": "CLOSED",
+    "title": "Optimize $mol_vary performance"
+  },
+  {
+    "closedAt": "2025-11-11T12:56:44Z",
+    "createdAt": "2025-11-10T13:05:18Z",
+    "mergedAt": null,
+    "number": 802,
+    "state": "CLOSED",
+    "title": "Add comprehensive edge case tests for $mol_vary"
+  },
+  {
+    "closedAt": null,
+    "createdAt": "2025-10-01T22:40:43Z",
+    "mergedAt": null,
+    "number": 789,
+    "state": "OPEN",
+    "title": ": focus graph on click"
+  },
+  {
+    "closedAt": "2025-09-29T17:05:02Z",
+    "createdAt": "2025-09-29T16:58:00Z",
+    "mergedAt": "2025-09-29T17:05:02Z",
+    "number": 787,
+    "state": "MERGED",
+    "title": "Fix: Email input keyboard and selection issues in "
+  },
+  {
+    "closedAt": "2025-09-29T15:13:22Z",
+    "createdAt": "2025-09-29T15:04:47Z",
+    "mergedAt": "2025-09-29T15:13:21Z",
+    "number": 786,
+    "state": "MERGED",
+    "title": "fix: add  component with proper input type for email fields"
+  },
+  {
+    "closedAt": "2025-09-29T14:13:32Z",
+    "createdAt": "2025-09-29T11:12:46Z",
+    "mergedAt": "2025-09-29T14:13:32Z",
+    "number": 785,
+    "state": "MERGED",
+    "title": "feat: add $mol_email component with email input type"
+  },
+  {
+    "closedAt": null,
+    "createdAt": "2025-09-28T17:08:27Z",
+    "mergedAt": null,
+    "number": 784,
+    "state": "OPEN",
+    "title": "Fix:  now uses  for layout"
+  },
+  {
+    "closedAt": null,
+    "createdAt": "2025-09-27T16:42:15Z",
+    "mergedAt": null,
+    "number": 783,
+    "state": "OPEN",
+    "title": "Не работает деструктор в экшене при перезапуске родительского mem-а"
+  }
+]

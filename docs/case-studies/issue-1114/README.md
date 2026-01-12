@@ -8,20 +8,20 @@ The analysis reveals critical patterns about when AI-generated code succeeds vs.
 
 ## Timeline of Events
 
-| Date | PR # | Title | State | Duration | Outcome |
-|------|------|-------|-------|----------|---------|
-| 2025-09-27 | [#783](https://github.com/hyoo-ru/mam_mol/pull/783) | Destructor issue in action on parent mem restart | OPEN | - | No maintainer response yet |
-| 2025-09-28 | [#784](https://github.com/hyoo-ru/mam_mol/pull/784) | $mol_attach uses $mol_gallery for layout | OPEN | - | Needs more work |
-| 2025-09-29 | [#785](https://github.com/hyoo-ru/mam_mol/pull/785) | feat: add $mol_email component | MERGED | 3 hours | Success after 2 feedback rounds |
-| 2025-09-29 | [#786](https://github.com/hyoo-ru/mam_mol/pull/786) | fix: add $mol_email with proper input type | MERGED | 8 min | Rapid approval |
-| 2025-09-29 | [#787](https://github.com/hyoo-ru/mam_mol/pull/787) | Fix: Email input keyboard/selection issues | MERGED | 7 min | Rapid approval |
-| 2025-10-01 | [#789](https://github.com/hyoo-ru/mam_mol/pull/789) | Focus graph on legend click | OPEN | - | Maintainer says "Everything is bad" |
-| 2025-11-10 | [#802](https://github.com/hyoo-ru/mam_mol/pull/802) | Add comprehensive edge case tests for $mol_vary | CLOSED | 1.5 days | "Useless tests" |
-| 2025-11-10 | [#803](https://github.com/hyoo-ru/mam_mol/pull/803) | Optimize $mol_vary performance | CLOSED | 1 day | "This is deoptimization, not optimization" |
-| 2025-11-14 | [#807](https://github.com/hyoo-ru/mam_mol/pull/807) | Optimize $mol_vary | CLOSED | 2 days | "Done it myself as needed" |
-| 2025-12-08 | [#816](https://github.com/hyoo-ru/mam_mol/pull/816) | Fix type check errors not being reported | CLOSED | 1 month | "Fixed it myself already" |
-| 2025-12-22 | [#824](https://github.com/hyoo-ru/mam_mol/pull/824) | $mol_pop: migrate to CSS Popover API | CLOSED | 17 days | "Complete nonsense" (Полная чушь) |
-| 2026-01-08 | [#827](https://github.com/hyoo-ru/mam_mol/pull/827) | Optimize $mol_charset_ucf encode/decode | CLOSED | 1.3 hours | "Fixed small things, rest is nonsense" |
+| Date       | PR #                                                | Title                                            | State  | Duration  | Outcome                                    |
+| ---------- | --------------------------------------------------- | ------------------------------------------------ | ------ | --------- | ------------------------------------------ |
+| 2025-09-27 | [#783](https://github.com/hyoo-ru/mam_mol/pull/783) | Destructor issue in action on parent mem restart | OPEN   | -         | No maintainer response yet                 |
+| 2025-09-28 | [#784](https://github.com/hyoo-ru/mam_mol/pull/784) | $mol_attach uses $mol_gallery for layout         | OPEN   | -         | Needs more work                            |
+| 2025-09-29 | [#785](https://github.com/hyoo-ru/mam_mol/pull/785) | feat: add $mol_email component                   | MERGED | 3 hours   | Success after 2 feedback rounds            |
+| 2025-09-29 | [#786](https://github.com/hyoo-ru/mam_mol/pull/786) | fix: add $mol_email with proper input type       | MERGED | 8 min     | Rapid approval                             |
+| 2025-09-29 | [#787](https://github.com/hyoo-ru/mam_mol/pull/787) | Fix: Email input keyboard/selection issues       | MERGED | 7 min     | Rapid approval                             |
+| 2025-10-01 | [#789](https://github.com/hyoo-ru/mam_mol/pull/789) | Focus graph on legend click                      | OPEN   | -         | Maintainer says "Everything is bad"        |
+| 2025-11-10 | [#802](https://github.com/hyoo-ru/mam_mol/pull/802) | Add comprehensive edge case tests for $mol_vary  | CLOSED | 1.5 days  | "Useless tests"                            |
+| 2025-11-10 | [#803](https://github.com/hyoo-ru/mam_mol/pull/803) | Optimize $mol_vary performance                   | CLOSED | 1 day     | "This is deoptimization, not optimization" |
+| 2025-11-14 | [#807](https://github.com/hyoo-ru/mam_mol/pull/807) | Optimize $mol_vary                               | CLOSED | 2 days    | "Done it myself as needed"                 |
+| 2025-12-08 | [#816](https://github.com/hyoo-ru/mam_mol/pull/816) | Fix type check errors not being reported         | CLOSED | 1 month   | "Fixed it myself already"                  |
+| 2025-12-22 | [#824](https://github.com/hyoo-ru/mam_mol/pull/824) | $mol_pop: migrate to CSS Popover API             | CLOSED | 17 days   | "Complete nonsense" (Полная чушь)          |
+| 2026-01-08 | [#827](https://github.com/hyoo-ru/mam_mol/pull/827) | Optimize $mol_charset_ucf encode/decode          | CLOSED | 1.3 hours | "Fixed small things, rest is nonsense"     |
 
 ## Patterns Analysis
 
@@ -36,6 +36,7 @@ The analysis reveals critical patterns about when AI-generated code succeeds vs.
 5. **No architectural decisions**: The solution followed existing patterns without requiring new design choices
 
 **Maintainer feedback on merged PRs:**
+
 - PR #785: "Move the hint to the newly created component" -> Fixed in 4 minutes
 - PR #786: Approved immediately after a small formatting fix
 - PR #787: Approved immediately
@@ -52,15 +53,15 @@ The analysis reveals critical patterns about when AI-generated code succeeds vs.
 
 **Critical maintainer feedback on failed PRs:**
 
-| PR | Maintainer Feedback (Original) | Translation |
-|----|-------------------------------|-------------|
-| #827 | "Мелочевку поправил, остальное - ерунда полная" | "Fixed small things, the rest is complete nonsense" |
-| #824 | "Полная чушь" | "Complete nonsense" |
+| PR   | Maintainer Feedback (Original)                          | Translation                                                             |
+| ---- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| #827 | "Мелочевку поправил, остальное - ерунда полная"         | "Fixed small things, the rest is complete nonsense"                     |
+| #824 | "Полная чушь"                                           | "Complete nonsense"                                                     |
 | #816 | "Где-то там глушились ошибки. Короче, поправил сам уже" | "Errors were being silenced somewhere. Anyway, fixed it myself already" |
-| #807 | "Короче, сделал сам как надо" | "In short, did it myself as it should be" |
-| #803 | "Это не оптимизация, а деоптимизация (да, я проверил)" | "This is not optimization, but deoptimization (yes, I checked)" |
-| #802 | "Useless tests" | - |
-| #789 | "Всё плохо" | "Everything is bad" |
+| #807 | "Короче, сделал сам как надо"                           | "In short, did it myself as it should be"                               |
+| #803 | "Это не оптимизация, а деоптимизация (да, я проверил)"  | "This is not optimization, but deoptimization (yes, I checked)"         |
+| #802 | "Useless tests"                                         | -                                                                       |
+| #789 | "Всё плохо"                                             | "Everything is bad"                                                     |
 
 ### Pattern 3: Feedback Response Issues
 
@@ -138,17 +139,17 @@ These industry trends align with our observations: the AI performs well on simpl
 
 ## Cost Analysis
 
-| PR # | State | Solution Drafts | Estimated Cost | Value Delivered |
-|------|-------|-----------------|----------------|-----------------|
-| #785 | MERGED | 3 | ~$4.50 | Created $mol_email component |
-| #786 | MERGED | 1 | ~$0.57 | Fixed input type issue |
-| #787 | MERGED | 1 | ~$0.50 | Fixed selection issues |
-| #802 | CLOSED | 3 | ~$9.27 | None (tests rejected) |
-| #803 | CLOSED | 3 | ~$5.85 | Partial (string decoder) |
-| #807 | CLOSED | 5 | ~$11.47 | None (done by maintainer) |
-| #816 | CLOSED | 2 | ~$6.55 | None (fixed by maintainer) |
-| #824 | CLOSED | 3 | ~$7.93 | None (rejected) |
-| #827 | CLOSED | 2 | ~$6.44 | Minimal (small fixes only) |
+| PR # | State  | Solution Drafts | Estimated Cost | Value Delivered              |
+| ---- | ------ | --------------- | -------------- | ---------------------------- |
+| #785 | MERGED | 3               | ~$4.50         | Created $mol_email component |
+| #786 | MERGED | 1               | ~$0.57         | Fixed input type issue       |
+| #787 | MERGED | 1               | ~$0.50         | Fixed selection issues       |
+| #802 | CLOSED | 3               | ~$9.27         | None (tests rejected)        |
+| #803 | CLOSED | 3               | ~$5.85         | Partial (string decoder)     |
+| #807 | CLOSED | 5               | ~$11.47        | None (done by maintainer)    |
+| #816 | CLOSED | 2               | ~$6.55         | None (fixed by maintainer)   |
+| #824 | CLOSED | 3               | ~$7.93         | None (rejected)              |
+| #827 | CLOSED | 2               | ~$6.44         | Minimal (small fixes only)   |
 
 **Total estimated cost for failed PRs: ~$47.50**
 **Total estimated cost for successful PRs: ~$5.57**
@@ -223,6 +224,7 @@ Raw data collected for this case study:
 - `pr-details.json` - Full PR details including comments and reviews
 
 Solution draft logs are available via GitHub Gists (links found in PR comments):
+
 - [PR #827 Log](https://gist.github.com/konard/e441fe8b216eae654e0455c0fc37c00c)
 - [PR #824 Log](https://gist.github.com/konard/4cbe82509e4d62fe4c6f03916f70946d)
 - [PR #816 Log](https://gist.github.com/konard/ece9a8cf7d31d28b4d24afd65d1d1475)

@@ -28,12 +28,12 @@ let denyList = [];
 
 const allowIndex = args.indexOf('--allow');
 if (allowIndex !== -1 && args[allowIndex + 1]) {
-  allowList = args[allowIndex + 1].split(',').map((u) => u.trim().toLowerCase());
+  allowList = args[allowIndex + 1].split(',').map(u => u.trim().toLowerCase());
 }
 
 const denyIndex = args.indexOf('--deny');
 if (denyIndex !== -1 && args[denyIndex + 1]) {
-  denyList = args[denyIndex + 1].split(',').map((u) => u.trim().toLowerCase());
+  denyList = args[denyIndex + 1].split(',').map(u => u.trim().toLowerCase());
 }
 
 const token = process.env.GITHUB_TOKEN;
@@ -41,9 +41,7 @@ const token = process.env.GITHUB_TOKEN;
 if (!token) {
   console.error('Error: GITHUB_TOKEN environment variable is required');
   console.error('');
-  console.error(
-    'Create a Personal Access Token at: https://github.com/settings/tokens'
-  );
+  console.error('Create a Personal Access Token at: https://github.com/settings/tokens');
   console.error('Required scopes: repo:invite, admin:org');
   process.exit(1);
 }
@@ -69,26 +67,19 @@ async function fetchJSON(url, options = {}) {
 
 async function listRepoInvitations() {
   console.log('Fetching repository invitations...');
-  const invitations = await fetchJSON(
-    `${GITHUB_API_BASE}/user/repository_invitations`
-  );
+  const invitations = await fetchJSON(`${GITHUB_API_BASE}/user/repository_invitations`);
   console.log(`Found ${invitations.length} pending repository invitation(s)`);
   return invitations;
 }
 
 async function acceptRepoInvitation(invitationId) {
-  return fetchJSON(
-    `${GITHUB_API_BASE}/user/repository_invitations/${invitationId}`,
-    { method: 'PATCH' }
-  );
+  return fetchJSON(`${GITHUB_API_BASE}/user/repository_invitations/${invitationId}`, { method: 'PATCH' });
 }
 
 async function listOrgMemberships() {
   console.log('Fetching organization memberships...');
-  const memberships = await fetchJSON(
-    `${GITHUB_API_BASE}/user/memberships/orgs`
-  );
-  const pending = memberships.filter((m) => m.state === 'pending');
+  const memberships = await fetchJSON(`${GITHUB_API_BASE}/user/memberships/orgs`);
+  const pending = memberships.filter(m => m.state === 'pending');
   console.log(`Found ${pending.length} pending organization invitation(s)`);
   return pending;
 }
@@ -133,9 +124,7 @@ async function processRepoInvitations() {
 
     const decision = shouldAccept(inviter);
 
-    console.log(
-      `  - ${repoName} (from: ${inviter}, expired: ${expired})${!decision.accept ? ` [SKIP: ${decision.reason}]` : ''}`
-    );
+    console.log(`  - ${repoName} (from: ${inviter}, expired: ${expired})${!decision.accept ? ` [SKIP: ${decision.reason}]` : ''}`);
 
     if (!decision.accept) continue;
 

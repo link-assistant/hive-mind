@@ -133,6 +133,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
         default: false,
       })
+      .option('auto-keep-file', {
+        type: 'boolean',
+        description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
+        default: true,
+      })
       .option('attach-logs', {
         type: 'boolean',
         description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',

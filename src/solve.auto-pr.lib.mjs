@@ -31,12 +31,27 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
 
   try {
     // Determine which file to create based on CLI flags
-    const useClaudeFile = argv.claudeFile !== false; // Default to true
-    const useGitkeepFile = argv.gitkeepFile === true; // Default to false
+    let useClaudeFile = argv.claudeFile !== false; // Default to true
+    const useAutoKeepFile = argv.autoKeepFile !== false; // Default to true
+
+    // Pre-check: If using CLAUDE.md mode and --auto-keep-file is enabled,
+    // check if CLAUDE.md would be ignored by .gitignore BEFORE creating it
+    // This prevents the error "The following paths are ignored by one of your .gitignore files"
+    if (useClaudeFile && useAutoKeepFile) {
+      const checkIgnoreResult = await $({ cwd: tempDir, silent: true })`git check-ignore CLAUDE.md 2>/dev/null`;
+      const claudeWouldBeIgnored = checkIgnoreResult.code === 0;
+
+      if (claudeWouldBeIgnored) {
+        await log(formatAligned('ℹ️', 'Pre-check:', 'CLAUDE.md is in .gitignore'));
+        await log('     Automatically switching to .gitkeep mode (--auto-keep-file=true)');
+        await log('');
+        useClaudeFile = false;
+      }
+    }
 
     // Log which mode we're using
     if (argv.verbose) {
-      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${useClaudeFile}, --gitkeep-file=${useGitkeepFile})`, { verbose: true });
+      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${argv.claudeFile !== false}, --gitkeep-file=${argv.gitkeepFile === true}, --auto-keep-file=${useAutoKeepFile})`, { verbose: true });
     }
 
     let filePath;
@@ -62,8 +77,10 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
         }
       }
     } else {
-      // Create .gitkeep file directly (experimental mode)
-      await log(formatAligned('📝', 'Creating:', '.gitkeep (experimental mode)'));
+      // Create .gitkeep file - either via explicit --gitkeep-file (experimental) or auto-keep-file fallback
+      const isExplicitGitkeepMode = argv.gitkeepFile === true;
+      const modeDescription = isExplicitGitkeepMode ? '.gitkeep (experimental mode)' : '.gitkeep (CLAUDE.md is ignored)';
+      await log(formatAligned('📝', 'Creating:', modeDescription));
 
       filePath = path.join(tempDir, '.gitkeep');
       fileName = '.gitkeep';
@@ -126,11 +143,14 @@ Proceed.
       }
     } else {
       // .gitkeep: Use minimal metadata format
+      // Distinguish between explicit --gitkeep-file (experimental) and auto-keep-file fallback
+      const isExplicitGitkeepMode = argv.gitkeepFile === true;
+      const creationReason = isExplicitGitkeepMode ? '# This file was created with --gitkeep-file flag (experimental)' : '# This file was created because CLAUDE.md is in .gitignore (--auto-keep-file=true)';
       const gitkeepContent = `# Auto-generated file for PR creation
 # Issue: ${issueUrl}
 # Branch: ${branchName}
 # Timestamp: ${timestamp}
-# This file was created with --gitkeep-file flag (experimental)
+${creationReason}
 # It will be removed when the task is complete`;
 
       if (fileExisted && existingContent) {
@@ -291,7 +311,9 @@ Proceed.
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
 
     // Determine commit message based on which file is being committed
-    const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${useGitkeepFile ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore'})`;
+    // Use argv.gitkeepFile to check if explicit --gitkeep-file flag was used (not auto-keep-file fallback)
+    const isExplicitGitkeepModeForCommit = argv.gitkeepFile === true;
+    const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${isExplicitGitkeepModeForCommit ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore'})`;
     const commitMessage = `Initial commit with task details\n\nAdding ${fileDesc}.\nThis file will be removed when the task is complete.\n\nIssue: ${issueUrl}`;
 
     // Use explicit cwd option for better reliability

@@ -13,8 +13,9 @@
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "node tests/solve-queue.test.mjs",
+    "test": "node tests/solve-queue.test.mjs && node tests/test-usage-limit.mjs",
     "test:queue": "node tests/solve-queue.test.mjs",
+    "test:usage-limit": "node tests/test-usage-limit.mjs",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
     "format": "prettier --write \"**/*.{js,mjs,json,md}\"",

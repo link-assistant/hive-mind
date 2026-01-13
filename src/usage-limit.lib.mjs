@@ -49,8 +49,12 @@ export function isUsageLimitError(message) {
 /**
  * Extract reset time from usage limit error message
  *
+ * Supports both time-only formats (5-hour limits) and date+time formats (weekly limits):
+ * - "resets 10pm" → "10:00 PM"
+ * - "resets Jan 15, 8am" → "Jan 15, 8:00 AM"
+ *
  * @param {string} message - Error message to analyze
- * @returns {string|null} - Reset time string (e.g., "12:16 PM") or null if not found
+ * @returns {string|null} - Reset time string (e.g., "12:16 PM" or "Jan 15, 8:00 AM") or null if not found
  */
 export function extractResetTime(message) {
   if (!message || typeof message !== 'string') {
@@ -59,6 +63,21 @@ export function extractResetTime(message) {
 
   // Normalize whitespace for easier matching
   const normalized = message.replace(/\s+/g, ' ');
+
+  // Pattern 0: Weekly limit with date - "resets Jan 15, 8am" or "resets January 15, 8:00am"
+  // This pattern must come first to avoid partial matches by time-only patterns
+  const monthPattern = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+  const resetsWithDateRegex = new RegExp(`resets\\s+(${monthPattern})\\s+(\\d{1,2}),?\\s+([0-9]{1,2})(?::([0-9]{2}))?\\s*([ap]m)`, 'i');
+  const resetsWithDate = normalized.match(resetsWithDateRegex);
+  if (resetsWithDate) {
+    const month = resetsWithDate[1];
+    const day = resetsWithDate[2];
+    const hour = resetsWithDate[3];
+    const minute = resetsWithDate[4] || '00';
+    const ampm = resetsWithDate[5].toUpperCase();
+    // Return formatted date+time string for weekly limits
+    return `${month} ${day}, ${hour}:${minute} ${ampm}`;
+  }
 
   // Pattern 1: "try again at 12:16 PM"
   const tryAgainMatch = normalized.match(/try again at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
@@ -143,9 +162,13 @@ export function detectUsageLimit(message) {
 }
 
 /**
- * Parse time string (e.g., "11:00 PM") and convert to Date object for today
+ * Parse time string and convert to Date object
  *
- * @param {string} timeStr - Time string in format "HH:MM AM/PM"
+ * Supports both formats:
+ * - Time only: "11:00 PM" → today or tomorrow at that time
+ * - Date+time: "Jan 15, 8:00 AM" → specific date at that time
+ *
+ * @param {string} timeStr - Time string in format "HH:MM AM/PM" or "Mon DD, HH:MM AM/PM"
  * @returns {Date|null} - Date object or null if parsing fails
  */
 export function parseResetTime(timeStr) {
@@ -153,7 +176,72 @@ export function parseResetTime(timeStr) {
     return null;
   }
 
-  // Match pattern like "11:00 PM" or "11:00PM"
+  const now = new Date();
+
+  // Try to match date+time format first (e.g., "Jan 15, 8:00 AM")
+  const monthPattern = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+  const dateTimeRegex = new RegExp(`${monthPattern}\\s+(\\d{1,2}),?\\s+(\\d{1,2}):(\\d{2})\\s*(AM|PM)`, 'i');
+  const dateTimeMatch = timeStr.match(dateTimeRegex);
+
+  if (dateTimeMatch) {
+    const monthStr = dateTimeMatch[1];
+    const day = parseInt(dateTimeMatch[2], 10);
+    let hour = parseInt(dateTimeMatch[3], 10);
+    const minute = parseInt(dateTimeMatch[4], 10);
+    const ampm = dateTimeMatch[5].toUpperCase();
+
+    // Convert month name to month index (0-11)
+    const monthMap = {
+      jan: 0,
+      january: 0,
+      feb: 1,
+      february: 1,
+      mar: 2,
+      march: 2,
+      apr: 3,
+      april: 3,
+      may: 4,
+      jun: 5,
+      june: 5,
+      jul: 6,
+      july: 6,
+      aug: 7,
+      august: 7,
+      sep: 8,
+      sept: 8,
+      september: 8,
+      oct: 9,
+      october: 9,
+      nov: 10,
+      november: 10,
+      dec: 11,
+      december: 11,
+    };
+    const month = monthMap[monthStr.toLowerCase()];
+    if (month === undefined) {
+      return null;
+    }
+
+    // Convert to 24-hour format
+    if (ampm === 'PM' && hour !== 12) {
+      hour += 12;
+    } else if (ampm === 'AM' && hour === 12) {
+      hour = 0;
+    }
+
+    // Create date for this year (or next year if the date is in the past)
+    let year = now.getFullYear();
+    let resetDate = new Date(year, month, day, hour, minute, 0, 0);
+
+    // If the date is in the past, assume next year
+    if (resetDate <= now) {
+      resetDate = new Date(year + 1, month, day, hour, minute, 0, 0);
+    }
+
+    return resetDate;
+  }
+
+  // Fall back to time-only format (e.g., "11:00 PM" or "11:00PM")
   const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
   if (!match) {
     return null;
@@ -171,7 +259,6 @@ export function parseResetTime(timeStr) {
   }
 
   // Create date for today with the parsed time
-  const now = new Date();
   const resetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
 
   // If the time is in the past today, assume it's tomorrow

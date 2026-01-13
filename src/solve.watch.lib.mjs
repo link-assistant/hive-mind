@@ -15,6 +15,10 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
 
+// Import path and fs for cleanup operations
+const path = (await use('path')).default;
+const fs = (await use('fs')).promises;
+
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned } = lib;
@@ -51,9 +55,32 @@ const checkPRMerged = async (owner, repo, prNumber) => {
 };
 
 /**
+ * Clean up .playwright-mcp/ folder to prevent browser automation artifacts
+ * from triggering auto-restart (Issue #1124)
+ */
+const cleanupPlaywrightMcpFolder = async (tempDir, argv) => {
+  if (argv.playwrightMcpAutoCleanup !== false) {
+    const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
+    try {
+      const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+      if (playwrightMcpExists) {
+        await fs.rm(playwrightMcpDir, { recursive: true, force: true });
+        await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });
+      }
+    } catch (cleanupError) {
+      // Non-critical error, just log and continue
+      await log(`⚠️  Could not clean up .playwright-mcp/ folder: ${cleanupError.message}`, { verbose: true });
+    }
+  }
+};
+
+/**
  * Check if there are uncommitted changes in the repository
  */
-const checkForUncommittedChanges = async (tempDir, $) => {
+const checkForUncommittedChanges = async (tempDir, $, argv = {}) => {
+  // First, clean up .playwright-mcp/ folder to prevent false positives (Issue #1124)
+  await cleanupPlaywrightMcpFolder(tempDir, argv);
+
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
@@ -130,7 +157,7 @@ export const watchForFeedback = async params => {
 
     // In temporary watch mode, check if all changes have been committed
     if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-      const hasUncommitted = await checkForUncommittedChanges(tempDir, $);
+      const hasUncommitted = await checkForUncommittedChanges(tempDir, $, argv);
       if (!hasUncommitted) {
         await log('');
         await log(formatAligned('✅', 'CHANGES COMMITTED!', 'Exiting auto-restart mode'));
@@ -185,7 +212,7 @@ export const watchForFeedback = async params => {
       // In temporary watch mode, also check for uncommitted changes as a restart trigger
       let hasUncommittedInTempMode = false;
       if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $);
+        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $, argv);
       }
 
       const shouldRestart = hasFeedback || firstIterationInTemporaryMode || hasUncommittedInTempMode;

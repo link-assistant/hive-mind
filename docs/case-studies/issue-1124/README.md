@@ -7,6 +7,7 @@ When Playwright MCP is enabled for browser automation tasks, it creates a `.play
 **Root Cause**: The `.playwright-mcp/` folder is created by Playwright MCP during browser automation but is not automatically cleaned up after the session. The auto-restart mechanism detects it as uncommitted changes and triggers a restart loop.
 
 **Impact**:
+
 - Unnecessary auto-restart iterations consuming additional API costs
 - User confusion about the auto-restart behavior
 - Potential for infinite restart loops if not handled properly
@@ -63,6 +64,7 @@ This is by design - it allows the AI to reference these files in subsequent tool
 ### 2. No Automatic Cleanup Mechanism
 
 The hive-mind solve command doesn't clean up the `.playwright-mcp/` folder after:
+
 - Session completion
 - Before checking for uncommitted changes
 - During the CLAUDE.md revert process
@@ -79,6 +81,7 @@ if (statusOutput) {
 ```
 
 It doesn't distinguish between:
+
 - Files that should be committed (actual code changes)
 - Files that should be ignored (like `.playwright-mcp/`)
 
@@ -100,11 +103,13 @@ if (argv.playwrightMcpAutoCleanup !== false) {
 ```
 
 **Pros**:
+
 - Clean working directory after session
 - No confusion about uncommitted changes
 - Doesn't affect actual code changes
 
 **Cons**:
+
 - Screenshots and artifacts are lost (but they're in the log anyway)
 
 ### Solution 2: Add `--no-playwright-mcp-auto-cleanup` Option
@@ -120,9 +125,7 @@ Provide a CLI flag to disable auto-cleanup for debugging purposes:
 Filter out `.playwright-mcp/` when checking for uncommitted changes:
 
 ```javascript
-const lines = statusOutput.split('\n').filter(line =>
-  !line.includes('.playwright-mcp/')
-);
+const lines = statusOutput.split('\n').filter(line => !line.includes('.playwright-mcp/'));
 if (lines.length > 0) {
   // Only restart if there are OTHER uncommitted changes
 }

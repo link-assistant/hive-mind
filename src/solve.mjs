@@ -1121,7 +1121,10 @@ try {
   if (argv.playwrightMcpAutoCleanup !== false) {
     const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
     try {
-      const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
       if (playwrightMcpExists) {
         await fs.rm(playwrightMcpDir, { recursive: true, force: true });
         await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });

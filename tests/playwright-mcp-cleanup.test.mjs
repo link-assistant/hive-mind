@@ -70,42 +70,24 @@ async function runTests() {
     // Read the solve.mjs file and verify the cleanup code exists
     const solveContent = await fs.readFile(path.join(process.cwd(), 'src/solve.mjs'), 'utf-8');
 
-    assert.ok(
-      solveContent.includes('.playwright-mcp'),
-      'solve.mjs should contain .playwright-mcp cleanup logic'
-    );
-    assert.ok(
-      solveContent.includes('playwrightMcpAutoCleanup'),
-      'solve.mjs should check playwrightMcpAutoCleanup option'
-    );
+    assert.ok(solveContent.includes('.playwright-mcp'), 'solve.mjs should contain .playwright-mcp cleanup logic');
+    assert.ok(solveContent.includes('playwrightMcpAutoCleanup'), 'solve.mjs should check playwrightMcpAutoCleanup option');
   });
 
   await asyncTest('cleanup logic exists in solve.watch.lib.mjs', async () => {
     // Read the watch lib file and verify the cleanup code exists
     const watchContent = await fs.readFile(path.join(process.cwd(), 'src/solve.watch.lib.mjs'), 'utf-8');
 
-    assert.ok(
-      watchContent.includes('.playwright-mcp'),
-      'solve.watch.lib.mjs should contain .playwright-mcp cleanup logic'
-    );
-    assert.ok(
-      watchContent.includes('cleanupPlaywrightMcpFolder'),
-      'solve.watch.lib.mjs should have cleanupPlaywrightMcpFolder function'
-    );
+    assert.ok(watchContent.includes('.playwright-mcp'), 'solve.watch.lib.mjs should contain .playwright-mcp cleanup logic');
+    assert.ok(watchContent.includes('cleanupPlaywrightMcpFolder'), 'solve.watch.lib.mjs should have cleanupPlaywrightMcpFolder function');
   });
 
   await asyncTest('CLI option for playwright-mcp-auto-cleanup exists', async () => {
     // Read the config file and verify the CLI option exists
     const configContent = await fs.readFile(path.join(process.cwd(), 'src/solve.config.lib.mjs'), 'utf-8');
 
-    assert.ok(
-      configContent.includes('playwright-mcp-auto-cleanup'),
-      'Config should have playwright-mcp-auto-cleanup option'
-    );
-    assert.ok(
-      configContent.includes('default: true'),
-      'playwright-mcp-auto-cleanup should default to true'
-    );
+    assert.ok(configContent.includes('playwright-mcp-auto-cleanup'), 'Config should have playwright-mcp-auto-cleanup option');
+    assert.ok(configContent.includes('default: true'), 'playwright-mcp-auto-cleanup should default to true');
   });
 
   // ============================================================================
@@ -127,7 +109,10 @@ async function runTests() {
       assert.ok(await directoryExists(playwrightMcpDir), '.playwright-mcp should exist before cleanup');
 
       // Simulate cleanup (mimicking the solve.mjs logic)
-      const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
       if (playwrightMcpExists) {
         await fs.rm(playwrightMcpDir, { recursive: true, force: true });
       }
@@ -148,7 +133,10 @@ async function runTests() {
       assert.ok(!(await directoryExists(playwrightMcpDir)), '.playwright-mcp should not exist');
 
       // Simulate cleanup (should not throw)
-      const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
       if (playwrightMcpExists) {
         await fs.rm(playwrightMcpDir, { recursive: true, force: true });
       }
@@ -173,7 +161,10 @@ async function runTests() {
       await fs.writeFile(otherFile, 'console.log("new feature");');
 
       // Simulate cleanup
-      const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
       if (playwrightMcpExists) {
         await fs.rm(playwrightMcpDir, { recursive: true, force: true });
       }
@@ -182,7 +173,10 @@ async function runTests() {
       assert.ok(!(await directoryExists(playwrightMcpDir)), '.playwright-mcp should be removed');
 
       // Verify other files are preserved
-      const otherFileExists = await fs.stat(otherFile).then(() => true).catch(() => false);
+      const otherFileExists = await fs
+        .stat(otherFile)
+        .then(() => true)
+        .catch(() => false);
       assert.ok(otherFileExists, 'Other uncommitted files should be preserved');
     } finally {
       await cleanupTempTestDir(tempDir);
@@ -200,7 +194,10 @@ async function runTests() {
       // Simulate cleanup with option disabled (argv.playwrightMcpAutoCleanup = false)
       const playwrightMcpAutoCleanup = false;
       if (playwrightMcpAutoCleanup !== false) {
-        const playwrightMcpExists = await fs.stat(playwrightMcpDir).then(() => true).catch(() => false);
+        const playwrightMcpExists = await fs
+          .stat(playwrightMcpDir)
+          .then(() => true)
+          .catch(() => false);
         if (playwrightMcpExists) {
           await fs.rm(playwrightMcpDir, { recursive: true, force: true });
         }
@@ -221,7 +218,10 @@ async function runTests() {
 
   await asyncTest('case study documentation exists', async () => {
     const caseStudyPath = path.join(process.cwd(), 'docs/case-studies/issue-1124/README.md');
-    const caseStudyExists = await fs.stat(caseStudyPath).then(() => true).catch(() => false);
+    const caseStudyExists = await fs
+      .stat(caseStudyPath)
+      .then(() => true)
+      .catch(() => false);
 
     assert.ok(caseStudyExists, 'Case study README.md should exist');
 

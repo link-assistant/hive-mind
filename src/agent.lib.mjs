@@ -364,6 +364,11 @@ export const executeAgentCommand = async params => {
     // Build agent command arguments
     let agentArgs = `--model ${mappedModel}`;
 
+    // Propagate verbose flag to agent for detailed debugging output
+    if (argv.verbose) {
+      agentArgs += ' --verbose';
+    }
+
     // Agent supports stdin in both plain text and JSON format
     // We'll combine system and user prompts into a single message
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
@@ -382,10 +387,11 @@ export const executeAgentCommand = async params => {
 
     try {
       // Pipe the prompt file to agent via stdin
+      // Use agentArgs which includes --model and optionally --verbose
       execCommand = $({
         cwd: tempDir,
         mirror: false,
-      })`cat ${promptFile} | ${agentPath} --model ${mappedModel}`;
+      })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

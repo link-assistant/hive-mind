@@ -60,7 +60,7 @@ When working with a PR from the upstream repository while using fork mode:
 
 | File              | Description                         |
 | ----------------- | ----------------------------------- |
-| `failure-log.log` | Complete failure log from solve.mjs |
+| `failure-log.txt` | Complete failure log from solve.mjs |
 | `pr-details.json` | GitHub API response for PR #8       |
 | `analysis.md`     | This analysis document              |
 

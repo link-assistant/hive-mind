@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 1.2.8
+
+### Patch Changes
+
+- Add case study for issue #1114 analyzing AI solver performance in hyoo-ru/mam_mol repository
+
+  fix: Propagate --verbose flag to agent tool for debugging DecimalError issues
+  - Added --verbose flag propagation to agent tool execution in agent.lib.mjs
+  - Created case study documentation for DecimalError root cause analysis
+
 ## 1.2.7
 
 ### Patch Changes

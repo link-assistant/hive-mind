@@ -1208,6 +1208,41 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
   } else {
     // Branch doesn't exist locally, try to checkout from remote
     checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} ${remoteName}/${branchName}`;
+
+    // If checkout from origin failed, try upstream remote as fallback
+    // This handles the case where we're in fork mode but the PR branch exists in upstream
+    // (e.g., a bot created PR in the upstream repo, not a fork PR)
+    if (checkoutResult.code !== 0 && remoteName === 'origin') {
+      await log(`${formatAligned('🔄', 'Branch not in origin:', 'Checking upstream remote...')}`);
+
+      // Check if upstream remote exists
+      const upstreamCheckResult = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
+      if (upstreamCheckResult.code === 0) {
+        // Fetch from upstream to ensure we have the latest branches
+        await log(`${formatAligned('📥', 'Fetching from upstream:', 'Looking for PR branch...')}`);
+        const fetchUpstreamResult = await $({ cwd: tempDir })`git fetch upstream`;
+
+        if (fetchUpstreamResult.code === 0) {
+          // Check if branch exists in upstream
+          const upstreamBranchCheckResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${branchName}`;
+
+          if (upstreamBranchCheckResult.code === 0) {
+            await log(`${formatAligned('✅', 'Found branch in upstream:', `upstream/${branchName}`)}`);
+            // Try to checkout from upstream instead
+            checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} upstream/${branchName}`;
+
+            if (checkoutResult.code === 0) {
+              await log(`${formatAligned('ℹ️', 'Note:', 'PR branch was in upstream repository, not your fork')}`);
+              await log(`${formatAligned('', '', 'This can happen when a bot creates a PR directly in the main repository')}`);
+            }
+          } else {
+            await log(`${formatAligned('⚠️', 'Branch not found:', `Not in origin or upstream remotes`)}`, { level: 'warning' });
+          }
+        } else {
+          await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch from upstream')}`, { level: 'warning' });
+        }
+      }
+    }
   }
 
   return checkoutResult;

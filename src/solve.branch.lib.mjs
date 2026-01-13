@@ -100,7 +100,7 @@ export function detectBranchFormat(branchName) {
   return null;
 }
 
-export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto }) {
+export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -136,11 +136,11 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
       const { handleBranchCheckoutError } = branchErrors;
       await handleBranchCheckoutError({
         branchName,
-        prNumber: null, // Will be set later
+        prNumber,
         errorOutput,
         issueUrl: argv['issue-url'] || argv._[0],
-        owner: null, // Will be set later
-        repo: null, // Will be set later
+        owner,
+        repo,
         tempDir,
         argv,
         formatAligned,
@@ -154,8 +154,8 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
         branchName,
         errorOutput,
         tempDir,
-        owner: null, // Will be set later
-        repo: null, // Will be set later
+        owner,
+        repo,
         formatAligned,
         log,
       });
@@ -193,9 +193,9 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
       isContinueMode,
       branchName,
       actualBranch,
-      prNumber: null, // Will be set later
-      owner: null, // Will be set later
-      repo: null, // Will be set later
+      prNumber,
+      owner,
+      repo,
       tempDir,
       formatAligned,
       log,

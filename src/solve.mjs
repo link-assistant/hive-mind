@@ -553,6 +553,9 @@ try {
     formatAligned,
     $,
     crypto,
+    owner,
+    repo,
+    prNumber,
   });
 
   // Auto-merge default branch to pull request branch if enabled

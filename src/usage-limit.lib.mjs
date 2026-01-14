@@ -12,10 +12,12 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
 
 /**
  * Detect if an error message indicates a usage limit has been reached
@@ -207,161 +209,93 @@ export function detectUsageLimit(message) {
 }
 
 /**
- * Map of month name/abbreviation to month index (0-11)
- */
-const MONTH_MAP = {
-  jan: 0,
-  january: 0,
-  feb: 1,
-  february: 1,
-  mar: 2,
-  march: 2,
-  apr: 3,
-  april: 3,
-  may: 4,
-  jun: 5,
-  june: 5,
-  jul: 6,
-  july: 6,
-  aug: 7,
-  august: 7,
-  sep: 8,
-  sept: 8,
-  september: 8,
-  oct: 9,
-  october: 9,
-  nov: 10,
-  november: 10,
-  dec: 11,
-  december: 11,
-};
-
-/**
- * Parse time string and convert to dayjs object
+ * Parse time string and convert to dayjs object using dayjs custom parse format
  *
  * Supports both formats:
  * - Time only: "11:00 PM" → today or tomorrow at that time
  * - Date+time: "Jan 15, 8:00 AM" → specific date at that time
  *
- * Uses dayjs for proper timezone handling when a timezone is provided.
+ * Uses dayjs customParseFormat plugin for cleaner parsing.
  *
  * @param {string} timeStr - Time string in format "HH:MM AM/PM" or "Mon DD, HH:MM AM/PM"
- * @param {string|null} timezone - Optional IANA timezone (e.g., "Europe/Berlin")
+ * @param {string|null} tz - Optional IANA timezone (e.g., "Europe/Berlin")
  * @returns {dayjs.Dayjs|null} - dayjs object or null if parsing fails
  */
-export function parseResetTime(timeStr, timezone = null) {
+export function parseResetTime(timeStr, tz = null) {
   if (!timeStr || typeof timeStr !== 'string') {
     return null;
   }
 
   const now = dayjs();
 
-  // Try to match date+time format first (e.g., "Jan 15, 8:00 AM")
-  const monthPattern = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
-  const dateTimeRegex = new RegExp(`${monthPattern}\\s+(\\d{1,2}),?\\s+(\\d{1,2}):(\\d{2})\\s*(AM|PM)`, 'i');
-  const dateTimeMatch = timeStr.match(dateTimeRegex);
+  // Normalize "Sept" to "Sep" for dayjs compatibility
+  const normalized = timeStr.replace(/\bSept\b/gi, 'Sep');
 
-  if (dateTimeMatch) {
-    const monthStr = dateTimeMatch[1];
-    const day = parseInt(dateTimeMatch[2], 10);
-    let hour = parseInt(dateTimeMatch[3], 10);
-    const minute = parseInt(dateTimeMatch[4], 10);
-    const ampm = dateTimeMatch[5].toUpperCase();
+  // Try date+time formats using dayjs custom parse
+  // dayjs uses: MMM=Jan, MMMM=January, D=day, h=12-hour, mm=minutes, A=AM/PM
+  const dateTimeFormats = ['MMM D, h:mm A', 'MMMM D, h:mm A'];
 
-    const month = MONTH_MAP[monthStr.toLowerCase()];
-    if (month === undefined) {
-      return null;
-    }
-
-    // Convert to 24-hour format
-    if (ampm === 'PM' && hour !== 12) {
-      hour += 12;
-    } else if (ampm === 'AM' && hour === 12) {
-      hour = 0;
-    }
-
-    // Build date string for dayjs
-    let year = now.year();
-    const monthStr2Digit = String(month + 1).padStart(2, '0');
-    const dayStr2Digit = String(day).padStart(2, '0');
-    const hourStr2Digit = String(hour).padStart(2, '0');
-    const minuteStr2Digit = String(minute).padStart(2, '0');
-    const dateString = `${year}-${monthStr2Digit}-${dayStr2Digit} ${hourStr2Digit}:${minuteStr2Digit}`;
-
-    // Parse with timezone if provided
-    let resetDate;
-    if (timezone) {
+  for (const format of dateTimeFormats) {
+    let parsed;
+    if (tz) {
       try {
-        resetDate = dayjs.tz(dateString, timezone);
+        // Parse in the specified timezone
+        parsed = dayjs.tz(normalized, format, tz);
       } catch {
-        // Fallback to local timezone
-        resetDate = dayjs(dateString);
+        parsed = dayjs(normalized, format);
       }
     } else {
-      resetDate = dayjs(dateString);
+      parsed = dayjs(normalized, format);
     }
 
-    // If the date is in the past, assume next year
-    if (resetDate.isBefore(now)) {
-      year += 1;
-      const nextYearDateString = `${year}-${monthStr2Digit}-${dayStr2Digit} ${hourStr2Digit}:${minuteStr2Digit}`;
-      if (timezone) {
-        try {
-          resetDate = dayjs.tz(nextYearDateString, timezone);
-        } catch {
-          resetDate = dayjs(nextYearDateString);
-        }
-      } else {
-        resetDate = dayjs(nextYearDateString);
+    if (parsed.isValid()) {
+      // dayjs parses without year, so it defaults to current year
+      // If the date is in the past, assume next year
+      if (parsed.isBefore(now)) {
+        parsed = parsed.add(1, 'year');
       }
+      return parsed;
+    }
+  }
+
+  // Try time-only format: "8:00 PM" or "8:00PM"
+  const timeOnlyFormats = ['h:mm A', 'h:mmA'];
+
+  for (const format of timeOnlyFormats) {
+    let parsed;
+    if (tz) {
+      try {
+        parsed = dayjs.tz(normalized, format, tz);
+      } catch {
+        parsed = dayjs(normalized, format);
+      }
+    } else {
+      parsed = dayjs(normalized, format);
     }
 
-    return resetDate;
-  }
+    if (parsed.isValid()) {
+      // For time-only, set to today's date
+      parsed = parsed.year(now.year()).month(now.month()).date(now.date());
 
-  // Fall back to time-only format (e.g., "11:00 PM" or "11:00PM")
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!match) {
-    return null;
-  }
+      // Re-apply timezone after setting date components
+      if (tz) {
+        try {
+          const dateStr = parsed.format('YYYY-MM-DD HH:mm');
+          parsed = dayjs.tz(dateStr, tz);
+        } catch {
+          // Keep the parsed value
+        }
+      }
 
-  let hour = parseInt(match[1], 10);
-  const minute = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
-
-  // Convert to 24-hour format
-  if (ampm === 'PM' && hour !== 12) {
-    hour += 12;
-  } else if (ampm === 'AM' && hour === 12) {
-    hour = 0;
-  }
-
-  // Build date string for dayjs (today)
-  const year = now.year();
-  const monthStr2Digit = String(now.month() + 1).padStart(2, '0');
-  const dayStr2Digit = String(now.date()).padStart(2, '0');
-  const hourStr2Digit = String(hour).padStart(2, '0');
-  const minuteStr2Digit = String(minute).padStart(2, '0');
-  const dateString = `${year}-${monthStr2Digit}-${dayStr2Digit} ${hourStr2Digit}:${minuteStr2Digit}`;
-
-  // Parse with timezone if provided
-  let resetDate;
-  if (timezone) {
-    try {
-      resetDate = dayjs.tz(dateString, timezone);
-    } catch {
-      resetDate = dayjs(dateString);
+      // If the time is in the past today, assume tomorrow
+      if (parsed.isBefore(now)) {
+        parsed = parsed.add(1, 'day');
+      }
+      return parsed;
     }
-  } else {
-    resetDate = dayjs(dateString);
   }
 
-  // If the time is in the past today, assume it's tomorrow
-  if (resetDate.isBefore(now)) {
-    resetDate = resetDate.add(1, 'day');
-  }
-
-  return resetDate;
+  return null;
 }
 
 /**

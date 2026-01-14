@@ -8,7 +8,15 @@
  *   - https://github.com/link-assistant/hive-mind/issues/1122 (weekly limit date parsing)
  */
 
-import { isUsageLimitError, extractResetTime, detectUsageLimit, formatUsageLimitMessage, parseUsageLimitJson, parseResetTime, formatRelativeTime, formatResetTimeWithRelative } from '../src/usage-limit.lib.mjs';
+import dayjs from 'dayjs';
+import { isUsageLimitError, extractResetTime, extractTimezone, detectUsageLimit, formatUsageLimitMessage, parseUsageLimitJson, parseResetTime, formatRelativeTime, formatResetTimeWithRelative } from '../src/usage-limit.lib.mjs';
+
+/**
+ * Helper function to check if a value is a valid dayjs object
+ */
+function isDayjsObject(value) {
+  return value && dayjs.isDayjs(value) && value.isValid();
+}
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -258,55 +266,55 @@ runTest('parseUsageLimitJson: returns null for invalid JSON', () => {
 
 runTest('parseResetTime: parses time-only format "8:00 PM"', () => {
   const result = parseResetTime('8:00 PM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getHours(), 20, 'Should parse hour correctly (20:00)');
-  assertEqual(result.getMinutes(), 0, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.hour(), 20, 'Should parse hour correctly (20:00)');
+  assertEqual(result.minute(), 0, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses time-only format "5:30 AM"', () => {
   const result = parseResetTime('5:30 AM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getHours(), 5, 'Should parse hour correctly');
-  assertEqual(result.getMinutes(), 30, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.hour(), 5, 'Should parse hour correctly');
+  assertEqual(result.minute(), 30, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses time-only format "12:00 PM" (noon)', () => {
   const result = parseResetTime('12:00 PM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getHours(), 12, 'Should parse noon as 12:00');
-  assertEqual(result.getMinutes(), 0, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.hour(), 12, 'Should parse noon as 12:00');
+  assertEqual(result.minute(), 0, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses time-only format "12:00 AM" (midnight)', () => {
   const result = parseResetTime('12:00 AM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getHours(), 0, 'Should parse midnight as 0:00');
-  assertEqual(result.getMinutes(), 0, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.hour(), 0, 'Should parse midnight as 0:00');
+  assertEqual(result.minute(), 0, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses date+time format "Jan 15, 8:00 AM"', () => {
   const result = parseResetTime('Jan 15, 8:00 AM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getMonth(), 0, 'Should parse January as month 0');
-  assertEqual(result.getDate(), 15, 'Should parse day correctly');
-  assertEqual(result.getHours(), 8, 'Should parse hour correctly');
-  assertEqual(result.getMinutes(), 0, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.month(), 0, 'Should parse January as month 0');
+  assertEqual(result.date(), 15, 'Should parse day correctly');
+  assertEqual(result.hour(), 8, 'Should parse hour correctly');
+  assertEqual(result.minute(), 0, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses date+time format with full month "January 15, 8:00 AM"', () => {
   const result = parseResetTime('January 15, 8:00 AM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getMonth(), 0, 'Should parse January as month 0');
-  assertEqual(result.getDate(), 15, 'Should parse day correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.month(), 0, 'Should parse January as month 0');
+  assertEqual(result.date(), 15, 'Should parse day correctly');
 });
 
 runTest('parseResetTime: parses date+time format "Dec 25, 11:59 PM"', () => {
   const result = parseResetTime('Dec 25, 11:59 PM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getMonth(), 11, 'Should parse December as month 11');
-  assertEqual(result.getDate(), 25, 'Should parse day correctly');
-  assertEqual(result.getHours(), 23, 'Should parse hour correctly (23:59)');
-  assertEqual(result.getMinutes(), 59, 'Should parse minutes correctly');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.month(), 11, 'Should parse December as month 11');
+  assertEqual(result.date(), 25, 'Should parse day correctly');
+  assertEqual(result.hour(), 23, 'Should parse hour correctly (23:59)');
+  assertEqual(result.minute(), 59, 'Should parse minutes correctly');
 });
 
 runTest('parseResetTime: parses all abbreviated month names', () => {
@@ -326,15 +334,15 @@ runTest('parseResetTime: parses all abbreviated month names', () => {
   ];
   for (const { str, month } of months) {
     const result = parseResetTime(str);
-    assertTrue(result instanceof Date, `Should parse ${str}`);
-    assertEqual(result.getMonth(), month, `Should parse ${str} month correctly`);
+    assertTrue(isDayjsObject(result), `Should parse ${str}`);
+    assertEqual(result.month(), month, `Should parse ${str} month correctly`);
   }
 });
 
 runTest('parseResetTime: parses Sept abbreviation', () => {
   const result = parseResetTime('Sept 15, 3:00 PM');
-  assertTrue(result instanceof Date, 'Should return a Date object');
-  assertEqual(result.getMonth(), 8, 'Should parse Sept as September (month 8)');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.month(), 8, 'Should parse Sept as September (month 8)');
 });
 
 runTest('parseResetTime: returns null for invalid input', () => {
@@ -420,13 +428,62 @@ runTest('isUsageLimitError: does not match unrelated messages', () => {
   assertFalse(isUsageLimitError('The limit is 100'), 'Should not match partial "limit"');
 });
 
+// === extractTimezone tests (Issue #1122) ===
+
+runTest('extractTimezone: extracts Europe/Berlin timezone', () => {
+  const tz = extractTimezone("You've hit your limit · resets Jan 15, 8am (Europe/Berlin)");
+  assertEqual(tz, 'Europe/Berlin', 'Should extract Europe/Berlin');
+});
+
+runTest('extractTimezone: extracts UTC timezone', () => {
+  const tz = extractTimezone('Limit reached · resets 8pm (UTC)');
+  assertEqual(tz, 'UTC', 'Should extract UTC');
+});
+
+runTest('extractTimezone: extracts America/New_York timezone', () => {
+  const tz = extractTimezone('Limit reached · resets 5pm (America/New_York)');
+  assertEqual(tz, 'America/New_York', 'Should extract America/New_York');
+});
+
+runTest('extractTimezone: returns null for invalid timezone', () => {
+  const tz = extractTimezone('Limit reached · resets 8pm (InvalidTz)');
+  assertEqual(tz, null, 'Should return null for invalid timezone');
+});
+
+runTest('extractTimezone: returns null for no timezone', () => {
+  const tz = extractTimezone('Limit reached · resets 8pm');
+  assertEqual(tz, null, 'Should return null when no timezone');
+});
+
+runTest('extractTimezone: returns null for null/undefined input', () => {
+  assertEqual(extractTimezone(null), null, 'Should return null for null');
+  assertEqual(extractTimezone(undefined), null, 'Should return null for undefined');
+});
+
+// === parseResetTime with timezone tests (Issue #1122) ===
+
+runTest('parseResetTime: parses with Europe/Berlin timezone', () => {
+  const result = parseResetTime('Jan 15, 8:00 AM', 'Europe/Berlin');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  // The internal time should be in Europe/Berlin timezone
+  assertEqual(result.hour(), 8, 'Should have local hour 8');
+  // UTC should be 1 hour behind (Europe/Berlin is UTC+1 in winter)
+  assertEqual(result.utc().hour(), 7, 'UTC hour should be 7');
+});
+
+runTest('parseResetTime: parses time-only with timezone', () => {
+  const result = parseResetTime('8:00 PM', 'America/New_York');
+  assertTrue(isDayjsObject(result), 'Should return a dayjs object');
+  assertEqual(result.hour(), 20, 'Should have local hour 20');
+});
+
 // === Integration tests: extractResetTime + parseResetTime ===
 
 runTest('Integration: extractResetTime to parseResetTime for time-only', () => {
   const extracted = extractResetTime('Limit reached · resets 8pm (Europe/Berlin)');
   const parsed = parseResetTime(extracted);
-  assertTrue(parsed instanceof Date, 'Should parse extracted time to Date');
-  assertEqual(parsed.getHours(), 20, 'Should have correct hour');
+  assertTrue(isDayjsObject(parsed), 'Should parse extracted time to dayjs object');
+  assertEqual(parsed.hour(), 20, 'Should have correct hour');
 });
 
 runTest('Integration: extractResetTime to parseResetTime for date+time (Issue #1122)', () => {
@@ -435,10 +492,39 @@ runTest('Integration: extractResetTime to parseResetTime for date+time (Issue #1
   assertEqual(extracted, 'Jan 15, 8:00 AM', 'Should extract date+time correctly');
 
   const parsed = parseResetTime(extracted);
-  assertTrue(parsed instanceof Date, 'Should parse extracted date+time to Date');
-  assertEqual(parsed.getMonth(), 0, 'Should have January (month 0)');
-  assertEqual(parsed.getDate(), 15, 'Should have day 15');
-  assertEqual(parsed.getHours(), 8, 'Should have hour 8');
+  assertTrue(isDayjsObject(parsed), 'Should parse extracted date+time to dayjs object');
+  assertEqual(parsed.month(), 0, 'Should have January (month 0)');
+  assertEqual(parsed.date(), 15, 'Should have day 15');
+  assertEqual(parsed.hour(), 8, 'Should have hour 8');
+});
+
+runTest('Integration: full pipeline with timezone (Issue #1122)', () => {
+  const message = "You've hit your limit · resets Jan 15, 8am (Europe/Berlin)";
+
+  // Extract all components
+  const resetTime = extractResetTime(message);
+  const timezone = extractTimezone(message);
+
+  assertEqual(resetTime, 'Jan 15, 8:00 AM', 'Should extract reset time');
+  assertEqual(timezone, 'Europe/Berlin', 'Should extract timezone');
+
+  // Parse with timezone
+  const parsed = parseResetTime(resetTime, timezone);
+  assertTrue(isDayjsObject(parsed), 'Should parse to dayjs object');
+
+  // Format with relative time and UTC
+  const formatted = formatResetTimeWithRelative(resetTime, timezone);
+  assertTrue(formatted.includes('UTC'), 'Should include UTC in output');
+  assertTrue(formatted.includes('in'), 'Should include relative time prefix');
+});
+
+runTest('Integration: detectUsageLimit includes timezone (Issue #1122)', () => {
+  const message = "You've hit your limit · resets Jan 15, 8am (Europe/Berlin)";
+  const result = detectUsageLimit(message);
+
+  assertTrue(result.isUsageLimit, 'Should detect usage limit');
+  assertEqual(result.resetTime, 'Jan 15, 8:00 AM', 'Should extract reset time');
+  assertEqual(result.timezone, 'Europe/Berlin', 'Should extract timezone');
 });
 
 // === Summary ===

@@ -66,6 +66,7 @@
     "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
     "@sentry/profiling-node": "^10.15.0",
+    "dayjs": "^1.11.19",
     "secretlint": "^11.2.5"
   },
   "lint-staged": {

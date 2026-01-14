@@ -311,6 +311,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
+      .option('playwright-mcp-auto-cleanup', {
+        type: 'boolean',
+        description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
+        default: true,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })

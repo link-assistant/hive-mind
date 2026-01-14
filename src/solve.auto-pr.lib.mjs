@@ -32,10 +32,10 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
   try {
     // Determine which file to create based on CLI flags
     let useClaudeFile = argv.claudeFile !== false;
-    const useAutoKeepFile = argv.autoKeepFile !== false;
+    const useAutoGitkeepFile = argv.autoGitkeepFile !== false;
 
     // Pre-check: If CLAUDE.md would be ignored by .gitignore, automatically switch to .gitkeep mode
-    if (useClaudeFile && useAutoKeepFile) {
+    if (useClaudeFile && useAutoGitkeepFile) {
       const checkResult = await $({ cwd: tempDir, silent: true })`git check-ignore CLAUDE.md 2>/dev/null`;
       if (checkResult.code === 0) {
         await log(formatAligned('ℹ️', 'Pre-check:', 'CLAUDE.md is in .gitignore, switching to .gitkeep mode\n'));
@@ -44,7 +44,7 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
     }
 
     if (argv.verbose) {
-      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${argv.claudeFile !== false}, --gitkeep-file=${argv.gitkeepFile === true}, --auto-keep-file=${useAutoKeepFile})`, { verbose: true });
+      await log(`   Using ${useClaudeFile ? 'CLAUDE.md' : '.gitkeep'} mode (--claude-file=${argv.claudeFile !== false}, --gitkeep-file=${argv.gitkeepFile === true}, --auto-gitkeep-file=${useAutoGitkeepFile})`, { verbose: true });
     }
 
     let filePath;
@@ -70,7 +70,7 @@ export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNum
         }
       }
     } else {
-      // .gitkeep mode (via explicit --gitkeep-file or auto-keep-file fallback)
+      // .gitkeep mode (via explicit --gitkeep-file or auto-gitkeep-file fallback)
       const modeDesc = argv.gitkeepFile === true ? '.gitkeep (experimental mode)' : '.gitkeep (CLAUDE.md is ignored)';
       await log(formatAligned('📝', 'Creating:', modeDesc));
 
@@ -132,8 +132,8 @@ Proceed.
         finalContent = taskInfo;
       }
     } else {
-      // .gitkeep: Use minimal metadata format (explicit --gitkeep-file or auto-keep-file fallback)
-      const creationReason = argv.gitkeepFile === true ? '# This file was created with --gitkeep-file flag (experimental)' : '# This file was created because CLAUDE.md is in .gitignore (--auto-keep-file=true)';
+      // .gitkeep: Use minimal metadata format (explicit --gitkeep-file or auto-gitkeep-file fallback)
+      const creationReason = argv.gitkeepFile === true ? '# This file was created with --gitkeep-file flag (experimental)' : '# This file was created because CLAUDE.md is in .gitignore (--auto-gitkeep-file=true)';
       const gitkeepContent = `# Auto-generated file for PR creation
 # Issue: ${issueUrl}
 # Branch: ${branchName}
@@ -297,7 +297,7 @@ ${creationReason}
     }
 
     await log(formatAligned('📝', 'Creating commit:', `With ${commitFileName} file`));
-    // Commit message distinguishes between explicit --gitkeep-file and auto-keep-file fallback
+    // Commit message distinguishes between explicit --gitkeep-file and auto-gitkeep-file fallback
     const fileDesc = commitFileName === 'CLAUDE.md' ? 'CLAUDE.md with task information for AI processing' : `.gitkeep for PR creation (${argv.gitkeepFile === true ? 'created with --gitkeep-file flag (experimental)' : 'CLAUDE.md is in .gitignore'})`;
     const commitMessage = `Initial commit with task details\n\nAdding ${fileDesc}.\nThis file will be removed when the task is complete.\n\nIssue: ${issueUrl}`;
 

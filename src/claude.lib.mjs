@@ -896,6 +896,7 @@ export const executeClaudeCommand = async params => {
     let sessionId = null;
     let limitReached = false;
     let limitResetTime = null;
+    let limitTimezone = null;
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
@@ -1162,6 +1163,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
           };
@@ -1208,6 +1210,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
             is503Error: true,
@@ -1220,6 +1223,7 @@ export const executeClaudeCommand = async params => {
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          limitTimezone = limitInfo.timezone;
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -1284,6 +1288,7 @@ export const executeClaudeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           messageCount,
           toolUseCount,
           errorDuringExecution,
@@ -1353,6 +1358,7 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        limitTimezone,
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
@@ -1401,6 +1407,7 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime: null,
+        limitTimezone: null,
         messageCount,
         toolUseCount,
       };

@@ -9,6 +9,11 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
 
 // Import cache TTL configuration
 import { cacheTtl } from './config.lib.mjs';
@@ -51,7 +56,7 @@ async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbo
 }
 
 /**
- * Format an ISO date string to a human-readable reset time
+ * Format an ISO date string to a human-readable reset time using dayjs
  *
  * @param {string} isoDate - ISO date string (e.g., "2025-12-03T17:59:59.626485+00:00")
  * @param {boolean} includeTimezone - Whether to include timezone suffix (default: true)
@@ -61,18 +66,11 @@ function formatResetTime(isoDate, includeTimezone = true) {
   if (!isoDate) return null;
 
   try {
-    const date = new Date(isoDate);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = months[date.getUTCMonth()];
-    const day = date.getUTCDate();
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
+    const date = dayjs(isoDate).utc();
+    if (!date.isValid()) return isoDate;
 
-    // Convert 24h to 12h format
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours >= 12 ? 'pm' : 'am';
-
-    const timeStr = `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    // dayjs format: MMM=Jan, D=day, h=12-hour, mm=minutes, a=am/pm
+    const timeStr = date.format('MMM D, h:mma');
     return includeTimezone ? `${timeStr} UTC` : timeStr;
   } catch {
     return isoDate;
@@ -80,7 +78,7 @@ function formatResetTime(isoDate, includeTimezone = true) {
 }
 
 /**
- * Format relative time from now to a future date
+ * Format relative time from now to a future date using dayjs
  *
  * @param {string} isoDate - ISO date string
  * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
@@ -89,49 +87,40 @@ function formatRelativeTime(isoDate) {
   if (!isoDate) return null;
 
   try {
-    const now = new Date();
-    const target = new Date(isoDate);
-    const diffMs = target - now;
+    const now = dayjs();
+    const target = dayjs(isoDate);
 
-    // Check for invalid date (NaN)
-    if (isNaN(diffMs)) return null;
+    if (!target.isValid()) return null;
 
+    const diffMs = target.diff(now);
     if (diffMs < 0) return null; // Past date
 
-    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    const days = totalDays;
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
 
     // If hours >= 24, show days
-    if (totalHours >= 24) {
-      const days = Math.floor(totalHours / 24);
-      const hours = totalHours % 24;
+    if (days > 0) {
       return `${days}d ${hours}h ${minutes}m`;
     }
 
-    return `${totalHours}h ${minutes}m`;
+    return `${hours}h ${minutes}m`;
   } catch {
     return null;
   }
 }
 
 /**
- * Format current time in UTC
+ * Format current time in UTC using dayjs
  *
  * @returns {string} Current time in UTC (e.g., "Dec 3, 6:45pm UTC")
  */
 function formatCurrentTime() {
-  const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[now.getUTCMonth()];
-  const day = now.getUTCDate();
-  const hours = now.getUTCHours();
-  const minutes = now.getUTCMinutes();
-
-  // Convert 24h to 12h format
-  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  const ampm = hours >= 12 ? 'pm' : 'am';
-
-  return `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm} UTC`;
+  return dayjs().utc().format('MMM D, h:mma [UTC]');
 }
 
 /**

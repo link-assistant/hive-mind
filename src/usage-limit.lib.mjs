@@ -4,8 +4,20 @@
  * This module provides utilities for detecting and handling usage limit errors
  * from AI tools (Claude, Codex, OpenCode).
  *
- * Related issue: https://github.com/link-assistant/hive-mind/issues/719
+ * Related issues:
+ *   - https://github.com/link-assistant/hive-mind/issues/719 (original)
+ *   - https://github.com/link-assistant/hive-mind/issues/1122 (weekly limit date parsing with timezone)
  */
+
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
 
 /**
  * Detect if an error message indicates a usage limit has been reached
@@ -47,10 +59,47 @@ export function isUsageLimitError(message) {
 }
 
 /**
- * Extract reset time from usage limit error message
+ * Extract timezone from usage limit error message
+ *
+ * Extracts IANA timezone identifiers like "Europe/Berlin", "UTC", "America/New_York"
+ * from messages like "resets Jan 15, 8am (Europe/Berlin)"
  *
  * @param {string} message - Error message to analyze
- * @returns {string|null} - Reset time string (e.g., "12:16 PM") or null if not found
+ * @returns {string|null} - Timezone string or null if not found
+ */
+export function extractTimezone(message) {
+  if (!message || typeof message !== 'string') {
+    return null;
+  }
+
+  // Pattern: (Timezone) - matches IANA timezone format or "UTC"
+  // IANA format: Continent/City or Continent/Region/City
+  const timezoneMatch = message.match(/\(([A-Za-z_]+(?:\/[A-Za-z_]+){0,2})\)/);
+  if (timezoneMatch) {
+    const tz = timezoneMatch[1];
+    // Validate it's a recognizable timezone by trying to use it with dayjs
+    try {
+      const testDate = dayjs().tz(tz);
+      if (testDate.isValid()) {
+        return tz;
+      }
+    } catch {
+      // Invalid timezone, return null
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract reset time from usage limit error message
+ *
+ * Supports both time-only formats (5-hour limits) and date+time formats (weekly limits):
+ * - "resets 10pm" → "10:00 PM"
+ * - "resets Jan 15, 8am" → "Jan 15, 8:00 AM"
+ *
+ * @param {string} message - Error message to analyze
+ * @returns {string|null} - Reset time string (e.g., "12:16 PM" or "Jan 15, 8:00 AM") or null if not found
  */
 export function extractResetTime(message) {
   if (!message || typeof message !== 'string') {
@@ -59,6 +108,21 @@ export function extractResetTime(message) {
 
   // Normalize whitespace for easier matching
   const normalized = message.replace(/\s+/g, ' ');
+
+  // Pattern 0: Weekly limit with date - "resets Jan 15, 8am" or "resets January 15, 8:00am"
+  // This pattern must come first to avoid partial matches by time-only patterns
+  const monthPattern = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
+  const resetsWithDateRegex = new RegExp(`resets\\s+(${monthPattern})\\s+(\\d{1,2}),?\\s+([0-9]{1,2})(?::([0-9]{2}))?\\s*([ap]m)`, 'i');
+  const resetsWithDate = normalized.match(resetsWithDateRegex);
+  if (resetsWithDate) {
+    const month = resetsWithDate[1];
+    const day = resetsWithDate[2];
+    const hour = resetsWithDate[3];
+    const minute = resetsWithDate[4] || '00';
+    const ampm = resetsWithDate[5].toUpperCase();
+    // Return formatted date+time string for weekly limits
+    return `${month} ${day}, ${hour}:${minute} ${ampm}`;
+  }
 
   // Pattern 1: "try again at 12:16 PM"
   const tryAgainMatch = normalized.match(/try again at ([0-9]{1,2}:[0-9]{2}\s*[AP]M)/i);
@@ -130,78 +194,142 @@ export function extractResetTime(message) {
  * Detect usage limit error and extract all relevant information
  *
  * @param {string} message - Error message to analyze
- * @returns {Object} - { isUsageLimit: boolean, resetTime: string|null }
+ * @returns {Object} - { isUsageLimit: boolean, resetTime: string|null, timezone: string|null }
  */
 export function detectUsageLimit(message) {
   const isUsageLimit = isUsageLimitError(message);
   const resetTime = isUsageLimit ? extractResetTime(message) : null;
+  const timezone = isUsageLimit ? extractTimezone(message) : null;
 
   return {
     isUsageLimit,
     resetTime,
+    timezone,
   };
 }
 
 /**
- * Parse time string (e.g., "11:00 PM") and convert to Date object for today
+ * Parse time string and convert to dayjs object using dayjs custom parse format
  *
- * @param {string} timeStr - Time string in format "HH:MM AM/PM"
- * @returns {Date|null} - Date object or null if parsing fails
+ * Supports both formats:
+ * - Time only: "11:00 PM" → today or tomorrow at that time
+ * - Date+time: "Jan 15, 8:00 AM" → specific date at that time
+ *
+ * Uses dayjs customParseFormat plugin for cleaner parsing.
+ *
+ * @param {string} timeStr - Time string in format "HH:MM AM/PM" or "Mon DD, HH:MM AM/PM"
+ * @param {string|null} tz - Optional IANA timezone (e.g., "Europe/Berlin")
+ * @returns {dayjs.Dayjs|null} - dayjs object or null if parsing fails
  */
-export function parseResetTime(timeStr) {
+export function parseResetTime(timeStr, tz = null) {
   if (!timeStr || typeof timeStr !== 'string') {
     return null;
   }
 
-  // Match pattern like "11:00 PM" or "11:00PM"
-  const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!match) {
-    return null;
+  const now = dayjs();
+
+  // Normalize "Sept" to "Sep" for dayjs compatibility
+  const normalized = timeStr.replace(/\bSept\b/gi, 'Sep');
+
+  // Try date+time formats using dayjs custom parse
+  // dayjs uses: MMM=Jan, MMMM=January, D=day, h=12-hour, mm=minutes, A=AM/PM
+  const dateTimeFormats = ['MMM D, h:mm A', 'MMMM D, h:mm A'];
+
+  for (const format of dateTimeFormats) {
+    let parsed;
+    if (tz) {
+      try {
+        // Parse in the specified timezone
+        parsed = dayjs.tz(normalized, format, tz);
+      } catch {
+        parsed = dayjs(normalized, format);
+      }
+    } else {
+      parsed = dayjs(normalized, format);
+    }
+
+    if (parsed.isValid()) {
+      // dayjs parses without year, so it defaults to current year
+      // If the date is in the past, assume next year
+      if (parsed.isBefore(now)) {
+        parsed = parsed.add(1, 'year');
+      }
+      return parsed;
+    }
   }
 
-  let hour = parseInt(match[1], 10);
-  const minute = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
+  // Try time-only format: "8:00 PM" or "8:00PM"
+  const timeOnlyFormats = ['h:mm A', 'h:mmA'];
 
-  // Convert to 24-hour format
-  if (ampm === 'PM' && hour !== 12) {
-    hour += 12;
-  } else if (ampm === 'AM' && hour === 12) {
-    hour = 0;
+  for (const format of timeOnlyFormats) {
+    let parsed;
+    if (tz) {
+      try {
+        parsed = dayjs.tz(normalized, format, tz);
+      } catch {
+        parsed = dayjs(normalized, format);
+      }
+    } else {
+      parsed = dayjs(normalized, format);
+    }
+
+    if (parsed.isValid()) {
+      // For time-only, set to today's date
+      parsed = parsed.year(now.year()).month(now.month()).date(now.date());
+
+      // Re-apply timezone after setting date components
+      if (tz) {
+        try {
+          const dateStr = parsed.format('YYYY-MM-DD HH:mm');
+          parsed = dayjs.tz(dateStr, tz);
+        } catch {
+          // Keep the parsed value
+        }
+      }
+
+      // If the time is in the past today, assume tomorrow
+      if (parsed.isBefore(now)) {
+        parsed = parsed.add(1, 'day');
+      }
+      return parsed;
+    }
   }
 
-  // Create date for today with the parsed time
-  const now = new Date();
-  const resetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, 0, 0);
-
-  // If the time is in the past today, assume it's tomorrow
-  if (resetDate <= now) {
-    resetDate.setDate(resetDate.getDate() + 1);
-  }
-
-  return resetDate;
+  return null;
 }
 
 /**
  * Format relative time (e.g., "in 1h 23m")
  *
- * @param {Date} resetDate - Date object for reset time
+ * Uses dayjs for accurate time difference calculations.
+ * Accepts both Date objects and dayjs objects.
+ *
+ * @param {Date|dayjs.Dayjs} resetDate - Date or dayjs object for reset time
  * @returns {string} - Formatted relative time string
  */
 export function formatRelativeTime(resetDate) {
-  if (!resetDate || !(resetDate instanceof Date)) {
+  // Accept both Date objects and dayjs objects
+  let resetDayjs;
+  if (resetDate instanceof Date) {
+    resetDayjs = dayjs(resetDate);
+  } else if (dayjs.isDayjs(resetDate)) {
+    resetDayjs = resetDate;
+  } else {
     return '';
   }
 
-  const now = new Date();
-  const diffMs = resetDate - now;
+  if (!resetDayjs.isValid()) {
+    return '';
+  }
+
+  const now = dayjs();
+  const diffMs = resetDayjs.diff(now);
 
   if (diffMs <= 0) {
     return 'now';
   }
 
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
   const totalHours = Math.floor(totalMinutes / 60);
   const totalDays = Math.floor(totalHours / 24);
 
@@ -219,17 +347,20 @@ export function formatRelativeTime(resetDate) {
 
 /**
  * Format reset time with relative time and UTC time
- * Example: "in 1h 23m (11:00 PM UTC)"
+ * Example: "in 1h 23m (Jan 15, 7:00 AM UTC)"
  *
- * @param {string} resetTime - Time string in format "HH:MM AM/PM"
- * @returns {string} - Formatted string with relative and absolute time
+ * Uses dayjs for proper timezone conversion to UTC.
+ *
+ * @param {string} resetTime - Time string in format "HH:MM AM/PM" or "Mon DD, HH:MM AM/PM"
+ * @param {string|null} timezone - Optional IANA timezone (e.g., "Europe/Berlin")
+ * @returns {string} - Formatted string with relative and absolute UTC time
  */
-export function formatResetTimeWithRelative(resetTime) {
+export function formatResetTimeWithRelative(resetTime, timezone = null) {
   if (!resetTime) {
     return resetTime;
   }
 
-  const resetDate = parseResetTime(resetTime);
+  const resetDate = parseResetTime(resetTime, timezone);
   if (!resetDate) {
     // If we can't parse it, return the original time
     return resetTime;
@@ -237,12 +368,9 @@ export function formatResetTimeWithRelative(resetTime) {
 
   const relativeTime = formatRelativeTime(resetDate);
 
-  // Format the UTC time
-  const utcHours = resetDate.getUTCHours();
-  const utcMinutes = resetDate.getUTCMinutes();
-  const utcAmPm = utcHours >= 12 ? 'PM' : 'AM';
-  const utcHour12 = utcHours % 12 || 12;
-  const utcTimeStr = `${utcHour12}:${String(utcMinutes).padStart(2, '0')} ${utcAmPm} UTC`;
+  // Convert to UTC and format
+  const utcDate = resetDate.utc();
+  const utcTimeStr = utcDate.format('MMM D, h:mm A [UTC]');
 
   return `${relativeTime} (${utcTimeStr})`;
 }

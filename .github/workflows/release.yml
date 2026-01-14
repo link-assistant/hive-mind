@@ -359,6 +359,11 @@ jobs:
         echo "Running test suite for Telegram special character handling..."
         node tests/test-telegram-special-char-handling.mjs
 
+    - name: Run usage limit test (Issues #942, #1122)
+      run: |
+        echo "Running test suite for usage limit detection and parsing..."
+        node tests/test-usage-limit.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

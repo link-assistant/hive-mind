@@ -898,9 +898,12 @@ try {
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
-  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+  // Capture limit reset time and timezone globally for downstream handlers (auto-continue, cleanup decisions)
   if (toolResult && toolResult.limitResetTime) {
     global.limitResetTime = toolResult.limitResetTime;
+  }
+  if (toolResult && toolResult.limitTimezone) {
+    global.limitTimezone = toolResult.limitTimezone;
   }
 
   // Handle limit reached scenario
@@ -974,8 +977,9 @@ try {
           const tool = argv.tool || 'claude';
           const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
           const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
-          // Format the reset time with relative time if available
-          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime) : null;
+          // Format the reset time with relative time and UTC conversion if available
+          const timezone = global.limitTimezone || null;
+          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime, timezone) : null;
           const failureComment = formattedResetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;

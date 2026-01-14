@@ -311,6 +311,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
+      .option('prompt-subagents-as-agent-commander', {
+        type: 'boolean',
+        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only supported for --tool claude.',
+        default: false,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })

@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.2.11
+
+### Patch Changes
+
+- 8404b75: fix: Support weekly limit date parsing in extractResetTime and parseResetTime
+  - Added Pattern 0 to extractResetTime() to handle date+time formats like "resets Jan 15, 8am"
+  - Updated parseResetTime() to parse date+time strings with month name and day
+  - This ensures weekly limit messages are displayed with the "Usage Limit Reached" format
+
 ## 1.2.10
 
 ### Patch Changes

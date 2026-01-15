@@ -25,21 +25,13 @@ const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => 
   await log(`   ${cmd}\n`);
 };
 
-/**
- * Format numbers with spaces as thousands separator (no commas)
- * Per issue #667: Use spaces for thousands, . for decimals
- * @param {number|null|undefined} num - Number to format
- * @returns {string} Formatted number string
- */
+/** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
-  // Convert to string and split on decimal point
   const parts = num.toString().split('.');
   const integerPart = parts[0];
   const decimalPart = parts[1];
-  // Add spaces every 3 digits from the right
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  // Return with decimal part if it exists
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
 // Available model configurations
@@ -416,19 +408,13 @@ export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
 
   // Check if agent-commander is installed when the option is enabled
-  // This enables the prompt guidance only if the tool is actually available
   if (argv.promptSubagentsViaAgentCommander) {
     try {
       await $`which start-agent`;
       argv.agentCommanderInstalled = true;
-      if (argv.verbose) {
-        await log('   agent-commander (start-agent) is installed', { verbose: true });
-      }
     } catch {
       argv.agentCommanderInstalled = false;
-      await log('⚠️  --prompt-subagents-via-agent-commander is enabled but agent-commander (start-agent) is not installed');
-      await log('   The prompt guidance for agent-commander will not be included.');
-      await log('   Install agent-commander with: npm install -g @link-assistant/agent-commander');
+      await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
     }
   }
 

@@ -1,5 +1,24 @@
 # @link-assistant/hive-mind
 
+## 1.2.11
+
+### Patch Changes
+
+- 8404b75: fix: Support weekly limit date parsing in extractResetTime and parseResetTime
+  - Added Pattern 0 to extractResetTime() to handle date+time formats like "resets Jan 15, 8am"
+  - Updated parseResetTime() to parse date+time strings with month name and day
+  - This ensures weekly limit messages are displayed with the "Usage Limit Reached" format
+
+## 1.2.10
+
+### Patch Changes
+
+- 7ba1476: Auto-cleanup .playwright-mcp/ folder to prevent false auto-restart triggers
+  - Add auto-cleanup of .playwright-mcp/ folder before checking uncommitted changes
+  - Add --playwright-mcp-auto-cleanup option (enabled by default)
+  - Use --no-playwright-mcp-auto-cleanup to disable cleanup for debugging
+  - Add comprehensive case study documentation for issue #1124
+
 ## 1.2.9
 
 ### Patch Changes

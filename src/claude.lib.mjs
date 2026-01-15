@@ -414,6 +414,24 @@ export const checkPlaywrightMcpAvailability = async () => {
  */
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+
+  // Check if agent-commander is installed when the option is enabled
+  // This enables the prompt guidance only if the tool is actually available
+  if (argv.promptSubagentsViaAgentCommander) {
+    try {
+      await $`which start-agent`;
+      argv.agentCommanderInstalled = true;
+      if (argv.verbose) {
+        await log('   agent-commander (start-agent) is installed', { verbose: true });
+      }
+    } catch {
+      argv.agentCommanderInstalled = false;
+      await log('⚠️  --prompt-subagents-via-agent-commander is enabled but agent-commander (start-agent) is not installed');
+      await log('   The prompt guidance for agent-commander will not be included.');
+      await log('   Install agent-commander with: npm install -g @link-assistant/agent-commander');
+    }
+  }
+
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
   // Build the user prompt
@@ -896,6 +914,7 @@ export const executeClaudeCommand = async params => {
     let sessionId = null;
     let limitReached = false;
     let limitResetTime = null;
+    let limitTimezone = null;
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
@@ -1162,6 +1181,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
           };
@@ -1208,6 +1228,7 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
             is503Error: true,
@@ -1220,6 +1241,7 @@ export const executeClaudeCommand = async params => {
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          limitTimezone = limitInfo.timezone;
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -1284,6 +1306,7 @@ export const executeClaudeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           messageCount,
           toolUseCount,
           errorDuringExecution,
@@ -1353,6 +1376,7 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        limitTimezone,
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
@@ -1401,6 +1425,7 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime: null,
+        limitTimezone: null,
         messageCount,
         toolUseCount,
       };

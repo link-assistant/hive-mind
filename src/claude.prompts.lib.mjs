@@ -283,7 +283,7 @@ Plan sub-agent usage.
    - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
        : ''
    }${
-     argv && argv.promptSubagentsAsAgentCommander
+     argv && argv.promptSubagentsViaAgentCommander && argv.agentCommanderInstalled
        ? `
 
 Agent Commander usage (unified subagent delegation).

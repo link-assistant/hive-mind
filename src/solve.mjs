@@ -898,9 +898,12 @@ try {
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
-  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+  // Capture limit reset time and timezone globally for downstream handlers (auto-continue, cleanup decisions)
   if (toolResult && toolResult.limitResetTime) {
     global.limitResetTime = toolResult.limitResetTime;
+  }
+  if (toolResult && toolResult.limitTimezone) {
+    global.limitTimezone = toolResult.limitTimezone;
   }
 
   // Handle limit reached scenario
@@ -974,8 +977,9 @@ try {
           const tool = argv.tool || 'claude';
           const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
           const resumeSection = resumeCmd ? `To resume after the limit resets, use:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : `Session ID: \`${sessionId}\``;
-          // Format the reset time with relative time if available
-          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime) : null;
+          // Format the reset time with relative time and UTC conversion if available
+          const timezone = global.limitTimezone || null;
+          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime, timezone) : null;
           const failureComment = formattedResetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
@@ -1114,6 +1118,27 @@ try {
     }
 
     await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+  }
+
+  // Clean up .playwright-mcp/ folder before checking for uncommitted changes
+  // This prevents browser automation artifacts from triggering auto-restart (Issue #1124)
+  if (argv.playwrightMcpAutoCleanup !== false) {
+    const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
+    try {
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
+      if (playwrightMcpExists) {
+        await fs.rm(playwrightMcpDir, { recursive: true, force: true });
+        await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });
+      }
+    } catch (cleanupError) {
+      // Non-critical error, just log and continue
+      await log(`⚠️  Could not clean up .playwright-mcp/ folder: ${cleanupError.message}`, { verbose: true });
+    }
+  } else {
+    await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
   // Check for uncommitted changes

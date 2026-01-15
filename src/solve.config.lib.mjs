@@ -311,9 +311,14 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
-      .option('prompt-subagents-as-agent-commander', {
+      .option('playwright-mcp-auto-cleanup', {
         type: 'boolean',
-        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only supported for --tool claude.',
+        description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
+        default: true,
+      })
+      .option('prompt-subagents-via-agent-commander', {
+        type: 'boolean',
+        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
         default: false,
       })
       .parserConfiguration({

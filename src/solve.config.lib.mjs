@@ -130,7 +130,7 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
         default: false,
       })
       .option('auto-gitkeep-file', {

@@ -33,6 +33,10 @@ const {
   // isGitHubUrlType - not currently used
 } = githubLib;
 
+// Import git-related functions for identity validation
+const gitLib = await import('./git.lib.mjs');
+const { checkGitIdentity } = gitLib;
+
 // Import Claude-related functions
 const claudeLib = await import('./claude.lib.mjs');
 // Import Sentry integration
@@ -214,6 +218,35 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
   // Check memory before proceeding (early check to prevent Claude kills)
   const hasEnoughMemory = await checkMemory(256);
   if (!hasEnoughMemory) {
+    return false;
+  }
+
+  // Check git identity configuration before proceeding
+  // This prevents the "fatal: empty ident name" error during commits
+  // See: https://github.com/link-assistant/hive-mind/issues/1131
+  const gitIdentity = await checkGitIdentity();
+  if (!gitIdentity.isValid) {
+    await log('');
+    await log('❌ Git identity not configured', { level: 'error' });
+    await log('');
+    await log('   Git commits require both user.name and user.email to be set.');
+    await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
+    await log('');
+    await log('   Current configuration:');
+    await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
+    await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
+    await log('');
+    await log('   🔧 How to fix:');
+    await log('');
+    await log('   Option 1: Use GitHub CLI to set identity from your account');
+    await log('     gh-setup-git-identity');
+    await log('');
+    await log('   Option 2: Set identity manually');
+    await log('     git config --global user.name "Your Name"');
+    await log('     git config --global user.email "you@example.com"');
+    await log('');
+    await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
+    await log('');
     return false;
   }
 

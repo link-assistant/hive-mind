@@ -1,0 +1,154 @@
+# Case Study: Git Identity Configuration Corruption
+
+**Issue**: [#1131 - Git identity configuration became corrupted](https://github.com/link-assistant/hive-mind/issues/1131)
+
+**Status**: Fixed
+
+**Date**: 2026-01-15
+
+## Problem Description
+
+The AI Issue Solver's `solve` command failed during automated work sessions with the error:
+
+```
+fatal: empty ident name (for <hive@vmi2955137.contaboserver.net>) not allowed
+```
+
+This error occurred when attempting to create git commits. The issue was traced to corrupted git global configuration (`~/.gitconfig`) where `user.name` and `user.email` were not set.
+
+## Root Cause Analysis
+
+### Timeline of Events
+
+Based on analysis of solution draft logs from [PR #207](https://github.com/link-foundation/links-notation/pull/207):
+
+| Session       | Date/Time            | Git Author                                        | Notes                              |
+| ------------- | -------------------- | ------------------------------------------------- | ---------------------------------- |
+| Session 1     | 2026-01-13T12:26     | `konard <drakonard@gmail.com>`                    | Working correctly                  |
+| Session 2     | 2026-01-14T17:11     | `konard <drakonard@gmail.com>`                    | Working correctly                  |
+| Session 3     | 2026-01-14T17:14     | `konard <drakonard@gmail.com>`                    | Working correctly                  |
+| **Session 4** | **2026-01-15T02:50** | **Error occurred**                                | Git identity unknown               |
+| Session 4     | 2026-01-15T02:50     | `AI Issue Solver <ai-solver@link-foundation.org>` | Claude self-fixed (local)          |
+| Session 5     | 2026-01-15T07:56     | Error occurred                                    | Git identity unknown again         |
+| Session 5     | 2026-01-15T07:56     | `Claude Opus 4.5 <noreply@anthropic.com>`         | Claude self-fixed (wrong identity) |
+
+### What Happened
+
+1. **Configuration Loss**: Between sessions 3 and 4 (between 2026-01-14T17:14 and 2026-01-15T02:50), the git global configuration was cleared or corrupted.
+
+2. **First Self-Fix**: In session 4, when Claude encountered the error, it executed:
+
+   ```bash
+   git config user.email "ai-solver@link-foundation.org" && git config user.name "AI Issue Solver"
+   ```
+
+   This fixed the local repository but not the global configuration.
+
+3. **Second Self-Fix (Wrong Identity)**: In session 5, working in a fresh clone, Claude encountered the same error and fixed it with:
+   ```bash
+   git config user.email "noreply@anthropic.com" && git config user.name "Claude Opus 4.5"
+   ```
+   This resulted in commits being attributed to "Claude Opus 4.5" instead of the intended identity.
+
+### Root Cause
+
+The git global configuration (`~/.gitconfig`) lost the `user.name` and `user.email` settings. Possible causes include:
+
+- Server restart or reprovisioning
+- Configuration file corruption
+- Manual configuration change
+- Automated cleanup script
+
+## Impact
+
+1. **Commit Attribution**: Some commits in PR #207 are incorrectly attributed to "Claude Opus 4.5" instead of "AI Issue Solver"
+2. **Session Failures**: The solve command failed silently when git identity was missing, wasting compute time
+3. **Inconsistent History**: The git history shows multiple different authors for automated work
+
+## Solution
+
+### Prevention Measures Implemented
+
+1. **Pre-flight Check** (`src/solve.validation.lib.mjs`):
+   Added git identity validation to `performSystemChecks()` that runs before any work begins:
+
+   ```javascript
+   const gitIdentity = await checkGitIdentity();
+   if (!gitIdentity.isValid) {
+     // Show detailed error message and fail early
+   }
+   ```
+
+2. **Validation Library** (`src/git.lib.mjs`):
+   Added `checkGitIdentity()` function that validates both `user.name` and `user.email` are configured.
+
+3. **Recovery Tool** (`src/gh-setup-git-identity.mjs`):
+   Created a utility that sets git identity from the authenticated GitHub CLI account:
+   ```bash
+   gh-setup-git-identity        # Set identity globally
+   gh-setup-git-identity --local # Set for current repo only
+   ```
+
+### Error Message
+
+When git identity is not configured, users now see:
+
+```
+Git identity not configured
+
+   Git commits require both user.name and user.email to be set.
+   Git identity incomplete: missing user.name and user.email
+
+   Current configuration:
+     user.name:  (not set)
+     user.email: (not set)
+
+   How to fix:
+
+   Option 1: Use GitHub CLI to set identity from your account
+     gh-setup-git-identity
+
+   Option 2: Set identity manually
+     git config --global user.name "Your Name"
+     git config --global user.email "you@example.com"
+
+   Related error: "fatal: empty ident name (for <>) not allowed"
+```
+
+## Files Changed
+
+| File                            | Description                                                      |
+| ------------------------------- | ---------------------------------------------------------------- |
+| `src/git.lib.mjs`               | Added `checkGitIdentity()` and `validateGitIdentity()` functions |
+| `src/solve.validation.lib.mjs`  | Added git identity check to `performSystemChecks()`              |
+| `src/gh-setup-git-identity.mjs` | New utility to set git identity from GitHub account              |
+| `package.json`                  | Added `gh-setup-git-identity` binary                             |
+| `tests/test-git-identity.mjs`   | Unit tests for identity validation                               |
+
+## Testing
+
+Run the unit tests:
+
+```bash
+node tests/test-git-identity.mjs
+```
+
+Test the setup utility:
+
+```bash
+gh-setup-git-identity --dry-run --verbose
+```
+
+## References
+
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/1131
+- **Related PR**: https://github.com/link-foundation/links-notation/pull/207
+- **Git Documentation**: https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup
+- **Stack Overflow**: [git "fatal: empty ident name not allowed"](https://bbs.archlinux.org/viewtopic.php?id=163624)
+
+## Lessons Learned
+
+1. **Validate early**: Check all prerequisites before starting long-running processes
+2. **Fail loudly**: When configuration is missing, show a clear error instead of attempting self-repair
+3. **Provide recovery tools**: When an error can occur, provide easy ways to fix it
+4. **Document the fix**: Include the related error message in help text so users can find solutions

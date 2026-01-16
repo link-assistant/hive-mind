@@ -310,7 +310,7 @@ export const repairGitIdentity = async (execFunc = execAsync) => {
     }
 
     // Run gh-setup-git-identity --repair
-    const { stdout, stderr } = await execFunc('gh-setup-git-identity --repair', {
+    await execFunc('gh-setup-git-identity --repair', {
       encoding: 'utf8',
       env: process.env,
     });

@@ -761,8 +761,9 @@ bot.command('help', async ctx => {
 
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
+  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits, /version and /accept\\_invites commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -883,6 +884,85 @@ bot.command('version', async ctx => {
   if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
+
+bot.command(/^accept[_-]?invites$/i, async ctx => {
+  VERBOSE && console.log('[VERBOSE] /accept-invites command received');
+  await addBreadcrumb({
+    category: 'telegram.command',
+    message: '/accept-invites command received',
+    level: 'info',
+    data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
+  });
+  if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /accept_invites command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  const chatId = ctx.chat.id;
+  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+
+  const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations...', { reply_to_message_id: ctx.message.message_id });
+  const accepted = [];
+  const errors = [];
+
+  try {
+    // Fetch repository invitations
+    const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"');
+    const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
+    VERBOSE && console.log(`[VERBOSE] Found ${repoInvitations.length} pending repo invitations`);
+
+    // Accept each repo invitation
+    for (const inv of repoInvitations) {
+      const repoName = inv.repository?.full_name || 'unknown';
+      try {
+        await exec(`gh api -X PATCH /user/repository_invitations/${inv.id}`);
+        accepted.push(`📦 Repository: ${repoName}`);
+        VERBOSE && console.log(`[VERBOSE] Accepted repo invitation: ${repoName}`);
+      } catch (e) {
+        errors.push(`📦 ${repoName}: ${e.message}`);
+        VERBOSE && console.log(`[VERBOSE] Failed to accept repo invitation ${repoName}: ${e.message}`);
+      }
+    }
+
+    // Fetch organization invitations
+    const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"');
+    const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
+    const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
+    VERBOSE && console.log(`[VERBOSE] Found ${pendingOrgs.length} pending org invitations`);
+
+    // Accept each org invitation
+    for (const membership of pendingOrgs) {
+      const orgName = membership.organization?.login || 'unknown';
+      try {
+        await exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`);
+        accepted.push(`🏢 Organization: ${orgName}`);
+        VERBOSE && console.log(`[VERBOSE] Accepted org invitation: ${orgName}`);
+      } catch (e) {
+        errors.push(`🏢 ${orgName}: ${e.message}`);
+        VERBOSE && console.log(`[VERBOSE] Failed to accept org invitation ${orgName}: ${e.message}`);
+      }
+    }
+
+    // Build response message
+    let message = '✅ *GitHub Invitations Processed*\n\n';
+    if (accepted.length === 0 && errors.length === 0) {
+      message += 'No pending invitations found.';
+    } else {
+      if (accepted.length > 0) {
+        message += '*Accepted:*\n' + accepted.map(a => `  • ${escapeMarkdown(a)}`).join('\n') + '\n\n';
+      }
+      if (errors.length > 0) {
+        message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n');
+      }
+      if (accepted.length > 0 && errors.length === 0) {
+        message += `\n🎉 Successfully accepted ${accepted.length} invitation(s)!`;
+      }
+    }
+
+    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('Error in /accept-invites:', error);
+    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapeMarkdown(error.message)}\n\nMake sure \`gh\` CLI is installed and authenticated.`, { parse_mode: 'Markdown' });
+  }
+});
+
 bot.command(/^solve$/i, async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');

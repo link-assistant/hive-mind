@@ -175,8 +175,9 @@ Git identity not configured
 | `src/git.lib.mjs`              | Added `checkGitIdentity()`, `validateGitIdentity()`, and `repairGitIdentity()` functions |
 | `src/solve.validation.lib.mjs` | Added git identity check and auto-repair logic to `performSystemChecks()`                |
 | `src/solve.config.lib.mjs`     | Added `--auto-gh-configuration-repair` CLI option                                        |
-| `package.json`                 | Added `gh-setup-git-identity` binary                                                     |
 | `tests/test-git-identity.mjs`  | Unit tests for identity validation and repair functions                                  |
+
+**External Dependency**: The auto-repair feature requires [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) to be installed separately.
 
 ## Testing
 

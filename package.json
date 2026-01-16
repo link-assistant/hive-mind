@@ -10,8 +10,7 @@
     "task": "./src/task.mjs",
     "review": "./src/review.mjs",
     "start-screen": "./src/start-screen.mjs",
-    "hive-telegram-bot": "./src/telegram-bot.mjs",
-    "gh-setup-git-identity": "./src/gh-setup-git-identity.mjs"
+    "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
     "test": "node tests/solve-queue.test.mjs && node tests/test-usage-limit.mjs",

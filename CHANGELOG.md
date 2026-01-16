@@ -952,7 +952,7 @@
 
   This feature allows users to choose which file type to use for PR creation:
   - `--claude-file` (default: true): Use CLAUDE.md file for task details
-  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+  - `--gitkeep-file` (default: false): Use .gitkeep file instead
 
   The flags are mutually exclusive:
   - Using `--gitkeep-file` automatically disables `--claude-file`

@@ -285,6 +285,50 @@ export const validateGitIdentity = async ($, options = {}) => {
   return true;
 };
 
+/**
+ * Attempts to repair git identity using gh-setup-git-identity --repair
+ * This function requires gh-setup-git-identity to be installed.
+ *
+ * @param {function} execFunc - The exec function to use (for testing)
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export const repairGitIdentity = async (execFunc = execAsync) => {
+  const result = {
+    success: false,
+    error: null,
+  };
+
+  try {
+    // First check if gh-setup-git-identity is installed
+    try {
+      await execFunc('which gh-setup-git-identity', {
+        encoding: 'utf8',
+      });
+    } catch {
+      result.error = 'gh-setup-git-identity is not installed. Please install it first or fix git identity manually.';
+      return result;
+    }
+
+    // Run gh-setup-git-identity --repair
+    const { stdout, stderr } = await execFunc('gh-setup-git-identity --repair', {
+      encoding: 'utf8',
+      env: process.env,
+    });
+
+    // Check if the repair was successful by validating git identity
+    const identityCheck = await checkGitIdentity(execFunc);
+    if (identityCheck.isValid) {
+      result.success = true;
+    } else {
+      result.error = `Repair command completed but identity is still invalid: ${identityCheck.error}`;
+    }
+  } catch (error) {
+    result.error = `Failed to repair git identity: ${error.message}`;
+  }
+
+  return result;
+};
+
 // Export all functions as default as well
 export default {
   isGitRepository,
@@ -295,4 +339,5 @@ export default {
   getGitVersionAsync,
   checkGitIdentity,
   validateGitIdentity,
+  repairGitIdentity,
 };

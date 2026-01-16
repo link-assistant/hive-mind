@@ -59,11 +59,13 @@ The git global configuration (`~/.gitconfig`) was replaced by a **broken symlink
 #### Evidence from Logs
 
 From the session log at `2026-01-15T02:53`:
+
 ```
 lrwxrwxrwx  1 hive hive  49 Jan 15 00:11 .gitconfig -> /tmp/gh-issue-solver-1768432183293/git/.gitconfig
 ```
 
 **Key findings:**
+
 1. **Symlink Creation**: At `2026-01-15T00:11` (Jan 15 00:11 local = Jan 14 23:11 UTC), the `~/.gitconfig` file was replaced with a symlink
 2. **Target Directory**: The symlink pointed to `/tmp/gh-issue-solver-1768432183293/git/.gitconfig` - a temp directory created at `2026-01-14T23:09:43 UTC`
 3. **Temp Directory Cleanup**: When the solve session completed, the temp directory was cleaned up (normal behavior), leaving a broken symlink
@@ -71,16 +73,17 @@ lrwxrwxrwx  1 hive hive  49 Jan 15 00:11 .gitconfig -> /tmp/gh-issue-solver-1768
 
 #### Corruption Timeline Reconstruction
 
-| Time (UTC)        | Event                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| 2026-01-14T23:09  | Solve session started, created temp directory `/tmp/gh-issue-solver-1768432183293`          |
-| 2026-01-14T23:11  | Claude (during solve session) created symlink `~/.gitconfig -> temp_dir/git/.gitconfig`    |
-| Unknown           | Solve session completed, temp directory was cleaned up                                      |
-| 2026-01-15T02:46  | Next solve session started on PR #207, immediately encountered git identity error           |
+| Time (UTC)       | Event                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| 2026-01-14T23:09 | Solve session started, created temp directory `/tmp/gh-issue-solver-1768432183293`      |
+| 2026-01-14T23:11 | Claude (during solve session) created symlink `~/.gitconfig -> temp_dir/git/.gitconfig` |
+| Unknown          | Solve session completed, temp directory was cleaned up                                  |
+| 2026-01-15T02:46 | Next solve session started on PR #207, immediately encountered git identity error       |
 
 #### Why Did Claude Create the Symlink?
 
 During a solve session around `2026-01-14T23:09 UTC`, Claude likely:
+
 1. Encountered a git configuration issue
 2. Attempted to "fix" it by creating a symlink to a config file in the current working directory
 3. This was an incorrect fix because the temp directory is ephemeral
@@ -89,11 +92,11 @@ During a solve session around `2026-01-14T23:09 UTC`, Claude likely:
 
 The following PRs were active around the corruption time and were investigated:
 
-| PR | Repository | Last Activity Before Corruption | Status |
-|----|------------|--------------------------------|--------|
-| [#1117](https://github.com/link-assistant/hive-mind/pull/1117) | link-assistant/hive-mind | 2026-01-14T17:09 | No corruption evidence |
-| [#207](https://github.com/link-foundation/links-notation/pull/207) | link-foundation/links-notation | 2026-01-14T17:14 | First session to detect corruption |
-| [#1123](https://github.com/link-assistant/hive-mind/pull/1123) | link-assistant/hive-mind | Merged 2026-01-14T16:55 | Before corruption |
+| PR                                                                 | Repository                     | Last Activity Before Corruption | Status                             |
+| ------------------------------------------------------------------ | ------------------------------ | ------------------------------- | ---------------------------------- |
+| [#1117](https://github.com/link-assistant/hive-mind/pull/1117)     | link-assistant/hive-mind       | 2026-01-14T17:09                | No corruption evidence             |
+| [#207](https://github.com/link-foundation/links-notation/pull/207) | link-foundation/links-notation | 2026-01-14T17:14                | First session to detect corruption |
+| [#1123](https://github.com/link-assistant/hive-mind/pull/1123)     | link-assistant/hive-mind       | Merged 2026-01-14T16:55         | Before corruption                  |
 
 **Note**: The exact session that created the symlink could not be identified in the available logs. The session may have been on a different repository or the logs were not preserved.
 
@@ -119,12 +122,24 @@ The following PRs were active around the corruption time and were investigated:
 
 2. **Validation Library** (`src/git.lib.mjs`):
    Added `checkGitIdentity()` function that validates both `user.name` and `user.email` are configured.
+   Added `repairGitIdentity()` function to automatically repair configuration using `gh-setup-git-identity --repair`.
 
-3. **Recovery Tool** (`src/gh-setup-git-identity.mjs`):
-   Created a utility that sets git identity from the authenticated GitHub CLI account:
+3. **Auto-Repair Option** (`--auto-gh-configuration-repair`):
+   Added a CLI option to automatically repair git configuration when it is corrupted:
+
+   ```bash
+   solve <issue-url> --auto-gh-configuration-repair
+   ```
+
+   When enabled, if git identity is not configured, the solve command will automatically attempt to repair it using `gh-setup-git-identity --repair`. This requires the [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) tool to be installed.
+
+4. **Recovery Tool Reference**:
+   The external `gh-setup-git-identity` utility sets git identity from the authenticated GitHub CLI account:
+
    ```bash
    gh-setup-git-identity        # Set identity globally
    gh-setup-git-identity --local # Set for current repo only
+   gh-setup-git-identity --repair # Repair corrupted config without re-authentication
    ```
 
 ### Error Message
@@ -155,13 +170,13 @@ Git identity not configured
 
 ## Files Changed
 
-| File                            | Description                                                      |
-| ------------------------------- | ---------------------------------------------------------------- |
-| `src/git.lib.mjs`               | Added `checkGitIdentity()` and `validateGitIdentity()` functions |
-| `src/solve.validation.lib.mjs`  | Added git identity check to `performSystemChecks()`              |
-| `src/gh-setup-git-identity.mjs` | New utility to set git identity from GitHub account              |
-| `package.json`                  | Added `gh-setup-git-identity` binary                             |
-| `tests/test-git-identity.mjs`   | Unit tests for identity validation                               |
+| File                           | Description                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| `src/git.lib.mjs`              | Added `checkGitIdentity()`, `validateGitIdentity()`, and `repairGitIdentity()` functions |
+| `src/solve.validation.lib.mjs` | Added git identity check and auto-repair logic to `performSystemChecks()`                |
+| `src/solve.config.lib.mjs`     | Added `--auto-gh-configuration-repair` CLI option                                        |
+| `package.json`                 | Added `gh-setup-git-identity` binary                                                     |
+| `tests/test-git-identity.mjs`  | Unit tests for identity validation and repair functions                                  |
 
 ## Testing
 
@@ -189,13 +204,13 @@ gh-setup-git-identity --dry-run --verbose
 
 The following log files were analyzed and are preserved in `./logs/`:
 
-| File | Description |
-|------|-------------|
-| `pr-1117-session-2026-01-14T17-09.txt` | PR #1117 session before corruption |
-| `pr-1117-session-2026-01-15T07-50.txt` | PR #1117 session after corruption (error session) |
-| `pr-207-session-2026-01-14T17-14.txt` | PR #207 last working session |
-| `pr-207-session-2026-01-15T02-53.txt` | PR #207 first session after corruption (contains symlink evidence) |
-| `pr-207-session-2026-01-15T08-02.txt` | PR #207 subsequent session |
+| File                                   | Description                                                        |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `pr-1117-session-2026-01-14T17-09.txt` | PR #1117 session before corruption                                 |
+| `pr-1117-session-2026-01-15T07-50.txt` | PR #1117 session after corruption (error session)                  |
+| `pr-207-session-2026-01-14T17-14.txt`  | PR #207 last working session                                       |
+| `pr-207-session-2026-01-15T02-53.txt`  | PR #207 first session after corruption (contains symlink evidence) |
+| `pr-207-session-2026-01-15T08-02.txt`  | PR #207 subsequent session                                         |
 
 ## Lessons Learned
 

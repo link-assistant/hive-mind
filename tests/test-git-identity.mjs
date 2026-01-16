@@ -8,7 +8,7 @@
  * This test validates the fix for "fatal: empty ident name" errors
  */
 
-import { checkGitIdentity } from '../src/git.lib.mjs';
+import { checkGitIdentity, repairGitIdentity } from '../src/git.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -194,6 +194,91 @@ await runTest('checkGitIdentity - real git (integration)', async () => {
   assert(['global', 'local', 'none'].includes(result.scope), 'Scope should be valid');
 
   console.log(`  [INFO] Current git config: name="${result.name}", email="${result.email}", scope=${result.scope}`);
+});
+
+console.log('\n\u{1F527} repairGitIdentity Tests\n');
+
+// Create mock exec function for repair testing
+const createRepairMockExec = (whichSuccess, repairSuccess, identityAfterRepair) => {
+  let repairCalled = false;
+  return async (cmd, _options) => {
+    // Handle 'which gh-setup-git-identity'
+    if (cmd === 'which gh-setup-git-identity') {
+      if (!whichSuccess) {
+        throw new Error('command not found: gh-setup-git-identity');
+      }
+      return { stdout: '/usr/local/bin/gh-setup-git-identity' };
+    }
+    // Handle 'gh-setup-git-identity --repair'
+    if (cmd === 'gh-setup-git-identity --repair') {
+      repairCalled = true;
+      if (!repairSuccess) {
+        throw new Error('repair failed');
+      }
+      return { stdout: 'Git identity configured successfully', stderr: '' };
+    }
+    // Handle git config checks after repair
+    if (cmd === 'git config user.name') {
+      if (repairCalled && identityAfterRepair) {
+        return { stdout: identityAfterRepair.name || '' };
+      }
+      throw new Error('exit code 1');
+    }
+    if (cmd === 'git config user.email') {
+      if (repairCalled && identityAfterRepair) {
+        return { stdout: identityAfterRepair.email || '' };
+      }
+      throw new Error('exit code 1');
+    }
+    if (cmd === 'git config --show-origin user.name') {
+      if (repairCalled && identityAfterRepair) {
+        return { stdout: `file:/home/user/.gitconfig\t${identityAfterRepair.name}` };
+      }
+      throw new Error('exit code 1');
+    }
+    throw new Error(`Unexpected command: ${cmd}`);
+  };
+};
+
+// Test: repairGitIdentity - gh-setup-git-identity not installed
+await runTest('repairGitIdentity - tool not installed', async () => {
+  const mockExec = createRepairMockExec(false, false, null);
+
+  const result = await repairGitIdentity(mockExec);
+
+  assert(result.success === false, 'Should fail');
+  assert(result.error.includes('not installed'), 'Error should mention not installed');
+});
+
+// Test: repairGitIdentity - successful repair
+await runTest('repairGitIdentity - successful repair', async () => {
+  const mockExec = createRepairMockExec(true, true, { name: 'Repaired User', email: 'repaired@example.com' });
+
+  const result = await repairGitIdentity(mockExec);
+
+  assert(result.success === true, 'Should succeed');
+  assertEqual(result.error, null, 'Should have no error');
+});
+
+// Test: repairGitIdentity - repair command fails
+await runTest('repairGitIdentity - repair command fails', async () => {
+  const mockExec = createRepairMockExec(true, false, null);
+
+  const result = await repairGitIdentity(mockExec);
+
+  assert(result.success === false, 'Should fail');
+  assert(result.error.includes('Failed to repair'), 'Error should mention failure');
+});
+
+// Test: repairGitIdentity - repair completes but identity still invalid
+await runTest('repairGitIdentity - repair completes but identity still invalid', async () => {
+  // Tool is installed, repair "succeeds" but identity is still not configured
+  const mockExec = createRepairMockExec(true, true, null);
+
+  const result = await repairGitIdentity(mockExec);
+
+  assert(result.success === false, 'Should fail');
+  assert(result.error.includes('still invalid'), 'Error should mention identity still invalid');
 });
 
 // Print summary

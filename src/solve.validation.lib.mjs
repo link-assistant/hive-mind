@@ -33,9 +33,9 @@ const {
   // isGitHubUrlType - not currently used
 } = githubLib;
 
-// Import git-related functions for identity validation
+// Import git-related functions for identity validation and repair
 const gitLib = await import('./git.lib.mjs');
-const { checkGitIdentity } = gitLib;
+const { checkGitIdentity, repairGitIdentity } = gitLib;
 
 // Import Claude-related functions
 const claudeLib = await import('./claude.lib.mjs');
@@ -224,30 +224,72 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
   // Check git identity configuration before proceeding
   // This prevents the "fatal: empty ident name" error during commits
   // See: https://github.com/link-assistant/hive-mind/issues/1131
-  const gitIdentity = await checkGitIdentity();
+  let gitIdentity = await checkGitIdentity();
   if (!gitIdentity.isValid) {
-    await log('');
-    await log('❌ Git identity not configured', { level: 'error' });
-    await log('');
-    await log('   Git commits require both user.name and user.email to be set.');
-    await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
-    await log('');
-    await log('   Current configuration:');
-    await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
-    await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
-    await log('');
-    await log('   🔧 How to fix:');
-    await log('');
-    await log('   Option 1: Use GitHub CLI to set identity from your account');
-    await log('     gh-setup-git-identity');
-    await log('');
-    await log('   Option 2: Set identity manually');
-    await log('     git config --global user.name "Your Name"');
-    await log('     git config --global user.email "you@example.com"');
-    await log('');
-    await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
-    await log('');
-    return false;
+    // Check if auto-repair is enabled
+    if (argv.autoGhConfigurationRepair) {
+      await log('');
+      await log('⚠️  Git identity not configured, attempting auto-repair...', { level: 'warning' });
+      await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
+      await log('');
+
+      const repairResult = await repairGitIdentity();
+      if (repairResult.success) {
+        await log('✅ Git identity successfully repaired using gh-setup-git-identity --repair');
+        // Re-check identity to display the configured values
+        gitIdentity = await checkGitIdentity();
+        await log(`   user.name:  ${gitIdentity.name}`);
+        await log(`   user.email: ${gitIdentity.email}`);
+        await log('');
+      } else {
+        await log('');
+        await log('❌ Auto-repair failed', { level: 'error' });
+        await log(`   ${repairResult.error}`);
+        await log('');
+        await log('   Current configuration:');
+        await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
+        await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
+        await log('');
+        await log('   🔧 How to fix manually:');
+        await log('');
+        await log('   Option 1: Install gh-setup-git-identity and use --auto-gh-configuration-repair');
+        await log('     npm install -g @link-foundation/gh-setup-git-identity');
+        await log('');
+        await log('   Option 2: Set identity manually');
+        await log('     git config --global user.name "Your Name"');
+        await log('     git config --global user.email "you@example.com"');
+        await log('');
+        await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
+        await log('');
+        return false;
+      }
+    } else {
+      await log('');
+      await log('❌ Git identity not configured', { level: 'error' });
+      await log('');
+      await log('   Git commits require both user.name and user.email to be set.');
+      await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
+      await log('');
+      await log('   Current configuration:');
+      await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
+      await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
+      await log('');
+      await log('   🔧 How to fix:');
+      await log('');
+      await log('   Option 1: Use GitHub CLI to set identity from your account');
+      await log('     gh-setup-git-identity');
+      await log('');
+      await log('   Option 2: Set identity manually');
+      await log('     git config --global user.name "Your Name"');
+      await log('     git config --global user.email "you@example.com"');
+      await log('');
+      await log('   Option 3: Enable auto-repair (requires gh-setup-git-identity)');
+      await log('     solve <issue-url> --auto-gh-configuration-repair');
+      await log('');
+      await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
+      await log('');
+      return false;
+    }
   }
 
   // Skip tool connection validation if in dry-run mode or explicitly requested

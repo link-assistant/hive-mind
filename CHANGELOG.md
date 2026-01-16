@@ -1,5 +1,24 @@
 # @link-assistant/hive-mind
 
+## 1.4.0
+
+### Minor Changes
+
+- 4a476ae: Add separate log comment for each auto-restart session with cost estimation
+  - Each auto-restart iteration now uploads its own session log with cost estimation to the PR
+  - Log comments use "Auto-restart X/Y Log" format instead of generic "Solution Draft Log"
+  - Issue #1107
+
+### Patch Changes
+
+- 3239fa1: Add git identity validation to prevent commit failures
+  - Added `checkGitIdentity()` and `validateGitIdentity()` functions to validate git user configuration
+  - Added git identity check to `performSystemChecks()` that runs before any work begins
+  - Added `--auto-gh-configuration-repair` option that uses external `gh-setup-git-identity` command for automatic repair
+  - Added unit tests for identity validation
+
+  This fix prevents the "fatal: empty ident name" error that occurs when git user.name and user.email are not configured. When git identity is missing, users now see a clear error message with instructions for fixing it. The auto-repair feature requires the external [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) package to be installed.
+
 ## 1.3.0
 
 ### Minor Changes

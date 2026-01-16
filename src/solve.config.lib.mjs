@@ -321,6 +321,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
         default: true,
       })
+      .option('auto-gh-configuration-repair', {
+        type: 'boolean',
+        description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
+        default: false,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })

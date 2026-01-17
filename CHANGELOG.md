@@ -1,5 +1,32 @@
 # @link-assistant/hive-mind
 
+## 1.4.0
+
+### Minor Changes
+
+- 4a476ae: Add separate log comment for each auto-restart session with cost estimation
+  - Each auto-restart iteration now uploads its own session log with cost estimation to the PR
+  - Log comments use "Auto-restart X/Y Log" format instead of generic "Solution Draft Log"
+  - Issue #1107
+
+### Patch Changes
+
+- 3239fa1: Add git identity validation to prevent commit failures
+  - Added `checkGitIdentity()` and `validateGitIdentity()` functions to validate git user configuration
+  - Added git identity check to `performSystemChecks()` that runs before any work begins
+  - Added `--auto-gh-configuration-repair` option that uses external `gh-setup-git-identity` command for automatic repair
+  - Added unit tests for identity validation
+
+  This fix prevents the "fatal: empty ident name" error that occurs when git user.name and user.email are not configured. When git identity is missing, users now see a clear error message with instructions for fixing it. The auto-repair feature requires the external [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) package to be installed.
+
+## 1.3.0
+
+### Minor Changes
+
+- a403c0e: Add --auto-gitkeep-file option to automatically fallback to .gitkeep when CLAUDE.md is in .gitignore
+
+  This feature pre-checks if CLAUDE.md would be ignored by .gitignore BEFORE creating the file, preventing the "paths are ignored by one of your .gitignore files" error. When detected, automatically switches to .gitkeep mode. Enabled by default (--auto-gitkeep-file=true).
+
 ## 1.2.11
 
 ### Patch Changes
@@ -952,7 +979,7 @@
 
   This feature allows users to choose which file type to use for PR creation:
   - `--claude-file` (default: true): Use CLAUDE.md file for task details
-  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+  - `--gitkeep-file` (default: false): Use .gitkeep file instead
 
   The flags are mutually exclusive:
   - Using `--gitkeep-file` automatically disables `--claude-file`

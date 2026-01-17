@@ -130,8 +130,13 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
         default: false,
+      })
+      .option('auto-gitkeep-file', {
+        type: 'boolean',
+        description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
+        default: true,
       })
       .option('attach-logs', {
         type: 'boolean',
@@ -315,6 +320,11 @@ export const createYargsConfig = yargsInstance => {
         type: 'boolean',
         description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
         default: true,
+      })
+      .option('auto-gh-configuration-repair', {
+        type: 'boolean',
+        description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
+        default: false,
       })
       .option('prompt-subagents-via-agent-commander', {
         type: 'boolean',

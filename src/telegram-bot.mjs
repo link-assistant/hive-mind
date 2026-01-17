@@ -761,8 +761,9 @@ bot.command('help', async ctx => {
 
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
+  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits and /version commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits, /version and /accept\\_invites commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -883,6 +884,19 @@ bot.command('version', async ctx => {
   if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
+
+// Register /accept_invites command from separate module
+// This keeps telegram-bot.mjs under the 1500 line limit
+const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
+registerAcceptInvitesCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
+  addBreadcrumb,
+});
+
 bot.command(/^solve$/i, async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');

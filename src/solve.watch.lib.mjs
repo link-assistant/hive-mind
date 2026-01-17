@@ -21,13 +21,17 @@ const fs = (await use('fs')).promises;
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned } = lib;
+const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
+
+// Import GitHub functions for log attachment
+const githubLib = await import('./github.lib.mjs');
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 const { detectAndCountFeedback } = feedbackLib;
 
@@ -514,6 +518,55 @@ export const watchForFeedback = async params => {
               if (latestAnthropicCost !== null && latestAnthropicCost !== undefined) {
                 await log(`   💰 Anthropic cost: $${latestAnthropicCost.toFixed(6)}`, { verbose: true });
               }
+            }
+          }
+
+          // Issue #1107: Attach log after each auto-restart session with its own cost estimation
+          // This ensures each restart has its own log comment instead of one combined log at the end
+          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+            await log('');
+            await log(formatAligned('📎', 'Uploading auto-restart session log...', ''));
+            try {
+              const logFile = getLogFile();
+              if (logFile) {
+                // Use "Auto-restart X/Y Log" format as requested in issue #1107
+                const customTitle = `🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Log`;
+                const logUploadSuccess = await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  customTitle,
+                  sessionId: latestSessionId,
+                  tempDir,
+                  anthropicTotalCostUSD: latestAnthropicCost,
+                  // Pass agent tool pricing data when available
+                  publicPricingEstimate: toolResult.publicPricingEstimate,
+                  pricingInfo: toolResult.pricingInfo,
+                });
+
+                if (logUploadSuccess) {
+                  await log(formatAligned('', '✅ Auto-restart session log uploaded to PR', '', 2));
+                } else {
+                  await log(formatAligned('', '⚠️  Could not upload auto-restart session log', '', 2));
+                }
+              }
+            } catch (logUploadError) {
+              reportError(logUploadError, {
+                context: 'attach_auto_restart_log',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'upload_session_log',
+              });
+              await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
           }
 

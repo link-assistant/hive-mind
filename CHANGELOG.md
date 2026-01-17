@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.5.0
+
+### Minor Changes
+
+- 2d41edb: Add /accept_invites command to Telegram bot for automatically accepting GitHub repository and organization invitations via gh CLI
+
 ## 1.4.0
 
 ### Minor Changes

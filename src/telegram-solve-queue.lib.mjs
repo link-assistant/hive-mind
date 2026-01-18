@@ -539,15 +539,18 @@ export class SolveQueue {
       const weeklyPercent = claudeResult.usage.allModels.percentage;
 
       // Session limit (5-hour)
-      // When above threshold: allow exactly one command, block if one is running
+      // When above threshold: allow exactly one command, block if any processing is happening
+      // Uses totalProcessing (queue + external claude) for uniform checking
+      // See: https://github.com/link-assistant/hive-mind/issues/1133
       if (sessionPercent !== null) {
         const sessionRatio = sessionPercent / 100;
         if (sessionRatio >= QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) {
-          // Only block if Claude is already running
-          if (hasRunningClaude) {
-            reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD));
-          }
+          oneAtATime = true;
           this.recordThrottle(sessionRatio >= 1.0 ? 'claude_session_100' : 'claude_session_high');
+          // Use totalProcessing (queue + external claude) for uniform checking
+          if (totalProcessing > 0) {
+            reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) + ' (waiting for current command)');
+          }
         }
       }
 

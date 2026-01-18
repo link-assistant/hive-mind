@@ -710,7 +710,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.currentSession.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.currentSession.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 
@@ -738,7 +740,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.allModels.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.allModels.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 
@@ -766,7 +770,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.sonnetOnly.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.sonnetOnly.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 

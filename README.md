@@ -209,7 +209,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using Links Notation (recommended):**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --configuration "
      TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
@@ -238,7 +238,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using individual command-line options:**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
      -1002975819706

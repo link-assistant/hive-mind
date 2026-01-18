@@ -654,7 +654,7 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
 
   if (result.success) {
-    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
     const session = match ? match[1] : 'unknown';
     await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}`);
   } else {

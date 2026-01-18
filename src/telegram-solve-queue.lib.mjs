@@ -712,7 +712,7 @@ export class SolveQueue {
         // Extract session name from result
         let sessionName = 'unknown';
         if (result && result.output) {
-          const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -r\s+(\S+)/);
+          const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
           if (sessionMatch) sessionName = sessionMatch[1];
         }
 

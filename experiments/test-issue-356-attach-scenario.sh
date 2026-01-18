@@ -40,7 +40,7 @@ echo "✓ Command sent via 'screen -X stuff'"
 
 echo ""
 echo "Step 3: User tries to attach to see what's happening"
-echo "   (In the real scenario, user runs: screen -r $SESSION_NAME)"
+echo "   (In the real scenario, user runs: screen -R $SESSION_NAME)"
 echo "   Testing if the command was executed..."
 sleep 1
 

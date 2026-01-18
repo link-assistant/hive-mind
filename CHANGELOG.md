@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.6.1
+
+### Patch Changes
+
+- b07fa91: Improve /limits output format for better clarity and consistency: use 5m load average for CPU calculation (matching /solve queue), show CPU cores as "X.XX/Y CPU cores used" format consistent with RAM and Disk display
+
 ## 1.6.0
 
 ### Minor Changes

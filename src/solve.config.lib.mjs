@@ -47,6 +47,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Resume from a previous session ID (when limit was reached)',
         alias: 'r',
       })
+      .option('working-directory', {
+        type: 'string',
+        description: 'Use specified working directory instead of creating a new temp directory. If directory does not exist, it will be created and the repository will be cloned. Essential for --resume to work correctly with Claude Code sessions.',
+        alias: 'd',
+      })
       .option('only-prepare-command', {
         type: 'boolean',
         description: 'Only prepare and print the claude command without executing it',

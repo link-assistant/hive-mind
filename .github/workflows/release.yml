@@ -59,6 +59,23 @@ jobs:
         GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: node scripts/detect-code-changes.mjs
 
+  # === VERSION CHANGE CHECK ===
+  # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
+  version-check:
+    name: Check for Manual Version Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for version changes in package.json
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-version.mjs
+
   # === CHANGESET CHECK - only runs on PRs with code changes ===
   # Docs-only PRs (./docs folder, markdown files) don't require changesets
   changeset-check:

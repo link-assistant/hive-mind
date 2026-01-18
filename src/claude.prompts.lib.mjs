@@ -282,6 +282,31 @@ Plan sub-agent usage.
    - When using the Plan sub-agent, you can add it as the first item in your todo list.
    - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
        : ''
+   }${
+     argv && argv.promptSubagentsViaAgentCommander && argv.agentCommanderInstalled
+       ? `
+
+Agent Commander usage (unified subagent delegation).
+   - When you need to delegate tasks to subagents, use the agent-commander CLI tool (start-agent) instead of the native Task tool.
+   - Agent Commander provides a unified API for different agent types (claude, opencode, codex, agent) and supports various isolation modes.
+   - To delegate a task, use the Bash tool to run start-agent with appropriate parameters:
+      \`\`\`bash
+      start-agent --tool claude --working-directory "$(pwd)" --prompt "Your task description here"
+      \`\`\`
+   - Common start-agent parameters:
+      --tool <name>: Agent to use (claude, opencode, codex, agent)
+      --working-directory <path>: Execution directory (use current directory for context)
+      --prompt <text>: The task to delegate
+      --model <name>: Model to use (sonnet, opus, haiku, grok, etc.)
+      --isolation <mode>: Execution context (none, screen, docker)
+      --detached: Run in background mode
+   - Examples:
+      Explore codebase: start-agent --tool claude --working-directory "$(pwd)" --prompt "Explore the codebase structure and find how authentication is implemented"
+      Run with specific model: start-agent --tool claude --working-directory "$(pwd)" --model opus --prompt "Review this complex algorithm"
+      Use different agent: start-agent --tool opencode --working-directory "$(pwd)" --model grok --prompt "Analyze performance issues"
+   - Benefits: Saves main agent context, supports any agent type, provides unified API across different AI tools.
+   - Note: The subagent will have access to the same working directory and can read/write files as needed.`
+       : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 

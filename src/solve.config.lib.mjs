@@ -326,6 +326,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
         default: false,
       })
+      .option('prompt-subagents-via-agent-commander', {
+        type: 'boolean',
+        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
+        default: false,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })

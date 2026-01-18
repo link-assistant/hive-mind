@@ -140,6 +140,25 @@ function formatBytes(bytes) {
 }
 
 /**
+ * Format two byte values into a combined "used/total UNIT used" format
+ * @param {number} usedBytes - Used size in bytes
+ * @param {number} totalBytes - Total size in bytes
+ * @returns {string} Formatted string (e.g., "2.8/11.7 GB used")
+ */
+function formatBytesRange(usedBytes, totalBytes) {
+  if (totalBytes === 0) return '0/0 B used';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  // Determine unit based on total (larger value)
+  const i = Math.floor(Math.log(totalBytes) / Math.log(k));
+  const usedValue = usedBytes / Math.pow(k, i);
+  const totalValue = totalBytes / Math.pow(k, i);
+  // Use 1 decimal place for GB and above, none for smaller units
+  const decimals = i >= 3 ? 1 : 0;
+  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} used`;
+}
+
+/**
  * Get GitHub API rate limits by calling gh api rate_limit
  * Returns rate limit info for core, search, graphql, and other resources
  *
@@ -266,9 +285,10 @@ export async function getCpuLoadInfo(verbose = false) {
       };
     }
 
-    // Calculate usage percentage based on load average vs CPU count
+    // Calculate usage percentage based on 5-minute load average vs CPU count
     // Load average of 1.0 per CPU = 100% utilization
-    const usagePercentage = Math.min(100, Math.round((loadAvg1 / cpuCount) * 100));
+    // Using 5m average for consistency with solve queue (see issue #1137)
+    const usagePercentage = Math.min(100, Math.round((loadAvg5 / cpuCount) * 100));
 
     if (verbose) {
       console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
@@ -663,8 +683,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'CPU\n';
     const usedBar = getProgressBar(cpuLoad.usagePercentage);
     message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
-    message += `Load avg: ${cpuLoad.loadAvg1.toFixed(2)} (1m) ${cpuLoad.loadAvg5.toFixed(2)} (5m) ${cpuLoad.loadAvg15.toFixed(2)} (15m)\n`;
-    message += `${cpuLoad.cpuCount} CPU core${cpuLoad.cpuCount > 1 ? 's' : ''}\n\n`;
+    // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
+    // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
+    message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores used\n\n`;
   }
 
   // Memory section (if provided)
@@ -672,7 +693,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'RAM\n';
     const usedBar = getProgressBar(memory.usedPercentage);
     message += `${usedBar} ${memory.usedPercentage}% used\n`;
-    message += `${memory.usedFormatted} used of ${memory.totalFormatted}\n\n`;
+    message += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n\n`;
   }
 
   // Disk space section (if provided)
@@ -681,7 +702,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // Show used percentage with progress bar
     const usedBar = getProgressBar(diskSpace.usedPercentage);
     message += `${usedBar} ${diskSpace.usedPercentage}% used\n`;
-    message += `${diskSpace.usedFormatted} used of ${diskSpace.totalFormatted}\n\n`;
+    message += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n\n`;
   }
 
   // GitHub API rate limits section (if provided)

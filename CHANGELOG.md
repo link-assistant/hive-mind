@@ -1,5 +1,17 @@
 # @link-assistant/hive-mind
 
+## 1.6.1
+
+### Patch Changes
+
+- b07fa91: Improve /limits output format for better clarity and consistency: use 5m load average for CPU calculation (matching /solve queue), show CPU cores as "X.XX/Y CPU cores used" format consistent with RAM and Disk display
+
+## 1.6.0
+
+### Minor Changes
+
+- 56d95bd: Add `--prompt-subagents-via-agent-commander` option to guide Claude to use agent-commander CLI for subagent delegation instead of native Task tool. This allows using any supported agent type (claude, opencode, codex, agent) with a unified API and saves main agent context. The prompt guidance is only included when agent-commander (start-agent) is actually installed on the system.
+
 ## 1.5.0
 
 ### Minor Changes

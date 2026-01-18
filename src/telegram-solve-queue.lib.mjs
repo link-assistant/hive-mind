@@ -396,13 +396,18 @@ export class SolveQueue {
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
     const hasRunningClaude = claudeProcs.count > 0;
 
+    // Calculate total processing count: queue-internal + external claude processes
+    // This is used uniformly across all threshold checks
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const totalProcessing = this.processing.size + claudeProcs.count;
+
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
       this.recordThrottle('claude_running');
     }
 
-    // Check system resources
-    const resourceCheck = await this.checkSystemResources();
+    // Check system resources (pass totalProcessing for uniform checking)
+    const resourceCheck = await this.checkSystemResources(totalProcessing);
     if (!resourceCheck.ok) {
       reasons.push(...resourceCheck.reasons);
     }
@@ -410,8 +415,8 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Check API limits (pass hasRunningClaude to enable special handling)
-    const limitCheck = await this.checkApiLimits(hasRunningClaude);
+    // Check API limits (pass hasRunningClaude and totalProcessing for uniform checking)
+    const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing);
     if (!limitCheck.ok) {
       reasons.push(...limitCheck.reasons);
     }
@@ -440,6 +445,7 @@ export class SolveQueue {
       reasons,
       oneAtATime,
       claudeProcesses: claudeProcs.count,
+      totalProcessing,
     };
   }
 
@@ -450,9 +456,10 @@ export class SolveQueue {
    * This provides a more stable metric that isn't affected by brief spikes
    * during claude process startup.
    *
+   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
-  async checkSystemResources() {
+  async checkSystemResources(totalProcessing = 0) {
     const reasons = [];
     let oneAtATime = false;
 
@@ -498,7 +505,9 @@ export class SolveQueue {
       if (usedRatio >= QUEUE_CONFIG.DISK_THRESHOLD) {
         oneAtATime = true;
         this.recordThrottle('disk_high');
-        if (this.processing.size > 0) {
+        // Use totalProcessing (queue + external claude) for uniform checking
+        // See: https://github.com/link-assistant/hive-mind/issues/1133
+        if (totalProcessing > 0) {
           reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD) + ' (waiting for current command)');
         }
       }
@@ -516,9 +525,10 @@ export class SolveQueue {
    * - Running claude is the ultimate test of whether limits are really exhausted
    *
    * @param {boolean} hasRunningClaude - Whether claude processes are running
+   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
-  async checkApiLimits(hasRunningClaude = false) {
+  async checkApiLimits(hasRunningClaude = false, totalProcessing = 0) {
     const reasons = [];
     let oneAtATime = false;
 
@@ -548,8 +558,9 @@ export class SolveQueue {
         if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
           oneAtATime = true;
           this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : 'claude_weekly_high');
-          // Only block if command is already in progress
-          if (this.processing.size > 0) {
+          // Use totalProcessing (queue + external claude) for uniform checking
+          // See: https://github.com/link-assistant/hive-mind/issues/1133
+          if (totalProcessing > 0) {
             reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
           }
         }
@@ -666,13 +677,11 @@ export class SolveQueue {
       }
 
       // Check one-at-a-time mode
-      // When oneAtATime is true (e.g., weekly limit >= 99%), block if:
-      // 1. A command is already being processed by the queue, OR
-      // 2. There are Claude processes running externally (detected via pgrep)
-      // This ensures we don't start new commands when near limits, even if external
-      // Claude processes are consuming the API quota.
+      // When oneAtATime is true (e.g., weekly limit >= 99%), block if any processing is happening
+      // totalProcessing = queue-internal (this.processing.size) + external claude processes (pgrep)
+      // This ensures uniform checking across all threshold conditions
       // See: https://github.com/link-assistant/hive-mind/issues/1133
-      if (check.oneAtATime && (this.processing.size > 0 || check.claudeProcesses > 0)) {
+      if (check.oneAtATime && check.totalProcessing > 0) {
         const processInfo = check.claudeProcesses > 0 ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)` : '';
         this.log(`One-at-a-time mode: waiting for current command to finish${processInfo}`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);

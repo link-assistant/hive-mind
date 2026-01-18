@@ -858,9 +858,13 @@ bot.command('limits', async ctx => {
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStats = solveQueue.getStats();
   const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
+  // Calculate total processing: queue-internal + external claude processes
+  // This provides a uniform view of all processing happening
+  // See: https://github.com/link-assistant/hive-mind/issues/1133
+  const totalProcessing = queueStats.processing + claudeProcs.count;
   const codeBlockEnd = message.lastIndexOf('```');
   if (codeBlockEnd !== -1) {
-    const queueStatus = queueStats.queued > 0 || queueStats.processing > 0 ? `Pending: ${queueStats.queued}, Processing: ${queueStats.processing}` : 'Empty (no pending commands)';
+    const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
     message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
   }
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });

@@ -186,7 +186,7 @@ export const QUEUE_CONFIG = {
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  CLAUDE_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit >= 90%
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit >= 90%
   CLAUDE_WEEKLY_THRESHOLD: 0.99, // One-at-a-time if weekly limit >= 99%
   GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub >= 80% with parallel claude
   // ...

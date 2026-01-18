@@ -720,8 +720,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += '\n';
   }
 
-  // Current session (five_hour)
-  message += 'Current session\n';
+  // Claude 5 hour session (five_hour)
+  message += 'Claude 5 hour session\n';
   if (usage.currentSession.percentage !== null) {
     // Add time passed progress bar first
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);

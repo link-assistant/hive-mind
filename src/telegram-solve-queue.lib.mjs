@@ -41,7 +41,7 @@ export const QUEUE_CONFIG = {
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  CLAUDE_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit >= 90%
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit >= 90%
   CLAUDE_WEEKLY_THRESHOLD: 0.99, // One-at-a-time if weekly limit >= 99%
   GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub >= 80% with parallel claude
 
@@ -137,8 +137,8 @@ function formatWaitingReason(metric, currentValue, threshold) {
       return `CPU usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'disk':
       return `Disk usage is ${currentPercent}% (threshold: ${thresholdPercent})`;
-    case 'claude_session':
-      return `Claude session limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
+    case 'claude_5_hour_session':
+      return `Claude 5 hour session limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'claude_weekly':
       return `Claude weekly limit is ${currentPercent}% (threshold: ${thresholdPercent})`;
     case 'github':
@@ -397,7 +397,8 @@ export class SolveQueue {
     const hasRunningClaude = claudeProcs.count > 0;
 
     // Calculate total processing count: queue-internal + external claude processes
-    // This is used uniformly across all threshold checks
+    // This is used for CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD
+    // to allow exactly one command at a time when threshold is reached
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const totalProcessing = this.processing.size + claudeProcs.count;
 
@@ -406,13 +407,10 @@ export class SolveQueue {
       this.recordThrottle('claude_running');
     }
 
-    // Check system resources (pass totalProcessing for uniform checking)
-    const resourceCheck = await this.checkSystemResources(totalProcessing);
+    // Check system resources (ultimate restrictions - block unconditionally)
+    const resourceCheck = await this.checkSystemResources();
     if (!resourceCheck.ok) {
       reasons.push(...resourceCheck.reasons);
-    }
-    if (resourceCheck.oneAtATime) {
-      oneAtATime = true;
     }
 
     // Check API limits (pass hasRunningClaude and totalProcessing for uniform checking)
@@ -456,12 +454,15 @@ export class SolveQueue {
    * This provides a more stable metric that isn't affected by brief spikes
    * during claude process startup.
    *
-   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
-   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
+   * Note: System resource thresholds are ultimate restrictions - they block unconditionally
+   * when triggered. Unlike Claude API thresholds which allow one command at a time via
+   * totalProcessing check, system resources block all new commands immediately.
+   * See: https://github.com/link-assistant/hive-mind/issues/1133
+   *
+   * @returns {Promise<{ok: boolean, reasons: string[]}>}
    */
-  async checkSystemResources(totalProcessing = 0) {
+  async checkSystemResources() {
     const reasons = [];
-    let oneAtATime = false;
 
     // Check RAM (using cached value)
     const memResult = await getCachedMemoryInfo(this.verbose);
@@ -497,32 +498,32 @@ export class SolveQueue {
     }
 
     // Check disk space (using cached value)
+    // Note: Disk threshold is an ultimate restriction - it blocks unconditionally when triggered
+    // Unlike CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD which use totalProcessing
+    // to allow one command at a time, disk threshold blocks all new commands immediately
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
     const diskResult = await getCachedDiskInfo(this.verbose);
     if (diskResult.success) {
       // Calculate usage from free percentage
       const usedPercent = 100 - diskResult.diskSpace.freePercentage;
       const usedRatio = usedPercent / 100;
       if (usedRatio >= QUEUE_CONFIG.DISK_THRESHOLD) {
-        oneAtATime = true;
+        reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD));
         this.recordThrottle('disk_high');
-        // Use totalProcessing (queue + external claude) for uniform checking
-        // See: https://github.com/link-assistant/hive-mind/issues/1133
-        if (totalProcessing > 0) {
-          reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD) + ' (waiting for current command)');
-        }
       }
     }
 
-    return { ok: reasons.length === 0, reasons, oneAtATime };
+    return { ok: reasons.length === 0, reasons };
   }
 
   /**
    * Check API limits (Claude, GitHub) using cached values
    *
-   * Simplified logic per issue #1061:
-   * - When any limit >= threshold, allow exactly one claude command to pass
-   * - Only block if there's already a command in progress
-   * - Running claude is the ultimate test of whether limits are really exhausted
+   * Logic per issue #1133:
+   * - CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD use one-at-a-time mode:
+   *   when above threshold, allow exactly one command, block if totalProcessing > 0
+   * - GitHub threshold blocks unconditionally when exceeded (ultimate restriction)
+   * - totalProcessing = queue-internal count + external claude processes (pgrep)
    *
    * @param {boolean} hasRunningClaude - Whether claude processes are running
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
@@ -544,12 +545,12 @@ export class SolveQueue {
       // See: https://github.com/link-assistant/hive-mind/issues/1133
       if (sessionPercent !== null) {
         const sessionRatio = sessionPercent / 100;
-        if (sessionRatio >= QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) {
+        if (sessionRatio >= QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) {
           oneAtATime = true;
-          this.recordThrottle(sessionRatio >= 1.0 ? 'claude_session_100' : 'claude_session_high');
+          this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : 'claude_5_hour_session_high');
           // Use totalProcessing (queue + external claude) for uniform checking
           if (totalProcessing > 0) {
-            reasons.push(formatWaitingReason('claude_session', sessionPercent, QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD) + ' (waiting for current command)');
+            reasons.push(formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) + ' (waiting for current command)');
           }
         }
       }

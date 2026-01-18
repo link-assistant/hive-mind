@@ -461,7 +461,7 @@
   - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
   - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
   - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
-  - `CLAUDE_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
   - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
   - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
   - 1-minute minimum interval between command starts

@@ -680,9 +680,11 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
   // CPU load section (if provided)
   if (cpuLoad) {
-    message += `CPU (5m load average % of all ${cpuLoad.cpuCount} CPU cores)\n`;
+    message += 'CPU\n';
     const usedBar = getProgressBar(cpuLoad.usagePercentage);
-    message += `${usedBar} ${cpuLoad.usagePercentage}% used\n\n`;
+    message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
+    // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used")
+    message += `${cpuLoad.loadAvg5.toFixed(2)}/${cpuLoad.cpuCount} CPU cores used\n\n`;
   }
 
   // Memory section (if provided)

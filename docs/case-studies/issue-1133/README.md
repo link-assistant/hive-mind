@@ -109,19 +109,32 @@ Shows:
 
 ## Solution
 
-### Fix 1: Include External Claude Processes in One-at-a-Time Check
+### Fix 1: Standardize All Threshold Checks to Use totalProcessing
 
-Modified the one-at-a-time check to consider both queue-internal processing AND externally running Claude processes:
+All threshold checks now uniformly compare against `totalProcessing`, which is the sum of queue-internal processing (`this.processing.size`) and external Claude processes (detected via `pgrep`). This ensures consistent behavior across all checks:
+
+```javascript
+// Calculate total processing count: queue-internal + external claude processes
+// This is used uniformly across all threshold checks
+// See: https://github.com/link-assistant/hive-mind/issues/1133
+const totalProcessing = this.processing.size + claudeProcs.count;
+
+// Passed to all check functions:
+const resourceCheck = await this.checkSystemResources(totalProcessing);
+const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing);
+```
+
+### Fix 2: Update One-at-a-Time Check to Use totalProcessing
+
+Simplified the one-at-a-time check to use the pre-calculated `totalProcessing`:
 
 ```javascript
 // Check one-at-a-time mode
-// When oneAtATime is true (e.g., weekly limit >= 99%), block if:
-// 1. A command is already being processed by the queue, OR
-// 2. There are Claude processes running externally (detected via pgrep)
-// This ensures we don't start new commands when near limits, even if external
-// Claude processes are consuming the API quota.
+// When oneAtATime is true (e.g., weekly limit >= 99%), block if any processing is happening
+// totalProcessing = queue-internal (this.processing.size) + external claude processes (pgrep)
+// This ensures uniform checking across all threshold conditions
 // See: https://github.com/link-assistant/hive-mind/issues/1133
-if (check.oneAtATime && (this.processing.size > 0 || check.claudeProcesses > 0)) {
+if (check.oneAtATime && check.totalProcessing > 0) {
   const processInfo = check.claudeProcesses > 0
     ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)`
     : '';
@@ -131,7 +144,35 @@ if (check.oneAtATime && (this.processing.size > 0 || check.claudeProcesses > 0))
 }
 ```
 
-### Fix 2: Standardize Comparison Operators to >= (Inclusive)
+### Fix 3: Update /limits Display to Show Total Processing
+
+The `/limits` command now shows Processing count that includes external Claude processes:
+
+```javascript
+// Calculate total processing: queue-internal + external claude processes
+// This provides a uniform view of all processing happening
+// See: https://github.com/link-assistant/hive-mind/issues/1133
+const totalProcessing = queueStats.processing + claudeProcs.count;
+const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
+```
+
+**Before:**
+
+```
+Solve Queue
+Pending: 15, Processing: 0
+Claude processes: 2
+```
+
+**After:**
+
+```
+Solve Queue
+Pending: 15, Processing: 2
+Claude processes: 2
+```
+
+### Fix 4: Standardize Comparison Operators to >= (Inclusive)
 
 Updated all threshold comparisons to use `>=` consistently, and updated comments to reflect this:
 
@@ -152,7 +193,7 @@ export const QUEUE_CONFIG = {
 };
 ```
 
-### Fix 3: Documentation Update for Log Capture
+### Fix 5: Documentation Update for Log Capture
 
 Added recommendation to capture bot logs using `tee` for post-incident analysis:
 
@@ -178,7 +219,8 @@ hive-telegram-bot 2>&1 | tee -a logs/bot-$(date +%Y%m%d).log
 
 ## Files Changed
 
-- `src/telegram-solve-queue.lib.mjs` - Fixed one-at-a-time check and comparison operators
+- `src/telegram-solve-queue.lib.mjs` - Standardized all checks to use totalProcessing
+- `src/telegram-bot.mjs` - Updated /limits display to show total processing count
 - `README.md` - Added tee command recommendation for log capture
 
 ## References

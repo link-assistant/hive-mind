@@ -2,7 +2,7 @@
 /**
  * Test script for issue #1137 - improved /limits output formatting
  * Tests:
- * 1. CPU section shows "CPU" header with "X.XX/Y CPU cores used" format
+ * 1. CPU section shows "CPU" header with "X/Y CPU cores used" format (no trailing zeros)
  * 2. No separate "Load avg" line (5m load average used in CPU cores calculation)
  * 3. RAM shows condensed format (2.8/11.7 GB used)
  * 4. Disk shows condensed format (50.4/95.8 GB used)
@@ -96,15 +96,20 @@ console.log(message);
 console.log('\n' + '='.repeat(60));
 console.log('Verification checks:\n');
 
-// Check 1: CPU section format - should have "CPU" header followed by "X.XX/Y CPU cores used"
+// Check 1: CPU section format - should have "CPU" header followed by "X/Y CPU cores used"
+// Format should not have unnecessary trailing zeros (e.g., "3/6" not "3.00/6")
 const hasCpuHeader = message.includes('CPU\n');
-const hasCpuCoresUsedFormat = message.match(/\d+\.\d+\/\d+ CPU cores used/);
+const hasCpuCoresUsedFormat = message.match(/[\d.]+\/\d+ CPU cores used/);
 const hasOldLoadAvg = message.includes('Load avg:');
 const hasOldPercentHeader = message.includes('CPU (5m load average');
 
 console.log(`CPU header is just "CPU": ${hasCpuHeader && !hasOldPercentHeader ? '✅ PASS' : '❌ FAIL'}`);
-console.log(`CPU shows "X.XX/Y CPU cores used" format: ${hasCpuCoresUsedFormat ? '✅ PASS' : '❌ FAIL'}`);
+console.log(`CPU shows "X/Y CPU cores used" format: ${hasCpuCoresUsedFormat ? '✅ PASS' : '❌ FAIL'}`);
 console.log(`No old "Load avg:" line: ${!hasOldLoadAvg ? '✅ PASS' : '❌ FAIL - still has Load avg line'}`);
+
+// Verify trailing zeros are stripped (e.g., "3/6" not "3.00/6")
+const hasTrailingZeros = message.match(/\d+\.00\/\d+ CPU cores used/);
+console.log(`No trailing zeros in CPU cores: ${!hasTrailingZeros ? '✅ PASS' : '❌ FAIL - has unnecessary .00'}`);
 
 // Check 2: RAM format
 const hasRamSlashFormat = message.match(/\d+\.\d\/\d+\.\d GB used/);
@@ -117,7 +122,7 @@ const hasDiskSlashFormat = message.match(/\d+\.\d\/\d+\.\d GB used/g);
 console.log(`Disk uses condensed format (X/Y GB used): ${hasDiskSlashFormat && hasDiskSlashFormat.length >= 2 ? '✅ PASS' : '❌ FAIL - should use X/Y format'}`);
 
 // Overall result
-const allPassed = hasCpuHeader && !hasOldPercentHeader && hasCpuCoresUsedFormat && !hasOldLoadAvg && hasRamSlashFormat && hasDiskSlashFormat;
+const allPassed = hasCpuHeader && !hasOldPercentHeader && hasCpuCoresUsedFormat && !hasOldLoadAvg && !hasTrailingZeros && hasRamSlashFormat && hasDiskSlashFormat;
 
 console.log('\n' + '='.repeat(60));
 if (allPassed) {

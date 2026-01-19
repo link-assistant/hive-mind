@@ -1038,9 +1038,13 @@ export const executeClaudeCommand = async params => {
               // Handle session result type from Claude CLI (emitted when session completes)
               // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
-                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                // Issue #1104: Only extract cost from subtype 'success' results
+                // This is explicit and reliable - error_during_execution results have zero cost
+                if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                  await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1170,6 +1174,7 @@ export const executeClaudeCommand = async params => {
             limitTimezone: null,
             messageCount,
             toolUseCount,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1218,6 +1223,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             is503Error: true,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1296,6 +1302,7 @@ export const executeClaudeCommand = async params => {
           messageCount,
           toolUseCount,
           errorDuringExecution,
+          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         };
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
@@ -1414,6 +1421,7 @@ export const executeClaudeCommand = async params => {
         limitTimezone: null,
         messageCount,
         toolUseCount,
+        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
       };
     }
   }; // End of executeWithRetry function

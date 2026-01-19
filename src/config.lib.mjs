@@ -178,11 +178,11 @@ export const mergeQueue = {
   // Default: 5 minutes (300000ms) - checks CI status every 5 minutes
   ciPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS', 5 * 60 * 1000),
   // CI/CD timeout in milliseconds
-  // Default: 30 minutes (1800000ms) - maximum wait time for CI to complete
-  ciTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS', 30 * 60 * 1000),
+  // Default: 7 hours (25200000ms) - maximum wait time for CI to complete
+  ciTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS', 7 * 60 * 60 * 1000),
   // Wait time after merge before processing next PR
-  // Default: 10 seconds (10000ms) - allows CI to stabilize
-  postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 10 * 1000),
+  // Default: 1 minute (60000ms) - allows CI to stabilize
+  postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
 };
 
 // Helper function to validate configuration values

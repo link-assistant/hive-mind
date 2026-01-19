@@ -904,9 +904,7 @@ registerAcceptInvitesCommand(bot, {
   addBreadcrumb,
 });
 
-// Register /merge command from separate module (experimental)
-// This keeps telegram-bot.mjs under the 1500 line limit
-// See: https://github.com/link-assistant/hive-mind/issues/1143
+// Register /merge command from separate module (experimental, see issue #1143)
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 registerMergeCommand(bot, {
   VERBOSE,
@@ -1476,14 +1474,12 @@ bot.telegram
     process.exit(1);
   });
 
-// Helper to stop solve queue gracefully on shutdown
-// See: https://github.com/link-assistant/hive-mind/issues/1083
+// Helper to stop solve queue gracefully on shutdown (see issue #1083)
 const stopSolveQueue = () => {
   try {
     getSolveQueue({ verbose: VERBOSE }).stop();
-    if (VERBOSE) console.log('[VERBOSE] Solve queue stopped');
-  } catch (err) {
-    if (VERBOSE) console.log('[VERBOSE] Could not stop solve queue:', err.message);
+  } catch {
+    /* ignore errors during shutdown */
   }
 };
 
@@ -1497,10 +1493,8 @@ process.once('SIGINT', () => {
 
 process.once('SIGTERM', () => {
   isShuttingDown = true;
-  console.log('\n🛑 Received SIGTERM, stopping bot...');
+  console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
-  console.log('ℹ️  SIGTERM is typically sent by: system shutdown, process manager, kill command, or container orchestration');
-  console.log('💡 Check system logs for details: journalctl -u <service> or dmesg');
   stopSolveQueue();
   bot.stop('SIGTERM');
 });

@@ -513,7 +513,7 @@ if (isPrUrl) {
 // Create or find temporary directory for cloning the repository
 // Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
-const { tempDir, workspaceTmpDir } = await setupTempDirectory(argv, workspaceInfo);
+const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 // Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
@@ -521,6 +521,7 @@ cleanupContext.argv = argv;
 let limitReached = false;
 try {
   // Set up repository and clone using the new module
+  // If --working-directory points to existing repo, needsClone is false and we skip cloning
   const { forkedRepo } = await setupRepositoryAndClone({
     argv,
     owner,
@@ -532,6 +533,7 @@ try {
     log,
     formatAligned,
     $,
+    needsClone,
   });
 
   // Verify default branch and status using the new module

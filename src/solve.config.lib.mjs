@@ -47,6 +47,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Resume from a previous session ID (when limit was reached)',
         alias: 'r',
       })
+      .option('working-directory', {
+        type: 'string',
+        description: 'Use specified working directory instead of creating a new temp directory. If directory does not exist, it will be created and the repository will be cloned. Essential for --resume to work correctly with Claude Code sessions.',
+        alias: 'd',
+      })
       .option('only-prepare-command', {
         type: 'boolean',
         description: 'Only prepare and print the claude command without executing it',
@@ -130,8 +135,13 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
         default: false,
+      })
+      .option('auto-gitkeep-file', {
+        type: 'boolean',
+        description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
+        default: true,
       })
       .option('attach-logs', {
         type: 'boolean',
@@ -310,6 +320,21 @@ export const createYargsConfig = yargsInstance => {
         type: 'boolean',
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
+      })
+      .option('playwright-mcp-auto-cleanup', {
+        type: 'boolean',
+        description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
+        default: true,
+      })
+      .option('auto-gh-configuration-repair', {
+        type: 'boolean',
+        description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
+        default: false,
+      })
+      .option('prompt-subagents-via-agent-commander', {
+        type: 'boolean',
+        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
+        default: false,
       })
       .parserConfiguration({
         'boolean-negation': true,

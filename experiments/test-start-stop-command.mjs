@@ -94,8 +94,58 @@ console.assert(isChatStopped(testChatId2) === true, 'Chat 2 should be stopped');
 console.assert(getStoppedChats().size === 2, 'Should have 2 stopped chats');
 console.log('  ✅ Passed\n');
 
-// Cleanup
+// Cleanup for next tests
 setChatStopped(testChatId1, false);
 setChatStopped(testChatId2, false);
+
+// Test 10: Stop with reason
+console.log('Test 10: Stop with reason');
+const testReason = 'Maintenance in progress';
+setChatStopped(testChatId1, true, testUser, testReason);
+const stopInfoWithReason = getChatStopInfo(testChatId1);
+console.log(`  Chat ${testChatId1} stopped: ${isChatStopped(testChatId1)}`);
+console.log(`  Reason: ${stopInfoWithReason?.reason}`);
+console.log(`  Expected reason: ${testReason}`);
+console.assert(isChatStopped(testChatId1) === true, 'Chat should be stopped');
+console.assert(stopInfoWithReason?.reason === testReason, 'Reason should match');
+console.log('  ✅ Passed\n');
+
+// Test 11: Stop without reason (null)
+console.log('Test 11: Stop without reason');
+setChatStopped(testChatId2, true, testUser);
+const stopInfoNoReason = getChatStopInfo(testChatId2);
+console.log(`  Chat ${testChatId2} stopped: ${isChatStopped(testChatId2)}`);
+console.log(`  Reason: ${stopInfoNoReason?.reason}`);
+console.log(`  Expected reason: null`);
+console.assert(isChatStopped(testChatId2) === true, 'Chat should be stopped');
+console.assert(stopInfoNoReason?.reason === null, 'Reason should be null when not provided');
+console.log('  ✅ Passed\n');
+
+// Test 12: Stop with empty string reason (should become null)
+console.log('Test 12: Stop with empty string reason');
+const testChatId3 = -1001111111111;
+setChatStopped(testChatId3, true, testUser, '');
+const stopInfoEmptyReason = getChatStopInfo(testChatId3);
+console.log(`  Chat ${testChatId3} stopped: ${isChatStopped(testChatId3)}`);
+console.log(`  Reason: ${stopInfoEmptyReason?.reason}`);
+console.log(`  Expected reason: null (empty string becomes null)`);
+console.assert(isChatStopped(testChatId3) === true, 'Chat should be stopped');
+console.assert(stopInfoEmptyReason?.reason === null, 'Empty string reason should become null');
+console.log('  ✅ Passed\n');
+
+// Test 13: Reason is cleared when starting
+console.log('Test 13: Reason is cleared when starting');
+setChatStopped(testChatId1, false);
+const stopInfoAfterStartReason = getChatStopInfo(testChatId1);
+console.log(`  Chat ${testChatId1} stopped: ${isChatStopped(testChatId1)}`);
+console.log(`  Stop info: ${stopInfoAfterStartReason}`);
+console.assert(isChatStopped(testChatId1) === false, 'Chat should not be stopped');
+console.assert(stopInfoAfterStartReason === null, 'Stop info including reason should be cleared');
+console.log('  ✅ Passed\n');
+
+// Final cleanup
+setChatStopped(testChatId1, false);
+setChatStopped(testChatId2, false);
+setChatStopped(testChatId3, false);
 
 console.log('✅ All tests passed!');

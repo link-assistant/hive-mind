@@ -735,6 +735,9 @@ bot.command('help', async ctx => {
     const stopInfo = getChatStopInfo(chatId);
     message += '🛑 *Bot Status: STOPPED*\n';
     message += 'This bot is not accepting new tasks in this chat.\n';
+    if (stopInfo?.reason) {
+      message += `Reason: ${stopInfo.reason}\n`;
+    }
     if (stopInfo?.stoppedAt) {
       message += `Stopped: ${stopInfo.stoppedAt.toISOString()}\n`;
     }
@@ -774,10 +777,11 @@ bot.command('help', async ctx => {
 
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
+  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
   message += '*/help* - Show this help message\n';
   message += '*/stop* - Stop accepting new tasks (owner only)\n';
   message += '*/start* - Resume accepting tasks (owner only)\n\n';
-  message += '⚠️ *Note:* Most commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits, /version, /accept\\_invites, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -872,9 +876,13 @@ bot.command('limits', async ctx => {
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   const queueStats = solveQueue.getStats();
   const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
+  // Calculate total processing: queue-internal + external claude processes
+  // This provides a uniform view of all processing happening
+  // See: https://github.com/link-assistant/hive-mind/issues/1133
+  const totalProcessing = queueStats.processing + claudeProcs.count;
   const codeBlockEnd = message.lastIndexOf('```');
   if (codeBlockEnd !== -1) {
-    const queueStatus = queueStats.queued > 0 || queueStats.processing > 0 ? `Pending: ${queueStats.queued}, Processing: ${queueStats.processing}` : 'Empty (no pending commands)';
+    const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
     message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
   }
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
@@ -898,6 +906,19 @@ bot.command('version', async ctx => {
   if (!result.success) return await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapeMarkdownV2(result.error, { preserveCodeBlocks: true })}`, { parse_mode: 'MarkdownV2' });
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
+
+// Register /accept_invites command from separate module
+// This keeps telegram-bot.mjs under the 1500 line limit
+const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
+registerAcceptInvitesCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
+  addBreadcrumb,
+});
+
 bot.command(/^solve$/i, async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
@@ -967,7 +988,13 @@ bot.command(/^solve$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: chat is stopped');
     }
-    await ctx.reply('❌ This bot is currently stopped in this chat and not accepting new tasks.\n\nUse /start to resume (chat owner only).', { reply_to_message_id: ctx.message.message_id });
+    const stopInfo = getChatStopInfo(chatId);
+    let rejectMsg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
+    if (stopInfo?.reason) {
+      rejectMsg += `\n\n*Reason:* ${stopInfo.reason}`;
+    }
+    rejectMsg += '\n\nUse /start to resume (chat owner only).';
+    await ctx.reply(rejectMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1075,18 +1102,32 @@ bot.command(/^solve$/i, async ctx => {
     return;
   }
 
+  // Use normalized URL from validation to ensure consistent duplicate detection
+  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  const normalizedUrl = validation.parsed.normalized;
+
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(args[0])}\nOptions: ${optionsText}`;
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\nOptions: ${optionsText}`;
   if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
+
+  // Check for duplicate URL in queue
+  // See: https://github.com/link-assistant/hive-mind/issues/1080
+  const existingItem = solveQueue.findByUrl(normalizedUrl);
+  if (existingItem) {
+    const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
+    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve-queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   const check = await solveQueue.canStartCommand();
   const queueStats = solveQueue.getStats();
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
-    const queueItem = solveQueue.enqueue({ url: args[0], args, ctx, requester, infoBlock, tool: solveTool });
+    const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
     const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
@@ -1159,7 +1200,13 @@ bot.command(/^hive$/i, async ctx => {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: chat is stopped');
     }
-    await ctx.reply('❌ This bot is currently stopped in this chat and not accepting new tasks.\n\nUse /start to resume (chat owner only).', { reply_to_message_id: ctx.message.message_id });
+    const stopInfo = getChatStopInfo(chatId);
+    let rejectMsg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
+    if (stopInfo?.reason) {
+      rejectMsg += `\n\n*Reason:* ${stopInfo.reason}`;
+    }
+    rejectMsg += '\n\nUse /start to resume (chat owner only).';
+    await ctx.reply(rejectMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 

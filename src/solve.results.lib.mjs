@@ -377,7 +377,9 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
       if (argv.autoResumeOnLimitReset && global.limitResetTime) {
         await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
-        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+        // Pass tempDir to ensure resumed session uses the same working directory
+        // This is critical for Claude Code session resume to work correctly
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir);
       } else {
         if (global.limitResetTime) {
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);

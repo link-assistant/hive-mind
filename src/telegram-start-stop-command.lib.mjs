@@ -14,7 +14,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1081
  */
 
-// Store stopped chats: Map<chatId, { stoppedAt: Date, stoppedBy: { id, username, firstName } }>
+// Store stopped chats: Map<chatId, { stoppedAt: Date, stoppedBy: { id, username, firstName }, reason?: string }>
 const stoppedChats = new Map();
 
 /**
@@ -40,8 +40,9 @@ export function getChatStopInfo(chatId) {
  * @param {number} chatId - The chat ID
  * @param {boolean} stopped - Whether to stop or start the chat
  * @param {Object} user - The user who issued the command (for stop)
+ * @param {string} [reason] - Optional reason for stopping (only used when stopped=true)
  */
-export function setChatStopped(chatId, stopped, user = null) {
+export function setChatStopped(chatId, stopped, user = null, reason = null) {
   if (stopped) {
     stoppedChats.set(chatId, {
       stoppedAt: new Date(),
@@ -52,6 +53,7 @@ export function setChatStopped(chatId, stopped, user = null) {
             firstName: user.first_name,
           }
         : null,
+      reason: reason || null,
     });
   } else {
     stoppedChats.delete(chatId);
@@ -149,20 +151,39 @@ export function registerStartStopCommands(bot, options) {
     if (isChatStopped(chatId)) {
       const stopInfo = getChatStopInfo(chatId);
       const stoppedAtStr = stopInfo?.stoppedAt ? stopInfo.stoppedAt.toISOString() : 'unknown';
-      await ctx.reply(`ℹ️ Bot is already stopped in this chat.\n\nStopped at: ${stoppedAtStr}\n\nUse /start to resume accepting tasks.`, {
+      let alreadyStoppedMsg = `ℹ️ Bot is already stopped in this chat.\n\nStopped at: ${stoppedAtStr}`;
+      if (stopInfo?.reason) {
+        alreadyStoppedMsg += `\nReason: ${stopInfo.reason}`;
+      }
+      alreadyStoppedMsg += '\n\nUse /start to resume accepting tasks.';
+      await ctx.reply(alreadyStoppedMsg, {
         reply_to_message_id: ctx.message.message_id,
       });
       return;
     }
 
-    // Set chat as stopped
-    setChatStopped(chatId, true, ctx.from);
+    // Parse optional reason from message text (anything after "/stop ")
+    const messageText = ctx.message.text || '';
+    const reason = messageText.replace(/^\/stop\s*/i, '').trim() || null;
+
+    if (VERBOSE && reason) {
+      console.log(`[VERBOSE] /stop reason: ${reason}`);
+    }
+
+    // Set chat as stopped with optional reason
+    setChatStopped(chatId, true, ctx.from, reason);
 
     if (VERBOSE) {
       console.log(`[VERBOSE] Chat ${chatId} is now stopped`);
     }
 
-    await ctx.reply('🛑 *Bot Stopped*\n\n' + 'This bot is now in read-only mode for this chat.\n\n' + '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.', {
+    let stopMessage = '🛑 *Bot Stopped*\n\n' + 'This bot is now in read-only mode for this chat.\n\n';
+    if (reason) {
+      stopMessage += `*Reason:* ${reason}\n\n`;
+    }
+    stopMessage += '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.';
+
+    await ctx.reply(stopMessage, {
       parse_mode: 'Markdown',
       reply_to_message_id: ctx.message.message_id,
     });

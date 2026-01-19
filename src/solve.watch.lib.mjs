@@ -15,15 +15,23 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
 
+// Import path and fs for cleanup operations
+const path = (await use('path')).default;
+const fs = (await use('fs')).promises;
+
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned } = lib;
+const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
+
+// Import GitHub functions for log attachment
+const githubLib = await import('./github.lib.mjs');
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 const { detectAndCountFeedback } = feedbackLib;
 
@@ -51,9 +59,35 @@ const checkPRMerged = async (owner, repo, prNumber) => {
 };
 
 /**
+ * Clean up .playwright-mcp/ folder to prevent browser automation artifacts
+ * from triggering auto-restart (Issue #1124)
+ */
+const cleanupPlaywrightMcpFolder = async (tempDir, argv) => {
+  if (argv.playwrightMcpAutoCleanup !== false) {
+    const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
+    try {
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
+      if (playwrightMcpExists) {
+        await fs.rm(playwrightMcpDir, { recursive: true, force: true });
+        await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });
+      }
+    } catch (cleanupError) {
+      // Non-critical error, just log and continue
+      await log(`⚠️  Could not clean up .playwright-mcp/ folder: ${cleanupError.message}`, { verbose: true });
+    }
+  }
+};
+
+/**
  * Check if there are uncommitted changes in the repository
  */
-const checkForUncommittedChanges = async (tempDir, $) => {
+const checkForUncommittedChanges = async (tempDir, $, argv = {}) => {
+  // First, clean up .playwright-mcp/ folder to prevent false positives (Issue #1124)
+  await cleanupPlaywrightMcpFolder(tempDir, argv);
+
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
@@ -130,7 +164,7 @@ export const watchForFeedback = async params => {
 
     // In temporary watch mode, check if all changes have been committed
     if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-      const hasUncommitted = await checkForUncommittedChanges(tempDir, $);
+      const hasUncommitted = await checkForUncommittedChanges(tempDir, $, argv);
       if (!hasUncommitted) {
         await log('');
         await log(formatAligned('✅', 'CHANGES COMMITTED!', 'Exiting auto-restart mode'));
@@ -185,7 +219,7 @@ export const watchForFeedback = async params => {
       // In temporary watch mode, also check for uncommitted changes as a restart trigger
       let hasUncommittedInTempMode = false;
       if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $);
+        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $, argv);
       }
 
       const shouldRestart = hasFeedback || firstIterationInTemporaryMode || hasUncommittedInTempMode;
@@ -484,6 +518,55 @@ export const watchForFeedback = async params => {
               if (latestAnthropicCost !== null && latestAnthropicCost !== undefined) {
                 await log(`   💰 Anthropic cost: $${latestAnthropicCost.toFixed(6)}`, { verbose: true });
               }
+            }
+          }
+
+          // Issue #1107: Attach log after each auto-restart session with its own cost estimation
+          // This ensures each restart has its own log comment instead of one combined log at the end
+          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+            await log('');
+            await log(formatAligned('📎', 'Uploading auto-restart session log...', ''));
+            try {
+              const logFile = getLogFile();
+              if (logFile) {
+                // Use "Auto-restart X/Y Log" format as requested in issue #1107
+                const customTitle = `🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Log`;
+                const logUploadSuccess = await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  customTitle,
+                  sessionId: latestSessionId,
+                  tempDir,
+                  anthropicTotalCostUSD: latestAnthropicCost,
+                  // Pass agent tool pricing data when available
+                  publicPricingEstimate: toolResult.publicPricingEstimate,
+                  pricingInfo: toolResult.pricingInfo,
+                });
+
+                if (logUploadSuccess) {
+                  await log(formatAligned('', '✅ Auto-restart session log uploaded to PR', '', 2));
+                } else {
+                  await log(formatAligned('', '⚠️  Could not upload auto-restart session log', '', 2));
+                }
+              }
+            } catch (logUploadError) {
+              reportError(logUploadError, {
+                context: 'attach_auto_restart_log',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'upload_session_log',
+              });
+              await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
           }
 

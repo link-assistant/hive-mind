@@ -3,14 +3,23 @@
  * Handles repository cloning, forking, and remote setup
  */
 
-export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, tempDir, isContinueMode, issueUrl, log, $ }) {
+export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Set up repository and handle forking
   const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl);
 
-  // Clone repository and set up remotes
-  await cloneRepository(repoToClone, tempDir, argv, owner, repo);
-  // Set up upstream remote and sync fork if needed
-  await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
+  // Clone repository and set up remotes (skip if needsClone is false - directory already has repo)
+  if (needsClone) {
+    await cloneRepository(repoToClone, tempDir, argv, owner, repo);
+    // Set up upstream remote and sync fork if needed
+    await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
+  } else {
+    await log('ℹ️  Skipping clone: Using existing repository in working directory');
+    // Still need to ensure upstream remote is set up if using fork mode
+    if (forkedRepo && upstreamRemote) {
+      await setupUpstreamAndSync(tempDir, forkedRepo, upstreamRemote, owner, repo, argv);
+    }
+  }
+
   // Set up pr-fork remote if we're continuing someone else's fork PR with --fork flag
   const prForkRemote = await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 

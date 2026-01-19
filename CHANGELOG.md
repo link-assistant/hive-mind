@@ -1,5 +1,143 @@
 # @link-assistant/hive-mind
 
+## 1.7.0
+
+### Minor Changes
+
+- 5794e2f: Add `--working-directory` / `-d` option for proper session resume
+
+  Claude Code stores sessions per-directory path, so resuming a session in a different directory fails. This change:
+  1. Adds `--working-directory` / `-d` option to solve.mjs
+     - If directory exists with git repo, uses it without cloning
+     - If directory exists but empty, clones into it
+     - If directory doesn't exist, creates it and clones
+  2. Updates `--auto-resume-on-limit-reset` to pass `--working-directory`
+     - When limit resets and session auto-resumes, it uses the same directory as the original session
+     - This ensures Claude Code can find and resume the session
+  3. Improves resume error messaging
+     - Warns when resuming without --working-directory
+     - Explains that Claude Code sessions are tied to directory paths
+
+  Example usage:
+
+  ```bash
+  ./solve.mjs "<url>" --resume <session-id> --working-directory /tmp/gh-issue-solver-123
+  ```
+
+## 1.6.3
+
+### Patch Changes
+
+- Fix Anthropic cost extraction from JSON stream when session has error_during_execution
+  - Added anthropicTotalCostUSD to all failure return paths in executeClaudeCommand
+  - Changed cost capture logic to only extract from `subtype === 'success'` results
+  - This is explicit and reliable - error_during_execution results have zero cost
+  - Added case study documentation for issue #1104
+
+  Fixes #1104
+
+  Synchronize line count checks in CI/CD
+  - Add ESLint max-lines rule (1500 lines) to match CI workflow check
+  - Extract handleClaudeRuntimeSwitch to claude.runtime-switch.lib.mjs
+  - Reduce claude.lib.mjs from 1506 to 1354 lines
+  - Add case study documentation for issue #1141
+
+  Fixes #1141
+
+## 1.6.2
+
+### Patch Changes
+
+- 4ccbbd7: Fix CLAUDE_WEEKLY_THRESHOLD not enforcing one-at-a-time mode when external Claude processes are running
+  - Fixed oneAtATime mode to also consider externally running Claude processes (detected via pgrep), not just queue-internal processing
+  - Standardized all threshold comparisons to use >= (inclusive) instead of mixed > and >= operators
+  - Updated documentation comments to accurately reflect inclusive threshold behavior
+  - Added README recommendation to capture bot logs using tee for post-incident analysis
+  - Added case study documentation for issue #1133
+
+## 1.6.1
+
+### Patch Changes
+
+- b07fa91: Improve /limits output format for better clarity and consistency: use 5m load average for CPU calculation (matching /solve queue), show CPU cores as "X.XX/Y CPU cores used" format consistent with RAM and Disk display
+
+## 1.6.0
+
+### Minor Changes
+
+- 56d95bd: Add `--prompt-subagents-via-agent-commander` option to guide Claude to use agent-commander CLI for subagent delegation instead of native Task tool. This allows using any supported agent type (claude, opencode, codex, agent) with a unified API and saves main agent context. The prompt guidance is only included when agent-commander (start-agent) is actually installed on the system.
+
+## 1.5.0
+
+### Minor Changes
+
+- 2d41edb: Add /accept_invites command to Telegram bot for automatically accepting GitHub repository and organization invitations via gh CLI
+
+## 1.4.0
+
+### Minor Changes
+
+- 4a476ae: Add separate log comment for each auto-restart session with cost estimation
+  - Each auto-restart iteration now uploads its own session log with cost estimation to the PR
+  - Log comments use "Auto-restart X/Y Log" format instead of generic "Solution Draft Log"
+  - Issue #1107
+
+### Patch Changes
+
+- 3239fa1: Add git identity validation to prevent commit failures
+  - Added `checkGitIdentity()` and `validateGitIdentity()` functions to validate git user configuration
+  - Added git identity check to `performSystemChecks()` that runs before any work begins
+  - Added `--auto-gh-configuration-repair` option that uses external `gh-setup-git-identity` command for automatic repair
+  - Added unit tests for identity validation
+
+  This fix prevents the "fatal: empty ident name" error that occurs when git user.name and user.email are not configured. When git identity is missing, users now see a clear error message with instructions for fixing it. The auto-repair feature requires the external [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) package to be installed.
+
+## 1.3.0
+
+### Minor Changes
+
+- a403c0e: Add --auto-gitkeep-file option to automatically fallback to .gitkeep when CLAUDE.md is in .gitignore
+
+  This feature pre-checks if CLAUDE.md would be ignored by .gitignore BEFORE creating the file, preventing the "paths are ignored by one of your .gitignore files" error. When detected, automatically switches to .gitkeep mode. Enabled by default (--auto-gitkeep-file=true).
+
+## 1.2.11
+
+### Patch Changes
+
+- 8404b75: fix: Support weekly limit date parsing in extractResetTime and parseResetTime
+  - Added Pattern 0 to extractResetTime() to handle date+time formats like "resets Jan 15, 8am"
+  - Updated parseResetTime() to parse date+time strings with month name and day
+  - This ensures weekly limit messages are displayed with the "Usage Limit Reached" format
+
+## 1.2.10
+
+### Patch Changes
+
+- 7ba1476: Auto-cleanup .playwright-mcp/ folder to prevent false auto-restart triggers
+  - Add auto-cleanup of .playwright-mcp/ folder before checking uncommitted changes
+  - Add --playwright-mcp-auto-cleanup option (enabled by default)
+  - Use --no-playwright-mcp-auto-cleanup to disable cleanup for debugging
+  - Add comprehensive case study documentation for issue #1124
+
+## 1.2.9
+
+### Patch Changes
+
+- b5e047a: Fix branch checkout error showing null/null instead of actual repository URL
+  - Pass owner/repo/prNumber to branch error handlers for accurate error messages
+  - Add upstream remote fallback when PR branch not found in origin (handles bot PRs)
+  - Add case study documentation for issue #1120
+
+## 1.2.8
+
+### Patch Changes
+
+- Add case study for issue #1114 analyzing AI solver performance in hyoo-ru/mam_mol repository
+
+  fix: Propagate --verbose flag to agent tool for debugging DecimalError issues
+  - Added --verbose flag propagation to agent tool execution in agent.lib.mjs
+  - Created case study documentation for DecimalError root cause analysis
+
 ## 1.2.7
 
 ### Patch Changes
@@ -378,7 +516,7 @@
   - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
   - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
   - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
-  - `CLAUDE_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
   - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
   - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
   - 1-minute minimum interval between command starts
@@ -914,7 +1052,7 @@
 
   This feature allows users to choose which file type to use for PR creation:
   - `--claude-file` (default: true): Use CLAUDE.md file for task details
-  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+  - `--gitkeep-file` (default: false): Use .gitkeep file instead
 
   The flags are mutually exclusive:
   - Using `--gitkeep-file` automatically disables `--claude-file`

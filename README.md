@@ -409,8 +409,24 @@ Want to see the Hive Mind in action? Join our Telegram channel where you can exe
    ```
 
 3. **Start the Bot**
+
    ```bash
    hive-telegram-bot
+   ```
+
+   **Recommended: Capture logs with tee**
+
+   When running the bot for extended periods, it's recommended to capture logs to a file using `tee`. This ensures you can review logs later even if the terminal buffer overflows:
+
+   ```bash
+   hive-telegram-bot 2>&1 | tee -a logs/bot-$(date +%Y%m%d).log
+   ```
+
+   Or create a logs directory and start with automatic log rotation:
+
+   ```bash
+   mkdir -p logs
+   hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
 ### Bot Commands

@@ -513,7 +513,7 @@ if (isPrUrl) {
 // Create or find temporary directory for cloning the repository
 // Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
-const { tempDir, workspaceTmpDir } = await setupTempDirectory(argv, workspaceInfo);
+const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 // Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
@@ -521,6 +521,7 @@ cleanupContext.argv = argv;
 let limitReached = false;
 try {
   // Set up repository and clone using the new module
+  // If --working-directory points to existing repo, needsClone is false and we skip cloning
   const { forkedRepo } = await setupRepositoryAndClone({
     argv,
     owner,
@@ -532,6 +533,7 @@ try {
     log,
     formatAligned,
     $,
+    needsClone,
   });
 
   // Verify default branch and status using the new module
@@ -553,6 +555,9 @@ try {
     formatAligned,
     $,
     crypto,
+    owner,
+    repo,
+    prNumber,
   });
 
   // Auto-merge default branch to pull request branch if enabled
@@ -895,9 +900,12 @@ try {
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
-  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+  // Capture limit reset time and timezone globally for downstream handlers (auto-continue, cleanup decisions)
   if (toolResult && toolResult.limitResetTime) {
     global.limitResetTime = toolResult.limitResetTime;
+  }
+  if (toolResult && toolResult.limitTimezone) {
+    global.limitTimezone = toolResult.limitTimezone;
   }
 
   // Handle limit reached scenario
@@ -978,8 +986,9 @@ try {
           // Note: Commands should not be in GitHub comments - only mention the option
           // The resume command is available in the logs (collapsed block or gist link) for advanced users
           const resumeSection = sessionId ? `Session ID: \`${sessionId}\`\n\nUse the \`--auto-continue-on-limit-reset\` option to automatically resume when the limit resets.` : 'Use the `--auto-continue-on-limit-reset` option to automatically resume when the limit resets.';
-          // Format the reset time with relative time if available
-          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime) : null;
+          // Format the reset time with relative time and UTC conversion if available
+          const timezone = global.limitTimezone || null;
+          const formattedResetTime = resetTime ? formatResetTimeWithRelative(resetTime, timezone) : null;
           const failureComment = formattedResetTime ? `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. The limit will reset at: **${formattedResetTime}**\n\n${resumeSection}` : `❌ **Usage Limit Reached**\n\nThe AI tool has reached its usage limit. Please wait for the limit to reset.\n\n${resumeSection}`;
 
           const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${failureComment}`;
@@ -1125,6 +1134,27 @@ try {
     }
 
     await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+  }
+
+  // Clean up .playwright-mcp/ folder before checking for uncommitted changes
+  // This prevents browser automation artifacts from triggering auto-restart (Issue #1124)
+  if (argv.playwrightMcpAutoCleanup !== false) {
+    const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
+    try {
+      const playwrightMcpExists = await fs
+        .stat(playwrightMcpDir)
+        .then(() => true)
+        .catch(() => false);
+      if (playwrightMcpExists) {
+        await fs.rm(playwrightMcpDir, { recursive: true, force: true });
+        await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });
+      }
+    } catch (cleanupError) {
+      // Non-critical error, just log and continue
+      await log(`⚠️  Could not clean up .playwright-mcp/ folder: ${cleanupError.message}`, { verbose: true });
+    }
+  } else {
+    await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
   // Check for uncommitted changes

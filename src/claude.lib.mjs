@@ -8,7 +8,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 // Import log from general lib
-import { log, cleanErrorMessage } from './lib.mjs';
+import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -19,6 +19,8 @@ import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 // 1. Interactive resume: Short command that opens interactive mode
 // 2. Autonomous resume: Full command with all flags to run autonomously
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
+// Import runtime switch module (extracted to maintain file line limits, see issue #1141)
+import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs';
 
 // Helper to display resume commands at end of session
 // Shows both interactive and autonomous resume options
@@ -33,21 +35,13 @@ const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => 
   await log(`   ${autonomousCmd}\n`);
 };
 
-/**
- * Format numbers with spaces as thousands separator (no commas)
- * Per issue #667: Use spaces for thousands, . for decimals
- * @param {number|null|undefined} num - Number to format
- * @returns {string} Formatted number string
- */
+/** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
-  // Convert to string and split on decimal point
   const parts = num.toString().split('.');
   const integerPart = parts[0];
   const decimalPart = parts[1];
-  // Add spaces every 3 digits from the right
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  // Return with decimal part if it exists
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
 // Available model configurations
@@ -230,163 +224,9 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // Start the validation with retry logic
   return await attemptValidation();
 };
-// Function to handle Claude runtime switching between Node.js and Bun
-export const handleClaudeRuntimeSwitch = async argv => {
-  if (argv['force-claude-bun-run']) {
-    await log('\n🔧 Switching Claude runtime to bun...');
-    try {
-      try {
-        await $`which bun`;
-        await log('   ✅ Bun runtime found');
-      } catch (bunError) {
-        reportError(bunError, {
-          context: 'claude.lib.mjs - bun availability check',
-          level: 'error',
-        });
-        await log('❌ Bun runtime not found. Please install bun first: https://bun.sh/', { level: 'error' });
-        process.exit(1);
-      }
-
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
-
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
-
-      await log(`   Claude path: ${claudePath}`);
-
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (bun)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use bun');
-        process.exit(0);
-      }
-
-      // Create backup
-      const backupPath = `${claudePath}.nodejs-backup`;
-      await $`cp "${claudePath}" "${backupPath}"`;
-      await log(`   📦 Backup created: ${backupPath}`);
-
-      // Read file content and replace shebang
-      const content = await fs.readFile(claudePath, 'utf8');
-      const newContent = content.replace(/^#!.*node.*$/m, '#!/usr/bin/env bun');
-
-      if (content === newContent) {
-        await log('⚠️  No Node.js shebang found to replace', { level: 'warning' });
-        await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-        process.exit(0);
-      }
-
-      await fs.writeFile(claudePath, newContent);
-      await log('   ✅ Claude shebang updated to use bun');
-      await log('   🔄 Claude will now run with bun runtime');
-    } catch (error) {
-      await log(`❌ Failed to switch Claude to bun: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
-    }
-
-    // Exit after switching runtime
-    process.exit(0);
-  }
-
-  if (argv['force-claude-nodejs-run']) {
-    await log('\n🔧 Restoring Claude runtime to Node.js...');
-    try {
-      try {
-        await $`which node`;
-        await log('   ✅ Node.js runtime found');
-      } catch (nodeError) {
-        reportError(nodeError, {
-          context: 'claude.lib.mjs - Node.js availability check',
-          level: 'error',
-        });
-        await log('❌ Node.js runtime not found. Please install Node.js first', { level: 'error' });
-        process.exit(1);
-      }
-
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
-
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
-
-      await log(`   Claude path: ${claudePath}`);
-
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (nodejs)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('node') && !currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use Node.js');
-        process.exit(0);
-      }
-
-      const backupPath = `${claudePath}.nodejs-backup`;
-      try {
-        await fs.access(backupPath);
-        // Restore from backup
-        await $`cp "${backupPath}" "${claudePath}"`;
-        await log(`   ✅ Restored Claude from backup: ${backupPath}`);
-      } catch (backupError) {
-        reportError(backupError, {
-          context: 'claude_restore_backup',
-          level: 'info',
-        });
-        // No backup available, manually update shebang
-        await log('   📝 No backup found, manually updating shebang...');
-        const content = await fs.readFile(claudePath, 'utf8');
-        const newContent = content.replace(/^#!.*bun.*$/m, '#!/usr/bin/env node');
-
-        if (content === newContent) {
-          await log('⚠️  No bun shebang found to replace', { level: 'warning' });
-          await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-          process.exit(0);
-        }
-
-        await fs.writeFile(claudePath, newContent);
-        await log('   ✅ Claude shebang updated to use Node.js');
-      }
-
-      await log('   🔄 Claude will now run with Node.js runtime');
-    } catch (error) {
-      await log(`❌ Failed to restore Claude to Node.js: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
-    }
-
-    // Exit after restoring runtime
-    process.exit(0);
-  }
-};
+// handleClaudeRuntimeSwitch is imported from ./claude.runtime-switch.lib.mjs (see issue #1141)
+// Re-export it for backwards compatibility
+export { handleClaudeRuntimeSwitch };
 /**
  * Check if Playwright MCP is available and connected to Claude
  * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
@@ -422,6 +262,18 @@ export const checkPlaywrightMcpAvailability = async () => {
  */
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+
+  // Check if agent-commander is installed when the option is enabled
+  if (argv.promptSubagentsViaAgentCommander) {
+    try {
+      await $`which start-agent`;
+      argv.agentCommanderInstalled = true;
+    } catch {
+      argv.agentCommanderInstalled = false;
+      await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
+    }
+  }
+
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
   // Build the user prompt
@@ -904,6 +756,7 @@ export const executeClaudeCommand = async params => {
     let sessionId = null;
     let limitReached = false;
     let limitResetTime = null;
+    let limitTimezone = null;
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
@@ -1041,9 +894,13 @@ export const executeClaudeCommand = async params => {
               // Handle session result type from Claude CLI (emitted when session completes)
               // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
-                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                // Issue #1104: Only extract cost from subtype 'success' results
+                // This is explicit and reliable - error_during_execution results have zero cost
+                if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                  await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1170,8 +1027,10 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1216,9 +1075,11 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
             is503Error: true,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1228,6 +1089,7 @@ export const executeClaudeCommand = async params => {
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          limitTimezone = limitInfo.timezone;
 
           // Format and display user-friendly message with both Claude CLI resume commands
           const messageLines = formatUsageLimitMessage({
@@ -1296,9 +1158,11 @@ export const executeClaudeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           messageCount,
           toolUseCount,
           errorDuringExecution,
+          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         };
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
@@ -1365,6 +1229,7 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        limitTimezone,
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
@@ -1413,8 +1278,10 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime: null,
+        limitTimezone: null,
         messageCount,
         toolUseCount,
+        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
       };
     }
   }; // End of executeWithRetry function

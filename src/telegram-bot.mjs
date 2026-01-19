@@ -43,7 +43,7 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { isChatStopped, getChatStopInfo } = await import('./telegram-start-stop-command.lib.mjs');
+const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage } = await import('./telegram-start-stop-command.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -704,23 +704,17 @@ function extractGitHubUrl(text) {
 }
 
 bot.command('help', async ctx => {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /help command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /help command received');
 
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /help ignored: old message');
-    }
+    VERBOSE && console.log('[VERBOSE] /help ignored: old message');
     return;
   }
 
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /help ignored: forwarded or reply');
-    }
+    VERBOSE && console.log('[VERBOSE] /help ignored: forwarded or reply');
     return;
   }
 
@@ -807,52 +801,32 @@ bot.command('help', async ctx => {
 });
 
 bot.command('limits', async ctx => {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /limits command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /limits command received');
 
   // Add breadcrumb for error tracking
-  await addBreadcrumb({
-    category: 'telegram.command',
-    message: '/limits command received',
-    level: 'info',
-    data: {
-      chatId: ctx.chat?.id,
-      chatType: ctx.chat?.type,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
-    },
-  });
+  await addBreadcrumb({ category: 'telegram.command', message: '/limits command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
 
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: old message');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: old message');
     return;
   }
 
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: forwarded or reply');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: forwarded or reply');
     return;
   }
 
   if (!isGroupChat(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: not a group chat');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: not a group chat');
     await ctx.reply('❌ The /limits command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   const chatId = ctx.chat.id;
   if (!isChatAuthorized(chatId)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: chat not authorized');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: chat not authorized');
     await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
@@ -985,22 +959,12 @@ bot.command(/^solve$/i, async ctx => {
 
   // Check if chat is stopped (issue #1081)
   if (isChatStopped(chatId)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: chat is stopped');
-    }
-    const stopInfo = getChatStopInfo(chatId);
-    let rejectMsg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
-    if (stopInfo?.reason) {
-      rejectMsg += `\n\n*Reason:* ${stopInfo.reason}`;
-    }
-    rejectMsg += '\n\nUse /start to resume (chat owner only).';
-    await ctx.reply(rejectMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    VERBOSE && console.log('[VERBOSE] /solve ignored: chat is stopped');
+    await ctx.reply(getStoppedChatRejectMessage(chatId), { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
-  if (VERBOSE) {
-    console.log('[VERBOSE] /solve passed all checks, executing...');
-  }
+  VERBOSE && console.log('[VERBOSE] /solve passed all checks, executing...');
 
   let userArgs = parseCommandArgs(ctx.message.text);
 
@@ -1197,22 +1161,12 @@ bot.command(/^hive$/i, async ctx => {
 
   // Check if chat is stopped (issue #1081)
   if (isChatStopped(chatId)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /hive ignored: chat is stopped');
-    }
-    const stopInfo = getChatStopInfo(chatId);
-    let rejectMsg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
-    if (stopInfo?.reason) {
-      rejectMsg += `\n\n*Reason:* ${stopInfo.reason}`;
-    }
-    rejectMsg += '\n\nUse /start to resume (chat owner only).';
-    await ctx.reply(rejectMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    VERBOSE && console.log('[VERBOSE] /hive ignored: chat is stopped');
+    await ctx.reply(getStoppedChatRejectMessage(chatId), { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
-  if (VERBOSE) {
-    console.log('[VERBOSE] /hive passed all checks, executing...');
-  }
+  VERBOSE && console.log('[VERBOSE] /hive passed all checks, executing...');
 
   const userArgs = parseCommandArgs(ctx.message.text);
 

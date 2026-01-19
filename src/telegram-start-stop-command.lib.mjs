@@ -69,6 +69,19 @@ export function getStoppedChats() {
 }
 
 /**
+ * Get rejection message for when a command is used on a stopped chat
+ * @param {number} chatId - The chat ID
+ * @returns {string} Markdown-formatted rejection message
+ */
+export function getStoppedChatRejectMessage(chatId) {
+  const stopInfo = getChatStopInfo(chatId);
+  let msg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
+  if (stopInfo?.reason) msg += `\n\n*Reason:* ${stopInfo.reason}`;
+  msg += '\n\nUse /start to resume (chat owner only).';
+  return msg;
+}
+
+/**
  * Registers the /start and /stop command handlers with the bot
  * @param {Object} bot - The Telegraf bot instance
  * @param {Object} options - Options object

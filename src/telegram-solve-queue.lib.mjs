@@ -34,22 +34,22 @@ import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getC
 export const QUEUE_CONFIG = {
   // Resource thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  RAM_THRESHOLD: 0.5, // Stop if RAM usage >= 50%
+  RAM_THRESHOLD: 0.65, // Stop if RAM usage >= 65%
   // CPU threshold uses 5-minute load average, not instantaneous CPU usage
-  CPU_THRESHOLD: 0.5, // Stop if 5-minute load average >= 50% of CPU count
+  CPU_THRESHOLD: 0.75, // Stop if 5-minute load average >= 75% of CPU count
   DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage >= 95%
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9, // Stop if 5-hour limit >= 90%
-  CLAUDE_WEEKLY_THRESHOLD: 0.99, // One-at-a-time if weekly limit >= 99%
-  GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub >= 80% with parallel claude
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.85, // Stop if 5-hour limit >= 85%
+  CLAUDE_WEEKLY_THRESHOLD: 0.98, // One-at-a-time if weekly limit >= 98%
+  GITHUB_API_THRESHOLD: 0.80, // Stop if GitHub >= 80% with parallel claude
 
   // Timing
   // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
   // This ensures that when API limits are checked, the running process is counted
-  MIN_START_INTERVAL_MS: 120000, // 2 minutes between starts (was 1 minute)
-  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks (was 5 seconds)
+  MIN_START_INTERVAL_MS: 60000, // 1 minutes between starts
+  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
 
   // Process detection

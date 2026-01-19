@@ -220,16 +220,58 @@ export const buildWorkspacePath = (owner, repo, issueNumber, timestamp) => {
 // When --enable-workspaces is used, creates:
 //   {workspace}/repository - for the cloned repo
 //   {workspace}/tmp - for temp files, logs, downloads
+// When --working-directory is used, uses the specified directory (creates if needed)
 export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   let tempDir;
   let workspaceTmpDir = null;
   let isResuming = argv.resume;
+  // needsClone indicates if the repository needs to be cloned into the directory
+  // This is true when: new directory is created, or existing directory is empty
+  let needsClone = true;
 
   // Check if workspace mode should be enabled (works with all tools)
   const useWorkspaces = argv.enableWorkspaces;
 
+  // Priority 1: --working-directory option takes precedence over all other directory selection
+  // This is essential for --resume to work correctly with Claude Code sessions,
+  // because Claude Code stores sessions by working directory path, not session ID alone
+  if (argv.workingDirectory) {
+    tempDir = path.resolve(argv.workingDirectory);
+
+    // Check if directory exists
+    try {
+      const stat = await fs.stat(tempDir);
+      if (stat.isDirectory()) {
+        // Directory exists - check if it contains a git repository
+        try {
+          await fs.access(path.join(tempDir, '.git'));
+          // Git repository exists - no need to clone
+          needsClone = false;
+          await log(`\n${formatAligned('📂', 'Working directory:', tempDir)}`);
+          await log(formatAligned('', 'Status:', 'Using existing repository', 2));
+          if (isResuming) {
+            await log(formatAligned('', 'Session:', `Resuming ${argv.resume}`, 2));
+          }
+        } catch {
+          // No .git directory - directory is empty or doesn't have a repo, will clone
+          await log(`\n${formatAligned('📂', 'Working directory:', tempDir)}`);
+          await log(formatAligned('', 'Status:', 'Directory exists but no repository - will clone', 2));
+        }
+      }
+    } catch {
+      // Directory doesn't exist - create it
+      await fs.mkdir(tempDir, { recursive: true });
+      await log(`\n${formatAligned('📂', 'Working directory:', tempDir)}`);
+      await log(formatAligned('', 'Status:', 'Created new directory - will clone repository', 2));
+    }
+
+    return { tempDir, workspaceTmpDir, isResuming, needsClone };
+  }
+
   if (isResuming) {
-    // When resuming, try to find existing directory or create a new one
+    // When resuming without --working-directory, create a new temp directory
+    // WARNING: This will NOT work correctly with Claude Code because the session
+    // is stored in a path-specific location. Use --working-directory for proper resume.
     const scriptDir = path.dirname(process.argv[1]);
     const sessionLogPattern = path.join(scriptDir, `${argv.resume}.log`);
 
@@ -241,7 +283,9 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
       // For resumed sessions, create new temp directory since old one may be cleaned up
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
       await fs.mkdir(tempDir, { recursive: true });
-      await log(`Creating new temporary directory for resumed session: ${tempDir}`);
+      await log(`⚠️  Creating new temporary directory for resumed session: ${tempDir}`);
+      await log(`   Note: Claude Code sessions are tied to working directory paths.`);
+      await log(`   If session resume fails, use --working-directory to specify the original directory.`);
     } catch (err) {
       reportError(err, {
         context: 'resume_session_lookup',
@@ -280,7 +324,7 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
     await log(`\nCreating temporary directory: ${tempDir}`);
   }
 
-  return { tempDir, workspaceTmpDir, isResuming };
+  return { tempDir, workspaceTmpDir, isResuming, needsClone };
 };
 
 // Try to initialize an empty repository by creating a simple README.md

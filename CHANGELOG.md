@@ -1,5 +1,82 @@
 # @link-assistant/hive-mind
 
+## 1.7.1
+
+### Patch Changes
+
+- d86ba79: Prevent duplicate URLs from being added to the /solve queue (Issue #1080)
+  - Added `findByUrl()` method to SolveQueue to detect existing items by URL
+  - Updated /solve command handler to check for duplicates before queueing
+  - Uses normalized URLs for consistent comparison
+  - Returns informative error message when duplicate is detected
+
+## 1.7.0
+
+### Minor Changes
+
+- 5794e2f: Add `--working-directory` / `-d` option for proper session resume
+
+  Claude Code stores sessions per-directory path, so resuming a session in a different directory fails. This change:
+  1. Adds `--working-directory` / `-d` option to solve.mjs
+     - If directory exists with git repo, uses it without cloning
+     - If directory exists but empty, clones into it
+     - If directory doesn't exist, creates it and clones
+  2. Updates `--auto-resume-on-limit-reset` to pass `--working-directory`
+     - When limit resets and session auto-resumes, it uses the same directory as the original session
+     - This ensures Claude Code can find and resume the session
+  3. Improves resume error messaging
+     - Warns when resuming without --working-directory
+     - Explains that Claude Code sessions are tied to directory paths
+
+  Example usage:
+
+  ```bash
+  ./solve.mjs "<url>" --resume <session-id> --working-directory /tmp/gh-issue-solver-123
+  ```
+
+## 1.6.3
+
+### Patch Changes
+
+- Fix Anthropic cost extraction from JSON stream when session has error_during_execution
+  - Added anthropicTotalCostUSD to all failure return paths in executeClaudeCommand
+  - Changed cost capture logic to only extract from `subtype === 'success'` results
+  - This is explicit and reliable - error_during_execution results have zero cost
+  - Added case study documentation for issue #1104
+
+  Fixes #1104
+
+  Synchronize line count checks in CI/CD
+  - Add ESLint max-lines rule (1500 lines) to match CI workflow check
+  - Extract handleClaudeRuntimeSwitch to claude.runtime-switch.lib.mjs
+  - Reduce claude.lib.mjs from 1506 to 1354 lines
+  - Add case study documentation for issue #1141
+
+  Fixes #1141
+
+## 1.6.2
+
+### Patch Changes
+
+- 4ccbbd7: Fix CLAUDE_WEEKLY_THRESHOLD not enforcing one-at-a-time mode when external Claude processes are running
+  - Fixed oneAtATime mode to also consider externally running Claude processes (detected via pgrep), not just queue-internal processing
+  - Standardized all threshold comparisons to use >= (inclusive) instead of mixed > and >= operators
+  - Updated documentation comments to accurately reflect inclusive threshold behavior
+  - Added README recommendation to capture bot logs using tee for post-incident analysis
+  - Added case study documentation for issue #1133
+
+## 1.6.1
+
+### Patch Changes
+
+- b07fa91: Improve /limits output format for better clarity and consistency: use 5m load average for CPU calculation (matching /solve queue), show CPU cores as "X.XX/Y CPU cores used" format consistent with RAM and Disk display
+
+## 1.6.0
+
+### Minor Changes
+
+- 56d95bd: Add `--prompt-subagents-via-agent-commander` option to guide Claude to use agent-commander CLI for subagent delegation instead of native Task tool. This allows using any supported agent type (claude, opencode, codex, agent) with a unified API and saves main agent context. The prompt guidance is only included when agent-commander (start-agent) is actually installed on the system.
+
 ## 1.5.0
 
 ### Minor Changes
@@ -449,7 +526,7 @@
   - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
   - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
   - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
-  - `CLAUDE_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
   - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
   - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
   - 1-minute minimum interval between command starts

@@ -1,5 +1,25 @@
 # @link-assistant/hive-mind
 
+## 1.6.3
+
+### Patch Changes
+
+- Fix Anthropic cost extraction from JSON stream when session has error_during_execution
+  - Added anthropicTotalCostUSD to all failure return paths in executeClaudeCommand
+  - Changed cost capture logic to only extract from `subtype === 'success'` results
+  - This is explicit and reliable - error_during_execution results have zero cost
+  - Added case study documentation for issue #1104
+
+  Fixes #1104
+
+  Synchronize line count checks in CI/CD
+  - Add ESLint max-lines rule (1500 lines) to match CI workflow check
+  - Extract handleClaudeRuntimeSwitch to claude.runtime-switch.lib.mjs
+  - Reduce claude.lib.mjs from 1506 to 1354 lines
+  - Add case study documentation for issue #1141
+
+  Fixes #1141
+
 ## 1.6.2
 
 ### Patch Changes

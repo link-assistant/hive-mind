@@ -64,10 +64,12 @@ test('MERGE_QUEUE_CONFIG has all required fields', () => {
 });
 
 test('MERGE_QUEUE_CONFIG values are reasonable', () => {
-  assert.ok(MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS >= 10000, 'CI_POLL_INTERVAL_MS should be at least 10 seconds');
+  // CI polling should be at least 1 minute (default is 5 minutes per issue #1143)
+  assert.ok(MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS >= 60000, 'CI_POLL_INTERVAL_MS should be at least 1 minute');
   assert.ok(MERGE_QUEUE_CONFIG.CI_TIMEOUT_MS >= 60000, 'CI_TIMEOUT_MS should be at least 1 minute');
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_WAIT_MS >= 1000, 'POST_MERGE_WAIT_MS should be at least 1 second');
   assert.ok(MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION >= 1, 'MAX_PRS_PER_SESSION should be at least 1');
+  // Default is 10, but allow up to 100 via ENV configuration
   assert.ok(MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION <= 100, 'MAX_PRS_PER_SESSION should be at most 100');
 });
 

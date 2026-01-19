@@ -7,15 +7,18 @@
  *
  * Features:
  * - Sequential PR processing (one at a time)
- * - CI/CD status monitoring after each merge
- * - Progress updates to Telegram
- * - Cancelable operations
- * - Error handling and recovery
+ * - CI/CD status monitoring after each merge (every 5 minutes)
+ * - Progress updates to Telegram with progress bar in code block
+ * - Cancelable operations via inline button
+ * - Error handling with verbose logs vs user-friendly messages
+ * - Per-repository concurrency control
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
 import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel } from './github-merge.lib.mjs';
+import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
+import { getProgressBar } from './limits.lib.mjs';
 
 /**
  * Status enum for merge queue operations
@@ -45,20 +48,27 @@ export const MergeItemStatus = {
 
 /**
  * Configuration for merge queue operations
+ * Values are loaded from config.lib.mjs which supports environment variable overrides.
+ *
+ * Configurable via environment variables:
+ * - HIVE_MIND_MERGE_QUEUE_MAX_PRS: Maximum PRs per session (default: 10)
+ * - HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS: CI polling interval (default: 300000 = 5 minutes)
+ * - HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS: CI timeout (default: 1800000 = 30 minutes)
+ * - HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS: Post-merge wait (default: 10000 = 10 seconds)
  */
 export const MERGE_QUEUE_CONFIG = {
-  // CI/CD wait settings
-  CI_POLL_INTERVAL_MS: 30000, // 30 seconds between CI checks
-  CI_TIMEOUT_MS: 30 * 60 * 1000, // 30 minutes max wait for CI
+  // CI/CD wait settings - check every 5 minutes per issue #1143 feedback
+  CI_POLL_INTERVAL_MS: mergeQueueConfig.ciPollIntervalMs,
+  CI_TIMEOUT_MS: mergeQueueConfig.ciTimeoutMs,
 
   // Post-merge wait settings
-  POST_MERGE_WAIT_MS: 10000, // 10 seconds after merge before checking next PR
+  POST_MERGE_WAIT_MS: mergeQueueConfig.postMergeWaitMs,
 
-  // Telegram message update interval
-  MESSAGE_UPDATE_INTERVAL_MS: 30000, // 30 seconds between status updates
+  // Telegram message update interval - same as CI polling
+  MESSAGE_UPDATE_INTERVAL_MS: mergeQueueConfig.ciPollIntervalMs,
 
-  // Maximum PRs to process in one session
-  MAX_PRS_PER_SESSION: 50,
+  // Maximum PRs to process in one session (configurable, default 10)
+  MAX_PRS_PER_SESSION: mergeQueueConfig.maxPrsPerSession,
 };
 
 /**
@@ -90,23 +100,23 @@ class MergeQueueItem {
   getStatusEmoji() {
     switch (this.status) {
       case MergeItemStatus.PENDING:
-        return '';
+        return '⏳';
       case MergeItemStatus.CHECKING_CI:
-        return '';
+        return '🔍';
       case MergeItemStatus.WAITING_CI:
-        return '';
+        return '⏱️';
       case MergeItemStatus.READY_TO_MERGE:
-        return '';
+        return '✅';
       case MergeItemStatus.MERGING:
-        return '';
+        return '🔄';
       case MergeItemStatus.MERGED:
-        return '';
+        return '✅';
       case MergeItemStatus.FAILED:
-        return '';
+        return '❌';
       case MergeItemStatus.SKIPPED:
-        return '';
+        return '⏭️';
       default:
-        return '';
+        return '❓';
     }
   }
 }
@@ -412,35 +422,42 @@ export class MergeQueueProcessor {
 
   /**
    * Format a Telegram message for the current progress
+   * Progress bar is rendered in a code block for better style (per issue #1143)
    * @returns {string}
    */
   formatProgressMessage() {
     const update = this.getProgressUpdate();
 
-    let message = `*Merge Queue - ${this.owner}/${this.repo}*\n\n`;
-    message += `Progress: ${update.progress.processed}/${update.progress.total} (${update.progress.percentage}%)\n\n`;
+    let message = `*Merge Queue*\n`;
+    message += `${this.owner}/${this.repo}\n\n`;
 
-    message += `*Status:*\n`;
-    message += ` Merged: ${update.stats.merged}\n`;
-    message += ` Failed: ${update.stats.failed}\n`;
-    message += ` Skipped: ${update.stats.skipped}\n`;
-    message += ` Pending: ${update.stats.total - update.progress.processed}\n\n`;
+    // Progress bar in code block for better style
+    const progressBar = getProgressBar(update.progress.percentage);
+    message += '```\n';
+    message += `${progressBar} ${update.progress.percentage}%\n`;
+    message += `${update.progress.processed}/${update.progress.total} PRs processed\n`;
+    message += '```\n\n';
 
+    // Status summary with emojis
+    message += `✅ Merged: ${update.stats.merged}  `;
+    message += `❌ Failed: ${update.stats.failed}  `;
+    message += `⏭️ Skipped: ${update.stats.skipped}  `;
+    message += `⏳ Pending: ${update.stats.total - update.progress.processed}\n\n`;
+
+    // Current item being processed
     if (update.current) {
-      message += `*Currently processing:*\n`;
-      message += `${update.currentStatus === MergeItemStatus.WAITING_CI ? '' : ''} ${update.current}\n\n`;
+      const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
+      message += `${statusEmoji} ${update.current}\n\n`;
     }
 
-    message += `*PRs:*\n`;
+    // PRs list with emojis
+    message += `*Queue:*\n`;
     for (const item of update.items.slice(0, 10)) {
-      message += `${item.emoji} #${item.prNumber}: ${this.escapeMarkdown(item.title.substring(0, 40))}${item.title.length > 40 ? '...' : ''}\n`;
-      if (item.error) {
-        message += `   _${this.escapeMarkdown(item.error.substring(0, 50))}_\n`;
-      }
+      message += `${item.emoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.title.substring(0, 35))}${item.title.length > 35 ? '...' : ''}\n`;
     }
 
     if (update.items.length > 10) {
-      message += `... and ${update.items.length - 10} more\n`;
+      message += `_...and ${update.items.length - 10} more_\n`;
     }
 
     return message;
@@ -448,6 +465,7 @@ export class MergeQueueProcessor {
 
   /**
    * Format a Telegram message for the final report
+   * Progress bar is rendered in a code block for better style (per issue #1143)
    * @returns {string}
    */
   formatFinalMessage() {
@@ -456,40 +474,45 @@ export class MergeQueueProcessor {
     let statusEmoji, statusText;
     switch (report.status) {
       case MergeStatus.COMPLETED:
-        statusEmoji = '';
+        statusEmoji = '✅';
         statusText = 'Completed';
         break;
       case MergeStatus.FAILED:
-        statusEmoji = '';
+        statusEmoji = '❌';
         statusText = 'Failed';
         break;
       case MergeStatus.CANCELLED:
-        statusEmoji = '';
+        statusEmoji = '🛑';
         statusText = 'Cancelled';
         break;
       default:
-        statusEmoji = '';
+        statusEmoji = '❓';
         statusText = report.status;
     }
 
-    let message = `${statusEmoji} *Merge Queue ${statusText}*\n\n`;
-    message += `*Repository:* ${this.owner}/${this.repo}\n`;
-    message += `*Duration:* ${report.duration}\n\n`;
+    let message = `${statusEmoji} *Merge Queue ${statusText}*\n`;
+    message += `${this.owner}/${this.repo}\n\n`;
 
-    message += `*Summary:*\n`;
-    message += ` Merged: ${report.stats.merged}\n`;
-    message += ` Failed: ${report.stats.failed}\n`;
-    message += ` Skipped: ${report.stats.skipped}\n`;
-    message += ` Total: ${report.stats.total}\n\n`;
+    // Final progress bar in code block
+    const percentage = report.stats.total > 0 ? Math.round((report.stats.merged / report.stats.total) * 100) : 0;
+    const progressBar = getProgressBar(percentage);
+    message += '```\n';
+    message += `${progressBar} ${percentage}%\n`;
+    message += `Duration: ${report.duration}\n`;
+    message += '```\n\n';
 
+    // Summary with emojis
+    message += `✅ Merged: ${report.stats.merged}  `;
+    message += `❌ Failed: ${report.stats.failed}  `;
+    message += `⏭️ Skipped: ${report.stats.skipped}  `;
+    message += `📋 Total: ${report.stats.total}\n\n`;
+
+    // Details
     if (report.items.length > 0) {
-      message += `*Details:*\n`;
+      message += `*Results:*\n`;
       for (const item of report.items) {
-        const issueRef = item.issueNumber ? ` (Issue #${item.issueNumber})` : '';
-        message += `${item.emoji} PR #${item.prNumber}${issueRef}\n`;
-        if (item.error) {
-          message += `   _${this.escapeMarkdown(item.error.substring(0, 50))}_\n`;
-        }
+        const issueRef = item.issueNumber ? ` \\(Issue \\#${item.issueNumber}\\)` : '';
+        message += `${item.emoji} \\#${item.prNumber}${issueRef}\n`;
       }
     }
 

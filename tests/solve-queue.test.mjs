@@ -79,11 +79,11 @@ test('MESSAGE_UPDATE_INTERVAL_MS is reasonable', () => {
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS <= 300000, 'MESSAGE_UPDATE_INTERVAL_MS should be at most 5 minutes');
 });
 
-test('MIN_START_INTERVAL_MS is 2 minutes', () => {
-  // 2 minutes allows enough time for solve command to start actual claude process
+test('MIN_START_INTERVAL_MS is 1 minute', () => {
+  // 1 minute allows enough time for solve command to start actual claude process
   // This ensures when API limits are checked, the running process is counted
   // See: https://github.com/link-assistant/hive-mind/issues/1078
-  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 120000, 'MIN_START_INTERVAL_MS should be 2 minutes (120000ms)');
+  assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 60000, 'MIN_START_INTERVAL_MS should be 1 minute (60000ms)');
 });
 
 test('CONSUMER_POLL_INTERVAL_MS is 1 minute', () => {
@@ -751,13 +751,13 @@ test('checkSystemResources does not accept totalProcessing parameter', async () 
 
 test('QUEUE_CONFIG has correct threshold values', () => {
   // System resource thresholds
-  assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.5, 'RAM_THRESHOLD should be 50%');
-  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.5, 'CPU_THRESHOLD should be 50%');
+  assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 65%');
+  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.75, 'CPU_THRESHOLD should be 75%');
   assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.95, 'DISK_THRESHOLD should be 95%');
 
   // Claude API thresholds
-  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.9, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 90%');
-  assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.99, 'CLAUDE_WEEKLY_THRESHOLD should be 99%');
+  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.85, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 85%');
+  assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.98, 'CLAUDE_WEEKLY_THRESHOLD should be 98%');
   assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.8, 'GITHUB_API_THRESHOLD should be 80%');
 });
 
@@ -917,7 +917,7 @@ console.log('\n📋 Threshold Naming Tests (Issue #1133)\n');
 test('CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named', () => {
   // Verify the renamed threshold exists and has correct value
   assert.ok(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== undefined, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should exist');
-  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.9, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.9 (90%)');
+  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.85, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.85 (85%)');
 
   // Verify old name doesn't exist (should be renamed)
   assert.equal(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD, undefined, 'Old CLAUDE_SESSION_THRESHOLD should not exist');

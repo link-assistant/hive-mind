@@ -97,7 +97,7 @@ await runTestAsync('executeItem catches editMessageText errors (issue #1062)', a
   queue.executeCallback = async item => {
     return {
       success: true,
-      output: 'Started session: test-session\nscreen -r test-session',
+      output: 'Started session: test-session\nscreen -R test-session',
     };
   };
 
@@ -285,7 +285,7 @@ await runTestAsync('successful message edit works normally', async () => {
   queue.executeCallback = async () => {
     return {
       success: true,
-      output: 'Started session: my-session\nscreen -r my-session',
+      output: 'Started session: my-session\nscreen -R my-session',
     };
   };
 

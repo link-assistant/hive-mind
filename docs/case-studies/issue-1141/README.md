@@ -8,7 +8,7 @@ This case study documents a CI/CD failure on the main branch caused by `src/clau
 
 | Date       | Commit   | Event                                     | claude.lib.mjs Lines |
 | ---------- | -------- | ----------------------------------------- | -------------------- |
-| 2026-01-11 | -        | PR CI run #20889393003 passes             | 1495                 |
+| 2026-01-11 | -        | PR #1105 CI run #20889393003 passes       | 1495                 |
 | 2026-01-14 | be6dabdb | Add timezone parsing feature              | 1494                 |
 | 2026-01-15 | cf6a9998 | Merge main + add subagents option         | 1512 (over limit!)   |
 | 2026-01-15 | 0b6f4c6c | Fix line count attempt                    | 1498                 |
@@ -17,60 +17,91 @@ This case study documents a CI/CD failure on the main branch caused by `src/clau
 
 ## Root Cause Analysis
 
-### Primary Issue: Race Condition Between PRs
+### Primary Root Cause: Stale Merge Preview
 
-1. **PR #1105** was developed against an older main branch where `claude.lib.mjs` had ~1495 lines
-2. Meanwhile, other changes on main brought the file to 1498 lines (commit `0b6f4c6c`)
-3. PR #1105 added 10 lines (+2 deletions = +8 net lines), which passed its own CI check because it was compared against the older base
-4. When PR #1105 was merged, the combined changes pushed the file to **1506 lines**, exceeding the 1500-line limit
-5. The main branch CI check ran after the merge and correctly failed
+The fundamental issue is how GitHub Actions handles pull request CI checks:
 
-### Secondary Issue: No Pre-merge Rebase Check
+1. When a PR is opened or synchronized, GitHub creates a synthetic merge commit (`refs/pull/{number}/merge`)
+2. This merge commit is a **snapshot** that represents what the merge would look like **at that moment**
+3. The `actions/checkout@v4` action checks out this merge preview for PR workflows
+4. **The merge preview does NOT automatically update** when the base branch changes
 
-The PR CI passed because:
-
-- The check-file-line-limits job validates lines in the **PR branch**, not the **merged result**
-- GitHub's merge queue or required merge checks before PR merge would have caught this
-- Without these, a PR can pass CI while its merge result would fail
-
-### Tertiary Issue: ESLint Not Configured for Max Lines
-
-The ESLint configuration (`eslint.config.mjs`) does not include a `max-lines` rule, meaning:
-
-- Only the CI workflow shell script checks file line limits
-- ESLint could provide an additional layer of protection during local development
-- The js-ai-driven-development-pipeline-template recommends 1000 lines as a best practice
-
-## Evidence
-
-### Failed CI Run #21128634082 (Main Branch)
+**Critical Timeline Gap:**
 
 ```
-check-file-line-limits UNKNOWN STEP 2026-01-19T07:16:51.3187312Z ./src/claude.lib.mjs: 1506 lines
-check-file-line-limits UNKNOWN STEP 2026-01-19T07:16:51.3188051Z ERROR: ./src/claude.lib.mjs has 1506 lines, which exceeds the 1500 line limit!
-check-file-line-limits UNKNOWN STEP 2026-01-19T07:16:51.3212602Z ##[error]File has 1506 lines (limit: 1500)
-check-file-line-limits UNKNOWN STEP 2026-01-19T07:16:51.3845300Z ##[error]Process completed with exit code 1.
+Jan 11: PR #1105 opened/synced
+        → GitHub creates merge preview (claude.lib.mjs = 1495 lines)
+        → CI runs on merge preview → PASSES
+
+[8 days pass - other PRs merge to main, adding lines to claude.lib.mjs]
+
+Jan 19: PR #1105 merged (without re-running CI)
+        → Actual merge result: claude.lib.mjs = 1506 lines
+        → Push CI runs on actual merge → FAILS
 ```
 
-### Passed CI Run #20889393003 (PR Branch)
+### Why PR CI and Push CI Behaved Differently
+
+**PR CI (January 11):**
+
+- Checked out `refs/remotes/pull/1105/merge` (SHA: 5881b21c17f5)
+- This was the merge preview from January 11
+- `claude.lib.mjs` had 1495 lines in this snapshot
+- Check passed
+
+**Push CI (January 19):**
+
+- Checked out the actual merge commit (SHA: 593aa64e)
+- This included all changes from both the PR and 8 days of main branch updates
+- `claude.lib.mjs` had 1506 lines in reality
+- Check failed
+
+### Evidence from CI Logs
+
+**Passed CI Run #20889393003 (PR Branch):**
 
 ```
-check-file-line-limits UNKNOWN STEP 2026-01-11T04:27:37.1404799Z ./src/claude.lib.mjs: 1495 lines
+check-file-line-limits: [command]/usr/bin/git checkout --progress --force refs/remotes/pull/1105/merge
+check-file-line-limits: ./src/claude.lib.mjs: 1495 lines
+```
+
+**Failed CI Run #21128634082 (Main Branch):**
+
+```
+detect-changes: Comparing HEAD^ to HEAD
+check-file-line-limits: ./src/claude.lib.mjs: 1506 lines
+check-file-line-limits: ERROR: ./src/claude.lib.mjs has 1506 lines, which exceeds the 1500 line limit!
 ```
 
 ## Solutions Implemented
 
-### 1. Reduce claude.lib.mjs Below 1500 Lines
+### 1. Fresh Merge Simulation in CI Workflow
 
-Extract functionality into separate modules to bring the file under the limit. Candidates for extraction:
+Added a step to `check-file-line-limits` and `lint` jobs that:
 
-- Usage limit parsing logic
-- Configuration constants
-- Helper utilities
+1. Only runs for PR events
+2. Fetches the latest base branch
+3. Merges it into the PR to simulate the actual merge result
+4. Runs checks on the up-to-date merged state
 
-### 2. Add ESLint max-lines Rule
+This ensures PR CI validates the **actual** merge result, not a stale snapshot.
 
-Add to `eslint.config.mjs`:
+```yaml
+- name: Simulate fresh merge with base branch (PR only)
+  if: github.event_name == 'pull_request'
+  env:
+    BASE_REF: ${{ github.base_ref }}
+  run: |
+    git fetch origin "$BASE_REF"
+    BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+    if [ "$BEHIND_COUNT" -gt 0 ]; then
+      git merge origin/$BASE_REF --no-edit || exit 1
+    fi
+```
+
+### 2. ESLint max-lines Rule
+
+Added to `eslint.config.mjs`:
 
 ```javascript
 'max-lines': ['error', { max: 1500, skipBlankLines: true, skipComments: true }]
@@ -82,11 +113,21 @@ This provides:
 - CI enforcement via `npm run lint`
 - Alignment between ESLint and the workflow script check
 
-### 3. Recommendations for Future Prevention
+### 3. Reduced claude.lib.mjs Below 1500 Lines
+
+Extracted `handleClaudeRuntimeSwitch` function into `src/claude.runtime-switch.lib.mjs`:
+
+- Before: 1506 lines
+- After: 1354 lines
+
+## Prevention Recommendations
+
+For additional protection beyond the implemented fixes:
 
 1. **Enable GitHub Merge Queue**: Ensures PRs are tested against the latest main before merge
 2. **Require Linear History**: Force PRs to be rebased before merge
-3. **Add Pre-merge Hook**: Check line counts locally before pushing
+3. **Add Pre-commit Hook**: Check line counts locally before pushing
+4. **Branch Protection**: Require branches to be up-to-date before merging
 
 ## Best Practices Reference
 
@@ -109,8 +150,11 @@ The hive-mind repository uses a 1500-line limit, which is still reasonable but h
 
 ## Conclusion
 
-The CI failure was caused by a classic merge race condition where a PR passes validation against an older base branch but causes failures when merged with newer changes. The fix involves:
+The CI failure was caused by GitHub's stale merge preview architecture, where a PR's CI validates against a snapshot taken when the PR was opened/synchronized, not when it's actually merged. This can lead to situations where a PR passes validation but causes failures when merged with newer changes.
 
-1. Reducing the file size to be safely under the limit
-2. Adding ESLint rules for additional protection
-3. Considering stricter merge policies to prevent future occurrences
+The fix involves:
+
+1. Simulating a fresh merge in PR CI workflows to validate against the current base branch state
+2. Adding ESLint rules for additional protection during local development
+3. Reducing file sizes to be safely under the limit
+4. Considering stricter merge policies (merge queues, branch protection) to prevent future occurrences

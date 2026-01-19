@@ -196,6 +196,109 @@ test('getQueueSummary returns correct structure', () => {
 });
 
 // ============================================================================
+// Duplicate URL Prevention Tests (Issue #1080)
+// ============================================================================
+
+console.log('\n📋 Duplicate URL Prevention Tests (Issue #1080)\n');
+
+test('findByUrl returns null for empty queue', () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  const result = queue.findByUrl('https://github.com/test/repo/issues/1');
+  assert.equal(result, null, 'Should return null for empty queue');
+
+  queue.stop();
+});
+
+test('findByUrl finds item in queue', () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  const item = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--model opus',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+  });
+
+  const found = queue.findByUrl('https://github.com/test/repo/issues/1');
+  assert.ok(found !== null, 'Should find the item');
+  assert.equal(found.id, item.id, 'Should return the correct item');
+
+  queue.stop();
+});
+
+test('findByUrl returns null for different URL', () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--model opus',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+  });
+
+  const found = queue.findByUrl('https://github.com/test/repo/issues/2');
+  assert.equal(found, null, 'Should return null for different URL');
+
+  queue.stop();
+});
+
+test('findByUrl finds item among multiple queued items', () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--model opus',
+    requester: 'testuser1',
+    infoBlock: 'Test info 1',
+  });
+
+  const targetItem = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/2',
+    args: '--model sonnet',
+    requester: 'testuser2',
+    infoBlock: 'Test info 2',
+  });
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/3',
+    args: '--model haiku',
+    requester: 'testuser3',
+    infoBlock: 'Test info 3',
+  });
+
+  const found = queue.findByUrl('https://github.com/test/repo/issues/2');
+  assert.ok(found !== null, 'Should find the item');
+  assert.equal(found.id, targetItem.id, 'Should return the correct item');
+
+  queue.stop();
+});
+
+test('findByUrl does not find cancelled items', () => {
+  beforeEach();
+  const queue = new SolveQueue();
+
+  const item = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--model opus',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+  });
+
+  // Cancel the item - this removes it from the queue
+  queue.cancel(item.id);
+
+  const found = queue.findByUrl('https://github.com/test/repo/issues/1');
+  assert.equal(found, null, 'Should not find cancelled item');
+
+  queue.stop();
+});
+
+// ============================================================================
 // Message Update Tests
 // ============================================================================
 

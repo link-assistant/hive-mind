@@ -304,6 +304,30 @@ export class SolveQueue {
   }
 
   /**
+   * Find an item by URL in the queue or processing items
+   * Used to prevent duplicate URLs from being added to the queue
+   * @param {string} url - The URL to search for
+   * @returns {SolveQueueItem|null} The found item or null
+   * @see https://github.com/link-assistant/hive-mind/issues/1080
+   */
+  findByUrl(url) {
+    // Check queued items
+    const queuedItem = this.queue.find(item => item.url === url);
+    if (queuedItem) {
+      return queuedItem;
+    }
+
+    // Check processing items
+    for (const item of this.processing.values()) {
+      if (item.url === url) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Cancel a queued item by ID
    * @param {string} id - Item ID
    * @returns {boolean} True if cancelled

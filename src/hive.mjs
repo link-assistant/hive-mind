@@ -759,6 +759,8 @@ if (isDirectExecution) {
             args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
             if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
             if (argv.think) args.push('--think', argv.think);
+            if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
+            if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
             if (!argv.sentry) args.push('--no-sentry');
             if (argv.watch) args.push('--watch');

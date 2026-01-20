@@ -1319,6 +1319,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
       if (argv.verbose) commandParts.push('--verbose');
       if (argv.model && argv.model !== 'sonnet') commandParts.push('--model', argv.model);
       if (argv.think) commandParts.push('--think', argv.think);
+      if (argv.thinkingBudget !== undefined) commandParts.push('--thinking-budget', argv.thinkingBudget);
       await log(`   ${commandParts.join(' ')}`, { level: 'error' });
       await log('', { level: 'error' });
     }

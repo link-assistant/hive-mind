@@ -63,7 +63,10 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Add thinking instruction based on --think level
+  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
+  // Thinking is now enabled by default with 31,999 token budget
+  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
+  // Keeping keywords for backward compatibility with older Claude Code versions
   if (argv && argv.think) {
     const thinkMessages = {
       low: 'Think.',
@@ -89,7 +92,10 @@ export const buildUserPrompt = params => {
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
-  // Build thinking instruction based on --think level
+  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
+  // Thinking is now enabled by default with 31,999 token budget
+  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
+  // Keeping keywords for backward compatibility with older Claude Code versions
   let thinkLine = '';
   if (argv && argv.think) {
     const thinkMessages = {

@@ -3,6 +3,7 @@
 ## Issue Summary
 
 The `/accept_invites` command in hive-telegram-bot has three UX problems:
+
 1. **Redundant "Repository:" word**: The output repeats "Repository" for each item instead of grouping
 2. **Missing clickable links**: Repository/organization names should be clickable GitHub links
 3. **No real-time updates**: Users wait until all invitations are processed without any feedback
@@ -32,6 +33,7 @@ Accepted:
 ```
 
 **Expected output**:
+
 ```
 Repositories:
   • 📦 owner1/repo1
@@ -61,6 +63,7 @@ accepted.push(`📦 [${repoName}](https://github.com/${repoName})`);
 **Location**: `src/telegram-accept-invitations.lib.mjs:64-122`
 
 The current implementation:
+
 1. Sends "Fetching..." message
 2. Processes ALL invitations in a loop
 3. Only THEN edits the message with final results
@@ -74,6 +77,7 @@ For 18 invitations (as shown in the screenshot), this means the user sees "Fetch
 ### Telegram API Constraints
 
 From Telegram Bot API documentation:
+
 - `editMessageText` can update a sent message
 - Rate limits: ~30 edits per minute per chat
 - "Message not modified" error if content unchanged
@@ -101,6 +105,7 @@ onProgress: async () => {
 ### 1. Group items by type
 
 Separate accepted items into two arrays:
+
 - `acceptedRepos[]` - Repository invitations
 - `acceptedOrgs[]` - Organization invitations
 
@@ -109,14 +114,14 @@ Separate accepted items into two arrays:
 ```javascript
 // Repository link
 `📦 [${repoName}](https://github.com/${repoName})`
-
 // Organization link
-`🏢 [${orgName}](https://github.com/${orgName})`
+`🏢 [${orgName}](https://github.com/${orgName})`;
 ```
 
 ### 3. Real-time message updates
 
 Update the message after each invitation is processed:
+
 1. Send initial "Processing..." message
 2. After each acceptance, edit message to show progress
 3. Handle "message not modified" errors gracefully

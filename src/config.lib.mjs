@@ -243,6 +243,23 @@ export const version = {
   default: getenv('HIVE_MIND_VERSION_DEFAULT', '0.14.3'),
 };
 
+// Merge queue configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1143
+export const mergeQueue = {
+  // Maximum PRs to process in one merge session
+  // Default: 10 PRs per session
+  maxPrsPerSession: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_MAX_PRS', 10),
+  // CI/CD polling interval in milliseconds
+  // Default: 5 minutes (300000ms) - checks CI status every 5 minutes
+  ciPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS', 5 * 60 * 1000),
+  // CI/CD timeout in milliseconds
+  // Default: 7 hours (25200000ms) - maximum wait time for CI to complete
+  ciTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS', 7 * 60 * 60 * 1000),
+  // Wait time after merge before processing next PR
+  // Default: 1 minute (60000ms) - allows CI to stabilize
+  postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+};
+
 // Helper function to validate configuration values
 export function validateConfig() {
   // Ensure all numeric values are valid
@@ -288,6 +305,7 @@ export function getAllConfigurations() {
     externalUrls,
     modelConfig,
     version,
+    mergeQueue,
   };
 }
 

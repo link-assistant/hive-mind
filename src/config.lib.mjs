@@ -20,6 +20,9 @@ if (typeof globalThis.use === 'undefined') {
 
 const getenv = await use('getenv');
 
+// Use semver package for version comparison (see issue #1146)
+import semver from 'semver';
+
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
 
@@ -89,47 +92,66 @@ export const claudeCode = {
   maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
 };
 
-// Thinking level translation constants (see issue #1146)
-// These values are evenly distributed between 0 and 31999 (Claude Code default max)
-// off=0, low=~8000, medium=~16000, high=~24000, max=31999
-export const thinkingLevelToTokens = {
+// Default max thinking budget for Claude Code (see issue #1146)
+// This is the default value used by Claude Code when extended thinking is enabled
+// Can be overridden via --max-thinking-budget option
+export const DEFAULT_MAX_THINKING_BUDGET = 31999;
+
+/**
+ * Get thinking level token values calculated from max budget
+ * Values are evenly distributed: off=0, low=max/4, medium=max/2, high=max*3/4, max=max
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {Object} Mapping of thinking levels to token values
+ */
+export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => ({
   off: 0,
-  low: 7999, // 31999/4 ≈ 8000
-  medium: 15999, // 31999/2 ≈ 16000
-  high: 23999, // 31999*3/4 ≈ 24000
-  max: 31999, // Claude Code default max
-};
+  low: Math.floor(maxBudget / 4), // ~8000 for default 31999
+  medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
+  high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
+  max: maxBudget, // 31999 by default
+});
 
-// Reverse mapping: tokens to thinking level (for back translation)
-// Uses midpoint ranges to determine the level
-export const tokensToThinkingLevel = tokens => {
-  if (tokens === 0) return 'off';
-  if (tokens <= 11999) return 'low'; // 0-11999 -> low (midpoint between low and medium)
-  if (tokens <= 19999) return 'medium'; // 12000-19999 -> medium (midpoint between medium and high)
-  if (tokens <= 27999) return 'high'; // 20000-27999 -> high (midpoint between high and max)
-  return 'max'; // 28000+ -> max
-};
+// Default thinking level to tokens mapping (using default max budget)
+export const thinkingLevelToTokens = getThinkingLevelToTokens(DEFAULT_MAX_THINKING_BUDGET);
 
-// Compare semver versions (returns -1 if a < b, 0 if a == b, 1 if a > b)
-export const compareSemver = (a, b) => {
-  const parseVersion = v => {
-    const match = v.match(/^(\d+)\.(\d+)\.(\d+)/);
-    if (!match) return [0, 0, 0];
-    return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+/**
+ * Get tokens to thinking level mapping function with configurable max budget
+ * Uses midpoint ranges to determine the level
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {Function} Function that converts tokens to thinking level
+ */
+export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  const levels = getThinkingLevelToTokens(maxBudget);
+  // Calculate midpoints between levels for range determination
+  const lowMediumMidpoint = Math.floor((levels.low + levels.medium) / 2);
+  const mediumHighMidpoint = Math.floor((levels.medium + levels.high) / 2);
+  const highMaxMidpoint = Math.floor((levels.high + levels.max) / 2);
+
+  return tokens => {
+    if (tokens === 0) return 'off';
+    if (tokens <= lowMediumMidpoint) return 'low';
+    if (tokens <= mediumHighMidpoint) return 'medium';
+    if (tokens <= highMaxMidpoint) return 'high';
+    return 'max';
   };
-
-  const [aMajor, aMinor, aPatch] = parseVersion(a);
-  const [bMajor, bMinor, bPatch] = parseVersion(b);
-
-  if (aMajor !== bMajor) return aMajor < bMajor ? -1 : 1;
-  if (aMinor !== bMinor) return aMinor < bMinor ? -1 : 1;
-  if (aPatch !== bPatch) return aPatch < bPatch ? -1 : 1;
-  return 0;
 };
+
+// Default tokens to thinking level function (using default max budget)
+export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
 // Check if a version supports thinking budget (>= minimum version)
+// Uses semver npm package for reliable version comparison (see issue #1146)
 export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
-  return compareSemver(version, minVersion) >= 0;
+  // Clean the version string (remove any leading 'v' and extra text)
+  const cleanVersion = semver.clean(version) || semver.coerce(version)?.version;
+  const cleanMinVersion = semver.clean(minVersion) || semver.coerce(minVersion)?.version;
+
+  if (!cleanVersion || !cleanMinVersion) {
+    // If versions can't be parsed, assume old version (doesn't support budget)
+    return false;
+  }
+
+  return semver.gte(cleanVersion, cleanMinVersion);
 };
 
 // Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set

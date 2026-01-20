@@ -191,39 +191,63 @@ Based on feedback from konard, we implemented **bidirectional translation** betw
 
 1. **Added `off` option** to `--think`: values are now `['off', 'low', 'medium', 'high', 'max']`
 2. **Added `--thinking-budget-claude-minimum-version`** option (default: `2.1.12`)
-3. **Bidirectional translation** based on detected Claude Code version:
+3. **Added `--max-thinking-budget`** option (default: `31999` for Claude Code) to customize the max budget
+4. **Bidirectional translation** based on detected Claude Code version:
    - **For Claude Code >= 2.1.12**: `--think` is translated to `--thinking-budget`
    - **For Claude Code < 2.1.12**: `--thinking-budget` is translated back to `--think` keywords
+5. **Uses `semver` npm package** for reliable version comparison
 
 ### Translation Mapping
 
-| --think  | --thinking-budget | Notes              |
-| -------- | ----------------- | ------------------ |
-| `off`    | 0                 | Disable thinking   |
-| `low`    | ~8000 (7999)      | Minimal reasoning  |
-| `medium` | ~16000 (15999)    | Moderate reasoning |
-| `high`   | ~24000 (23999)    | Deep reasoning     |
-| `max`    | 31999             | Maximum (default)  |
+Thinking levels are calculated as fractions of `--max-thinking-budget` (default: 31999):
+
+| --think  | Calculation  | Default Budget | Notes              |
+| -------- | ------------ | -------------- | ------------------ |
+| `off`    | 0            | 0              | Disable thinking   |
+| `low`    | max / 4      | 7999           | Minimal reasoning  |
+| `medium` | max / 2      | 15999          | Moderate reasoning |
+| `high`   | max \* 3 / 4 | 23999          | Deep reasoning     |
+| `max`    | max          | 31999          | Maximum (default)  |
 
 ### Implementation Details
 
 ```javascript
 // In src/config.lib.mjs
-export const thinkingLevelToTokens = {
+import semver from 'semver';
+
+export const DEFAULT_MAX_THINKING_BUDGET = 31999;
+
+// Get thinking level token values calculated from max budget
+export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => ({
   off: 0,
-  low: 7999, // 31999/4
-  medium: 15999, // 31999/2
-  high: 23999, // 31999*3/4
-  max: 31999, // Claude Code default max
+  low: Math.floor(maxBudget / 4),
+  medium: Math.floor(maxBudget / 2),
+  high: Math.floor((maxBudget * 3) / 4),
+  max: maxBudget,
+});
+
+// Get tokens to thinking level with configurable max budget
+export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  const levels = getThinkingLevelToTokens(maxBudget);
+  const lowMediumMidpoint = Math.floor((levels.low + levels.medium) / 2);
+  const mediumHighMidpoint = Math.floor((levels.medium + levels.high) / 2);
+  const highMaxMidpoint = Math.floor((levels.high + levels.max) / 2);
+
+  return tokens => {
+    if (tokens === 0) return 'off';
+    if (tokens <= lowMediumMidpoint) return 'low';
+    if (tokens <= mediumHighMidpoint) return 'medium';
+    if (tokens <= highMaxMidpoint) return 'high';
+    return 'max';
+  };
 };
 
-// Reverse mapping uses midpoint ranges
-export const tokensToThinkingLevel = tokens => {
-  if (tokens === 0) return 'off';
-  if (tokens <= 11999) return 'low';
-  if (tokens <= 19999) return 'medium';
-  if (tokens <= 27999) return 'high';
-  return 'max';
+// Version comparison using semver package
+export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
+  const cleanVersion = semver.clean(version) || semver.coerce(version)?.version;
+  const cleanMinVersion = semver.clean(minVersion) || semver.coerce(minVersion)?.version;
+  if (!cleanVersion || !cleanMinVersion) return false;
+  return semver.gte(cleanVersion, cleanMinVersion);
 };
 ```
 
@@ -243,6 +267,9 @@ solve issue-url --thinking-budget 0
 
 # Override minimum version threshold
 solve issue-url --thinking-budget-claude-minimum-version 2.2.0
+
+# Use custom max thinking budget (e.g., for 64K output models)
+solve issue-url --think high --max-thinking-budget 63999
 ```
 
 ## Future Actions

@@ -161,6 +161,8 @@ const KNOWN_OPTION_NAMES = [
   'tool',
   'think',
   'thinking-budget',
+  'thinking-budget-claude-minimum-version',
+  'max-thinking-budget',
   'watch',
   'sentry',
   'attach-logs',

@@ -767,8 +767,8 @@ bot.command('help', async ctx => {
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
-  message += '• `--think <level>` - [DEPRECATED] Thinking level. Use --thinking-budget instead\n';
-  message += '• `--thinking-budget <num>` - Thinking token budget for Claude Code (1024-63999)\n';
+  message += '• `--think <level>` - Thinking level (off/low/medium/high/max). Translated to --thinking-budget for Claude >= 2.1.12\n';
+  message += '• `--thinking-budget <num>` - Thinking token budget for Claude Code (0-63999)\n';
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 

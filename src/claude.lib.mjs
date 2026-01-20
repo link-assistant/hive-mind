@@ -10,7 +10,7 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits, claudeCode, getClaudeEnv, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
@@ -244,12 +244,19 @@ export const setClaudeVersion = version => {
  * Handles translation between thinking levels and token budgets based on Claude Code version
  * @param {Object} argv - Command line arguments
  * @param {Function} log - Logging function
- * @returns {Object} { thinkingBudget, thinkLevel, translation } - Resolved settings
+ * @returns {Object} { thinkingBudget, thinkLevel, translation, maxBudget } - Resolved settings
  */
 export const resolveThinkingSettings = async (argv, log) => {
   const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
   const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
   const isNewVersion = supportsThinkingBudget(version, minVersion);
+
+  // Get max thinking budget from argv or use default (see issue #1146)
+  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
+
+  // Get thinking level mappings calculated from maxBudget
+  const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
+  const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
 
   let thinkingBudget = argv.thinkingBudget;
   let thinkLevel = argv.think;
@@ -263,6 +270,9 @@ export const resolveThinkingSettings = async (argv, log) => {
       if (argv.verbose) {
         await log(`📊 Translating for Claude Code ${version} (>= ${minVersion}):`, { verbose: true });
         await log(`   ${translation}`, { verbose: true });
+        if (maxBudget !== DEFAULT_MAX_THINKING_BUDGET) {
+          await log(`   Using custom --max-thinking-budget: ${maxBudget}`, { verbose: true });
+        }
       }
     }
   } else {
@@ -279,7 +289,7 @@ export const resolveThinkingSettings = async (argv, log) => {
     }
   }
 
-  return { thinkingBudget, thinkLevel, translation, isNewVersion };
+  return { thinkingBudget, thinkLevel, translation, isNewVersion, maxBudget };
 };
 /**
  * Check if Playwright MCP is available and connected to Claude

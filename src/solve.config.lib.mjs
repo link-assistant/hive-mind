@@ -230,6 +230,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Minimum Claude Code version that supports --thinking-budget (MAX_THINKING_TOKENS env var). Versions below this use thinking keywords instead.',
         default: '2.1.12',
       })
+      .option('max-thinking-budget', {
+        type: 'number',
+        description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
+        default: 31999,
+      })
       .option('prompt-plan-sub-agent', {
         type: 'boolean',
         description: 'Encourage AI to use Plan sub-agent for initial planning (only works with --tool claude)',

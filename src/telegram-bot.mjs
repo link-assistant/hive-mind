@@ -762,8 +762,11 @@ bot.command('help', async ctx => {
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
   message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
+  message += '*/merge* - Merge queue (experimental)\n';
+  message += 'Usage: `/merge <github-repo-url>`\n';
+  message += "Merges all PRs with 'ready' label sequentially.\n";
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits, /version and /accept\\_invites commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -893,6 +896,17 @@ bot.command('version', async ctx => {
 // This keeps telegram-bot.mjs under the 1500 line limit
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 registerAcceptInvitesCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
+  addBreadcrumb,
+});
+
+// Register /merge command from separate module (experimental, see issue #1143)
+const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
+registerMergeCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
@@ -1460,14 +1474,12 @@ bot.telegram
     process.exit(1);
   });
 
-// Helper to stop solve queue gracefully on shutdown
-// See: https://github.com/link-assistant/hive-mind/issues/1083
+// Helper to stop solve queue gracefully on shutdown (see issue #1083)
 const stopSolveQueue = () => {
   try {
     getSolveQueue({ verbose: VERBOSE }).stop();
-    if (VERBOSE) console.log('[VERBOSE] Solve queue stopped');
-  } catch (err) {
-    if (VERBOSE) console.log('[VERBOSE] Could not stop solve queue:', err.message);
+  } catch {
+    /* ignore errors during shutdown */
   }
 };
 
@@ -1481,10 +1493,8 @@ process.once('SIGINT', () => {
 
 process.once('SIGTERM', () => {
   isShuttingDown = true;
-  console.log('\n🛑 Received SIGTERM, stopping bot...');
+  console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
-  console.log('ℹ️  SIGTERM is typically sent by: system shutdown, process manager, kill command, or container orchestration');
-  console.log('💡 Check system logs for details: journalctl -u <service> or dmesg');
   stopSolveQueue();
   bot.stop('SIGTERM');
 });

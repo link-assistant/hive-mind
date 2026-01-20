@@ -62,8 +62,44 @@ export function registerAcceptInvitesCommand(bot, options) {
       });
 
     const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations...', { reply_to_message_id: ctx.message.message_id });
-    const accepted = [];
+    const acceptedRepos = [];
+    const acceptedOrgs = [];
     const errors = [];
+
+    /**
+     * Builds and updates the progress message with current status
+     * @param {string} status - Current status text (e.g., 'Processing...', 'Complete')
+     */
+    const updateProgressMessage = async status => {
+      let message = `✅ *GitHub Invitations ${status}*\n\n`;
+      const totalAccepted = acceptedRepos.length + acceptedOrgs.length;
+
+      if (totalAccepted === 0 && errors.length === 0 && status === 'Complete') {
+        message += 'No pending invitations found\\.';
+      } else {
+        if (acceptedRepos.length > 0) {
+          message += '*Repositories:*\n' + acceptedRepos.map(r => `  • 📦 ${r}`).join('\n') + '\n\n';
+        }
+        if (acceptedOrgs.length > 0) {
+          message += '*Organizations:*\n' + acceptedOrgs.map(o => `  • 🏢 ${o}`).join('\n') + '\n\n';
+        }
+        if (errors.length > 0) {
+          message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n') + '\n\n';
+        }
+        if (totalAccepted > 0 && errors.length === 0 && status === 'Complete') {
+          message += `🎉 Successfully accepted ${totalAccepted} invitation\\(s\\)\\!`;
+        }
+      }
+
+      try {
+        await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'MarkdownV2' });
+      } catch (e) {
+        // Ignore "message is not modified" errors when content hasn't changed
+        if (!e.message?.includes('message is not modified')) {
+          VERBOSE && console.log(`[VERBOSE] Failed to update progress message: ${e.message}`);
+        }
+      }
+    };
 
     try {
       // Fetch repository invitations
@@ -71,13 +107,15 @@ export function registerAcceptInvitesCommand(bot, options) {
       const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
       VERBOSE && console.log(`[VERBOSE] Found ${repoInvitations.length} pending repo invitations`);
 
-      // Accept each repo invitation
+      // Accept each repo invitation with real-time updates
       for (const inv of repoInvitations) {
         const repoName = inv.repository?.full_name || 'unknown';
+        const repoUrl = `https://github.com/${repoName}`;
         try {
           await exec(`gh api -X PATCH /user/repository_invitations/${inv.id}`);
-          accepted.push(`📦 Repository: ${repoName}`);
+          acceptedRepos.push(`[${escapeMarkdown(repoName)}](${repoUrl})`);
           VERBOSE && console.log(`[VERBOSE] Accepted repo invitation: ${repoName}`);
+          await updateProgressMessage('Processing\\.\\.\\.');
         } catch (e) {
           errors.push(`📦 ${repoName}: ${e.message}`);
           VERBOSE && console.log(`[VERBOSE] Failed to accept repo invitation ${repoName}: ${e.message}`);
@@ -90,36 +128,23 @@ export function registerAcceptInvitesCommand(bot, options) {
       const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
       VERBOSE && console.log(`[VERBOSE] Found ${pendingOrgs.length} pending org invitations`);
 
-      // Accept each org invitation
+      // Accept each org invitation with real-time updates
       for (const membership of pendingOrgs) {
         const orgName = membership.organization?.login || 'unknown';
+        const orgUrl = `https://github.com/${orgName}`;
         try {
           await exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`);
-          accepted.push(`🏢 Organization: ${orgName}`);
+          acceptedOrgs.push(`[${escapeMarkdown(orgName)}](${orgUrl})`);
           VERBOSE && console.log(`[VERBOSE] Accepted org invitation: ${orgName}`);
+          await updateProgressMessage('Processing\\.\\.\\.');
         } catch (e) {
           errors.push(`🏢 ${orgName}: ${e.message}`);
           VERBOSE && console.log(`[VERBOSE] Failed to accept org invitation ${orgName}: ${e.message}`);
         }
       }
 
-      // Build response message
-      let message = '✅ *GitHub Invitations Processed*\n\n';
-      if (accepted.length === 0 && errors.length === 0) {
-        message += 'No pending invitations found.';
-      } else {
-        if (accepted.length > 0) {
-          message += '*Accepted:*\n' + accepted.map(a => `  • ${escapeMarkdown(a)}`).join('\n') + '\n\n';
-        }
-        if (errors.length > 0) {
-          message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n');
-        }
-        if (accepted.length > 0 && errors.length === 0) {
-          message += `\n🎉 Successfully accepted ${accepted.length} invitation(s)!`;
-        }
-      }
-
-      await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
+      // Final update with complete status
+      await updateProgressMessage('Complete');
     } catch (error) {
       console.error('Error in /accept-invites:', error);
       await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapeMarkdown(error.message)}\n\nMake sure \`gh\` CLI is installed and authenticated.`, { parse_mode: 'Markdown' });

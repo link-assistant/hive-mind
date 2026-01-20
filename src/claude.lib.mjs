@@ -805,8 +805,18 @@ export const executeClaudeCommand = async params => {
       await log('', { verbose: true });
     }
     try {
-      const claudeEnv = getClaudeEnv(); // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076)
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076) and optionally MAX_THINKING_TOKENS (see issue #1146)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: argv.thinkingBudget });
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      if (argv.thinkingBudget !== undefined) {
+        await log(`📊 MAX_THINKING_TOKENS: ${argv.thinkingBudget}`, { verbose: true });
+      }
+      // Warn about deprecated --think option for Claude Code >= 2.1.12
+      if (argv.think) {
+        await log(`⚠️  Warning: --think is deprecated for Claude Code >= 2.1.12`, { verbose: true });
+        await log(`   Thinking keywords like 'Ultrathink' have no effect. Thinking is now on by default.`, { verbose: true });
+        await log(`   Consider using --thinking-budget to control MAX_THINKING_TOKENS instead.`, { verbose: true });
+      }
       if (argv.resume) {
         // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');

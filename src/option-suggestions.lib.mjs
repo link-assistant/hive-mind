@@ -160,6 +160,7 @@ const KNOWN_OPTION_NAMES = [
   'dry-run',
   'tool',
   'think',
+  'thinking-budget',
   'watch',
   'sentry',
   'attach-logs',

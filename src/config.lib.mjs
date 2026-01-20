@@ -90,7 +90,17 @@ export const claudeCode = {
 };
 
 // Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
-export const getClaudeEnv = () => ({ ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) });
+// Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
+export const getClaudeEnv = (options = {}) => {
+  const env = { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) };
+  // Set MAX_THINKING_TOKENS if thinkingBudget is provided
+  // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
+  // Default is 31999, set to 0 to disable thinking, max is 63999 for 64K output models
+  if (options.thinkingBudget !== undefined) {
+    env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
+  }
+  return env;
+};
 
 // Cache TTL configurations (in milliseconds)
 // The Usage API (Claude limits) has stricter rate limiting than regular APIs

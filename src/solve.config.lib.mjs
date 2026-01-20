@@ -216,8 +216,13 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('think', {
         type: 'string',
-        description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
+        description: '[DEPRECATED for Claude Code >= 2.1.12] Thinking level keywords. Use --thinking-budget instead. Keywords have no effect on Claude Code as thinking is now on by default.',
         choices: ['low', 'medium', 'high', 'max'],
+        default: undefined,
+      })
+      .option('thinking-budget', {
+        type: 'number',
+        description: 'Thinking token budget for Claude Code (1024-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking.',
         default: undefined,
       })
       .option('prompt-plan-sub-agent', {

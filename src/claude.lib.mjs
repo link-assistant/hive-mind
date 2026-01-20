@@ -10,7 +10,7 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits, claudeCode, getClaudeEnv } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
@@ -68,6 +68,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
+          // Store the version for thinking settings translation (issue #1146)
+          detectedClaudeVersion = version;
           if (retryCount === 0) {
             await log(`📦 Claude CLI version: ${version}`);
           }
@@ -219,6 +221,66 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
 // handleClaudeRuntimeSwitch is imported from ./claude.runtime-switch.lib.mjs (see issue #1141)
 // Re-export it for backwards compatibility
 export { handleClaudeRuntimeSwitch };
+
+// Store Claude Code version globally (set during validation)
+let detectedClaudeVersion = null;
+
+/**
+ * Get the detected Claude Code version
+ * @returns {string|null} The detected version or null if not yet detected
+ */
+export const getClaudeVersion = () => detectedClaudeVersion;
+
+/**
+ * Set the detected Claude Code version (called during validation)
+ * @param {string} version - The detected version string
+ */
+export const setClaudeVersion = version => {
+  detectedClaudeVersion = version;
+};
+
+/**
+ * Resolve thinking settings based on --think and --thinking-budget options
+ * Handles translation between thinking levels and token budgets based on Claude Code version
+ * @param {Object} argv - Command line arguments
+ * @param {Function} log - Logging function
+ * @returns {Object} { thinkingBudget, thinkLevel, translation } - Resolved settings
+ */
+export const resolveThinkingSettings = async (argv, log) => {
+  const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
+  const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
+  const isNewVersion = supportsThinkingBudget(version, minVersion);
+
+  let thinkingBudget = argv.thinkingBudget;
+  let thinkLevel = argv.think;
+  let translation = null;
+
+  if (isNewVersion) {
+    // Claude Code >= 2.1.12: translate --think to --thinking-budget
+    if (thinkLevel !== undefined && thinkingBudget === undefined) {
+      thinkingBudget = thinkingLevelToTokens[thinkLevel];
+      translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (>= ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+      }
+    }
+  } else {
+    // Claude Code < 2.1.12: translate --thinking-budget to --think keywords
+    if (thinkingBudget !== undefined && thinkLevel === undefined) {
+      thinkLevel = tokensToThinkingLevel(thinkingBudget);
+      translation = `--thinking-budget ${thinkingBudget} → --think ${thinkLevel}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (< ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+      }
+      // Clear thinkingBudget since old versions don't support it
+      thinkingBudget = undefined;
+    }
+  }
+
+  return { thinkingBudget, thinkLevel, translation, isNewVersion };
+};
 /**
  * Check if Playwright MCP is available and connected to Claude
  * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
@@ -805,17 +867,19 @@ export const executeClaudeCommand = async params => {
       await log('', { verbose: true });
     }
     try {
+      // Resolve thinking settings (handles translation between --think and --thinking-budget based on Claude version)
+      // See issue #1146 for details on thinking budget translation
+      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
+
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076) and optionally MAX_THINKING_TOKENS (see issue #1146)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: argv.thinkingBudget });
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
-      if (argv.thinkingBudget !== undefined) {
-        await log(`📊 MAX_THINKING_TOKENS: ${argv.thinkingBudget}`, { verbose: true });
+      if (resolvedThinkingBudget !== undefined) {
+        await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
       }
-      // Warn about deprecated --think option for Claude Code >= 2.1.12
-      if (argv.think) {
-        await log(`⚠️  Warning: --think is deprecated for Claude Code >= 2.1.12`, { verbose: true });
-        await log(`   Thinking keywords like 'Ultrathink' have no effect. Thinking is now on by default.`, { verbose: true });
-        await log(`   Consider using --thinking-budget to control MAX_THINKING_TOKENS instead.`, { verbose: true });
+      // Log thinking level for older Claude Code versions that use thinking keywords
+      if (!isNewVersion && thinkLevel) {
+        await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
       if (argv.resume) {
         // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
@@ -1361,4 +1425,7 @@ export default {
   executeClaudeCommand,
   checkForUncommittedChanges,
   calculateSessionTokens,
+  getClaudeVersion,
+  setClaudeVersion,
+  resolveThinkingSettings,
 };

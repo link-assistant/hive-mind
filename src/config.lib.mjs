@@ -89,6 +89,49 @@ export const claudeCode = {
   maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
 };
 
+// Thinking level translation constants (see issue #1146)
+// These values are evenly distributed between 0 and 31999 (Claude Code default max)
+// off=0, low=~8000, medium=~16000, high=~24000, max=31999
+export const thinkingLevelToTokens = {
+  off: 0,
+  low: 7999, // 31999/4 ≈ 8000
+  medium: 15999, // 31999/2 ≈ 16000
+  high: 23999, // 31999*3/4 ≈ 24000
+  max: 31999, // Claude Code default max
+};
+
+// Reverse mapping: tokens to thinking level (for back translation)
+// Uses midpoint ranges to determine the level
+export const tokensToThinkingLevel = tokens => {
+  if (tokens === 0) return 'off';
+  if (tokens <= 11999) return 'low'; // 0-11999 -> low (midpoint between low and medium)
+  if (tokens <= 19999) return 'medium'; // 12000-19999 -> medium (midpoint between medium and high)
+  if (tokens <= 27999) return 'high'; // 20000-27999 -> high (midpoint between high and max)
+  return 'max'; // 28000+ -> max
+};
+
+// Compare semver versions (returns -1 if a < b, 0 if a == b, 1 if a > b)
+export const compareSemver = (a, b) => {
+  const parseVersion = v => {
+    const match = v.match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (!match) return [0, 0, 0];
+    return [parseInt(match[1]), parseInt(match[2]), parseInt(match[3])];
+  };
+
+  const [aMajor, aMinor, aPatch] = parseVersion(a);
+  const [bMajor, bMinor, bPatch] = parseVersion(b);
+
+  if (aMajor !== bMajor) return aMajor < bMajor ? -1 : 1;
+  if (aMinor !== bMinor) return aMinor < bMinor ? -1 : 1;
+  if (aPatch !== bPatch) return aPatch < bPatch ? -1 : 1;
+  return 0;
+};
+
+// Check if a version supports thinking budget (>= minimum version)
+export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
+  return compareSemver(version, minVersion) >= 0;
+};
+
 // Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 export const getClaudeEnv = (options = {}) => {

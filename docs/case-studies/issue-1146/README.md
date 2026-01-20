@@ -183,23 +183,73 @@ if (major >= 2 && minor >= 12) {
 }
 ```
 
-## Recommended Actions
+## Implemented Solution (v1.8.0)
 
-### Immediate (v1.7.3)
+Based on feedback from konard, we implemented **bidirectional translation** between `--think` and `--thinking-budget` options to support all Claude Code versions:
 
-1. **Add deprecation notice** to `--think` option description
-2. **Update documentation** to explain the change
-3. **Add `--thinking-budget` option** as the new recommended way
+### New Features
 
-### Short-term (v1.8.0)
+1. **Added `off` option** to `--think`: values are now `['off', 'low', 'medium', 'high', 'max']`
+2. **Added `--thinking-budget-claude-minimum-version`** option (default: `2.1.12`)
+3. **Bidirectional translation** based on detected Claude Code version:
+   - **For Claude Code >= 2.1.12**: `--think` is translated to `--thinking-budget`
+   - **For Claude Code < 2.1.12**: `--thinking-budget` is translated back to `--think` keywords
 
-1. **Emit warning** when `--think` is used with `--tool claude`
-2. **Implement `--thinking-budget`** that sets `MAX_THINKING_TOKENS`
-3. **Keep `--think`** working for `--tool opencode` and `--tool codex` (other tools may still support keywords)
+### Translation Mapping
+
+| --think  | --thinking-budget | Notes              |
+| -------- | ----------------- | ------------------ |
+| `off`    | 0                 | Disable thinking   |
+| `low`    | ~8000 (7999)      | Minimal reasoning  |
+| `medium` | ~16000 (15999)    | Moderate reasoning |
+| `high`   | ~24000 (23999)    | Deep reasoning     |
+| `max`    | 31999             | Maximum (default)  |
+
+### Implementation Details
+
+```javascript
+// In src/config.lib.mjs
+export const thinkingLevelToTokens = {
+  off: 0,
+  low: 7999, // 31999/4
+  medium: 15999, // 31999/2
+  high: 23999, // 31999*3/4
+  max: 31999, // Claude Code default max
+};
+
+// Reverse mapping uses midpoint ranges
+export const tokensToThinkingLevel = tokens => {
+  if (tokens === 0) return 'off';
+  if (tokens <= 11999) return 'low';
+  if (tokens <= 19999) return 'medium';
+  if (tokens <= 27999) return 'high';
+  return 'max';
+};
+```
+
+### Usage Examples
+
+```bash
+# Use named level (works with all versions)
+solve issue-url --think medium
+
+# Use explicit budget (translated for older versions)
+solve issue-url --thinking-budget 16000
+
+# Disable thinking
+solve issue-url --think off
+# or
+solve issue-url --thinking-budget 0
+
+# Override minimum version threshold
+solve issue-url --thinking-budget-claude-minimum-version 2.2.0
+```
+
+## Future Actions
 
 ### Long-term (v2.0.0)
 
-1. **Remove `--think` option** entirely for Claude tool
+1. **Consider removing translation** once Claude Code < 2.1.12 is no longer in use
 2. **Standardize on `--thinking-budget`** across all tools
 
 ## Alternative Approaches for Power Users

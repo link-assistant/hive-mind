@@ -34,16 +34,16 @@ import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getC
 export const QUEUE_CONFIG = {
   // Resource thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  RAM_THRESHOLD: 0.65, // Stop if RAM usage >= 65%
+  RAM_THRESHOLD: 0.65, // Enqueue if RAM usage >= 65%
   // CPU threshold uses 5-minute load average, not instantaneous CPU usage
-  CPU_THRESHOLD: 0.75, // Stop if 5-minute load average >= 75% of CPU count
-  DISK_THRESHOLD: 0.95, // One-at-a-time if disk usage >= 95%
+  CPU_THRESHOLD: 0.65, // Enqueue if 5-minute load average >= 65% of CPU count
+  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.85, // Stop if 5-hour limit >= 85%
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.85, // One-at-a-time if 5-hour limit >= 85%
   CLAUDE_WEEKLY_THRESHOLD: 0.98, // One-at-a-time if weekly limit >= 98%
-  GITHUB_API_THRESHOLD: 0.8, // Stop if GitHub >= 80% with parallel claude
+  GITHUB_API_THRESHOLD: 0.8, // Enqueue if GitHub >= 80% with parallel claude
 
   // Timing
   // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process

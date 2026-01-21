@@ -56,6 +56,14 @@ export const autoContinue = {
   ageThresholdHours: parseIntWithDefault('HIVE_MIND_AUTO_CONTINUE_AGE_HOURS', 24),
 };
 
+// Auto-resume on limit reset configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+export const limitReset = {
+  // Buffer time to wait after limit reset (in milliseconds)
+  // Default: 5 minutes - accounts for server time differences
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+};
+
 // GitHub API limits
 export const githubLimits = {
   commentMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_COMMENT_MAX_SIZE', 65536),

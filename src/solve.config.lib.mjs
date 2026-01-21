@@ -160,8 +160,20 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('auto-resume-on-limit-reset', {
         type: 'boolean',
-        description: 'Automatically resume when AI tool limit resets (calculates reset time and waits)',
+        description: 'Automatically resume when AI tool limit resets (maintains session context with --resume flag)',
         default: false,
+      })
+      .option('auto-restart-on-limit-reset', {
+        type: 'boolean',
+        description: 'Automatically restart when AI tool limit resets (fresh start without --resume flag)',
+        default: false,
+      })
+      .option('session-type', {
+        type: 'string',
+        description: 'Internal: Session type for comment differentiation (new, resume, auto-resume, auto-restart)',
+        choices: ['new', 'resume', 'auto-resume', 'auto-restart'],
+        default: 'new',
+        hidden: true,
       })
       .option('auto-resume-on-errors', {
         type: 'boolean',

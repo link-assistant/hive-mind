@@ -377,6 +377,13 @@ export async function attachLogToGitHub(options) {
     limitResetTime = null,
     toolName = 'AI tool',
     resumeCommand = null,
+    // Whether auto-resume/auto-restart is enabled (determines if CLI commands should be shown)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    isAutoResumeEnabled = false,
+    autoResumeMode = 'resume', // 'resume' or 'restart'
+    // Session type for differentiating solution draft log comments
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    sessionType = 'new', // 'new', 'resume', 'auto-resume', 'auto-restart'
     // New parameters for agent tool pricing support
     publicPricingEstimate = null,
     pricingInfo = null,
@@ -453,21 +460,35 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 
       logComment += '\n\n### 🔄 How to Continue\n';
 
-      if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
-      } else {
-        logComment += 'Once the limit resets, ';
-      }
+      // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      if (isAutoResumeEnabled) {
+        const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+        const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
+        if (limitResetTime) {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        } else {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        }
+      } else {
+        // Manual resume mode - show CLI commands
+        if (limitResetTime) {
+          logComment += `Once the limit resets at **${limitResetTime}**, `;
+        } else {
+          logComment += 'Once the limit resets, ';
+        }
+
+        if (resumeCommand) {
+          logComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
+        } else if (sessionId) {
+          logComment += `you can resume this session using session ID: \`${sessionId}\``;
+        } else {
+          logComment += 'you can retry the operation.';
+        }
       }
 
       logComment += `
@@ -524,8 +545,22 @@ ${logContent}
     } else {
       // Success log format - use helper function for cost info
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      logComment = `## ${customTitle}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+      // Determine title based on session type
+      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      let title = customTitle;
+      let sessionNote = '';
+      if (sessionType === 'auto-resume') {
+        title = '🔄 Draft log of auto resume (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
+      } else if (sessionType === 'auto-restart') {
+        title = '🔄 Draft log of auto restart (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
+      } else if (sessionType === 'resume') {
+        title = '🔄 Solution Draft Log (Resumed)';
+        sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
+      }
+      logComment = `## ${title}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${sessionNote}
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -611,21 +646,31 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 
             logUploadComment += '\n\n### 🔄 How to Continue\n';
 
-            if (limitResetTime) {
-              logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
-            } else {
-              logUploadComment += 'Once the limit resets, ';
-            }
+            // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            if (isAutoResumeEnabled) {
+              const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+              const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-            if (resumeCommand) {
-              logUploadComment += `you can resume this session by running:
+              logUploadComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+            } else {
+              // Manual resume mode - show CLI commands
+              if (limitResetTime) {
+                logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
+              } else {
+                logUploadComment += 'Once the limit resets, ';
+              }
+
+              if (resumeCommand) {
+                logUploadComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-            } else if (sessionId) {
-              logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
-            } else {
-              logUploadComment += 'you can retry the operation.';
+              } else if (sessionId) {
+                logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
+              } else {
+                logUploadComment += 'you can retry the operation.';
+              }
             }
 
             logUploadComment += `
@@ -661,9 +706,23 @@ This log file contains the complete execution trace of the AI ${targetType === '
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            logUploadComment = `## ${customTitle}
+            // Determine title based on session type
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            let title = customTitle;
+            let sessionNote = '';
+            if (sessionType === 'auto-resume') {
+              title = '🔄 Draft log of auto resume (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.\n';
+            } else if (sessionType === 'auto-restart') {
+              title = '🔄 Draft log of auto restart (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).\n';
+            } else if (sessionType === 'resume') {
+              title = '🔄 Solution Draft Log (Resumed)';
+              sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
+            }
+            logUploadComment = `## ${title}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
-📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete solution draft log](${logUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;

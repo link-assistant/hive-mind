@@ -416,7 +416,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new') => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -549,6 +549,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             pricingInfo,
             // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
             errorDuringExecution,
+            // Issue #1152: Pass sessionType for differentiated log comments
+            sessionType,
           });
         }
 
@@ -614,6 +616,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           pricingInfo,
           // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
           errorDuringExecution,
+          // Issue #1152: Pass sessionType for differentiated log comments
+          sessionType,
         });
       }
 

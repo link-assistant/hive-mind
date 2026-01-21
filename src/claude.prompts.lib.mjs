@@ -3,13 +3,15 @@
  * Handles building prompts for Claude commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+
 /**
  * Build the user prompt for Claude
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, owner, repo, argv, contributingGuidelines } = params;
 
   const promptLines = [];
 
@@ -23,6 +25,11 @@ export const buildUserPrompt = params => {
   // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
+
+  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
+  if (workspaceTmpDir) {
+    promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
+  }
 
   // PR info if available
   if (prUrl) {
@@ -56,7 +63,10 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  // Add thinking instruction based on --think level
+  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
+  // Thinking is now enabled by default with 31,999 token budget
+  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
+  // Keeping keywords for backward compatibility with older Claude Code versions
   if (argv && argv.think) {
     const thinkMessages = {
       low: 'Think.',
@@ -80,9 +90,12 @@ export const buildUserPrompt = params => {
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = params => {
-  const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
-  // Build thinking instruction based on --think level
+  // Note: --think keywords are deprecated for Claude Code >= 2.1.12
+  // Thinking is now enabled by default with 31,999 token budget
+  // Use --thinking-budget to control MAX_THINKING_TOKENS instead
+  // Keeping keywords for backward compatibility with older Claude Code versions
   let thinkLine = '';
   if (argv && argv.think) {
     const thinkMessages = {
@@ -94,10 +107,44 @@ export const buildSystemPrompt = params => {
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
+  // Build workspace-specific instructions and examples
+  let workspaceInstructions = '';
+  if (workspaceTmpDir) {
+    workspaceInstructions = `
+Workspace tmp directory.
+   - Use ${workspaceTmpDir} for all temporary files, logs, and downloads.
+   - When saving command output to files, save to ${workspaceTmpDir}/command-output.log.
+   - When downloading CI logs, save to ${workspaceTmpDir}/ci-logs/.
+   - When saving diffs for review, save to ${workspaceTmpDir}/diffs/.
+   - When creating debug files, save to ${workspaceTmpDir}/debug/.
+
+`;
+  }
+
+  // Build CI command examples with workspace tmp paths
+  let ciExamples = '';
+  if (workspaceTmpDir) {
+    ciExamples = `
+CI investigation with workspace tmp directory.
+   - When downloading CI run logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log > ${workspaceTmpDir}/ci-logs/run-RUN_ID.log
+   - When downloading failed job logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log-failed > ${workspaceTmpDir}/ci-logs/run-RUN_ID-failed.log
+   - When listing CI runs with details:
+      gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha > ${workspaceTmpDir}/ci-logs/recent-runs.json
+   - When saving PR diff for review:
+      gh pr diff ${prNumber} --repo ${owner}/${repo} > ${workspaceTmpDir}/diffs/pr-${prNumber}.diff
+   - When saving command output with stderr:
+      npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
+   - When investigating issue details:
+      gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+
+`;
+  }
+
   // Use backticks for jq commands to avoid quote escaping issues
   return `You are an AI issue solver. You prefer to find the root cause of each and every issue. When you talk, you prefer to speak with facts which you have double-checked yourself or cite sources that provide evidence, like quote actual code or give references to documents or pages found on the internet. You are polite and patient, and prefer to assume good intent, trying your best to be helpful. If you are unsure or have assumptions, you prefer to test them yourself or ask questions to clarify requirements.${thinkLine}
-
-General guidelines.
+${workspaceInstructions}General guidelines.
    - When you execute commands, always save their logs to files for easier reading if the output becomes large.
    - When running commands, do not set a timeout yourself — let them run as long as needed (default timeout - 2 minutes is more than enough), and once they finish, review the logs in the file.
    - When running sudo commands (especially package installations like apt-get, yum, npm install, etc.), always run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.${
@@ -241,7 +288,32 @@ Plan sub-agent usage.
    - When using the Plan sub-agent, you can add it as the first item in your todo list.
    - When you delegate planning, use the Task tool with subagent_type="Plan" before starting implementation work.`
        : ''
-   }`;
+   }${
+     argv && argv.promptSubagentsViaAgentCommander && argv.agentCommanderInstalled
+       ? `
+
+Agent Commander usage (unified subagent delegation).
+   - When you need to delegate tasks to subagents, use the agent-commander CLI tool (start-agent) instead of the native Task tool.
+   - Agent Commander provides a unified API for different agent types (claude, opencode, codex, agent) and supports various isolation modes.
+   - To delegate a task, use the Bash tool to run start-agent with appropriate parameters:
+      \`\`\`bash
+      start-agent --tool claude --working-directory "$(pwd)" --prompt "Your task description here"
+      \`\`\`
+   - Common start-agent parameters:
+      --tool <name>: Agent to use (claude, opencode, codex, agent)
+      --working-directory <path>: Execution directory (use current directory for context)
+      --prompt <text>: The task to delegate
+      --model <name>: Model to use (sonnet, opus, haiku, grok, etc.)
+      --isolation <mode>: Execution context (none, screen, docker)
+      --detached: Run in background mode
+   - Examples:
+      Explore codebase: start-agent --tool claude --working-directory "$(pwd)" --prompt "Explore the codebase structure and find how authentication is implemented"
+      Run with specific model: start-agent --tool claude --working-directory "$(pwd)" --model opus --prompt "Review this complex algorithm"
+      Use different agent: start-agent --tool opencode --working-directory "$(pwd)" --model grok --prompt "Analyze performance issues"
+   - Benefits: Saves main agent context, supports any agent type, provides unified API across different AI tools.
+   - Note: The subagent will have access to the same working directory and can read/write files as needed.`
+       : ''
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

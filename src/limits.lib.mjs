@@ -9,6 +9,14 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
+
+// Import cache TTL configuration
+import { cacheTtl } from './config.lib.mjs';
 
 const execAsync = promisify(exec);
 
@@ -48,7 +56,7 @@ async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbo
 }
 
 /**
- * Format an ISO date string to a human-readable reset time
+ * Format an ISO date string to a human-readable reset time using dayjs
  *
  * @param {string} isoDate - ISO date string (e.g., "2025-12-03T17:59:59.626485+00:00")
  * @param {boolean} includeTimezone - Whether to include timezone suffix (default: true)
@@ -58,18 +66,11 @@ function formatResetTime(isoDate, includeTimezone = true) {
   if (!isoDate) return null;
 
   try {
-    const date = new Date(isoDate);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const month = months[date.getUTCMonth()];
-    const day = date.getUTCDate();
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
+    const date = dayjs(isoDate).utc();
+    if (!date.isValid()) return isoDate;
 
-    // Convert 24h to 12h format
-    const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const ampm = hours >= 12 ? 'pm' : 'am';
-
-    const timeStr = `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm}`;
+    // dayjs format: MMM=Jan, D=day, h=12-hour, mm=minutes, a=am/pm
+    const timeStr = date.format('MMM D, h:mma');
     return includeTimezone ? `${timeStr} UTC` : timeStr;
   } catch {
     return isoDate;
@@ -77,7 +78,7 @@ function formatResetTime(isoDate, includeTimezone = true) {
 }
 
 /**
- * Format relative time from now to a future date
+ * Format relative time from now to a future date using dayjs
  *
  * @param {string} isoDate - ISO date string
  * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
@@ -86,49 +87,40 @@ function formatRelativeTime(isoDate) {
   if (!isoDate) return null;
 
   try {
-    const now = new Date();
-    const target = new Date(isoDate);
-    const diffMs = target - now;
+    const now = dayjs();
+    const target = dayjs(isoDate);
 
-    // Check for invalid date (NaN)
-    if (isNaN(diffMs)) return null;
+    if (!target.isValid()) return null;
 
+    const diffMs = target.diff(now);
     if (diffMs < 0) return null; // Past date
 
-    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const totalDays = Math.floor(totalHours / 24);
+
+    const days = totalDays;
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
 
     // If hours >= 24, show days
-    if (totalHours >= 24) {
-      const days = Math.floor(totalHours / 24);
-      const hours = totalHours % 24;
+    if (days > 0) {
       return `${days}d ${hours}h ${minutes}m`;
     }
 
-    return `${totalHours}h ${minutes}m`;
+    return `${hours}h ${minutes}m`;
   } catch {
     return null;
   }
 }
 
 /**
- * Format current time in UTC
+ * Format current time in UTC using dayjs
  *
  * @returns {string} Current time in UTC (e.g., "Dec 3, 6:45pm UTC")
  */
 function formatCurrentTime() {
-  const now = new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = months[now.getUTCMonth()];
-  const day = now.getUTCDate();
-  const hours = now.getUTCHours();
-  const minutes = now.getUTCMinutes();
-
-  // Convert 24h to 12h format
-  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  const ampm = hours >= 12 ? 'pm' : 'am';
-
-  return `${month} ${day}, ${hour12}:${minutes.toString().padStart(2, '0')}${ampm} UTC`;
+  return dayjs().utc().format('MMM D, h:mma [UTC]');
 }
 
 /**
@@ -145,6 +137,25 @@ function formatBytes(bytes) {
   // Use 1 decimal place for GB and above, none for smaller units
   const decimals = i >= 3 ? 1 : 0;
   return `${value.toFixed(decimals)} ${sizes[i]}`;
+}
+
+/**
+ * Format two byte values into a combined "used/total UNIT used" format
+ * @param {number} usedBytes - Used size in bytes
+ * @param {number} totalBytes - Total size in bytes
+ * @returns {string} Formatted string (e.g., "2.8/11.7 GB used")
+ */
+function formatBytesRange(usedBytes, totalBytes) {
+  if (totalBytes === 0) return '0/0 B used';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  // Determine unit based on total (larger value)
+  const i = Math.floor(Math.log(totalBytes) / Math.log(k));
+  const usedValue = usedBytes / Math.pow(k, i);
+  const totalValue = totalBytes / Math.pow(k, i);
+  // Use 1 decimal place for GB and above, none for smaller units
+  const decimals = i >= 3 ? 1 : 0;
+  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} used`;
 }
 
 /**
@@ -274,9 +285,10 @@ export async function getCpuLoadInfo(verbose = false) {
       };
     }
 
-    // Calculate usage percentage based on load average vs CPU count
+    // Calculate usage percentage based on 5-minute load average vs CPU count
     // Load average of 1.0 per CPU = 100% utilization
-    const usagePercentage = Math.min(100, Math.round((loadAvg1 / cpuCount) * 100));
+    // Using 5m average for consistency with solve queue (see issue #1137)
+    const usagePercentage = Math.min(100, Math.round((loadAvg5 / cpuCount) * 100));
 
     if (verbose) {
       console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
@@ -532,6 +544,11 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       },
     });
 
+    // Log HTTP response status for debugging (always, not just on error)
+    if (verbose) {
+      console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       if (verbose) {
@@ -543,6 +560,15 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         return {
           success: false,
           error: 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
+        };
+      }
+
+      // Check for rate limiting (429 Too Many Requests)
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        return {
+          success: false,
+          error: `Rate limited by Claude Usage API. ${retryAfter ? `Retry after: ${retryAfter}s` : 'Try again later.'}`,
         };
       }
 
@@ -657,8 +683,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'CPU\n';
     const usedBar = getProgressBar(cpuLoad.usagePercentage);
     message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
-    message += `Load avg: ${cpuLoad.loadAvg1.toFixed(2)} (1m) ${cpuLoad.loadAvg5.toFixed(2)} (5m) ${cpuLoad.loadAvg15.toFixed(2)} (15m)\n`;
-    message += `${cpuLoad.cpuCount} CPU core${cpuLoad.cpuCount > 1 ? 's' : ''}\n\n`;
+    // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
+    // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
+    message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores used\n\n`;
   }
 
   // Memory section (if provided)
@@ -666,7 +693,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'RAM\n';
     const usedBar = getProgressBar(memory.usedPercentage);
     message += `${usedBar} ${memory.usedPercentage}% used\n`;
-    message += `${memory.usedFormatted} used of ${memory.totalFormatted}\n\n`;
+    message += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n\n`;
   }
 
   // Disk space section (if provided)
@@ -675,7 +702,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // Show used percentage with progress bar
     const usedBar = getProgressBar(diskSpace.usedPercentage);
     message += `${usedBar} ${diskSpace.usedPercentage}% used\n`;
-    message += `${diskSpace.usedFormatted} used of ${diskSpace.totalFormatted}\n\n`;
+    message += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n\n`;
   }
 
   // GitHub API rate limits section (if provided)
@@ -693,8 +720,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += '\n';
   }
 
-  // Current session (five_hour)
-  message += 'Current session\n';
+  // Claude 5 hour session (five_hour)
+  message += 'Claude 5 hour session\n';
   if (usage.currentSession.percentage !== null) {
     // Add time passed progress bar first
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
@@ -704,7 +731,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.currentSession.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.currentSession.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 
@@ -732,7 +761,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.allModels.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.allModels.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 
@@ -760,7 +791,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
 
     // Add usage progress bar second
-    const pct = usage.sonnetOnly.percentage;
+    // Use Math.floor so 100% only appears when usage is exactly 100%
+    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    const pct = Math.floor(usage.sonnetOnly.percentage);
     const bar = getProgressBar(pct);
     message += `${bar} ${pct}% used\n`;
 
@@ -786,10 +819,21 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
 /**
  * Cache TTL constants (in milliseconds)
+ * Values are loaded from config.lib.mjs which supports environment variable overrides.
+ *
+ * IMPORTANT: The Claude Usage API has stricter rate limiting than regular APIs.
+ * Calling it more frequently than every 20 minutes may result in null values being returned.
+ * See: https://github.com/link-assistant/hive-mind/issues/1074
+ *
+ * Configurable via environment variables:
+ * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
+ * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 1200000 = 20 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
  */
 export const CACHE_TTL = {
-  API: 180000, // 3 minutes for API calls (Claude, GitHub)
-  SYSTEM: 120000, // 2 minutes for system metrics (RAM, CPU, disk)
+  API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
+  USAGE_API: cacheTtl.usageApi, // 20 minutes for Claude Usage API (rate limited)
+  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
 };
 
 /**
@@ -852,13 +896,17 @@ export function resetLimitCache() {
 
 export async function getCachedClaudeLimits(verbose = false) {
   const cache = getLimitCache();
-  const cached = cache.get('claude', CACHE_TTL.API);
+  // Use USAGE_API TTL (20 minutes) for Claude limits to avoid rate limiting
+  // The Claude Usage API returns null values when called too frequently
+  // See: https://github.com/link-assistant/hive-mind/issues/1074
+  const cached = cache.get('claude', CACHE_TTL.USAGE_API);
   if (cached) {
-    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits');
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
     return cached;
   }
+  if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...');
   const result = await getClaudeUsageLimits(verbose);
-  if (result.success) cache.set('claude', result, CACHE_TTL.API);
+  if (result.success) cache.set('claude', result, CACHE_TTL.USAGE_API);
   return result;
 }
 

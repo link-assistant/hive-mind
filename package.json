@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "0.54.3",
+  "version": "1.9.1",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -13,7 +13,10 @@
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs",
+    "test:queue": "node tests/solve-queue.test.mjs",
+    "test:limits-display": "node tests/limits-display.test.mjs",
+    "test:usage-limit": "node tests/test-usage-limit.mjs",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
     "format": "prettier --write \"**/*.{js,mjs,json,md}\"",
@@ -60,8 +63,13 @@
     "prettier": "^3.6.2"
   },
   "dependencies": {
+    "@secretlint/core": "^11.2.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^11.2.5",
     "@sentry/node": "^10.15.0",
-    "@sentry/profiling-node": "^10.15.0"
+    "@sentry/profiling-node": "^10.15.0",
+    "dayjs": "^1.11.19",
+    "secretlint": "^11.2.5",
+    "semver": "^7.7.3"
   },
   "lint-staged": {
     "*.{js,mjs,json,md}": [

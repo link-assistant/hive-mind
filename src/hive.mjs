@@ -110,6 +110,8 @@ if (isDirectExecution) {
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
     const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
     const { listSolutionDrafts } = solutionDraftsLib;
+    const recheckLib = await import('./hive.recheck.lib.mjs');
+    const { recheckIssueConditions } = recheckLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -713,6 +715,16 @@ if (isDirectExecution) {
 
         await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
 
+        // Recheck conditions before processing to avoid wasted work
+        const recheckResult = await recheckIssueConditions(issueUrl, argv);
+        if (!recheckResult.shouldProcess) {
+          await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+          issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
+
         // Track if this issue failed
         let issueFailed = false;
 
@@ -745,8 +757,10 @@ if (isDirectExecution) {
             if (argv.dryRun) args.push('--dry-run');
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
-            if (argv.autoContinueOnLimitReset) args.push('--auto-continue-on-limit-reset');
+            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
             if (argv.think) args.push('--think', argv.think);
+            if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
+            if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
             if (!argv.sentry) args.push('--no-sentry');
             if (argv.watch) args.push('--watch');
@@ -756,6 +770,7 @@ if (isDirectExecution) {
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
             if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
+            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 

@@ -70,6 +70,17 @@ export default [
       // Require --paginate on gh api calls that return lists
       // This prevents missing data when GitHub API returns more than 30 results
       'gh-paginate/require-gh-paginate': 'warn',
+      // Enforce max 1500 lines per file to match CI workflow check
+      // This ensures ESLint and check-file-line-limits job are synchronized
+      // See: docs/case-studies/issue-1141 for context
+      'max-lines': [
+        'error',
+        {
+          max: 1500,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
     },
   },
 ];

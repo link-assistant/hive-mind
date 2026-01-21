@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Test suite for --auto-continue-on-limit-reset flow
- * Tests that when usage limit is reached with auto-continue enabled,
+ * Test suite for --auto-resume-on-limit-reset flow
+ * Tests that when usage limit is reached with auto-resume enabled,
  * the process continues to showSessionSummary() instead of exiting early.
  *
  * Related issue: https://github.com/link-assistant/hive-mind/issues/1054
@@ -11,7 +11,7 @@
  * so code entered the failure branch and called safeExit(1) before reaching
  * showSessionSummary() where autoContinueWhenLimitResets() is called.
  *
- * Fix: Added condition to skip failure exit when limitReached && autoContinueOnLimitReset
+ * Fix: Added condition to skip failure exit when limitReached && autoResumeOnLimitReset
  */
 
 let testsPassed = 0;
@@ -53,24 +53,24 @@ function assertFalse(value, message) {
  * Simulates the shouldSkipFailureExitForAutoLimitContinue logic
  * from the fix in solve.mjs:1040
  */
-function shouldSkipFailureExit(limitReached, autoContinueOnLimitReset) {
-  return limitReached && autoContinueOnLimitReset;
+function shouldSkipFailureExit(limitReached, autoResumeOnLimitReset) {
+  return limitReached && autoResumeOnLimitReset;
 }
 
 /**
  * Simulates the failure exit condition from solve.mjs:1042
  * Returns true if the code would exit early (bad), false if it would continue (good)
  */
-function wouldExitEarly(success, limitReached, autoContinueOnLimitReset) {
-  const shouldSkip = shouldSkipFailureExit(limitReached, autoContinueOnLimitReset);
+function wouldExitEarly(success, limitReached, autoResumeOnLimitReset) {
+  const shouldSkip = shouldSkipFailureExit(limitReached, autoResumeOnLimitReset);
   return !success && !shouldSkip;
 }
 
 // === Test cases for the fix ===
 
-runTest('shouldSkipFailureExit: returns true when limit reached with auto-continue', () => {
+runTest('shouldSkipFailureExit: returns true when limit reached with auto-resume', () => {
   const result = shouldSkipFailureExit(true, true);
-  assertTrue(result, 'Should skip exit when limit reached with auto-continue');
+  assertTrue(result, 'Should skip exit when limit reached with auto-resume');
 });
 
 runTest('shouldSkipFailureExit: returns false when limit not reached', () => {
@@ -78,9 +78,9 @@ runTest('shouldSkipFailureExit: returns false when limit not reached', () => {
   assertFalse(result, 'Should not skip exit when limit not reached');
 });
 
-runTest('shouldSkipFailureExit: returns false when auto-continue disabled', () => {
+runTest('shouldSkipFailureExit: returns false when auto-resume disabled', () => {
   const result = shouldSkipFailureExit(true, false);
-  assertFalse(result, 'Should not skip exit when auto-continue disabled');
+  assertFalse(result, 'Should not skip exit when auto-resume disabled');
 });
 
 runTest('shouldSkipFailureExit: returns false when both false', () => {
@@ -90,17 +90,17 @@ runTest('shouldSkipFailureExit: returns false when both false', () => {
 
 // === Test the original bug scenario ===
 
-runTest('BUG SCENARIO: limit reached, auto-continue enabled, success=false -> should NOT exit', () => {
+runTest('BUG SCENARIO: limit reached, auto-resume enabled, success=false -> should NOT exit', () => {
   // This is the exact scenario from issue #1054
   // When Claude hits usage limit: is_error=true -> success=false
-  // User had --auto-continue-on-limit-reset enabled
+  // User had --auto-resume-on-limit-reset enabled
   // Expected: code should continue to showSessionSummary()
   const success = false;
   const limitReached = true;
-  const autoContinueOnLimitReset = true;
+  const autoResumeOnLimitReset = true;
 
-  const wouldExit = wouldExitEarly(success, limitReached, autoContinueOnLimitReset);
-  assertFalse(wouldExit, 'Should NOT exit early when limit reached with auto-continue');
+  const wouldExit = wouldExitEarly(success, limitReached, autoResumeOnLimitReset);
+  assertFalse(wouldExit, 'Should NOT exit early when limit reached with auto-resume');
 });
 
 // === Test normal behavior is preserved ===
@@ -108,27 +108,27 @@ runTest('BUG SCENARIO: limit reached, auto-continue enabled, success=false -> sh
 runTest('normal failure (no limit): should exit', () => {
   const success = false;
   const limitReached = false;
-  const autoContinueOnLimitReset = true;
+  const autoResumeOnLimitReset = true;
 
-  const wouldExit = wouldExitEarly(success, limitReached, autoContinueOnLimitReset);
+  const wouldExit = wouldExitEarly(success, limitReached, autoResumeOnLimitReset);
   assertTrue(wouldExit, 'Should exit on normal failure');
 });
 
-runTest('limit reached without auto-continue: should exit', () => {
+runTest('limit reached without auto-resume: should exit', () => {
   const success = false;
   const limitReached = true;
-  const autoContinueOnLimitReset = false;
+  const autoResumeOnLimitReset = false;
 
-  const wouldExit = wouldExitEarly(success, limitReached, autoContinueOnLimitReset);
-  assertTrue(wouldExit, 'Should exit when limit reached but auto-continue disabled');
+  const wouldExit = wouldExitEarly(success, limitReached, autoResumeOnLimitReset);
+  assertTrue(wouldExit, 'Should exit when limit reached but auto-resume disabled');
 });
 
 runTest('success case: should never exit via failure path', () => {
   const success = true;
   const limitReached = false;
-  const autoContinueOnLimitReset = false;
+  const autoResumeOnLimitReset = false;
 
-  const wouldExit = wouldExitEarly(success, limitReached, autoContinueOnLimitReset);
+  const wouldExit = wouldExitEarly(success, limitReached, autoResumeOnLimitReset);
   assertFalse(wouldExit, 'Should not enter failure path on success');
 });
 
@@ -136,9 +136,9 @@ runTest('success case with limit flags: should never exit via failure path', () 
   // Edge case: success=true should never enter failure branch
   const success = true;
   const limitReached = true;
-  const autoContinueOnLimitReset = true;
+  const autoResumeOnLimitReset = true;
 
-  const wouldExit = wouldExitEarly(success, limitReached, autoContinueOnLimitReset);
+  const wouldExit = wouldExitEarly(success, limitReached, autoResumeOnLimitReset);
   assertFalse(wouldExit, 'Success should bypass failure path entirely');
 });
 
@@ -149,9 +149,9 @@ console.log(`Test results: ${testsPassed} passed, ${testsFailed} failed`);
 console.log('='.repeat(60));
 
 if (testsFailed > 0) {
-  console.log('\nFailed tests indicate a regression in the auto-continue fix.');
+  console.log('\nFailed tests indicate a regression in the auto-resume fix.');
   console.log('See issue #1054 for context.');
   process.exit(1);
 } else {
-  console.log('\nAll tests passed. The --auto-continue-on-limit-reset fix is working correctly.');
+  console.log('\nAll tests passed. The --auto-resume-on-limit-reset fix is working correctly.');
 }

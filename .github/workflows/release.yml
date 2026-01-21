@@ -59,6 +59,23 @@ jobs:
         GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: node scripts/detect-code-changes.mjs
 
+  # === VERSION CHANGE CHECK ===
+  # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
+  version-check:
+    name: Check for Manual Version Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for version changes in package.json
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-version.mjs
+
   # === CHANGESET CHECK - only runs on PRs with code changes ===
   # Docs-only PRs (./docs folder, markdown files) don't require changesets
   changeset-check:
@@ -153,6 +170,8 @@ jobs:
   # === ESLINT CODE QUALITY CHECK ===
   # Lint runs independently of changeset-check - it's a fast check that should always run
   # See: docs/case-studies/issue-1023 for why this dependency was removed
+  # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
+  # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
   lint:
     runs-on: ubuntu-latest
     needs: [detect-changes]
@@ -161,6 +180,58 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # For PRs, fetch enough history to merge with base branch
+        fetch-depth: 0
+
+    - name: Simulate fresh merge with base branch (PR only)
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        echo "=== Synchronizing PR with latest $BASE_REF ==="
+        echo "This prevents stale merge preview issues (see issue #1141)"
+        echo ""
+
+        # Configure git for merge
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+
+        # Fetch the latest base branch
+        echo "Fetching latest $BASE_REF..."
+        git fetch origin "$BASE_REF"
+
+        # Get current and base branch info
+        CURRENT_SHA=$(git rev-parse HEAD)
+        BASE_SHA=$(git rev-parse "origin/$BASE_REF")
+
+        echo "Current checkout (merge preview): $CURRENT_SHA"
+        echo "Latest base branch ($BASE_REF): $BASE_SHA"
+        echo ""
+
+        # Check if base branch has new commits not in the merge preview
+        BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+
+        if [ "$BEHIND_COUNT" -eq 0 ]; then
+          echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
+        else
+          echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
+          echo "Simulating fresh merge to validate actual merge result..."
+          echo ""
+
+          # Attempt to merge the latest base branch
+          if git merge origin/$BASE_REF --no-edit; then
+            echo ""
+            echo "Fresh merge simulation successful!"
+            echo "Checks will now run against the up-to-date merged state."
+          else
+            echo ""
+            echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
+            echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
+            exit 1
+          fi
+        fi
+        echo ""
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -183,6 +254,8 @@ jobs:
         echo "ESLint checks passed"
 
   # === FILE LINE LIMIT CHECK ===
+  # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
+  # See docs/case-studies/issue-1141 for why this is critical.
   check-file-line-limits:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
@@ -192,6 +265,58 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # For PRs, fetch enough history to merge with base branch
+        fetch-depth: 0
+
+    - name: Simulate fresh merge with base branch (PR only)
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        echo "=== Synchronizing PR with latest $BASE_REF ==="
+        echo "This prevents stale merge preview issues (see issue #1141)"
+        echo ""
+
+        # Configure git for merge
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+
+        # Fetch the latest base branch
+        echo "Fetching latest $BASE_REF..."
+        git fetch origin "$BASE_REF"
+
+        # Get current and base branch info
+        CURRENT_SHA=$(git rev-parse HEAD)
+        BASE_SHA=$(git rev-parse "origin/$BASE_REF")
+
+        echo "Current checkout (merge preview): $CURRENT_SHA"
+        echo "Latest base branch ($BASE_REF): $BASE_SHA"
+        echo ""
+
+        # Check if base branch has new commits not in the merge preview
+        BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+
+        if [ "$BEHIND_COUNT" -eq 0 ]; then
+          echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
+        else
+          echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
+          echo "Simulating fresh merge to validate actual merge result..."
+          echo ""
+
+          # Attempt to merge the latest base branch
+          if git merge origin/$BASE_REF --no-edit; then
+            echo ""
+            echo "Fresh merge simulation successful!"
+            echo "Checks will now run against the up-to-date merged state."
+          else
+            echo ""
+            echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
+            echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
+            exit 1
+          fi
+        fi
+        echo ""
 
     - name: Check .mjs file line limits
       run: |
@@ -319,6 +444,11 @@ jobs:
         echo "Running test suite for lenv-reader.lib.mjs..."
         node tests/test-lenv-reader.mjs
 
+    - name: Run lino test (Issue #1086)
+      run: |
+        echo "Running test suite for lino.lib.mjs..."
+        node tests/test-lino.mjs
+
     - name: Run Telegram URL extraction test (Issue #603)
       run: |
         echo "Running test suite for Telegram URL extraction..."
@@ -343,6 +473,21 @@ jobs:
       run: |
         echo "Running test suite for buildCostInfoString..."
         node tests/test-build-cost-info-string.mjs
+
+    - name: Run token sanitization test (Issue #1037)
+      run: |
+        echo "Running test suite for token sanitization..."
+        node tests/test-token-sanitization.mjs
+
+    - name: Run Telegram special character handling test (Issue #1070)
+      run: |
+        echo "Running test suite for Telegram special character handling..."
+        node tests/test-telegram-special-char-handling.mjs
+
+    - name: Run usage limit test (Issues #942, #1122)
+      run: |
+        echo "Running test suite for usage limit detection and parsing..."
+        node tests/test-usage-limit.mjs
 
   # === EXECUTION TESTS ===
   test-execution:
@@ -657,12 +802,6 @@ jobs:
 
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image with log capture
         run: |

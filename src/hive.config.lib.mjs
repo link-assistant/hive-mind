@@ -202,16 +202,26 @@ export const createYargsConfig = yargsInstance => {
       description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
       default: true,
     })
-    .option('auto-continue-on-limit-reset', {
+    .option('auto-resume-on-limit-reset', {
       type: 'boolean',
-      description: 'Automatically continue when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
+      description: 'Automatically resume when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
       default: false,
     })
     .option('think', {
       type: 'string',
-      description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
-      choices: ['low', 'medium', 'high', 'max'],
+      description: 'Thinking level for Claude. Translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For older versions, uses thinking keywords.',
+      choices: ['off', 'low', 'medium', 'high', 'max'],
       default: undefined,
+    })
+    .option('thinking-budget', {
+      type: 'number',
+      description: 'Thinking token budget for Claude Code (0-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking.',
+      default: undefined,
+    })
+    .option('max-thinking-budget', {
+      type: 'number',
+      description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
+      default: 31999,
     })
     .option('prompt-plan-sub-agent', {
       type: 'boolean',
@@ -280,6 +290,16 @@ export const createYargsConfig = yargsInstance => {
       type: 'boolean',
       description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
       default: true,
+    })
+    .option('prompt-architecture-care', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
+      default: false,
+    })
+    .option('execute-tool-with-bun', {
+      type: 'boolean',
+      description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
+      default: false,
     })
     .parserConfiguration({
       'boolean-negation': true,

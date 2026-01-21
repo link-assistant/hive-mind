@@ -80,6 +80,18 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | `HIVE_MIND_MAX_503_RETRIES`            | 3       | Maximum 503 error retries           |
 | `HIVE_MIND_INITIAL_503_RETRY_DELAY_MS` | 300000  | Initial 503 retry delay (5 minutes) |
 
+### 5.1. Cache TTL Configurations
+
+These settings control how long API responses are cached before making a new request.
+
+| Environment Variable               | Default | Description                                                                                                                                                       |
+| ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_API_CACHE_TTL_MS`       | 180000  | General API cache TTL in ms (3 minutes). Used for GitHub API.                                                                                                     |
+| `HIVE_MIND_USAGE_API_CACHE_TTL_MS` | 1200000 | Claude Usage API cache TTL in ms (20 minutes). **Important:** The Claude Usage API has stricter rate limiting. Calling it more frequently may return null values. |
+| `HIVE_MIND_SYSTEM_CACHE_TTL_MS`    | 120000  | System metrics cache TTL in ms (2 minutes). Used for RAM, CPU, and disk space.                                                                                    |
+
+**Note:** The Claude Usage API (`/api/oauth/usage`) is rate-limited more strictly than other APIs. If you experience `null` values in the `/limits` command output, the API call frequency may be too high. The default 20-minute TTL is designed to avoid this issue. See [Issue #1074](https://github.com/link-assistant/hive-mind/issues/1074) for details.
+
 ### 6. File and Path Settings
 
 | Environment Variable           | Default       | Description              |
@@ -281,7 +293,7 @@ solve <issue-url> [options]
 | `--attach-logs`                                                  |       | boolean | false     | Attach logs to PR (sensitive)                                                                           |
 | `--auto-close-pull-request-on-fail`                              |       | boolean | false     | Close PR on fail                                                                                        |
 | `--auto-continue`                                                |       | boolean | true      | Continue with existing PR                                                                               |
-| `--auto-continue-on-limit-reset`                                 |       | boolean | false     | Auto-continue when limit resets                                                                         |
+| `--auto-resume-on-limit-reset`                                   |       | boolean | false     | Auto-resume when limit resets                                                                           |
 | `--auto-resume-on-errors`                                        |       | boolean | false     | Auto-resume on network errors                                                                           |
 | `--auto-continue-only-on-new-comments`                           |       | boolean | false     | Fail if no new comments                                                                                 |
 | `--auto-commit-uncommitted-changes`                              |       | boolean | false     | Auto-commit changes                                                                                     |

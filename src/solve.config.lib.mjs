@@ -7,6 +7,11 @@
 // Note: Strict options validation is now handled by yargs built-in .strict() mode (see below)
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
+import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
+
+// Re-export for use by telegram-bot.mjs (avoids extra import lines there)
+export { detectMalformedFlags };
+
 // Export an initialization function that accepts 'use'
 export const initializeConfig = async use => {
   // Import yargs with specific version for hideBin support
@@ -41,6 +46,11 @@ export const createYargsConfig = yargsInstance => {
         type: 'string',
         description: 'Resume from a previous session ID (when limit was reached)',
         alias: 'r',
+      })
+      .option('working-directory', {
+        type: 'string',
+        description: 'Use specified working directory instead of creating a new temp directory. If directory does not exist, it will be created and the repository will be cloned. Essential for --resume to work correctly with Claude Code sessions.',
+        alias: 'd',
       })
       .option('only-prepare-command', {
         type: 'boolean',
@@ -125,8 +135,13 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (experimental, mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
         default: false,
+      })
+      .option('auto-gitkeep-file', {
+        type: 'boolean',
+        description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (pre-checks before creating file)',
+        default: true,
       })
       .option('attach-logs', {
         type: 'boolean',
@@ -143,9 +158,9 @@ export const createYargsConfig = yargsInstance => {
         description: 'Continue with existing PR when issue URL is provided (instead of creating new PR)',
         default: true,
       })
-      .option('auto-continue-on-limit-reset', {
+      .option('auto-resume-on-limit-reset', {
         type: 'boolean',
-        description: 'Automatically continue when AI tool limit resets (calculates reset time and waits)',
+        description: 'Automatically resume when AI tool limit resets (calculates reset time and waits)',
         default: false,
       })
       .option('auto-resume-on-errors', {
@@ -201,9 +216,24 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('think', {
         type: 'string',
-        description: 'Thinking level: low (Think.), medium (Think hard.), high (Think harder.), max (Ultrathink.)',
-        choices: ['low', 'medium', 'high', 'max'],
+        description: 'Thinking level for Claude. Translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, max=31999). For older versions, uses thinking keywords.',
+        choices: ['off', 'low', 'medium', 'high', 'max'],
         default: undefined,
+      })
+      .option('thinking-budget', {
+        type: 'number',
+        description: 'Thinking token budget for Claude Code (0-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking. For older Claude Code versions, translated back to --think level.',
+        default: undefined,
+      })
+      .option('thinking-budget-claude-minimum-version', {
+        type: 'string',
+        description: 'Minimum Claude Code version that supports --thinking-budget (MAX_THINKING_TOKENS env var). Versions below this use thinking keywords instead.',
+        default: '2.1.12',
+      })
+      .option('max-thinking-budget', {
+        type: 'number',
+        description: 'Maximum thinking budget for calculating --think level mappings (default: 31999 for Claude Code). Values: off=0, low=max/4, medium=max/2, high=max*3/4, max=max.',
+        default: 31999,
       })
       .option('prompt-plan-sub-agent', {
         type: 'boolean',
@@ -251,6 +281,16 @@ export const createYargsConfig = yargsInstance => {
         choices: ['claude', 'opencode', 'codex', 'agent'],
         default: 'claude',
       })
+      .option('execute-tool-with-bun', {
+        type: 'boolean',
+        description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+        default: false,
+      })
+      .option('enable-workspaces', {
+        type: 'boolean',
+        description: 'Use separate workspace directory structure with repository/ and tmp/ folders. Works with all tools (claude, opencode, codex, agent). Experimental feature.',
+        default: false,
+      })
       .option('interactive-mode', {
         type: 'boolean',
         description: '[EXPERIMENTAL] Post Claude output as PR comments in real-time. Only supported for --tool claude.',
@@ -276,6 +316,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Enable automatic issue creation for spotted bugs/errors not related to main task. Issues will include reproducible examples, workarounds, and fix suggestions. Works for both current and third-party repositories. Only supported for --tool claude.',
         default: false,
       })
+      .option('prompt-architecture-care', {
+        type: 'boolean',
+        description: '[EXPERIMENTAL] Include guidance for managing REQUIREMENTS.md and ARCHITECTURE.md files. When enabled, agents will update these documentation files when changes affect requirements or architecture.',
+        default: false,
+      })
       .option('prompt-case-studies', {
         type: 'boolean',
         description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Only supported for --tool claude.',
@@ -291,6 +336,21 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
+      .option('playwright-mcp-auto-cleanup', {
+        type: 'boolean',
+        description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
+        default: true,
+      })
+      .option('auto-gh-configuration-repair', {
+        type: 'boolean',
+        description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
+        default: false,
+      })
+      .option('prompt-subagents-via-agent-commander', {
+        type: 'boolean',
+        description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
+        default: false,
+      })
       .parserConfiguration({
         'boolean-negation': true,
       })
@@ -305,11 +365,22 @@ export const createYargsConfig = yargsInstance => {
 // Parse command line arguments - now needs yargs and hideBin passed in
 export const parseArguments = async (yargs, hideBin) => {
   const rawArgs = hideBin(process.argv);
+
+  // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
+  // This catches cases like "-- model" which yargs silently treats as positional arguments
+  const malformedResult = detectMalformedFlags(rawArgs);
+  if (malformedResult.malformed.length > 0) {
+    const error = new Error(malformedResult.errors.join('\n'));
+    error.name = 'MalformedArgumentError';
+    throw error;
+  }
+
   // Use .parse() instead of .argv to ensure .strict() mode works correctly
   // When you call yargs(args) and use .argv, strict mode doesn't trigger
   // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
 
   let argv;
+  let yargsInstance;
   try {
     // Suppress stderr output from yargs during parsing to prevent validation errors from appearing
     // This prevents "YError: Not enough arguments" from polluting stderr (issue #583)
@@ -330,7 +401,8 @@ export const parseArguments = async (yargs, hideBin) => {
     };
 
     try {
-      argv = await createYargsConfig(yargs()).parse(rawArgs);
+      yargsInstance = createYargsConfig(yargs());
+      argv = await yargsInstance.parse(rawArgs);
     } finally {
       // Always restore stderr.write
       process.stderr.write = originalStderrWrite;
@@ -345,9 +417,29 @@ export const parseArguments = async (yargs, hideBin) => {
     }
   } catch (error) {
     // Yargs throws errors for validation issues
-    // If the error is about unknown arguments (strict mode), re-throw it
-    if (error.message && error.message.includes('Unknown arguments')) {
-      throw error;
+    // If the error is about unknown arguments (strict mode), enhance it with suggestions
+    // Check if this error has already been enhanced to avoid re-processing
+    if (error.message && /Unknown argument/.test(error.message) && !error._enhanced) {
+      try {
+        // Enhance the error message with helpful suggestions
+        // Use the yargsInstance we already created, or create a new one if needed
+        const yargsWithConfig = yargsInstance || createYargsConfig(yargs());
+        const enhancedMessage = enhanceErrorMessage(error.message, yargsWithConfig);
+        const enhancedError = new Error(enhancedMessage);
+        enhancedError.name = error.name;
+        enhancedError._enhanced = true; // Mark as enhanced to prevent re-processing
+        throw enhancedError;
+      } catch (enhanceErr) {
+        // If enhancing fails, just throw the original error
+        if (global.verboseMode) {
+          console.error('[VERBOSE] Failed to enhance error message:', enhanceErr.message);
+        }
+        // If the enhance error itself is already enhanced, throw it
+        if (enhanceErr._enhanced) {
+          throw enhanceErr;
+        }
+        throw error;
+      }
     }
     // For other validation errors, show a warning in verbose mode
     if (error.message && global.verboseMode) {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Auto-continue module for solve command
+// Session continuation module for solve command
+// Handles session resumption, PR detection, and limit reset waiting
 // Extracted from solve.mjs to keep files under 1500 lines
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -64,7 +65,9 @@ const formatWaitTime = ms => {
 };
 
 // Auto-continue function that waits until limit resets
-export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
+// tempDir parameter is required for passing --working-directory to the resumed session
+// (Claude Code sessions are stored per-working-directory, so resume must use same directory)
+export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs, tempDir = null) => {
   try {
     const resetTime = global.limitResetTime;
     const waitMs = calculateWaitTime(resetTime);
@@ -103,9 +106,9 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       sessionId,
     ];
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Preserve auto-resume flag
+    if (argv.autoResumeOnLimitReset) {
+      resumeArgs.push('--auto-resume-on-limit-reset');
     }
 
     // Preserve other flags from original invocation
@@ -113,6 +116,17 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
+
+    // CRITICAL: Pass --working-directory to ensure Claude Code session resume works correctly
+    // Claude Code stores sessions per working directory, so resume MUST use the same directory
+    // Without this, resume creates a NEW temp directory and session is not found
+    if (tempDir) {
+      resumeArgs.push('--working-directory', tempDir);
+      await log(`📂 Using working directory for session continuity: ${tempDir}`);
+    } else {
+      await log(`⚠️  Warning: No working directory specified - session resume may fail`);
+      await log(`   Claude Code sessions are stored per-directory, consider using --working-directory`);
+    }
 
     await log(`\n🔄 Executing: ${resumeArgs.join(' ')}`);
 
@@ -135,7 +149,11 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('\n🔄 Manual resume command:');
-    await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    if (tempDir) {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --working-directory "${tempDir}"`);
+    } else {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    }
     await safeExit(1, 'Auto-continue failed');
   }
 };

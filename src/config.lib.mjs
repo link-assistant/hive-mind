@@ -20,6 +20,9 @@ if (typeof globalThis.use === 'undefined') {
 
 const getenv = await use('getenv');
 
+// Use semver package for version comparison (see issue #1146)
+import semver from 'semver';
+
 // Import lino for parsing Links Notation format
 const { lino } = await import('./lino.lib.mjs');
 
@@ -76,6 +79,105 @@ export const retryLimits = {
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   max503Retries: parseIntWithDefault('HIVE_MIND_MAX_503_RETRIES', 3),
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+};
+
+// Claude Code CLI configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1076
+// Claude models support up to 64K output tokens, but Claude Code CLI defaults to 32K
+// Setting a higher limit allows Claude to generate longer responses without hitting the limit
+export const claudeCode = {
+  // Maximum output tokens for Claude Code CLI responses
+  // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
+  // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+};
+
+// Default max thinking budget for Claude Code (see issue #1146)
+// This is the default value used by Claude Code when extended thinking is enabled
+// Can be overridden via --max-thinking-budget option
+export const DEFAULT_MAX_THINKING_BUDGET = 31999;
+
+/**
+ * Get thinking level token values calculated from max budget
+ * Values are evenly distributed: off=0, low=max/4, medium=max/2, high=max*3/4, max=max
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {Object} Mapping of thinking levels to token values
+ */
+export const getThinkingLevelToTokens = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => ({
+  off: 0,
+  low: Math.floor(maxBudget / 4), // ~8000 for default 31999
+  medium: Math.floor(maxBudget / 2), // ~16000 for default 31999
+  high: Math.floor((maxBudget * 3) / 4), // ~24000 for default 31999
+  max: maxBudget, // 31999 by default
+});
+
+// Default thinking level to tokens mapping (using default max budget)
+export const thinkingLevelToTokens = getThinkingLevelToTokens(DEFAULT_MAX_THINKING_BUDGET);
+
+/**
+ * Get tokens to thinking level mapping function with configurable max budget
+ * Uses midpoint ranges to determine the level
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {Function} Function that converts tokens to thinking level
+ */
+export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  const levels = getThinkingLevelToTokens(maxBudget);
+  // Calculate midpoints between levels for range determination
+  const lowMediumMidpoint = Math.floor((levels.low + levels.medium) / 2);
+  const mediumHighMidpoint = Math.floor((levels.medium + levels.high) / 2);
+  const highMaxMidpoint = Math.floor((levels.high + levels.max) / 2);
+
+  return tokens => {
+    if (tokens === 0) return 'off';
+    if (tokens <= lowMediumMidpoint) return 'low';
+    if (tokens <= mediumHighMidpoint) return 'medium';
+    if (tokens <= highMaxMidpoint) return 'high';
+    return 'max';
+  };
+};
+
+// Default tokens to thinking level function (using default max budget)
+export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
+
+// Check if a version supports thinking budget (>= minimum version)
+// Uses semver npm package for reliable version comparison (see issue #1146)
+export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
+  // Clean the version string (remove any leading 'v' and extra text)
+  const cleanVersion = semver.clean(version) || semver.coerce(version)?.version;
+  const cleanMinVersion = semver.clean(minVersion) || semver.coerce(minVersion)?.version;
+
+  if (!cleanVersion || !cleanMinVersion) {
+    // If versions can't be parsed, assume old version (doesn't support budget)
+    return false;
+  }
+
+  return semver.gte(cleanVersion, cleanMinVersion);
+};
+
+// Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
+// Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
+export const getClaudeEnv = (options = {}) => {
+  const env = { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) };
+  // Set MAX_THINKING_TOKENS if thinkingBudget is provided
+  // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
+  // Default is 31999, set to 0 to disable thinking, max is 63999 for 64K output models
+  if (options.thinkingBudget !== undefined) {
+    env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
+  }
+  return env;
+};
+
+// Cache TTL configurations (in milliseconds)
+// The Usage API (Claude limits) has stricter rate limiting than regular APIs
+// See: https://github.com/link-assistant/hive-mind/issues/1074
+export const cacheTtl = {
+  // General API cache TTL (GitHub API, etc.)
+  api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
+  // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
+  // The API returns null values when called too frequently
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 20 * 60 * 1000), // 20 minutes
+  // System metrics cache TTL (RAM, CPU, disk)
+  system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
 };
 
 // File and path configurations
@@ -141,6 +243,23 @@ export const version = {
   default: getenv('HIVE_MIND_VERSION_DEFAULT', '0.14.3'),
 };
 
+// Merge queue configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1143
+export const mergeQueue = {
+  // Maximum PRs to process in one merge session
+  // Default: 10 PRs per session
+  maxPrsPerSession: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_MAX_PRS', 10),
+  // CI/CD polling interval in milliseconds
+  // Default: 5 minutes (300000ms) - checks CI status every 5 minutes
+  ciPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS', 5 * 60 * 1000),
+  // CI/CD timeout in milliseconds
+  // Default: 7 hours (25200000ms) - maximum wait time for CI to complete
+  ciTimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS', 7 * 60 * 60 * 1000),
+  // Wait time after merge before processing next PR
+  // Default: 1 minute (60000ms) - allows CI to stabilize
+  postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+};
+
 // Helper function to validate configuration values
 export function validateConfig() {
   // Ensure all numeric values are valid
@@ -177,6 +296,8 @@ export function getAllConfigurations() {
     githubLimits,
     systemLimits,
     retryLimits,
+    claudeCode,
+    cacheTtl,
     filePaths,
     textProcessing,
     display,
@@ -184,6 +305,7 @@ export function getAllConfigurations() {
     externalUrls,
     modelConfig,
     version,
+    mergeQueue,
   };
 }
 

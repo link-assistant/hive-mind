@@ -209,7 +209,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using Links Notation (recommended):**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --configuration "
      TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
@@ -223,12 +223,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_SOLVE_OVERRIDES:
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -238,7 +238,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using individual command-line options:**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
      -1002975819706
@@ -250,12 +250,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --solve-overrides "(
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -332,10 +332,11 @@ solve <issue-url> [options]
 
 **Most frequently used options:**
 
-| Option    | Alias | Description                             | Default |
-| --------- | ----- | --------------------------------------- | ------- |
-| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
-| `--think` |       | Thinking level (low, medium, high, max) | -       |
+| Option          | Alias | Description                             | Default   |
+| --------------- | ----- | --------------------------------------- | --------- |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--think`       |       | Thinking level (low, medium, high, max) | -         |
+| `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
 **Other useful options:**
 
@@ -408,8 +409,24 @@ Want to see the Hive Mind in action? Join our Telegram channel where you can exe
    ```
 
 3. **Start the Bot**
+
    ```bash
    hive-telegram-bot
+   ```
+
+   **Recommended: Capture logs with tee**
+
+   When running the bot for extended periods, it's recommended to capture logs to a file using `tee`. This ensures you can review logs later even if the terminal buffer overflows:
+
+   ```bash
+   hive-telegram-bot 2>&1 | tee -a logs/bot-$(date +%Y%m%d).log
+   ```
+
+   Or create a logs directory and start with automatic log rotation:
+
+   ```bash
+   mkdir -p logs
+   hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
 ### Bot Commands

@@ -133,38 +133,57 @@ The log shows no error messages between 15:57:02.607 (last tool call) and 17:46:
 
 ## Proposed Solutions
 
-### ~~Solution 1: Configure MCP Timeout (Workaround)~~ - **REFUTED**
+### Solution 1: Configure MCP Tool Timeout (Workaround) - **UPDATED**
 
-> **⚠️ Status: REFUTED (2026-01-05)**
+> **✅ Status: UPDATED (2026-01-21)**
 >
-> This solution has been verified as **NOT WORKING** based on evidence from [Claude Code Issue #7575](https://github.com/anthropics/claude-code/issues/7575).
+> The official Claude Code documentation now clarifies that there are **two separate environment variables** for MCP timeouts:
 >
-> As of Claude Code v2.0.60, the `MCP_TIMEOUT` environment variable is **not properly respected** for values longer than 60 seconds. Despite configuration, the actual timeout enforced is hardcoded to approximately 60 seconds.
+> | Variable           | Description                                        |
+> | ------------------ | -------------------------------------------------- |
+> | `MCP_TIMEOUT`      | Timeout in milliseconds for MCP **server startup** |
+> | `MCP_TOOL_TIMEOUT` | Timeout in milliseconds for MCP **tool execution** |
+>
+> Source: [Claude Code Settings Documentation](https://code.claude.com/docs/en/settings#environment-variables)
+>
+> **Key Insight:** The original hypothesis about `MCP_TIMEOUT` was partially correct - it only applies to server startup, NOT tool execution. For tool execution timeouts, `MCP_TOOL_TIMEOUT` should be used instead.
+
+**Recommended Configuration:**
+
+Set both timeout environment variables in `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "MCP_TIMEOUT": "900000",
+    "MCP_TOOL_TIMEOUT": "900000"
+  }
+}
+```
+
+Or via environment variables before running Claude Code:
+
+```bash
+MCP_TIMEOUT=900000 MCP_TOOL_TIMEOUT=900000 claude
+```
+
+**Recommended value:** 15 minutes (900000ms) to accommodate long-running Playwright operations.
+
+> **⚠️ Previous Status: REFUTED (2026-01-05)**
+>
+> The earlier hypothesis that `MCP_TIMEOUT` alone would fix tool execution timeouts was verified as **NOT WORKING** based on evidence from [Claude Code Issue #7575](https://github.com/anthropics/claude-code/issues/7575). This is because `MCP_TIMEOUT` is specifically for server startup, not tool execution.
 >
 > **Evidence from Issue #7575:**
+>
 > ```
 > [DEBUG] MCP server "sleep": Starting connection with timeout of 100000ms
 > [DEBUG] MCP server "sleep": Connection failed after 60028ms: MCP error -32001: Request timed out
 > ```
 >
-> The latest update (December 7, 2025) confirms the bug persists in recent versions.
+> This issue may be related to tool execution timeouts, which require `MCP_TOOL_TIMEOUT` instead.
 
-~~Set the `MCP_TIMEOUT` environment variable before running Claude Code:~~
+**Note:** The following Bash timeout settings also work in `~/.claude/settings.json` under the `env` section (but only for Bash commands, not MCP tools):
 
-```bash
-# DOES NOT WORK - timeout is hardcoded to ~60 seconds regardless of this setting
-# MCP_TIMEOUT=1200000 claude
-
-# Or in settings.json - ALSO DOES NOT WORK for MCP tool calls
-# {
-#   "env": {
-#     "MCP_TIMEOUT": "120000",
-#     "MCP_TOOL_TIMEOUT": "120000"
-#   }
-# }
-```
-
-**Note:** While `MCP_TIMEOUT` does not work, the following Bash timeout settings DO work in `~/.claude/settings.json` under the `env` section (but only for Bash commands, not MCP tools):
 - `BASH_DEFAULT_TIMEOUT_MS` - Controls default bash command timeout
 - `BASH_MAX_TIMEOUT_MS` - Controls maximum timeout limit
 
@@ -217,8 +236,8 @@ As proposed in [Issue #982](https://github.com/microsoft/playwright-mcp/issues/9
 
 ### For Immediate Mitigation
 
-1. **Avoid parallel `browser_run_code` calls** - Use sequential calls instead when possible
-2. **Set explicit timeouts** - Configure `MCP_TIMEOUT` environment variable
+1. **Configure MCP_TOOL_TIMEOUT** - Set `MCP_TOOL_TIMEOUT=900000` (15 minutes) in `~/.claude/settings.json` or environment
+2. **Avoid parallel `browser_run_code` calls** - Use sequential calls instead when possible
 3. **Monitor for hangs** - Implement external watchdog to detect stuck sessions
 
 ### For Long-term Fix
@@ -261,19 +280,20 @@ As proposed in [Issue #982](https://github.com/microsoft/playwright-mcp/issues/9
 
 ### Key Insights
 
-1. **MCP_TIMEOUT environment variable does NOT work** for timeouts longer than 60 seconds (hardcoded limit in Claude Code)
+1. **MCP_TIMEOUT vs MCP_TOOL_TIMEOUT**: `MCP_TIMEOUT` is for server startup only; `MCP_TOOL_TIMEOUT` is for tool execution. The original issue may have been using the wrong variable.
 2. **No graceful timeout handling** exists - MCP tool calls can hang indefinitely without any error or recovery
 3. **Parallel tool calls may cause deadlocks** in Playwright MCP server
 4. **Multiple related issues** exist in both this repository and upstream projects, indicating a systemic problem
 
 ### Root Cause Categories
 
-| Category | Issue | Status |
-|----------|-------|--------|
-| Hardcoded 60s timeout | Claude Code MCP SDK | Unfixed (as of v2.0.76) |
-| No progress reporting | MCP protocol design | Feature not implemented |
-| Parallel call handling | Playwright MCP | Unknown |
-| SSE idle disconnect | MCP transport layer | Partially fixed with keep-alive |
+| Category               | Issue               | Status                            |
+| ---------------------- | ------------------- | --------------------------------- |
+| Tool execution timeout | Claude Code MCP SDK | Configurable via MCP_TOOL_TIMEOUT |
+| Server startup timeout | Claude Code MCP SDK | Configurable via MCP_TIMEOUT      |
+| No progress reporting  | MCP protocol design | Feature not implemented           |
+| Parallel call handling | Playwright MCP      | Unknown                           |
+| SSE idle disconnect    | MCP transport layer | Partially fixed with keep-alive   |
 
 ### Recommended Next Steps
 

@@ -7,7 +7,9 @@
  * Features:
  * - Accepts all pending repository invitations
  * - Accepts all pending organization invitations
- * - Provides detailed feedback on accepted invitations
+ * - Groups output by Repositories and Organizations
+ * - Provides clickable links to repositories and organizations
+ * - Real-time progress updates during processing
  * - Error handling with detailed error messages
  *
  * @see https://docs.github.com/en/rest/collaborators/invitations
@@ -26,6 +28,83 @@ const exec = promisify(execCallback);
  */
 function escapeMarkdown(text) {
   return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+}
+
+/**
+ * Build progress message from current state
+ * @param {Object} state - Current state object
+ * @param {string[]} state.acceptedRepos - List of accepted repo names
+ * @param {string[]} state.acceptedOrgs - List of accepted org names
+ * @param {string[]} state.errors - List of errors
+ * @param {number} state.totalRepos - Total number of repo invitations
+ * @param {number} state.totalOrgs - Total number of org invitations
+ * @param {number} state.processedRepos - Number of processed repo invitations
+ * @param {number} state.processedOrgs - Number of processed org invitations
+ * @param {boolean} state.isComplete - Whether processing is complete
+ * @returns {string} Formatted message
+ */
+function buildProgressMessage(state) {
+  const { acceptedRepos, acceptedOrgs, errors, totalRepos, totalOrgs, processedRepos, processedOrgs, isComplete } = state;
+
+  // Calculate totals
+  const totalInvitations = totalRepos + totalOrgs;
+  const processedTotal = processedRepos + processedOrgs;
+  const acceptedTotal = acceptedRepos.length + acceptedOrgs.length;
+
+  // Build header with progress indicator
+  let message = isComplete ? '✅ *GitHub Invitations Processed*\n\n' : `🔄 *Processing GitHub Invitations* \\(${processedTotal}/${totalInvitations}\\)\n\n`;
+
+  // Show Repositories section if any
+  if (acceptedRepos.length > 0 || (!isComplete && totalRepos > 0)) {
+    message += '*Repositories:*\n';
+    for (const repoName of acceptedRepos) {
+      // Create clickable link: [owner/repo](https://github.com/owner/repo)
+      const escapedName = escapeMarkdown(repoName);
+      const escapedLink = escapeMarkdown(`https://github.com/${repoName}`);
+      message += `  • 📦 [${escapedName}](${escapedLink})\n`;
+    }
+    // Show pending indicator if still processing repos
+    if (!isComplete && processedRepos < totalRepos) {
+      const remaining = totalRepos - processedRepos;
+      message += `  • _\\.\\.\\. ${remaining} more pending_\n`;
+    }
+    message += '\n';
+  }
+
+  // Show Organizations section if any
+  if (acceptedOrgs.length > 0 || (!isComplete && totalOrgs > 0)) {
+    message += '*Organizations:*\n';
+    for (const orgName of acceptedOrgs) {
+      // Create clickable link: [org](https://github.com/org)
+      const escapedName = escapeMarkdown(orgName);
+      const escapedLink = escapeMarkdown(`https://github.com/${orgName}`);
+      message += `  • 🏢 [${escapedName}](${escapedLink})\n`;
+    }
+    // Show pending indicator if still processing orgs
+    if (!isComplete && processedOrgs < totalOrgs) {
+      const remaining = totalOrgs - processedOrgs;
+      message += `  • _\\.\\.\\. ${remaining} more pending_\n`;
+    }
+    message += '\n';
+  }
+
+  // Show errors if any
+  if (errors.length > 0) {
+    message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n') + '\n\n';
+  }
+
+  // Show summary
+  if (isComplete) {
+    if (acceptedTotal === 0 && errors.length === 0) {
+      message += 'No pending invitations found\\.';
+    } else if (acceptedTotal > 0 && errors.length === 0) {
+      message += `\n🎉 Successfully accepted ${acceptedTotal} invitation\\(s\\)\\!`;
+    } else if (acceptedTotal > 0 && errors.length > 0) {
+      message += `\n⚠️ Accepted ${acceptedTotal} invitation\\(s\\), ${errors.length} error\\(s\\)\\.`;
+    }
+  }
+
+  return message;
 }
 
 /**
@@ -61,68 +140,97 @@ export function registerAcceptInvitesCommand(bot, options) {
         reply_to_message_id: ctx.message.message_id,
       });
 
-    const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations...', { reply_to_message_id: ctx.message.message_id });
-    const accepted = [];
-    const errors = [];
+    const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations\\.\\.\\.', {
+      reply_to_message_id: ctx.message.message_id,
+      parse_mode: 'MarkdownV2',
+    });
+
+    // State for tracking progress
+    const state = {
+      acceptedRepos: [],
+      acceptedOrgs: [],
+      errors: [],
+      totalRepos: 0,
+      totalOrgs: 0,
+      processedRepos: 0,
+      processedOrgs: 0,
+      isComplete: false,
+    };
+
+    // Helper to update the message safely
+    const updateMessage = async () => {
+      try {
+        const message = buildProgressMessage(state);
+        await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'MarkdownV2' });
+      } catch (err) {
+        // Ignore "message not modified" errors
+        if (!err.message?.includes('message is not modified')) {
+          VERBOSE && console.log(`[VERBOSE] /accept-invites: Error updating message: ${err.message}`);
+        }
+      }
+    };
 
     try {
       // Fetch repository invitations
       const { stdout: repoInvJson } = await exec('gh api /user/repository_invitations 2>/dev/null || echo "[]"');
       const repoInvitations = JSON.parse(repoInvJson.trim() || '[]');
+      state.totalRepos = repoInvitations.length;
       VERBOSE && console.log(`[VERBOSE] Found ${repoInvitations.length} pending repo invitations`);
-
-      // Accept each repo invitation
-      for (const inv of repoInvitations) {
-        const repoName = inv.repository?.full_name || 'unknown';
-        try {
-          await exec(`gh api -X PATCH /user/repository_invitations/${inv.id}`);
-          accepted.push(`📦 Repository: ${repoName}`);
-          VERBOSE && console.log(`[VERBOSE] Accepted repo invitation: ${repoName}`);
-        } catch (e) {
-          errors.push(`📦 ${repoName}: ${e.message}`);
-          VERBOSE && console.log(`[VERBOSE] Failed to accept repo invitation ${repoName}: ${e.message}`);
-        }
-      }
 
       // Fetch organization invitations
       const { stdout: orgMemJson } = await exec('gh api /user/memberships/orgs 2>/dev/null || echo "[]"');
       const orgMemberships = JSON.parse(orgMemJson.trim() || '[]');
       const pendingOrgs = orgMemberships.filter(m => m.state === 'pending');
+      state.totalOrgs = pendingOrgs.length;
       VERBOSE && console.log(`[VERBOSE] Found ${pendingOrgs.length} pending org invitations`);
 
-      // Accept each org invitation
+      // Check if there are any invitations
+      if (state.totalRepos === 0 && state.totalOrgs === 0) {
+        state.isComplete = true;
+        await updateMessage();
+        return;
+      }
+
+      // Update to show we found invitations
+      await updateMessage();
+
+      // Accept each repo invitation with progress updates
+      for (const inv of repoInvitations) {
+        const repoName = inv.repository?.full_name || 'unknown';
+        try {
+          await exec(`gh api -X PATCH /user/repository_invitations/${inv.id}`);
+          state.acceptedRepos.push(repoName);
+          VERBOSE && console.log(`[VERBOSE] Accepted repo invitation: ${repoName}`);
+        } catch (e) {
+          state.errors.push(`📦 ${repoName}: ${e.message}`);
+          VERBOSE && console.log(`[VERBOSE] Failed to accept repo invitation ${repoName}: ${e.message}`);
+        }
+        state.processedRepos++;
+        await updateMessage();
+      }
+
+      // Accept each org invitation with progress updates
       for (const membership of pendingOrgs) {
         const orgName = membership.organization?.login || 'unknown';
         try {
           await exec(`gh api -X PATCH /user/memberships/orgs/${orgName} -f state=active`);
-          accepted.push(`🏢 Organization: ${orgName}`);
+          state.acceptedOrgs.push(orgName);
           VERBOSE && console.log(`[VERBOSE] Accepted org invitation: ${orgName}`);
         } catch (e) {
-          errors.push(`🏢 ${orgName}: ${e.message}`);
+          state.errors.push(`🏢 ${orgName}: ${e.message}`);
           VERBOSE && console.log(`[VERBOSE] Failed to accept org invitation ${orgName}: ${e.message}`);
         }
+        state.processedOrgs++;
+        await updateMessage();
       }
 
-      // Build response message
-      let message = '✅ *GitHub Invitations Processed*\n\n';
-      if (accepted.length === 0 && errors.length === 0) {
-        message += 'No pending invitations found.';
-      } else {
-        if (accepted.length > 0) {
-          message += '*Accepted:*\n' + accepted.map(a => `  • ${escapeMarkdown(a)}`).join('\n') + '\n\n';
-        }
-        if (errors.length > 0) {
-          message += '*Errors:*\n' + errors.map(e => `  • ${escapeMarkdown(e)}`).join('\n');
-        }
-        if (accepted.length > 0 && errors.length === 0) {
-          message += `\n🎉 Successfully accepted ${accepted.length} invitation(s)!`;
-        }
-      }
-
-      await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
+      // Final update
+      state.isComplete = true;
+      await updateMessage();
     } catch (error) {
       console.error('Error in /accept-invites:', error);
-      await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapeMarkdown(error.message)}\n\nMake sure \`gh\` CLI is installed and authenticated.`, { parse_mode: 'Markdown' });
+      const escapedError = escapeMarkdown(error.message);
+      await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapedError}\n\nMake sure \`gh\` CLI is installed and authenticated\\.`, { parse_mode: 'MarkdownV2' });
     }
   });
 }

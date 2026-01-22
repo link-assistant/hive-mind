@@ -734,17 +734,19 @@ test('canStartCommand returns claudeProcesses count in result', async () => {
 
 console.log('\n📋 System Resource Threshold Tests (Issue #1133)\n');
 
-test('checkSystemResources does not accept totalProcessing parameter', async () => {
+test('checkSystemResources accepts totalProcessing for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
-  // checkSystemResources should NOT use totalProcessing - it's an ultimate restriction
-  // This test verifies the function signature doesn't expect totalProcessing
-  const result = await queue.checkSystemResources();
+  // checkSystemResources now accepts totalProcessing for disk one-at-a-time mode
+  // RAM and CPU block unconditionally, but disk uses one-at-a-time mode
+  // See: https://github.com/link-assistant/hive-mind/issues/1155
+  const result = await queue.checkSystemResources(0);
 
-  // Should return an object with 'ok' and 'reasons'
+  // Should return an object with 'ok', 'reasons', and 'oneAtATime'
   assert.ok(result.ok !== undefined, 'Result should have ok property');
   assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
 
   queue.stop();
 });
@@ -752,8 +754,8 @@ test('checkSystemResources does not accept totalProcessing parameter', async () 
 test('QUEUE_CONFIG has correct threshold values', () => {
   // System resource thresholds
   assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 65%');
-  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.75, 'CPU_THRESHOLD should be 75%');
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.95, 'DISK_THRESHOLD should be 95%');
+  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.65, 'CPU_THRESHOLD should be 65%');
+  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.9, 'DISK_THRESHOLD should be 90%');
 
   // Claude API thresholds
   assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.85, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 85%');

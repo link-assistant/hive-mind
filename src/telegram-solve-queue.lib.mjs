@@ -431,10 +431,14 @@ export class SolveQueue {
       this.recordThrottle('claude_running');
     }
 
-    // Check system resources (ultimate restrictions - block unconditionally)
-    const resourceCheck = await this.checkSystemResources();
+    // Check system resources (RAM, CPU block unconditionally; disk uses one-at-a-time mode)
+    // See: https://github.com/link-assistant/hive-mind/issues/1155
+    const resourceCheck = await this.checkSystemResources(totalProcessing);
     if (!resourceCheck.ok) {
       reasons.push(...resourceCheck.reasons);
+    }
+    if (resourceCheck.oneAtATime) {
+      oneAtATime = true;
     }
 
     // Check API limits (pass hasRunningClaude and totalProcessing for uniform checking)
@@ -478,17 +482,22 @@ export class SolveQueue {
    * This provides a more stable metric that isn't affected by brief spikes
    * during claude process startup.
    *
-   * Note: System resource thresholds are ultimate restrictions - they block unconditionally
-   * when triggered. Unlike Claude API thresholds which allow one command at a time via
-   * totalProcessing check, system resources block all new commands immediately.
-   * See: https://github.com/link-assistant/hive-mind/issues/1133
+   * Resource threshold modes:
+   * - RAM_THRESHOLD: Enqueue mode - blocks all commands unconditionally
+   * - CPU_THRESHOLD: Enqueue mode - blocks all commands unconditionally
+   * - DISK_THRESHOLD: One-at-a-time mode - allows exactly one command when nothing is processing
    *
-   * @returns {Promise<{ok: boolean, reasons: string[]}>}
+   * See: https://github.com/link-assistant/hive-mind/issues/1155
+   *
+   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
+   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
-  async checkSystemResources() {
+  async checkSystemResources(totalProcessing = 0) {
     const reasons = [];
+    let oneAtATime = false;
 
     // Check RAM (using cached value)
+    // Enqueue mode: blocks all commands unconditionally
     const memResult = await getCachedMemoryInfo(this.verbose);
     if (memResult.success) {
       const usedRatio = memResult.memory.usedPercentage / 100;
@@ -499,6 +508,7 @@ export class SolveQueue {
     }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
+    // Enqueue mode: blocks all commands unconditionally
     // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
@@ -522,22 +532,26 @@ export class SolveQueue {
     }
 
     // Check disk space (using cached value)
-    // Note: Disk threshold is an ultimate restriction - it blocks unconditionally when triggered
-    // Unlike CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD which use totalProcessing
-    // to allow one command at a time, disk threshold blocks all new commands immediately
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    // One-at-a-time mode: allows exactly one command when nothing is processing
+    // Unlike RAM and CPU which block unconditionally, disk uses one-at-a-time mode
+    // because we cannot predict how much disk space a task will use
+    // See: https://github.com/link-assistant/hive-mind/issues/1155
     const diskResult = await getCachedDiskInfo(this.verbose);
     if (diskResult.success) {
       // Calculate usage from free percentage
       const usedPercent = 100 - diskResult.diskSpace.freePercentage;
       const usedRatio = usedPercent / 100;
       if (usedRatio >= QUEUE_CONFIG.DISK_THRESHOLD) {
-        reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD));
+        oneAtATime = true;
         this.recordThrottle('disk_high');
+        // Only block if something is already processing (one-at-a-time mode)
+        if (totalProcessing > 0) {
+          reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD) + ' (waiting for current command)');
+        }
       }
     }
 
-    return { ok: reasons.length === 0, reasons };
+    return { ok: reasons.length === 0, reasons, oneAtATime };
   }
 
   /**

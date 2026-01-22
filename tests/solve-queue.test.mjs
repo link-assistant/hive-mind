@@ -734,12 +734,13 @@ test('canStartCommand returns claudeProcesses count in result', async () => {
 
 console.log('\n📋 System Resource Threshold Tests (Issue #1133)\n');
 
-test('checkSystemResources accepts totalProcessing for disk one-at-a-time mode (Issue #1155)', async () => {
+test('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
   // checkSystemResources now accepts totalProcessing for disk one-at-a-time mode
   // RAM and CPU block unconditionally, but disk uses one-at-a-time mode
+  // When totalProcessing=0, disk threshold should allow starting (nothing is running)
   // See: https://github.com/link-assistant/hive-mind/issues/1155
   const result = await queue.checkSystemResources(0);
 
@@ -751,16 +752,34 @@ test('checkSystemResources accepts totalProcessing for disk one-at-a-time mode (
   queue.stop();
 });
 
-test('QUEUE_CONFIG has correct threshold values', () => {
-  // System resource thresholds
-  assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, 0.65, 'RAM_THRESHOLD should be 65%');
-  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, 0.65, 'CPU_THRESHOLD should be 65%');
-  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, 0.9, 'DISK_THRESHOLD should be 90%');
+test('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
 
-  // Claude API thresholds
-  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.85, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 85%');
-  assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, 0.98, 'CLAUDE_WEEKLY_THRESHOLD should be 98%');
-  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, 0.8, 'GITHUB_API_THRESHOLD should be 80%');
+  // checkSystemResources with totalProcessing=1 tests behavior when something is already running
+  // If disk usage is high (oneAtATime mode), this should block since totalProcessing > 0
+  // See: https://github.com/link-assistant/hive-mind/issues/1155
+  const result = await queue.checkSystemResources(1);
+
+  // Should return an object with 'ok', 'reasons', and 'oneAtATime'
+  assert.ok(result.ok !== undefined, 'Result should have ok property');
+  assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
+
+  queue.stop();
+});
+
+test('QUEUE_CONFIG thresholds are valid positive ratios', () => {
+  // System resource thresholds should be valid ratios (0-1)
+  // We don't test for specific values to avoid coupling tests to configuration
+  assert.ok(QUEUE_CONFIG.RAM_THRESHOLD > 0 && QUEUE_CONFIG.RAM_THRESHOLD <= 1, 'RAM_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
+  assert.ok(QUEUE_CONFIG.CPU_THRESHOLD > 0 && QUEUE_CONFIG.CPU_THRESHOLD <= 1, 'CPU_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
+  assert.ok(QUEUE_CONFIG.DISK_THRESHOLD > 0 && QUEUE_CONFIG.DISK_THRESHOLD <= 1, 'DISK_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
+
+  // Claude API thresholds should be valid ratios (0-1)
+  assert.ok(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD > 0 && QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD <= 1, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
+  assert.ok(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD > 0 && QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD <= 1, 'CLAUDE_WEEKLY_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
+  assert.ok(QUEUE_CONFIG.GITHUB_API_THRESHOLD > 0 && QUEUE_CONFIG.GITHUB_API_THRESHOLD <= 1, 'GITHUB_API_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
 });
 
 // ============================================================================

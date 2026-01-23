@@ -114,6 +114,7 @@ if (execCommand.result && typeof execCommand.result.code === 'number') {
 **Why exit code 127?**
 
 Exit code 127 is the standard Unix/POSIX convention for "command not found":
+
 - All POSIX-compliant shells return 127 when a command cannot be found
 - This is more reliable than text pattern matching which can vary by shell and locale
 - The `command-stream` library stores the exit code in `execCommand.result.code` after streaming completes

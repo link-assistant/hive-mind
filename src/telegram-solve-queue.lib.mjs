@@ -581,15 +581,15 @@ export class SolveQueue {
     const reasons = [];
     let oneAtATime = false;
 
-    // Skip Claude-specific limits for --tool agent since agent uses different rate limits
-    // Agent tools (like Grok Code or Claude Code SDK via agent) have their own rate limiting
-    // and are not affected by Claude API limits (5-hour session, weekly limits)
+    // Apply Claude-specific limits only when tool is 'claude'
+    // Other tools (like 'agent') use different rate limiting backends and are not
+    // affected by Claude API limits (5-hour session, weekly limits)
     // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const skipClaudeLimits = tool === 'agent';
+    const applyClaudeLimits = tool === 'claude';
 
     // Check Claude limits (using cached value)
-    // Skipped for --tool agent since it uses different rate limits
-    if (!skipClaudeLimits) {
+    // Only applied when tool is 'claude'
+    if (applyClaudeLimits) {
       const claudeResult = await getCachedClaudeLimits(this.verbose);
       if (claudeResult.success) {
         const sessionPercent = claudeResult.usage.currentSession.percentage;
@@ -627,7 +627,7 @@ export class SolveQueue {
         }
       }
     } else if (this.verbose) {
-      this.log(`Skipping Claude limits check for --tool ${tool}`);
+      this.log(`Claude limits not applied for --tool ${tool}`);
     }
 
     // Check GitHub limits (only relevant if claude processes running)

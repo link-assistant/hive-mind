@@ -1077,6 +1077,23 @@ export const executeClaudeCommand = async params => {
         }
       }
 
+      // Issue #1165: Check actual exit code from command result for more reliable detection
+      // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
+      // Exit code 127 is the standard Unix convention for "command not found"
+      if (execCommand.result && typeof execCommand.result.code === 'number') {
+        const resultExitCode = execCommand.result.code;
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+        }
+        // Specifically detect "command not found" via exit code 127
+        if (resultExitCode === 127 && !commandFailed) {
+          commandFailed = true;
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH`, { level: 'error' });
+          await log('   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code', { level: 'error' });
+        }
+      }
+
       // Flush any remaining queued comments from interactive mode
       if (interactiveHandler) {
         try {

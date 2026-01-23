@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Test script to verify issue #1165 fix
 // This simulates the error detection logic from claude.lib.mjs
+//
+// Two layers of protection are now implemented:
+// 1. Text pattern matching for "not found" in stderr (original fix)
+// 2. Exit code 127 detection (more reliable, added per PR feedback)
 
 const testCases = [
   // Command not found patterns
@@ -59,9 +63,44 @@ for (const tc of testCases) {
   console.log('');
 }
 
-console.log('=== Summary ===');
+console.log('=== Summary: Text Pattern Detection ===');
 console.log(`Passed: ${passed}/${testCases.length}`);
 console.log(`Failed: ${failed}/${testCases.length}`);
+
+// Test exit code-based detection (the more reliable approach added per PR feedback)
+console.log('\n=== Exit Code Detection (PR #1166 Enhancement) ===\n');
+
+const exitCodeTestCases = [
+  { exitCode: 127, shouldFail: true, description: 'Exit code 127 (command not found)' },
+  { exitCode: 126, shouldFail: false, description: 'Exit code 126 (permission denied) - not command not found specific' },
+  { exitCode: 0, shouldFail: false, description: 'Exit code 0 (success)' },
+  { exitCode: 1, shouldFail: false, description: 'Exit code 1 (general error) - not command not found specific' },
+];
+
+// Simulates the exit code detection logic from claude.lib.mjs
+const detectCommandNotFoundByExitCode = exitCode => {
+  return exitCode === 127;
+};
+
+for (const tc of exitCodeTestCases) {
+  const detected = detectCommandNotFoundByExitCode(tc.exitCode);
+  const status = detected === tc.shouldFail ? '✅ PASS' : '❌ FAIL';
+
+  if (detected === tc.shouldFail) {
+    passed++;
+  } else {
+    failed++;
+  }
+
+  console.log(`${status}: ${tc.description}`);
+  console.log(`  Exit code: ${tc.exitCode}`);
+  console.log(`  Expected command not found: ${tc.shouldFail}, Got: ${detected}`);
+  console.log('');
+}
+
+console.log('=== Final Summary ===');
+console.log(`Total passed: ${passed}`);
+console.log(`Total failed: ${failed}`);
 
 if (failed > 0) {
   process.exit(1);

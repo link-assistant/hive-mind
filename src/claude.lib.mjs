@@ -881,9 +881,12 @@ export const executeClaudeCommand = async params => {
       // See issue #1146 for details on thinking budget translation
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
 
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076) and optionally MAX_THINKING_TOKENS (see issue #1146)
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
+      // and MCP timeout configurations (see issue #1066)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {
         await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
       }

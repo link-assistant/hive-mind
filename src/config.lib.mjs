@@ -90,6 +90,15 @@ export const claudeCode = {
   // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
   // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
   maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+  // MCP (Model Context Protocol) timeout configurations
+  // See: https://github.com/link-assistant/hive-mind/issues/1066
+  // See: https://code.claude.com/docs/en/settings#environment-variables
+  // MCP_TIMEOUT: Timeout in milliseconds for MCP server startup
+  // MCP_TOOL_TIMEOUT: Timeout in milliseconds for MCP tool execution
+  // Default: 900000ms (15 minutes) to accommodate long-running Playwright operations
+  // Set via MCP_TIMEOUT/MCP_TOOL_TIMEOUT or HIVE_MIND_MCP_TIMEOUT/HIVE_MIND_MCP_TOOL_TIMEOUT
+  mcpTimeout: parseIntWithDefault('MCP_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TIMEOUT', 900000)),
+  mcpToolTimeout: parseIntWithDefault('MCP_TOOL_TIMEOUT', parseIntWithDefault('HIVE_MIND_MCP_TOOL_TIMEOUT', 900000)),
 };
 
 // Default max thinking budget for Claude Code (see issue #1146)
@@ -156,8 +165,18 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 
 // Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
+// Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 export const getClaudeEnv = (options = {}) => {
-  const env = { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens) };
+  const env = {
+    ...process.env,
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens),
+    // MCP timeout configurations to prevent tool calls from hanging indefinitely
+    // See: https://github.com/link-assistant/hive-mind/issues/1066
+    // MCP_TIMEOUT: Timeout for MCP server startup
+    // MCP_TOOL_TIMEOUT: Timeout for MCP tool execution (the one that prevents stuck tools)
+    MCP_TIMEOUT: String(claudeCode.mcpTimeout),
+    MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
+  };
   // Set MAX_THINKING_TOKENS if thinkingBudget is provided
   // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
   // Default is 31999, set to 0 to disable thinking, max is 63999 for 64K output models

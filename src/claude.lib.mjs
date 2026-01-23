@@ -1062,7 +1062,9 @@ export const executeClaudeCommand = async params => {
             // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
             // Even though this contains the word "failed", it's a warning, not an error
             const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+            // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
+            // These indicate the Claude CLI is not installed or not in PATH
+            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
               stderrErrors.push(trimmed);
             }
           }

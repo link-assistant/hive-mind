@@ -1374,6 +1374,170 @@ test('queue item tool property is used by consumer', () => {
 });
 
 // ============================================================================
+// Tool-Specific Queue Tracking Tests (Issue #1159 - Extended)
+// ============================================================================
+
+console.log('\n📋 Tool-Specific Queue Tracking Tests (Issue #1159 - Extended)\n');
+
+test('getProcessingCountByTool returns 0 for empty processing', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  assert.equal(queue.getProcessingCountByTool('claude'), 0, 'Should return 0 for claude when empty');
+  assert.equal(queue.getProcessingCountByTool('agent'), 0, 'Should return 0 for agent when empty');
+
+  queue.stop();
+});
+
+test('getProcessingCountByTool counts items correctly by tool type', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Simulate items in processing map
+  const claudeItem1 = { id: 'item1', tool: 'claude' };
+  const claudeItem2 = { id: 'item2', tool: 'claude' };
+  const agentItem1 = { id: 'item3', tool: 'agent' };
+
+  queue.processing.set('item1', claudeItem1);
+  queue.processing.set('item2', claudeItem2);
+  queue.processing.set('item3', agentItem1);
+
+  assert.equal(queue.getProcessingCountByTool('claude'), 2, 'Should count 2 claude items');
+  assert.equal(queue.getProcessingCountByTool('agent'), 1, 'Should count 1 agent item');
+  assert.equal(queue.getProcessingCountByTool('codex'), 0, 'Should count 0 codex items');
+
+  queue.stop();
+});
+
+test('canStartCommand returns claudeProcessingCount in result', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  const result = await queue.canStartCommand({ tool: 'claude' });
+
+  assert.ok(result.claudeProcessingCount !== undefined, 'Result should have claudeProcessingCount');
+  assert.equal(typeof result.claudeProcessingCount, 'number', 'claudeProcessingCount should be a number');
+
+  queue.stop();
+});
+
+test('findStartableItem returns null for empty queue', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  const result = await queue.findStartableItem();
+
+  assert.equal(result.item, null, 'item should be null for empty queue');
+  assert.equal(result.index, -1, 'index should be -1 for empty queue');
+  assert.equal(result.check, null, 'check should be null for empty queue');
+
+  queue.stop();
+});
+
+test('findStartableItem finds first startable item', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Add items to queue
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--tool claude',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'claude',
+  });
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/2',
+    args: '--tool agent',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'agent',
+  });
+
+  const result = await queue.findStartableItem();
+
+  // Should find first item since no limits are exceeded
+  assert.ok(result.item !== null, 'Should find a startable item');
+  assert.ok(result.index >= 0, 'Should have valid index');
+  assert.ok(result.check !== null, 'Should have check result');
+
+  queue.stop();
+});
+
+test('mixed tool queue maintains items with correct tool property', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Enqueue mixed tool items
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--tool claude',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'claude',
+  });
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/2',
+    args: '--tool agent',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'agent',
+  });
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/3',
+    args: '--tool claude',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'claude',
+  });
+
+  assert.equal(queue.queue.length, 3, 'Queue should have 3 items');
+  assert.equal(queue.queue[0].tool, 'claude', 'First item should be claude');
+  assert.equal(queue.queue[1].tool, 'agent', 'Second item should be agent');
+  assert.equal(queue.queue[2].tool, 'claude', 'Third item should be claude');
+
+  queue.stop();
+});
+
+test('checkApiLimits uses claudeProcessingCount for Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test with claudeProcessingCount = 0, should not block
+  const result1 = await queue.checkApiLimits(false, 0, 'claude');
+  assert.ok(result1.ok, 'Should not block when claudeProcessingCount is 0');
+
+  // Test with agent tool - Claude limits should not apply
+  const result2 = await queue.checkApiLimits(false, 5, 'agent');
+  // Agent should not be blocked by Claude limits regardless of processing count
+  // (only system resources and GitHub limits apply to agent)
+  assert.ok(result2 !== undefined, 'Agent result should be defined');
+
+  queue.stop();
+});
+
+test('default tool for queue item is claude', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Enqueue without specifying tool
+  const item = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    // No tool specified
+  });
+
+  assert.equal(item.tool, 'claude', 'Default tool should be claude');
+
+  queue.stop();
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

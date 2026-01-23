@@ -368,6 +368,49 @@ export class SolveQueue {
   }
 
   /**
+   * Count processing items by tool type
+   * Used for tool-specific limit checking - e.g., Claude limits only count Claude processing items
+   * @param {string} tool - Tool type to count ('claude', 'agent', etc.)
+   * @returns {number} Count of processing items with the specified tool
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  getProcessingCountByTool(tool) {
+    let count = 0;
+    for (const item of this.processing.values()) {
+      if (item.tool === tool) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Find first queue item that can start based on its tool's limits
+   * Instead of always taking the first item, this finds the first item whose
+   * tool-specific limits allow it to start. This enables agent tasks to proceed
+   * even when Claude limits are reached, and vice versa.
+   * @returns {Promise<{item: SolveQueueItem|null, index: number, check: Object}>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  async findStartableItem() {
+    for (let i = 0; i < this.queue.length; i++) {
+      const item = this.queue[i];
+      const check = await this.canStartCommand({ tool: item.tool });
+
+      if (check.canStart) {
+        // Also check one-at-a-time mode for this specific tool
+        if (check.oneAtATime && check.totalProcessing > 0) {
+          // This item is in one-at-a-time mode but something is processing
+          // Mark as waiting and continue to next item
+          continue;
+        }
+        return { item, index: i, check };
+      }
+    }
+    return { item: null, index: -1, check: null };
+  }
+
+  /**
    * Get queue items summary for display
    * @returns {Object}
    */
@@ -400,6 +443,11 @@ export class SolveQueue {
    * 2. Commands can run in parallel as long as actual limits are not exceeded
    * 3. When any limit >= threshold, allow exactly one claude command to pass
    *
+   * Logic per issue #1159:
+   * - Different tools have different limits. Claude limits only apply to 'claude' tool.
+   * - Processing count for Claude limits only includes Claude items, not agent items.
+   * - This allows agent tasks to run in parallel when Claude limits are reached.
+   *
    * @param {Object} options - Options for the check
    * @param {string} options.tool - The tool being used ('claude', 'agent', etc.)
    * @returns {Promise<{canStart: boolean, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
@@ -423,11 +471,15 @@ export class SolveQueue {
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
     const hasRunningClaude = claudeProcs.count > 0;
 
-    // Calculate total processing count: queue-internal + external claude processes
-    // This is used for CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD
-    // to allow exactly one command at a time when threshold is reached
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    // Calculate total processing count for system resources (all tools)
+    // System resources (RAM, CPU, disk) apply to all tools
     const totalProcessing = this.processing.size + claudeProcs.count;
+
+    // Calculate Claude-specific processing count for Claude API limits
+    // Only counts Claude items in queue + external claude processes
+    // Agent items don't count against Claude's one-at-a-time limit
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const claudeProcessingCount = this.getProcessingCountByTool('claude');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
@@ -435,6 +487,7 @@ export class SolveQueue {
     }
 
     // Check system resources (RAM, CPU block unconditionally; disk uses one-at-a-time mode)
+    // System resources apply to ALL tools, not just Claude
     // See: https://github.com/link-assistant/hive-mind/issues/1155
     const resourceCheck = await this.checkSystemResources(totalProcessing);
     if (!resourceCheck.ok) {
@@ -444,10 +497,11 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Check API limits (pass hasRunningClaude, totalProcessing, and tool for uniform checking)
-    // Skip Claude-specific limits for --tool agent since agent uses different rate limits
+    // Check API limits (pass hasRunningClaude, claudeProcessingCount, and tool)
+    // Claude limits use claudeProcessingCount (only Claude items), not totalProcessing
+    // This allows agent tasks to proceed when Claude limits are reached
     // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing, tool);
+    const limitCheck = await this.checkApiLimits(hasRunningClaude, claudeProcessingCount, tool);
     if (!limitCheck.ok) {
       reasons.push(...limitCheck.reasons);
     }
@@ -477,6 +531,7 @@ export class SolveQueue {
       oneAtATime,
       claudeProcesses: claudeProcs.count,
       totalProcessing,
+      claudeProcessingCount,
     };
   }
 
@@ -564,20 +619,21 @@ export class SolveQueue {
    *
    * Logic per issue #1133:
    * - CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD use one-at-a-time mode:
-   *   when above threshold, allow exactly one command, block if totalProcessing > 0
+   *   when above threshold, allow exactly one command, block if claudeProcessing > 0
    * - GitHub threshold blocks unconditionally when exceeded (ultimate restriction)
-   * - totalProcessing = queue-internal count + external claude processes (pgrep)
    *
    * Logic per issue #1159:
    * - When tool is 'agent', skip Claude-specific limits entirely since agent uses different
    *   rate limits (Grok Code or similar). Only system resources and GitHub limits apply.
+   * - For Claude limits, only count Claude-specific processing items, not agent items.
+   *   This allows agent tasks to run in parallel even when Claude limits are reached.
    *
-   * @param {boolean} hasRunningClaude - Whether claude processes are running
-   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
+   * @param {boolean} hasRunningClaude - Whether claude processes are running (from pgrep)
+   * @param {number} claudeProcessingCount - Count of 'claude' tool items being processed in queue
    * @param {string} tool - The tool being used ('claude', 'agent', etc.)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
-  async checkApiLimits(hasRunningClaude = false, totalProcessing = 0, tool = 'claude') {
+  async checkApiLimits(hasRunningClaude = false, claudeProcessingCount = 0, tool = 'claude') {
     const reasons = [];
     let oneAtATime = false;
 
@@ -586,6 +642,12 @@ export class SolveQueue {
     // affected by Claude API limits (5-hour session, weekly limits)
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const applyClaudeLimits = tool === 'claude';
+
+    // Calculate total Claude processing: queue-internal claude items + external claude processes
+    // This is used for Claude limits one-at-a-time mode - only counts Claude-related processing
+    // Agent items in the queue don't count against Claude's one-at-a-time limit
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const totalClaudeProcessing = claudeProcessingCount + (hasRunningClaude ? 1 : 0);
 
     // Check Claude limits (using cached value)
     // Only applied when tool is 'claude'
@@ -596,31 +658,31 @@ export class SolveQueue {
         const weeklyPercent = claudeResult.usage.allModels.percentage;
 
         // Session limit (5-hour)
-        // When above threshold: allow exactly one command, block if any processing is happening
-        // Uses totalProcessing (queue + external claude) for uniform checking
-        // See: https://github.com/link-assistant/hive-mind/issues/1133
+        // When above threshold: allow exactly one Claude command, block if any Claude processing
+        // Only counts Claude-specific processing, not agent items
+        // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159
         if (sessionPercent !== null) {
           const sessionRatio = sessionPercent / 100;
           if (sessionRatio >= QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) {
             oneAtATime = true;
             this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : 'claude_5_hour_session_high');
-            // Use totalProcessing (queue + external claude) for uniform checking
-            if (totalProcessing > 0) {
+            // Use totalClaudeProcessing for Claude-specific one-at-a-time checking
+            if (totalClaudeProcessing > 0) {
               reasons.push(formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) + ' (waiting for current command)');
             }
           }
         }
 
         // Weekly limit
-        // When above threshold: allow exactly one command, block if one is in progress
+        // When above threshold: allow exactly one Claude command, block if one is in progress
         if (weeklyPercent !== null) {
           const weeklyRatio = weeklyPercent / 100;
           if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
             oneAtATime = true;
             this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : 'claude_weekly_high');
-            // Use totalProcessing (queue + external claude) for uniform checking
-            // See: https://github.com/link-assistant/hive-mind/issues/1133
-            if (totalProcessing > 0) {
+            // Use totalClaudeProcessing for Claude-specific one-at-a-time checking
+            // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159
+            if (totalClaudeProcessing > 0) {
               reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
             }
           }
@@ -700,6 +762,12 @@ export class SolveQueue {
 
   /**
    * Consumer loop - processes items from the queue
+   *
+   * Instead of always processing the first item, this finds the first item that
+   * CAN start based on its tool-specific limits. This allows agent tasks to
+   * proceed even when Claude limits are reached, and vice versa.
+   *
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   async runConsumer() {
     this.log('Consumer started');
@@ -710,20 +778,22 @@ export class SolveQueue {
         continue;
       }
 
-      // Get the next item's tool to check if Claude limits should be skipped
+      // Find first item that can start based on its tool-specific limits
+      // This allows agent items to proceed when Claude limits are reached
       // See: https://github.com/link-assistant/hive-mind/issues/1159
-      const nextItem = this.queue[0];
-      const check = await this.canStartCommand({ tool: nextItem?.tool });
+      const { item: startableItem, index: startableIndex } = await this.findStartableItem();
 
-      if (!check.canStart) {
-        // Update all queued items to waiting status with reason
-        // Also periodically refresh messages to show current status
-        // See: https://github.com/link-assistant/hive-mind/issues/1078
+      if (!startableItem) {
+        // No item can start - update all queued items with their tool-specific waiting reasons
+        // Each item gets its own reason based on its tool's limits
+        // See: https://github.com/link-assistant/hive-mind/issues/1078, #1159
         for (const item of this.queue) {
           if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
+            // Get the specific reason for this item's tool
+            const itemCheck = await this.canStartCommand({ tool: item.tool });
             const previousStatus = item.status;
             const previousReason = item.waitingReason;
-            item.setWaiting(check.reason);
+            item.setWaiting(itemCheck.reason || 'Waiting in queue');
 
             // Update message if:
             // 1. Status or reason changed
@@ -732,30 +802,18 @@ export class SolveQueue {
 
             if (shouldUpdate) {
               const position = this.queue.indexOf(item) + 1;
-              await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${check.reason}`);
+              await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${item.waitingReason}`);
             }
           }
         }
 
-        this.log(`Throttled: ${check.reason}`);
+        this.log(`Throttled: no items can start`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Check one-at-a-time mode
-      // When oneAtATime is true (e.g., weekly limit >= 99%), block if any processing is happening
-      // totalProcessing = queue-internal (this.processing.size) + external claude processes (pgrep)
-      // This ensures uniform checking across all threshold conditions
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      if (check.oneAtATime && check.totalProcessing > 0) {
-        const processInfo = check.claudeProcesses > 0 ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)` : '';
-        this.log(`One-at-a-time mode: waiting for current command to finish${processInfo}`);
-        await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
-        continue;
-      }
-
-      // Get next item from queue
-      const item = this.queue.shift();
+      // Remove the startable item from the queue (may not be at position 0)
+      const item = this.queue.splice(startableIndex, 1)[0];
       if (!item) continue;
 
       // NOTE: Running claude processes is NOT a blocking limit by itself

@@ -47,6 +47,7 @@ ZodError: [{
 The issue was **NOT** in hive-mind's `solve.mjs` but in the `@link-assistant/agent` package itself.
 
 **Problem:** When using newer versions of Bun (1.3.6+) with AI SDK 6.0.0-beta.99, the SDK returns:
+
 - Token counts as objects: `{ total: 8707, noCache: 6339, cacheRead: 2368 }` instead of numbers
 - finishReason as objects: `{ type: "stop" }` instead of strings
 
@@ -57,6 +58,7 @@ This caused ZodError crashes because the `@link-assistant/agent` code expected p
 The issue also mentioned that `--verbose` option on the `agent` command didn't work when executed through hive-mind. However, when running the same command directly, verbose logs were visible.
 
 From the issue:
+
 ```bash
 # Direct execution - verbose works
 (cd "/tmp/gh-issue-solver-1769000822352" && cat "/tmp/agent_prompt_1769000865749_678166.txt" | agent --model opencode/grok-code --verbose)
@@ -66,14 +68,14 @@ This is because hive-mind's `agent.lib.mjs` captures stdout/stderr differently t
 
 ## Timeline
 
-| Date | Event |
-|------|-------|
+| Date                 | Event                                  |
+| -------------------- | -------------------------------------- |
 | 2026-01-21T13:06:50Z | Original issue observed (agent v0.8.5) |
-| 2026-01-21T15:50:58Z | Agent v0.8.5 released (bug present) |
-| 2026-01-21T16:17:09Z | Fix committed to agent repo |
-| 2026-01-21T18:36:41Z | PR #126 merged in agent repo |
-| 2026-01-21T18:39:16Z | Agent v0.8.6 released (fix included) |
-| 2026-01-22T15:26:40Z | Agent v0.8.7 released |
+| 2026-01-21T15:50:58Z | Agent v0.8.5 released (bug present)    |
+| 2026-01-21T16:17:09Z | Fix committed to agent repo            |
+| 2026-01-21T18:36:41Z | PR #126 merged in agent repo           |
+| 2026-01-21T18:39:16Z | Agent v0.8.6 released (fix included)   |
+| 2026-01-22T15:26:40Z | Agent v0.8.7 released                  |
 | 2026-01-22T19:11:55Z | Agent v0.8.9 released (current latest) |
 
 ## Fix Applied
@@ -83,6 +85,7 @@ The fix was applied in the `@link-assistant/agent` repository:
 **PR:** https://github.com/link-assistant/agent/pull/126
 
 **Changes:**
+
 1. Enhanced `toNumber()` function to handle objects with `total` field
 2. Added new `toFinishReason()` function to safely convert object/string finishReason values to string
 3. Updated `processor.ts` to use the new `toFinishReason()` function
@@ -99,6 +102,7 @@ bun install -g @link-assistant/agent@latest
 ```
 
 Or specifically:
+
 ```bash
 bun install -g @link-assistant/agent@0.8.9
 ```
@@ -106,6 +110,7 @@ bun install -g @link-assistant/agent@0.8.9
 ### Verification
 
 After upgrading, verify the agent version:
+
 ```bash
 agent --version
 ```

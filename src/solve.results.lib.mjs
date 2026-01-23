@@ -513,6 +513,79 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             }
           }
 
+          // Issue #1162: Remove [WIP] prefix from title if still present
+          // This ensures the PR title is finalized even if the agent didn't update it
+          if (pr.title && pr.title.startsWith('[WIP]')) {
+            const updatedTitle = pr.title.replace(/^\[WIP\]\s*/, '');
+            await log(`  📝 Removing [WIP] prefix from PR title...`);
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
+            if (titleResult.code === 0) {
+              await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
+            } else {
+              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
+            }
+          }
+
+          // Issue #1162: Update PR description if still contains placeholder text
+          // This ensures the PR description is finalized even if the agent didn't update it
+          const placeholderPatterns = [
+            '_Details will be added as the solution draft is developed..._',
+            '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.',
+            '### 🚧 Status',
+          ];
+          const hasPlaceholder = placeholderPatterns.some(pattern => prBody.includes(pattern));
+          if (hasPlaceholder) {
+            await log(`  📝 Updating PR description to remove placeholder text...`);
+
+            // Build a summary of the changes from the PR diff
+            const diffResult = await $`gh pr diff ${pr.number} --repo ${owner}/${repo} 2>&1`;
+            const diffOutput = diffResult.code === 0 ? diffResult.stdout.toString() : '';
+
+            // Count files changed
+            const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
+            const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
+            const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+
+            // Get the issue title for context
+            const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
+            const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
+
+            // Build new description
+            const fs = (await use('fs')).promises;
+            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+            const newDescription = `## Summary
+
+This pull request implements a solution for ${issueRef}: ${issueTitle}
+
+### Changes
+- ${filesChanged} file(s) modified
+- ${additions} line(s) added
+- ${deletions} line(s) removed
+
+### Issue Reference
+Fixes ${issueRef}
+
+---
+*This PR was created automatically by the AI issue solver*`;
+
+            const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
+            await fs.writeFile(tempBodyFile, newDescription);
+
+            try {
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              await fs.unlink(tempBodyFile).catch(() => {});
+
+              if (descResult.code === 0) {
+                await log(`  ✅ Updated PR description with solution summary`);
+              } else {
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+              }
+            } catch (descError) {
+              await fs.unlink(tempBodyFile).catch(() => {});
+              await log(`  ⚠️  Error updating PR description: ${descError.message}`);
+            }
+          }
+
           // Check if PR is ready for review (convert from draft if necessary)
           if (pr.isDraft) {
             await log('  🔄 Converting PR from draft to ready for review...');

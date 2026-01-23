@@ -43,7 +43,7 @@ The system prompt includes conflict handling as a guideline:
 
 ```javascript
 // Line 190
-"make sure the default branch is merged to the pull request's branch,"
+"make sure the default branch is merged to the pull request's branch,";
 ```
 
 This appears within the "When you finalize the pull request" section, making it a checklist item rather than an immediate action.
@@ -157,7 +157,7 @@ The Claude prompts (`src/claude.prompts.lib.mjs`) have a nearly identical struct
 
 ```javascript
 // Line 234
-"make sure the default branch is merged to the pull request's branch,"
+"make sure the default branch is merged to the pull request's branch,";
 ```
 
 However, Claude models typically exhibit stronger adherence to checklist-style instructions in system prompts.
@@ -174,10 +174,10 @@ solve.mjs
 
 ## Token Usage Comparison
 
-| Session | Input Tokens | Output Tokens | Reasoning Tokens |
-|---------|--------------|---------------|------------------|
-| pr-1769164538444 | 49,213 | 52 | 8 |
-| pr-1769183633153 | 113,024 | 55 | 5 |
+| Session          | Input Tokens | Output Tokens | Reasoning Tokens |
+| ---------------- | ------------ | ------------- | ---------------- |
+| pr-1769164538444 | 49,213       | 52            | 8                |
+| pr-1769183633153 | 113,024      | 55            | 5                |
 
 The session that resolved conflicts used significantly more context (cached), suggesting it needed more information to understand the conflict resolution task.
 
@@ -198,15 +198,15 @@ const syncResult = await $({ cwd: tempDir })`git reset --hard upstream/${upstrea
 
 Reference from GitHub API documentation:
 
-| Status | Meaning |
-|--------|---------|
-| CLEAN | Branch can be merged cleanly |
-| DIRTY | Conflicts exist between branches |
-| UNSTABLE | Merge would include non-passing commit statuses |
-| BLOCKED | Blocked by branch protection rules |
-| BEHIND | Head ref is out of date with base branch |
-| HAS_HOOKS | Repository has pre-receive hooks |
-| UNKNOWN | Status cannot be determined |
+| Status    | Meaning                                         |
+| --------- | ----------------------------------------------- |
+| CLEAN     | Branch can be merged cleanly                    |
+| DIRTY     | Conflicts exist between branches                |
+| UNSTABLE  | Merge would include non-passing commit statuses |
+| BLOCKED   | Blocked by branch protection rules              |
+| BEHIND    | Head ref is out of date with base branch        |
+| HAS_HOOKS | Repository has pre-receive hooks                |
+| UNKNOWN   | Status cannot be determined                     |
 
 ## Technical Constraints
 

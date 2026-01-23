@@ -41,11 +41,13 @@ if (feedbackLines.some(line => line.includes('DIRTY'))) {
 ```
 
 **Pros**:
+
 - Simple to implement
 - No architectural changes
 - Works with existing infrastructure
 
 **Cons**:
+
 - Relies on model following instructions
 - May not work consistently across all models
 
@@ -61,7 +63,7 @@ if (feedbackLines.some(line => line.includes('DIRTY'))) {
 /**
  * Attempt to automatically resolve conflicts before agent session
  */
-export const attemptAutoMerge = async (params) => {
+export const attemptAutoMerge = async params => {
   const { tempDir, branchName, mergeStateStatus, log, formatAligned, $ } = params;
 
   if (mergeStateStatus !== 'DIRTY') {
@@ -97,7 +99,12 @@ export const attemptAutoMerge = async (params) => {
 // After checking mergeStateStatus
 if (mergeStateStatus === 'DIRTY') {
   const autoMergeResult = await attemptAutoMerge({
-    tempDir, branchName, mergeStateStatus, log, formatAligned, $
+    tempDir,
+    branchName,
+    mergeStateStatus,
+    log,
+    formatAligned,
+    $,
   });
 
   if (!autoMergeResult.resolved) {
@@ -109,11 +116,13 @@ if (mergeStateStatus === 'DIRTY') {
 ```
 
 **Pros**:
+
 - Handles simple conflicts automatically
 - Reduces agent workload
 - Faster resolution for trivial conflicts
 
 **Cons**:
+
 - May not work for complex conflicts
 - Risk of incorrect automatic resolution
 
@@ -137,7 +146,7 @@ export const validatePrReadiness = async (prNumber, owner, repo) => {
     return {
       ready: false,
       reason: 'Merge conflicts must be resolved before marking PR ready',
-      action: 'resolve-conflicts'
+      action: 'resolve-conflicts',
     };
   }
 
@@ -146,16 +155,19 @@ export const validatePrReadiness = async (prNumber, owner, repo) => {
 ```
 
 **Hook into agent tool execution**:
+
 - Intercept `gh pr ready` commands
 - Validate PR state before allowing execution
 - Return error message if conflicts exist
 
 **Pros**:
+
 - Prevents premature "ready" status
 - Forces agent to address conflicts
 - Clear feedback mechanism
 
 **Cons**:
+
 - Complex to implement (command interception)
 - May confuse agent if command fails unexpectedly
 
@@ -182,11 +194,13 @@ if (postStatus.mergeStateStatus === 'DIRTY') {
 ```
 
 **Pros**:
+
 - Self-correcting mechanism
 - Ensures conflicts are eventually resolved
 - No changes to agent behavior required
 
 **Cons**:
+
 - May cause session restart loops
 - Wastes tokens if agent consistently fails
 - Delays overall completion
@@ -205,7 +219,7 @@ import { exec } from 'child_process';
 /**
  * Use external AI merge tool
  */
-export const resolveConflictsWithAI = async (params) => {
+export const resolveConflictsWithAI = async params => {
   const { tempDir, conflictFiles, log, formatAligned } = params;
 
   await log(formatAligned('🤖', 'AI Merge:', 'Using external conflict resolver...'));
@@ -225,11 +239,13 @@ export const resolveConflictsWithAI = async (params) => {
 ```
 
 **Pros**:
+
 - Specialized tool for conflict resolution
 - High-quality resolutions
 - Confidence scoring for safety
 
 **Cons**:
+
 - External dependency
 - May require API keys/costs
 - Additional installation required
@@ -261,10 +277,12 @@ export const resolveConflictsWithAI = async (params) => {
 ### For Solution 1 (Prompt Enhancement)
 
 **File changes needed:**
+
 - `src/agent.prompts.lib.mjs` - Add conflict resolution instructions
 - `src/claude.prompts.lib.mjs` - Mirror changes for consistency
 
 **Testing:**
+
 1. Create a test PR with intentional conflicts
 2. Run `solve` with `--tool agent`
 3. Verify agent resolves conflicts before other work
@@ -298,13 +316,16 @@ Several AI-powered merge conflict resolution tools exist:
 ### Best Practices from Research
 
 From [Graphite Guides](https://graphite.com/guides/ai-code-merge-conflict-resolution):
+
 - "While AI can provide valuable assistance, it's essential to review its suggestions"
 - Combine AI suggestions with manual reviews
 
 From [Medium (Elisheba Anderson)](https://medium.com/@elisheba.t.anderson/building-with-ai-coding-agents-best-practices-for-agent-workflows-be1d7095901b):
+
 - "Treat every AI output as a draft requiring human oversight"
 - "Strong Git practices keep your work transparent and easy to review"
 
 From [Git Advanced Merging](https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging):
+
 - "Git does not try to be overly clever about merge conflict resolution"
 - "If there is a conflict, it does not try to be clever about automatically resolving it"

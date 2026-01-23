@@ -16,17 +16,17 @@ When using `solve.mjs` with `--tool agent` (Grok Code Fast 1 model), the agent d
 
 ## Timeline of Events
 
-| Timestamp (UTC) | Event | Session | Merge Status |
-|-----------------|-------|---------|--------------|
-| 2026-01-21T13:06:50Z | Initial work session started | pr-1769163546483 | CLEAN |
-| 2026-01-23T10:11:05Z | Continued session | pr-1769163838639 | CLEAN |
-| 2026-01-23T10:31:48Z | Session with conflicts | **pr-1769164538444** | **DIRTY** |
-| 2026-01-23T10:32:15Z | Agent informed of DIRTY status | - | - |
-| 2026-01-23T10:35:35Z | Agent marked PR "ready for review" | - | (conflicts not resolved) |
-| 2026-01-23T15:49:04Z | Human comment: "Resolve conflicts, please." | - | - |
-| 2026-01-23T15:49:34Z | New session started | pr-1769183633153 | DIRTY |
-| 2026-01-23T15:52:29Z | Agent ran `git merge origin/main` | - | - |
-| 2026-01-23T15:52:48Z | Agent committed merge resolution | - | CLEAN |
+| Timestamp (UTC)      | Event                                       | Session              | Merge Status             |
+| -------------------- | ------------------------------------------- | -------------------- | ------------------------ |
+| 2026-01-21T13:06:50Z | Initial work session started                | pr-1769163546483     | CLEAN                    |
+| 2026-01-23T10:11:05Z | Continued session                           | pr-1769163838639     | CLEAN                    |
+| 2026-01-23T10:31:48Z | Session with conflicts                      | **pr-1769164538444** | **DIRTY**                |
+| 2026-01-23T10:32:15Z | Agent informed of DIRTY status              | -                    | -                        |
+| 2026-01-23T10:35:35Z | Agent marked PR "ready for review"          | -                    | (conflicts not resolved) |
+| 2026-01-23T15:49:04Z | Human comment: "Resolve conflicts, please." | -                    | -                        |
+| 2026-01-23T15:49:34Z | New session started                         | pr-1769183633153     | DIRTY                    |
+| 2026-01-23T15:52:29Z | Agent ran `git merge origin/main`           | -                    | -                        |
+| 2026-01-23T15:52:48Z | Agent committed merge resolution            | -                    | CLEAN                    |
 
 ## Root Cause Analysis
 
@@ -59,6 +59,7 @@ However, passing this information as feedback doesn't guarantee the agent will a
 ### 3. Model-Specific Behavior
 
 The Grok Code Fast 1 model:
+
 - Focused on completing the task (implementing the widget)
 - Did not proactively address the conflict status before marking PR ready
 - Only resolved conflicts when explicitly instructed
@@ -67,12 +68,12 @@ Compare this to Claude Code (`--tool claude`), which typically follows the syste
 
 ## Comparison: Claude Code vs Agent Tool
 
-| Aspect | Claude Code (`--tool claude`) | Agent Tool (`--tool agent`) |
-|--------|------------------------------|----------------------------|
-| Model Used | Claude 3.5/4 Sonnet | Grok Code Fast 1 |
-| Prompt Following | Strict adherence | May require explicit instructions |
-| Conflict Handling | Typically proactive | Reactive (waits for explicit request) |
-| System Prompt Length | 8500+ chars | 7759 chars |
+| Aspect               | Claude Code (`--tool claude`) | Agent Tool (`--tool agent`)           |
+| -------------------- | ----------------------------- | ------------------------------------- |
+| Model Used           | Claude 3.5/4 Sonnet           | Grok Code Fast 1                      |
+| Prompt Following     | Strict adherence              | May require explicit instructions     |
+| Conflict Handling    | Typically proactive           | Reactive (waits for explicit request) |
+| System Prompt Length | 8500+ chars                   | 7759 chars                            |
 
 ## Evidence from Logs
 

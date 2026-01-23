@@ -440,7 +440,27 @@ export const executeAgentCommand = async params => {
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
-            await log(errorOutput, { stream: 'stderr' });
+            // Agent sends all output (including verbose logs and structured events) to stderr
+            // Process each line as NDJSON, same as stdout handling
+            const stderrLines = errorOutput.split('\n');
+            for (const stderrLine of stderrLines) {
+              if (!stderrLine.trim()) continue;
+              try {
+                const stderrData = JSON.parse(stderrLine);
+                // Output formatted JSON (same formatting as stdout)
+                await log(JSON.stringify(stderrData, null, 2));
+                // Capture session ID from stderr too (agent sends it via stderr)
+                if (!sessionId && stderrData.sessionID) {
+                  sessionId = stderrData.sessionID;
+                  await log(`📌 Session ID: ${sessionId}`);
+                }
+              } catch {
+                // Not JSON - log as plain text
+                await log(stderrLine);
+              }
+            }
+            // Also collect stderr for error detection
+            fullOutput += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;

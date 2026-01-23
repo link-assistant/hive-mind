@@ -64,7 +64,35 @@ From the issue:
 (cd "/tmp/gh-issue-solver-1769000822352" && cat "/tmp/agent_prompt_1769000865749_678166.txt" | agent --model opencode/grok-code --verbose)
 ```
 
-This is because hive-mind's `agent.lib.mjs` captures stdout/stderr differently than direct terminal execution.
+#### Root Cause Investigation
+
+Investigation revealed that the `@link-assistant/agent` CLI sends **ALL output to stderr** (not stdout), including:
+
+- Verbose log messages: `{"log":{"level":"info",...}}`
+- Structured events: `{"type":"step_start",...}`, `{"type":"tool_use",...}`, etc.
+- Error messages: `{"type":"error",...}`
+
+This was verified by testing:
+
+```bash
+# Testing separate streams
+echo '{"message":"hi"}' | agent --model opencode/gpt-5-nano --verbose > stdout.txt 2> stderr.txt
+
+# Result: stdout.txt is EMPTY, all output is in stderr.txt
+```
+
+The original hive-mind `agent.lib.mjs` code processed stdout with JSON parsing and formatting, but treated stderr as plain error text without parsing. This caused verbose logs (which are JSON) to either not be shown or be shown as raw unformatted text.
+
+#### Fix Applied in hive-mind
+
+The fix updates `src/agent.lib.mjs` to process stderr the same way as stdout:
+
+1. Parse each line as JSON (NDJSON format)
+2. Format JSON output nicely with indentation
+3. Extract session IDs from stderr messages
+4. Collect stderr output for error detection
+
+This ensures verbose logs from the agent are properly displayed when using `--verbose` flag with solve.mjs.
 
 ## Timeline
 
@@ -128,6 +156,8 @@ This case study serves as documentation for future reference when similar issues
 2. **Dependency Management:** External tool dependencies (`@link-assistant/agent`) can have bugs that affect hive-mind functionality. Version pinning or better error messaging could help.
 
 3. **Verbose Mode Propagation:** When running CLI tools through child processes, verbose/debug flags may not produce visible output unless properly handled by the stream processing code.
+
+4. **stderr vs stdout:** Some CLI tools (like `@link-assistant/agent`) send ALL output to stderr instead of stdout. When integrating such tools, both streams should be processed with the same parsing/formatting logic to ensure consistent behavior.
 
 ## Related Issues and PRs
 

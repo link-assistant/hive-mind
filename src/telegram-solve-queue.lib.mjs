@@ -400,9 +400,12 @@ export class SolveQueue {
    * 2. Commands can run in parallel as long as actual limits are not exceeded
    * 3. When any limit >= threshold, allow exactly one claude command to pass
    *
+   * @param {Object} options - Options for the check
+   * @param {string} options.tool - The tool being used ('claude', 'agent', etc.)
    * @returns {Promise<{canStart: boolean, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
    */
-  async canStartCommand() {
+  async canStartCommand(options = {}) {
+    const tool = options.tool || 'claude';
     const reasons = [];
     let oneAtATime = false;
 
@@ -441,8 +444,10 @@ export class SolveQueue {
       oneAtATime = true;
     }
 
-    // Check API limits (pass hasRunningClaude and totalProcessing for uniform checking)
-    const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing);
+    // Check API limits (pass hasRunningClaude, totalProcessing, and tool for uniform checking)
+    // Skip Claude-specific limits for --tool agent since agent uses different rate limits
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing, tool);
     if (!limitCheck.ok) {
       reasons.push(...limitCheck.reasons);
     }
@@ -563,50 +568,66 @@ export class SolveQueue {
    * - GitHub threshold blocks unconditionally when exceeded (ultimate restriction)
    * - totalProcessing = queue-internal count + external claude processes (pgrep)
    *
+   * Logic per issue #1159:
+   * - When tool is 'agent', skip Claude-specific limits entirely since agent uses different
+   *   rate limits (Grok Code or similar). Only system resources and GitHub limits apply.
+   *
    * @param {boolean} hasRunningClaude - Whether claude processes are running
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
+   * @param {string} tool - The tool being used ('claude', 'agent', etc.)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
    */
-  async checkApiLimits(hasRunningClaude = false, totalProcessing = 0) {
+  async checkApiLimits(hasRunningClaude = false, totalProcessing = 0, tool = 'claude') {
     const reasons = [];
     let oneAtATime = false;
 
+    // Skip Claude-specific limits for --tool agent since agent uses different rate limits
+    // Agent tools (like Grok Code or Claude Code SDK via agent) have their own rate limiting
+    // and are not affected by Claude API limits (5-hour session, weekly limits)
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const skipClaudeLimits = tool === 'agent';
+
     // Check Claude limits (using cached value)
-    const claudeResult = await getCachedClaudeLimits(this.verbose);
-    if (claudeResult.success) {
-      const sessionPercent = claudeResult.usage.currentSession.percentage;
-      const weeklyPercent = claudeResult.usage.allModels.percentage;
+    // Skipped for --tool agent since it uses different rate limits
+    if (!skipClaudeLimits) {
+      const claudeResult = await getCachedClaudeLimits(this.verbose);
+      if (claudeResult.success) {
+        const sessionPercent = claudeResult.usage.currentSession.percentage;
+        const weeklyPercent = claudeResult.usage.allModels.percentage;
 
-      // Session limit (5-hour)
-      // When above threshold: allow exactly one command, block if any processing is happening
-      // Uses totalProcessing (queue + external claude) for uniform checking
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      if (sessionPercent !== null) {
-        const sessionRatio = sessionPercent / 100;
-        if (sessionRatio >= QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) {
-          oneAtATime = true;
-          this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : 'claude_5_hour_session_high');
-          // Use totalProcessing (queue + external claude) for uniform checking
-          if (totalProcessing > 0) {
-            reasons.push(formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) + ' (waiting for current command)');
+        // Session limit (5-hour)
+        // When above threshold: allow exactly one command, block if any processing is happening
+        // Uses totalProcessing (queue + external claude) for uniform checking
+        // See: https://github.com/link-assistant/hive-mind/issues/1133
+        if (sessionPercent !== null) {
+          const sessionRatio = sessionPercent / 100;
+          if (sessionRatio >= QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) {
+            oneAtATime = true;
+            this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : 'claude_5_hour_session_high');
+            // Use totalProcessing (queue + external claude) for uniform checking
+            if (totalProcessing > 0) {
+              reasons.push(formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) + ' (waiting for current command)');
+            }
+          }
+        }
+
+        // Weekly limit
+        // When above threshold: allow exactly one command, block if one is in progress
+        if (weeklyPercent !== null) {
+          const weeklyRatio = weeklyPercent / 100;
+          if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
+            oneAtATime = true;
+            this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : 'claude_weekly_high');
+            // Use totalProcessing (queue + external claude) for uniform checking
+            // See: https://github.com/link-assistant/hive-mind/issues/1133
+            if (totalProcessing > 0) {
+              reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
+            }
           }
         }
       }
-
-      // Weekly limit
-      // When above threshold: allow exactly one command, block if one is in progress
-      if (weeklyPercent !== null) {
-        const weeklyRatio = weeklyPercent / 100;
-        if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
-          oneAtATime = true;
-          this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : 'claude_weekly_high');
-          // Use totalProcessing (queue + external claude) for uniform checking
-          // See: https://github.com/link-assistant/hive-mind/issues/1133
-          if (totalProcessing > 0) {
-            reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
-          }
-        }
-      }
+    } else if (this.verbose) {
+      this.log(`Skipping Claude limits check for --tool ${tool}`);
     }
 
     // Check GitHub limits (only relevant if claude processes running)
@@ -689,7 +710,10 @@ export class SolveQueue {
         continue;
       }
 
-      const check = await this.canStartCommand();
+      // Get the next item's tool to check if Claude limits should be skipped
+      // See: https://github.com/link-assistant/hive-mind/issues/1159
+      const nextItem = this.queue[0];
+      const check = await this.canStartCommand({ tool: nextItem?.tool });
 
       if (!check.canStart) {
         // Update all queued items to waiting status with reason

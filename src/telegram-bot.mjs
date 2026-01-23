@@ -1102,7 +1102,9 @@ bot.command(/^solve$/i, async ctx => {
     return;
   }
 
-  const check = await solveQueue.canStartCommand();
+  // Pass the tool to canStartCommand to skip Claude limits for --tool agent
+  // See: https://github.com/link-assistant/hive-mind/issues/1159
+  const check = await solveQueue.canStartCommand({ tool: solveTool });
   const queueStats = solveQueue.getStats();
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

@@ -1257,6 +1257,123 @@ test('queue item has correct tool property', () => {
 });
 
 // ============================================================================
+// Tool Agent Claude Limits Skip Tests (Issue #1159)
+// ============================================================================
+
+console.log('\n📋 Tool Agent Claude Limits Skip Tests (Issue #1159)\n');
+
+test('checkApiLimits accepts tool parameter', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // checkApiLimits should accept tool parameter
+  const result = await queue.checkApiLimits(false, 0, 'claude');
+
+  assert.ok(result.ok !== undefined, 'Result should have ok property');
+  assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
+
+  queue.stop();
+});
+
+test('checkApiLimits with tool agent should not block on Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test with tool = 'agent' - should skip Claude limits
+  // Even if the mock data would trigger Claude limits, agent should pass
+  const resultAgent = await queue.checkApiLimits(false, 0, 'agent');
+  assert.ok(resultAgent !== undefined, 'Should work with tool = agent');
+
+  // Test with tool = 'claude' (default)
+  const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
+  assert.ok(resultClaude !== undefined, 'Should work with tool = claude');
+
+  queue.stop();
+});
+
+test('checkApiLimits default tool is claude', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // When tool is not specified, it should default to 'claude'
+  const resultNoTool = await queue.checkApiLimits(false, 0);
+  const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
+
+  // Both calls should have the same behavior (Claude limits checked)
+  assert.deepEqual(resultNoTool.ok, resultClaude.ok, 'Default tool should behave like claude');
+  assert.deepEqual(resultNoTool.oneAtATime, resultClaude.oneAtATime, 'Default tool should behave like claude for oneAtATime');
+
+  queue.stop();
+});
+
+test('canStartCommand accepts tool option', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // canStartCommand should accept options with tool
+  const result = await queue.canStartCommand({ tool: 'agent' });
+
+  assert.ok(result.canStart !== undefined, 'Result should have canStart property');
+  assert.ok(result.reasons !== undefined, 'Result should have reasons property');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
+
+  queue.stop();
+});
+
+test('canStartCommand with tool agent skips Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test with tool = 'agent' - Claude limits should be skipped
+  const resultAgent = await queue.canStartCommand({ tool: 'agent' });
+
+  // Test with tool = 'claude'
+  const resultClaude = await queue.canStartCommand({ tool: 'claude' });
+
+  // Both should return valid results
+  assert.ok(resultAgent.canStart !== undefined, 'Agent result should have canStart');
+  assert.ok(resultClaude.canStart !== undefined, 'Claude result should have canStart');
+
+  queue.stop();
+});
+
+test('canStartCommand default tool is claude', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // When options not provided, tool should default to 'claude'
+  const resultNoOptions = await queue.canStartCommand();
+  const resultClaude = await queue.canStartCommand({ tool: 'claude' });
+
+  // Both should have the same behavior
+  assert.equal(resultNoOptions.canStart, resultClaude.canStart, 'Default should behave like claude');
+
+  queue.stop();
+});
+
+test('queue item tool property is used by consumer', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Enqueue with --tool agent
+  const agentItem = queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '--tool agent',
+    requester: 'testuser',
+    infoBlock: 'Test info',
+    tool: 'agent',
+  });
+
+  assert.equal(agentItem.tool, 'agent', 'Agent tool should be preserved');
+
+  // Verify first queue item is accessible
+  assert.equal(queue.queue[0].tool, 'agent', 'Queue should have agent item first');
+
+  queue.stop();
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

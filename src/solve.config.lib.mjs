@@ -130,12 +130,12 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('claude-file', {
         type: 'boolean',
-        description: 'Create CLAUDE.md file for task details (default, mutually exclusive with --gitkeep-file)',
+        description: 'Create CLAUDE.md file for task details (default for --tool claude, mutually exclusive with --gitkeep-file)',
         default: true,
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
         default: false,
       })
       .option('auto-gitkeep-file', {
@@ -475,6 +475,20 @@ export const parseArguments = async (yargs, hideBin) => {
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
     argv.model = 'grok-code';
+  }
+
+  // Tool-specific defaults for --claude-file and --gitkeep-file
+  // For non-Claude tools, use .gitkeep by default to avoid polluting CLAUDE.md
+  // (CLAUDE.md has special meaning for Claude Code as a project-level instruction file)
+  // See: https://github.com/link-assistant/hive-mind/issues/1158
+  const claudeFileExplicitlyProvided = rawArgs.includes('--claude-file') || rawArgs.includes('--no-claude-file');
+  const gitkeepFileExplicitlyProvided = rawArgs.includes('--gitkeep-file') || rawArgs.includes('--no-gitkeep-file');
+
+  if (argv.tool !== 'claude' && !claudeFileExplicitlyProvided && !gitkeepFileExplicitlyProvided) {
+    // User did not explicitly provide either option, so use the correct defaults for non-Claude tools
+    // Non-Claude tools (agent, opencode, codex) should use .gitkeep by default
+    argv.claudeFile = false;
+    argv.gitkeepFile = true;
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file

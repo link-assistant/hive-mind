@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { parseRepositoryUrl, READY_LABEL } from '../src/github-merge.lib.mjs';
+import { parseRepositoryUrl, READY_LABEL, fetchAllOpenPRs, addLabelToPR, checkPREligibleForAutoLabel, autoLabelEligiblePRs } from '../src/github-merge.lib.mjs';
 import { MergeStatus, MergeItemStatus, MERGE_QUEUE_CONFIG, MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
 
 // Test utilities
@@ -290,6 +290,28 @@ test('MergeQueueProcessor formatFinalMessage returns string', () => {
   assert.ok(message.length > 0, 'Should not be empty');
   assert.ok(message.includes('test-owner'), 'Should include owner');
   assert.ok(message.includes('test-repo'), 'Should include repo');
+});
+
+// ============================================================================
+// Auto-Labeling Function Export Tests
+// ============================================================================
+
+console.log('\n📋 Auto-Labeling Function Export Tests\n');
+
+test('fetchAllOpenPRs is exported', () => {
+  assert.equal(typeof fetchAllOpenPRs, 'function', 'fetchAllOpenPRs should be a function');
+});
+
+test('addLabelToPR is exported', () => {
+  assert.equal(typeof addLabelToPR, 'function', 'addLabelToPR should be a function');
+});
+
+test('checkPREligibleForAutoLabel is exported', () => {
+  assert.equal(typeof checkPREligibleForAutoLabel, 'function', 'checkPREligibleForAutoLabel should be a function');
+});
+
+test('autoLabelEligiblePRs is exported', () => {
+  assert.equal(typeof autoLabelEligiblePRs, 'function', 'autoLabelEligiblePRs should be a function');
 });
 
 // ============================================================================

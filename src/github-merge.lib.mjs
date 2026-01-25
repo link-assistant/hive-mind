@@ -510,6 +510,188 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
 }
 
 /**
+ * Fetch all open PRs in a repository
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<Object>>} Array of PR objects sorted by creation date
+ */
+export async function fetchAllOpenPRs(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh pr list --repo ${owner}/${repo} --state open --json number,title,url,createdAt,headRefName,author,mergeable,mergeStateStatus,labels,isDraft --limit 100`);
+
+    const prs = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${prs.length} open PRs in ${owner}/${repo}`);
+    }
+
+    // Sort by creation date (oldest first)
+    prs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    return prs;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching all PRs: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Add a label to a pull request
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} labelName - Name of the label to add
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function addLabelToPR(owner, repo, prNumber, labelName, verbose = false) {
+  try {
+    await exec(`gh pr edit ${prNumber} --repo ${owner}/${repo} --add-label "${labelName}"`);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Added '${labelName}' label to PR #${prNumber}`);
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to add label to PR #${prNumber}: ${error.message}`);
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check if a PR is eligible for auto-labeling
+ * A PR is eligible if it:
+ * - Is not a draft
+ * - Does not already have the 'ready' label
+ * - Has passing CI/CD (or no CI/CD checks)
+ * - Is mergeable (no conflicts)
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {Object} pr - Pull request object
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{eligible: boolean, reason: string|null}>}
+ */
+export async function checkPREligibleForAutoLabel(owner, repo, pr, verbose = false) {
+  // Check if draft
+  if (pr.isDraft) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} is a draft, not eligible`);
+    }
+    return { eligible: false, reason: 'PR is a draft' };
+  }
+
+  // Check if already has 'ready' label
+  const hasReadyLabel = pr.labels?.some(label => label.name === READY_LABEL.name);
+  if (hasReadyLabel) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} already has 'ready' label`);
+    }
+    return { eligible: false, reason: 'Already has ready label' };
+  }
+
+  // Check mergeability
+  if (pr.mergeable !== 'MERGEABLE') {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} is not mergeable (${pr.mergeStateStatus})`);
+    }
+    return { eligible: false, reason: `Not mergeable: ${pr.mergeStateStatus}` };
+  }
+
+  // Check CI status
+  const ciStatus = await checkPRCIStatus(owner, repo, pr.number, verbose);
+
+  // Consider eligible if CI passed or if there are no checks
+  if (ciStatus.checks.length === 0) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} has no CI checks, eligible`);
+    }
+    return { eligible: true, reason: null };
+  }
+
+  if (ciStatus.allPassed) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} has passing CI, eligible`);
+    }
+    return { eligible: true, reason: null };
+  }
+
+  if (ciStatus.hasPending) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${pr.number} has pending CI checks`);
+    }
+    return { eligible: false, reason: 'CI checks pending' };
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: PR #${pr.number} has failing CI checks`);
+  }
+  return { eligible: false, reason: 'CI checks failing' };
+}
+
+/**
+ * Auto-label eligible PRs with the 'ready' label
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{labeled: Array<Object>, skipped: Array<{pr: Object, reason: string}>, error: string|null}>}
+ */
+export async function autoLabelEligiblePRs(owner, repo, verbose = false) {
+  try {
+    // First ensure the label exists
+    const labelResult = await ensureReadyLabel(owner, repo, verbose);
+    if (!labelResult.success) {
+      return { labeled: [], skipped: [], error: labelResult.error };
+    }
+
+    // Fetch all open PRs
+    const allPRs = await fetchAllOpenPRs(owner, repo, verbose);
+
+    if (allPRs.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: No open PRs found in ${owner}/${repo}`);
+      }
+      return { labeled: [], skipped: [], error: null };
+    }
+
+    const labeled = [];
+    const skipped = [];
+
+    // Check each PR for eligibility and add label
+    for (const pr of allPRs) {
+      const eligibility = await checkPREligibleForAutoLabel(owner, repo, pr, verbose);
+
+      if (eligibility.eligible) {
+        const addResult = await addLabelToPR(owner, repo, pr.number, READY_LABEL.name, verbose);
+        if (addResult.success) {
+          labeled.push(pr);
+        } else {
+          skipped.push({ pr, reason: `Failed to add label: ${addResult.error}` });
+        }
+      } else {
+        skipped.push({ pr, reason: eligibility.reason });
+      }
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Auto-labeled ${labeled.length} PRs, skipped ${skipped.length}`);
+    }
+
+    return { labeled, skipped, error: null };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error in autoLabelEligiblePRs: ${error.message}`);
+    }
+    return { labeled: [], skipped: [], error: error.message };
+  }
+}
+
+/**
  * Parse and validate a repository URL for the merge command
  * @param {string} url - Repository URL
  * @returns {{valid: boolean, owner: string|null, repo: string|null, error: string|null}}
@@ -552,6 +734,10 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
+  fetchAllOpenPRs,
+  addLabelToPR,
+  checkPREligibleForAutoLabel,
+  autoLabelEligiblePRs,
   checkPRCIStatus,
   checkPRMergeable,
   mergePullRequest,

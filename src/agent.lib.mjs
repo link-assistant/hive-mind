@@ -19,9 +19,9 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
-// We reuse fetchModelInfo to get pricing data from models.dev API
+// We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
-const { fetchModelInfo } = claudeLib;
+const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
 
 /**
  * Parse agent JSON output to extract token usage from step_finish events
@@ -250,6 +250,13 @@ export const executeAgent = async params => {
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
 
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -281,6 +288,7 @@ export const executeAgent = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
 
   // Log prompt details in verbose mode

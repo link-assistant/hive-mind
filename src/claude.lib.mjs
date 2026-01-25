@@ -340,6 +340,14 @@ export const executeClaude = async params => {
 
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -372,6 +380,7 @@ export const executeClaude = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {
@@ -478,6 +487,27 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
+
+/**
+ * Check if a model supports vision (image input) using models.dev API
+ * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @returns {Promise<boolean>} True if the model supports vision, false otherwise
+ */
+export const checkModelVisionCapability = async modelId => {
+  try {
+    const modelInfo = await fetchModelInfo(modelId);
+    if (!modelInfo) {
+      return false;
+    }
+    // Check if 'image' is in the input modalities
+    const inputModalities = modelInfo.modalities?.input || [];
+    return inputModalities.includes('image');
+  } catch {
+    // If we can't determine vision capability, default to false
+    return false;
+  }
+};
+
 /**
  * Calculate USD cost for a model's usage with detailed breakdown
  * @param {Object} usage - Token usage object
@@ -1441,4 +1471,5 @@ export default {
   getClaudeVersion,
   setClaudeVersion,
   resolveThinkingSettings,
+  checkModelVisionCapability,
 };

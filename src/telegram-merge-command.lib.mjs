@@ -18,7 +18,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { parseRepositoryUrl, checkLabelPermissions, ensureReadyLabel, autoLabelEligiblePRs } from './github-merge.lib.mjs';
+import { parseRepositoryUrl, checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 
 /**
@@ -278,52 +278,9 @@ export function registerMergeCommand(bot, options) {
       }
 
       if (initResult.message) {
-        // No PRs with 'ready' label found - try to auto-label eligible PRs
-        VERBOSE && console.log('[VERBOSE] /merge: No PRs with ready label, attempting auto-labeling');
-
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nSearching for eligible PRs to auto\\-label\\.\\.\\.`, { parse_mode: 'MarkdownV2' });
-
-        const autoLabelResult = await autoLabelEligiblePRs(owner, repo, VERBOSE);
-
-        if (autoLabelResult.error) {
-          await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\nFailed to auto\\-label PRs: ${escapeMarkdownV2(autoLabelResult.error)}`, { parse_mode: 'MarkdownV2' });
-          return;
-        }
-
-        if (autoLabelResult.labeled.length === 0) {
-          // No eligible PRs found - show detailed message
-          let skipReasons = '';
-          if (autoLabelResult.skipped.length > 0) {
-            const reasonCounts = {};
-            for (const { reason } of autoLabelResult.skipped) {
-              reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
-            }
-            const reasonLines = Object.entries(reasonCounts)
-              .map(([reason, count]) => `• ${count} PR\\(s\\): ${escapeMarkdownV2(reason)}`)
-              .join('\n');
-            skipReasons = `\n\n*Skipped PRs:*\n${reasonLines}`;
-          }
-
-          await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\nNo eligible PRs found to auto\\-label\\.${skipReasons}\n\n*Tips:*\n• Ensure PRs are not drafts\n• Ensure CI checks are passing\n• Ensure there are no merge conflicts`, { parse_mode: 'MarkdownV2' });
-          return;
-        }
-
-        // PRs were auto-labeled, show which ones
-        const labeledList = autoLabelResult.labeled.map(pr => `• \\#${pr.number}: ${escapeMarkdownV2(pr.title)}`).join('\n');
-
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n✅ Auto\\-labeled ${autoLabelResult.labeled.length} eligible PR\\(s\\):\n${labeledList}\n\nRe\\-initializing merge queue\\.\\.\\.`, { parse_mode: 'MarkdownV2' });
-
-        // Re-initialize the processor to pick up the newly labeled PRs
-        const reinitResult = await processor.initialize();
-
-        if (!reinitResult.success || reinitResult.message) {
-          // This shouldn't happen since we just labeled PRs, but handle it
-          await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*\n\nAuto\\-labeled PRs but failed to initialize queue\\. Please try again\\.`, { parse_mode: 'MarkdownV2' });
-          return;
-        }
-
-        // Update initResult to continue with the merge process
-        Object.assign(initResult, reinitResult);
+        // No PRs to merge
+        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to PRs you want to merge\n2\\. Run \`/merge ${escapeMarkdownV2(repoUrl)}\` again`, { parse_mode: 'MarkdownV2' });
+        return;
       }
 
       // Update message with PR list and cancel button, start processing

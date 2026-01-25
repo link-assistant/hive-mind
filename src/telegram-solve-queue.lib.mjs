@@ -242,6 +242,13 @@ class SolveQueueItem {
 
 /**
  * Solve Queue - Producer/Consumer queue for /solve commands
+ *
+ * Uses separate queues for each tool type to ensure:
+ * - Claude tasks never block agent tasks (and vice versa)
+ * - Each tool queue maintains FIFO order
+ * - Each tool has independent rate limiting
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1159
  */
 export class SolveQueue {
   constructor(options = {}) {
@@ -249,14 +256,23 @@ export class SolveQueue {
     this.executeCallback = options.executeCallback || null;
     this.messageUpdateCallback = options.messageUpdateCallback || null;
 
-    // Queue state
-    this.queue = [];
+    // Separate queues per tool type - claude tasks never block agent tasks
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    this.queues = {
+      claude: [],
+      agent: [],
+    };
     this.processing = new Map();
     this.completed = [];
     this.failed = [];
     this.isRunning = true;
 
-    // Timing
+    // Timing - separate per tool to ensure independent processing
+    this.lastStartTimeByTool = {
+      claude: null,
+      agent: null,
+    };
+    // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
 
     // Consumer task reference
@@ -272,7 +288,43 @@ export class SolveQueue {
       throttleReasons: {},
     };
 
-    this.log('SolveQueue initialized');
+    this.log('SolveQueue initialized with separate tool queues');
+  }
+
+  /**
+   * Get the queue array for a specific tool, creating it if needed
+   * @param {string} tool - Tool type ('claude', 'agent', etc.)
+   * @returns {Array} The queue array for this tool
+   */
+  getToolQueue(tool) {
+    if (!this.queues[tool]) {
+      this.queues[tool] = [];
+    }
+    return this.queues[tool];
+  }
+
+  /**
+   * Get combined queue length across all tools (for backwards compatibility)
+   * @returns {number} Total queue length
+   */
+  get queue() {
+    let total = [];
+    for (const toolQueue of Object.values(this.queues)) {
+      total = total.concat(toolQueue);
+    }
+    return total;
+  }
+
+  /**
+   * Get total pending count across all tool queues
+   * @returns {number} Total pending items
+   */
+  getTotalQueueLength() {
+    let total = 0;
+    for (const toolQueue of Object.values(this.queues)) {
+      total += toolQueue.length;
+    }
+    return total;
   }
 
   /**
@@ -286,16 +338,19 @@ export class SolveQueue {
   }
 
   /**
-   * Add a solve command to the queue
+   * Add a solve command to the appropriate tool queue
+   * Items are added to the queue for their specific tool type.
    * @param {Object} options - Queue item options
    * @returns {SolveQueueItem} The queued item
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   enqueue(options) {
     const item = new SolveQueueItem(options);
-    this.queue.push(item);
+    const toolQueue = this.getToolQueue(item.tool);
+    toolQueue.push(item);
     this.stats.totalEnqueued++;
 
-    this.log(`Enqueued: ${item.toString()}, queue length: ${this.queue.length}`);
+    this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
 
     // Start consumer if not already running
     this.ensureConsumerRunning();
@@ -304,17 +359,19 @@ export class SolveQueue {
   }
 
   /**
-   * Find an item by URL in the queue or processing items
+   * Find an item by URL in any queue or processing items
    * Used to prevent duplicate URLs from being added to the queue
    * @param {string} url - The URL to search for
    * @returns {SolveQueueItem|null} The found item or null
    * @see https://github.com/link-assistant/hive-mind/issues/1080
    */
   findByUrl(url) {
-    // Check queued items
-    const queuedItem = this.queue.find(item => item.url === url);
-    if (queuedItem) {
-      return queuedItem;
+    // Check all tool queues
+    for (const toolQueue of Object.values(this.queues)) {
+      const queuedItem = toolQueue.find(item => item.url === url);
+      if (queuedItem) {
+        return queuedItem;
+      }
     }
 
     // Check processing items
@@ -329,17 +386,22 @@ export class SolveQueue {
 
   /**
    * Cancel a queued item by ID
+   * Searches all tool queues to find the item.
    * @param {string} id - Item ID
    * @returns {boolean} True if cancelled
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   cancel(id) {
-    const queueIndex = this.queue.findIndex(item => item.id === id);
-    if (queueIndex !== -1) {
-      const item = this.queue.splice(queueIndex, 1)[0];
-      item.setCancelled();
-      this.stats.totalCancelled++;
-      this.log(`Cancelled queued item: ${item.toString()}`);
-      return true;
+    // Search all tool queues
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const queueIndex = toolQueue.findIndex(item => item.id === id);
+      if (queueIndex !== -1) {
+        const item = toolQueue.splice(queueIndex, 1)[0];
+        item.setCancelled();
+        this.stats.totalCancelled++;
+        this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
+        return true;
+      }
     }
 
     if (this.processing.has(id)) {
@@ -355,14 +417,24 @@ export class SolveQueue {
    * @returns {Object}
    */
   getStats() {
+    // Calculate per-tool queue stats
+    const queuedByTool = {};
+    let totalQueued = 0;
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      queuedByTool[tool] = toolQueue.length;
+      totalQueued += toolQueue.length;
+    }
+
     return {
-      queued: this.queue.length,
+      queued: totalQueued,
+      queuedByTool,
       processing: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
       ...this.stats,
       cacheStats: getLimitCache().getStats(),
       lastStartTime: this.lastStartTime,
+      lastStartTimeByTool: this.lastStartTimeByTool,
       isRunning: this.isRunning,
     };
   }
@@ -385,52 +457,90 @@ export class SolveQueue {
   }
 
   /**
-   * Find first queue item that can start based on its tool's limits
-   * Instead of always taking the first item, this finds the first item whose
-   * tool-specific limits allow it to start. This enables agent tasks to proceed
-   * even when Claude limits are reached, and vice versa.
+   * Find startable items from each tool queue
+   * Returns the first item from each tool queue that can start.
+   * With separate queues, each tool is checked independently so they don't block each other.
+   * @returns {Promise<Array<{item: SolveQueueItem, tool: string, index: number, check: Object}>>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  async findStartableItems() {
+    const startableItems = [];
+
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      if (toolQueue.length === 0) continue;
+
+      // Check if first item in this tool's queue can start
+      const item = toolQueue[0];
+      const check = await this.canStartCommand({ tool });
+
+      if (check.canStart) {
+        // Also check one-at-a-time mode for this specific tool
+        // For tool-specific one-at-a-time, only count that tool's processing items
+        const toolProcessingCount = this.getProcessingCountByTool(tool);
+        if (check.oneAtATime && toolProcessingCount > 0) {
+          // This tool is in one-at-a-time mode and has items processing
+          // Skip but don't block other tools
+          continue;
+        }
+        startableItems.push({ item, tool, index: 0, check });
+      }
+    }
+
+    return startableItems;
+  }
+
+  /**
+   * Find first queue item that can start based on its tool's limits (legacy compatibility)
+   * With separate queues, returns the first startable item from any tool queue.
    * @returns {Promise<{item: SolveQueueItem|null, index: number, check: Object}>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   async findStartableItem() {
-    for (let i = 0; i < this.queue.length; i++) {
-      const item = this.queue[i];
-      const check = await this.canStartCommand({ tool: item.tool });
-
-      if (check.canStart) {
-        // Also check one-at-a-time mode for this specific tool
-        if (check.oneAtATime && check.totalProcessing > 0) {
-          // This item is in one-at-a-time mode but something is processing
-          // Mark as waiting and continue to next item
-          continue;
-        }
-        return { item, index: i, check };
-      }
+    const startableItems = await this.findStartableItems();
+    if (startableItems.length > 0) {
+      // Return the first startable item (arbitrary order among tools)
+      const first = startableItems[0];
+      return { item: first.item, index: first.index, check: first.check };
     }
     return { item: null, index: -1, check: null };
   }
 
   /**
    * Get queue items summary for display
+   * Combines items from all tool queues into a single pending list.
    * @returns {Object}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   getQueueSummary() {
+    // Collect pending items from all tool queues
+    const pending = [];
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      for (const item of toolQueue) {
+        pending.push({
+          id: item.id,
+          url: item.url,
+          requester: item.requester,
+          waitTime: item.getWaitTime(),
+          createdAt: item.createdAt,
+          status: item.status,
+          waitingReason: item.waitingReason,
+          tool,
+        });
+      }
+    }
+
+    // Sort by createdAt to show oldest first (global order)
+    pending.sort((a, b) => a.createdAt - b.createdAt);
+
     return {
-      pending: this.queue.map(item => ({
-        id: item.id,
-        url: item.url,
-        requester: item.requester,
-        waitTime: item.getWaitTime(),
-        createdAt: item.createdAt,
-        status: item.status,
-        waitingReason: item.waitingReason,
-      })),
+      pending,
       processing: Array.from(this.processing.values()).map(item => ({
         id: item.id,
         url: item.url,
         requester: item.requester,
         startedAt: item.startedAt,
         status: item.status,
+        tool: item.tool,
       })),
     };
   }
@@ -457,9 +567,12 @@ export class SolveQueue {
     const reasons = [];
     let oneAtATime = false;
 
-    // Check minimum interval since last start
-    if (this.lastStartTime) {
-      const timeSinceLastStart = Date.now() - this.lastStartTime;
+    // Check minimum interval since last start FOR THIS TOOL
+    // Each tool queue has independent timing to prevent cross-blocking
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const lastStartTime = this.lastStartTimeByTool[tool] || null;
+    if (lastStartTime) {
+      const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
         const waitSeconds = Math.ceil((QUEUE_CONFIG.MIN_START_INTERVAL_MS - timeSinceLastStart) / 1000);
         reasons.push(formatWaitingReason('min_interval', 0, 0) + ` (${waitSeconds}s remaining)`);
@@ -761,85 +874,99 @@ export class SolveQueue {
   }
 
   /**
-   * Consumer loop - processes items from the queue
+   * Consumer loop - processes items from all tool queues
    *
-   * Instead of always processing the first item, this finds the first item that
-   * CAN start based on its tool-specific limits. This allows agent tasks to
-   * proceed even when Claude limits are reached, and vice versa.
+   * With separate queues per tool:
+   * - Each tool queue is checked independently
+   * - Claude limits only affect Claude queue
+   * - Agent queue can proceed even when Claude is blocked (and vice versa)
+   * - Multiple items can start in the same cycle (one per tool)
    *
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   async runConsumer() {
-    this.log('Consumer started');
+    this.log('Consumer started with separate tool queues');
 
     while (this.isRunning) {
-      if (this.queue.length === 0) {
+      // Check if all queues are empty
+      if (this.getTotalQueueLength() === 0) {
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Find first item that can start based on its tool-specific limits
-      // This allows agent items to proceed when Claude limits are reached
+      // Find startable items from each tool queue
+      // Each tool is checked independently so they don't block each other
       // See: https://github.com/link-assistant/hive-mind/issues/1159
-      const { item: startableItem, index: startableIndex } = await this.findStartableItem();
+      const startableItems = await this.findStartableItems();
 
-      if (!startableItem) {
-        // No item can start - update all queued items with their tool-specific waiting reasons
-        // Each item gets its own reason based on its tool's limits
-        // See: https://github.com/link-assistant/hive-mind/issues/1078, #1159
-        for (const item of this.queue) {
-          if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
-            // Get the specific reason for this item's tool
-            const itemCheck = await this.canStartCommand({ tool: item.tool });
-            const previousStatus = item.status;
-            const previousReason = item.waitingReason;
-            item.setWaiting(itemCheck.reason || 'Waiting in queue');
-
-            // Update message if:
-            // 1. Status or reason changed
-            // 2. OR it's time for a periodic update (every MESSAGE_UPDATE_INTERVAL_MS)
-            const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
-
-            if (shouldUpdate) {
-              const position = this.queue.indexOf(item) + 1;
-              await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${item.waitingReason}`);
-            }
-          }
-        }
-
-        this.log(`Throttled: no items can start`);
+      if (startableItems.length === 0) {
+        // No items can start - update all queued items with their tool-specific waiting reasons
+        await this.updateAllWaitingItems();
+        this.log(`Throttled: no items can start from any tool queue`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Remove the startable item from the queue (may not be at position 0)
-      const item = this.queue.splice(startableIndex, 1)[0];
-      if (!item) continue;
+      // Start items from each tool that can proceed
+      // This allows parallel starts from different tool queues
+      for (const startable of startableItems) {
+        const { tool } = startable;
+        const toolQueue = this.getToolQueue(tool);
 
-      // NOTE: Running claude processes is NOT a blocking limit by itself
-      // Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded
-      // The MIN_START_INTERVAL_MS ensures enough time for processes to be counted
-      // See: https://github.com/link-assistant/hive-mind/issues/1078
+        // Remove the first item from this tool's queue
+        const item = toolQueue.shift();
+        if (!item) continue;
 
-      // Update status to Starting
-      item.setStarting();
-      this.processing.set(item.id, item);
-      this.lastStartTime = Date.now();
-      this.stats.totalStarted++;
+        // Update status to Starting
+        item.setStarting();
+        this.processing.set(item.id, item);
 
-      // Update message to show Starting status
-      await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
+        // Update tool-specific last start time
+        this.lastStartTimeByTool[tool] = Date.now();
+        this.lastStartTime = Date.now(); // Legacy compatibility
+        this.stats.totalStarted++;
 
-      this.log(`Starting: ${item.toString()}`);
+        // Update message to show Starting status
+        await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
 
-      // Execute in background
-      this.executeItem(item).catch(error => {
-        console.error(`[solve-queue] Execution error for ${item.id}:`, error);
-      });
+        this.log(`Starting: ${item.toString()} from ${tool} queue`);
+
+        // Execute in background
+        this.executeItem(item).catch(error => {
+          console.error(`[solve-queue] Execution error for ${item.id}:`, error);
+        });
+      }
     }
 
     this.log('Consumer stopped');
     this.consumerTask = null;
+  }
+
+  /**
+   * Update all waiting items with their tool-specific waiting reasons
+   * @see https://github.com/link-assistant/hive-mind/issues/1078
+   */
+  async updateAllWaitingItems() {
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      for (let i = 0; i < toolQueue.length; i++) {
+        const item = toolQueue[i];
+        if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
+          // Get the specific reason for this item's tool
+          const itemCheck = await this.canStartCommand({ tool: item.tool });
+          const previousStatus = item.status;
+          const previousReason = item.waitingReason;
+          item.setWaiting(itemCheck.reason || 'Waiting in queue');
+
+          // Update message if status/reason changed or it's time for periodic update
+          const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
+
+          if (shouldUpdate) {
+            const position = i + 1; // Position within this tool's queue
+            await this.updateItemMessage(item, `⏳ Waiting (${tool} queue #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${item.waitingReason}`);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -952,26 +1079,47 @@ export class SolveQueue {
 
   /**
    * Format queue status for display
+   * Shows per-tool queue counts.
    * @returns {string}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   formatStatus() {
     const stats = this.getStats();
     if (stats.queued > 0 || stats.processing > 0) {
-      return `Solve Queue: ${stats.queued} pending, ${stats.processing} processing\n`;
+      // Show per-tool breakdown if there are items
+      const toolBreakdown = Object.entries(stats.queuedByTool)
+        .filter(entry => entry[1] > 0)
+        .map(([tool, count]) => `${tool}: ${count}`)
+        .join(', ');
+      const queueInfo = toolBreakdown ? ` (${toolBreakdown})` : '';
+      return `Solve Queue: ${stats.queued} pending${queueInfo}, ${stats.processing} processing\n`;
     }
     return 'Solve Queue: empty\n';
   }
 
   /**
    * Format detailed queue status for Telegram message
+   * Shows per-tool queue breakdown.
    * @returns {string}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   formatDetailedStatus() {
     const stats = this.getStats();
     const summary = this.getQueueSummary();
 
     let message = '📋 *Solve Queue Status*\n\n';
-    message += `Pending: ${stats.queued}\n`;
+    message += `Pending: ${stats.queued}`;
+
+    // Add per-tool breakdown
+    const toolBreakdown = Object.entries(stats.queuedByTool)
+      .filter(entry => entry[1] > 0)
+      .map(([tool, count]) => `${tool}: ${count}`)
+      .join(', ');
+    if (toolBreakdown) {
+      message += ` (${toolBreakdown})`;
+    }
+    message += '\n';
+
     message += `Processing: ${stats.processing}\n`;
     message += `Completed: ${stats.completed}\n`;
     message += `Failed: ${stats.failed}\n\n`;
@@ -979,7 +1127,7 @@ export class SolveQueue {
     if (summary.processing.length > 0) {
       message += '*Currently Processing:*\n';
       for (const item of summary.processing) {
-        message += `• ${item.url}\n`;
+        message += `• ${item.url} [${item.tool}]\n`;
       }
       message += '\n';
     }
@@ -988,7 +1136,7 @@ export class SolveQueue {
       message += '*Waiting in Queue:*\n';
       for (const item of summary.pending.slice(0, 5)) {
         const waitSeconds = Math.floor(item.waitTime / 1000);
-        message += `• ${item.url} (${item.status}, ${waitSeconds}s)\n`;
+        message += `• ${item.url} [${item.tool}] (${item.status}, ${waitSeconds}s)\n`;
         if (item.waitingReason) {
           message += `  └ ${item.waitingReason}\n`;
         }

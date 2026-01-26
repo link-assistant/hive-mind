@@ -2,6 +2,8 @@
 
 The Hive Mind application supports extensive configuration through environment variables and command-line options. This document provides a comprehensive reference for all available configuration options.
 
+> **OpenRouter Integration**: For using Claude Code CLI or @link-assistant/agent with OpenRouter (500+ models from 60+ providers), see the dedicated [OpenRouter Setup Guide](./OPENROUTER.md).
+
 ## Table of Contents
 
 - [Environment Variables](#environment-variables)

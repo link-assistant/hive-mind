@@ -644,6 +644,10 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 - `gh auth login` - GitHub CLI authentication
 - `claude-profiles` - Claude authentication profile migration to server
 
+**OpenRouter Integration:**
+
+Use OpenRouter to access 500+ AI models from 60+ providers with a single API key. See [docs/OPENROUTER.md](./docs/OPENROUTER.md) for setup instructions covering both Claude Code CLI and @link-assistant/agent.
+
 **Environment Variables & Advanced Options:**
 
 For comprehensive configuration including environment variables, timeouts, retry limits, Telegram bot settings, YouTrack integration, and all CLI options, see [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).

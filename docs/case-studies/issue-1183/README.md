@@ -13,13 +13,13 @@ The AI solver was unable to capture the cost calculated by Anthropic when runnin
 
 ## Timeline of Events
 
-| Timestamp (UTC)          | Event                                                                 |
-|--------------------------|-----------------------------------------------------------------------|
-| 2025-12-09T04:53:52Z     | **Working session** - Cost captured correctly ($3.669694 USD)        |
-| 2026-01-26T08:42:19Z     | AI work session started for PR #25                                    |
-| 2026-01-26T08:50:09.472Z | Claude CLI outputs `result` JSON (starts)                             |
-| 2026-01-26T08:50:09.481Z | Result JSON continues on next line (9ms later, output split)          |
-| 2026-01-26T08:50:10.073Z | Cost displays as "Calculated by Anthropic: unknown"                   |
+| Timestamp (UTC)          | Event                                                         |
+| ------------------------ | ------------------------------------------------------------- |
+| 2025-12-09T04:53:52Z     | **Working session** - Cost captured correctly ($3.669694 USD) |
+| 2026-01-26T08:42:19Z     | AI work session started for PR #25                            |
+| 2026-01-26T08:50:09.472Z | Claude CLI outputs `result` JSON (starts)                     |
+| 2026-01-26T08:50:09.481Z | Result JSON continues on next line (9ms later, output split)  |
+| 2026-01-26T08:50:10.073Z | Cost displays as "Calculated by Anthropic: unknown"           |
 
 ## Root Cause Analysis
 
@@ -30,6 +30,7 @@ The Claude CLI outputs data in NDJSON (Newline-Delimited JSON) format via `--out
 #### Evidence from Logs
 
 **Broken session** (lines 7505-7506 of `broken-session-log.txt`):
+
 ```
 [2026-01-26T08:50:09.472Z] [INFO] {"type":"result","subtype":"success",...,"total_cost_usd":3.8264090000000004,"usage":{..."cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tok
 [2026-01-26T08:50:09.481Z] [INFO] ens":97252}},"modelUsage":{"claude-haiku-4-5-20251001":{...}}}
@@ -51,12 +52,12 @@ for await (const chunk of execCommand.stream()) {
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const data = JSON.parse(line);  // FAILS when line is partial JSON
+        const data = JSON.parse(line); // FAILS when line is partial JSON
         // ... process data including total_cost_usd extraction
       } catch (parseError) {
         // Falls through to raw text logging
         if (line.trim() && !line.includes('node:internal')) {
-          await log(line, { stream: 'raw' });  // Partial JSON logged as raw text
+          await log(line, { stream: 'raw' }); // Partial JSON logged as raw text
         }
       }
     }
@@ -65,6 +66,7 @@ for await (const chunk of execCommand.stream()) {
 ```
 
 **Problem Mechanism**:
+
 1. Claude CLI writes long JSON to stdout in one logical line
 2. The stream delivers data in chunks (not aligned to line boundaries)
 3. A long `result` JSON spans multiple chunks
@@ -90,15 +92,16 @@ This is a **known issue** in the Claude Code ecosystem:
 
 The full logs are available via GitHub Gist (not included in this repo to avoid secret exposure):
 
-| Resource                     | URL                                                                                           |
-|------------------------------|-----------------------------------------------------------------------------------------------|
-| Broken session log (Jan 26)  | https://gist.github.com/konard/bda5f97c2257750c7619ca46b0b7fffe                              |
-| Working session log (Dec 9)  | https://gist.github.com/konard/8421ddd9d2193a31590e43e9e6f12fae                              |
-| PR #25 with comments         | https://github.com/link-assistant/agent/pull/25                                              |
+| Resource                    | URL                                                             |
+| --------------------------- | --------------------------------------------------------------- |
+| Broken session log (Jan 26) | https://gist.github.com/konard/bda5f97c2257750c7619ca46b0b7fffe |
+| Working session log (Dec 9) | https://gist.github.com/konard/8421ddd9d2193a31590e43e9e6f12fae |
+| PR #25 with comments        | https://github.com/link-assistant/agent/pull/25                 |
 
 ### Key Evidence Extract
 
 **Broken session - Lines 7505-7506 showing JSON split:**
+
 ```
 [2026-01-26T08:50:09.472Z] [INFO] {"type":"result","subtype":"success",...
   "total_cost_usd":3.8264090000000004,...,"ephemeral_5m_input_tok
@@ -106,6 +109,7 @@ The full logs are available via GitHub Gist (not included in this repo to avoid 
 ```
 
 **Working session - Lines 6901-6920 showing properly formatted JSON:**
+
 ```
 [2025-12-09T04:53:52.316Z] [INFO] {
   "type": "result",
@@ -169,7 +173,7 @@ import { Readable } from 'stream';
 
 const parser = ndjson.parse({ strict: false });
 
-parser.on('data', (data) => {
+parser.on('data', data => {
   if (data.type === 'result' && data.total_cost_usd !== undefined) {
     anthropicTotalCostUSD = data.total_cost_usd;
   }

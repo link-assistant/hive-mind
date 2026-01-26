@@ -944,15 +944,26 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
+      // Issue #1183: Line buffer for NDJSON stream parsing
+      // When Claude CLI outputs long JSON (e.g., result with total_cost_usd), it may be split across
+      // multiple stdout chunks. Without buffering, each partial chunk fails JSON.parse() and the
+      // critical fields like total_cost_usd are never extracted.
+      // Solution: Accumulate incomplete lines until we get a complete JSON line (ending with newline).
+      let stdoutLineBuffer = '';
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
+          // Append to buffer and split by newlines
+          // The last element may be incomplete (no trailing newline), so we keep it in the buffer
+          stdoutLineBuffer += output;
+          const lines = stdoutLineBuffer.split('\n');
+          // Keep the last element (may be incomplete) in the buffer for the next chunk
+          stdoutLineBuffer = lines.pop() || '';
           // Split output into individual lines for NDJSON parsing
           // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
           // This allows us to parse each event independently and extract structured data like session IDs,
           // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
           // since multiple JSON objects aren't valid JSON together.
-          const lines = output.split('\n');
           for (const line of lines) {
             if (!line.trim()) continue;
             try {

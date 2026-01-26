@@ -168,7 +168,7 @@ Initial research.
    - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
 Solution development and testing.
-   - When issue is solvable, implement code with tests.
+   - When issue is solvable, FIRST create a test that reproduces the problem, THEN implement the fix.
    - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
@@ -179,6 +179,14 @@ Solution development and testing.
    - When issue is unclear, write comment on issue asking questions.
    - When you encounter any problems that you unable to solve yourself, write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+
+Reproducible testing (CRITICAL).
+   - When fixing a bug, ALWAYS create a test that reproduces the problem BEFORE implementing the fix. This is fundamental: if you cannot reproduce the problem, you cannot verify the fix.
+   - When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass.
+   - When encountering UI bugs, capture a screenshot showing the problem state, then create a visual regression test or manual verification screenshot after the fix.
+   - When creating tests, prefer minimum reproducible examples - the simplest test case that demonstrates the issue.
+   - When submitting a fix, include in the PR description: (1) how to reproduce the issue, (2) the automated test that verifies the fix, (3) before/after screenshots for UI issues.
+   - When a bug fix doesn't have a reproducing test, the fix is incomplete - regressions can silently occur later.
 
 Preparing pull request.
    - When you code, follow contributing guidelines.

@@ -208,7 +208,7 @@ Initial research.
    }
 
 Solution development and testing.
-   - When issue is solvable, implement code with tests.
+   - When issue is solvable, FIRST create a test that reproduces the problem, THEN implement the fix.
    - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
    - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
@@ -219,6 +219,14 @@ Solution development and testing.
    - When issue is unclear, write comment on issue asking questions.
    - When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+
+Reproducible testing (CRITICAL).
+   - When fixing a bug, ALWAYS create a test that reproduces the problem BEFORE implementing the fix. This is fundamental: if you cannot reproduce the problem, you cannot verify the fix.
+   - When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass.
+   - When encountering UI bugs, capture a screenshot showing the problem state, then create a visual regression test or manual verification screenshot after the fix.
+   - When creating tests, prefer minimum reproducible examples - the simplest test case that demonstrates the issue.
+   - When submitting a fix, include in the PR description: (1) how to reproduce the issue, (2) the automated test that verifies the fix, (3) before/after screenshots for UI issues.
+   - When a bug fix doesn't have a reproducing test, the fix is incomplete - regressions can silently occur later.
 
 Preparing pull request.
    - When you code, follow contributing guidelines.
@@ -277,7 +285,11 @@ Playwright MCP usage (browser automation via mcp__playwright__* tools).
    - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
    - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
    - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
-   - When you finish using the browser, always close it with browser_close to free resources.`
+   - When you finish using the browser, always close it with browser_close to free resources.
+   - When reproducing UI bugs, use browser_take_screenshot to capture the problem state BEFORE implementing any fix.
+   - When fixing UI bugs, take before/after screenshots to provide visual evidence of the fix for human verification.
+   - When creating UI tests, save baseline screenshots to the repository for visual regression testing.
+   - When verifying UI fixes, compare screenshots to ensure the fix doesn't introduce unintended visual changes.`
        : ''
    }${
      argv && argv.promptPlanSubAgent
@@ -322,7 +334,11 @@ Visual UI work and screenshots.
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
    - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
    - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
-   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
+   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.
+   - When fixing UI bugs, capture BOTH the "before" (problem) and "after" (fixed) screenshots as evidence for human verification.
+   - When reporting UI bugs, a screenshot of the problem state is essential - if you cannot show the problem visually, you cannot verify the fix visually.
+   - When the fix is visual, the PR description should include side-by-side or sequential comparison of before/after states.
+   - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };

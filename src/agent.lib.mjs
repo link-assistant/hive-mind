@@ -150,14 +150,15 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
-// Agent uses OpenCode's JSON interface and models
+// Agent uses OpenCode Zen's JSON interface and models
+// Issue #1185: Free models use opencode/ prefix (not openai/)
 export const mapModelToId = model => {
   const modelMap = {
     grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
-    'gpt-5-nano': 'openai/gpt-5-nano',
+    'gpt-5-nano': 'opencode/gpt-5-nano',
     sonnet: 'anthropic/claude-3-5-sonnet',
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',

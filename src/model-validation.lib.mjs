@@ -66,21 +66,22 @@ export const CODEX_MODELS = {
 };
 
 export const AGENT_MODELS = {
-  // Free models (via OpenCode)
+  // Free models (via OpenCode Zen)
+  // Issue #1185: Model IDs must use opencode/ prefix for OpenCode Zen models
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
-  'gpt-5-nano': 'openai/gpt-5-nano',
+  'gpt-5-nano': 'opencode/gpt-5-nano',
   // Premium models (requires OpenCode Zen subscription)
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',
   'gemini-3-pro': 'google/gemini-3-pro',
-  // Full model IDs
+  // Full model IDs with provider prefix
   'opencode/grok-code': 'opencode/grok-code',
   'opencode/big-pickle': 'opencode/big-pickle',
-  'openai/gpt-5-nano': 'openai/gpt-5-nano',
+  'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
   'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
@@ -118,11 +119,12 @@ export const getAvailableModelNames = tool => {
     // Keep short aliases only - exclude:
     // - Full model IDs with slashes (e.g., 'openai/gpt-4')
     // - Long claude-prefixed model IDs (e.g., 'claude-sonnet-4-5-20250929')
-    // - Full gpt- prefixed IDs with version numbers (e.g., 'gpt-4', 'gpt-4o')
-    // But keep short names like 'o3', 'o3-mini', 'gpt5', etc.
+    // - Full gpt- prefixed IDs that are ONLY version numbers (e.g., 'gpt-4', 'gpt-4o', 'gpt-5')
+    // But keep descriptive aliases like 'gpt-5-nano', 'gpt-5-codex', 'o3', 'o3-mini', 'gpt5', etc.
+    // Issue #1185: Updated regex to not filter out gpt-5-nano (a valid short alias)
     if (key.includes('/')) return false;
     if (key.match(/^claude-.*-\d{8}$/)) return false; // Full claude model IDs with date
-    if (key.match(/^gpt-\d+/)) return false; // Full gpt-N model IDs
+    if (key.match(/^gpt-\d+[a-z]?$/)) return false; // Full gpt-N or gpt-No model IDs only (e.g., gpt-4, gpt-4o, gpt-5)
     return true;
   });
   return [...new Set(aliases)];

@@ -582,6 +582,19 @@ export const watchUntilMergable = async params => {
       }
 
       if (shouldRestart) {
+        // Add standard instructions for auto-restart-until-mergable mode
+        // These instructions ensure the AI agent addresses all aspects needed for mergeability
+        feedbackLines.push('');
+        feedbackLines.push('='.repeat(60));
+        feedbackLines.push('🎯 AUTO-RESTART-UNTIL-MERGABLE MODE INSTRUCTIONS:');
+        feedbackLines.push('='.repeat(60));
+        feedbackLines.push('');
+        feedbackLines.push('Ensure to get latest version of default branch to make all conflicts resolved if present.');
+        feedbackLines.push('Ensure you comply with all CI/CD check requirements, and they pass.');
+        feedbackLines.push('Ensure all changes are correct, consistent and fully meet all discussed requirements');
+        feedbackLines.push('(check issue description and all comments in issue and in pull request).');
+        feedbackLines.push('');
+
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
         await log('');
 

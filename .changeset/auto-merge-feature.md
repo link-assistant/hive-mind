@@ -1,5 +1,5 @@
 ---
-'hive-mind': minor
+'@link-assistant/hive-mind': minor
 ---
 
 Add --auto-merge and --auto-restart-until-mergable options for autonomous PR management

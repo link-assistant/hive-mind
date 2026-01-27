@@ -239,6 +239,16 @@ export const createYargsConfig = yargsInstance => {
       alias: 'w',
       default: false,
     })
+    .option('auto-merge', {
+      type: 'boolean',
+      description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+      default: false,
+    })
+    .option('auto-restart-until-mergable', {
+      type: 'boolean',
+      description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
+      default: false,
+    })
     .option('issue-order', {
       type: 'string',
       description: 'Order issues by publication date: "asc" (oldest first) or "desc" (newest first)',

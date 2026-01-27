@@ -188,6 +188,16 @@ export const createYargsConfig = yargsInstance => {
         description: 'Maximum number of auto-restart iterations when uncommitted changes are detected (default: 3)',
         default: 3,
       })
+      .option('auto-merge', {
+        type: 'boolean',
+        description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+        default: false,
+      })
+      .option('auto-restart-until-mergable', {
+        type: 'boolean',
+        description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
+        default: false,
+      })
       .option('continue-only-on-feedback', {
         type: 'boolean',
         description: 'Only continue if feedback is detected (works only with pull request link or issue link with --auto-continue)',

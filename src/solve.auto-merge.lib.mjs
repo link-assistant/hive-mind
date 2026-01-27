@@ -25,9 +25,9 @@ const fs = (await use('fs')).promises;
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
-// Import feedback detection functions
-const feedbackLib = await import('./solve.feedback.lib.mjs');
-const { detectAndCountFeedback } = feedbackLib;
+// Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
+// because we have our own non-bot comment detection logic that's more
+// appropriate for auto-restart-until-mergable mode
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');

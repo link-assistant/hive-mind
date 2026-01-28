@@ -43,7 +43,7 @@ export const QUEUE_CONFIG = {
   // All thresholds use >= comparison (inclusive)
   CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.75, // One-at-a-time if 5-hour limit >= 75%
   CLAUDE_WEEKLY_THRESHOLD: 0.97, // One-at-a-time if weekly limit >= 97%
-  GITHUB_API_THRESHOLD: 0.75, // Enqueue if GitHub >= 80% with parallel claude
+  GITHUB_API_THRESHOLD: 0.75, // Enqueue if GitHub >= 75% with parallel claude
 
   // Timing
   // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process

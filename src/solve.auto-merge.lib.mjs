@@ -4,6 +4,8 @@
  * Auto-merge and auto-restart-until-mergable module for solve.mjs
  * Handles automatic merging of PRs and continuous restart until PR becomes mergeable
  *
+ * Uses shared utilities from solve.restart-shared.lib.mjs for common functions.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/1190
  */
 
@@ -16,10 +18,6 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
-
-// Import path and fs for cleanup operations
-const path = (await use('path')).default;
-const fs = (await use('fs')).promises;
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
@@ -41,51 +39,9 @@ const { checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI } = githu
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
-/**
- * Check if PR has been merged
- */
-const checkPRMerged = async (owner, repo, prNumber) => {
-  try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
-    if (prResult.code === 0) {
-      return prResult.stdout.toString().trim() === 'true';
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'check_pr_merged',
-      owner,
-      repo,
-      prNumber,
-      operation: 'check_merge_status',
-    });
-    // If we can't check, assume not merged
-    return false;
-  }
-  return false;
-};
-
-/**
- * Check if PR is closed (but not merged)
- */
-const checkPRClosed = async (owner, repo, prNumber) => {
-  try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.state'`;
-    if (prResult.code === 0) {
-      return prResult.stdout.toString().trim() === 'closed';
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'check_pr_closed',
-      owner,
-      repo,
-      prNumber,
-      operation: 'check_close_status',
-    });
-    // If we can't check, assume not closed
-    return false;
-  }
-  return false;
-};
+// Import shared utilities from the restart-shared module
+const restartShared = await import('./solve.restart-shared.lib.mjs');
+const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError } = restartShared;
 
 /**
  * Check for new comments from non-bot users since last commit
@@ -181,192 +137,6 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
     });
     return { hasNewComments: false, comments: [] };
   }
-};
-
-/**
- * Clean up .playwright-mcp/ folder to prevent browser automation artifacts
- * from triggering auto-restart
- */
-const cleanupPlaywrightMcpFolder = async (tempDir, argv) => {
-  if (argv.playwrightMcpAutoCleanup !== false) {
-    const playwrightMcpDir = path.join(tempDir, '.playwright-mcp');
-    try {
-      const playwrightMcpExists = await fs
-        .stat(playwrightMcpDir)
-        .then(() => true)
-        .catch(() => false);
-      if (playwrightMcpExists) {
-        await fs.rm(playwrightMcpDir, { recursive: true, force: true });
-        await log('🧹 Cleaned up .playwright-mcp/ folder (browser automation artifacts)', { verbose: true });
-      }
-    } catch (cleanupError) {
-      // Non-critical error, just log and continue
-      await log(`⚠️  Could not clean up .playwright-mcp/ folder: ${cleanupError.message}`, { verbose: true });
-    }
-  }
-};
-
-/**
- * Check if there are uncommitted changes in the repository
- */
-const checkForUncommittedChanges = async (tempDir, argv = {}) => {
-  // First, clean up .playwright-mcp/ folder to prevent false positives
-  await cleanupPlaywrightMcpFolder(tempDir, argv);
-
-  try {
-    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-    if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
-      return statusOutput.length > 0;
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'check_uncommitted_changes',
-      tempDir,
-      operation: 'git_status',
-    });
-    // If we can't check, assume no uncommitted changes
-  }
-  return false;
-};
-
-/**
- * Execute the AI tool (Claude, OpenCode, etc.) for a restart iteration
- */
-const executeToolIteration = async params => {
-  const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, mergeStateStatus, feedbackLines, argv } = params;
-
-  // Import necessary modules for tool execution
-  const memoryCheck = await import('./memory-check.mjs');
-  const { getResourceSnapshot } = memoryCheck;
-
-  let toolResult;
-  if (argv.tool === 'opencode') {
-    // Use OpenCode
-    const opencodeExecLib = await import('./opencode.lib.mjs');
-    const { executeOpenCode } = opencodeExecLib;
-    const opencodePath = argv.opencodePath || 'opencode';
-
-    toolResult = await executeOpenCode({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-      branchName,
-      tempDir,
-      isContinueMode: true,
-      mergeStateStatus,
-      forkedRepo: argv.fork,
-      feedbackLines,
-      owner,
-      repo,
-      argv,
-      log,
-      formatAligned,
-      getResourceSnapshot,
-      opencodePath,
-      $,
-    });
-  } else if (argv.tool === 'codex') {
-    // Use Codex
-    const codexExecLib = await import('./codex.lib.mjs');
-    const { executeCodex } = codexExecLib;
-    const codexPath = argv.codexPath || 'codex';
-
-    toolResult = await executeCodex({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-      branchName,
-      tempDir,
-      isContinueMode: true,
-      mergeStateStatus,
-      forkedRepo: argv.fork,
-      feedbackLines,
-      forkActionsUrl: null,
-      owner,
-      repo,
-      argv,
-      log,
-      setLogFile: () => {},
-      getLogFile: () => '',
-      formatAligned,
-      getResourceSnapshot,
-      codexPath,
-      $,
-    });
-  } else if (argv.tool === 'agent') {
-    // Use Agent
-    const agentExecLib = await import('./agent.lib.mjs');
-    const { executeAgent } = agentExecLib;
-    const agentPath = argv.agentPath || 'agent';
-
-    toolResult = await executeAgent({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-      branchName,
-      tempDir,
-      isContinueMode: true,
-      mergeStateStatus,
-      forkedRepo: argv.fork,
-      feedbackLines,
-      forkActionsUrl: null,
-      owner,
-      repo,
-      argv,
-      log,
-      formatAligned,
-      getResourceSnapshot,
-      agentPath,
-      $,
-    });
-  } else {
-    // Use Claude (default)
-    const claudeExecLib = await import('./claude.lib.mjs');
-    const { executeClaude, checkPlaywrightMcpAvailability } = claudeExecLib;
-    const claudePath = argv.claudePath || 'claude';
-
-    // Check for Playwright MCP availability if using Claude tool
-    if (argv.tool === 'claude' || !argv.tool) {
-      if (argv.promptPlaywrightMcp) {
-        const playwrightMcpAvailable = await checkPlaywrightMcpAvailability();
-        if (playwrightMcpAvailable) {
-          await log('🎭 Playwright MCP detected - enabling browser automation hints', { verbose: true });
-        } else {
-          await log('ℹ️  Playwright MCP not detected - browser automation hints will be disabled', { verbose: true });
-          argv.promptPlaywrightMcp = false;
-        }
-      } else {
-        await log('ℹ️  Playwright MCP explicitly disabled via --no-prompt-playwright-mcp', { verbose: true });
-      }
-    }
-
-    toolResult = await executeClaude({
-      issueUrl,
-      issueNumber,
-      prNumber,
-      prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-      branchName,
-      tempDir,
-      isContinueMode: true,
-      mergeStateStatus,
-      forkedRepo: argv.fork,
-      feedbackLines,
-      owner,
-      repo,
-      argv,
-      log,
-      formatAligned,
-      getResourceSnapshot,
-      claudePath,
-      $,
-    });
-  }
-
-  return toolResult;
 };
 
 /**
@@ -470,7 +240,7 @@ export const watchUntilMergable = async params => {
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
 
-      // Check for uncommitted changes
+      // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);
 
       // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
@@ -562,38 +332,21 @@ export const watchUntilMergable = async params => {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; Uncommitted changes` : 'Uncommitted changes detected';
 
-        // Get uncommitted changes for display
-        try {
-          const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-          if (gitStatusResult.code === 0) {
-            const statusOutput = gitStatusResult.stdout.toString().trim();
-            feedbackLines.push('📝 Uncommitted changes detected:');
-            for (const line of statusOutput.split('\n')) {
-              feedbackLines.push(`  ${line}`);
-            }
-            feedbackLines.push('');
-            feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-            feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-            feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
-          }
-        } catch {
-          feedbackLines.push('📝 Uncommitted changes detected (could not get details)');
+        // Get uncommitted changes for display using shared utility
+        const changes = await getUncommittedChangesDetails(tempDir);
+        feedbackLines.push('📝 Uncommitted changes detected:');
+        for (const line of changes) {
+          feedbackLines.push(`  ${line}`);
         }
+        feedbackLines.push('');
+        feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
+        feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
+        feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
       }
 
       if (shouldRestart) {
-        // Add standard instructions for auto-restart-until-mergable mode
-        // These instructions ensure the AI agent addresses all aspects needed for mergeability
-        feedbackLines.push('');
-        feedbackLines.push('='.repeat(60));
-        feedbackLines.push('🎯 AUTO-RESTART-UNTIL-MERGABLE MODE INSTRUCTIONS:');
-        feedbackLines.push('='.repeat(60));
-        feedbackLines.push('');
-        feedbackLines.push('Ensure to get latest version of default branch to make all conflicts resolved if present.');
-        feedbackLines.push('Ensure you comply with all CI/CD check requirements, and they pass.');
-        feedbackLines.push('Ensure all changes are correct, consistent and fully meet all discussed requirements');
-        feedbackLines.push('(check issue description and all comments in issue and in pull request).');
-        feedbackLines.push('');
+        // Add standard instructions for auto-restart-until-mergable mode using shared utility
+        feedbackLines.push(...buildAutoRestartInstructions());
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
         await log('');
@@ -618,7 +371,7 @@ export const watchUntilMergable = async params => {
         const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
         const mergeStateStatus = prStateResult.code === 0 ? prStateResult.stdout.toString().trim() : null;
 
-        // Execute the AI tool
+        // Execute the AI tool using shared utility
         await log(formatAligned('🔄', 'Restarting:', `Running ${argv.tool.toUpperCase()} to address issues...`));
 
         const toolResult = await executeToolIteration({
@@ -635,10 +388,8 @@ export const watchUntilMergable = async params => {
         });
 
         if (!toolResult.success) {
-          // Check if this is an API error
-          const isApiError = toolResult.result && (toolResult.result.includes('API Error:') || toolResult.result.includes('not_found_error') || toolResult.result.includes('authentication_error') || toolResult.result.includes('invalid_request_error'));
-
-          if (isApiError) {
+          // Check if this is an API error using shared utility
+          if (isApiError(toolResult)) {
             consecutiveApiErrors++;
             await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
 

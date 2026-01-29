@@ -943,7 +943,7 @@ console.log('\n📋 Threshold Naming Tests (Issue #1133)\n');
 test('CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named', () => {
   // Verify the renamed threshold exists and has correct value
   assert.ok(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== undefined, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should exist');
-  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.85, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.85 (85%)');
+  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, 0.75, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should be 0.75 (75%)');
 
   // Verify old name doesn't exist (should be renamed)
   assert.equal(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD, undefined, 'Old CLAUDE_SESSION_THRESHOLD should not exist');

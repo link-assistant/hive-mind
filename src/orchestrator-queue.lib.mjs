@@ -531,7 +531,7 @@ export class OrchestratorQueue {
   getQueueSummary() {
     // Collect pending items from all tool queues
     const pending = [];
-    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+    for (const toolQueue of Object.values(this.queues)) {
       for (const item of toolQueue) {
         pending.push(item.toJSON());
       }
@@ -936,7 +936,7 @@ export class OrchestratorQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1078
    */
   async updateAllWaitingItems() {
-    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+    for (const toolQueue of Object.values(this.queues)) {
       for (let i = 0; i < toolQueue.length; i++) {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {

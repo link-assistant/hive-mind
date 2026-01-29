@@ -273,7 +273,7 @@ export const watchForFeedback = async params => {
                 // If we can't get the file list, continue without it
               }
 
-              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
+              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
             } catch (commentError) {

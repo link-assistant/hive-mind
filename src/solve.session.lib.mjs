@@ -3,7 +3,67 @@
  * Handles starting and ending work sessions, PR status changes, and session comments
  */
 
-export async function startWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $ }) {
+/**
+ * Session type definitions for different work session contexts
+ * See: https://github.com/link-assistant/hive-mind/issues/1152
+ */
+export const SESSION_TYPES = {
+  NEW: 'new', // New work session (first time working on PR)
+  RESUME: 'resume', // Manual resume (--resume flag)
+  AUTO_RESUME: 'auto-resume', // Auto resume on limit reset (maintains context)
+  AUTO_RESTART: 'auto-restart', // Auto restart on limit reset (fresh start)
+};
+
+/**
+ * Get session comment header and description based on session type
+ * @param {string} sessionType - One of SESSION_TYPES values
+ * @param {Date} timestamp - Session start timestamp
+ * @returns {Object} - { emoji, header, description }
+ */
+function getSessionCommentContent(sessionType, timestamp) {
+  const isoTime = timestamp.toISOString();
+
+  switch (sessionType) {
+    case SESSION_TYPES.RESUME:
+      return {
+        emoji: '🔄',
+        header: 'AI Work Session Resumed',
+        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+      };
+    case SESSION_TYPES.AUTO_RESUME:
+      return {
+        emoji: '⏰',
+        header: 'Auto Resume (on limit reset)',
+        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._`,
+      };
+    case SESSION_TYPES.AUTO_RESTART:
+      return {
+        emoji: '🔄',
+        header: 'Auto Restart (on limit reset)',
+        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._`,
+      };
+    case SESSION_TYPES.NEW:
+    default:
+      return {
+        emoji: '🤖',
+        header: 'AI Work Session Started',
+        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+      };
+  }
+}
+
+/**
+ * Start a work session and post appropriate comment
+ * @param {Object} options - Session options
+ * @param {boolean} options.isContinueMode - Whether this is a continue mode session
+ * @param {number} options.prNumber - PR number
+ * @param {Object} options.argv - Command line arguments
+ * @param {Function} options.log - Logging function
+ * @param {Function} options.formatAligned - Alignment formatting function
+ * @param {Function} options.$ - Command execution function
+ * @param {string} [options.sessionType='new'] - One of SESSION_TYPES values
+ */
+export async function startWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, sessionType = SESSION_TYPES.NEW }) {
   // Record work start time and convert PR to draft if in continue/watch mode
   const workStartTime = new Date();
   if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
@@ -37,12 +97,13 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
       await log('Warning: Could not check/convert PR draft status', { level: 'warning' });
     }
 
-    // Post a comment marking the start of work session
+    // Post a comment marking the start of work session with appropriate header based on session type
     try {
-      const startComment = `🤖 **AI Work Session Started**\n\nStarting automated work session at ${workStartTime.toISOString()}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait working session to finish, and provide your feedback._`;
+      const { emoji, header, description } = getSessionCommentContent(sessionType, workStartTime);
+      const startComment = `${emoji} **${header}**\n\n${description}`;
       const commentResult = await $`gh pr comment ${prNumber} --repo ${global.owner}/${global.repo} --body ${startComment}`;
       if (commentResult.code === 0) {
-        await log(formatAligned('💬', 'Posted:', 'Work session start comment', 2));
+        await log(formatAligned('💬', 'Posted:', `${header} comment`, 2));
       }
     } catch (error) {
       const sentryLib = await import('./sentry.lib.mjs');

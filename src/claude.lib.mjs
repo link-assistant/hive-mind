@@ -944,68 +944,46 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
-      // Issue #1183: Line buffer for NDJSON stream parsing
-      // When Claude CLI outputs long JSON (e.g., result with total_cost_usd), it may be split across
-      // multiple stdout chunks. Without buffering, each partial chunk fails JSON.parse() and the
-      // critical fields like total_cost_usd are never extracted.
-      // Solution: Accumulate incomplete lines until we get a complete JSON line (ending with newline).
+      // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
+      // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
       let stdoutLineBuffer = '';
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          // Append to buffer and split by newlines
-          // The last element may be incomplete (no trailing newline), so we keep it in the buffer
+          // Append to buffer and split; keep last element (may be incomplete) for next chunk
           stdoutLineBuffer += output;
           const lines = stdoutLineBuffer.split('\n');
-          // Keep the last element (may be incomplete) in the buffer for the next chunk
           stdoutLineBuffer = lines.pop() || '';
-          // Split output into individual lines for NDJSON parsing
-          // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
-          // This allows us to parse each event independently and extract structured data like session IDs,
-          // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
-          // since multiple JSON objects aren't valid JSON together.
+          // Parse each complete NDJSON line
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
-              // Process event in interactive mode (posts PR comments in real-time)
+              // Process event in interactive mode
               if (interactiveHandler) {
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
-                  // Don't let interactive mode errors stop the main execution
                   await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
                 }
               }
-              // Output formatted JSON as in v0.3.2
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID from the first message
+              // Capture session ID and rename log file
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
-                // Try to rename log file to include session ID
                 let sessionLogFile;
                 try {
                   const currentLogFile = getLogFile();
-                  const logDir = path.dirname(currentLogFile);
-                  sessionLogFile = path.join(logDir, `${sessionId}.log`);
-                  // Use fs.promises to rename the file
+                  sessionLogFile = path.join(path.dirname(currentLogFile), `${sessionId}.log`);
                   await fs.rename(currentLogFile, sessionLogFile);
-                  // Update the global log file reference
                   setLogFile(sessionLogFile);
                   await log(`📁 Log renamed to: ${sessionLogFile}`);
                 } catch (renameError) {
-                  reportError(renameError, {
-                    context: 'rename_session_log',
-                    sessionId,
-                    sessionLogFile,
-                    operation: 'rename_log_file',
-                  });
-                  // If rename fails, keep original filename
+                  reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              // Track message and tool use counts
               if (data.type === 'message') {
                 messageCount++;
               } else if (data.type === 'tool_use') {
@@ -1118,6 +1096,19 @@ export const executeClaudeCommand = async params => {
             commandFailed = true;
           }
           // Don't break here - let the loop finish naturally to process all output
+        }
+      }
+
+      // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      if (stdoutLineBuffer.trim()) {
+        try {
+          const data = JSON.parse(stdoutLineBuffer);
+          await log(JSON.stringify(data, null, 2));
+          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
+            anthropicTotalCostUSD = data.total_cost_usd;
+          }
+        } catch {
+          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
       }
 

@@ -73,6 +73,8 @@ const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleM
 
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
+const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
+const { startAutoRestartUntilMergable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
@@ -1305,6 +1307,42 @@ try {
       }
     } else if (logsAlreadyUploaded) {
       await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+      logsAttached = true;
+    }
+  }
+
+  // Start auto-restart-until-mergable mode if enabled
+  // This runs after the normal watch mode completes (if any)
+  // --auto-merge implies --auto-restart-until-mergable
+  if (argv.autoMerge || argv.autoRestartUntilMergable) {
+    const autoMergeResult = await startAutoRestartUntilMergable({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      prBranch,
+      branchName,
+      tempDir,
+      argv,
+    });
+
+    // Update session data with latest from auto-merge mode for accurate pricing
+    if (autoMergeResult && autoMergeResult.latestSessionId) {
+      sessionId = autoMergeResult.latestSessionId;
+      anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
+      if (argv.verbose) {
+        await log('');
+        await log('📊 Updated session data from auto-restart-until-mergable mode:', { verbose: true });
+        await log(`   Session ID: ${sessionId}`, { verbose: true });
+        if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+          await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+        }
+      }
+    }
+
+    // If auto-merge succeeded, update logs attached status
+    if (autoMergeResult && autoMergeResult.success) {
       logsAttached = true;
     }
   }

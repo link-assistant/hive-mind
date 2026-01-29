@@ -1,5 +1,151 @@
 # @link-assistant/hive-mind
 
+## 1.11.6
+
+### Patch Changes
+
+- 5eef9e4: Skip Claude API limits for --tool agent tasks in queue
+  - Agent tools (Grok Code, OpenCode Zen) use different backends with their own rate limits
+  - Add tool parameter to canStartCommand() and checkApiLimits() functions
+  - Skip Claude-specific limits (5-hour session, weekly) when tool is 'agent'
+  - Consumer loop now passes next queue item's tool to limit checks
+  - Add 7 new tests for tool-specific limit handling
+  - Add case study documentation
+
+  Fixes #1159
+
+## 1.11.5
+
+### Patch Changes
+
+- 7d3387c: Fix duplicate Solution Draft Log comments on GitHub PRs
+
+  When a Claude session ends with uncommitted changes and --attach-logs is enabled, the solution draft log was being uploaded twice - once by verifyResults() during normal completion, and again after temporary watch mode completes. This fix tracks whether logs were already uploaded and skips the duplicate upload.
+
+## 1.11.4
+
+### Patch Changes
+
+- b8318dd: fix: support opencode/gpt-5-nano and gpt-5-nano for --tool agent (Issue #1185)
+
+  Fixed AGENT_MODELS mapping to correctly support free OpenCode Zen models:
+  - `gpt-5-nano` short alias now correctly maps to `opencode/gpt-5-nano` (previously incorrectly mapped to `openai/gpt-5-nano`)
+  - `opencode/gpt-5-nano` full model ID is now recognized as valid
+  - Updated `mapModelToId` function in agent.lib.mjs to use correct provider prefix
+  - Fixed regex filter in `getAvailableModelNames` to include `gpt-5-nano` in available models display
+  - Added comprehensive test suite with 18 tests for agent model validation
+  - Added case study documentation with root cause analysis
+
+## 1.11.3
+
+### Patch Changes
+
+- 9f24356: Fix 'ready' label not being created by /merge command
+
+  Two bugs prevented the /merge command from creating the 'ready' label:
+  1. `checkReadyLabelExists()` incorrectly treated GitHub API's 404 JSON error response as the label existing. The function now properly checks for "Not Found" message in the response.
+  2. `createReadyLabel()` used bash-specific heredoc syntax (`<<<`) which fails in `/bin/sh`. Now uses `gh api -f` flags for shell compatibility.
+
+  Fixes #1177
+
+## 1.11.2
+
+### Patch Changes
+
+- 8ee116a: fix: detect "command not found" errors to prevent false success
+
+  When the `claude` CLI command is not found (not installed or not in PATH), the tool was incorrectly reporting "Claude command completed" instead of detecting the failure. This fix adds "not found" to the stderr error detection pattern to properly detect when commands fail to start.
+
+## 1.11.1
+
+### Patch Changes
+
+- de2cc28: Use .gitkeep by default for --tool agent/opencode/codex instead of CLAUDE.md
+
+  When using non-Claude tools (agent, opencode, codex), the system now defaults to creating a `.gitkeep` file for task details instead of `CLAUDE.md`. This prevents pollution of CLAUDE.md, which has special meaning for Claude Code as a project-level instruction file.
+
+  **Tool-Specific Defaults:**
+  - `--tool claude`: defaults to `--claude-file` (existing behavior)
+  - `--tool agent/opencode/codex`: defaults to `--gitkeep-file`
+
+  Users can still explicitly override defaults with `--claude-file` or `--gitkeep-file` flags regardless of the selected tool.
+
+## 1.11.0
+
+### Minor Changes
+
+- ca28333: Add system prompt guidance for visual UI work when model supports vision
+
+  **Changes:**
+  - Add `checkModelVisionCapability` function in claude.lib.mjs to detect if a model supports image input using models.dev API
+  - Add vision-specific system prompt section in claude.prompts.lib.mjs and agent.prompts.lib.mjs
+  - When model supports vision, add guidance for including screenshots/renders of visual UI changes in pull request descriptions
+  - Use "When x, do y." style as requested
+
+  **Vision prompt guidance includes:**
+  - When working on visual UI changes, include a render or screenshot in the PR description
+  - When showing visual results, save screenshots to the repository (e.g., docs/screenshots/)
+  - When referencing images, use permanent raw file links in the PR description markdown
+  - When uploading images, commit them first, then use raw GitHub URL format
+  - When the visual result is important, mention it explicitly with embedded image
+
+  **Technical details:**
+  - Uses models.dev API to check if 'image' is in the model's input modalities
+  - All current Claude models (opus, sonnet, haiku) support vision
+  - Gracefully handles unknown models by returning false
+
+  Fixes #1175
+
+## 1.10.2
+
+### Patch Changes
+
+- e1ed8fc: fix: enable large log file uploads using gh-upload-log (issue #1173)
+  - Remove premature 25MB size check that incorrectly rejected large log files
+  - Files larger than 25MB now use gh-upload-log which can handle any size
+  - Default to private visibility when repository visibility cannot be determined (safer for private repos)
+  - Add case study documentation for issue #1173
+
+## 1.10.1
+
+### Patch Changes
+
+- 24e70f8: Fix agent --verbose output by properly handling stderr stream
+  - Agent CLI sends ALL output (including verbose logs and structured events) to stderr, not stdout
+  - Previous code only processed stdout with JSON parsing, treating stderr as plain error text
+  - Now stderr is processed the same way as stdout: NDJSON line-by-line parsing with JSON formatting
+  - Session IDs are now correctly extracted from stderr messages
+  - stderr output is now collected for error detection
+
+  Fixes #1151
+
+## 1.10.0
+
+### Minor Changes
+
+- 9b56b26: feat(solve): configure MCP_TIMEOUT and MCP_TOOL_TIMEOUT for claude tool calls
+
+  Added MCP timeout configuration to prevent tool calls from hanging indefinitely:
+  - Added `mcpTimeout` config (default: 900000ms / 15 minutes) for MCP server startup
+  - Added `mcpToolTimeout` config (default: 900000ms / 15 minutes) for MCP tool execution
+  - Support for override via `MCP_TIMEOUT`/`HIVE_MIND_MCP_TIMEOUT` and `MCP_TOOL_TIMEOUT`/`HIVE_MIND_MCP_TOOL_TIMEOUT` environment variables
+  - Updated `getClaudeEnv()` to pass both timeout values to Claude CLI
+  - Added verbose logging for MCP timeout values
+
+  Fixes #1066
+
+## 1.9.2
+
+### Patch Changes
+
+- d39bf3e: Fix disk threshold to use one-at-a-time mode instead of blocking all commands
+  - When disk usage exceeds threshold (90%), now allows exactly one command to run
+  - Previously, disk threshold blocked ALL commands unconditionally (like RAM/CPU)
+  - Now matches behavior of Claude API thresholds (CLAUDE_5_HOUR_SESSION_THRESHOLD, CLAUDE_WEEKLY_THRESHOLD)
+  - Allows controlled task execution during high disk usage while preventing multiple tasks from exhausting resources
+
+  Fixes #1155
+
 ## 1.9.1
 
 ### Patch Changes

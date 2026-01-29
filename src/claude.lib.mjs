@@ -340,6 +340,14 @@ export const executeClaude = async params => {
 
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -372,6 +380,7 @@ export const executeClaude = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {
@@ -478,6 +487,27 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
+
+/**
+ * Check if a model supports vision (image input) using models.dev API
+ * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @returns {Promise<boolean>} True if the model supports vision, false otherwise
+ */
+export const checkModelVisionCapability = async modelId => {
+  try {
+    const modelInfo = await fetchModelInfo(modelId);
+    if (!modelInfo) {
+      return false;
+    }
+    // Check if 'image' is in the input modalities
+    const inputModalities = modelInfo.modalities?.input || [];
+    return inputModalities.includes('image');
+  } catch {
+    // If we can't determine vision capability, default to false
+    return false;
+  }
+};
+
 /**
  * Calculate USD cost for a model's usage with detailed breakdown
  * @param {Object} usage - Token usage object
@@ -881,9 +911,12 @@ export const executeClaudeCommand = async params => {
       // See issue #1146 for details on thinking budget translation
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
 
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076) and optionally MAX_THINKING_TOKENS (see issue #1146)
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
+      // and MCP timeout configurations (see issue #1066)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {
         await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
       }
@@ -1062,7 +1095,9 @@ export const executeClaudeCommand = async params => {
             // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
             // Even though this contains the word "failed", it's a warning, not an error
             const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+            // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
+            // These indicate the Claude CLI is not installed or not in PATH
+            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
               stderrErrors.push(trimmed);
             }
           }
@@ -1072,6 +1107,23 @@ export const executeClaudeCommand = async params => {
             commandFailed = true;
           }
           // Don't break here - let the loop finish naturally to process all output
+        }
+      }
+
+      // Issue #1165: Check actual exit code from command result for more reliable detection
+      // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
+      // Exit code 127 is the standard Unix convention for "command not found"
+      if (execCommand.result && typeof execCommand.result.code === 'number') {
+        const resultExitCode = execCommand.result.code;
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+        }
+        // Specifically detect "command not found" via exit code 127
+        if (resultExitCode === 127 && !commandFailed) {
+          commandFailed = true;
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH`, { level: 'error' });
+          await log('   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code', { level: 'error' });
         }
       }
 
@@ -1438,4 +1490,5 @@ export default {
   getClaudeVersion,
   setClaudeVersion,
   resolveThinkingSettings,
+  checkModelVisionCapability,
 };

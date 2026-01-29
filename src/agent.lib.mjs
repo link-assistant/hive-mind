@@ -19,9 +19,9 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
-// We reuse fetchModelInfo to get pricing data from models.dev API
+// We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
-const { fetchModelInfo } = claudeLib;
+const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
 
 /**
  * Parse agent JSON output to extract token usage from step_finish events
@@ -150,14 +150,15 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
-// Agent uses OpenCode's JSON interface and models
+// Agent uses OpenCode Zen's JSON interface and models
+// Issue #1185: Free models use opencode/ prefix (not openai/)
 export const mapModelToId = model => {
   const modelMap = {
     grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
-    'gpt-5-nano': 'openai/gpt-5-nano',
+    'gpt-5-nano': 'opencode/gpt-5-nano',
     sonnet: 'anthropic/claude-3-5-sonnet',
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
@@ -250,6 +251,13 @@ export const executeAgent = async params => {
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
 
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -281,6 +289,7 @@ export const executeAgent = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
 
   // Log prompt details in verbose mode
@@ -440,7 +449,27 @@ export const executeAgentCommand = async params => {
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
-            await log(errorOutput, { stream: 'stderr' });
+            // Agent sends all output (including verbose logs and structured events) to stderr
+            // Process each line as NDJSON, same as stdout handling
+            const stderrLines = errorOutput.split('\n');
+            for (const stderrLine of stderrLines) {
+              if (!stderrLine.trim()) continue;
+              try {
+                const stderrData = JSON.parse(stderrLine);
+                // Output formatted JSON (same formatting as stdout)
+                await log(JSON.stringify(stderrData, null, 2));
+                // Capture session ID from stderr too (agent sends it via stderr)
+                if (!sessionId && stderrData.sessionID) {
+                  sessionId = stderrData.sessionID;
+                  await log(`📌 Session ID: ${sessionId}`);
+                }
+              } catch {
+                // Not JSON - log as plain text
+                await log(stderrLine);
+              }
+            }
+            // Also collect stderr for error detection
+            fullOutput += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;

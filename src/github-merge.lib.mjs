@@ -38,10 +38,25 @@ export async function checkReadyLabelExists(owner, repo, verbose = false) {
     const { stdout } = await exec(`gh api repos/${owner}/${repo}/labels/${READY_LABEL.name} 2>/dev/null || echo ""`);
     if (stdout.trim()) {
       const label = JSON.parse(stdout.trim());
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: 'ready' label exists in ${owner}/${repo}`);
+      // Check if the response is an error (404 Not Found returns JSON with "message" field)
+      if (label.message === 'Not Found' || label.status === '404') {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: 'ready' label does not exist in ${owner}/${repo}`);
+        }
+        return { exists: false, label: null };
       }
-      return { exists: true, label };
+      // Valid label has a 'name' field
+      if (label.name) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: 'ready' label exists in ${owner}/${repo}`);
+        }
+        return { exists: true, label };
+      }
+      // Unknown response format, treat as not found
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: Unexpected response format when checking label in ${owner}/${repo}`);
+      }
+      return { exists: false, label: null };
     }
     if (verbose) {
       console.log(`[VERBOSE] /merge: 'ready' label does not exist in ${owner}/${repo}`);
@@ -64,13 +79,8 @@ export async function checkReadyLabelExists(owner, repo, verbose = false) {
  */
 export async function createReadyLabel(owner, repo, verbose = false) {
   try {
-    const labelData = JSON.stringify({
-      name: READY_LABEL.name,
-      description: READY_LABEL.description,
-      color: READY_LABEL.color,
-    });
-
-    const { stdout } = await exec(`gh api repos/${owner}/${repo}/labels -X POST -H "Accept: application/vnd.github+json" --input - <<< '${labelData}'`);
+    // Use gh api with -f flags to pass fields directly (avoids shell heredoc compatibility issues)
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/labels -X POST -H "Accept: application/vnd.github+json" -f name="${READY_LABEL.name}" -f description="${READY_LABEL.description}" -f color="${READY_LABEL.color}"`);
     const label = JSON.parse(stdout.trim());
 
     if (verbose) {

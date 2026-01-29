@@ -123,6 +123,11 @@ test('SolveQueue initializes with empty state', () => {
   assert.equal(stats.completed, 0, 'No items should be completed initially');
   assert.equal(stats.failed, 0, 'No items should have failed initially');
 
+  // Verify separate queues for tools are initialized
+  assert.ok(stats.queuedByTool !== undefined, 'queuedByTool should exist in stats');
+  assert.equal(stats.queuedByTool.claude, 0, 'Claude queue should be empty');
+  assert.equal(stats.queuedByTool.agent, 0, 'Agent queue should be empty');
+
   queue.stop();
 });
 
@@ -691,8 +696,8 @@ test('totalProcessing is calculated as processing.size + Claude processes', () =
     infoBlock: 'Test info',
   });
 
-  // Move to processing (simulate what runConsumer does)
-  queue.queue.shift();
+  // Move to processing (simulate what runConsumer does) - use tool queue
+  queue.getToolQueue(item.tool).shift();
   queue.processing.set(item.id, item);
 
   // Now processing.size should be 1
@@ -1021,16 +1026,18 @@ test('lastStartTime is updated when item moves to processing', () => {
     infoBlock: 'Test info',
   });
 
-  // Simulate what the consumer does when starting a command
-  queue.queue.shift();
+  // Simulate what the consumer does when starting a command (use tool queue)
+  queue.getToolQueue(item.tool).shift();
   item.setStarting();
   queue.processing.set(item.id, item);
-  queue.lastStartTime = Date.now();
+  queue.lastStartTimeByTool[item.tool] = Date.now();
+  queue.lastStartTime = Date.now(); // Legacy compatibility
   queue.stats.totalStarted++;
 
   // Now lastStartTime should be set
   assert.ok(queue.lastStartTime !== null, 'lastStartTime should be set after starting');
   assert.ok(queue.lastStartTime > 0, 'lastStartTime should be positive');
+  assert.ok(queue.lastStartTimeByTool[item.tool] !== null, 'lastStartTimeByTool should be set');
 
   queue.stop();
 });
@@ -1039,11 +1046,12 @@ test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
-  // Set lastStartTime to just now (simulate a recent start)
+  // Set lastStartTimeByTool for claude to just now (simulate a recent start)
+  queue.lastStartTimeByTool.claude = Date.now();
   queue.lastStartTime = Date.now();
 
-  // Check if we can start a new command
-  const result = await queue.canStartCommand();
+  // Check if we can start a new claude command
+  const result = await queue.canStartCommand({ tool: 'claude' });
 
   // Should NOT be able to start due to min interval
   // (unless this is the first command or enough time has passed)
@@ -1072,8 +1080,8 @@ test('processing map correctly tracks items', () => {
     infoBlock: 'Test info',
   });
 
-  // Move item to processing
-  queue.queue.shift();
+  // Move item to processing (use tool queue)
+  queue.getToolQueue(item1.tool).shift();
   queue.processing.set(item1.id, item1);
 
   assert.equal(queue.processing.size, 1, 'processing.size should be 1');
@@ -1105,8 +1113,8 @@ test('formatDetailedStatus shows Claude processes info', () => {
     infoBlock: 'Test info',
   });
 
-  // Set waiting with a reason that includes Claude processes
-  queue.queue[0].setWaiting('Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)');
+  // Set waiting with a reason that includes Claude processes (use tool queue)
+  queue.getToolQueue('claude')[0].setWaiting('Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)');
 
   const status = queue.formatDetailedStatus();
 
@@ -1137,10 +1145,11 @@ test('consumer does not start when queue is empty', async () => {
   queue.stop();
 });
 
-test('multiple items maintain FIFO order', () => {
+test('multiple items maintain FIFO order within tool queue', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
+  // All items default to 'claude' tool
   const item1 = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -1162,18 +1171,19 @@ test('multiple items maintain FIFO order', () => {
     infoBlock: 'Info 3',
   });
 
-  // Verify FIFO order
-  assert.equal(queue.queue[0].id, item1.id, 'First item should be item1');
-  assert.equal(queue.queue[1].id, item2.id, 'Second item should be item2');
-  assert.equal(queue.queue[2].id, item3.id, 'Third item should be item3');
+  // Verify FIFO order within the claude tool queue
+  const claudeQueue = queue.getToolQueue('claude');
+  assert.equal(claudeQueue[0].id, item1.id, 'First item should be item1');
+  assert.equal(claudeQueue[1].id, item2.id, 'Second item should be item2');
+  assert.equal(claudeQueue[2].id, item3.id, 'Third item should be item3');
 
-  // Dequeue first item
-  const dequeued = queue.queue.shift();
+  // Dequeue first item from claude queue
+  const dequeued = claudeQueue.shift();
   assert.equal(dequeued.id, item1.id, 'Dequeued item should be item1 (FIFO)');
 
   // Verify remaining order
-  assert.equal(queue.queue[0].id, item2.id, 'First remaining should be item2');
-  assert.equal(queue.queue[1].id, item3.id, 'Second remaining should be item3');
+  assert.equal(claudeQueue[0].id, item2.id, 'First remaining should be item2');
+  assert.equal(claudeQueue[1].id, item3.id, 'Second remaining should be item3');
 
   queue.stop();
 });
@@ -1184,75 +1194,270 @@ test('multiple items maintain FIFO order', () => {
 
 console.log('\n📋 Edge Case Tests\n');
 
-test('cancel returns false for non-existent item', () => {
+test('cancel returns false for non-existent or processing items', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
-  const result = queue.cancel('non-existent-id');
-  assert.equal(result, false, 'Cancel should return false for non-existent item');
-
-  queue.stop();
-});
-
-test('cancel returns false for item in processing', () => {
-  beforeEach();
-  const queue = new SolveQueue({ verbose: false });
-
-  const item = queue.enqueue({
-    url: 'https://github.com/test/repo/issues/1',
-    args: '--model opus',
-    requester: 'testuser',
-    infoBlock: 'Test info',
-  });
-
-  // Move to processing
-  queue.queue.shift();
+  assert.equal(queue.cancel('non-existent-id'), false);
+  const item = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
+  queue.getToolQueue(item.tool).shift();
   queue.processing.set(item.id, item);
-
-  // Try to cancel
-  const result = queue.cancel(item.id);
-  assert.equal(result, false, 'Cancel should return false for item in processing');
-
+  assert.equal(queue.cancel(item.id), false);
   queue.stop();
 });
 
 test('getQueueSummary handles empty queue correctly', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   const summary = queue.getQueueSummary();
-
-  assert.deepEqual(summary.pending, [], 'pending should be empty array');
-  assert.deepEqual(summary.processing, [], 'processing should be empty array');
-
+  assert.deepEqual(summary.pending, []);
+  assert.deepEqual(summary.processing, []);
   queue.stop();
 });
 
 test('queue item has correct tool property', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
+  const item1 = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
+  assert.equal(item1.tool, 'claude');
+  const item2 = queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
+  assert.equal(item2.tool, 'codex');
+  queue.stop();
+});
 
-  // Default tool should be 'claude'
-  const item1 = queue.enqueue({
+// ============================================================================
+// Tool Agent Claude Limits Skip Tests (Issue #1159)
+// ============================================================================
+
+console.log('\n📋 Tool Agent Claude Limits Skip Tests (Issue #1159)\n');
+
+test('checkApiLimits accepts tool parameter', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // checkApiLimits should accept tool parameter
+  const result = await queue.checkApiLimits(false, 0, 'claude');
+
+  assert.ok(result.ok !== undefined, 'Result should have ok property');
+  assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
+
+  queue.stop();
+});
+
+test('checkApiLimits with tool agent should not block on Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test with tool = 'agent' - should skip Claude limits
+  // Even if the mock data would trigger Claude limits, agent should pass
+  const resultAgent = await queue.checkApiLimits(false, 0, 'agent');
+  assert.ok(resultAgent !== undefined, 'Should work with tool = agent');
+
+  // Test with tool = 'claude' (default)
+  const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
+  assert.ok(resultClaude !== undefined, 'Should work with tool = claude');
+
+  queue.stop();
+});
+
+test('checkApiLimits default tool is claude', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // When tool is not specified, it should default to 'claude'
+  const resultNoTool = await queue.checkApiLimits(false, 0);
+  const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
+
+  // Both calls should have the same behavior (Claude limits checked)
+  assert.deepEqual(resultNoTool.ok, resultClaude.ok, 'Default tool should behave like claude');
+  assert.deepEqual(resultNoTool.oneAtATime, resultClaude.oneAtATime, 'Default tool should behave like claude for oneAtATime');
+
+  queue.stop();
+});
+
+test('canStartCommand accepts tool option', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // canStartCommand should accept options with tool
+  const result = await queue.canStartCommand({ tool: 'agent' });
+
+  assert.ok(result.canStart !== undefined, 'Result should have canStart property');
+  assert.ok(result.reasons !== undefined, 'Result should have reasons property');
+  assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
+
+  queue.stop();
+});
+
+test('canStartCommand with tool agent skips Claude limits', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Test with tool = 'agent' - Claude limits should be skipped
+  const resultAgent = await queue.canStartCommand({ tool: 'agent' });
+
+  // Test with tool = 'claude'
+  const resultClaude = await queue.canStartCommand({ tool: 'claude' });
+
+  // Both should return valid results
+  assert.ok(resultAgent.canStart !== undefined, 'Agent result should have canStart');
+  assert.ok(resultClaude.canStart !== undefined, 'Claude result should have canStart');
+
+  queue.stop();
+});
+
+test('canStartCommand default tool is claude', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // When options not provided, tool should default to 'claude'
+  const resultNoOptions = await queue.canStartCommand();
+  const resultClaude = await queue.canStartCommand({ tool: 'claude' });
+
+  // Both should have the same behavior
+  assert.equal(resultNoOptions.canStart, resultClaude.canStart, 'Default should behave like claude');
+
+  queue.stop();
+});
+
+test('queue item tool property is used by consumer', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+
+  // Enqueue with --tool agent
+  const agentItem = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
-    args: '--model opus',
+    args: '--tool agent',
     requester: 'testuser',
     infoBlock: 'Test info',
+    tool: 'agent',
   });
 
-  assert.equal(item1.tool, 'claude', 'Default tool should be claude');
+  assert.equal(agentItem.tool, 'agent', 'Agent tool should be preserved');
 
-  // Custom tool
-  const item2 = queue.enqueue({
-    url: 'https://github.com/test/repo/issues/2',
-    args: '--model opus',
-    requester: 'testuser',
-    infoBlock: 'Test info',
-    tool: 'codex',
-  });
+  // Verify item is in agent queue
+  assert.equal(queue.getToolQueue('agent')[0].tool, 'agent', 'Agent queue should have agent item');
+  assert.equal(queue.getToolQueue('agent').length, 1, 'Agent queue should have 1 item');
+  assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
 
-  assert.equal(item2.tool, 'codex', 'Custom tool should be preserved');
+  queue.stop();
+});
 
+// Tool-Specific Queue Tracking Tests (Issue #1159)
+console.log('\n📋 Tool-Specific Queue Tracking Tests (Issue #1159)\n');
+
+test('getProcessingCountByTool counts items correctly by tool type', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  assert.equal(queue.getProcessingCountByTool('claude'), 0);
+  assert.equal(queue.getProcessingCountByTool('agent'), 0);
+  queue.processing.set('item1', { id: 'item1', tool: 'claude' });
+  queue.processing.set('item2', { id: 'item2', tool: 'claude' });
+  queue.processing.set('item3', { id: 'item3', tool: 'agent' });
+  assert.equal(queue.getProcessingCountByTool('claude'), 2);
+  assert.equal(queue.getProcessingCountByTool('agent'), 1);
+  queue.stop();
+});
+
+test('separate queues are independent', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
+  assert.equal(queue.getToolQueue('claude').length, 1);
+  assert.equal(queue.getToolQueue('agent').length, 1);
+  queue.cancel(queue.getToolQueue('claude')[0].id);
+  assert.equal(queue.getToolQueue('claude').length, 0);
+  assert.equal(queue.getToolQueue('agent').length, 1);
+  assert.equal(queue.lastStartTimeByTool.claude, null);
+  queue.lastStartTimeByTool.claude = Date.now();
+  assert.ok(queue.lastStartTimeByTool.claude !== null);
+  assert.equal(queue.lastStartTimeByTool.agent, null);
+  queue.stop();
+});
+
+asyncTest('agent tasks can start when claude min interval is not reached', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.lastStartTimeByTool.claude = Date.now();
+  const claudeCheck = await queue.canStartCommand({ tool: 'claude' });
+  const agentCheck = await queue.canStartCommand({ tool: 'agent' });
+  assert.ok(claudeCheck.reasons.some(r => r.includes('Minimum interval')));
+  assert.ok(!agentCheck.reasons.some(r => r.includes('Minimum interval')));
+  queue.stop();
+});
+
+test('getStats and getQueueSummary show per-tool breakdown', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  const stats = queue.getStats();
+  assert.equal(stats.queued, 3);
+  assert.equal(stats.queuedByTool.claude, 2);
+  assert.equal(stats.queuedByTool.agent, 1);
+  const summary = queue.getQueueSummary();
+  assert.equal(summary.pending.length, 3);
+  assert.ok(summary.pending.some(i => i.tool === 'claude'));
+  assert.ok(summary.pending.some(i => i.tool === 'agent'));
+  const status = queue.formatStatus();
+  assert.ok(status.includes('3 pending'));
+  assert.ok(status.includes('claude: 2'));
+  assert.ok(status.includes('agent: 1'));
+  queue.stop();
+});
+
+asyncTest('findStartableItem and findStartableItems work correctly', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  let result = await queue.findStartableItem();
+  assert.equal(result.item, null);
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
+  result = await queue.findStartableItem();
+  assert.ok(result.item !== null);
+  const startableItems = await queue.findStartableItems();
+  assert.ok(Array.isArray(startableItems));
+  queue.stop();
+});
+
+test('new tool queues are created dynamically and mixed tools work', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
+  assert.equal(queue.getToolQueue('codex').length, 1);
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
+  assert.equal(queue.getTotalQueueLength(), 3);
+  assert.equal(queue.getToolQueue('claude').length, 2);
+  queue.stop();
+});
+
+asyncTest('canStartCommand returns claudeProcessingCount in result', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  const result = await queue.canStartCommand({ tool: 'claude' });
+  assert.ok(result.claudeProcessingCount !== undefined);
+  assert.equal(typeof result.claudeProcessingCount, 'number');
+  queue.stop();
+});
+
+asyncTest('checkApiLimits uses claudeProcessingCount correctly', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  const result1 = await queue.checkApiLimits(false, 0, 'claude');
+  assert.ok(result1.ok);
+  const result2 = await queue.checkApiLimits(false, 5, 'agent');
+  assert.ok(result2 !== undefined);
+  queue.stop();
+});
+
+test('default tool for queue item is claude', () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false });
+  const item = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test' });
+  assert.equal(item.tool, 'claude');
   queue.stop();
 });
 

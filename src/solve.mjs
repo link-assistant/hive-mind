@@ -1159,7 +1159,9 @@ try {
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
   // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
+  // Issue #1154: Track if logs were already uploaded to prevent duplicates
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
+  const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
@@ -1246,7 +1248,8 @@ try {
     }
 
     // Attach updated logs to PR after auto-restart completes
-    if (shouldAttachLogs && prNumber) {
+    // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
+    if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1273,6 +1276,9 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
+    } else if (logsAlreadyUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+      logsAttached = true;
     }
   }
 

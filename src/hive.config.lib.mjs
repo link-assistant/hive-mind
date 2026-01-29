@@ -301,6 +301,11 @@ export const createYargsConfig = yargsInstance => {
       description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
       default: false,
     })
+    .option('use-orchestrator', {
+      type: 'string',
+      description: 'Send tasks to orchestrator instead of executing directly. Specify orchestrator URL (e.g., localhost:8080 or http://orchestrator.example.com:8080)',
+      alias: 'O',
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

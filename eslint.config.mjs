@@ -46,9 +46,11 @@ export default [
         use: 'readonly',
         fetch: 'readonly',
         URL: 'readonly',
+        atob: 'readonly',
+        btoa: 'readonly',
       },
     },
-    files: ['src/**/*.{js,mjs,cjs}'],
+    files: ['src/**/*.{js,mjs,cjs}', 'dependencies/**/*.{js,mjs,cjs}'],
     rules: {
       'no-undef': 'error',
       'no-unused-vars': ['error'],

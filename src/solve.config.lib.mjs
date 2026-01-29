@@ -346,6 +346,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',
         default: false,
       })
+      .option('use-orchestrator', {
+        type: 'string',
+        description: 'Send task to orchestrator instead of executing directly. Specify orchestrator URL (e.g., localhost:8080 or http://orchestrator.example.com:8080)',
+        alias: 'O',
+      })
       .option('prompt-subagents-via-agent-commander', {
         type: 'boolean',
         description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',

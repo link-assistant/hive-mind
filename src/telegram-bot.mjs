@@ -98,6 +98,12 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
+  .option('useOrchestrator', {
+    type: 'string',
+    description: 'Send tasks to orchestrator instead of executing directly. Specify orchestrator URL (e.g., localhost:8080)',
+    alias: 'use-orchestrator',
+    default: getenv('TELEGRAM_USE_ORCHESTRATOR', ''),
+  })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({

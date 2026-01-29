@@ -1098,7 +1098,7 @@ bot.command(/^solve$/i, async ctx => {
     return;
   }
 
-  const check = await solveQueue.canStartCommand();
+  const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

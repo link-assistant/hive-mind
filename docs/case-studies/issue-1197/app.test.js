@@ -29,11 +29,9 @@ async function waitForServer(url, maxAttempts = 30, delayMs = 200) {
     } catch {
       // Server not ready yet
     }
-    await new Promise((r) => setTimeout(r, delayMs));
+    await new Promise(r => setTimeout(r, delayMs));
   }
-  throw new Error(
-    `Server did not start within ${(maxAttempts * delayMs) / 1000} seconds`
-  );
+  throw new Error(`Server did not start within ${(maxAttempts * delayMs) / 1000} seconds`);
 }
 
 /**
@@ -70,7 +68,7 @@ async function startServer() {
     // Ignore errors
   }
 
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 500));
 
   serverProcess = spawn('bun', ['serve.js'], {
     env: { ...process.env, PORT: String(PORT) },
@@ -83,11 +81,11 @@ async function startServer() {
     // Server stdout - ignore
   });
 
-  serverProcess.stderr.on('data', (data) => {
+  serverProcess.stderr.on('data', data => {
     console.error('Server stderr:', data.toString());
   });
 
-  serverProcess.on('error', (err) => {
+  serverProcess.on('error', err => {
     console.error('Server error:', err);
   });
 
@@ -137,7 +135,7 @@ describe('TSP Solver E2E', () => {
   beforeAll(async () => {
     await startServer();
     // Extra delay to ensure server is fully ready
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1000));
   }, 60000);
 
   afterAll(() => {
@@ -282,7 +280,7 @@ describe('TSP Solver E2E', () => {
         await page.click('button:has-text("Start")');
 
         // Wait a bit for the algorithm to start
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 1000));
 
         // Check if Stop button appears (indicating algorithm is running)
         const stopButton = await page.$('button:has-text("Stop")');
@@ -311,7 +309,7 @@ describe('TSP Solver E2E', () => {
         await page.click('button:has-text("Start")');
 
         // Wait for algorithm to complete or show distance
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 2000));
 
         // Check for distance display
         const pageContent = await page.content();

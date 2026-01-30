@@ -94,6 +94,7 @@ This indicates the application is not rendering the expected DOM structure. The 
 ## Time Multiplication Problem
 
 With 10 E2E tests, each taking ~52 seconds when failing:
+
 - **Total time when all fail**: ~520 seconds (~8.7 minutes)
 - **If tests passed**: Would be much faster (most time is browser launch + timeout)
 

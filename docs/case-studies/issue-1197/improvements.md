@@ -15,7 +15,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Reasonable for most test suites
+    timeout-minutes: 30 # Reasonable for most test suites
     steps:
       # ...
 ```
@@ -33,13 +33,13 @@ steps:
 
 ### Recommended Values
 
-| Job Type | Recommended Timeout |
-|----------|-------------------|
-| Lint/Format Check | 5-10 minutes |
-| Unit Tests | 10-15 minutes |
-| Integration Tests | 15-20 minutes |
-| E2E Tests | 15-30 minutes |
-| Full CI Pipeline | 30-60 minutes |
+| Job Type          | Recommended Timeout |
+| ----------------- | ------------------- |
+| Lint/Format Check | 5-10 minutes        |
+| Unit Tests        | 10-15 minutes       |
+| Integration Tests | 15-20 minutes       |
+| E2E Tests         | 15-30 minutes       |
+| Full CI Pipeline  | 30-60 minutes       |
 
 ## 2. Test Runner Configuration
 
@@ -146,7 +146,7 @@ describe('E2E Tests', () => {
 jobs:
   test:
     strategy:
-      fail-fast: true  # Stop all matrix jobs if one fails
+      fail-fast: true # Stop all matrix jobs if one fails
       matrix:
         test-type: [unit, integration, e2e]
 ```
@@ -163,7 +163,7 @@ jobs:
       - run: npm run test:unit
 
   e2e-tests:
-    needs: unit-tests  # Only run E2E if unit tests pass
+    needs: unit-tests # Only run E2E if unit tests pass
     timeout-minutes: 30
     steps:
       - run: npm run test:e2e

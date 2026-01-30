@@ -106,7 +106,40 @@ bun install -g @link-assistant/hive-mind
 npm install -g @link-assistant/hive-mind
 ```
 
-### Docker Installation
+### Installing Docker
+
+If you don't have Docker installed yet, follow these steps to install Docker Engine on Ubuntu:
+
+```bash
+# Install prerequisites
+sudo apt update
+sudo apt install ca-certificates curl
+
+# Add Docker's official GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker repository
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+# Install Docker
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Verify installation
+sudo docker run hello-world
+```
+
+**For other operating systems** or detailed instructions, see the [official Docker documentation](https://docs.docker.com/engine/install/).
+
+### Using Docker
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:
 

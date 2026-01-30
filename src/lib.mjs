@@ -477,5 +477,27 @@ export const getVersionInfo = async () => {
   }
 };
 
+/**
+ * Sanitize lone/orphaned Unicode surrogates from a string.
+ *
+ * Lone surrogates (high surrogate U+D800-U+DBFF not followed by low surrogate U+DC00-U+DFFF,
+ * or low surrogate not preceded by high surrogate) produce invalid JSON that strict parsers
+ * reject with "no low surrogate in string". This is a known issue when tool output contains
+ * binary data interpreted as text.
+ *
+ * See: https://github.com/anthropics/claude-code/issues/1709
+ * See: docs/case-studies/issue-1204/README.md
+ *
+ * @param {string} str - Input string potentially containing lone surrogates
+ * @returns {string} Sanitized string with lone surrogates replaced by U+FFFD
+ */
+export const sanitizeSurrogates = str => {
+  if (typeof str !== 'string') return str;
+  // Match lone high surrogates (not followed by low surrogate)
+  // and lone low surrogates (not preceded by high surrogate)
+
+  return str.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+};
+
 // Export reportError for other modules that may import it
 export { reportError, reportWarning };

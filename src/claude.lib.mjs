@@ -8,7 +8,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 // Import log from general lib
-import { log } from './lib.mjs';
+import { log, sanitizeSurrogates } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -402,15 +402,19 @@ export const executeClaude = async params => {
       await log('---END SYSTEM PROMPT---', { verbose: true });
     }
   }
+  // Sanitize lone surrogates from prompts to prevent "no low surrogate in string" API errors
+  // See: docs/case-studies/issue-1204/README.md
+  const sanitizedPrompt = sanitizeSurrogates(prompt);
+  const sanitizedSystemPrompt = sanitizeSurrogates(systemPrompt);
   // Escape prompts for shell usage
-  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-  // Execute the Claude command
+  const escapedPrompt = sanitizedPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+  const escapedSystemPrompt = sanitizedSystemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+  // Execute the Claude command (use sanitized prompts to prevent surrogate issues)
   return await executeClaudeCommand({
     tempDir,
     branchName,
-    prompt,
-    systemPrompt,
+    prompt: sanitizedPrompt,
+    systemPrompt: sanitizedSystemPrompt,
     escapedPrompt,
     escapedSystemPrompt,
     argv,

@@ -73,7 +73,21 @@ const truncateMiddle = (content, options = {}) => {
 };
 
 /**
- * Safely stringify JSON with depth limit and circular reference handling
+ * Sanitize lone/orphaned Unicode surrogates from a string.
+ * Lone surrogates produce invalid JSON that strict parsers reject with
+ * "no low surrogate in string". See docs/case-studies/issue-1204/README.md
+ *
+ * @param {string} str - Input string potentially containing lone surrogates
+ * @returns {string} Sanitized string with lone surrogates replaced by U+FFFD
+ */
+const sanitizeSurrogates = str => {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+};
+
+/**
+ * Safely stringify JSON with depth limit, circular reference handling,
+ * and lone surrogate sanitization.
  *
  * @param {any} obj - Object to stringify
  * @param {number} [indent=2] - Indentation spaces
@@ -81,7 +95,7 @@ const truncateMiddle = (content, options = {}) => {
  */
 const safeJsonStringify = (obj, indent = 2) => {
   const seen = new WeakSet();
-  return JSON.stringify(
+  const result = JSON.stringify(
     obj,
     (key, value) => {
       if (typeof value === 'object' && value !== null) {
@@ -90,10 +104,15 @@ const safeJsonStringify = (obj, indent = 2) => {
         }
         seen.add(value);
       }
+      // Sanitize string values to prevent lone surrogate issues
+      if (typeof value === 'string') {
+        return sanitizeSurrogates(value);
+      }
       return value;
     },
     indent
   );
+  return result;
 };
 
 /**
@@ -955,6 +974,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 // Export utilities for testing
 export const utils = {
   truncateMiddle,
+  sanitizeSurrogates,
   safeJsonStringify,
   createCollapsible,
   createRawJsonSection,

@@ -358,6 +358,16 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
+      .option('prompt-experiments-folder', {
+        type: 'string',
+        description: 'Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: ./experiments',
+        default: './experiments',
+      })
+      .option('prompt-examples-folder', {
+        type: 'string',
+        description: 'Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: ./examples',
+        default: './examples',
+      })
       .option('playwright-mcp-auto-cleanup', {
         type: 'boolean',
         description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',

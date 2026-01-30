@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Agent
@@ -137,9 +138,7 @@ ${workspaceInstructions}General guidelines.
    - When CI is failing, make sure you download the logs locally and carefully investigate them.
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
-   - When you create debug, test, or example/experiment scripts for fixing, always keep them in an examples and/or experiments folders so you can reuse them later.
-   - When testing your assumptions, use the experiment scripts, and add it to experiments folder.
-   - When your experiments can show real world use case of the software, add it to examples folder.
+${getExperimentsExamplesSubPrompt(argv)}
    - When you face something extremely hard, use divide and conquer — it always helps.
 
 Initial research.

@@ -182,6 +182,13 @@ Solution development and testing.
       write unit tests with mocks for easy and quick start.
    - When you test integrations, use existing framework.
    - When you test solution draft, include automated checks in pr.
+   - When you write or modify tests, set reasonable timeouts to fail early and iterate quickly:
+      for unit tests, use 5-30 second timeouts per test (e.g., Jest/Vitest testTimeout: 30000);
+      for E2E tests with Playwright or similar, use 30-60 second timeouts per test;
+      for CI/CD workflows with tests, add job-level timeout-minutes (10-15 min for unit tests, 15-30 min for E2E tests);
+      avoid tests that wait indefinitely for conditions that may never occur.
+   - When you write E2E tests, add a health check or smoke test that runs first and fails fast if the application is not ready, preventing all subsequent tests from timing out individually.
+   - When you see tests timing out with the same error pattern repeatedly in CI, investigate the root cause (e.g., server not running, build not working) rather than just increasing timeouts.
    - When issue is unclear, write comment on issue asking questions.
    - When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.

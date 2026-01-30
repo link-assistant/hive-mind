@@ -418,6 +418,10 @@ export const executeAgentCommand = async params => {
       let limitResetTime = null;
       let lastMessage = '';
       let fullOutput = ''; // Collect all output for pricing calculation and error detection
+      // Issue #1201: Track error events detected during streaming for reliable error detection
+      // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
+      let streamingErrorDetected = false;
+      let streamingErrorMessage = null;
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -436,6 +440,12 @@ export const executeAgentCommand = async params => {
               if (!sessionId && data.sessionID) {
                 sessionId = data.sessionID;
                 await log(`📌 Session ID: ${sessionId}`);
+              }
+              // Issue #1201: Detect error events during streaming for reliable detection
+              if (data.type === 'error' || data.type === 'step_error') {
+                streamingErrorDetected = true;
+                streamingErrorMessage = data.message || data.error || line.substring(0, 100);
+                await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
               }
             } catch {
               // Not JSON - log as plain text
@@ -462,6 +472,12 @@ export const executeAgentCommand = async params => {
                 if (!sessionId && stderrData.sessionID) {
                   sessionId = stderrData.sessionID;
                   await log(`📌 Session ID: ${sessionId}`);
+                }
+                // Issue #1201: Detect error events during streaming (stderr) for reliable detection
+                if (stderrData.type === 'error' || stderrData.type === 'step_error') {
+                  streamingErrorDetected = true;
+                  streamingErrorMessage = stderrData.message || stderrData.error || stderrLine.substring(0, 100);
+                  await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
                 }
               } catch {
                 // Not JSON - log as plain text
@@ -496,7 +512,7 @@ export const executeAgentCommand = async params => {
 
             // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {
-              return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
+              return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
             }
           } catch {
             // Not JSON - ignore for error detection
@@ -509,6 +525,15 @@ export const executeAgentCommand = async params => {
 
       // Only check for JSON error messages, not pattern matching in output
       const outputError = detectAgentErrors(fullOutput);
+
+      // Issue #1201: Use streaming detection as primary, post-hoc as fallback
+      // Streaming detection is more reliable because it parses each JSON line as it arrives,
+      // avoiding issues where NDJSON lines get concatenated without newline delimiters in fullOutput
+      if (!outputError.detected && streamingErrorDetected) {
+        outputError.detected = true;
+        outputError.type = 'AgentError';
+        outputError.match = streamingErrorMessage;
+      }
 
       if (exitCode !== 0 || outputError.detected) {
         // Build JSON error structure for consistent error reporting
@@ -545,7 +570,7 @@ export const executeAgentCommand = async params => {
             await log(line, { level: 'warning' });
           }
         } else if (outputError.detected) {
-          // Explicit JSON error message from agent
+          // Explicit JSON error message from agent (Issue #1201: includes streaming-detected errors)
           errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
         } else {

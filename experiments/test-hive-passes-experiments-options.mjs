@@ -28,16 +28,7 @@ let allTestsPassed = true;
 
 // Test 1: Parse hive arguments with custom folders
 console.log('Test 1: Parse hive arguments with custom folders');
-process.argv = [
-  'node',
-  'hive',
-  'https://github.com/owner',
-  '--prompt-experiments-folder',
-  './custom-experiments',
-  '--prompt-examples-folder',
-  './custom-examples',
-  '--once'
-];
+process.argv = ['node', 'hive', 'https://github.com/owner', '--prompt-experiments-folder', './custom-experiments', '--prompt-examples-folder', './custom-examples', '--once'];
 
 try {
   const argv = await createYargsConfig(yargs(hideBin(process.argv))).parse();
@@ -61,16 +52,7 @@ try {
 
 // Test 2: Parse hive arguments with disabled folders
 console.log('\nTest 2: Parse hive arguments with disabled folders');
-process.argv = [
-  'node',
-  'hive',
-  'https://github.com/owner',
-  '--prompt-experiments-folder',
-  '',
-  '--prompt-examples-folder',
-  '',
-  '--once'
-];
+process.argv = ['node', 'hive', 'https://github.com/owner', '--prompt-experiments-folder', '', '--prompt-examples-folder', '', '--once'];
 
 try {
   const argv = await createYargsConfig(yargs(hideBin(process.argv))).parse();

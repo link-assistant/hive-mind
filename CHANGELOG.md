@@ -1,5 +1,16 @@
 # @link-assistant/hive-mind
 
+## 1.14.1
+
+### Patch Changes
+
+- b139b00: fix: detect agent tool errors during streaming for reliable failure detection (Issue #1201)
+
+  Previously, agent tool errors (`"type": "error"`) could be missed when the post-hoc
+  detection function failed to parse NDJSON lines that were concatenated without newline
+  delimiters. Now errors are detected inline during stream processing, ensuring
+  `"type": "error"` events always trigger a failure exit regardless of output buffering.
+
 ## 1.14.0
 
 ### Minor Changes

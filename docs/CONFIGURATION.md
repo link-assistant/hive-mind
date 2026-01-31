@@ -2,6 +2,8 @@
 
 The Hive Mind application supports extensive configuration through environment variables and command-line options. This document provides a comprehensive reference for all available configuration options.
 
+> **OpenRouter Integration**: For using Claude Code CLI or @link-assistant/agent with OpenRouter (500+ models from 60+ providers), see the dedicated [OpenRouter Setup Guide](./OPENROUTER.md).
+
 ## Table of Contents
 
 - [Environment Variables](#environment-variables)
@@ -310,8 +312,8 @@ solve <issue-url> [options]
 | `--log-dir`                                                      | `-l`  | string  | (cwd)     | Directory for log files                                                                                 |
 | `--sentry`                                                       |       | boolean | true      | Enable Sentry (use --no-sentry to disable)                                                              |
 | `--auto-cleanup`                                                 |       | boolean | (varies)  | Delete temp directory on completion                                                                     |
-| `--claude-file`                                                  |       | boolean | true      | Create CLAUDE.md for task details                                                                       |
-| `--gitkeep-file`                                                 |       | boolean | false     | Create .gitkeep instead of CLAUDE.md                                                                    |
+| `--claude-file`                                                  |       | boolean | (varies)  | Create CLAUDE.md for task details (default for --tool claude)                                           |
+| `--gitkeep-file`                                                 |       | boolean | (varies)  | Create .gitkeep instead of CLAUDE.md (default for --tool agent/opencode/codex)                          |
 | `--interactive-mode`                                             |       | boolean | false     | [EXPERIMENTAL] Post output as PR comments                                                               |
 | `--prompt-plan-sub-agent`                                        |       | boolean | false     | Use Plan sub-agent for planning                                                                         |
 | `--prompt-explore-sub-agent`                                     |       | boolean | false     | Use Explore sub-agent                                                                                   |
@@ -471,3 +473,18 @@ const dsn = sentry.dsn;
 - The application validates all configuration values on startup
 - Invalid values will cause the application to fail with an error message
 - Use `--verbose` flag to see configuration values being used
+
+### Tool-Specific Default Values
+
+Some options have different defaults depending on the selected `--tool`:
+
+| Option           | `--tool claude` | `--tool agent/opencode/codex`              |
+| ---------------- | --------------- | ------------------------------------------ |
+| `--model`        | `sonnet`        | `grok-code` / `grok-code-fast-1` / `gpt-5` |
+| `--claude-file`  | `true`          | `false`                                    |
+| `--gitkeep-file` | `false`         | `true`                                     |
+
+**Rationale for `--claude-file` / `--gitkeep-file` defaults:**
+
+- For `--tool claude`: CLAUDE.md is used as it serves as a project-level instruction file that Claude Code reads
+- For other tools: `.gitkeep` is used to avoid polluting the CLAUDE.md file, which has special meaning for Claude Code but not for other AI tools

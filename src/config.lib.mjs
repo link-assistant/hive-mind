@@ -56,6 +56,14 @@ export const autoContinue = {
   ageThresholdHours: parseIntWithDefault('HIVE_MIND_AUTO_CONTINUE_AGE_HOURS', 24),
 };
 
+// Auto-resume on limit reset configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+export const limitReset = {
+  // Buffer time to wait after limit reset (in milliseconds)
+  // Default: 5 minutes - accounts for server time differences
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+};
+
 // GitHub API limits
 export const githubLimits = {
   commentMaxSize: parseIntWithDefault('HIVE_MIND_GITHUB_COMMENT_MAX_SIZE', 65536),
@@ -194,7 +202,7 @@ export const cacheTtl = {
   api: parseIntWithDefault('HIVE_MIND_API_CACHE_TTL_MS', 3 * 60 * 1000), // 3 minutes
   // Claude Usage API cache TTL - must be at least 20 minutes to avoid rate limiting
   // The API returns null values when called too frequently
-  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 20 * 60 * 1000), // 20 minutes
+  usageApi: parseIntWithDefault('HIVE_MIND_USAGE_API_CACHE_TTL_MS', 10 * 60 * 1000), // 10 minutes
   // System metrics cache TTL (RAM, CPU, disk)
   system: parseIntWithDefault('HIVE_MIND_SYSTEM_CACHE_TTL_MS', 2 * 60 * 1000), // 2 minutes
 };

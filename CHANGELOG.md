@@ -1,5 +1,200 @@
 # @link-assistant/hive-mind
 
+## 1.14.2
+
+### Patch Changes
+
+- 69a34a6: fix: NDJSON stream buffering for Claude CLI output (Issue #1183)
+
+  Fixed issue where `total_cost_usd` and other critical fields were not being captured from Claude CLI sessions when the output JSON was split across multiple stdout chunks.
+
+  **Root Cause**: Claude CLI outputs NDJSON (newline-delimited JSON) format, but long JSON messages (like the `result` type containing `total_cost_usd`) can be split across multiple stdout buffer chunks. The code was splitting each chunk by newlines and parsing independently, causing partial JSON fragments to fail parsing.
+
+  **Solution**:
+  - Implemented line buffering to accumulate incomplete lines across chunks
+  - Lines are only parsed when they're complete (have a trailing newline)
+  - Added processing of any remaining buffer content after the stream ends
+
+  This ensures that even very long JSON output (e.g., result messages with extensive usage data) is properly parsed and cost tracking works correctly.
+
+  **Evidence from logs**: The broken session showed JSON truncated mid-word at `ephemeral_5m_input_tok` continuing on the next line with `ens":97252}}` - making both lines unparseable.
+
+## 1.14.1
+
+### Patch Changes
+
+- b139b00: fix: detect agent tool errors during streaming for reliable failure detection (Issue #1201)
+
+  Previously, agent tool errors (`"type": "error"`) could be missed when the post-hoc
+  detection function failed to parse NDJSON lines that were concatenated without newline
+  delimiters. Now errors are detected inline during stream processing, ensuring
+  `"type": "error"` events always trigger a failure exit regardless of output buffering.
+
+## 1.14.0
+
+### Minor Changes
+
+- 3a48254: Add configurable experiments/examples folder paths with ability to disable
+
+  New CLI options for both `solve` and `hive` commands:
+  - `--prompt-experiments-folder <path>`: Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: `./experiments`
+  - `--prompt-examples-folder <path>`: Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: `./examples`
+
+  Features:
+  - Backwards compatible: defaults to `./experiments` and `./examples` as before
+  - Custom paths: Specify custom folder paths for experiments and examples
+  - Disable functionality: Set to empty string (`''`) to disable the experiments/examples prompt section entirely
+  - Works with all AI tools: claude, opencode, codex, and agent
+
+## 1.13.0
+
+### Minor Changes
+
+- 03adcb6: Add --auto-merge and --auto-restart-until-mergable options for autonomous PR management
+
+  New CLI options:
+  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergable.
+  - `--auto-restart-until-mergable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
+
+  Features:
+  - Non-bot comment detection with configurable bot patterns
+  - Automatic detection of CI/CD status and merge readiness
+  - Continuous monitoring loop with configurable check intervals
+  - Progress and status reporting throughout the process
+  - Graceful handling of API errors with exponential backoff
+  - Session data tracking for accurate pricing across iterations
+
+## 1.12.0
+
+### Minor Changes
+
+- 8393f99: Improve auto-resume-on-limit-reset functionality
+  - Add 5-minute buffer after limit reset to account for server time differences (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
+  - Add --auto-restart-on-limit-reset option for fresh start without previous session context
+  - Remove CLI commands from GitHub comments when auto-resume is active (less confusing for users)
+  - Differentiate work session comments: "Auto Resume (on limit reset)" vs "Auto Restart (on limit reset)"
+  - Differentiate solution draft log comments based on session type
+  - Improve reset time formatting with relative time + UTC (e.g., "in 1h 23m (Jan 15, 7:00 AM UTC)")
+
+## 1.11.6
+
+### Patch Changes
+
+- 5eef9e4: Skip Claude API limits for --tool agent tasks in queue
+  - Agent tools (Grok Code, OpenCode Zen) use different backends with their own rate limits
+  - Add tool parameter to canStartCommand() and checkApiLimits() functions
+  - Skip Claude-specific limits (5-hour session, weekly) when tool is 'agent'
+  - Consumer loop now passes next queue item's tool to limit checks
+  - Add 7 new tests for tool-specific limit handling
+  - Add case study documentation
+
+  Fixes #1159
+
+## 1.11.5
+
+### Patch Changes
+
+- 7d3387c: Fix duplicate Solution Draft Log comments on GitHub PRs
+
+  When a Claude session ends with uncommitted changes and --attach-logs is enabled, the solution draft log was being uploaded twice - once by verifyResults() during normal completion, and again after temporary watch mode completes. This fix tracks whether logs were already uploaded and skips the duplicate upload.
+
+## 1.11.4
+
+### Patch Changes
+
+- b8318dd: fix: support opencode/gpt-5-nano and gpt-5-nano for --tool agent (Issue #1185)
+
+  Fixed AGENT_MODELS mapping to correctly support free OpenCode Zen models:
+  - `gpt-5-nano` short alias now correctly maps to `opencode/gpt-5-nano` (previously incorrectly mapped to `openai/gpt-5-nano`)
+  - `opencode/gpt-5-nano` full model ID is now recognized as valid
+  - Updated `mapModelToId` function in agent.lib.mjs to use correct provider prefix
+  - Fixed regex filter in `getAvailableModelNames` to include `gpt-5-nano` in available models display
+  - Added comprehensive test suite with 18 tests for agent model validation
+  - Added case study documentation with root cause analysis
+
+## 1.11.3
+
+### Patch Changes
+
+- 9f24356: Fix 'ready' label not being created by /merge command
+
+  Two bugs prevented the /merge command from creating the 'ready' label:
+  1. `checkReadyLabelExists()` incorrectly treated GitHub API's 404 JSON error response as the label existing. The function now properly checks for "Not Found" message in the response.
+  2. `createReadyLabel()` used bash-specific heredoc syntax (`<<<`) which fails in `/bin/sh`. Now uses `gh api -f` flags for shell compatibility.
+
+  Fixes #1177
+
+## 1.11.2
+
+### Patch Changes
+
+- 8ee116a: fix: detect "command not found" errors to prevent false success
+
+  When the `claude` CLI command is not found (not installed or not in PATH), the tool was incorrectly reporting "Claude command completed" instead of detecting the failure. This fix adds "not found" to the stderr error detection pattern to properly detect when commands fail to start.
+
+## 1.11.1
+
+### Patch Changes
+
+- de2cc28: Use .gitkeep by default for --tool agent/opencode/codex instead of CLAUDE.md
+
+  When using non-Claude tools (agent, opencode, codex), the system now defaults to creating a `.gitkeep` file for task details instead of `CLAUDE.md`. This prevents pollution of CLAUDE.md, which has special meaning for Claude Code as a project-level instruction file.
+
+  **Tool-Specific Defaults:**
+  - `--tool claude`: defaults to `--claude-file` (existing behavior)
+  - `--tool agent/opencode/codex`: defaults to `--gitkeep-file`
+
+  Users can still explicitly override defaults with `--claude-file` or `--gitkeep-file` flags regardless of the selected tool.
+
+## 1.11.0
+
+### Minor Changes
+
+- ca28333: Add system prompt guidance for visual UI work when model supports vision
+
+  **Changes:**
+  - Add `checkModelVisionCapability` function in claude.lib.mjs to detect if a model supports image input using models.dev API
+  - Add vision-specific system prompt section in claude.prompts.lib.mjs and agent.prompts.lib.mjs
+  - When model supports vision, add guidance for including screenshots/renders of visual UI changes in pull request descriptions
+  - Use "When x, do y." style as requested
+
+  **Vision prompt guidance includes:**
+  - When working on visual UI changes, include a render or screenshot in the PR description
+  - When showing visual results, save screenshots to the repository (e.g., docs/screenshots/)
+  - When referencing images, use permanent raw file links in the PR description markdown
+  - When uploading images, commit them first, then use raw GitHub URL format
+  - When the visual result is important, mention it explicitly with embedded image
+
+  **Technical details:**
+  - Uses models.dev API to check if 'image' is in the model's input modalities
+  - All current Claude models (opus, sonnet, haiku) support vision
+  - Gracefully handles unknown models by returning false
+
+  Fixes #1175
+
+## 1.10.2
+
+### Patch Changes
+
+- e1ed8fc: fix: enable large log file uploads using gh-upload-log (issue #1173)
+  - Remove premature 25MB size check that incorrectly rejected large log files
+  - Files larger than 25MB now use gh-upload-log which can handle any size
+  - Default to private visibility when repository visibility cannot be determined (safer for private repos)
+  - Add case study documentation for issue #1173
+
+## 1.10.1
+
+### Patch Changes
+
+- 24e70f8: Fix agent --verbose output by properly handling stderr stream
+  - Agent CLI sends ALL output (including verbose logs and structured events) to stderr, not stdout
+  - Previous code only processed stdout with JSON parsing, treating stderr as plain error text
+  - Now stderr is processed the same way as stdout: NDJSON line-by-line parsing with JSON formatting
+  - Session IDs are now correctly extracted from stderr messages
+  - stderr output is now collected for error detection
+
+  Fixes #1151
+
 ## 1.10.0
 
 ### Minor Changes

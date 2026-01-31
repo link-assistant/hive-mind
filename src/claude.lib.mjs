@@ -340,6 +340,14 @@ export const executeClaude = async params => {
 
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -372,6 +380,7 @@ export const executeClaude = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {
@@ -478,6 +487,27 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
+
+/**
+ * Check if a model supports vision (image input) using models.dev API
+ * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @returns {Promise<boolean>} True if the model supports vision, false otherwise
+ */
+export const checkModelVisionCapability = async modelId => {
+  try {
+    const modelInfo = await fetchModelInfo(modelId);
+    if (!modelInfo) {
+      return false;
+    }
+    // Check if 'image' is in the input modalities
+    const inputModalities = modelInfo.modalities?.input || [];
+    return inputModalities.includes('image');
+  } catch {
+    // If we can't determine vision capability, default to false
+    return false;
+  }
+};
+
 /**
  * Calculate USD cost for a model's usage with detailed breakdown
  * @param {Object} usage - Token usage object
@@ -914,57 +944,46 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
+      // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
+      // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
+      let stdoutLineBuffer = '';
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          // Split output into individual lines for NDJSON parsing
-          // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
-          // This allows us to parse each event independently and extract structured data like session IDs,
-          // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
-          // since multiple JSON objects aren't valid JSON together.
-          const lines = output.split('\n');
+          // Append to buffer and split; keep last element (may be incomplete) for next chunk
+          stdoutLineBuffer += output;
+          const lines = stdoutLineBuffer.split('\n');
+          stdoutLineBuffer = lines.pop() || '';
+          // Parse each complete NDJSON line
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
-              // Process event in interactive mode (posts PR comments in real-time)
+              // Process event in interactive mode
               if (interactiveHandler) {
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
-                  // Don't let interactive mode errors stop the main execution
                   await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
                 }
               }
-              // Output formatted JSON as in v0.3.2
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID from the first message
+              // Capture session ID and rename log file
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
-                // Try to rename log file to include session ID
                 let sessionLogFile;
                 try {
                   const currentLogFile = getLogFile();
-                  const logDir = path.dirname(currentLogFile);
-                  sessionLogFile = path.join(logDir, `${sessionId}.log`);
-                  // Use fs.promises to rename the file
+                  sessionLogFile = path.join(path.dirname(currentLogFile), `${sessionId}.log`);
                   await fs.rename(currentLogFile, sessionLogFile);
-                  // Update the global log file reference
                   setLogFile(sessionLogFile);
                   await log(`📁 Log renamed to: ${sessionLogFile}`);
                 } catch (renameError) {
-                  reportError(renameError, {
-                    context: 'rename_session_log',
-                    sessionId,
-                    sessionLogFile,
-                    operation: 'rename_log_file',
-                  });
-                  // If rename fails, keep original filename
+                  reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              // Track message and tool use counts
               if (data.type === 'message') {
                 messageCount++;
               } else if (data.type === 'tool_use') {
@@ -1065,7 +1084,9 @@ export const executeClaudeCommand = async params => {
             // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
             // Even though this contains the word "failed", it's a warning, not an error
             const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+            // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
+            // These indicate the Claude CLI is not installed or not in PATH
+            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
               stderrErrors.push(trimmed);
             }
           }
@@ -1075,6 +1096,36 @@ export const executeClaudeCommand = async params => {
             commandFailed = true;
           }
           // Don't break here - let the loop finish naturally to process all output
+        }
+      }
+
+      // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      if (stdoutLineBuffer.trim()) {
+        try {
+          const data = JSON.parse(stdoutLineBuffer);
+          await log(JSON.stringify(data, null, 2));
+          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
+            anthropicTotalCostUSD = data.total_cost_usd;
+          }
+        } catch {
+          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
+        }
+      }
+
+      // Issue #1165: Check actual exit code from command result for more reliable detection
+      // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
+      // Exit code 127 is the standard Unix convention for "command not found"
+      if (execCommand.result && typeof execCommand.result.code === 'number') {
+        const resultExitCode = execCommand.result.code;
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+        }
+        // Specifically detect "command not found" via exit code 127
+        if (resultExitCode === 127 && !commandFailed) {
+          commandFailed = true;
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH`, { level: 'error' });
+          await log('   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code', { level: 'error' });
         }
       }
 
@@ -1441,4 +1492,5 @@ export default {
   getClaudeVersion,
   setClaudeVersion,
   resolveThinkingSettings,
+  checkModelVisionCapability,
 };

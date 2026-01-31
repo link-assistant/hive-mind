@@ -239,6 +239,16 @@ export const createYargsConfig = yargsInstance => {
       alias: 'w',
       default: false,
     })
+    .option('auto-merge', {
+      type: 'boolean',
+      description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+      default: false,
+    })
+    .option('auto-restart-until-mergable', {
+      type: 'boolean',
+      description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
+      default: false,
+    })
     .option('issue-order', {
       type: 'string',
       description: 'Order issues by publication date: "asc" (oldest first) or "desc" (newest first)',
@@ -290,6 +300,16 @@ export const createYargsConfig = yargsInstance => {
       type: 'boolean',
       description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
       default: true,
+    })
+    .option('prompt-experiments-folder', {
+      type: 'string',
+      description: 'Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: ./experiments',
+      default: './experiments',
+    })
+    .option('prompt-examples-folder', {
+      type: 'string',
+      description: 'Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: ./examples',
+      default: './examples',
     })
     .option('prompt-architecture-care', {
       type: 'boolean',

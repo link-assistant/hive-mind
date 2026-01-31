@@ -130,12 +130,12 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('claude-file', {
         type: 'boolean',
-        description: 'Create CLAUDE.md file for task details (default, mutually exclusive with --gitkeep-file)',
+        description: 'Create CLAUDE.md file for task details (default for --tool claude, mutually exclusive with --gitkeep-file)',
         default: true,
       })
       .option('gitkeep-file', {
         type: 'boolean',
-        description: 'Create .gitkeep file instead of CLAUDE.md (mutually exclusive with --claude-file)',
+        description: 'Create .gitkeep file instead of CLAUDE.md (default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
         default: false,
       })
       .option('auto-gitkeep-file', {
@@ -160,8 +160,20 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('auto-resume-on-limit-reset', {
         type: 'boolean',
-        description: 'Automatically resume when AI tool limit resets (calculates reset time and waits)',
+        description: 'Automatically resume when AI tool limit resets (maintains session context with --resume flag)',
         default: false,
+      })
+      .option('auto-restart-on-limit-reset', {
+        type: 'boolean',
+        description: 'Automatically restart when AI tool limit resets (fresh start without --resume flag)',
+        default: false,
+      })
+      .option('session-type', {
+        type: 'string',
+        description: 'Internal: Session type for comment differentiation (new, resume, auto-resume, auto-restart)',
+        choices: ['new', 'resume', 'auto-resume', 'auto-restart'],
+        default: 'new',
+        hidden: true,
       })
       .option('auto-resume-on-errors', {
         type: 'boolean',
@@ -187,6 +199,16 @@ export const createYargsConfig = yargsInstance => {
         type: 'number',
         description: 'Maximum number of auto-restart iterations when uncommitted changes are detected (default: 3)',
         default: 3,
+      })
+      .option('auto-merge', {
+        type: 'boolean',
+        description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+        default: false,
+      })
+      .option('auto-restart-until-mergable', {
+        type: 'boolean',
+        description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
+        default: false,
       })
       .option('continue-only-on-feedback', {
         type: 'boolean',
@@ -336,6 +358,16 @@ export const createYargsConfig = yargsInstance => {
         description: 'Include prompt to check related/sibling pull requests when studying related work. Enabled by default, use --no-prompt-check-sibling-pull-requests to disable.',
         default: true,
       })
+      .option('prompt-experiments-folder', {
+        type: 'string',
+        description: 'Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: ./experiments',
+        default: './experiments',
+      })
+      .option('prompt-examples-folder', {
+        type: 'string',
+        description: 'Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: ./examples',
+        default: './examples',
+      })
       .option('playwright-mcp-auto-cleanup', {
         type: 'boolean',
         description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
@@ -475,6 +507,20 @@ export const parseArguments = async (yargs, hideBin) => {
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
     argv.model = 'grok-code';
+  }
+
+  // Tool-specific defaults for --claude-file and --gitkeep-file
+  // For non-Claude tools, use .gitkeep by default to avoid polluting CLAUDE.md
+  // (CLAUDE.md has special meaning for Claude Code as a project-level instruction file)
+  // See: https://github.com/link-assistant/hive-mind/issues/1158
+  const claudeFileExplicitlyProvided = rawArgs.includes('--claude-file') || rawArgs.includes('--no-claude-file');
+  const gitkeepFileExplicitlyProvided = rawArgs.includes('--gitkeep-file') || rawArgs.includes('--no-gitkeep-file');
+
+  if (argv.tool !== 'claude' && !claudeFileExplicitlyProvided && !gitkeepFileExplicitlyProvided) {
+    // User did not explicitly provide either option, so use the correct defaults for non-Claude tools
+    // Non-Claude tools (agent, opencode, codex) should use .gitkeep by default
+    argv.claudeFile = false;
+    argv.gitkeepFile = true;
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file

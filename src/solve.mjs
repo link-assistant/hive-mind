@@ -73,6 +73,8 @@ const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleM
 
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
+const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
+const { startAutoRestartUntilMergable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
@@ -85,7 +87,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = repoSetupLib;
 const branchLib = await import('./solve.branch.lib.mjs');
 const { createOrCheckoutBranch } = branchLib;
 const sessionLib = await import('./solve.session.lib.mjs');
-const { startWorkSession, endWorkSession } = sessionLib;
+const { startWorkSession, endWorkSession, SESSION_TYPES } = sessionLib;
 const preparationLib = await import('./solve.preparation.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
 
@@ -688,6 +690,16 @@ try {
   // This includes PR URL (if created) and comment info (if in continue mode)
 
   // Start work session using the new module
+  // Determine session type based on command line flags
+  // See: https://github.com/link-assistant/hive-mind/issues/1152
+  let sessionType = SESSION_TYPES.NEW;
+  if (argv.sessionType) {
+    // Session type was explicitly set (e.g., by auto-resume/auto-restart spawning a new process)
+    sessionType = argv.sessionType;
+  } else if (isContinueMode) {
+    // Continue mode is a manual resume via PR URL
+    sessionType = SESSION_TYPES.RESUME;
+  }
   await startWorkSession({
     isContinueMode,
     prNumber,
@@ -695,6 +707,7 @@ try {
     log,
     formatAligned,
     $,
+    sessionType,
   });
 
   // Prepare feedback and timestamps using the new module
@@ -910,21 +923,29 @@ try {
 
   // Handle limit reached scenario
   if (limitReached) {
+    // Check for both auto-resume (maintains context) and auto-restart (fresh start)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
     const shouldAutoResumeOnReset = argv.autoResumeOnLimitReset;
+    const shouldAutoRestartOnReset = argv.autoRestartOnLimitReset;
+    const shouldAutoContinueOnReset = shouldAutoResumeOnReset || shouldAutoRestartOnReset;
 
-    // If limit was reached but auto-resume-on-limit-reset is NOT enabled, fail immediately
-    if (!shouldAutoResumeOnReset) {
+    // If limit was reached but neither auto-resume nor auto-restart is enabled, fail immediately
+    if (!shouldAutoContinueOnReset) {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
       // Always show manual resume command in console so users can resume after limit resets
       if (sessionId) {
         const resetTime = global.limitResetTime;
+        const timezone = global.limitTimezone || null;
         await log('');
         await log(`📁 Working directory: ${tempDir}`);
         await log(`📌 Session ID: ${sessionId}`);
         if (resetTime) {
-          await log(`⏰ Limit resets at: ${resetTime}`);
+          // Format reset time with relative time and UTC for better user understanding
+          // See: https://github.com/link-assistant/hive-mind/issues/1152
+          const formattedResetTime = formatResetTimeWithRelative(resetTime, timezone);
+          await log(`⏰ Limit resets at: ${formattedResetTime}`);
         }
         await log('');
         // Show claude resume command only for --tool claude (or default)
@@ -993,15 +1014,17 @@ try {
         }
       }
 
-      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset to wait for reset');
+      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset or --auto-restart-on-limit-reset to wait for reset');
     } else {
-      // auto-resume-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // auto-resume-on-limit-reset or auto-restart-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // Determine the mode type for comment formatting
+      const limitContinueMode = shouldAutoRestartOnReset ? 'restart' : 'resume';
       if (prNumber && global.limitResetTime) {
         // If --attach-logs is enabled, upload logs with usage limit details
         if (shouldAttachLogs && sessionId) {
           await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
           try {
-            // Build Claude CLI resume command
+            // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
             const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
             const logUploadSuccess = await attachLogToGitHub({
@@ -1019,6 +1042,10 @@ try {
               toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
               resumeCommand,
               sessionId,
+              // Tell attachLogToGitHub that auto-resume is enabled to suppress CLI commands in the comment
+              // See: https://github.com/link-assistant/hive-mind/issues/1152
+              isAutoResumeEnabled: true,
+              autoResumeMode: limitContinueMode,
             });
 
             if (logUploadSuccess) {
@@ -1048,10 +1075,11 @@ try {
               return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
 
-            // Build Claude CLI resume command
-            const tool = argv.tool || 'claude';
-            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-resume is enabled with \`--auto-resume-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
+            // For waiting comments, don't show CLI commands since auto-continue will handle it automatically
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
+            const continueDescription = limitContinueMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1159,7 +1187,10 @@ try {
   // Pass shouldRestart to prevent early exit when auto-restart is needed
   // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
   // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
+  // Issue #1152: Pass sessionType for differentiated log comments
+  // Issue #1154: Track if logs were already uploaded to prevent duplicates
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
+  const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
@@ -1246,7 +1277,8 @@ try {
     }
 
     // Attach updated logs to PR after auto-restart completes
-    if (shouldAttachLogs && prNumber) {
+    // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
+    if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1273,6 +1305,45 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
+    } else if (logsAlreadyUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+      logsAttached = true;
+    }
+  }
+
+  // Start auto-restart-until-mergable mode if enabled
+  // This runs after the normal watch mode completes (if any)
+  // --auto-merge implies --auto-restart-until-mergable
+  if (argv.autoMerge || argv.autoRestartUntilMergable) {
+    const autoMergeResult = await startAutoRestartUntilMergable({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      prBranch,
+      branchName,
+      tempDir,
+      argv,
+    });
+
+    // Update session data with latest from auto-merge mode for accurate pricing
+    if (autoMergeResult && autoMergeResult.latestSessionId) {
+      sessionId = autoMergeResult.latestSessionId;
+      anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
+      if (argv.verbose) {
+        await log('');
+        await log('📊 Updated session data from auto-restart-until-mergable mode:', { verbose: true });
+        await log(`   Session ID: ${sessionId}`, { verbose: true });
+        if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+          await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+        }
+      }
+    }
+
+    // If auto-merge succeeded, update logs attached status
+    if (autoMergeResult && autoMergeResult.success) {
+      logsAttached = true;
     }
   }
 

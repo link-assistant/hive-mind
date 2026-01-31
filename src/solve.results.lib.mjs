@@ -416,7 +416,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new') => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -622,6 +622,8 @@ Fixes ${issueRef}
             pricingInfo,
             // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
             errorDuringExecution,
+            // Issue #1152: Pass sessionType for differentiated log comments
+            sessionType,
           });
         }
 
@@ -637,7 +639,8 @@ Fixes ${issueRef}
         if (!argv.watch && !shouldRestart) {
           await safeExit(0, 'Process completed successfully');
         }
-        return; // Return normally for watch mode or auto-restart
+        // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+        return { logUploadSuccess }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }
@@ -687,6 +690,8 @@ Fixes ${issueRef}
           pricingInfo,
           // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
           errorDuringExecution,
+          // Issue #1152: Pass sessionType for differentiated log comments
+          sessionType,
         });
       }
 
@@ -700,7 +705,8 @@ Fixes ${issueRef}
       if (!argv.watch && !shouldRestart) {
         await safeExit(0, 'Process completed successfully');
       }
-      return; // Return normally for watch mode or auto-restart
+      // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -718,7 +724,8 @@ Fixes ${issueRef}
     if (!argv.watch) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   } catch (searchError) {
     reportError(searchError, {
       context: 'verify_pr_creation',
@@ -734,7 +741,8 @@ Fixes ${issueRef}
     if (!argv.watch) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   }
 };
 

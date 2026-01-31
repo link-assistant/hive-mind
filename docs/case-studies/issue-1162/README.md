@@ -8,24 +8,24 @@ When using `--tool agent` mode with external AI models (like Grok Code), the pul
 
 Based on the solution draft log from PR bpmbpm/rdf-grapher#132:
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
-| 14:58:48 | solve.mjs v1.9.0 started with `--tool agent` flag |
-| 14:58:55 | Fork mode enabled for konard/bpmbpm-rdf-grapher |
-| 14:59:02 | Repository cloned and upstream set |
-| 14:59:04 | Branch `issue-131-85b8eb98862d` created |
-| 14:59:04 | CLAUDE.md file created and committed |
-| 14:59:05 | Branch pushed to remote |
-| 14:59:09 | **Draft PR #132 created with title `[WIP] TestAg1a`** |
-| 14:59:09 | **PR body set to WIP placeholder template** |
-| 14:59:19 | Agent (Grok Code) execution started |
-| 14:59:26 | Agent read issue #131 details |
-| 14:59:40 | Agent made code change (button label update) |
-| 15:00:00 | Agent committed and pushed changes |
-| 15:00:22 | **Agent finished - did NOT update PR title/description** |
-| 15:00:22 | solve.mjs cleanup: reverted CLAUDE.md commit |
-| 15:00:24 | **solve.mjs finalization: converted draft to ready, but did NOT update title/description** |
-| 15:00:26 | PR #132 marked ready for review (still with [WIP] title) |
+| Timestamp (UTC) | Event                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| 14:58:48        | solve.mjs v1.9.0 started with `--tool agent` flag                                          |
+| 14:58:55        | Fork mode enabled for konard/bpmbpm-rdf-grapher                                            |
+| 14:59:02        | Repository cloned and upstream set                                                         |
+| 14:59:04        | Branch `issue-131-85b8eb98862d` created                                                    |
+| 14:59:04        | CLAUDE.md file created and committed                                                       |
+| 14:59:05        | Branch pushed to remote                                                                    |
+| 14:59:09        | **Draft PR #132 created with title `[WIP] TestAg1a`**                                      |
+| 14:59:09        | **PR body set to WIP placeholder template**                                                |
+| 14:59:19        | Agent (Grok Code) execution started                                                        |
+| 14:59:26        | Agent read issue #131 details                                                              |
+| 14:59:40        | Agent made code change (button label update)                                               |
+| 15:00:00        | Agent committed and pushed changes                                                         |
+| 15:00:22        | **Agent finished - did NOT update PR title/description**                                   |
+| 15:00:22        | solve.mjs cleanup: reverted CLAUDE.md commit                                               |
+| 15:00:24        | **solve.mjs finalization: converted draft to ready, but did NOT update title/description** |
+| 15:00:26        | PR #132 marked ready for review (still with [WIP] title)                                   |
 
 ## Root Cause Analysis
 
@@ -41,6 +41,7 @@ The agent (Grok Code Fast 1) received clear instructions in the system prompt:
 ```
 
 However, the agent only:
+
 1. Made the code change
 2. Committed and pushed
 3. Reported success
@@ -61,6 +62,7 @@ The solve.mjs tool assumes the agent will update the PR title/description, but p
 ## Evidence
 
 ### Initial PR State (created by solve.mjs)
+
 ```
 Title: [WIP] TestAg1a
 Body:
@@ -82,12 +84,14 @@ _Details will be added as the solution draft is developed..._
 ```
 
 ### Final PR State (after agent finished)
+
 ```
 Title: [WIP] TestAg1a  ← STILL WIP!
 Body: (unchanged from placeholder)  ← STILL PLACEHOLDER!
 ```
 
 ### Agent's Final Message
+
 ```
 The issue has been successfully resolved. I changed the button label from
 "Визуализировать" to "Отобразить" in the file `ver7so/index.html` as requested.
@@ -104,60 +108,50 @@ The agent claimed success but did not update the PR metadata.
 3. **Missing context**: The description doesn't explain what was actually changed
 4. **Issue linking broken**: While "Fixes #X" was eventually added, the description still says "Details will be added..."
 
-## Proposed Solutions
+## Implemented Solution
 
-### Solution 1: Add Fallback in solve.mjs (Recommended)
+The solution follows a two-pronged approach:
 
-Modify `verifyResults` in `solve.results.lib.mjs` to:
-1. Remove `[WIP]` prefix from title after agent finishes
-2. Update PR description with a summary of changes (if still contains placeholder)
+### 1. Gentle Prompt Guidance (agent, opencode, codex prompts)
 
-**Pros:**
-- Works regardless of agent behavior
-- Consistent experience across different AI models
-- Minimal change required
+Replaced forcing language (`IMPORTANT`, `MUST`) with gentle, factual suggestions:
 
-**Cons:**
-- Centralized logic, agent doesn't control final output
-- May overwrite intentional WIP status
+- Added to the "finalize the pull request" checklist: "check that pull request title and description are updated"
+- No forcing words - just a factual suggestion as part of the existing checklist
+- Only applied to agent/opencode/codex prompts (not claude - it's obvious for Claude models)
 
-### Solution 2: Stronger Instructions in Agent Prompts
+### 2. `--auto-restart-on-non-updated-pull-request-description` Option
 
-Add more explicit and mandatory instructions to the agent system prompt:
+New CLI option that:
 
-```
-CRITICAL: Before finishing, you MUST:
-1. Run: gh pr edit ${prNumber} --title "Updated title describing the change"
-2. Run: gh pr edit ${prNumber} --body "$(cat <<'EOF'
-Updated description here...
-EOF
-)"
-```
+1. After agent execution, detects if PR title/description still contains auto-generated placeholder content
+2. If placeholders found, auto-restarts the tool with a short factual hint:
+   - "Pull request title and description were not updated."
+   - "Pull request title was not updated."
+   - "Pull request description was not updated."
+3. The hint uses neutral, fact-stating language (no forcing words like IMPORTANT/MUST)
+4. Runs one restart iteration (disabled on restart to prevent infinite loops)
+5. If placeholders still present after restart, falls back to the existing cleanup logic
 
-**Pros:**
-- Agent retains full control
-- Customized descriptions per task
+### Key Design Decisions
 
-**Cons:**
-- Dependent on agent following instructions
-- Different models may have varying compliance
+- **No forcing in prompts**: Per reviewer feedback, forcing language (`IMPORTANT`, `MUST`) is counterproductive. Simple suggestions work better.
+- **Claude excluded**: Claude models handle PR title/description updates naturally, so no additional prompt guidance needed.
+- **Auto-restart is opt-in**: The `--auto-restart-on-non-updated-pull-request-description` flag is `false` by default.
+- **Factual hints only**: The restart hint states facts ("title was not updated") rather than commands ("you MUST update").
+- **Existing fallback preserved**: When auto-restart is not enabled, the existing [WIP] removal and placeholder replacement logic in `verifyResults` still works.
 
-### Solution 3: Hybrid Approach (Best)
+## Files Modified
 
-1. Improve agent instructions to emphasize PR update requirement
-2. Add fallback in solve.mjs to detect and fix incomplete PR metadata
-3. Log a warning when fallback is triggered for monitoring
-
-## Files Involved
-
-| File | Role |
-|------|------|
-| `src/solve.auto-pr.lib.mjs` | Creates initial [WIP] PR with placeholder |
-| `src/solve.results.lib.mjs` | Post-processing after agent finishes |
-| `src/agent.prompts.lib.mjs` | Agent instructions (includes PR edit guidance) |
-| `src/claude.prompts.lib.mjs` | Claude-specific prompts |
-| `src/opencode.prompts.lib.mjs` | OpenCode-specific prompts |
-| `src/codex.prompts.lib.mjs` | Codex-specific prompts |
+| File                             | Changes                                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/solve.config.lib.mjs`       | Added `--auto-restart-on-non-updated-pull-request-description` option                                                                        |
+| `src/solve.results.lib.mjs`      | Added `hasPRTitlePlaceholder`, `hasPRBodyPlaceholder`, `buildPRNotUpdatedHint` exports; updated `verifyResults` to return placeholder status |
+| `src/solve.mjs`                  | Added auto-restart logic after `verifyResults` when placeholders detected                                                                    |
+| `src/agent.prompts.lib.mjs`      | Replaced forcing language with gentle suggestion                                                                                             |
+| `src/opencode.prompts.lib.mjs`   | Replaced forcing language with gentle suggestion                                                                                             |
+| `src/codex.prompts.lib.mjs`      | Replaced forcing language with gentle suggestion                                                                                             |
+| `tests/test-pr-finalization.mjs` | Added tests for new functions and hint language verification                                                                                 |
 
 ## Reproduction Steps
 
@@ -166,6 +160,12 @@ EOF
 3. Observe that PR is created with [WIP] prefix
 4. Wait for agent to complete the task
 5. Check PR title/description - still contains WIP and placeholder
+
+### With fix:
+
+6. Run solve with `--tool agent --auto-restart-on-non-updated-pull-request-description`
+7. If agent doesn't update, tool auto-restarts with hint
+8. Agent gets another chance to update title/description
 
 ## Related Issues
 

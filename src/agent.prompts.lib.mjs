@@ -183,10 +183,8 @@ Preparing pull request.
    - When you open pr, describe solution draft and include tests.
    - When there is a package with version and GitHub Actions workflows for automatic release, update the version in your pull request to prepare for next release.
    - When you update existing pr ${prNumber}, use gh pr edit to modify title and description.
-   - IMPORTANT: The PR starts with a [WIP] prefix and placeholder description. Before finishing, you MUST update both:
-      1. Update title: gh pr edit ${prNumber} --title "Your descriptive title without [WIP]"
-      2. Update description: gh pr edit ${prNumber} --body "Your detailed summary of changes"
    - When you finalize the pull request:
+      check that pull request title and description are updated (the PR may start with a [WIP] prefix and placeholder description that should be replaced with actual title and description of the changes),
       follow style from merged prs for code, title, and description,
       make sure no uncommitted changes corresponding to the original requirements are left behind,
       make sure the default branch is merged to the pull request's branch,

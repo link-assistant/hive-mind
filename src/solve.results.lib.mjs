@@ -48,6 +48,51 @@ const githubLinking = await import('./github-linking.lib.mjs');
 const { hasGitHubLinkingKeyword } = githubLinking;
 
 /**
+ * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
+ * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
+ */
+export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
+
+export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
+
+/**
+ * Check if PR title still contains auto-generated placeholder content
+ * @param {string} title - PR title
+ * @returns {boolean} - true if title has placeholder content
+ */
+export const hasPRTitlePlaceholder = title => {
+  return title && title.startsWith(PR_TITLE_PLACEHOLDER_PREFIX);
+};
+
+/**
+ * Check if PR body still contains auto-generated placeholder content
+ * @param {string} body - PR body
+ * @returns {boolean} - true if body has placeholder content
+ */
+export const hasPRBodyPlaceholder = body => {
+  return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
+};
+
+/**
+ * Build a short factual hint for auto-restart when PR title/description was not updated.
+ * Uses neutral, fact-stating language (no forcing words).
+ * @param {boolean} titleNotUpdated - Whether the PR title still has placeholder
+ * @param {boolean} descriptionNotUpdated - Whether the PR description still has placeholder
+ * @returns {string[]} - Array of feedback lines to pass as hint to the restarted session
+ */
+export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
+  const lines = [];
+  if (titleNotUpdated && descriptionNotUpdated) {
+    lines.push('Pull request title and description were not updated.');
+  } else if (titleNotUpdated) {
+    lines.push('Pull request title was not updated.');
+  } else if (descriptionNotUpdated) {
+    lines.push('Pull request description was not updated.');
+  }
+  return lines;
+};
+
+/**
  * Detect the CLAUDE.md or .gitkeep commit hash from branch structure when not available in session
  * This handles continue mode where the commit hash was lost between sessions
  *
@@ -513,9 +558,15 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             }
           }
 
+          // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
+          // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
+          const prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
+          const prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
+
           // Issue #1162: Remove [WIP] prefix from title if still present
-          // This ensures the PR title is finalized even if the agent didn't update it
-          if (pr.title && pr.title.startsWith('[WIP]')) {
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          // (let the agent handle it on restart instead)
+          if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             const updatedTitle = pr.title.replace(/^\[WIP\]\s*/, '');
             await log(`  📝 Removing [WIP] prefix from PR title...`);
             const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
@@ -527,14 +578,9 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           }
 
           // Issue #1162: Update PR description if still contains placeholder text
-          // This ensures the PR description is finalized even if the agent didn't update it
-          const placeholderPatterns = [
-            '_Details will be added as the solution draft is developed..._',
-            '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.',
-            '### 🚧 Status',
-          ];
-          const hasPlaceholder = placeholderPatterns.some(pattern => prBody.includes(pattern));
-          if (hasPlaceholder) {
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          const hasPlaceholder = prBodyHasPlaceholder;
+          if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             await log(`  📝 Updating PR description to remove placeholder text...`);
 
             // Build a summary of the changes from the PR diff
@@ -636,11 +682,17 @@ Fixes ${issueRef}
         }
         await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-        if (!argv.watch && !shouldRestart) {
+        // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
+        const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
+        if (shouldAutoRestartForPlaceholder) {
+          await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
+        }
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder) {
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
-        return { logUploadSuccess }; // Return for watch mode or auto-restart
+        // Issue #1162: Return placeholder detection status for auto-restart
+        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }

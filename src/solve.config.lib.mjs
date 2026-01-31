@@ -210,6 +210,11 @@ export const createYargsConfig = yargsInstance => {
         description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
         default: false,
       })
+      .option('auto-restart-on-non-updated-pull-request-description', {
+        type: 'boolean',
+        description: 'Automatically restart if PR title or description still contains auto-generated placeholder text after agent execution. Restarts with a hint about what was not updated.',
+        default: false,
+      })
       .option('continue-only-on-feedback', {
         type: 'boolean',
         description: 'Only continue if feedback is detected (works only with pull request link or issue link with --auto-continue)',

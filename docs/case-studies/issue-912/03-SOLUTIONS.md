@@ -117,7 +117,7 @@ services:
           memory: 1G
           cpus: '1.0'
     healthcheck:
-      test: ["CMD", "node", "-e", "process.exit(0)"]
+      test: ['CMD', 'node', '-e', 'process.exit(0)']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -127,9 +127,9 @@ services:
   solve-runner:
     build: .
     container_name: hive-solve-runner
-    restart: "no"  # Don't auto-restart solve commands
+    restart: 'no' # Don't auto-restart solve commands
     profiles:
-      - solve  # Only starts with: docker compose --profile solve run solve-runner
+      - solve # Only starts with: docker compose --profile solve run solve-runner
     environment:
       - NODE_ENV=production
     env_file:
@@ -137,7 +137,7 @@ services:
     volumes:
       - /tmp:/tmp
     # Automatic cleanup when container stops
-    init: true  # Ensures proper process cleanup
+    init: true # Ensures proper process cleanup
 ```
 
 ### Setup Commands
@@ -158,12 +158,12 @@ docker compose down
 
 ### With Restart Policy Details
 
-| Policy | Behavior |
-|--------|----------|
-| `no` | Never restart |
-| `always` | Always restart, even if manually stopped (restarts after reboot too) |
+| Policy           | Behavior                                                                |
+| ---------------- | ----------------------------------------------------------------------- |
+| `no`             | Never restart                                                           |
+| `always`         | Always restart, even if manually stopped (restarts after reboot too)    |
 | `unless-stopped` | Restart unless manually stopped (won't restart after reboot if stopped) |
-| `on-failure` | Only restart if container exits with non-zero code |
+| `on-failure`     | Only restart if container exits with non-zero code                      |
 
 ### Advantages
 
@@ -386,6 +386,7 @@ systemctl status systemd-tmpfiles-clean.timer
 ### Default Timer Schedule
 
 The `systemd-tmpfiles-clean.timer` runs:
+
 - 15 minutes after boot
 - Then daily (every 24 hours)
 
@@ -544,18 +545,20 @@ Create `ecosystem.config.js`:
 
 ```javascript
 module.exports = {
-  apps: [{
-    name: 'hive-telegram-bot',
-    script: './src/telegram-bot.mjs',
-    cwd: '/home/hive/hive-mind',
-    instances: 1,
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'production'
-    }
-  }]
+  apps: [
+    {
+      name: 'hive-telegram-bot',
+      script: './src/telegram-bot.mjs',
+      cwd: '/home/hive/hive-mind',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+  ],
 };
 ```
 
@@ -572,28 +575,591 @@ module.exports = {
 - Not as integrated as systemd
 - Requires separate installation
 
+## Solution 7: earlyoom / systemd-oomd -- Userspace OOM Protection (RECOMMENDED)
+
+**Complexity**: Low
+**Addresses**: RAM cleanup, system stability
+**Recommended**: Yes
+
+### Description
+
+`earlyoom` is a lightweight daemon (~2 MiB memory) that monitors available memory 10 times per second and kills the highest `oom_score` process before the kernel OOM killer triggers. The kernel OOM killer activates very late (often when the system is already frozen), while earlyoom acts proactively at a configurable threshold. `systemd-oomd` is systemd's built-in alternative using Linux Pressure Stall Information (PSI).
+
+### Implementation (earlyoom)
+
+```bash
+# Install earlyoom
+sudo apt install earlyoom
+
+# Enable and start
+sudo systemctl enable --now earlyoom
+```
+
+Configure at `/etc/default/earlyoom`:
+
+```bash
+EARLYOOM_ARGS="-m 5 -r 60 --avoid '(^|/)(init|sshd|hive-telegram-bot)$' --prefer '(^|/)(chrome|node.*solve)$'"
+```
+
+Key flags:
+
+- `-m 5`: Trigger when free memory falls below 5%
+- `-r 60`: Log memory status every 60 seconds
+- `--avoid`: Never kill these processes (protect the bot and system services)
+- `--prefer`: Kill these first (Chrome and solve workers are expendable)
+
+### Implementation (systemd-oomd alternative)
+
+Add to any systemd service unit:
+
+```ini
+[Service]
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=80%
+```
+
+### Advantages
+
+- Prevents system freezes caused by OOM before the kernel can react
+- Configurable process priority (protect critical services, sacrifice workers)
+- Minimal resource footprint
+- earlyoom: single package install, no additional configuration needed
+
+### Disadvantages
+
+- earlyoom: kills processes based on heuristics, which may occasionally kill the wrong process
+- systemd-oomd: requires cgroups v2 and PSI support (Linux 4.20+)
+
+### References
+
+- [earlyoom GitHub](https://github.com/rfjakob/earlyoom)
+- [systemd-oomd documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd-oomd.service.html)
+
+## Solution 8: Linux OOM Score Tuning
+
+**Complexity**: Low
+**Addresses**: RAM cleanup prioritization
+**Recommended**: Yes (complement to other solutions)
+
+### Description
+
+The Linux kernel's OOM killer assigns each process a "badness score" based on memory usage. The `oom_score_adj` parameter (-1000 to +1000) allows manual adjustment of this score. By protecting critical services (like the telegram bot) and marking expendable processes (like solve workers), you ensure the right processes die first during memory pressure.
+
+### Implementation
+
+In the systemd service unit for the bot:
+
+```ini
+[Service]
+# Protect the telegram bot from OOM killer (-900 makes it very unlikely to be killed)
+OOMScoreAdjust=-900
+```
+
+For solve worker processes, use a wrapper:
+
+```bash
+#!/bin/bash
+# solve-wrapper.sh - Run solve with high OOM score
+echo 500 > /proc/self/oom_score_adj
+exec node /home/hive/hive-mind/src/solve.mjs "$@"
+```
+
+Optional system-level tuning:
+
+```bash
+# Prevent memory overcommit (stricter allocation)
+sudo sysctl -w vm.overcommit_memory=0
+
+# Make persistent
+echo "vm.overcommit_memory=0" | sudo tee -a /etc/sysctl.d/99-hive-mind.conf
+```
+
+### Advantages
+
+- Zero additional dependencies (kernel feature)
+- Ensures critical services survive OOM events
+- Can be added with a single line in the systemd unit file
+
+### Disadvantages
+
+- Only affects behavior during OOM events, not proactive cleanup
+- Does not prevent memory pressure from building up
+
+### References
+
+- [Linux OOM Killer Guide (Last9)](https://last9.io/blog/understanding-the-linux-oom-killer/)
+- [Oracle: How to Configure the Linux OOM Killer](https://www.oracle.com/technical-resources/articles/it-infrastructure/dev-oom-killer.html)
+
+## Solution 9: cgroups Resource Limits via systemd
+
+**Complexity**: Medium
+**Addresses**: CPU, RAM, and process isolation per service
+**Recommended**: Yes
+
+### Description
+
+Linux cgroups (control groups) limit, account for, and isolate resource usage (CPU, memory, disk I/O, PIDs) of process collections. systemd provides native cgroup integration through service unit directives, requiring no additional tools.
+
+### Implementation
+
+Enhanced systemd service unit with cgroup limits:
+
+```ini
+[Service]
+# Memory: hard limit, swap limit, high watermark
+MemoryMax=1G
+MemorySwapMax=0
+MemoryHigh=768M
+
+# CPU: 100% = 1 full CPU core
+CPUQuota=100%
+
+# Process count limit (prevents fork bombs)
+TasksMax=100
+```
+
+For running solve commands in transient cgroup-limited scopes:
+
+```bash
+# Run a solve command with resource limits
+systemd-run --user -u solve-task-$(date +%s) \
+  -p CPUQuota=100% \
+  -p MemoryMax=512M \
+  -p TasksMax=50 \
+  node /home/hive/hive-mind/src/solve.mjs "$@"
+```
+
+### Advantages
+
+- Strong isolation without Docker
+- Native systemd integration (just add directives to unit files)
+- Prevents any single process from consuming all system resources
+- `TasksMax` prevents fork bombs from exhausting the process table
+
+### Disadvantages
+
+- Requires understanding of cgroup hierarchy
+- Limits may cause legitimate processes to be OOM-killed if set too low
+- `systemd-run` approach adds complexity for ad-hoc commands
+
+### References
+
+- [Red Hat: Setting Resource Limits with Control Groups](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/8/html/managing_monitoring_and_updating_the_kernel/setting-limits-for-applications_managing-monitoring-and-updating-the-kernel)
+- [iximiuz Labs: Controlling Process Resources with cgroups](https://labs.iximiuz.com/tutorials/controlling-process-resources-with-cgroups)
+
+## Solution 10: logrotate for Log File Management (RECOMMENDED)
+
+**Complexity**: Low
+**Addresses**: Disk cleanup (log files)
+**Recommended**: Yes (baseline requirement)
+
+### Description
+
+logrotate is a standard Linux utility that automatically rotates, compresses, and removes log files. It is pre-installed on virtually all Linux distributions and prevents log-driven disk exhaustion.
+
+### Implementation
+
+Create `/etc/logrotate.d/hive-mind`:
+
+```
+/var/log/hive-*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    maxage 30
+    size 100M
+    create 660 hive hive
+    postrotate
+        systemctl reload hive-telegram-bot > /dev/null 2>&1 || true
+    endscript
+}
+
+/home/hive/hive-mind/logs/*.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    maxsize 50M
+}
+```
+
+### Test Configuration
+
+```bash
+# Dry run to verify configuration
+sudo logrotate -d /etc/logrotate.d/hive-mind
+
+# Force rotation to test
+sudo logrotate -f /etc/logrotate.d/hive-mind
+```
+
+### Advantages
+
+- Pre-installed on all major Linux distributions
+- Declarative configuration
+- Compresses old logs automatically
+- Prevents any single log file from consuming disk space
+
+### Disadvantages
+
+- Only manages log files, not other types of disk waste
+- Runs on schedule (daily by default), not real-time
+
+### References
+
+- [Better Stack: Complete Guide to logrotate](https://betterstack.com/community/guides/logging/how-to-manage-log-files-with-logrotate-on-ubuntu-20-04/)
+- [Datadog: How to Manage Log Files Using logrotate](https://www.datadoghq.com/blog/log-file-control-with-logrotate/)
+
+## Solution 11: Monit -- Process and Resource Monitoring
+
+**Complexity**: Low
+**Addresses**: Service auto-restart, resource threshold alerts and actions
+**Recommended**: Optional (complement to systemd)
+
+### Description
+
+Monit is an open-source process monitoring daemon that checks service health at configurable intervals and can automatically restart failed services, send alerts, and trigger actions when resource thresholds are crossed.
+
+### Implementation
+
+Install and configure:
+
+```bash
+sudo apt install monit
+sudo systemctl enable --now monit
+```
+
+Create `/etc/monit/conf.d/hive-mind`:
+
+```
+# Monitor the telegram bot process
+check process hive-telegram-bot matching "telegram-bot.mjs"
+  start program = "/usr/bin/systemctl start hive-telegram-bot"
+  stop program = "/usr/bin/systemctl stop hive-telegram-bot"
+  if memory > 800 MB for 3 cycles then restart
+  if cpu > 90% for 5 cycles then restart
+  if 5 restarts within 5 cycles then timeout
+
+# Monitor system resources
+check system $HOST
+  if loadavg (5min) > 8 then alert
+  if memory usage > 80% for 4 cycles then alert
+  if swap usage > 20% for 4 cycles then alert
+
+# Monitor /tmp disk usage
+check filesystem tmp with path /tmp
+  if space usage > 80% then exec "/home/hive/scripts/cleanup.sh"
+  if space usage > 95% then exec "/home/hive/scripts/aggressive-cleanup.sh"
+```
+
+### Advantages
+
+- Lightweight (1-2% CPU/memory)
+- Built-in web UI on port 2812 for status monitoring
+- Resource-threshold-based actions that systemd alone does not provide
+- Alert integration (email, custom scripts)
+
+### Disadvantages
+
+- Additional dependency to install and maintain
+- Some overlap with systemd restart functionality
+- Configuration syntax is unique and requires learning
+
+### References
+
+- [Monit Official Documentation](https://mmonit.com/monit/documentation/monit.html)
+- [Monit Configuration Examples](https://mmonit.com/wiki/Monit/ConfigurationExamples)
+
+## Solution 12: Resource Watchdog Service
+
+**Complexity**: Medium
+**Addresses**: Disk cleanup, RAM cleanup (threshold-based)
+**Recommended**: Optional
+
+### Description
+
+A custom watchdog script that runs as a systemd service, continuously monitoring disk and memory usage and taking automated action when thresholds are crossed. This fills the gap between passive cron cleanup (scheduled) and reactive OOM killing (too late).
+
+### Implementation
+
+Create `/home/hive/scripts/resource-watchdog.sh`:
+
+```bash
+#!/bin/bash
+# Resource Watchdog - runs as systemd service
+DISK_THRESHOLD=80  # percent
+MEM_THRESHOLD=80   # percent
+CHECK_INTERVAL=30  # seconds
+
+LOG_FILE="/var/log/hive-watchdog.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+log "Resource watchdog started"
+
+while true; do
+    # Check disk
+    DISK_PCT=$(df /tmp --output=pcent | tail -1 | tr -d ' %')
+    if [ "$DISK_PCT" -gt "$DISK_THRESHOLD" ]; then
+        log "Disk threshold exceeded: ${DISK_PCT}%"
+        # Remove oldest solver directories first
+        find /tmp -maxdepth 1 -name "gh-issue-solver-*" -type d \
+            -printf '%T+ %p\n' | sort | head -5 | cut -d' ' -f2- | \
+            xargs rm -rf 2>/dev/null
+    fi
+
+    # Check memory
+    MEM_PCT=$(free | awk '/Mem:/ {printf "%.0f", $3/$2*100}')
+    if [ "$MEM_PCT" -gt "$MEM_THRESHOLD" ]; then
+        log "Memory threshold exceeded: ${MEM_PCT}%"
+        # Kill oldest node solve processes
+        pkill -f --oldest "solve.mjs" 2>/dev/null || true
+    fi
+
+    sleep "$CHECK_INTERVAL"
+done
+```
+
+Create `/etc/systemd/system/resource-watchdog.service`:
+
+```ini
+[Unit]
+Description=Hive Mind Resource Usage Watchdog
+After=network.target
+
+[Service]
+Type=simple
+User=hive
+ExecStart=/home/hive/scripts/resource-watchdog.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+chmod +x /home/hive/scripts/resource-watchdog.sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now resource-watchdog
+```
+
+### Advantages
+
+- Continuous monitoring (30-second intervals vs 30-minute cron)
+- Threshold-based actions (proactive, not just scheduled)
+- Custom logic for determining what to clean/kill
+
+### Disadvantages
+
+- Custom code to maintain
+- Requires careful threshold tuning to avoid killing legitimate work
+- Overlap with Monit (which provides similar functionality out of the box)
+
+## Solution 13: Supervisord (Alternative Process Manager)
+
+**Complexity**: Low-Medium
+**Addresses**: Service auto-restart
+**Recommended**: Optional (if not using systemd)
+
+### Description
+
+Supervisord is a process control system for UNIX written in Python. It monitors and controls managed processes, restarting them on crash. It is an alternative to systemd for environments where systemd is not available or preferred.
+
+### Implementation
+
+```bash
+sudo apt install supervisor
+```
+
+Create `/etc/supervisor/conf.d/hive-telegram-bot.conf`:
+
+```ini
+[program:hive-telegram-bot]
+command=/usr/bin/node /home/hive/hive-mind/src/telegram-bot.mjs
+directory=/home/hive/hive-mind
+user=hive
+autostart=true
+autorestart=true
+startretries=3
+stderr_logfile=/var/log/hive-telegram-bot.err.log
+stdout_logfile=/var/log/hive-telegram-bot.out.log
+environment=NODE_ENV="production"
+```
+
+```bash
+sudo supervisorctl reload
+sudo supervisorctl status
+```
+
+### Advantages
+
+- Does not require root for process management (user-level daemon possible)
+- Simple INI-style configuration
+- Good for managing multiple application processes
+
+### Disadvantages
+
+- Largely redundant with systemd on modern Linux
+- Additional Python dependency
+- Less integrated with system logging than systemd
+
+## Solution 14: incron -- Event-Driven File Cleanup
+
+**Complexity**: Medium
+**Addresses**: Disk cleanup (real-time, event-driven)
+**Recommended**: Optional
+
+### Description
+
+incron triggers commands based on filesystem events (file creation, modification, deletion) using the Linux inotify kernel subsystem. Unlike cron which runs on a schedule, incron reacts in real-time.
+
+### Implementation
+
+```bash
+sudo apt install incron
+echo "hive" | sudo tee /etc/incron.allow
+```
+
+Edit incrontab (`incrontab -e`):
+
+```
+# Monitor /tmp for new solver directories
+/tmp IN_CREATE /home/hive/scripts/on-tmp-create.sh $@/$#
+
+# Auto-reload bot config when .env changes
+/home/hive/hive-mind/.env IN_CLOSE_WRITE systemctl restart hive-telegram-bot
+```
+
+### Advantages
+
+- Real-time response to filesystem events
+- No polling overhead
+- Can trigger cleanup immediately after solve commands finish
+
+### Disadvantages
+
+- More complex to configure correctly
+- Risk of event loops if handlers write to watched directories
+- inotify watch limits may be reached on busy systems
+
+### References
+
+- [incron GitHub](https://github.com/ar-/incron)
+- [ArchWiki: Incron](https://wiki.archlinux.org/title/Incron)
+
+## Solution 15: Kubernetes Liveness Probes and Resource Limits
+
+**Complexity**: High
+**Addresses**: Service auto-restart, resource isolation
+**Recommended**: No (for single-server setups; yes if Kubernetes already in use)
+
+### Description
+
+Kubernetes provides health probes (liveness, readiness, startup) that detect when a container is stuck and trigger automatic restarts. Per-pod resource limits enforce CPU and memory boundaries using cgroups.
+
+### Implementation
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hive-telegram-bot
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: hive-telegram-bot
+          image: hive-mind:latest
+          resources:
+            requests:
+              memory: '256Mi'
+              cpu: '250m'
+            limits:
+              memory: '1Gi'
+              cpu: '1000m'
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+```
+
+### Advantages
+
+- Industry-standard container orchestration
+- Built-in health checking and auto-healing
+- Resource limits per container
+
+### Disadvantages
+
+- Significant operational overhead for a single-server setup
+- Requires container image builds and registry
+- k3s reduces overhead but is still more complex than bare-metal solutions
+
+### References
+
+- [Kubernetes: Configure Liveness Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+- [Kubernetes: Resource Management](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+
 ## Solution Comparison Matrix
 
-| Solution | Auto-Restart | Disk Cleanup | Process Cleanup | Complexity | Dependencies |
-|----------|--------------|--------------|-----------------|------------|--------------|
-| systemd service | Yes | No | No | Low | None |
-| Docker Compose | Yes | No | Partial | Medium | Docker |
-| Cron cleanup | No | Yes | Yes | Low | None |
-| systemd-tmpfiles | No | Yes | No | Low | None |
-| Safe reboot | Yes | Yes | Yes | Medium | None |
-| PM2 | Yes | No | No | Medium | PM2 |
+| Solution                 | Auto-Restart |  Disk Cleanup   |   RAM Cleanup    |  CPU Control   | Process Cleanup | Complexity |     Dependencies     |
+| ------------------------ | :----------: | :-------------: | :--------------: | :------------: | :-------------: | :--------: | :------------------: |
+| 1. systemd service       |     Yes      |       No        |        No        |       No       |       No        |    Low     |         None         |
+| 2. Docker Compose        |     Yes      |       No        |     Partial      |      Yes       |       Yes       |   Medium   |        Docker        |
+| 3. Cron cleanup          |      No      |       Yes       |        No        |       No       |       Yes       |    Low     |         None         |
+| 4. systemd-tmpfiles      |      No      |       Yes       |        No        |       No       |       No        |    Low     |         None         |
+| 5. Safe reboot           |     Yes      |       Yes       |       Yes        |      Yes       |       Yes       |   Medium   |         None         |
+| 6. PM2                   |     Yes      |       No        |        No        |       No       |       No        |   Medium   |         PM2          |
+| 7. earlyoom/systemd-oomd |      No      |       No        |       Yes        |       No       |       Yes       |    Low     |     earlyoom pkg     |
+| 8. OOM score tuning      |      No      |       No        |  Yes (priority)  |       No       |       No        |    Low     |         None         |
+| 9. cgroups via systemd   |      No      |       No        | Yes (hard limit) |      Yes       | Yes (TasksMax)  |   Medium   |         None         |
+| 10. logrotate            |      No      |   Yes (logs)    |        No        |       No       |       No        |    Low     | None (pre-installed) |
+| 11. Monit                |     Yes      | Yes (threshold) | Yes (threshold)  |     Alert      |      Alert      |    Low     |      monit pkg       |
+| 12. Resource watchdog    |      No      | Yes (threshold) | Yes (threshold)  |       No       |       Yes       |   Medium   |         None         |
+| 13. Supervisord          |     Yes      |       No        |        No        |       No       |       No        | Low-Medium |    supervisor pkg    |
+| 14. incron               |      No      | Yes (real-time) |        No        |       No       |       No        |   Medium   |      incron pkg      |
+| 15. Kubernetes           |     Yes      |       No        |  Yes (eviction)  | Yes (throttle) |       Yes       |    High    |      Kubernetes      |
 
 ## Recommended Combination
 
-For a comprehensive solution, combine:
+For a comprehensive solution on a small-to-medium server, combine these tiers:
 
-1. **systemd service** for telegram bot auto-restart
-2. **Cron cleanup jobs** for periodic resource cleanup
-3. **systemd-tmpfiles** for automated /tmp management
-4. **Safe reboot script** for weekly maintenance (optional)
+### Tier 1: Essential (Recommended for all setups)
 
-This provides:
-- Automatic bot restart on boot
-- Regular cleanup of disk and processes
-- Native Linux tools with no additional dependencies
+1. **systemd service** (Solution 1) for telegram bot auto-restart
+2. **Cron cleanup jobs** (Solution 3) for periodic resource cleanup
+3. **systemd-tmpfiles** (Solution 4) for automated /tmp management
+4. **earlyoom** (Solution 7) for proactive OOM prevention
+5. **OOM score tuning** (Solution 8) to protect critical services during OOM
+6. **logrotate** (Solution 10) for log file management
+
+### Tier 2: Recommended Enhancements
+
+7. **cgroups via systemd** (Solution 9) for per-service resource isolation
+8. **Safe reboot script** (Solution 5) for weekly maintenance (optional)
+
+### Tier 3: Advanced (Choose based on infrastructure)
+
+9. **Monit** (Solution 11) if you need threshold-based alerting and web UI
+10. **Docker Compose** (Solution 2) if already using Docker
+11. **Kubernetes** (Solution 15) only if Kubernetes is already in use
+
+This combination provides:
+
+- Automatic bot restart on boot and crash
+- Regular cleanup of disk, processes, and log files
+- Proactive OOM protection with prioritized process killing
+- Per-service resource isolation via cgroups
+- Mostly native Linux tools with minimal additional dependencies
 - Predictable maintenance windows

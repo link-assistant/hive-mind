@@ -401,9 +401,9 @@ hive ALL=(ALL) NOPASSWD: /usr/bin/touch /var/run/hive-safe-reboot.lock
 hive ALL=(ALL) NOPASSWD: /usr/bin/rm -f /var/run/hive-safe-reboot.lock
 ```
 
-## Step 6: Verification
+## Step 9: Verification
 
-### 6.1 Verify systemd Service
+### 9.1 Verify systemd Service
 
 ```bash
 # Check service is enabled
@@ -416,7 +416,7 @@ sudo systemctl is-active hive-telegram-bot
 sudo journalctl -u hive-telegram-bot --since "1 hour ago"
 ```
 
-### 6.2 Test Cleanup Scripts
+### 9.2 Test Cleanup Scripts
 
 ```bash
 # Run cleanup manually
@@ -426,14 +426,14 @@ sudo journalctl -u hive-telegram-bot --since "1 hour ago"
 tail -20 /var/log/hive-cleanup.log
 ```
 
-### 6.3 Verify Cron
+### 9.3 Verify Cron
 
 ```bash
 # Check cron logs
 sudo grep CRON /var/log/syslog | tail -20
 ```
 
-### 6.4 Test Reboot Recovery
+### 9.4 Test Reboot Recovery
 
 ```bash
 # 1. Reboot the server
@@ -441,6 +441,107 @@ sudo reboot
 
 # 2. After reboot, verify bot is running
 sudo systemctl status hive-telegram-bot
+```
+
+## Step 6: Install earlyoom for OOM Protection
+
+### 6.1 Install and Configure
+
+```bash
+# Install earlyoom
+sudo apt install earlyoom
+```
+
+### 6.2 Configure earlyoom
+
+```bash
+sudo nano /etc/default/earlyoom
+```
+
+Add:
+
+```bash
+EARLYOOM_ARGS="-m 5 -r 60 --avoid '(^|/)(init|sshd|hive-telegram-bot)$' --prefer '(^|/)(chrome|node.*solve)$'"
+```
+
+### 6.3 Enable and Start
+
+```bash
+sudo systemctl enable --now earlyoom
+sudo systemctl status earlyoom
+```
+
+## Step 7: Configure OOM Score and cgroup Limits
+
+### 7.1 Update systemd Service with OOM and cgroup Settings
+
+Edit the existing bot service:
+
+```bash
+sudo systemctl edit hive-telegram-bot
+```
+
+Add these overrides:
+
+```ini
+[Service]
+# Protect from OOM killer
+OOMScoreAdjust=-900
+
+# cgroup resource limits
+MemoryMax=1G
+MemorySwapMax=0
+MemoryHigh=768M
+CPUQuota=100%
+TasksMax=100
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart hive-telegram-bot
+```
+
+## Step 8: Configure logrotate
+
+### 8.1 Create logrotate Configuration
+
+```bash
+sudo nano /etc/logrotate.d/hive-mind
+```
+
+Paste:
+
+```
+/var/log/hive-*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    maxage 30
+    size 100M
+    create 660 hive hive
+}
+
+/home/hive/hive-mind/logs/*.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    maxsize 50M
+}
+```
+
+### 8.2 Test Configuration
+
+```bash
+# Dry run
+sudo logrotate -d /etc/logrotate.d/hive-mind
+
+# Force rotation to verify
+sudo logrotate -f /etc/logrotate.d/hive-mind
 ```
 
 ## Monitoring and Alerting (Optional)
@@ -537,13 +638,27 @@ systemctl status systemd-tmpfiles-clean.timer
 
 ## Summary Checklist
 
+### Tier 1: Essential
+
 - [ ] Created `/etc/systemd/system/hive-telegram-bot.service`
 - [ ] Enabled and started the systemd service
 - [ ] Created `/home/hive/scripts/cleanup.sh`
 - [ ] Created `/home/hive/scripts/aggressive-cleanup.sh`
 - [ ] Added cron jobs for cleanup scripts
 - [ ] Created `/etc/tmpfiles.d/hive-mind.conf`
+- [ ] Installed and configured earlyoom
+- [ ] Added `OOMScoreAdjust=-900` to bot service
+- [ ] Added cgroup limits (`MemoryMax`, `CPUQuota`, `TasksMax`) to bot service
+- [ ] Created `/etc/logrotate.d/hive-mind`
+
+### Tier 2: Recommended
+
 - [ ] (Optional) Created safe reboot script
 - [ ] (Optional) Configured sudoers for passwordless reboot
+
+### Verification
+
 - [ ] Verified all services are working
 - [ ] Tested reboot recovery
+- [ ] Verified earlyoom protects bot process
+- [ ] Verified logrotate configuration with dry run

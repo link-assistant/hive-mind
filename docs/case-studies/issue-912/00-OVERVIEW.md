@@ -3,6 +3,7 @@
 ## Executive Summary
 
 The Hive Mind server infrastructure experiences gradual resource degradation due to:
+
 1. **CPU waste**: Dangling processes from `solve` and `hive` command executions
 2. **RAM waste**: Zombie processes that don't get properly reaped
 3. **Disk waste**: Temporary files accumulating in `/tmp` from repository clones and AI tool operations
@@ -39,6 +40,7 @@ sudo reboot
 ```
 
 **Problems with this approach:**
+
 - Kills the `hive-telegram-bot` running in `screen -r bot`
 - Requires manual restart of the bot after reboot
 - No automated detection of "safe to reboot" state
@@ -48,12 +50,12 @@ sudo reboot
 
 ### Resource Impact
 
-| Resource | Normal State | Degraded State | Impact |
-|----------|--------------|----------------|--------|
-| Disk (/tmp) | < 50% used | 100% used | Commands fail to clone repos |
-| RAM | < 70% used | > 95% used | OOM kills processes |
-| CPU Load | < 4.0 | > 20.0 | System unresponsive |
-| Process Count | < 200 | > 500 | Process table exhaustion |
+| Resource      | Normal State | Degraded State | Impact                       |
+| ------------- | ------------ | -------------- | ---------------------------- |
+| Disk (/tmp)   | < 50% used   | 100% used      | Commands fail to clone repos |
+| RAM           | < 70% used   | > 95% used     | OOM kills processes          |
+| CPU Load      | < 4.0        | > 20.0         | System unresponsive          |
+| Process Count | < 200        | > 500          | Process table exhaustion     |
 
 ### Operational Impact
 
@@ -92,23 +94,42 @@ sudo reboot
 ## Proposed Solution Categories
 
 ### 1. Service Auto-Restart (Addressing Bot Restart)
-- **systemd service**: Native Linux service management with auto-restart
+
+- **systemd service**: Native Linux service management with auto-restart (recommended)
 - **Docker Compose**: Container-based deployment with restart policies
+- **PM2**: Node.js process manager with auto-restart
+- **Supervisord**: General-purpose process manager
+- **Kubernetes**: Full container orchestration with liveness probes
 
 ### 2. Resource Cleanup (Addressing CPU/RAM/Disk Waste)
+
 - **Cron jobs**: Scheduled cleanup of `/tmp` and orphaned processes
 - **systemd-tmpfiles**: Native systemd mechanism for temporary file management
-- **Process supervision**: Proper process lifecycle management
+- **logrotate**: Automated log file rotation, compression, and removal
+- **incron**: Event-driven (inotify-based) file cleanup
 
-### 3. Safe Reboot Mechanism (Addressing Timing)
+### 3. OOM Protection and Resource Isolation
+
+- **earlyoom / systemd-oomd**: Proactive OOM prevention before system freezes
+- **OOM score tuning**: Kernel-level process kill prioritization
+- **cgroups via systemd**: Per-service CPU, memory, and process limits
+
+### 4. Monitoring and Alerting
+
+- **Monit**: Lightweight process and resource monitoring with auto-actions
+- **Resource watchdog**: Custom threshold-based monitoring scripts
+
+### 5. Safe Reboot Mechanism (Addressing Timing)
+
 - **Lock file mechanism**: Solve/hive commands create locks that prevent reboot
-- **Active session detection**: Check for running screen sessions before reboot
+- **Active session detection**: Check for running commands before reboot
 - **Scheduled maintenance windows**: Predictable reboot times with notification
 
-### 4. Container-Based Solution (Comprehensive)
+### 6. Container-Based Solution (Comprehensive)
+
 - **Docker deployment**: Full containerization with resource limits
 - **Restart policies**: `unless-stopped` or `always` for reliability
-- **Volume management**: Proper handling of persistent data
+- **Kubernetes**: Full orchestration with health probes and resource management
 
 ## Next Steps
 

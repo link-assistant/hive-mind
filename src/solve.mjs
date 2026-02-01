@@ -1192,6 +1192,57 @@ try {
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
+  // Issue #1162: Auto-restart when PR title/description still has placeholder content
+  if (argv.autoRestartOnNonUpdatedPullRequestDescription && (verifyResult?.prTitleHasPlaceholder || verifyResult?.prBodyHasPlaceholder)) {
+    const { buildPRNotUpdatedHint } = results;
+    const hintLines = buildPRNotUpdatedHint(verifyResult.prTitleHasPlaceholder, verifyResult.prBodyHasPlaceholder);
+
+    await log('');
+    await log('🔄 AUTO-RESTART: PR title/description not updated by agent');
+    hintLines.forEach(async line => await log(`   ${line}`));
+    await log('   Restarting tool to give agent another chance to update...');
+    await log('');
+
+    // Import executeToolIteration for re-execution
+    const { executeToolIteration } = await import('./solve.restart-shared.lib.mjs');
+
+    // Re-execute tool with hint as feedback lines
+    const restartResult = await executeToolIteration({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      branchName,
+      tempDir,
+      mergeStateStatus,
+      feedbackLines: hintLines,
+      argv: {
+        ...argv,
+        // Disable auto-restart for this iteration to prevent infinite loops
+        autoRestartOnNonUpdatedPullRequestDescription: false,
+      },
+    });
+
+    // Update session data from restart
+    if (restartResult) {
+      if (restartResult.sessionId) sessionId = restartResult.sessionId;
+      if (restartResult.anthropicTotalCostUSD) anthropicTotalCostUSD = restartResult.anthropicTotalCostUSD;
+      if (restartResult.publicPricingEstimate) publicPricingEstimate = restartResult.publicPricingEstimate;
+      if (restartResult.pricingInfo) pricingInfo = restartResult.pricingInfo;
+    }
+
+    // Clean up CLAUDE.md/.gitkeep again after restart
+    await cleanupClaudeFile(tempDir, branchName, null, argv);
+
+    // Re-verify results after restart (without auto-restart flag to prevent recursion)
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
+
+    if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
+      await log('⚠️  PR title/description still not updated after restart');
+    }
+  }
+
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');

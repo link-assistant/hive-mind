@@ -48,6 +48,51 @@ const githubLinking = await import('./github-linking.lib.mjs');
 const { hasGitHubLinkingKeyword } = githubLinking;
 
 /**
+ * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
+ * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
+ */
+export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
+
+export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
+
+/**
+ * Check if PR title still contains auto-generated placeholder content
+ * @param {string} title - PR title
+ * @returns {boolean} - true if title has placeholder content
+ */
+export const hasPRTitlePlaceholder = title => {
+  return title && title.startsWith(PR_TITLE_PLACEHOLDER_PREFIX);
+};
+
+/**
+ * Check if PR body still contains auto-generated placeholder content
+ * @param {string} body - PR body
+ * @returns {boolean} - true if body has placeholder content
+ */
+export const hasPRBodyPlaceholder = body => {
+  return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
+};
+
+/**
+ * Build a short factual hint for auto-restart when PR title/description was not updated.
+ * Uses neutral, fact-stating language (no forcing words).
+ * @param {boolean} titleNotUpdated - Whether the PR title still has placeholder
+ * @param {boolean} descriptionNotUpdated - Whether the PR description still has placeholder
+ * @returns {string[]} - Array of feedback lines to pass as hint to the restarted session
+ */
+export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
+  const lines = [];
+  if (titleNotUpdated && descriptionNotUpdated) {
+    lines.push('Pull request title and description were not updated.');
+  } else if (titleNotUpdated) {
+    lines.push('Pull request title was not updated.');
+  } else if (descriptionNotUpdated) {
+    lines.push('Pull request description was not updated.');
+  }
+  return lines;
+};
+
+/**
  * Detect the CLAUDE.md or .gitkeep commit hash from branch structure when not available in session
  * This handles continue mode where the commit hash was lost between sessions
  *
@@ -465,12 +510,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
 
+        // Declare placeholder detection variables outside block scopes for use in return value
+        let prTitleHasPlaceholder = false;
+        let prBodyHasPlaceholder = false;
+
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           // Check if PR body has proper issue linking keywords
+          let prBody = '';
           const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
           if (prBodyResult.code === 0) {
-            const prBody = prBodyResult.stdout.toString();
+            prBody = prBodyResult.stdout.toString();
             const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
 
             // Use the new GitHub linking detection library to check for valid keywords
@@ -510,6 +560,80 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
               }
             } else {
               await log('  ✅ PR body already contains issue reference');
+            }
+          }
+
+          // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
+          // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
+          prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
+          prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
+
+          // Issue #1162: Remove [WIP] prefix from title if still present
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          // (let the agent handle it on restart instead)
+          if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            const updatedTitle = pr.title.replace(/^\[WIP\]\s*/, '');
+            await log(`  📝 Removing [WIP] prefix from PR title...`);
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
+            if (titleResult.code === 0) {
+              await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
+            } else {
+              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
+            }
+          }
+
+          // Issue #1162: Update PR description if still contains placeholder text
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          const hasPlaceholder = prBodyHasPlaceholder;
+          if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            await log(`  📝 Updating PR description to remove placeholder text...`);
+
+            // Build a summary of the changes from the PR diff
+            const diffResult = await $`gh pr diff ${pr.number} --repo ${owner}/${repo} 2>&1`;
+            const diffOutput = diffResult.code === 0 ? diffResult.stdout.toString() : '';
+
+            // Count files changed
+            const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
+            const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
+            const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+
+            // Get the issue title for context
+            const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
+            const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
+
+            // Build new description
+            const fs = (await use('fs')).promises;
+            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+            const newDescription = `## Summary
+
+This pull request implements a solution for ${issueRef}: ${issueTitle}
+
+### Changes
+- ${filesChanged} file(s) modified
+- ${additions} line(s) added
+- ${deletions} line(s) removed
+
+### Issue Reference
+Fixes ${issueRef}
+
+---
+*This PR was created automatically by the AI issue solver*`;
+
+            const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
+            await fs.writeFile(tempBodyFile, newDescription);
+
+            try {
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              await fs.unlink(tempBodyFile).catch(() => {});
+
+              if (descResult.code === 0) {
+                await log(`  ✅ Updated PR description with solution summary`);
+              } else {
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+              }
+            } catch (descError) {
+              await fs.unlink(tempBodyFile).catch(() => {});
+              await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
           }
 
@@ -563,11 +687,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         }
         await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-        if (!argv.watch && !shouldRestart) {
+        // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
+        const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
+        if (shouldAutoRestartForPlaceholder) {
+          await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
+        }
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder) {
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
-        return { logUploadSuccess }; // Return for watch mode or auto-restart
+        // Issue #1162: Return placeholder detection status for auto-restart
+        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }

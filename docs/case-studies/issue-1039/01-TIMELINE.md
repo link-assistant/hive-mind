@@ -1,6 +1,6 @@
 # Timeline: Solve Command Stuck on Playwright MCP Tool Call
 
-This document reconstructs the sequence of events from the log file `af1463d6-30a8-4119-92ff-d25a89bd948a.log`.
+This document reconstructs the sequence of events from the log file `af1463d6-30a8-4119-92ff-d25a89bd948a.txt`.
 
 ## Session Overview
 

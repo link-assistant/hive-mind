@@ -13,7 +13,7 @@ The `solve` command becomes stuck indefinitely when the AI assistant calls a Pla
 
 ### Key Evidence
 
-From the log file `af1463d6-30a8-4119-92ff-d25a89bd948a.log`:
+From the log file `af1463d6-30a8-4119-92ff-d25a89bd948a.txt`:
 
 - **11:22:53.672Z**: AI calls `mcp__playwright__browser_click` on "Load data" button (ref=e76)
 - **12:57:10.345Z**: Session interrupted by Ctrl+C (user intervention required)
@@ -65,7 +65,8 @@ The page was a Cesium.js 3D globe application with:
 
 ## Files in This Case Study
 
-- `af1463d6-30a8-4119-92ff-d25a89bd948a.log` - Full log file from the stuck session
+- `af1463d6-30a8-4119-92ff-d25a89bd948a.txt` - Full log file from the stuck session ([original gist](https://gist.githubusercontent.com/konard/26d78dc935a9aa857ea119f20f46bb0a/raw/7d62f1bda8f8b233b6ef60bb892c8e28e14aefe3/af1463d6-30a8-4119-92ff-d25a89bd948a.txt))
+- `solution-draft-log-pr-1767100846598.txt` - AI solution draft execution log ([original gist](https://gist.githubusercontent.com/konard/219e151d58f0e1e9750cb3160df8eb2f/raw/8c1c0e19570de199e18066b7d72659124590a875/solution-draft-log-pr-1767100846598.txt))
 - `README.md` - This overview document
 - `01-TIMELINE.md` - Detailed timeline reconstruction
 - `02-ROOT-CAUSES.md` - In-depth root cause analysis

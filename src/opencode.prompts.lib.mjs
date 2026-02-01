@@ -3,13 +3,16 @@
  * Handles building prompts for OpenCode commands
  */
 
+import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
+
 /**
  * Build the user prompt for OpenCode
  * @param {Object} params - Parameters for building the user prompt
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
 
@@ -23,6 +26,11 @@ export const buildUserPrompt = params => {
   // Basic info
   promptLines.push(`Your prepared branch: ${branchName}`);
   promptLines.push(`Your prepared working directory: ${tempDir}`);
+
+  // Workspace tmp directory for logs and temp files (when --enable-workspaces is used)
+  if (workspaceTmpDir) {
+    promptLines.push(`Your prepared tmp directory for logs and downloads: ${workspaceTmpDir}`);
+  }
 
   // PR info if available
   if (prUrl) {
@@ -74,7 +82,7 @@ export const buildUserPrompt = params => {
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = params => {
-  const { owner, repo, issueNumber, prNumber, branchName, argv } = params;
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv } = params;
 
   // Build thinking instruction based on --think level
   let thinkLine = '';
@@ -88,6 +96,41 @@ export const buildSystemPrompt = params => {
     thinkLine = `\n${thinkMessages[argv.think]}\n`;
   }
 
+  // Build workspace-specific instructions and examples
+  let workspaceInstructions = '';
+  if (workspaceTmpDir) {
+    workspaceInstructions = `
+Workspace tmp directory.
+   - Use ${workspaceTmpDir} for all temporary files, logs, and downloads.
+   - When saving command output to files, save to ${workspaceTmpDir}/command-output.log.
+   - When downloading CI logs, save to ${workspaceTmpDir}/ci-logs/.
+   - When saving diffs for review, save to ${workspaceTmpDir}/diffs/.
+   - When creating debug files, save to ${workspaceTmpDir}/debug/.
+
+`;
+  }
+
+  // Build CI command examples with workspace tmp paths
+  let ciExamples = '';
+  if (workspaceTmpDir) {
+    ciExamples = `
+CI investigation with workspace tmp directory.
+   - When downloading CI run logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log > ${workspaceTmpDir}/ci-logs/run-RUN_ID.log
+   - When downloading failed job logs:
+      gh run view RUN_ID --repo ${owner}/${repo} --log-failed > ${workspaceTmpDir}/ci-logs/run-RUN_ID-failed.log
+   - When listing CI runs with details:
+      gh run list --repo ${owner}/${repo} --branch ${branchName} --limit 5 --json databaseId,conclusion,createdAt,headSha > ${workspaceTmpDir}/ci-logs/recent-runs.json
+   - When saving PR diff for review:
+      gh pr diff ${prNumber} --repo ${owner}/${repo} > ${workspaceTmpDir}/diffs/pr-${prNumber}.diff
+   - When saving command output with stderr:
+      npm test 2>&1 | tee ${workspaceTmpDir}/test-output.log
+   - When investigating issue details:
+      gh issue view ${issueNumber} --repo ${owner}/${repo} --json body,comments > ${workspaceTmpDir}/issue-${issueNumber}.json
+
+`;
+  }
+
   return `You are AI issue solver using OpenCode.${thinkLine}
 
 General guidelines.
@@ -97,19 +140,21 @@ General guidelines.
    - When CI is failing, make sure you download the logs locally and carefully investigate them.
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
-   - When you create debug, test, or example/experiment scripts for fixing, always keep them in an examples and/or experiments folders so you can reuse them later.
-   - When testing your assumptions, use the experiment scripts, and add it to experiments folder.
-   - When your experiments can show real world use case of the software, add it to examples folder.
+${getExperimentsExamplesSubPrompt(argv)}
    - When you face something extremely hard, use divide and conquer — it always helps.
-
+${workspaceInstructions}
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
    - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
-   - When you need repo context, read files in your working directory.
-   - When you study related work, study the most recent related pull requests.
+   - When you need repo context, read files in your working directory.${
+     argv?.promptCheckSiblingPullRequests !== false
+       ? `
+   - When you study related work, study the most recent related pull requests.`
+       : ''
+   }
    - When issue is not defined enough, write a comment to ask clarifying questions.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
@@ -178,7 +223,7 @@ GitHub CLI command patterns.
    - When adding PR comment, use gh pr comment NUMBER --body "text" --repo OWNER/REPO.
    - When adding issue comment, use gh issue comment NUMBER --body "text" --repo OWNER/REPO.
    - When viewing PR details, use gh pr view NUMBER --repo OWNER/REPO.
-   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.`;
+   - When filtering with jq, use gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate --jq 'reverse | .[0:5]'.${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };
 
 // Export all functions as default object too

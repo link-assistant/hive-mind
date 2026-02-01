@@ -17,12 +17,12 @@ const __dirname = dirname(__filename);
 
 console.log('🧪 Testing fork branch detection for issue #393\n');
 
-// Read the auto-continue library file
-const autoContinueLibPath = join(__dirname, '..', 'src', 'solve.auto-continue.lib.mjs');
-const autoContinueContent = readFileSync(autoContinueLibPath, 'utf8');
+// Read the continuation library file
+const continuationLibPath = join(__dirname, '..', 'src', 'solve.auto-continue.lib.mjs');
+const continuationContent = readFileSync(continuationLibPath, 'utf8');
 
 console.log('Test 1: Check if fork branch detection code exists');
-const hasForkBranchCheck = autoContinueContent.includes('if (argv.fork)') && autoContinueContent.includes('gh api repos/') && autoContinueContent.includes('branches');
+const hasForkBranchCheck = continuationContent.includes('if (argv.fork)') && continuationContent.includes('gh api repos/') && continuationContent.includes('branches');
 
 if (hasForkBranchCheck) {
   console.log('✅ Fork branch detection code found\n');
@@ -32,7 +32,7 @@ if (hasForkBranchCheck) {
 }
 
 console.log('Test 2: Check if fork branches are stored in forkBranches array');
-const hasForkBranchesArray = autoContinueContent.includes('let forkBranches = []') || autoContinueContent.includes('forkBranches =');
+const hasForkBranchesArray = continuationContent.includes('let forkBranches = []') || continuationContent.includes('forkBranches =');
 
 if (hasForkBranchesArray) {
   console.log('✅ forkBranches array found\n');
@@ -42,7 +42,7 @@ if (hasForkBranchesArray) {
 }
 
 console.log('Test 3: Check if existing fork branches are used when no suitable PR found');
-const usesExistingForkBranch = autoContinueContent.includes('if (forkBranches.length > 0)') && autoContinueContent.includes('Using existing fork branch');
+const usesExistingForkBranch = continuationContent.includes('if (forkBranches.length > 0)') && continuationContent.includes('Using existing fork branch');
 
 if (usesExistingForkBranch) {
   console.log('✅ Code to use existing fork branches found\n');
@@ -52,7 +52,7 @@ if (usesExistingForkBranch) {
 }
 
 console.log('Test 4: Check if branch pattern matching is used');
-const hasBranchPatternMatch = autoContinueContent.includes('issue-${issueNumber}-') && autoContinueContent.includes('startsWith(branchPattern)');
+const hasBranchPatternMatch = continuationContent.includes('issue-${issueNumber}-') && continuationContent.includes('startsWith(branchPattern)');
 
 if (hasBranchPatternMatch) {
   console.log('✅ Branch pattern matching code found\n');
@@ -62,7 +62,7 @@ if (hasBranchPatternMatch) {
 }
 
 console.log('Test 5: Check if continue mode is activated with fork branch');
-const activatesContinueMode = autoContinueContent.includes('isContinueMode: true') && autoContinueContent.includes('prBranch: selectedBranch');
+const activatesContinueMode = continuationContent.includes('isContinueMode: true') && continuationContent.includes('prBranch: selectedBranch');
 
 if (activatesContinueMode) {
   console.log('✅ Continue mode activation with fork branch found\n');
@@ -72,7 +72,7 @@ if (activatesContinueMode) {
 }
 
 console.log('Test 6: Check if the fix handles the case when prNumber is null');
-const handlesNullPrNumber = autoContinueContent.includes('prNumber: null') || autoContinueContent.includes('No PR yet');
+const handlesNullPrNumber = continuationContent.includes('prNumber: null') || continuationContent.includes('No PR yet');
 
 if (handlesNullPrNumber) {
   console.log('✅ Null prNumber handling found\n');

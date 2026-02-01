@@ -110,6 +110,8 @@ if (isDirectExecution) {
     const { tryFetchIssuesWithGraphQL } = graphqlLib;
     const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
     const { listSolutionDrafts } = solutionDraftsLib;
+    const recheckLib = await import('./hive.recheck.lib.mjs');
+    const { recheckIssueConditions } = recheckLib;
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
@@ -713,6 +715,16 @@ if (isDirectExecution) {
 
         await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
 
+        // Recheck conditions before processing to avoid wasted work
+        const recheckResult = await recheckIssueConditions(issueUrl, argv);
+        if (!recheckResult.shouldProcess) {
+          await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+          issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
+
         // Track if this issue failed
         let issueFailed = false;
 
@@ -731,70 +743,26 @@ if (isDirectExecution) {
             }
 
             const startTime = Date.now();
-            const forkFlag = argv.fork ? ' --fork' : '';
-            const autoForkFlag = argv.autoFork ? ' --auto-fork' : '';
-            const verboseFlag = argv.verbose ? ' --verbose' : '';
-            const attachLogsFlag = argv.attachLogs ? ' --attach-logs' : '';
-            const targetBranchFlag = argv.targetBranch ? ` --target-branch ${argv.targetBranch}` : '';
-            const logDirFlag = argv.logDir ? ` --log-dir "${argv.logDir}"` : '';
-            const dryRunFlag = argv.dryRun ? ' --dry-run' : '';
-            const skipToolConnectionCheckFlag = argv.skipToolConnectionCheck || argv.toolConnectionCheck === false ? ' --skip-tool-connection-check' : '';
-            const toolFlag = argv.tool ? ` --tool ${argv.tool}` : '';
-            const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : ' --no-auto-continue';
-            const thinkFlag = argv.think ? ` --think ${argv.think}` : '';
-            const promptPlanSubAgentFlag = argv.promptPlanSubAgent ? ' --prompt-plan-sub-agent' : '';
-            const noSentryFlag = !argv.sentry ? ' --no-sentry' : '';
-            const watchFlag = argv.watch ? ' --watch' : '';
-            const prefixForkNameWithOwnerNameFlag = argv.prefixForkNameWithOwnerName ? ' --prefix-fork-name-with-owner-name' : '';
-            const interactiveModeFlag = argv.interactiveMode ? ' --interactive-mode' : '';
-            const promptExploreSubAgentFlag = argv.promptExploreSubAgent ? ' --prompt-explore-sub-agent' : '';
-            const promptIssueReportingFlag = argv.promptIssueReporting ? ' --prompt-issue-reporting' : '';
-            const promptCaseStudiesFlag = argv.promptCaseStudies ? ' --prompt-case-studies' : '';
-            const promptPlaywrightMcpFlag = argv.promptPlaywrightMcp === true ? ' --prompt-playwright-mcp' : argv.promptPlaywrightMcp === false ? ' --no-prompt-playwright-mcp' : '';
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-
             // Build arguments array to avoid shell parsing issues
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) {
-              args.push('--tool', argv.tool);
-            }
-            if (argv.fork) {
-              args.push('--fork');
-            }
-            if (argv.autoFork) {
-              args.push('--auto-fork');
-            }
-            if (argv.verbose) {
-              args.push('--verbose');
-            }
-            if (argv.attachLogs) {
-              args.push('--attach-logs');
-            }
-            if (argv.targetBranch) {
-              args.push('--target-branch', argv.targetBranch);
-            }
-            if (argv.logDir) {
-              args.push('--log-dir', argv.logDir);
-            }
-            if (argv.dryRun) {
-              args.push('--dry-run');
-            }
-            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
-              args.push('--skip-tool-connection-check');
-            }
-            if (argv.autoContinue) {
-              args.push('--auto-continue');
-            } else {
-              args.push('--no-auto-continue');
-            }
-            if (argv.think) {
-              args.push('--think', argv.think);
-            }
+            if (argv.tool) args.push('--tool', argv.tool);
+            if (argv.fork) args.push('--fork');
+            if (argv.autoFork) args.push('--auto-fork');
+            if (argv.verbose) args.push('--verbose');
+            if (argv.attachLogs) args.push('--attach-logs');
+            if (argv.targetBranch) args.push('--target-branch', argv.targetBranch);
+            if (argv.logDir) args.push('--log-dir', argv.logDir);
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
+            args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
+            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
+            if (argv.think) args.push('--think', argv.think);
+            if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
+            if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) {
-              args.push('--no-sentry');
-            }
+            if (!argv.sentry) args.push('--no-sentry');
             if (argv.watch) args.push('--watch');
             if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
             if (argv.interactiveMode) args.push('--interactive-mode');
@@ -802,9 +770,13 @@ if (isDirectExecution) {
             if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
             if (argv.promptCaseStudies) args.push('--prompt-case-studies');
             if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
+            if (argv.promptExperimentsFolder !== undefined) args.push('--prompt-experiments-folder', argv.promptExperimentsFolder);
+            if (argv.promptExamplesFolder !== undefined) args.push('--prompt-examples-folder', argv.promptExamplesFolder);
+            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
+            if (argv.autoMerge) args.push('--auto-merge');
+            if (argv.autoRestartUntilMergable) args.push('--auto-restart-until-mergable');
             // Log the actual command being executed so users can investigate/reproduce
-            const command = `${solveCommand} "${issueUrl}" --model ${argv.model}${toolFlag}${forkFlag}${autoForkFlag}${verboseFlag}${attachLogsFlag}${targetBranchFlag}${logDirFlag}${dryRunFlag}${skipToolConnectionCheckFlag}${autoContinueFlag}${thinkFlag}${promptPlanSubAgentFlag}${noSentryFlag}${watchFlag}${prefixForkNameWithOwnerNameFlag}${interactiveModeFlag}${promptExploreSubAgentFlag}${promptIssueReportingFlag}${promptCaseStudiesFlag}${promptPlaywrightMcpFlag}`;
-            await log(`   📋 Command: ${command}`);
+            await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 
             let exitCode = 0;
             // Create promise to handle async spawn process

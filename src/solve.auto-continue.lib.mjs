@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Auto-continue module for solve command
+// Session continuation module for solve command
+// Handles session resumption, PR detection, and limit reset waiting
 // Extracted from solve.mjs to keep files under 1500 lines
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -32,6 +33,11 @@ const { checkFileInBranch } = githubLib;
 // Import validation functions for time parsing
 const validation = await import('./solve.validation.lib.mjs');
 
+// Import usage limit formatting functions
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+const usageLimitLib = await import('./usage-limit.lib.mjs');
+const { formatResetTimeWithRelative } = usageLimitLib;
+
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
@@ -41,7 +47,7 @@ const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
 
 // Import configuration
-import { autoContinue } from './config.lib.mjs';
+import { autoContinue, limitReset } from './config.lib.mjs';
 
 const { calculateWaitTime } = validation;
 
@@ -64,13 +70,29 @@ const formatWaitTime = ms => {
 };
 
 // Auto-continue function that waits until limit resets
-export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
+// tempDir parameter is required for passing --working-directory to the resumed session
+// (Claude Code sessions are stored per-working-directory, so resume must use same directory)
+// isRestart parameter distinguishes between resume (maintains context) and restart (fresh start)
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs, tempDir = null, isRestart = false) => {
   try {
     const resetTime = global.limitResetTime;
-    const waitMs = calculateWaitTime(resetTime);
+    const timezone = global.limitTimezone || null;
+    const baseWaitMs = calculateWaitTime(resetTime);
 
-    await log(`\n⏰ Waiting until ${resetTime} for limit to reset...`);
-    await log(`   Wait time: ${formatWaitTime(waitMs)}`);
+    // Add buffer time after limit reset to account for server time differences
+    // Default: 5 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const bufferMs = limitReset.bufferMs;
+    const waitMs = baseWaitMs + bufferMs;
+    const bufferMinutes = Math.round(bufferMs / 60000);
+
+    // Format reset time with relative time and UTC for better user understanding
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const formattedResetTime = formatResetTimeWithRelative(resetTime, timezone);
+
+    await log(`\n⏰ Waiting until ${formattedResetTime} + ${bufferMinutes} min buffer for limit to reset...`);
+    await log(`   Wait time: ${formatWaitTime(waitMs)} (includes ${bufferMinutes} min buffer for server time differences)`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Show countdown every 30 minutes for long waits, every minute for short waits
@@ -80,7 +102,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const countdownTimer = setInterval(async () => {
       remainingMs -= countdownInterval;
       if (remainingMs > 0) {
-        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${resetTime}`);
+        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${formattedResetTime}`);
       }
     }, countdownInterval);
 
@@ -88,31 +110,59 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     await new Promise(resolve => setTimeout(resolve, waitMs));
     clearInterval(countdownTimer);
 
-    await log('\n✅ Limit reset time reached! Resuming session...');
+    const actionType = isRestart ? 'Restarting' : 'Resuming';
+    await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer)! ${actionType} session...`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
-    // Recursively call the solve script with --resume
-    // We need to reconstruct the command with appropriate flags
+    // Recursively call the solve script
+    // For resume: use --resume with session ID to maintain context
+    // For restart: don't use --resume to start fresh
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
     const childProcess = await import('child_process');
 
-    // Build the resume command
+    // Build the resume/restart command
     const resumeArgs = [
       process.argv[1], // solve.mjs path
       issueUrl,
-      '--resume',
-      sessionId,
     ];
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Only include --resume if this is a true resume (not a restart)
+    if (!isRestart && sessionId) {
+      resumeArgs.push('--resume', sessionId);
+      await log(`🔄 Session will be RESUMED with session ID: ${sessionId}`);
+    } else {
+      await log(`🔄 Session will be RESTARTED (fresh start without previous context)`);
     }
+
+    // Preserve auto-resume/auto-restart flag for subsequent limit hits
+    if (argv.autoResumeOnLimitReset) {
+      resumeArgs.push('--auto-resume-on-limit-reset');
+    }
+    if (argv.autoRestartOnLimitReset) {
+      resumeArgs.push('--auto-restart-on-limit-reset');
+    }
+
+    // Pass session type for proper comment differentiation
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const sessionType = isRestart ? 'auto-restart' : 'auto-resume';
+    resumeArgs.push('--session-type', sessionType);
 
     // Preserve other flags from original invocation
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
     if (argv.verbose) resumeArgs.push('--verbose');
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
+
+    // CRITICAL: Pass --working-directory to ensure Claude Code session resume works correctly
+    // Claude Code stores sessions per working directory, so resume MUST use the same directory
+    // Without this, resume creates a NEW temp directory and session is not found
+    if (tempDir) {
+      resumeArgs.push('--working-directory', tempDir);
+      await log(`📂 Using working directory for session continuity: ${tempDir}`);
+    } else if (!isRestart) {
+      await log(`⚠️  Warning: No working directory specified - session resume may fail`);
+      await log(`   Claude Code sessions are stored per-directory, consider using --working-directory`);
+    }
 
     await log(`\n🔄 Executing: ${resumeArgs.join(' ')}`);
 
@@ -135,7 +185,11 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('\n🔄 Manual resume command:');
-    await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    if (tempDir) {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --working-directory "${tempDir}"`);
+    } else {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    }
     await safeExit(1, 'Auto-continue failed');
   }
 };

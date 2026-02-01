@@ -1,5 +1,869 @@
 # @link-assistant/hive-mind
 
+## 1.14.2
+
+### Patch Changes
+
+- 69a34a6: fix: NDJSON stream buffering for Claude CLI output (Issue #1183)
+
+  Fixed issue where `total_cost_usd` and other critical fields were not being captured from Claude CLI sessions when the output JSON was split across multiple stdout chunks.
+
+  **Root Cause**: Claude CLI outputs NDJSON (newline-delimited JSON) format, but long JSON messages (like the `result` type containing `total_cost_usd`) can be split across multiple stdout buffer chunks. The code was splitting each chunk by newlines and parsing independently, causing partial JSON fragments to fail parsing.
+
+  **Solution**:
+  - Implemented line buffering to accumulate incomplete lines across chunks
+  - Lines are only parsed when they're complete (have a trailing newline)
+  - Added processing of any remaining buffer content after the stream ends
+
+  This ensures that even very long JSON output (e.g., result messages with extensive usage data) is properly parsed and cost tracking works correctly.
+
+  **Evidence from logs**: The broken session showed JSON truncated mid-word at `ephemeral_5m_input_tok` continuing on the next line with `ens":97252}}` - making both lines unparseable.
+
+## 1.14.1
+
+### Patch Changes
+
+- b139b00: fix: detect agent tool errors during streaming for reliable failure detection (Issue #1201)
+
+  Previously, agent tool errors (`"type": "error"`) could be missed when the post-hoc
+  detection function failed to parse NDJSON lines that were concatenated without newline
+  delimiters. Now errors are detected inline during stream processing, ensuring
+  `"type": "error"` events always trigger a failure exit regardless of output buffering.
+
+## 1.14.0
+
+### Minor Changes
+
+- 3a48254: Add configurable experiments/examples folder paths with ability to disable
+
+  New CLI options for both `solve` and `hive` commands:
+  - `--prompt-experiments-folder <path>`: Path to experiments folder used in system prompt. Set to empty string to disable experiments folder prompt. Default: `./experiments`
+  - `--prompt-examples-folder <path>`: Path to examples folder used in system prompt. Set to empty string to disable examples folder prompt. Default: `./examples`
+
+  Features:
+  - Backwards compatible: defaults to `./experiments` and `./examples` as before
+  - Custom paths: Specify custom folder paths for experiments and examples
+  - Disable functionality: Set to empty string (`''`) to disable the experiments/examples prompt section entirely
+  - Works with all AI tools: claude, opencode, codex, and agent
+
+## 1.13.0
+
+### Minor Changes
+
+- 03adcb6: Add --auto-merge and --auto-restart-until-mergable options for autonomous PR management
+
+  New CLI options:
+  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergable.
+  - `--auto-restart-until-mergable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
+
+  Features:
+  - Non-bot comment detection with configurable bot patterns
+  - Automatic detection of CI/CD status and merge readiness
+  - Continuous monitoring loop with configurable check intervals
+  - Progress and status reporting throughout the process
+  - Graceful handling of API errors with exponential backoff
+  - Session data tracking for accurate pricing across iterations
+
+## 1.12.0
+
+### Minor Changes
+
+- 8393f99: Improve auto-resume-on-limit-reset functionality
+  - Add 5-minute buffer after limit reset to account for server time differences (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
+  - Add --auto-restart-on-limit-reset option for fresh start without previous session context
+  - Remove CLI commands from GitHub comments when auto-resume is active (less confusing for users)
+  - Differentiate work session comments: "Auto Resume (on limit reset)" vs "Auto Restart (on limit reset)"
+  - Differentiate solution draft log comments based on session type
+  - Improve reset time formatting with relative time + UTC (e.g., "in 1h 23m (Jan 15, 7:00 AM UTC)")
+
+## 1.11.6
+
+### Patch Changes
+
+- 5eef9e4: Skip Claude API limits for --tool agent tasks in queue
+  - Agent tools (Grok Code, OpenCode Zen) use different backends with their own rate limits
+  - Add tool parameter to canStartCommand() and checkApiLimits() functions
+  - Skip Claude-specific limits (5-hour session, weekly) when tool is 'agent'
+  - Consumer loop now passes next queue item's tool to limit checks
+  - Add 7 new tests for tool-specific limit handling
+  - Add case study documentation
+
+  Fixes #1159
+
+## 1.11.5
+
+### Patch Changes
+
+- 7d3387c: Fix duplicate Solution Draft Log comments on GitHub PRs
+
+  When a Claude session ends with uncommitted changes and --attach-logs is enabled, the solution draft log was being uploaded twice - once by verifyResults() during normal completion, and again after temporary watch mode completes. This fix tracks whether logs were already uploaded and skips the duplicate upload.
+
+## 1.11.4
+
+### Patch Changes
+
+- b8318dd: fix: support opencode/gpt-5-nano and gpt-5-nano for --tool agent (Issue #1185)
+
+  Fixed AGENT_MODELS mapping to correctly support free OpenCode Zen models:
+  - `gpt-5-nano` short alias now correctly maps to `opencode/gpt-5-nano` (previously incorrectly mapped to `openai/gpt-5-nano`)
+  - `opencode/gpt-5-nano` full model ID is now recognized as valid
+  - Updated `mapModelToId` function in agent.lib.mjs to use correct provider prefix
+  - Fixed regex filter in `getAvailableModelNames` to include `gpt-5-nano` in available models display
+  - Added comprehensive test suite with 18 tests for agent model validation
+  - Added case study documentation with root cause analysis
+
+## 1.11.3
+
+### Patch Changes
+
+- 9f24356: Fix 'ready' label not being created by /merge command
+
+  Two bugs prevented the /merge command from creating the 'ready' label:
+  1. `checkReadyLabelExists()` incorrectly treated GitHub API's 404 JSON error response as the label existing. The function now properly checks for "Not Found" message in the response.
+  2. `createReadyLabel()` used bash-specific heredoc syntax (`<<<`) which fails in `/bin/sh`. Now uses `gh api -f` flags for shell compatibility.
+
+  Fixes #1177
+
+## 1.11.2
+
+### Patch Changes
+
+- 8ee116a: fix: detect "command not found" errors to prevent false success
+
+  When the `claude` CLI command is not found (not installed or not in PATH), the tool was incorrectly reporting "Claude command completed" instead of detecting the failure. This fix adds "not found" to the stderr error detection pattern to properly detect when commands fail to start.
+
+## 1.11.1
+
+### Patch Changes
+
+- de2cc28: Use .gitkeep by default for --tool agent/opencode/codex instead of CLAUDE.md
+
+  When using non-Claude tools (agent, opencode, codex), the system now defaults to creating a `.gitkeep` file for task details instead of `CLAUDE.md`. This prevents pollution of CLAUDE.md, which has special meaning for Claude Code as a project-level instruction file.
+
+  **Tool-Specific Defaults:**
+  - `--tool claude`: defaults to `--claude-file` (existing behavior)
+  - `--tool agent/opencode/codex`: defaults to `--gitkeep-file`
+
+  Users can still explicitly override defaults with `--claude-file` or `--gitkeep-file` flags regardless of the selected tool.
+
+## 1.11.0
+
+### Minor Changes
+
+- ca28333: Add system prompt guidance for visual UI work when model supports vision
+
+  **Changes:**
+  - Add `checkModelVisionCapability` function in claude.lib.mjs to detect if a model supports image input using models.dev API
+  - Add vision-specific system prompt section in claude.prompts.lib.mjs and agent.prompts.lib.mjs
+  - When model supports vision, add guidance for including screenshots/renders of visual UI changes in pull request descriptions
+  - Use "When x, do y." style as requested
+
+  **Vision prompt guidance includes:**
+  - When working on visual UI changes, include a render or screenshot in the PR description
+  - When showing visual results, save screenshots to the repository (e.g., docs/screenshots/)
+  - When referencing images, use permanent raw file links in the PR description markdown
+  - When uploading images, commit them first, then use raw GitHub URL format
+  - When the visual result is important, mention it explicitly with embedded image
+
+  **Technical details:**
+  - Uses models.dev API to check if 'image' is in the model's input modalities
+  - All current Claude models (opus, sonnet, haiku) support vision
+  - Gracefully handles unknown models by returning false
+
+  Fixes #1175
+
+## 1.10.2
+
+### Patch Changes
+
+- e1ed8fc: fix: enable large log file uploads using gh-upload-log (issue #1173)
+  - Remove premature 25MB size check that incorrectly rejected large log files
+  - Files larger than 25MB now use gh-upload-log which can handle any size
+  - Default to private visibility when repository visibility cannot be determined (safer for private repos)
+  - Add case study documentation for issue #1173
+
+## 1.10.1
+
+### Patch Changes
+
+- 24e70f8: Fix agent --verbose output by properly handling stderr stream
+  - Agent CLI sends ALL output (including verbose logs and structured events) to stderr, not stdout
+  - Previous code only processed stdout with JSON parsing, treating stderr as plain error text
+  - Now stderr is processed the same way as stdout: NDJSON line-by-line parsing with JSON formatting
+  - Session IDs are now correctly extracted from stderr messages
+  - stderr output is now collected for error detection
+
+  Fixes #1151
+
+## 1.10.0
+
+### Minor Changes
+
+- 9b56b26: feat(solve): configure MCP_TIMEOUT and MCP_TOOL_TIMEOUT for claude tool calls
+
+  Added MCP timeout configuration to prevent tool calls from hanging indefinitely:
+  - Added `mcpTimeout` config (default: 900000ms / 15 minutes) for MCP server startup
+  - Added `mcpToolTimeout` config (default: 900000ms / 15 minutes) for MCP tool execution
+  - Support for override via `MCP_TIMEOUT`/`HIVE_MIND_MCP_TIMEOUT` and `MCP_TOOL_TIMEOUT`/`HIVE_MIND_MCP_TOOL_TIMEOUT` environment variables
+  - Updated `getClaudeEnv()` to pass both timeout values to Claude CLI
+  - Added verbose logging for MCP timeout values
+
+  Fixes #1066
+
+## 1.9.2
+
+### Patch Changes
+
+- d39bf3e: Fix disk threshold to use one-at-a-time mode instead of blocking all commands
+  - When disk usage exceeds threshold (90%), now allows exactly one command to run
+  - Previously, disk threshold blocked ALL commands unconditionally (like RAM/CPU)
+  - Now matches behavior of Claude API thresholds (CLAUDE_5_HOUR_SESSION_THRESHOLD, CLAUDE_WEEKLY_THRESHOLD)
+  - Allows controlled task execution during high disk usage while preventing multiple tasks from exhausting resources
+
+  Fixes #1155
+
+## 1.9.1
+
+### Patch Changes
+
+- 06da02c: Improve /accept_invites command output with grouped items and real-time updates
+
+  **Changes:**
+  - Group output by "Repositories:" and "Organizations:" instead of repeating "Repository:" for each item
+  - Add clickable GitHub links for each repository and organization
+  - Implement real-time message updates after each invitation is processed
+  - Show progress indicator (e.g., "Processing GitHub Invitations (3/10)") during processing
+
+  Fixes #1148
+
+## 1.9.0
+
+### Minor Changes
+
+- e15f307: Add bidirectional translation between --think and --thinking-budget options for Claude Code
+
+  **Changes:**
+  - Add 'off' option to --think values: ['off', 'low', 'medium', 'high', 'max']
+  - Add --thinking-budget-claude-minimum-version option (default: 2.1.12)
+  - For Claude Code >= 2.1.12: translate --think to --thinking-budget (off→0, low→8000, medium→16000, high→24000, max→31999)
+  - For Claude Code < 2.1.12: translate --thinking-budget back to --think thinking keywords
+  - Both options now coexist and support all Claude Code versions
+
+  **Rationale:**
+  Claude Code v2.1.12+ no longer responds to thinking keywords (think, think hard, ultrathink) because extended thinking is enabled by default. The only way to control thinking budget programmatically is via MAX_THINKING_TOKENS environment variable.
+
+  Fixes #1146
+
+## 1.8.0
+
+### Minor Changes
+
+- 53e1686: Add experimental /merge command to hive-telegram-bot for sequential PR merging
+  - New `/merge <repository-url>` command to process merge queues
+  - Automatically checks/creates 'ready' label in repository
+  - Merges PRs with 'ready' label sequentially (oldest first)
+  - Waits for CI/CD completion between each merge
+  - Includes `/merge_cancel` and `/merge_status` helper commands
+  - Supports linking issues to PRs (uses minimum creation date for ordering)
+
+## 1.7.2
+
+### Patch Changes
+
+- e6a656f: Use `screen -R` instead of `screen -S` and `screen -r` in all docs and code for better session management. The `-R` flag ensures we open existing screen if created, and new if not yet created, making it the most safe and universal option.
+
+## 1.7.1
+
+### Patch Changes
+
+- d86ba79: Prevent duplicate URLs from being added to the /solve queue (Issue #1080)
+  - Added `findByUrl()` method to SolveQueue to detect existing items by URL
+  - Updated /solve command handler to check for duplicates before queueing
+  - Uses normalized URLs for consistent comparison
+  - Returns informative error message when duplicate is detected
+
+## 1.7.0
+
+### Minor Changes
+
+- 5794e2f: Add `--working-directory` / `-d` option for proper session resume
+
+  Claude Code stores sessions per-directory path, so resuming a session in a different directory fails. This change:
+  1. Adds `--working-directory` / `-d` option to solve.mjs
+     - If directory exists with git repo, uses it without cloning
+     - If directory exists but empty, clones into it
+     - If directory doesn't exist, creates it and clones
+  2. Updates `--auto-resume-on-limit-reset` to pass `--working-directory`
+     - When limit resets and session auto-resumes, it uses the same directory as the original session
+     - This ensures Claude Code can find and resume the session
+  3. Improves resume error messaging
+     - Warns when resuming without --working-directory
+     - Explains that Claude Code sessions are tied to directory paths
+
+  Example usage:
+
+  ```bash
+  ./solve.mjs "<url>" --resume <session-id> --working-directory /tmp/gh-issue-solver-123
+  ```
+
+## 1.6.3
+
+### Patch Changes
+
+- Fix Anthropic cost extraction from JSON stream when session has error_during_execution
+  - Added anthropicTotalCostUSD to all failure return paths in executeClaudeCommand
+  - Changed cost capture logic to only extract from `subtype === 'success'` results
+  - This is explicit and reliable - error_during_execution results have zero cost
+  - Added case study documentation for issue #1104
+
+  Fixes #1104
+
+  Synchronize line count checks in CI/CD
+  - Add ESLint max-lines rule (1500 lines) to match CI workflow check
+  - Extract handleClaudeRuntimeSwitch to claude.runtime-switch.lib.mjs
+  - Reduce claude.lib.mjs from 1506 to 1354 lines
+  - Add case study documentation for issue #1141
+
+  Fixes #1141
+
+## 1.6.2
+
+### Patch Changes
+
+- 4ccbbd7: Fix CLAUDE_WEEKLY_THRESHOLD not enforcing one-at-a-time mode when external Claude processes are running
+  - Fixed oneAtATime mode to also consider externally running Claude processes (detected via pgrep), not just queue-internal processing
+  - Standardized all threshold comparisons to use >= (inclusive) instead of mixed > and >= operators
+  - Updated documentation comments to accurately reflect inclusive threshold behavior
+  - Added README recommendation to capture bot logs using tee for post-incident analysis
+  - Added case study documentation for issue #1133
+
+## 1.6.1
+
+### Patch Changes
+
+- b07fa91: Improve /limits output format for better clarity and consistency: use 5m load average for CPU calculation (matching /solve queue), show CPU cores as "X.XX/Y CPU cores used" format consistent with RAM and Disk display
+
+## 1.6.0
+
+### Minor Changes
+
+- 56d95bd: Add `--prompt-subagents-via-agent-commander` option to guide Claude to use agent-commander CLI for subagent delegation instead of native Task tool. This allows using any supported agent type (claude, opencode, codex, agent) with a unified API and saves main agent context. The prompt guidance is only included when agent-commander (start-agent) is actually installed on the system.
+
+## 1.5.0
+
+### Minor Changes
+
+- 2d41edb: Add /accept_invites command to Telegram bot for automatically accepting GitHub repository and organization invitations via gh CLI
+
+## 1.4.0
+
+### Minor Changes
+
+- 4a476ae: Add separate log comment for each auto-restart session with cost estimation
+  - Each auto-restart iteration now uploads its own session log with cost estimation to the PR
+  - Log comments use "Auto-restart X/Y Log" format instead of generic "Solution Draft Log"
+  - Issue #1107
+
+### Patch Changes
+
+- 3239fa1: Add git identity validation to prevent commit failures
+  - Added `checkGitIdentity()` and `validateGitIdentity()` functions to validate git user configuration
+  - Added git identity check to `performSystemChecks()` that runs before any work begins
+  - Added `--auto-gh-configuration-repair` option that uses external `gh-setup-git-identity` command for automatic repair
+  - Added unit tests for identity validation
+
+  This fix prevents the "fatal: empty ident name" error that occurs when git user.name and user.email are not configured. When git identity is missing, users now see a clear error message with instructions for fixing it. The auto-repair feature requires the external [gh-setup-git-identity](https://github.com/link-foundation/gh-setup-git-identity) package to be installed.
+
+## 1.3.0
+
+### Minor Changes
+
+- a403c0e: Add --auto-gitkeep-file option to automatically fallback to .gitkeep when CLAUDE.md is in .gitignore
+
+  This feature pre-checks if CLAUDE.md would be ignored by .gitignore BEFORE creating the file, preventing the "paths are ignored by one of your .gitignore files" error. When detected, automatically switches to .gitkeep mode. Enabled by default (--auto-gitkeep-file=true).
+
+## 1.2.11
+
+### Patch Changes
+
+- 8404b75: fix: Support weekly limit date parsing in extractResetTime and parseResetTime
+  - Added Pattern 0 to extractResetTime() to handle date+time formats like "resets Jan 15, 8am"
+  - Updated parseResetTime() to parse date+time strings with month name and day
+  - This ensures weekly limit messages are displayed with the "Usage Limit Reached" format
+
+## 1.2.10
+
+### Patch Changes
+
+- 7ba1476: Auto-cleanup .playwright-mcp/ folder to prevent false auto-restart triggers
+  - Add auto-cleanup of .playwright-mcp/ folder before checking uncommitted changes
+  - Add --playwright-mcp-auto-cleanup option (enabled by default)
+  - Use --no-playwright-mcp-auto-cleanup to disable cleanup for debugging
+  - Add comprehensive case study documentation for issue #1124
+
+## 1.2.9
+
+### Patch Changes
+
+- b5e047a: Fix branch checkout error showing null/null instead of actual repository URL
+  - Pass owner/repo/prNumber to branch error handlers for accurate error messages
+  - Add upstream remote fallback when PR branch not found in origin (handles bot PRs)
+  - Add case study documentation for issue #1120
+
+## 1.2.8
+
+### Patch Changes
+
+- Add case study for issue #1114 analyzing AI solver performance in hyoo-ru/mam_mol repository
+
+  fix: Propagate --verbose flag to agent tool for debugging DecimalError issues
+  - Added --verbose flag propagation to agent tool execution in agent.lib.mjs
+  - Created case study documentation for DecimalError root cause analysis
+
+## 1.2.7
+
+### Patch Changes
+
+- 12831a1: fix: Allow issues_list and pulls_list URLs for /hive command (Issue #1102)
+  - Accept issues_list URLs (e.g., `https://github.com/owner/repo/issues`) for /hive command
+  - Clean non-printable characters from URLs to prevent Markdown parsing errors
+  - Escape special characters in error messages
+  - Normalize issues_list URLs to base repo URLs before processing
+
+## 1.2.6
+
+### Patch Changes
+
+- 94dfb13: Fix gh-upload-log argument parsing bug causing "File does not exist" error
+  - Fixed bug where `gh-upload-log` received all arguments as a single concatenated string
+  - The issue was caused by using `${commandArgs.join(' ')}` in command-stream template literal, which treats the entire joined string as one argument
+  - Now using separate `${}` interpolations for each argument to ensure proper argument parsing
+  - Also fixed: description flag is now properly passed to gh-upload-log (was only displayed, never sent)
+  - Added comprehensive regression tests and case study documentation
+
+## 1.2.5
+
+### Patch Changes
+
+- 65ee214: fix: Detect malformed flag patterns like "-- model" (Issue #1092)
+
+  Added `detectMalformedFlags()` function that catches malformed command-line options and provides helpful error messages:
+  - Detects "-- option" (space after --) and suggests "--option"
+  - Detects "-option" (single dash for long option) and suggests "--option"
+  - Detects "---option" (triple dash) and suggests "--option"
+  - Integrated into both Telegram bot and CLI argument parsing
+  - Added 23 comprehensive unit tests
+
+- af950c8: fix(hive): require closing keywords for PR detection
+
+  The `/hive` command was incorrectly skipping issues by reporting they had
+  PRs when those PRs only mentioned the issues without actually solving them.
+
+  **Root cause**: The `batchCheckPullRequestsForIssues` function used GitHub's
+  `CROSS_REFERENCED_EVENT` timeline items, which are created whenever a PR
+  body/title/commit mentions an issue number - regardless of whether the PR
+  actually solves the issue.
+
+  **Example**: PR #369 in VisageDvachevsky/StoryGraph is an audit PR that
+  created 28 new issues (#370-#397) and listed them in a table. This caused
+  GitHub to create cross-reference events linking that PR to all 28 issues,
+  but PR #369 only actually fixes #368.
+
+  **Solution**:
+  - Add `prClosesIssue()` function to detect GitHub closing keywords
+    (fixes, closes, resolves - case-insensitive)
+  - Update GraphQL query to include PR body text
+  - Only count PRs that contain "fixes #N", "closes #N", or "resolves #N"
+    for the specific issue number
+  - Add verbose logging when PRs are skipped for only mentioning issues
+
+  This aligns with GitHub's own auto-close behavior where only specific
+  keywords trigger issue closure when a PR is merged.
+
+  Fixes #1094
+
+- 0d997ac: fix(telegram-bot): stop solve queue on SIGINT/SIGTERM for clean exit
+
+  The telegram bot was hanging after pressing Ctrl+C because the SolveQueue
+  consumer loop kept running with active timers that prevented the Node.js
+  event loop from emptying.
+  - **Root cause identified**: The SIGINT/SIGTERM handlers only called
+    `bot.stop()` (Telegraf) but did not stop the SolveQueue, whose `sleep()`
+    timers kept the event loop alive.
+  - **Solution**: Added `solveQueue.stop()` call in both SIGINT and SIGTERM
+    handlers to stop the consumer loop before calling `bot.stop()`.
+  - **Added verbose logging**: When running with `--verbose`, the bot now
+    logs "Solve queue stopped" during shutdown.
+  - **Case study documentation**: Added detailed analysis in
+    `docs/case-studies/issue-1083/` with timeline, root cause investigation,
+    and evidence collection.
+
+  Fixes #1083
+
+## 1.2.4
+
+### Patch Changes
+
+- 14ea4b6: Add validation for LINO configuration to detect invalid input
+  - Add validation in `lenv-reader.lib.mjs` to reject multiple values on the same line (e.g., `--option1  --option2`)
+  - Add validation to reject unrecognized characters in command-line options (e.g., `?`, `@`, `!`)
+  - Errors include clear messages showing the problematic value and instructions for correction
+  - Valid option characters: letters, numbers, hyphens, underscores, equals signs
+  - Add comprehensive unit tests for LINO parsing logic (`test-lino.mjs`)
+  - Add validation tests to lenv-reader test suite (`test-lenv-reader.mjs`)
+  - Add lino tests to CI/CD workflow
+
+  This approach helps users identify and correct configuration errors early, rather than silently dropping invalid options.
+
+  Fixes #1086
+
+## 1.2.3
+
+### Patch Changes
+
+- 5411e77: Fix gh-upload-log command invocation error caused by empty string argument
+  - Fixed bug where `gh-upload-log` failed with "Unknown argument: ''" when verbose=false
+  - The issue was caused by template literal interpolation `${verbose ? '--verbose' : ''}` passing empty string as an argument
+  - Now using array-based command building to avoid empty arguments
+  - Added improved handling for `error_during_execution` result subtype from Claude CLI
+  - Added tests for log upload command construction to prevent regression
+
+## 1.2.2
+
+### Patch Changes
+
+- db84104: Remove QEMU from CI/CD entirely
+  - Remove unnecessary QEMU and Docker Buildx setup from docker-pr-check job
+  - The PR check only builds for linux/amd64, so QEMU was never needed
+  - docker-publish jobs already use native ARM64 runners (ubuntu-24.04-arm)
+  - This addresses feedback to remove QEMU from CI/CD to avoid slowdowns and freezes
+
+## 1.2.1
+
+### Patch Changes
+
+- 04cb3d2: Fix false positives in token masking for log sanitization
+  - Remove overly broad regex pattern that was matching legitimate identifiers like `browser_take_screenshot` and MCP tool names
+  - Add allowlist of safe token patterns (browser\_, mcp\_\_, function names with underscores, UUIDs)
+  - Add context-aware detection for 40-char hex strings to avoid masking git commit hashes and gist IDs
+  - Export new helper functions `isSafeToken` and `isHexInSafeContext` for testing
+  - Add comprehensive unit tests for false positive prevention
+
+## 1.2.0
+
+### Minor Changes
+
+- Add experimental --execute-tool-with-bun option to improve speed and memory usage
+
+  This feature adds the `--execute-tool-with-bun` option that allows users to execute the AI tool using `bunx claude` instead of `claude`, which may provide performance benefits in terms of speed and memory usage.
+
+  **Supported commands:**
+  - `solve` - Uses `bunx claude` when option is enabled
+  - `task` - Uses `bunx claude` when option is enabled
+  - `review` - Uses `bunx claude` when option is enabled
+  - `hive` - Passes the option through to the `solve` subprocess
+
+  **How It Works:**
+  When `--execute-tool-with-bun` is enabled, the `claudePath` variable is set to `'bunx claude'` instead of `'claude'` (or `CLAUDE_PATH` environment variable).
+
+  **Usage Examples:**
+
+  ```bash
+  # Use with solve command
+  solve https://github.com/owner/repo/issues/123 --execute-tool-with-bun
+
+  # Use with task command
+  task "implement feature X" --execute-tool-with-bun
+
+  # Use with review command
+  review https://github.com/owner/repo/pull/456 --execute-tool-with-bun
+
+  # Use with hive command (passes through to solve)
+  hive https://github.com/owner/repo --execute-tool-with-bun
+  ```
+
+  The option defaults to `false` to maintain backward compatibility.
+
+  Fixes #812
+
+  feat(hive): recheck issue conditions before processing queue items
+
+  Added `recheckIssueConditions()` function to validate issue state right before processing,
+  preventing wasted resources on issues that should be skipped due to changed conditions since queuing.
+
+  **Checks performed:**
+  - **Issue state**: Verifies the issue is still open
+  - **Open PRs**: Checks if issue has PRs (when `--skip-issues-with-prs` is enabled)
+  - **Repository status**: Confirms repository is not archived
+
+  **Benefits:**
+  - Prevents processing closed issues
+  - Avoids duplicate work when PRs already exist
+  - Stops work on newly archived repositories
+  - Saves AI model tokens and compute resources
+
+  **Performance impact:**
+  Minimal overhead per issue (~300-500ms for API calls), negligible compared to 5-15 minute solve time.
+
+  Fixes #810
+
+## 1.1.0
+
+### Minor Changes
+
+- 4c46685: Add --enable-workspaces option for separate workspace directories
+
+  This feature adds support for creating separate workspace directories for all AI tools (claude, opencode, codex, agent). When enabled with `--enable-workspaces`, the tool creates a structured workspace:
+  - `/tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}/repository` - for the cloned repo
+  - `/tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}/tmp` - for temp files, logs, downloads
+
+  The workspace tmp directory is passed to all tool prompts, with explicit examples for saving CI logs, diffs, and command outputs.
+
+- Add relative time display for usage limit reset messages in GitHub comments
+
+  When the AI tool hits its usage limit, GitHub comments now show the reset time in a more user-friendly format:
+  - Before: `11:00 PM`
+  - After: `in 1h 23m (11:00 PM UTC)`
+
+  This helps users in different timezones understand when the limit will reset more quickly.
+
+## 1.0.5
+
+### Patch Changes
+
+- a68a9f2: fix(queue): simplify queue logic based on PR feedback
+  - **Use 5-minute load average for CPU**: Uses `loadAvg5` instead of instantaneous CPU usage,
+    providing a more stable metric not affected by transient spikes during claude startup.
+    Cache TTL is 2 minutes.
+  - **Keep RAM threshold with caching**: RAM_THRESHOLD (50%) is still checked but uses cached
+    values only (no uncached rechecks) to simplify the logic.
+  - **Increase MIN_START_INTERVAL_MS to 2 minutes**: Allows enough time for solve command to
+    start actual claude process, ensuring running processes are counted when API limits are checked.
+  - **Increase CONSUMER_POLL_INTERVAL_MS to 1 minute**: Reduces unnecessary system checks.
+    One-minute polling is sufficient for queue management.
+  - **Running processes not a blocking limit**: Commands can run in parallel as long as actual
+    limits (CPU, API, etc.) are not exceeded. Claude process info is only supplementary.
+
+  Fixes #1078
+
+## 1.0.4
+
+### Patch Changes
+
+- 4e5e1ab: Use gh-upload-log for log file uploads (issue #587)
+  - Replace custom gist creation with gh-upload-log command
+  - Implement smart linking: 1 chunk = direct raw link, >1 chunks = repo link
+  - Update case study documentation with gh-upload-log v0.5.0 fixes
+  - Remove custom log compression in favor of gh-upload-log auto mode
+
+## 1.0.3
+
+### Patch Changes
+
+- 26b69f2: Fix Claude Code output token limit by setting CLAUDE_CODE_MAX_OUTPUT_TOKENS to 64000
+  - Claude Code CLI defaults to 32K output token limit, but Claude Sonnet/Opus/Haiku 4.5 models support 64K
+  - Added `claudeCode.maxOutputTokens` configuration in `config.lib.mjs` (default: 64000)
+  - Pass `CLAUDE_CODE_MAX_OUTPUT_TOKENS` environment variable when executing Claude CLI
+  - Configuration can be overridden via `CLAUDE_CODE_MAX_OUTPUT_TOKENS` or `HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS` environment variables
+  - Added comprehensive case study analysis in `docs/case-studies/issue-1076/`
+
+  See: https://github.com/link-assistant/hive-mind/issues/1076
+
+## 1.0.2
+
+### Patch Changes
+
+- 1a96d9f: Fix Claude Usage API rate limiting by increasing cache TTL to 20 minutes
+  - The Claude Usage API (`/api/oauth/usage`) was returning null values due to rate limiting when called too frequently
+  - Increased default cache TTL from 3 minutes to 20 minutes for Claude Usage API
+  - Added configurable environment variable `HIVE_MIND_USAGE_API_CACHE_TTL_MS` (default: 1200000ms = 20 minutes)
+  - Added HTTP response status logging for easier debugging
+  - Added explicit 429 rate limit error handling
+  - Updated documentation in `docs/CONFIGURATION.md`
+
+  See: https://github.com/link-assistant/hive-mind/issues/1074
+
+## 1.0.1
+
+### Patch Changes
+
+- 2a3848d: Add --prompt-architecture-care flag for managing REQUIREMENTS.md and ARCHITECTURE.md files
+
+  Adds an optional experimental flag `--prompt-architecture-care` that provides guidance for:
+  - Managing REQUIREMENTS.md (high-level why/what documentation)
+  - Managing ARCHITECTURE.md (high-level how documentation)
+  - TODO.md workflow management for task persistence across sessions
+
+  The flag is disabled by default and works with all tools (claude, agent, opencode, codex).
+
+- a18a664: Fix session ID extraction error for --tool agent
+  - Fixed JSON parsing logic in agent tool to extract session IDs from NDJSON output
+  - Modified session summary to show informational message for agent tool instead of error
+
+## 1.0.0
+
+### Major Changes
+
+- 4e8d141: Rename `--auto-continue-on-limit-reset` to `--auto-resume-on-limit-reset` for clarity
+
+  BREAKING CHANGE: The `--auto-continue-on-limit-reset` option has been renamed to `--auto-resume-on-limit-reset`. Users must update their commands and configurations to use the new flag name.
+
+  The option is related to `--resume` for `claude` command and has an entirely different meaning from `--auto-continue` mode. This rename makes the distinction clearer and aligns the terminology with the resume functionality.
+
+  Migration:
+  - Replace `--auto-continue-on-limit-reset` with `--auto-resume-on-limit-reset` in all commands
+  - Update environment variables and configuration files accordingly
+
+## 0.54.6
+
+### Patch Changes
+
+- f734d5d: feat: Add --base-branch to /help and implement option typo suggestions
+  - Added --base-branch option to Telegram bot /help command
+  - Implemented intelligent option name suggestions using Levenshtein distance
+  - Added --base-branch to README.md solve options section
+  - Enhanced error messages with helpful suggestions for typos (e.g., --branch → --base-branch)
+
+## 0.54.5
+
+### Patch Changes
+
+- Fix duplicate APT sources warning in installation script
+  - Add `cleanup_duplicate_apt_sources()` function to detect and remove duplicate APT source files
+  - Clean up duplicate Microsoft Edge sources (`microsoft-edge.list` vs `microsoft-edge-stable.list`)
+  - Clean up duplicate Google Chrome sources (`google-chrome.list` vs `google-chrome-stable.list`)
+  - Run cleanup before `apt update` to prevent "Target Packages configured multiple times" warnings
+  - Ensures script supports clean upgrade mode when run on previously installed systems
+
+  Improve Telegram bot error messages for better user experience (issue #1070)
+  - Enhanced URL validation to provide specific, actionable error messages based on URL type (issues list, pulls list, repository)
+  - Added step-by-step fix instructions with examples when users provide wrong URL formats
+  - Improved global error handler to properly escape Markdown special characters, preventing "400: Bad Request: can't parse entities" errors
+  - Added special handling for Telegram API parsing errors with clearer messaging
+  - Added `cleanNonPrintableChars()` to automatically remove invisible Unicode characters from user input
+  - Added `makeSpecialCharsVisible()` to show users exactly where problematic special characters are in their input
+  - Enhanced error messages to display user input with special characters made visible for easier debugging
+  - Refactored telegram-bot.mjs to meet 1500 line limit requirement
+  - Created comprehensive test suites to verify URL validation improvements and special character handling
+  - Documented case study analysis in docs/case-studies/issue-1070/ANALYSIS.md
+
+## 0.54.4
+
+### Patch Changes
+
+- 4e53d67: fix: resolve TypeError in telegram-bot when using --tokens-budget-stats
+
+  Fixed type safety bug that prevented the --tokens-budget-stats option from working via telegram bot configuration overrides. Changed from lino.parse() to lino.parseStringValues() to ensure only string values are returned, making .trim() safe to call. The feature was already fully implemented but crashed when used via TELEGRAM_HIVE_OVERRIDES or TELEGRAM_SOLVE_OVERRIDES.
+
+## 0.54.3
+
+### Patch Changes
+
+- 4d4b461: Add Playwright browser verification to installation script and CI
+  - Enhanced `scripts/ubuntu-24-server-install.sh` with detailed browser verification after installation
+  - Added CI checks in `.github/workflows/release.yml` to verify required Playwright browsers (chromium, firefox, webkit) are installed
+  - CI now fails if required browsers are missing, ensuring Playwright MCP server has all dependencies
+
+## 0.54.2
+
+### Patch Changes
+
+- c5f5194: Fix Telegram message getting stuck at "Starting solve command..."
+  - Add error handling to `executeAndUpdateMessage` function to catch Telegram API errors
+  - Fix critical bug where `messageInfo` was being cleared before the final message update
+  - Add proper error logging for message edit failures in both immediate and queued execution paths
+
+## 0.54.1
+
+### Patch Changes
+
+- 55576af: fix: allow parallel queue execution when no limits exceeded
+
+  Previously, "Claude process is already running" was treated as a blocking reason on its own, preventing parallel execution even when all system and API limits were within thresholds.
+
+  Changes:
+  - `claude_running` is now tracked as a metric, not a blocking reason
+  - Commands can run in parallel as long as actual limits are not exceeded
+  - When any limit >= threshold, allow exactly one claude command to pass
+
+## 0.54.0
+
+### Minor Changes
+
+- 4af584c: Add producer/consumer queue for /solve command in Telegram bot
+
+  This feature implements resource-aware throttling to prevent system overload when multiple /solve commands are submitted simultaneously.
+
+  **Queue Configuration (using usage ratios 0.0-1.0):**
+  - `RAM_THRESHOLD: 0.5` - Stop new commands if RAM usage > 50%
+  - `CPU_THRESHOLD: 0.5` - Stop new commands if CPU usage > 50%
+  - `DISK_THRESHOLD: 0.95` - One-at-a-time mode if disk usage > 95%
+  - `CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.9` - Stop if Claude 5-hour limit > 90%
+  - `CLAUDE_WEEKLY_THRESHOLD: 0.99` - One-at-a-time mode if weekly limit > 99%
+  - `GITHUB_API_THRESHOLD: 0.8` - Stop if GitHub API > 80% with parallel claude commands
+  - 1-minute minimum interval between command starts
+  - Running claude process detection
+
+  **Status Flow:**
+  - `Queued` - Initial status when command is added to queue
+  - `Waiting` - When start conditions are not met (with human-readable reason)
+  - `Starting` - When command is being started
+  - `Started` - Terminal status with session info (message tracking is released)
+
+  **Caching:**
+  - API calls (Claude, GitHub): 3-minute cache
+  - System metrics (RAM, CPU, disk): 2-minute cache
+  - Shared cache between /solve queue and /limits command
+
+  **Files Changed:**
+  - `limits.lib.mjs` - Merged from `claude-limits.lib.mjs` with added caching layer (replaces both `claude-limits.lib.mjs` and `telegram-limits.lib.mjs`)
+  - `telegram-solve-queue.lib.mjs` - Queue implementation with status tracking
+
+  **User Experience:**
+  - Messages are updated in-place as status changes
+  - Clear waiting reasons displayed (e.g., "Disk usage is 96% (threshold: 95%)")
+  - Queue status added to /limits command output
+
+## 0.53.2
+
+### Patch Changes
+
+- 5030fe1: Fix --auto-continue-on-limit-reset flag not working
+
+  When Claude hit its usage limit with --auto-continue-on-limit-reset enabled, the code would exit early
+  via the failure branch before reaching showSessionSummary() where autoContinueWhenLimitResets() is called.
+
+  This patch adds a condition to skip the failure exit when limit is reached with auto-continue enabled,
+  allowing the code to properly wait for the limit to reset and resume the session.
+
+## 0.53.1
+
+### Patch Changes
+
+- 6d7fb43: Add --auto-continue-on-limit-reset option to hive command
+
+  The hive command was missing the --auto-continue-on-limit-reset option that is available
+  in the solve command. This caused yargs strict mode to reject the option with an
+  "Unknown arguments" error. The option is now properly defined in hive.config.lib.mjs
+  and passed to the solve command when spawning workers.
+
+## 0.53.0
+
+### Minor Changes
+
+- b750286: Add `--prompt-check-sibling-pull-requests` flag (default: true) to control whether the AI is prompted to study related/sibling pull requests during issue solving
+
+## 0.52.1
+
+### Patch Changes
+
+- 1a4f1a2: Reduce Telegram messages by updating instead of sending new ones
+
+  The `/solve` and `/hive` commands now update the initial "Starting..." message with the success/error result instead of sending a separate message. This follows the same pattern already used by the `/limits` command.
+
+  **Before:** Two separate messages per command
+  **After:** Single message that gets updated with the result
+
 ## 0.52.0
 
 ### Minor Changes
@@ -470,7 +1334,7 @@
 
   This feature allows users to choose which file type to use for PR creation:
   - `--claude-file` (default: true): Use CLAUDE.md file for task details
-  - `--gitkeep-file` (default: false, experimental): Use .gitkeep file instead
+  - `--gitkeep-file` (default: false): Use .gitkeep file instead
 
   The flags are mutually exclusive:
   - Using `--gitkeep-file` automatically disables `--claude-file`

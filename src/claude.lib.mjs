@@ -8,14 +8,16 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 // Import log from general lib
-import { log, cleanErrorMessage } from './lib.mjs';
+import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 // Import Claude command builder for generating resume commands
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
+// Import runtime switch module (extracted to maintain file line limits, see issue #1141)
+import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs';
 
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -25,21 +27,13 @@ const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => 
   await log(`   ${cmd}\n`);
 };
 
-/**
- * Format numbers with spaces as thousands separator (no commas)
- * Per issue #667: Use spaces for thousands, . for decimals
- * @param {number|null|undefined} num - Number to format
- * @returns {string} Formatted number string
- */
+/** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
-  // Convert to string and split on decimal point
   const parts = num.toString().split('.');
   const integerPart = parts[0];
   const decimalPart = parts[1];
-  // Add spaces every 3 digits from the right
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  // Return with decimal part if it exists
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
 // Available model configurations
@@ -74,6 +68,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
+          // Store the version for thinking settings translation (issue #1146)
+          detectedClaudeVersion = version;
           if (retryCount === 0) {
             await log(`📦 Claude CLI version: ${version}`);
           }
@@ -222,162 +218,78 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // Start the validation with retry logic
   return await attemptValidation();
 };
-// Function to handle Claude runtime switching between Node.js and Bun
-export const handleClaudeRuntimeSwitch = async argv => {
-  if (argv['force-claude-bun-run']) {
-    await log('\n🔧 Switching Claude runtime to bun...');
-    try {
-      try {
-        await $`which bun`;
-        await log('   ✅ Bun runtime found');
-      } catch (bunError) {
-        reportError(bunError, {
-          context: 'claude.lib.mjs - bun availability check',
-          level: 'error',
-        });
-        await log('❌ Bun runtime not found. Please install bun first: https://bun.sh/', { level: 'error' });
-        process.exit(1);
-      }
+// handleClaudeRuntimeSwitch is imported from ./claude.runtime-switch.lib.mjs (see issue #1141)
+// Re-export it for backwards compatibility
+export { handleClaudeRuntimeSwitch };
 
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
+// Store Claude Code version globally (set during validation)
+let detectedClaudeVersion = null;
 
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
+/**
+ * Get the detected Claude Code version
+ * @returns {string|null} The detected version or null if not yet detected
+ */
+export const getClaudeVersion = () => detectedClaudeVersion;
 
-      await log(`   Claude path: ${claudePath}`);
+/**
+ * Set the detected Claude Code version (called during validation)
+ * @param {string} version - The detected version string
+ */
+export const setClaudeVersion = version => {
+  detectedClaudeVersion = version;
+};
 
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (bun)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use bun');
-        process.exit(0);
-      }
+/**
+ * Resolve thinking settings based on --think and --thinking-budget options
+ * Handles translation between thinking levels and token budgets based on Claude Code version
+ * @param {Object} argv - Command line arguments
+ * @param {Function} log - Logging function
+ * @returns {Object} { thinkingBudget, thinkLevel, translation, maxBudget } - Resolved settings
+ */
+export const resolveThinkingSettings = async (argv, log) => {
+  const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
+  const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
+  const isNewVersion = supportsThinkingBudget(version, minVersion);
 
-      // Create backup
-      const backupPath = `${claudePath}.nodejs-backup`;
-      await $`cp "${claudePath}" "${backupPath}"`;
-      await log(`   📦 Backup created: ${backupPath}`);
+  // Get max thinking budget from argv or use default (see issue #1146)
+  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
 
-      // Read file content and replace shebang
-      const content = await fs.readFile(claudePath, 'utf8');
-      const newContent = content.replace(/^#!.*node.*$/m, '#!/usr/bin/env bun');
+  // Get thinking level mappings calculated from maxBudget
+  const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
+  const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
 
-      if (content === newContent) {
-        await log('⚠️  No Node.js shebang found to replace', { level: 'warning' });
-        await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-        process.exit(0);
-      }
+  let thinkingBudget = argv.thinkingBudget;
+  let thinkLevel = argv.think;
+  let translation = null;
 
-      await fs.writeFile(claudePath, newContent);
-      await log('   ✅ Claude shebang updated to use bun');
-      await log('   🔄 Claude will now run with bun runtime');
-    } catch (error) {
-      await log(`❌ Failed to switch Claude to bun: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
-    }
-
-    // Exit after switching runtime
-    process.exit(0);
-  }
-
-  if (argv['force-claude-nodejs-run']) {
-    await log('\n🔧 Restoring Claude runtime to Node.js...');
-    try {
-      try {
-        await $`which node`;
-        await log('   ✅ Node.js runtime found');
-      } catch (nodeError) {
-        reportError(nodeError, {
-          context: 'claude.lib.mjs - Node.js availability check',
-          level: 'error',
-        });
-        await log('❌ Node.js runtime not found. Please install Node.js first', { level: 'error' });
-        process.exit(1);
-      }
-
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
-
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
-
-      await log(`   Claude path: ${claudePath}`);
-
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (nodejs)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('node') && !currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use Node.js');
-        process.exit(0);
-      }
-
-      const backupPath = `${claudePath}.nodejs-backup`;
-      try {
-        await fs.access(backupPath);
-        // Restore from backup
-        await $`cp "${backupPath}" "${claudePath}"`;
-        await log(`   ✅ Restored Claude from backup: ${backupPath}`);
-      } catch (backupError) {
-        reportError(backupError, {
-          context: 'claude_restore_backup',
-          level: 'info',
-        });
-        // No backup available, manually update shebang
-        await log('   📝 No backup found, manually updating shebang...');
-        const content = await fs.readFile(claudePath, 'utf8');
-        const newContent = content.replace(/^#!.*bun.*$/m, '#!/usr/bin/env node');
-
-        if (content === newContent) {
-          await log('⚠️  No bun shebang found to replace', { level: 'warning' });
-          await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-          process.exit(0);
+  if (isNewVersion) {
+    // Claude Code >= 2.1.12: translate --think to --thinking-budget
+    if (thinkLevel !== undefined && thinkingBudget === undefined) {
+      thinkingBudget = thinkingLevelToTokens[thinkLevel];
+      translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (>= ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+        if (maxBudget !== DEFAULT_MAX_THINKING_BUDGET) {
+          await log(`   Using custom --max-thinking-budget: ${maxBudget}`, { verbose: true });
         }
-
-        await fs.writeFile(claudePath, newContent);
-        await log('   ✅ Claude shebang updated to use Node.js');
       }
-
-      await log('   🔄 Claude will now run with Node.js runtime');
-    } catch (error) {
-      await log(`❌ Failed to restore Claude to Node.js: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
     }
-
-    // Exit after restoring runtime
-    process.exit(0);
+  } else {
+    // Claude Code < 2.1.12: translate --thinking-budget to --think keywords
+    if (thinkingBudget !== undefined && thinkLevel === undefined) {
+      thinkLevel = tokensToThinkingLevel(thinkingBudget);
+      translation = `--thinking-budget ${thinkingBudget} → --think ${thinkLevel}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (< ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+      }
+      // Clear thinkingBudget since old versions don't support it
+      thinkingBudget = undefined;
+    }
   }
+
+  return { thinkingBudget, thinkLevel, translation, isNewVersion, maxBudget };
 };
 /**
  * Check if Playwright MCP is available and connected to Claude
@@ -413,9 +325,29 @@ export const checkPlaywrightMcpAvailability = async () => {
  * @returns {Object} Result of the execution including success status and session info
  */
 export const executeClaude = async params => {
-  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+
+  // Check if agent-commander is installed when the option is enabled
+  if (argv.promptSubagentsViaAgentCommander) {
+    try {
+      await $`which start-agent`;
+      argv.agentCommanderInstalled = true;
+    } catch {
+      argv.agentCommanderInstalled = false;
+      await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
+    }
+  }
+
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
+
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -424,6 +356,7 @@ export const executeClaude = async params => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -443,9 +376,11 @@ export const executeClaude = async params => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {
@@ -552,6 +487,27 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
+
+/**
+ * Check if a model supports vision (image input) using models.dev API
+ * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @returns {Promise<boolean>} True if the model supports vision, false otherwise
+ */
+export const checkModelVisionCapability = async modelId => {
+  try {
+    const modelInfo = await fetchModelInfo(modelId);
+    if (!modelInfo) {
+      return false;
+    }
+    // Check if 'image' is in the input modalities
+    const inputModalities = modelInfo.modalities?.input || [];
+    return inputModalities.includes('image');
+  } catch {
+    // If we can't determine vision capability, default to false
+    return false;
+  }
+};
+
 /**
  * Calculate USD cost for a model's usage with detailed breakdown
  * @param {Object} usage - Token usage object
@@ -676,6 +632,24 @@ const displayModelUsage = async (usage, log) => {
   } else if (usage.modelInfo === null) {
     await log('');
     await log('      Cost: Not available (could not fetch pricing)');
+  }
+};
+/**
+ * Display cost comparison between public pricing and Anthropic's official cost
+ * @param {number|null} publicCost - Public pricing estimate
+ * @param {number|null} anthropicCost - Anthropic's official cost
+ * @param {Function} log - Logging function
+ */
+const displayCostComparison = async (publicCost, anthropicCost, log) => {
+  await log('\n   💰 Cost estimation:');
+  await log(`      Public pricing estimate: ${publicCost !== null && publicCost !== undefined ? `$${publicCost.toFixed(6)} USD` : 'unknown'}`);
+  await log(`      Calculated by Anthropic: ${anthropicCost !== null && anthropicCost !== undefined ? `$${anthropicCost.toFixed(6)} USD` : 'unknown'}`);
+  if (publicCost !== null && publicCost !== undefined && anthropicCost !== null && anthropicCost !== undefined) {
+    const difference = anthropicCost - publicCost;
+    const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
+    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+  } else {
+    await log('      Difference:              unknown');
   }
 };
 export const calculateSessionTokens = async (sessionId, tempDir) => {
@@ -876,6 +850,7 @@ export const executeClaudeCommand = async params => {
     let sessionId = null;
     let limitReached = false;
     let limitResetTime = null;
+    let limitTimezone = null;
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
@@ -883,6 +858,7 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+    let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
 
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
@@ -931,24 +907,32 @@ export const executeClaudeCommand = async params => {
       await log('', { verbose: true });
     }
     try {
+      // Resolve thinking settings (handles translation between --think and --thinking-budget based on Claude version)
+      // See issue #1146 for details on thinking budget translation
+      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
+
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
+      // and MCP timeout configurations (see issue #1066)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
+      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
+      if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
+      if (resolvedThinkingBudget !== undefined) {
+        await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+      }
+      // Log thinking level for older Claude Code versions that use thinking keywords
+      if (!isNewVersion && thinkLevel) {
+        await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      }
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag
-        // Use simpler escaping - just escape double quotes
+        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({
-          cwd: tempDir,
-          mirror: false,
-        })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin
-        // For system prompt, escape it properly for shell - just escape double quotes
+        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({
-          cwd: tempDir,
-          stdin: prompt,
-          mirror: false,
-        })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -960,77 +944,73 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
+      // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
+      // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
+      let stdoutLineBuffer = '';
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          // Split output into individual lines for NDJSON parsing
-          // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
-          // This allows us to parse each event independently and extract structured data like session IDs,
-          // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
-          // since multiple JSON objects aren't valid JSON together.
-          const lines = output.split('\n');
+          // Append to buffer and split; keep last element (may be incomplete) for next chunk
+          stdoutLineBuffer += output;
+          const lines = stdoutLineBuffer.split('\n');
+          stdoutLineBuffer = lines.pop() || '';
+          // Parse each complete NDJSON line
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
               const data = JSON.parse(line);
-              // Process event in interactive mode (posts PR comments in real-time)
+              // Process event in interactive mode
               if (interactiveHandler) {
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
-                  // Don't let interactive mode errors stop the main execution
                   await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
                 }
               }
-              // Output formatted JSON as in v0.3.2
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID from the first message
+              // Capture session ID and rename log file
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
-                // Try to rename log file to include session ID
                 let sessionLogFile;
                 try {
                   const currentLogFile = getLogFile();
-                  const logDir = path.dirname(currentLogFile);
-                  sessionLogFile = path.join(logDir, `${sessionId}.log`);
-                  // Use fs.promises to rename the file
+                  sessionLogFile = path.join(path.dirname(currentLogFile), `${sessionId}.log`);
                   await fs.rename(currentLogFile, sessionLogFile);
-                  // Update the global log file reference
                   setLogFile(sessionLogFile);
                   await log(`📁 Log renamed to: ${sessionLogFile}`);
                 } catch (renameError) {
-                  reportError(renameError, {
-                    context: 'rename_session_log',
-                    sessionId,
-                    sessionLogFile,
-                    operation: 'rename_log_file',
-                  });
-                  // If rename fails, keep original filename
+                  reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              // Track message and tool use counts
               if (data.type === 'message') {
                 messageCount++;
               } else if (data.type === 'tool_use') {
                 toolUseCount++;
               }
-              // Handle session result type from Claude CLI
-              // This is emitted when a session completes, either successfully or with an error
-              // Example: {"type": "result", "subtype": "success", "is_error": true, "result": "Session limit reached ∙ resets 10am"}
+              // Handle session result type from Claude CLI (emitted when session completes)
+              // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
-                // Capture Anthropic's official total_cost_usd from the result
-                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                // Issue #1104: Only extract cost from subtype 'success' results
+                // This is explicit and reliable - error_during_execution results have zero cost
+                if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, {
-                    verbose: true,
-                  });
+                  await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
                 if (data.is_error === true) {
-                  commandFailed = true;
                   lastMessage = data.result || JSON.stringify(data);
-                  await log('⚠️ Detected error result from Claude CLI', { verbose: true });
+                  const subtype = data.subtype || 'unknown';
+                  // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
+                  if (subtype === 'error_during_execution') {
+                    errorDuringExecution = true;
+                    await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                  } else {
+                    commandFailed = true;
+                    await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
+                  }
                   if (lastMessage.includes('Session limit reached') || lastMessage.includes('limit reached')) {
                     limitReached = true;
                     await log('⚠️ Detected session limit in result', { verbose: true });
@@ -1104,7 +1084,9 @@ export const executeClaudeCommand = async params => {
             // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
             // Even though this contains the word "failed", it's a warning, not an error
             const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
+            // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
+            // These indicate the Claude CLI is not installed or not in PATH
+            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
               stderrErrors.push(trimmed);
             }
           }
@@ -1114,6 +1096,36 @@ export const executeClaudeCommand = async params => {
             commandFailed = true;
           }
           // Don't break here - let the loop finish naturally to process all output
+        }
+      }
+
+      // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      if (stdoutLineBuffer.trim()) {
+        try {
+          const data = JSON.parse(stdoutLineBuffer);
+          await log(JSON.stringify(data, null, 2));
+          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
+            anthropicTotalCostUSD = data.total_cost_usd;
+          }
+        } catch {
+          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
+        }
+      }
+
+      // Issue #1165: Check actual exit code from command result for more reliable detection
+      // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
+      // Exit code 127 is the standard Unix convention for "command not found"
+      if (execCommand.result && typeof execCommand.result.code === 'number') {
+        const resultExitCode = execCommand.result.code;
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+        }
+        // Specifically detect "command not found" via exit code 127
+        if (resultExitCode === 127 && !commandFailed) {
+          commandFailed = true;
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH`, { level: 'error' });
+          await log('   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code', { level: 'error' });
         }
       }
 
@@ -1145,8 +1157,10 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1191,9 +1205,11 @@ export const executeClaudeCommand = async params => {
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
             is503Error: true,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
           };
         }
       }
@@ -1203,6 +1219,7 @@ export const executeClaudeCommand = async params => {
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          limitTimezone = limitInfo.timezone;
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
@@ -1267,11 +1284,20 @@ export const executeClaudeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           messageCount,
           toolUseCount,
+          errorDuringExecution,
+          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
         };
       }
-      await log('\n\n✅ Claude command completed');
+      // Issue #1088: If error_during_execution occurred but command didn't fail,
+      // log it as "Finished with errors" instead of pure success
+      if (errorDuringExecution) {
+        await log('\n\n⚠️ Claude command finished with errors');
+      } else {
+        await log('\n\n✅ Claude command completed');
+      }
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
       // Calculate and display total token usage from session JSONL file
       if (sessionId && tempDir) {
@@ -1294,49 +1320,11 @@ export const executeClaudeCommand = async params => {
               // Show totals if multiple models were used
               if (modelIds.length > 1) {
                 await log('\n   📈 Total across all models:');
-                // Show cost comparison
-                await log('\n   💰 Cost estimation:');
-                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                  await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
-                } else {
-                  await log('      Public pricing estimate: unknown');
-                }
-                if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-                  await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
-                  // Show comparison if both are available
-                  if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                    const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
-                    const percentDiff = tokenUsage.totalCostUSD > 0 ? (difference / tokenUsage.totalCostUSD) * 100 : 0;
-                    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
-                  } else {
-                    await log('      Difference:              unknown');
-                  }
-                } else {
-                  await log('      Calculated by Anthropic: unknown');
-                  await log('      Difference:              unknown');
-                }
-              } else {
-                // Single model - show cost comparison
-                await log('\n   💰 Cost estimation:');
-                if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                  await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
-                } else {
-                  await log('      Public pricing estimate: unknown');
-                }
-                if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
-                  await log(`      Calculated by Anthropic: $${anthropicTotalCostUSD.toFixed(6)} USD`);
-                  // Show comparison if both are available
-                  if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
-                    const difference = anthropicTotalCostUSD - tokenUsage.totalCostUSD;
-                    const percentDiff = tokenUsage.totalCostUSD > 0 ? (difference / tokenUsage.totalCostUSD) * 100 : 0;
-                    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
-                  } else {
-                    await log('      Difference:              unknown');
-                  }
-                } else {
-                  await log('      Calculated by Anthropic: unknown');
-                  await log('      Difference:              unknown');
-                }
+              }
+              // Show cost comparison (for both single and multiple models)
+              await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
+              // Show total tokens for single model only
+              if (modelIds.length === 1) {
                 await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
               }
             } else {
@@ -1367,9 +1355,11 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        limitTimezone,
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
+        errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
       };
     } catch (error) {
       reportError(error, {
@@ -1414,8 +1404,10 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime: null,
+        limitTimezone: null,
         messageCount,
         toolUseCount,
+        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
       };
     }
   }; // End of executeWithRetry function
@@ -1497,4 +1489,8 @@ export default {
   executeClaudeCommand,
   checkForUncommittedChanges,
   calculateSessionTokens,
+  getClaudeVersion,
+  setClaudeVersion,
+  resolveThinkingSettings,
+  checkModelVisionCapability,
 };

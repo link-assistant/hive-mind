@@ -27,7 +27,7 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
-// Import auto-continue functions
+// Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
 
@@ -354,7 +354,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = await use('path');
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
@@ -376,9 +375,11 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
 
-      if (argv.autoContinueOnLimitReset && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
-        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+      if (argv.autoResumeOnLimitReset && global.limitResetTime) {
+        await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
+        // Pass tempDir to ensure resumed session uses the same working directory
+        // This is critical for Claude Code session resume to work correctly
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir);
       } else {
         if (global.limitResetTime) {
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
@@ -402,7 +403,12 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
     // Don't show log preview, it's too technical
   } else {
-    await log('❌ No session ID extracted');
+    // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
+    if (argv.tool !== 'agent') {
+      await log('❌ No session ID extracted');
+    } else {
+      await log('ℹ️  Agent tool completed (session IDs not used for resuming)');
+    }
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
@@ -410,7 +416,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new') => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -541,6 +547,10 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // Pass agent tool pricing data when available
             publicPricingEstimate,
             pricingInfo,
+            // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+            errorDuringExecution,
+            // Issue #1152: Pass sessionType for differentiated log comments
+            sessionType,
           });
         }
 
@@ -556,7 +566,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         if (!argv.watch && !shouldRestart) {
           await safeExit(0, 'Process completed successfully');
         }
-        return; // Return normally for watch mode or auto-restart
+        // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+        return { logUploadSuccess }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }
@@ -604,6 +615,10 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           // Pass agent tool pricing data when available
           publicPricingEstimate,
           pricingInfo,
+          // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+          errorDuringExecution,
+          // Issue #1152: Pass sessionType for differentiated log comments
+          sessionType,
         });
       }
 
@@ -617,7 +632,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       if (!argv.watch && !shouldRestart) {
         await safeExit(0, 'Process completed successfully');
       }
-      return; // Return normally for watch mode or auto-restart
+      // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -635,7 +651,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     if (!argv.watch) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   } catch (searchError) {
     reportError(searchError, {
       context: 'verify_pr_creation',
@@ -651,7 +668,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     if (!argv.watch) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   }
 };
 

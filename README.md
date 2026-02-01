@@ -15,6 +15,33 @@ It is also possible to connect this AI to collective human intelligence, meaning
 
 Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
+## Why Hive Mind?
+
+**Hive Mind is the most autonomous, cloud-ready AI issue solver that eliminates developer babysitting while maintaining human oversight on critical decisions.**
+
+Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range of tasks - not just programming. Almost anything that can be done with files in a repository can be automated.
+
+| Feature                      | What It Means For You                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.             |
+| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                        |
+| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                           |
+| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.               |
+| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                   |
+| **Time Freedom**             | What takes humans 2-8 hours, AI completes in 10-25 minutes. "The code is written while you sleep." |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                              |
+| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                    |
+| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive`. No PC, IDE, or laptop required.               |
+| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                   |
+
+> _"Compared to Codex for $200, this solution is fire."_ - User feedback
+
+**Cost**: Claude MAX subscription (~$200/month, currently 50% off = $400 value) provides almost unlimited usage for Hive Mind - the best value/quality balance on the market.
+
+Hive Mind has high creativity indistinguishable from average programmers. It asks questions if requirements are unclear, and you can clarify on the go via PR comments.
+
+For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
+
 ## ⚠️ WARNING
 
 It is UNSAFE to run this software on your developer machine.
@@ -79,7 +106,40 @@ bun install -g @link-assistant/hive-mind
 npm install -g @link-assistant/hive-mind
 ```
 
-### Docker Installation
+### Installing Docker
+
+If you don't have Docker installed yet, follow these steps to install Docker Engine on Ubuntu:
+
+```bash
+# Install prerequisites
+sudo apt update
+sudo apt install ca-certificates curl
+
+# Add Docker's official GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker repository
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+# Install Docker
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Verify installation
+sudo docker run hello-world
+```
+
+**For other operating systems** or detailed instructions, see the [official Docker documentation](https://docs.docker.com/engine/install/).
+
+### Using Docker
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:
 
@@ -182,7 +242,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using Links Notation (recommended):**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --configuration "
      TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
@@ -196,12 +256,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_SOLVE_OVERRIDES:
        --attach-logs
        --verbose
        --no-tool-check
-       --auto-continue-on-limit-reset
+       --auto-resume-on-limit-reset
      TELEGRAM_BOT_VERBOSE: true
    "
 
@@ -211,7 +271,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
    **Using individual command-line options:**
 
    ```
-   screen -S bot # Enter new screen for bot
+   screen -R bot # Enter new screen for bot
 
    hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
      -1002975819706
@@ -223,12 +283,12 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --solve-overrides "(
      --attach-logs
      --verbose
      --no-tool-check
-     --auto-continue-on-limit-reset
+     --auto-resume-on-limit-reset
    )" --verbose
 
    # Press CTRL + A + D for detach from screen
@@ -305,10 +365,11 @@ solve <issue-url> [options]
 
 **Most frequently used options:**
 
-| Option    | Alias | Description                             | Default |
-| --------- | ----- | --------------------------------------- | ------- |
-| `--model` | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
-| `--think` |       | Thinking level (low, medium, high, max) | -       |
+| Option          | Alias | Description                             | Default   |
+| --------------- | ----- | --------------------------------------- | --------- |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--think`       |       | Thinking level (low, medium, high, max) | -         |
+| `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
 **Other useful options:**
 
@@ -381,8 +442,24 @@ Want to see the Hive Mind in action? Join our Telegram channel where you can exe
    ```
 
 3. **Start the Bot**
+
    ```bash
    hive-telegram-bot
+   ```
+
+   **Recommended: Capture logs with tee**
+
+   When running the bot for extended periods, it's recommended to capture logs to a file using `tee`. This ensures you can review logs later even if the terminal buffer overflows:
+
+   ```bash
+   hive-telegram-bot 2>&1 | tee -a logs/bot-$(date +%Y%m%d).log
+   ```
+
+   Or create a logs directory and start with automatic log rotation:
+
+   ```bash
+   mkdir -p logs
+   hive-telegram-bot 2>&1 | tee -a "logs/bot-$(date +%Y%m%d-%H%M%S).log"
    ```
 
 ### Bot Commands
@@ -599,6 +676,10 @@ grep -E '\(cd /tmp/gh-issue-solver-[0-9]+ && claude --resume [0-9a-f-]{36}\)' hi
 
 - `gh auth login` - GitHub CLI authentication
 - `claude-profiles` - Claude authentication profile migration to server
+
+**OpenRouter Integration:**
+
+Use OpenRouter to access 500+ AI models from 60+ providers with a single API key. See [docs/OPENROUTER.md](./docs/OPENROUTER.md) for setup instructions covering both Claude Code CLI and @link-assistant/agent.
 
 **Environment Variables & Advanced Options:**
 

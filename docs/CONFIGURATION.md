@@ -2,6 +2,8 @@
 
 The Hive Mind application supports extensive configuration through environment variables and command-line options. This document provides a comprehensive reference for all available configuration options.
 
+> **OpenRouter Integration**: For using Claude Code CLI or @link-assistant/agent with OpenRouter (500+ models from 60+ providers), see the dedicated [OpenRouter Setup Guide](./OPENROUTER.md).
+
 ## Table of Contents
 
 - [Environment Variables](#environment-variables)
@@ -79,6 +81,18 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | `HIVE_MIND_RETRY_BACKOFF_MULTIPLIER`   | 2       | Retry backoff multiplier            |
 | `HIVE_MIND_MAX_503_RETRIES`            | 3       | Maximum 503 error retries           |
 | `HIVE_MIND_INITIAL_503_RETRY_DELAY_MS` | 300000  | Initial 503 retry delay (5 minutes) |
+
+### 5.1. Cache TTL Configurations
+
+These settings control how long API responses are cached before making a new request.
+
+| Environment Variable               | Default | Description                                                                                                                                                       |
+| ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_API_CACHE_TTL_MS`       | 180000  | General API cache TTL in ms (3 minutes). Used for GitHub API.                                                                                                     |
+| `HIVE_MIND_USAGE_API_CACHE_TTL_MS` | 1200000 | Claude Usage API cache TTL in ms (20 minutes). **Important:** The Claude Usage API has stricter rate limiting. Calling it more frequently may return null values. |
+| `HIVE_MIND_SYSTEM_CACHE_TTL_MS`    | 120000  | System metrics cache TTL in ms (2 minutes). Used for RAM, CPU, and disk space.                                                                                    |
+
+**Note:** The Claude Usage API (`/api/oauth/usage`) is rate-limited more strictly than other APIs. If you experience `null` values in the `/limits` command output, the API call frequency may be too high. The default 20-minute TTL is designed to avoid this issue. See [Issue #1074](https://github.com/link-assistant/hive-mind/issues/1074) for details.
 
 ### 6. File and Path Settings
 
@@ -264,50 +278,51 @@ For comprehensive configuration options, troubleshooting, and advanced use cases
 solve <issue-url> [options]
 ```
 
-| Option                                                           | Alias | Type    | Default   | Description                                                                               |
-| ---------------------------------------------------------------- | ----- | ------- | --------- | ----------------------------------------------------------------------------------------- |
-| `--model`                                                        | `-m`  | string  | sonnet    | Model (opus, sonnet, haiku for claude; grok-code-fast-1 for opencode; gpt-5 for codex)    |
-| `--tool`                                                         |       | string  | claude    | AI tool (claude, opencode, codex, agent)                                                  |
-| `--think`                                                        |       | string  |           | Thinking level (low, medium, high, max)                                                   |
-| `--fork`                                                         | `-f`  | boolean | false     | Fork repo if no write access                                                              |
-| `--auto-fork`                                                    |       | boolean | true      | Automatically fork public repos without write access                                      |
-| `--base-branch`                                                  | `-b`  | string  | (default) | Target branch for PR                                                                      |
-| `--resume`                                                       | `-r`  | string  |           | Resume from session ID                                                                    |
-| `--verbose`                                                      | `-v`  | boolean | false     | Enable verbose logging                                                                    |
-| `--dry-run`                                                      | `-n`  | boolean | false     | Prepare only, don't execute                                                               |
-| `--only-prepare-command`                                         |       | boolean | false     | Only prepare and print the command                                                        |
-| `--skip-tool-connection-check`                                   |       | boolean | false     | Skip tool connection check                                                                |
-| `--auto-pull-request-creation`                                   |       | boolean | true      | Create draft PR before execution                                                          |
-| `--attach-logs`                                                  |       | boolean | false     | Attach logs to PR (sensitive)                                                             |
-| `--auto-close-pull-request-on-fail`                              |       | boolean | false     | Close PR on fail                                                                          |
-| `--auto-continue`                                                |       | boolean | true      | Continue with existing PR                                                                 |
-| `--auto-continue-on-limit-reset`                                 |       | boolean | false     | Auto-continue when limit resets                                                           |
-| `--auto-resume-on-errors`                                        |       | boolean | false     | Auto-resume on network errors                                                             |
-| `--auto-continue-only-on-new-comments`                           |       | boolean | false     | Fail if no new comments                                                                   |
-| `--auto-commit-uncommitted-changes`                              |       | boolean | false     | Auto-commit changes                                                                       |
-| `--auto-restart-on-uncommitted-changes`                          |       | boolean | true      | Auto-restart on uncommitted changes                                                       |
-| `--auto-restart-max-iterations`                                  |       | number  | 3         | Max auto-restart iterations                                                               |
-| `--auto-merge-default-branch-to-pull-request-branch`             |       | boolean | false     | Merge default branch to PR branch                                                         |
-| `--allow-fork-divergence-resolution-using-force-push-with-lease` |       | boolean | false     | Allow force-push on fork divergence                                                       |
-| `--allow-to-push-to-contributors-pull-requests-as-maintainer`    |       | boolean | false     | Push to contributor's fork as maintainer                                                  |
-| `--prefix-fork-name-with-owner-name`                             |       | boolean | true      | Prefix fork with owner name                                                               |
-| `--continue-only-on-feedback`                                    |       | boolean | false     | Only continue if feedback detected                                                        |
-| `--watch`                                                        | `-w`  | boolean | false     | Monitor for feedback and auto-restart                                                     |
-| `--watch-interval`                                               |       | number  | 60        | Feedback check interval (seconds)                                                         |
-| `--min-disk-space`                                               |       | number  | 2048      | Minimum disk space in MB                                                                  |
-| `--log-dir`                                                      | `-l`  | string  | (cwd)     | Directory for log files                                                                   |
-| `--sentry`                                                       |       | boolean | true      | Enable Sentry (use --no-sentry to disable)                                                |
-| `--auto-cleanup`                                                 |       | boolean | (varies)  | Delete temp directory on completion                                                       |
-| `--claude-file`                                                  |       | boolean | true      | Create CLAUDE.md for task details                                                         |
-| `--gitkeep-file`                                                 |       | boolean | false     | Create .gitkeep instead of CLAUDE.md                                                      |
-| `--interactive-mode`                                             |       | boolean | false     | [EXPERIMENTAL] Post output as PR comments                                                 |
-| `--prompt-plan-sub-agent`                                        |       | boolean | false     | Use Plan sub-agent for planning                                                           |
-| `--prompt-explore-sub-agent`                                     |       | boolean | false     | Use Explore sub-agent                                                                     |
-| `--prompt-general-purpose-sub-agent`                             |       | boolean | false     | Use general-purpose sub agents                                                            |
-| `--tokens-budget-stats`                                          |       | boolean | false     | [EXPERIMENTAL] Show token budget statistics                                               |
-| `--prompt-issue-reporting`                                       |       | boolean | false     | Auto-create issues for spotted bugs                                                       |
-| `--prompt-case-studies`                                          |       | boolean | false     | Create case study documentation                                                           |
-| `--prompt-playwright-mcp`                                        |       | boolean | true      | Playwright MCP hints (only if MCP installed, use `--no-prompt-playwright-mcp` to disable) |
+| Option                                                           | Alias | Type    | Default   | Description                                                                                             |
+| ---------------------------------------------------------------- | ----- | ------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `--model`                                                        | `-m`  | string  | sonnet    | Model (opus, sonnet, haiku for claude; grok-code-fast-1 for opencode; gpt-5 for codex)                  |
+| `--tool`                                                         |       | string  | claude    | AI tool (claude, opencode, codex, agent)                                                                |
+| `--think`                                                        |       | string  |           | Thinking level (low, medium, high, max)                                                                 |
+| `--fork`                                                         | `-f`  | boolean | false     | Fork repo if no write access                                                                            |
+| `--auto-fork`                                                    |       | boolean | true      | Automatically fork public repos without write access                                                    |
+| `--base-branch`                                                  | `-b`  | string  | (default) | Target branch for PR                                                                                    |
+| `--resume`                                                       | `-r`  | string  |           | Resume from session ID                                                                                  |
+| `--verbose`                                                      | `-v`  | boolean | false     | Enable verbose logging                                                                                  |
+| `--dry-run`                                                      | `-n`  | boolean | false     | Prepare only, don't execute                                                                             |
+| `--only-prepare-command`                                         |       | boolean | false     | Only prepare and print the command                                                                      |
+| `--skip-tool-connection-check`                                   |       | boolean | false     | Skip tool connection check                                                                              |
+| `--auto-pull-request-creation`                                   |       | boolean | true      | Create draft PR before execution                                                                        |
+| `--attach-logs`                                                  |       | boolean | false     | Attach logs to PR (sensitive)                                                                           |
+| `--auto-close-pull-request-on-fail`                              |       | boolean | false     | Close PR on fail                                                                                        |
+| `--auto-continue`                                                |       | boolean | true      | Continue with existing PR                                                                               |
+| `--auto-resume-on-limit-reset`                                   |       | boolean | false     | Auto-resume when limit resets                                                                           |
+| `--auto-resume-on-errors`                                        |       | boolean | false     | Auto-resume on network errors                                                                           |
+| `--auto-continue-only-on-new-comments`                           |       | boolean | false     | Fail if no new comments                                                                                 |
+| `--auto-commit-uncommitted-changes`                              |       | boolean | false     | Auto-commit changes                                                                                     |
+| `--auto-restart-on-uncommitted-changes`                          |       | boolean | true      | Auto-restart on uncommitted changes                                                                     |
+| `--auto-restart-max-iterations`                                  |       | number  | 3         | Max auto-restart iterations                                                                             |
+| `--auto-merge-default-branch-to-pull-request-branch`             |       | boolean | false     | Merge default branch to PR branch                                                                       |
+| `--allow-fork-divergence-resolution-using-force-push-with-lease` |       | boolean | false     | Allow force-push on fork divergence                                                                     |
+| `--allow-to-push-to-contributors-pull-requests-as-maintainer`    |       | boolean | false     | Push to contributor's fork as maintainer                                                                |
+| `--prefix-fork-name-with-owner-name`                             |       | boolean | true      | Prefix fork with owner name                                                                             |
+| `--continue-only-on-feedback`                                    |       | boolean | false     | Only continue if feedback detected                                                                      |
+| `--watch`                                                        | `-w`  | boolean | false     | Monitor for feedback and auto-restart                                                                   |
+| `--watch-interval`                                               |       | number  | 60        | Feedback check interval (seconds)                                                                       |
+| `--min-disk-space`                                               |       | number  | 2048      | Minimum disk space in MB                                                                                |
+| `--log-dir`                                                      | `-l`  | string  | (cwd)     | Directory for log files                                                                                 |
+| `--sentry`                                                       |       | boolean | true      | Enable Sentry (use --no-sentry to disable)                                                              |
+| `--auto-cleanup`                                                 |       | boolean | (varies)  | Delete temp directory on completion                                                                     |
+| `--claude-file`                                                  |       | boolean | (varies)  | Create CLAUDE.md for task details (default for --tool claude)                                           |
+| `--gitkeep-file`                                                 |       | boolean | (varies)  | Create .gitkeep instead of CLAUDE.md (default for --tool agent/opencode/codex)                          |
+| `--interactive-mode`                                             |       | boolean | false     | [EXPERIMENTAL] Post output as PR comments                                                               |
+| `--prompt-plan-sub-agent`                                        |       | boolean | false     | Use Plan sub-agent for planning                                                                         |
+| `--prompt-explore-sub-agent`                                     |       | boolean | false     | Use Explore sub-agent                                                                                   |
+| `--prompt-general-purpose-sub-agent`                             |       | boolean | false     | Use general-purpose sub agents                                                                          |
+| `--tokens-budget-stats`                                          |       | boolean | false     | [EXPERIMENTAL] Show token budget statistics                                                             |
+| `--prompt-issue-reporting`                                       |       | boolean | false     | Auto-create issues for spotted bugs                                                                     |
+| `--prompt-case-studies`                                          |       | boolean | false     | Create case study documentation                                                                         |
+| `--prompt-playwright-mcp`                                        |       | boolean | true      | Playwright MCP hints (only if MCP installed, use `--no-prompt-playwright-mcp` to disable)               |
+| `--prompt-check-sibling-pull-requests`                           |       | boolean | true      | Check sibling PRs when studying related work (use `--no-prompt-check-sibling-pull-requests` to disable) |
 
 ### hive Options
 
@@ -315,49 +330,50 @@ solve <issue-url> [options]
 hive <github-url> [options]
 ```
 
-| Option                               | Alias | Type    | Default       | Description                                 |
-| ------------------------------------ | ----- | ------- | ------------- | ------------------------------------------- |
-| `--monitor-tag`                      | `-t`  | string  | "help wanted" | Label to monitor                            |
-| `--all-issues`                       | `-a`  | boolean | false         | Monitor all issues (ignore labels)          |
-| `--skip-issues-with-prs`             | `-s`  | boolean | false         | Skip issues with existing PRs               |
-| `--concurrency`                      | `-c`  | number  | 2             | Parallel workers                            |
-| `--pull-requests-per-issue`          | `-p`  | number  | 1             | Number of PRs per issue                     |
-| `--model`                            | `-m`  | string  | sonnet        | Model to use                                |
-| `--tool`                             |       | string  | claude        | AI tool (claude, opencode, agent)           |
-| `--interval`                         | `-i`  | number  | 300           | Poll interval (seconds)                     |
-| `--max-issues`                       |       | number  | 0             | Limit processed issues (0 = unlimited)      |
-| `--once`                             |       | boolean | false         | Single run (don't monitor)                  |
-| `--dry-run`                          |       | boolean | false         | List issues without processing              |
-| `--skip-tool-connection-check`       |       | boolean | false         | Skip tool connection check                  |
-| `--verbose`                          | `-v`  | boolean | false         | Enable verbose logging                      |
-| `--min-disk-space`                   |       | number  | 2048          | Minimum disk space in MB                    |
-| `--auto-cleanup`                     |       | boolean | false         | Clean temp directories on success           |
-| `--fork`                             | `-f`  | boolean | false         | Fork repos if no write access               |
-| `--auto-fork`                        |       | boolean | true          | Automatically fork public repos             |
-| `--attach-logs`                      |       | boolean | false         | Attach logs to PRs (sensitive)              |
-| `--project-number`                   | `-pn` | number  |               | GitHub Project number to monitor            |
-| `--project-owner`                    | `-po` | string  |               | GitHub Project owner                        |
-| `--project-status`                   | `-ps` | string  | "Ready"       | Project status column to monitor            |
-| `--project-mode`                     | `-pm` | boolean | false         | Enable project-based monitoring             |
-| `--youtrack-mode`                    |       | boolean | false         | Enable YouTrack mode                        |
-| `--youtrack-stage`                   |       | string  |               | Override YouTrack stage                     |
-| `--youtrack-project`                 |       | string  |               | Override YouTrack project code              |
-| `--target-branch`                    | `-tb` | string  | (default)     | Target branch for PRs                       |
-| `--log-dir`                          | `-l`  | string  | (cwd)         | Directory for log files                     |
-| `--auto-continue`                    |       | boolean | true          | Pass --auto-continue to solve               |
-| `--think`                            |       | string  |               | Thinking level (low, medium, high, max)     |
-| `--prompt-plan-sub-agent`            |       | boolean | false         | Use Plan sub-agent                          |
-| `--sentry`                           |       | boolean | true          | Enable Sentry (use --no-sentry to disable)  |
-| `--watch`                            | `-w`  | boolean | false         | Monitor for feedback and auto-restart       |
-| `--issue-order`                      | `-o`  | string  | "asc"         | Order issues by date (asc, desc)            |
-| `--prefix-fork-name-with-owner-name` |       | boolean | true          | Prefix fork with owner name                 |
-| `--interactive-mode`                 |       | boolean | false         | [EXPERIMENTAL] Post output as PR comments   |
-| `--prompt-explore-sub-agent`         |       | boolean | false         | Use Explore sub-agent                       |
-| `--prompt-general-purpose-sub-agent` |       | boolean | false         | Use general-purpose sub agents              |
-| `--tokens-budget-stats`              |       | boolean | false         | [EXPERIMENTAL] Show token budget statistics |
-| `--prompt-issue-reporting`           |       | boolean | false         | Auto-create issues for spotted bugs         |
-| `--prompt-case-studies`              |       | boolean | false         | Create case study documentation             |
-| `--prompt-playwright-mcp`            |       | boolean | true          | Playwright MCP hints (only if installed)    |
+| Option                                 | Alias | Type    | Default       | Description                                  |
+| -------------------------------------- | ----- | ------- | ------------- | -------------------------------------------- |
+| `--monitor-tag`                        | `-t`  | string  | "help wanted" | Label to monitor                             |
+| `--all-issues`                         | `-a`  | boolean | false         | Monitor all issues (ignore labels)           |
+| `--skip-issues-with-prs`               | `-s`  | boolean | false         | Skip issues with existing PRs                |
+| `--concurrency`                        | `-c`  | number  | 2             | Parallel workers                             |
+| `--pull-requests-per-issue`            | `-p`  | number  | 1             | Number of PRs per issue                      |
+| `--model`                              | `-m`  | string  | sonnet        | Model to use                                 |
+| `--tool`                               |       | string  | claude        | AI tool (claude, opencode, agent)            |
+| `--interval`                           | `-i`  | number  | 300           | Poll interval (seconds)                      |
+| `--max-issues`                         |       | number  | 0             | Limit processed issues (0 = unlimited)       |
+| `--once`                               |       | boolean | false         | Single run (don't monitor)                   |
+| `--dry-run`                            |       | boolean | false         | List issues without processing               |
+| `--skip-tool-connection-check`         |       | boolean | false         | Skip tool connection check                   |
+| `--verbose`                            | `-v`  | boolean | false         | Enable verbose logging                       |
+| `--min-disk-space`                     |       | number  | 2048          | Minimum disk space in MB                     |
+| `--auto-cleanup`                       |       | boolean | false         | Clean temp directories on success            |
+| `--fork`                               | `-f`  | boolean | false         | Fork repos if no write access                |
+| `--auto-fork`                          |       | boolean | true          | Automatically fork public repos              |
+| `--attach-logs`                        |       | boolean | false         | Attach logs to PRs (sensitive)               |
+| `--project-number`                     | `-pn` | number  |               | GitHub Project number to monitor             |
+| `--project-owner`                      | `-po` | string  |               | GitHub Project owner                         |
+| `--project-status`                     | `-ps` | string  | "Ready"       | Project status column to monitor             |
+| `--project-mode`                       | `-pm` | boolean | false         | Enable project-based monitoring              |
+| `--youtrack-mode`                      |       | boolean | false         | Enable YouTrack mode                         |
+| `--youtrack-stage`                     |       | string  |               | Override YouTrack stage                      |
+| `--youtrack-project`                   |       | string  |               | Override YouTrack project code               |
+| `--target-branch`                      | `-tb` | string  | (default)     | Target branch for PRs                        |
+| `--log-dir`                            | `-l`  | string  | (cwd)         | Directory for log files                      |
+| `--auto-continue`                      |       | boolean | true          | Pass --auto-continue to solve                |
+| `--think`                              |       | string  |               | Thinking level (low, medium, high, max)      |
+| `--prompt-plan-sub-agent`              |       | boolean | false         | Use Plan sub-agent                           |
+| `--sentry`                             |       | boolean | true          | Enable Sentry (use --no-sentry to disable)   |
+| `--watch`                              | `-w`  | boolean | false         | Monitor for feedback and auto-restart        |
+| `--issue-order`                        | `-o`  | string  | "asc"         | Order issues by date (asc, desc)             |
+| `--prefix-fork-name-with-owner-name`   |       | boolean | true          | Prefix fork with owner name                  |
+| `--interactive-mode`                   |       | boolean | false         | [EXPERIMENTAL] Post output as PR comments    |
+| `--prompt-explore-sub-agent`           |       | boolean | false         | Use Explore sub-agent                        |
+| `--prompt-general-purpose-sub-agent`   |       | boolean | false         | Use general-purpose sub agents               |
+| `--tokens-budget-stats`                |       | boolean | false         | [EXPERIMENTAL] Show token budget statistics  |
+| `--prompt-issue-reporting`             |       | boolean | false         | Auto-create issues for spotted bugs          |
+| `--prompt-case-studies`                |       | boolean | false         | Create case study documentation              |
+| `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP hints (only if installed)     |
+| `--prompt-check-sibling-pull-requests` |       | boolean | true          | Check sibling PRs when studying related work |
 
 ### hive-telegram-bot Options
 
@@ -457,3 +473,18 @@ const dsn = sentry.dsn;
 - The application validates all configuration values on startup
 - Invalid values will cause the application to fail with an error message
 - Use `--verbose` flag to see configuration values being used
+
+### Tool-Specific Default Values
+
+Some options have different defaults depending on the selected `--tool`:
+
+| Option           | `--tool claude` | `--tool agent/opencode/codex`              |
+| ---------------- | --------------- | ------------------------------------------ |
+| `--model`        | `sonnet`        | `grok-code` / `grok-code-fast-1` / `gpt-5` |
+| `--claude-file`  | `true`          | `false`                                    |
+| `--gitkeep-file` | `false`         | `true`                                     |
+
+**Rationale for `--claude-file` / `--gitkeep-file` defaults:**
+
+- For `--tool claude`: CLAUDE.md is used as it serves as a project-level instruction file that Claude Code reads
+- For other tools: `.gitkeep` is used to avoid polluting the CLAUDE.md file, which has special meaning for Claude Code but not for other AI tools

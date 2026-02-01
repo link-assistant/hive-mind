@@ -6,12 +6,12 @@ A user reported that their `/solve` commands were not being recognized by the Te
 
 ## Timeline of Events
 
-| Timestamp | Event |
-|-----------|-------|
+| Timestamp   | Event                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------- |
 | User Action | User "Avers" sends `/solve https://github.com/avers52/VAD-DOT/issues/1 --model opus` in group chat |
-| Expected | Bot should parse command, validate URL, and start solving |
-| Observed | Messages from this user are not recognized, while other users' commands work |
-| Workaround | Unknown - eventually the commands started working (as shown in screenshot) |
+| Expected    | Bot should parse command, validate URL, and start solving                                          |
+| Observed    | Messages from this user are not recognized, while other users' commands work                       |
+| Workaround  | Unknown - eventually the commands started working (as shown in screenshot)                         |
 
 ## Evidence
 
@@ -44,6 +44,7 @@ Telegram bots have **Privacy Mode** enabled by default. When enabled, bots in gr
 - General commands without `@botname` suffix may be routed to whichever bot last sent a message
 
 This perfectly explains the observed behavior:
+
 - **User A's commands work** because they happen when SwarmMindBot was the last bot to send a message
 - **User B's commands don't work** because they happen when a different bot was the last to send a message, so Telegram routes the command to that other bot instead
 
@@ -63,11 +64,11 @@ The message filtering functions (`isOldMessage`, `isForwardedOrReply`, `isGroupC
 
 ### Previously Fixed Related Issues
 
-| PR | Issue | Root Cause |
-|----|-------|------------|
-| [#493](https://github.com/link-assistant/hive-mind/pull/493) | Messages not received | `isForwardedOrReply` false positives from empty JS objects `{}` being truthy |
-| [#496](https://github.com/link-assistant/hive-mind/pull/496) | Messages not received in forum topics | Forum topic messages treated as replies due to `reply_to_message` field |
-| [#494](https://github.com/link-assistant/hive-mind/pull/494) | No diagnostics | Added `--verbose` flag and privacy mode diagnostic experiment |
+| PR                                                           | Issue                                 | Root Cause                                                                   |
+| ------------------------------------------------------------ | ------------------------------------- | ---------------------------------------------------------------------------- |
+| [#493](https://github.com/link-assistant/hive-mind/pull/493) | Messages not received                 | `isForwardedOrReply` false positives from empty JS objects `{}` being truthy |
+| [#496](https://github.com/link-assistant/hive-mind/pull/496) | Messages not received in forum topics | Forum topic messages treated as replies due to `reply_to_message` field      |
+| [#494](https://github.com/link-assistant/hive-mind/pull/494) | No diagnostics                        | Added `--verbose` flag and privacy mode diagnostic experiment                |
 
 ## Solutions
 
@@ -93,6 +94,7 @@ The message filtering functions (`isOldMessage`, `isForwardedOrReply`, `isGroupC
 ### Solution 3: Add Message Recognition Tests (Code)
 
 Add comprehensive unit tests for the message filtering pipeline to:
+
 - Verify `isOldMessage` correctly identifies old vs new messages
 - Verify `isForwardedOrReply` handles all edge cases (normal messages, forwarded, replies, forum topics)
 - Verify `isGroupChat` correctly identifies group/supergroup chats
@@ -102,6 +104,7 @@ Add comprehensive unit tests for the message filtering pipeline to:
 ### Solution 4: Add Diagnostic Logging (Code)
 
 Improve logging to help diagnose future message delivery issues:
+
 - Log when messages pass each filter stage (at debug/verbose level)
 - Document privacy mode as a common cause in the help command
 - Add a periodic "heartbeat" log showing the bot is alive and listening

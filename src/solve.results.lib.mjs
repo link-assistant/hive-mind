@@ -510,12 +510,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
 
+        // Declare placeholder detection variables outside block scopes for use in return value
+        let prTitleHasPlaceholder = false;
+        let prBodyHasPlaceholder = false;
+
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           // Check if PR body has proper issue linking keywords
+          let prBody = '';
           const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
           if (prBodyResult.code === 0) {
-            const prBody = prBodyResult.stdout.toString();
+            prBody = prBodyResult.stdout.toString();
             const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
 
             // Use the new GitHub linking detection library to check for valid keywords
@@ -560,8 +565,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
           // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
           // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
-          const prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
-          const prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
+          prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
+          prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
 
           // Issue #1162: Remove [WIP] prefix from title if still present
           // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled

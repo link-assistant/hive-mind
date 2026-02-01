@@ -6,13 +6,13 @@ A user reported that their `/solve` commands were not being recognized by the Te
 
 ## Timeline of Events
 
-| Timestamp   | Event                                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------- |
-| User Action | User "Avers" sends `/solve https://github.com/avers52/VAD-DOT/issues/1 --model opus` in group chat |
+| Timestamp   | Event                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| User Action | User "Avers" sends `/solve https://github.com/avers52/VAD-DOT/issues/1 --model opus` in group chat                 |
 | Bot Log     | `[VERBOSE] Message:` shows the message IS received with `isOld: false`, `isForwarded: false`, `isAuthorized: true` |
-| Bot Log     | `[VERBOSE] /solve command received` does NOT appear in logs |
-| Expected    | Bot should parse command, validate URL, and start solving                                          |
-| Observed    | Messages from this user are not recognized; only 1 of 54 users affected                           |
+| Bot Log     | `[VERBOSE] /solve command received` does NOT appear in logs                                                        |
+| Expected    | Bot should parse command, validate URL, and start solving                                                          |
+| Observed    | Messages from this user are not recognized; only 1 of 54 users affected                                            |
 
 ## Evidence
 
@@ -47,11 +47,13 @@ if (cmdEntity.offset > 0) return next();
 ```
 
 The command handler only fires when:
+
 1. `entities[0]` exists
 2. `entities[0].type === 'bot_command'`
 3. `entities[0].offset === 0`
 
 If ANY of these conditions fail, the command is silently skipped via `next()`. This can happen when:
+
 - The message has no `bot_command` entity (certain Telegram clients may not add it)
 - The first entity is not `bot_command` (e.g., a `url` or `text_link` entity appears first)
 - The entity offset is not 0 (invisible characters or formatting before the command)
@@ -79,6 +81,7 @@ The verbose logging did not include entity values, making it impossible to confi
 Added a `bot.on('message')` handler registered AFTER all `bot.command()` handlers that uses text pattern matching (`/^\/(\w+)(?:@(\S+))?\s*/`) as a fallback. When Telegraf's entity-based `bot.command()` skips a message, this fallback catches it by matching the text directly.
 
 Key design decisions:
+
 - Runs only when `bot.command()` doesn't match (registered after, only receives `next()` calls)
 - Validates bot username mention (if `/solve@BotName` is used)
 - Logs a warning with entity details when triggered, for ongoing diagnostics
@@ -87,6 +90,7 @@ Key design decisions:
 ### Solution 2: Entity Logging for Diagnostics (Code Fix)
 
 Added entity logging to the verbose message listener:
+
 ```javascript
 if (msg.entities) {
   console.log('[VERBOSE] Entities:', JSON.stringify(msg.entities));
@@ -98,6 +102,7 @@ This will show the exact entity array in future verbose logs, making it possible
 ### Solution 3: Named Handler Functions (Refactor)
 
 Extracted `/solve` and `/hive` command handlers from anonymous functions into named functions (`handleSolveCommand`, `handleHiveCommand`). This enables:
+
 - Reuse by the text-based fallback handler
 - Better stack traces in error reporting
 - Easier testing

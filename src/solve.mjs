@@ -907,6 +907,7 @@ try {
   const { success } = toolResult;
   let sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+  let anthropicModelUsage = toolResult.anthropicModelUsage || null; // Issue #787: Per-model usage data
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
@@ -1189,7 +1190,7 @@ try {
   // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
   // Issue #1152: Pass sessionType for differentiated log comments
   // Issue #1154: Track if logs were already uploaded to prevent duplicates
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, anthropicModelUsage);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes

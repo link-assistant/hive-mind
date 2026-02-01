@@ -43,6 +43,8 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+// Import extracted message filter functions for testability (issue #1207)
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply } = await import('./telegram-message-filters.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -291,100 +293,22 @@ const bot = new Telegraf(BOT_TOKEN, {
 // Using Unix timestamp (seconds since epoch) to match Telegram's message.date format
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
 
+// Wrapper functions that bind extracted filter functions to bot-specific state
+// The actual logic is in telegram-message-filters.lib.mjs for testability (issue #1207)
 function isChatAuthorized(chatId) {
-  if (!allowedChats) {
-    return true;
-  }
-  return allowedChats.includes(chatId);
+  return _isChatAuthorized(chatId, allowedChats);
 }
 
 function isOldMessage(ctx) {
-  // Ignore messages sent before the bot started
-  // This prevents processing old/pending messages from before current bot instance startup
-  const messageDate = ctx.message?.date;
-  if (!messageDate) {
-    return false;
-  }
-  return messageDate < BOT_START_TIME;
+  return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
 }
 
 function isGroupChat(ctx) {
-  const chatType = ctx.chat?.type;
-  return chatType === 'group' || chatType === 'supergroup';
+  return _isGroupChat(ctx);
 }
 
 function isForwardedOrReply(ctx) {
-  const message = ctx.message;
-  if (!message) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] isForwardedOrReply: No message object');
-    }
-    return false;
-  }
-
-  if (VERBOSE) {
-    console.log('[VERBOSE] isForwardedOrReply: Checking message fields...');
-    console.log('[VERBOSE]   message.forward_origin:', JSON.stringify(message.forward_origin));
-    console.log('[VERBOSE]   message.forward_origin?.type:', message.forward_origin?.type);
-    console.log('[VERBOSE]   message.forward_from:', JSON.stringify(message.forward_from));
-    console.log('[VERBOSE]   message.forward_from_chat:', JSON.stringify(message.forward_from_chat));
-    console.log('[VERBOSE]   message.forward_from_message_id:', message.forward_from_message_id);
-    console.log('[VERBOSE]   message.forward_signature:', message.forward_signature);
-    console.log('[VERBOSE]   message.forward_sender_name:', message.forward_sender_name);
-    console.log('[VERBOSE]   message.forward_date:', message.forward_date);
-    console.log('[VERBOSE]   message.reply_to_message:', JSON.stringify(message.reply_to_message));
-    console.log('[VERBOSE]   message.reply_to_message?.message_id:', message.reply_to_message?.message_id);
-  }
-
-  // Check if message is forwarded (has forward_origin field with actual content)
-  // Note: We check for .type because Telegram might send empty objects {}
-  // which are truthy in JavaScript but don't indicate a forwarded message
-  if (message.forward_origin && message.forward_origin.type) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] isForwardedOrReply: TRUE - forward_origin.type exists:', message.forward_origin.type);
-    }
-    return true;
-  }
-  // Also check old forwarding API fields for backward compatibility
-  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
-      if (message.forward_from) console.log('[VERBOSE]     Triggered by: forward_from');
-      if (message.forward_from_chat) console.log('[VERBOSE]     Triggered by: forward_from_chat');
-      if (message.forward_from_message_id) console.log('[VERBOSE]     Triggered by: forward_from_message_id');
-      if (message.forward_signature) console.log('[VERBOSE]     Triggered by: forward_signature');
-      if (message.forward_sender_name) console.log('[VERBOSE]     Triggered by: forward_sender_name');
-      if (message.forward_date) console.log('[VERBOSE]     Triggered by: forward_date');
-    }
-    return true;
-  }
-  // Check if message is a reply (has reply_to_message field with actual content)
-  // Note: We check for .message_id because Telegram might send empty objects {}
-  // IMPORTANT: In forum groups, messages in topics have reply_to_message pointing to the topic's
-  // first message (with forum_topic_created). These are NOT user replies, just part of the thread.
-  // We must exclude these to allow commands in forum topics.
-  if (message.reply_to_message && message.reply_to_message.message_id) {
-    // If the reply_to_message is a forum topic creation message, this is NOT a user reply
-    if (message.reply_to_message.forum_topic_created) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] isForwardedOrReply: FALSE - reply is to forum topic creation, not user reply');
-        console.log('[VERBOSE]   Forum topic:', message.reply_to_message.forum_topic_created);
-      }
-      // This is just a message in a forum topic, not a reply to another user
-      // Allow the message to proceed
-    } else {
-      // This is an actual reply to another user's message
-      if (VERBOSE) {
-        console.log('[VERBOSE] isForwardedOrReply: TRUE - reply_to_message.message_id exists:', message.reply_to_message.message_id);
-      }
-      return true;
-    }
-  }
-
-  if (VERBOSE) {
-    console.log('[VERBOSE] isForwardedOrReply: FALSE - no forwarding or reply detected');
-  }
-  return false;
+  return _isForwardedOrReply(ctx, { verbose: VERBOSE });
 }
 
 async function findStartScreenCommand() {

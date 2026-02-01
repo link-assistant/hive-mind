@@ -9,6 +9,7 @@ This document provides deep technical analysis of why resource accumulation occu
 ### Description
 
 The `solve` command creates temporary working directories in `/tmp` with the pattern `/tmp/gh-issue-solver-{timestamp}`. These directories contain:
+
 - Cloned Git repositories
 - Installed npm dependencies (`node_modules`)
 - Build artifacts
@@ -58,6 +59,7 @@ solve.mjs (PID 1000)
 ```
 
 If PID 1000 is killed with SIGKILL:
+
 - PID 1001-1005 become orphans (adopted by init)
 - They continue running, consuming resources
 - No cleanup signals are sent
@@ -70,7 +72,7 @@ const child = spawn('claude', args, { detached: false });
 
 // If parent killed, child may continue running
 process.on('SIGTERM', () => {
-  child.kill('SIGTERM');  // This won't run if parent gets SIGKILL
+  child.kill('SIGTERM'); // This won't run if parent gets SIGKILL
 });
 ```
 
@@ -80,7 +82,7 @@ process.on('SIGTERM', () => {
 // Better: Use process groups
 const child = spawn('claude', args, {
   detached: true,
-  stdio: 'inherit'
+  stdio: 'inherit',
 });
 
 // Track the process group
@@ -105,7 +107,7 @@ Zombie processes occur when a child process terminates but its parent hasn't cal
 ```javascript
 // Child exits but parent doesn't handle the exit
 const child = spawn('some-command');
-child.on('exit', (code) => {
+child.on('exit', code => {
   // If this handler isn't properly defined or doesn't clean up
   // the child entry remains in process table
 });
@@ -122,7 +124,7 @@ child.on('exit', (code, signal) => {
   // Process is reaped automatically after this handler
 });
 
-child.on('error', (err) => {
+child.on('error', err => {
   console.error('Failed to start child:', err);
 });
 ```
@@ -143,6 +145,7 @@ This is extensively documented in [Issue #837 Case Study](../issue-837-playwrigh
 ### Cross-Reference
 
 See [../issue-837-playwright-mcp-chrome-leak/](../issue-837-playwright-mcp-chrome-leak/) for:
+
 - Detailed root cause analysis
 - Configuration recommendations (`--isolated` mode)
 - Cleanup scripts
@@ -156,6 +159,7 @@ By default, Linux systems clean `/tmp` only on reboot or through `systemd-tmpfil
 ### Default systemd-tmpfiles Configuration
 
 From `/usr/lib/tmpfiles.d/tmp.conf`:
+
 ```
 # Clear tmp directories separately, to make them easier to override
 q /tmp 1777 root root 10d
@@ -195,6 +199,7 @@ hive-telegram-bot
 ### Impact
 
 After reboot:
+
 - Screen session "bot" doesn't exist
 - Telegram bot is not running
 - Users can't interact with the system via Telegram
@@ -202,14 +207,14 @@ After reboot:
 
 ## Root Cause Summary
 
-| Root Cause | Resource Affected | Severity | Mitigation Difficulty |
-|------------|-------------------|----------|----------------------|
-| Incomplete working directory cleanup | Disk | High | Medium |
-| Orphaned Node.js processes | CPU/RAM | Medium | Medium |
-| Zombie processes | Process table | Low | Low |
-| Playwright Chrome leaks | CPU/RAM | High | Medium |
-| No automatic /tmp cleanup | Disk | High | Low |
-| Screen session loss on reboot | Service availability | High | Low |
+| Root Cause                           | Resource Affected    | Severity | Mitigation Difficulty |
+| ------------------------------------ | -------------------- | -------- | --------------------- |
+| Incomplete working directory cleanup | Disk                 | High     | Medium                |
+| Orphaned Node.js processes           | CPU/RAM              | Medium   | Medium                |
+| Zombie processes                     | Process table        | Low      | Low                   |
+| Playwright Chrome leaks              | CPU/RAM              | High     | Medium                |
+| No automatic /tmp cleanup            | Disk                 | High     | Low                   |
+| Screen session loss on reboot        | Service availability | High     | Low                   |
 
 ## Prevention Strategies
 

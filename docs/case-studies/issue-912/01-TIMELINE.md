@@ -231,13 +231,13 @@ T+3min:  Services restored automatically
 
 ### Warning Thresholds
 
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| Disk /tmp usage | > 70% | > 90% |
-| RAM usage | > 80% | > 95% |
-| Process count | > 300 | > 500 |
-| Load average | > 10 | > 20 |
-| Zombie processes | > 5 | > 20 |
+| Metric           | Warning | Critical |
+| ---------------- | ------- | -------- |
+| Disk /tmp usage  | > 70%   | > 90%    |
+| RAM usage        | > 80%   | > 95%    |
+| Process count    | > 300   | > 500    |
+| Load average     | > 10    | > 20     |
+| Zombie processes | > 5     | > 20     |
 
 ### Monitoring Commands
 

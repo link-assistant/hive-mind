@@ -203,6 +203,18 @@ const KNOWN_OPTION_NAMES = [
   'prefix-fork-name-with-owner-name',
   'auto-restart-max-iterations',
   'auto-continue-only-on-new-comments',
+  'auto-restart-on-limit-reset',
+  'auto-restart-on-non-updated-pull-request-description',
+  'auto-restart-until-mergable',
+  'auto-merge',
+  'auto-gitkeep-file',
+  'playwright-mcp-auto-cleanup',
+  'auto-gh-configuration-repair',
+  'prompt-subagents-via-agent-commander',
+  'prompt-experiments-folder',
+  'prompt-examples-folder',
+  'session-type',
+  'working-directory',
 ];
 
 /**

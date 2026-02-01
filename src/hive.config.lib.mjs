@@ -321,6 +321,125 @@ export const createYargsConfig = yargsInstance => {
       description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage) - passed to solve command',
       default: false,
     })
+    // Solve-passthrough options: These options are forwarded to the solve command.
+    // They are defined here so that TELEGRAM_HIVE_OVERRIDES can include them
+    // and they can be passed through hive to solve without validation errors.
+    // See: https://github.com/link-assistant/hive-mind/issues/1209
+    .option('claude-file', {
+      type: 'boolean',
+      description: 'Create CLAUDE.md file for task details (passed to solve, default for --tool claude, mutually exclusive with --gitkeep-file)',
+      default: undefined,
+    })
+    .option('gitkeep-file', {
+      type: 'boolean',
+      description: 'Create .gitkeep file instead of CLAUDE.md (passed to solve, default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
+      default: undefined,
+    })
+    .option('auto-gitkeep-file', {
+      type: 'boolean',
+      description: 'Automatically use .gitkeep if CLAUDE.md is in .gitignore (passed to solve)',
+      default: undefined,
+    })
+    .option('auto-close-pull-request-on-fail', {
+      type: 'boolean',
+      description: 'Automatically close the pull request if execution fails (passed to solve)',
+      default: false,
+    })
+    .option('auto-restart-on-limit-reset', {
+      type: 'boolean',
+      description: 'Automatically restart when AI tool limit resets (fresh start without --resume flag, passed to solve)',
+      default: false,
+    })
+    .option('auto-resume-on-errors', {
+      type: 'boolean',
+      description: 'Automatically resume on network errors (503, etc.) with exponential backoff (passed to solve)',
+      default: false,
+    })
+    .option('auto-continue-only-on-new-comments', {
+      type: 'boolean',
+      description: 'Explicitly fail on absence of new comments in auto-continue or continue mode (passed to solve)',
+      default: false,
+    })
+    .option('auto-commit-uncommitted-changes', {
+      type: 'boolean',
+      description: 'Automatically commit and push uncommitted changes made by AI tool (passed to solve)',
+      default: false,
+    })
+    .option('auto-restart-on-uncommitted-changes', {
+      type: 'boolean',
+      description: 'Automatically restart when uncommitted changes are detected (passed to solve)',
+      default: undefined,
+    })
+    .option('auto-restart-max-iterations', {
+      type: 'number',
+      description: 'Maximum number of auto-restart iterations when uncommitted changes are detected (passed to solve)',
+      default: undefined,
+    })
+    .option('auto-restart-on-non-updated-pull-request-description', {
+      type: 'boolean',
+      description: 'Automatically restart if PR title or description still contains placeholder text (passed to solve)',
+      default: false,
+    })
+    .option('continue-only-on-feedback', {
+      type: 'boolean',
+      description: 'Only continue if feedback is detected (passed to solve)',
+      default: false,
+    })
+    .option('watch-interval', {
+      type: 'number',
+      description: 'Interval in seconds for checking feedback in watch mode (passed to solve)',
+      default: undefined,
+    })
+    .option('thinking-budget-claude-minimum-version', {
+      type: 'string',
+      description: 'Minimum Claude Code version that supports --thinking-budget (passed to solve)',
+      default: undefined,
+    })
+    .option('base-branch', {
+      type: 'string',
+      description: 'Target branch for the pull request (passed to solve as --base-branch, defaults to repository default branch)',
+      alias: 'b',
+    })
+    .option('auto-merge-default-branch-to-pull-request-branch', {
+      type: 'boolean',
+      description: 'Automatically merge the default branch to the PR branch when continuing work (passed to solve)',
+      default: false,
+    })
+    .option('allow-fork-divergence-resolution-using-force-push-with-lease', {
+      type: 'boolean',
+      description: 'Allow automatic force-push when fork diverges from upstream (passed to solve)',
+      default: false,
+    })
+    .option('allow-to-push-to-contributors-pull-requests-as-maintainer', {
+      type: 'boolean',
+      description: 'Push directly to contributor fork if "Allow edits by maintainers" is enabled (passed to solve)',
+      default: false,
+    })
+    .option('enable-workspaces', {
+      type: 'boolean',
+      description: 'Use separate workspace directory structure (passed to solve)',
+      default: false,
+    })
+    .option('playwright-mcp-auto-cleanup', {
+      type: 'boolean',
+      description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes (passed to solve)',
+      default: undefined,
+    })
+    .option('auto-gh-configuration-repair', {
+      type: 'boolean',
+      description: 'Automatically repair git configuration using gh-setup-git-identity (passed to solve)',
+      default: false,
+    })
+    .option('prompt-subagents-via-agent-commander', {
+      type: 'boolean',
+      description: 'Guide Claude to use agent-commander CLI instead of native Task tool (passed to solve)',
+      default: false,
+    })
+    .option('auto-pull-request-creation', {
+      type: 'boolean',
+      description: 'Automatically create a draft pull request before running AI tool (passed to solve)',
+      default: undefined,
+    })
     .parserConfiguration({
       'boolean-negation': true,
       'strip-dashed': false,

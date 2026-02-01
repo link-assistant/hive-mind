@@ -752,7 +752,9 @@ if (isDirectExecution) {
             if (argv.autoFork) args.push('--auto-fork');
             if (argv.verbose) args.push('--verbose');
             if (argv.attachLogs) args.push('--attach-logs');
-            if (argv.targetBranch) args.push('--target-branch', argv.targetBranch);
+            // Fix: hive uses --target-branch but solve uses --base-branch (issue #1209)
+            if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
+            else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
             if (argv.logDir) args.push('--log-dir', argv.logDir);
             if (argv.dryRun) args.push('--dry-run');
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
@@ -775,6 +777,33 @@ if (isDirectExecution) {
             if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
             if (argv.autoMerge) args.push('--auto-merge');
             if (argv.autoRestartUntilMergable) args.push('--auto-restart-until-mergable');
+            // Solve-passthrough options added in issue #1209
+            if (argv.promptGeneralPurposeSubAgent) args.push('--prompt-general-purpose-sub-agent');
+            if (argv.tokensBudgetStats) args.push('--tokens-budget-stats');
+            if (argv.promptCheckSiblingPullRequests !== undefined) args.push(argv.promptCheckSiblingPullRequests ? '--prompt-check-sibling-pull-requests' : '--no-prompt-check-sibling-pull-requests');
+            if (argv.promptArchitectureCare) args.push('--prompt-architecture-care');
+            if (argv.claudeFile !== undefined) args.push(argv.claudeFile ? '--claude-file' : '--no-claude-file');
+            if (argv.gitkeepFile !== undefined) args.push(argv.gitkeepFile ? '--gitkeep-file' : '--no-gitkeep-file');
+            if (argv.autoGitkeepFile !== undefined) args.push(argv.autoGitkeepFile ? '--auto-gitkeep-file' : '--no-auto-gitkeep-file');
+            if (argv.autoClosePullRequestOnFail) args.push('--auto-close-pull-request-on-fail');
+            if (argv.autoRestartOnLimitReset) args.push('--auto-restart-on-limit-reset');
+            if (argv.autoResumeOnErrors) args.push('--auto-resume-on-errors');
+            if (argv.autoContinueOnlyOnNewComments) args.push('--auto-continue-only-on-new-comments');
+            if (argv.autoCommitUncommittedChanges) args.push('--auto-commit-uncommitted-changes');
+            if (argv.autoRestartOnUncommittedChanges !== undefined) args.push(argv.autoRestartOnUncommittedChanges ? '--auto-restart-on-uncommitted-changes' : '--no-auto-restart-on-uncommitted-changes');
+            if (argv.autoRestartMaxIterations !== undefined) args.push('--auto-restart-max-iterations', argv.autoRestartMaxIterations);
+            if (argv.autoRestartOnNonUpdatedPullRequestDescription) args.push('--auto-restart-on-non-updated-pull-request-description');
+            if (argv.continueOnlyOnFeedback) args.push('--continue-only-on-feedback');
+            if (argv.watchInterval !== undefined) args.push('--watch-interval', argv.watchInterval);
+            if (argv.thinkingBudgetClaudeMinimumVersion !== undefined) args.push('--thinking-budget-claude-minimum-version', argv.thinkingBudgetClaudeMinimumVersion);
+            if (argv.autoMergeDefaultBranchToPullRequestBranch) args.push('--auto-merge-default-branch-to-pull-request-branch');
+            if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) args.push('--allow-fork-divergence-resolution-using-force-push-with-lease');
+            if (argv.allowToPushToContributorsPullRequestsAsMaintainer) args.push('--allow-to-push-to-contributors-pull-requests-as-maintainer');
+            if (argv.enableWorkspaces) args.push('--enable-workspaces');
+            if (argv.playwrightMcpAutoCleanup !== undefined) args.push(argv.playwrightMcpAutoCleanup ? '--playwright-mcp-auto-cleanup' : '--no-playwright-mcp-auto-cleanup');
+            if (argv.autoGhConfigurationRepair) args.push('--auto-gh-configuration-repair');
+            if (argv.promptSubagentsViaAgentCommander) args.push('--prompt-subagents-via-agent-commander');
+            if (argv.autoPullRequestCreation !== undefined) args.push(argv.autoPullRequestCreation ? '--auto-pull-request-creation' : '--no-auto-pull-request-creation');
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 

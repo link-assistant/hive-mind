@@ -7,23 +7,27 @@ When the `CI` environment variable is set to `true`, command-stream emits verbos
 ## Root Cause Analysis
 
 ### Trigger Condition
+
 ```javascript
-process.env.CI === 'true'
+process.env.CI === 'true';
 ```
 
 ### Affected Environments
+
 - GitHub Actions (automatically sets `CI=true`)
 - GitLab CI
-- CircleCI  
+- CircleCI
 - Jenkins with CI plugin
 - Any local environment with `CI=true` set
 
 ### Log Format
+
 ```
 [TRACE YYYY-MM-DDTHH:MM:SS.sssZ] [Component] message | {jsonData}
 ```
 
 ### Components That Emit Trace Logs
+
 - `[Initialization]` - Virtual command registration
 - `[VirtualCommands]` - Command registration and execution
 - `[API]` - $tagged function calls
@@ -37,6 +41,7 @@ process.env.CI === 'true'
 ## Impact on Our Codebase
 
 ### Affected Files
+
 1. **memory-check.mjs**
    - JSON output corrupted when `--json` flag used
    - Tests parse mixed trace logs and JSON, causing failures
@@ -56,12 +61,13 @@ process.env.CI === 'true'
 ## Reproduction Steps
 
 ### Local Reproduction
+
 ```bash
 # Without CI environment
 ./memory-check.mjs --quiet --json
 # Output: Clean JSON
 
-# With CI environment  
+# With CI environment
 CI=true ./memory-check.mjs --quiet --json
 # Output: JSON mixed with trace logs
 
@@ -70,6 +76,7 @@ CI=true ./command-stream-issues/issue-17-trace-logs-in-ci.mjs
 ```
 
 ### Test Failure Pattern
+
 ```javascript
 // Test code
 const output = execCommand(`${memoryCheckPath} --quiet --json 2>&1`);
@@ -82,19 +89,22 @@ const result = JSON.parse(output); // Fails in CI
 ## Workarounds Implemented
 
 ### 1. Redirect stderr to /dev/null (memory-check.mjs)
+
 ```javascript
 // Before
 const { stdout } = await $silent`df -m . | tail -1 | awk '{print $4}'`;
 
-// After  
+// After
 const { stdout } = await $silent`df -m . 2>/dev/null | tail -1 | awk '{print $4}'`;
 ```
 
 **Limitations:**
+
 - Loses legitimate error messages
 - Doesn't help when tests capture stderr with `2>&1`
 
 ### 2. Filter Trace Logs (test-memory-check.mjs)
+
 ```javascript
 // Filter out trace/debug lines from output
 const lines = output.split('\n');
@@ -115,11 +125,13 @@ for (const line of lines) {
 ```
 
 **Limitations:**
+
 - Fragile - depends on trace log format
 - Complex parsing logic required
 - May miss nested JSON structures
 
 ### 3. Avoid `2>&1` in Tests
+
 ```javascript
 // Don't capture stderr when expecting JSON
 const output = execCommand(`${memoryCheckPath} --quiet --json`);
@@ -128,17 +140,20 @@ const output = execCommand(`${memoryCheckPath} --quiet --json 2>&1`);
 ```
 
 **Limitations:**
+
 - May miss real errors
 - Not always possible in test frameworks
 
 ## Performance Impact
 
 When CI=true, every command execution generates approximately:
+
 - 50-100 trace log lines for simple commands
 - 200+ lines for complex commands with pipes
 - Each log line is ~100-200 characters
 
 For a test suite with 100 commands, this adds:
+
 - 10,000+ lines of trace logs
 - 1-2 MB of extra output
 - Significant parsing overhead
@@ -148,19 +163,22 @@ For a test suite with 100 commands, this adds:
 ### For command-stream Library
 
 1. **Add trace control option**
+
 ```javascript
-const $silent = $({ 
-  mirror: false, 
-  capture: true, 
-  trace: false  // New option to disable trace logs
+const $silent = $({
+  mirror: false,
+  capture: true,
+  trace: false, // New option to disable trace logs
 });
 ```
 
 2. **Respect mirror:false for all output**
+
 - When `mirror: false`, suppress trace logs too
 - Trace logs should go to a separate stream/file
 
 3. **Environment variable override**
+
 ```javascript
 // Allow disabling via env var
 process.env.COMMAND_STREAM_TRACE = 'false';
@@ -183,6 +201,7 @@ process.env.COMMAND_STREAM_TRACE = 'false';
 ## Testing Recommendations
 
 ### Unit Tests
+
 ```javascript
 describe('CI environment handling', () => {
   it('should parse JSON output even with trace logs', () => {
@@ -194,6 +213,7 @@ describe('CI environment handling', () => {
 ```
 
 ### Integration Tests
+
 ```bash
 # Test matrix
 for ci_val in "" "true" "false"; do

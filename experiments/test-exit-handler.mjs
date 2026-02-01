@@ -68,7 +68,6 @@ async function testExitHandlerWithRename() {
     // Clean up
     await fs.rm(tempDir, { recursive: true, force: true });
     console.log(`\n🧹 Cleaned up test directory`);
-
   } catch (error) {
     console.error(`\n❌ Test failed with error: ${error.message}`);
     console.error(error.stack);

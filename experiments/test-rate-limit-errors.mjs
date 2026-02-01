@@ -13,28 +13,7 @@ async function rapidFireRequests() {
   log(`🚀 Starting rapid-fire requests to trigger rate limits...`);
   log(`📊 Current rate limit status: 18 remaining (from previous test)`);
 
-  const searchCommands = [
-    'gh search issues "is:issue is:open" --limit 5',
-    'gh search issues "language:javascript" --limit 5',
-    'gh search issues "bug" --limit 5',
-    'gh search issues "enhancement" --limit 5',
-    'gh search issues "documentation" --limit 5',
-    'gh search issues "help wanted" --limit 5',
-    'gh search issues "good first issue" --limit 5',
-    'gh search issues "react" --limit 5',
-    'gh search issues "vue" --limit 5',
-    'gh search issues "python" --limit 5',
-    'gh search issues "node" --limit 5',
-    'gh search issues "typescript" --limit 5',
-    'gh search issues "docker" --limit 5',
-    'gh search issues "api" --limit 5',
-    'gh search issues "cli" --limit 5',
-    'gh search issues "frontend" --limit 5',
-    'gh search issues "backend" --limit 5',
-    'gh search issues "performance" --limit 5',
-    'gh search issues "security" --limit 5',
-    'gh search issues "testing" --limit 5'
-  ];
+  const searchCommands = ['gh search issues "is:issue is:open" --limit 5', 'gh search issues "language:javascript" --limit 5', 'gh search issues "bug" --limit 5', 'gh search issues "enhancement" --limit 5', 'gh search issues "documentation" --limit 5', 'gh search issues "help wanted" --limit 5', 'gh search issues "good first issue" --limit 5', 'gh search issues "react" --limit 5', 'gh search issues "vue" --limit 5', 'gh search issues "python" --limit 5', 'gh search issues "node" --limit 5', 'gh search issues "typescript" --limit 5', 'gh search issues "docker" --limit 5', 'gh search issues "api" --limit 5', 'gh search issues "cli" --limit 5', 'gh search issues "frontend" --limit 5', 'gh search issues "backend" --limit 5', 'gh search issues "performance" --limit 5', 'gh search issues "security" --limit 5', 'gh search issues "testing" --limit 5'];
 
   for (let i = 0; i < searchCommands.length; i++) {
     const command = searchCommands[i];
@@ -46,7 +25,7 @@ async function rapidFireRequests() {
       const startTime = Date.now();
       const output = execSync(command + ' --json url,title,number', {
         encoding: 'utf8',
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
       const endTime = Date.now();
 
@@ -66,7 +45,6 @@ async function rapidFireRequests() {
           log(`   ⚠️  Could not check rate limit: ${rateLimitError.message}`);
         }
       }
-
     } catch (error) {
       const stderr = error.stderr?.toString() || '';
       const stdout = error.stdout?.toString() || '';
@@ -76,17 +54,7 @@ async function rapidFireRequests() {
       log(`      Full error: ${combinedOutput.trim()}`);
 
       // Analyze the error for rate limit patterns
-      const rateLimitPatterns = [
-        /rate limit/i,
-        /API rate limit/i,
-        /secondary rate limit/i,
-        /abuse detection/i,
-        /too many requests/i,
-        /403.*forbidden/i,
-        /retry.*after/i,
-        /wait.*before/i,
-        /exceeded.*limit/i
-      ];
+      const rateLimitPatterns = [/rate limit/i, /API rate limit/i, /secondary rate limit/i, /abuse detection/i, /too many requests/i, /403.*forbidden/i, /retry.*after/i, /wait.*before/i, /exceeded.*limit/i];
 
       const isRateLimit = rateLimitPatterns.some(pattern => pattern.test(combinedOutput));
 
@@ -137,7 +105,7 @@ async function testFallbackScenario() {
   try {
     const searchResult = execSync('gh search issues "repo:microsoft/vscode is:open" --limit 10 --json url,title,number', {
       encoding: 'utf8',
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     const searchData = JSON.parse(searchResult || '[]');
     log(`   ✅ Search API: ${searchData.length} results`);
@@ -150,7 +118,7 @@ async function testFallbackScenario() {
     try {
       const repoResult = execSync('gh issue list --repo microsoft/vscode --state open --limit 10 --json url,title,number', {
         encoding: 'utf8',
-        stdio: 'pipe'
+        stdio: 'pipe',
       });
       const repoData = JSON.parse(repoResult || '[]');
       log(`   ✅ Repository listing (fallback): ${repoData.length} results`);
@@ -169,18 +137,18 @@ async function checkMaxPageSizes() {
     {
       name: 'Search Issues API',
       command: 'gh search issues "is:issue" --limit LIMIT --json url,title,number',
-      limits: [100, 500, 1000, 2000]
+      limits: [100, 500, 1000, 2000],
     },
     {
       name: 'Repository Issues API',
       command: 'gh issue list --repo microsoft/vscode --state open --limit LIMIT --json url,title,number',
-      limits: [100, 500, 1000, 2000]
+      limits: [100, 500, 1000, 2000],
     },
     {
       name: 'Repository PRs API',
       command: 'gh pr list --repo microsoft/vscode --state open --limit LIMIT --json url,title,number',
-      limits: [100, 500, 1000, 2000]
-    }
+      limits: [100, 500, 1000, 2000],
+    },
   ];
 
   for (const api of apis) {
@@ -195,7 +163,7 @@ async function checkMaxPageSizes() {
         const result = execSync(command, {
           encoding: 'utf8',
           stdio: 'pipe',
-          timeout: 30000 // 30 second timeout
+          timeout: 30000, // 30 second timeout
         });
         const endTime = Date.now();
 
@@ -205,7 +173,6 @@ async function checkMaxPageSizes() {
         if (data.length < limit) {
           log(`      ℹ️  Got fewer results than requested (${data.length} < ${limit}) - may have reached actual limit`);
         }
-
       } catch (error) {
         const errorText = error.stderr?.toString() || error.stdout?.toString() || '';
         log(`      ❌ Failed at limit ${limit}: ${errorText.trim()}`);

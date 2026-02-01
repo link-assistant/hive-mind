@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-// Auto-continue module for solve command
+// Session continuation module for solve command
+// Handles session resumption, PR detection, and limit reset waiting
 // Extracted from solve.mjs to keep files under 1500 lines
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
@@ -16,29 +17,26 @@ const { $ } = await use('command-stream');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  cleanErrorMessage
-} = lib;
+const { log, cleanErrorMessage } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 
 // Import branch name validation functions
 const branchLib = await import('./solve.branch.lib.mjs');
-const {
-  getIssueBranchPrefix,
-  matchesIssuePattern
-} = branchLib;
+const { getIssueBranchPrefix, matchesIssuePattern } = branchLib;
 
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
-const {
-  checkFileInBranch
-} = githubLib;
+const { checkFileInBranch } = githubLib;
 
 // Import validation functions for time parsing
 const validation = await import('./solve.validation.lib.mjs');
+
+// Import usage limit formatting functions
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+const usageLimitLib = await import('./usage-limit.lib.mjs');
+const { formatResetTimeWithRelative } = usageLimitLib;
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -49,18 +47,16 @@ const githubLinking = await import('./github-linking.lib.mjs');
 const { extractLinkedIssueNumber } = githubLinking;
 
 // Import configuration
-import { autoContinue } from './config.lib.mjs';
+import { autoContinue, limitReset } from './config.lib.mjs';
 
-const {
-  calculateWaitTime
-} = validation;
+const { calculateWaitTime } = validation;
 
 /**
  * Format time duration in days:hours:minutes:seconds
  * @param {number} ms - Milliseconds
  * @returns {string} - Formatted time string (e.g., "0:02:15:30")
  */
-const formatWaitTime = (ms) => {
+const formatWaitTime = ms => {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -74,13 +70,29 @@ const formatWaitTime = (ms) => {
 };
 
 // Auto-continue function that waits until limit resets
-export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs) => {
+// tempDir parameter is required for passing --working-directory to the resumed session
+// (Claude Code sessions are stored per-working-directory, so resume must use same directory)
+// isRestart parameter distinguishes between resume (maintains context) and restart (fresh start)
+// See: https://github.com/link-assistant/hive-mind/issues/1152
+export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, shouldAttachLogs, tempDir = null, isRestart = false) => {
   try {
     const resetTime = global.limitResetTime;
-    const waitMs = calculateWaitTime(resetTime);
+    const timezone = global.limitTimezone || null;
+    const baseWaitMs = calculateWaitTime(resetTime);
 
-    await log(`\n⏰ Waiting until ${resetTime} for limit to reset...`);
-    await log(`   Wait time: ${formatWaitTime(waitMs)}`);
+    // Add buffer time after limit reset to account for server time differences
+    // Default: 5 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const bufferMs = limitReset.bufferMs;
+    const waitMs = baseWaitMs + bufferMs;
+    const bufferMinutes = Math.round(bufferMs / 60000);
+
+    // Format reset time with relative time and UTC for better user understanding
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const formattedResetTime = formatResetTimeWithRelative(resetTime, timezone);
+
+    await log(`\n⏰ Waiting until ${formattedResetTime} + ${bufferMinutes} min buffer for limit to reset...`);
+    await log(`   Wait time: ${formatWaitTime(waitMs)} (includes ${bufferMinutes} min buffer for server time differences)`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Show countdown every 30 minutes for long waits, every minute for short waits
@@ -90,7 +102,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const countdownTimer = setInterval(async () => {
       remainingMs -= countdownInterval;
       if (remainingMs > 0) {
-        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${resetTime}`);
+        await log(`⏳ Time remaining: ${formatWaitTime(remainingMs)} until ${formattedResetTime}`);
       }
     }, countdownInterval);
 
@@ -98,24 +110,42 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     await new Promise(resolve => setTimeout(resolve, waitMs));
     clearInterval(countdownTimer);
 
-    await log('\n✅ Limit reset time reached! Resuming session...');
+    const actionType = isRestart ? 'Restarting' : 'Resuming';
+    await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer)! ${actionType} session...`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
-    // Recursively call the solve script with --resume
-    // We need to reconstruct the command with appropriate flags
+    // Recursively call the solve script
+    // For resume: use --resume with session ID to maintain context
+    // For restart: don't use --resume to start fresh
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
     const childProcess = await import('child_process');
 
-    // Build the resume command
+    // Build the resume/restart command
     const resumeArgs = [
       process.argv[1], // solve.mjs path
       issueUrl,
-      '--resume', sessionId
     ];
 
-    // Preserve auto-continue flag
-    if (argv.autoContinueOnLimitReset) {
-      resumeArgs.push('--auto-continue-on-limit-reset');
+    // Only include --resume if this is a true resume (not a restart)
+    if (!isRestart && sessionId) {
+      resumeArgs.push('--resume', sessionId);
+      await log(`🔄 Session will be RESUMED with session ID: ${sessionId}`);
+    } else {
+      await log(`🔄 Session will be RESTARTED (fresh start without previous context)`);
     }
+
+    // Preserve auto-resume/auto-restart flag for subsequent limit hits
+    if (argv.autoResumeOnLimitReset) {
+      resumeArgs.push('--auto-resume-on-limit-reset');
+    }
+    if (argv.autoRestartOnLimitReset) {
+      resumeArgs.push('--auto-restart-on-limit-reset');
+    }
+
+    // Pass session type for proper comment differentiation
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    const sessionType = isRestart ? 'auto-restart' : 'auto-resume';
+    resumeArgs.push('--session-type', sessionType);
 
     // Preserve other flags from original invocation
     if (argv.model !== 'sonnet') resumeArgs.push('--model', argv.model);
@@ -123,29 +153,43 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     if (argv.fork) resumeArgs.push('--fork');
     if (shouldAttachLogs) resumeArgs.push('--attach-logs');
 
+    // CRITICAL: Pass --working-directory to ensure Claude Code session resume works correctly
+    // Claude Code stores sessions per working directory, so resume MUST use the same directory
+    // Without this, resume creates a NEW temp directory and session is not found
+    if (tempDir) {
+      resumeArgs.push('--working-directory', tempDir);
+      await log(`📂 Using working directory for session continuity: ${tempDir}`);
+    } else if (!isRestart) {
+      await log(`⚠️  Warning: No working directory specified - session resume may fail`);
+      await log(`   Claude Code sessions are stored per-directory, consider using --working-directory`);
+    }
+
     await log(`\n🔄 Executing: ${resumeArgs.join(' ')}`);
 
     // Execute the resume command
     const child = childProcess.spawn('node', resumeArgs, {
       stdio: 'inherit',
       cwd: process.cwd(),
-      env: process.env
+      env: process.env,
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       process.exit(code);
     });
-
   } catch (error) {
     reportError(error, {
       context: 'auto_continue_with_command',
       issueUrl,
       sessionId,
-      operation: 'auto_continue_execution'
+      operation: 'auto_continue_execution',
     });
     await log(`\n❌ Auto-continue failed: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('\n🔄 Manual resume command:');
-    await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    if (tempDir) {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --working-directory "${tempDir}"`);
+    } else {
+      await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+    }
     await safeExit(1, 'Auto-continue failed');
   }
 };
@@ -191,18 +235,20 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
                 continue;
               }
 
-              // Check if CLAUDE.md exists in this PR branch
+              // Check if CLAUDE.md or .gitkeep exists in this PR branch
+              // If neither exists, it means work was completed and files were removed
               const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
+              const gitkeepExists = await checkFileInBranch(owner, repo, '.gitkeep', pr.headRefName);
 
-              if (!claudeMdExists) {
-                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
+              if (!claudeMdExists && !gitkeepExists) {
+                await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md/.gitkeep missing - work completed, branch: ${pr.headRefName})`);
 
-                // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
+                // Switch to continue mode immediately (don't wait 24 hours if both files are missing)
                 isContinueMode = true;
                 prNumber = pr.number;
                 prBranch = pr.headRefName;
                 if (argv.verbose) {
-                  await log('   Continue mode activated: Auto-continue (CLAUDE.md missing)', { verbose: true });
+                  await log('   Continue mode activated: Auto-continue (initial commit files missing)', { verbose: true });
                   await log(`   PR Number: ${prNumber}`, { verbose: true });
                   await log(`   PR Branch: ${prBranch}`, { verbose: true });
                 }
@@ -240,7 +286,7 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
         owner,
         repo,
         issueNumber,
-        operation: 'search_issue_prs'
+        operation: 'search_issue_prs',
       });
       await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
       await log('   Continuing with normal flow...');
@@ -276,14 +322,20 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
         prNumber,
         owner,
         repo,
-        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner'
+        jsonFields: 'headRefName,body,number,mergeStateStatus,headRepositoryOwner',
       });
 
       if (prResult.code !== 0 || !prResult.data) {
         await log('Error: Failed to get PR details', { level: 'error' });
 
         if (prResult.output.includes('Could not resolve to a PullRequest')) {
-          await githubLib.handlePRNotFoundError({ prNumber, owner, repo, argv, shouldAttachLogs: argv.attachLogs || argv['attach-logs'] });
+          await githubLib.handlePRNotFoundError({
+            prNumber,
+            owner,
+            repo,
+            argv,
+            shouldAttachLogs: argv.attachLogs || argv['attach-logs'],
+          });
         } else {
           await log(`Error: ${prResult.stderr || 'Unknown error'}`, { level: 'error' });
         }
@@ -319,7 +371,7 @@ export const processPRMode = async (isPrUrl, urlNumber, owner, repo, argv) => {
       reportError(error, {
         context: 'process_pr_in_auto_continue',
         prNumber,
-        operation: 'process_pr_for_continuation'
+        operation: 'process_pr_for_continuation',
       });
       await log(`Error: Failed to process PR: ${cleanErrorMessage(error)}`, { level: 'error' });
       await safeExit(1, 'Auto-continue failed');
@@ -362,7 +414,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
           const branchListResult = await $`gh api --paginate repos/${forkRepo}/branches --jq '.[].name'`;
 
           if (branchListResult.code === 0) {
-            const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+            const allBranches = branchListResult.stdout
+              .toString()
+              .trim()
+              .split('\n')
+              .filter(b => b);
             existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
             if (existingBranches.length > 0) {
@@ -380,9 +436,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_fork_branches'
+        operation: 'search_fork_branches',
       });
-      await log(`⚠️  Warning: Could not check for existing branches in fork: ${forkBranchError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing branches in fork: ${forkBranchError.message}`, {
+        level: 'warning',
+      });
     }
   } else {
     // NOT in fork mode - check for existing branches in the main repository
@@ -394,7 +452,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
       if (branchListResult.code === 0) {
-        const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+        const allBranches = branchListResult.stdout
+          .toString()
+          .trim()
+          .split('\n')
+          .filter(b => b);
         existingBranches = allBranches.filter(branch => matchesIssuePattern(branch, issueNumber));
 
         if (existingBranches.length > 0) {
@@ -410,9 +472,11 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         issueNumber,
-        operation: 'search_main_repo_branches'
+        operation: 'search_main_repo_branches',
       });
-      await log(`⚠️  Warning: Could not check for existing branches in main repo: ${mainBranchError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing branches in main repo: ${mainBranchError.message}`, {
+        level: 'warning',
+      });
     }
   }
 
@@ -446,15 +510,16 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
               continue;
             }
 
-            // Check if CLAUDE.md exists in this PR branch
+            // Check if CLAUDE.md or .gitkeep exists in this PR branch
             const claudeMdExists = await checkFileInBranch(owner, repo, 'CLAUDE.md', pr.headRefName);
+            const gitkeepExists = await checkFileInBranch(owner, repo, '.gitkeep', pr.headRefName);
 
-            if (!claudeMdExists) {
-              await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md missing - work completed, branch: ${pr.headRefName})`);
+            if (!claudeMdExists && !gitkeepExists) {
+              await log(`✅ Auto-continue: Using PR #${pr.number} (CLAUDE.md/.gitkeep missing - work completed, branch: ${pr.headRefName})`);
 
-              // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md is missing)
+              // Switch to continue mode immediately (don't wait 24 hours if CLAUDE.md/.gitkeep is missing)
               if (argv.verbose) {
-                await log('   Continue mode activated: Auto-continue (CLAUDE.md missing)', { verbose: true });
+                await log('   Continue mode activated: Auto-continue (CLAUDE.md/.gitkeep missing)', { verbose: true });
                 await log(`   PR Number: ${pr.number}`, { verbose: true });
                 await log(`   PR Branch: ${pr.headRefName}`, { verbose: true });
               }
@@ -463,7 +528,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else if (createdAt < twentyFourHoursAgo) {
               await log(`✅ Auto-continue: Using PR #${pr.number} (created ${ageHours}h ago, branch: ${pr.headRefName})`);
@@ -479,15 +544,15 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
                 isContinueMode: true,
                 prNumber: pr.number,
                 prBranch: pr.headRefName,
-                issueNumber
+                issueNumber,
               };
             } else {
-              await log(`  PR #${pr.number}: CLAUDE.md exists, age ${ageHours}h < 24h - skipping`);
+              await log(`  PR #${pr.number}: CLAUDE.md/.gitkeep exists, age ${ageHours}h < 24h - skipping`);
             }
           }
         }
 
-        await log('⏭️  No suitable PRs found (missing CLAUDE.md or older than 24h) - creating new PR as usual');
+        await log('⏭️  No suitable PRs found (missing CLAUDE.md/.gitkeep or older than 24h) - creating new PR as usual');
       } else {
         await log(`📝 No existing PRs found for issue #${issueNumber} - creating new PR`);
       }
@@ -498,7 +563,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       owner,
       repo,
       issueNumber,
-      operation: 'search_pr_with_claude_md'
+      operation: 'search_pr_with_claude_md',
     });
     await log(`⚠️  Warning: Could not search for existing PRs: ${prSearchError.message}`, { level: 'warning' });
     await log('   Continuing with normal flow...');
@@ -536,7 +601,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
               isContinueMode: true,
               prNumber: openPr.number,
               prBranch: selectedBranch,
-              issueNumber
+              issueNumber,
             };
           }
         }
@@ -547,10 +612,12 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
         owner,
         repo,
         selectedBranch,
-        operation: 'search_pr_for_branch'
+        operation: 'search_pr_for_branch',
       });
       // If we can't check for PR, still continue with the branch
-      await log(`⚠️  Warning: Could not check for existing PR for branch: ${prCheckError.message}`, { level: 'warning' });
+      await log(`⚠️  Warning: Could not check for existing PR for branch: ${prCheckError.message}`, {
+        level: 'warning',
+      });
     }
 
     // No PR exists yet for this branch, but we can still use the branch
@@ -560,7 +627,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
       isContinueMode: true,
       prNumber: null, // No PR yet
       prBranch: selectedBranch,
-      issueNumber
+      issueNumber,
     };
   }
 

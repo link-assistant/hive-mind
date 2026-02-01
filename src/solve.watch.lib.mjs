@@ -3,6 +3,8 @@
 /**
  * Watch mode module for solve.mjs
  * Monitors for feedback continuously and restarts when changes are detected
+ *
+ * Uses shared utilities from solve.restart-shared.lib.mjs for common functions.
  */
 
 // Check if use is already defined globally (when imported from solve.mjs)
@@ -17,7 +19,7 @@ const { $ } = await use('command-stream');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, cleanErrorMessage, formatAligned } = lib;
+const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
@@ -25,67 +27,21 @@ const feedbackLib = await import('./solve.feedback.lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
+// Import GitHub functions for log attachment
+const githubLib = await import('./github.lib.mjs');
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+
 const { detectAndCountFeedback } = feedbackLib;
 
-/**
- * Check if PR has been merged
- */
-const checkPRMerged = async (owner, repo, prNumber) => {
-  try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.merged'`;
-    if (prResult.code === 0) {
-      return prResult.stdout.toString().trim() === 'true';
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'check_pr_merged',
-      owner,
-      repo,
-      prNumber,
-      operation: 'check_merge_status'
-    });
-    // If we can't check, assume not merged
-    return false;
-  }
-  return false;
-};
-
-/**
- * Check if there are uncommitted changes in the repository
- */
-const checkForUncommittedChanges = async (tempDir, $) => {
-  try {
-    const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-    if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
-      return statusOutput.length > 0;
-    }
-  } catch (error) {
-    reportError(error, {
-      context: 'check_pr_closed',
-      tempDir,
-      operation: 'check_close_status'
-    });
-    // If we can't check, assume no uncommitted changes
-  }
-  return false;
-};
+// Import shared utilities from the restart-shared module
+const restartShared = await import('./solve.restart-shared.lib.mjs');
+const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
-export const watchForFeedback = async (params) => {
-  const {
-    issueUrl,
-    owner,
-    repo,
-    issueNumber,
-    prNumber,
-    prBranch,
-    branchName,
-    tempDir,
-    argv
-  } = params;
+export const watchForFeedback = async params => {
+  const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
@@ -119,7 +75,6 @@ export const watchForFeedback = async (params) => {
   await log('Press Ctrl+C to stop watching manually');
   await log('');
 
-  // let lastCheckTime = new Date(); // Not currently used
   let iteration = 0;
   let autoRestartCount = 0;
   let firstIterationInTemporaryMode = isTemporaryWatch;
@@ -140,7 +95,7 @@ export const watchForFeedback = async (params) => {
 
     // In temporary watch mode, check if all changes have been committed
     if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-      const hasUncommitted = await checkForUncommittedChanges(tempDir, $);
+      const hasUncommitted = await checkForUncommittedChanges(tempDir, argv);
       if (!hasUncommitted) {
         await log('');
         await log(formatAligned('✅', 'CHANGES COMMITTED!', 'Exiting auto-restart mode'));
@@ -186,7 +141,7 @@ export const watchForFeedback = async (params) => {
         log,
         formatAligned,
         cleanErrorMessage,
-        $
+        $,
       });
 
       // Check if there's any feedback or if it's the first iteration in temporary mode
@@ -195,7 +150,7 @@ export const watchForFeedback = async (params) => {
       // In temporary watch mode, also check for uncommitted changes as a restart trigger
       let hasUncommittedInTempMode = false;
       if (isTemporaryWatch && !firstIterationInTemporaryMode) {
-        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, $);
+        hasUncommittedInTempMode = await checkForUncommittedChanges(tempDir, argv);
       }
 
       const shouldRestart = hasFeedback || firstIterationInTemporaryMode || hasUncommittedInTempMode;
@@ -204,24 +159,10 @@ export const watchForFeedback = async (params) => {
         // Handle uncommitted changes in temporary watch mode (first iteration or subsequent)
         if (firstIterationInTemporaryMode || hasUncommittedInTempMode) {
           await log(formatAligned('📝', 'UNCOMMITTED CHANGES:', '', 2));
-          // Get uncommitted changes for display
-          try {
-            const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-            if (gitStatusResult.code === 0) {
-              const statusOutput = gitStatusResult.stdout.toString().trim();
-              for (const line of statusOutput.split('\n')) {
-                await log(formatAligned('', `• ${line}`, '', 4));
-              }
-            }
-          } catch (e) {
-            reportError(e, {
-              context: 'check_claude_file_exists',
-              owner,
-              repo,
-              branchName,
-              operation: 'check_file_in_branch'
-            });
-            // Ignore errors
+          // Get uncommitted changes for display using shared utility
+          const changes = await getUncommittedChangesDetails(tempDir);
+          for (const line of changes) {
+            await log(formatAligned('', `• ${line}`, '', 4));
           }
           await log('');
 
@@ -237,16 +178,8 @@ export const watchForFeedback = async (params) => {
 
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
-              try {
-                const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-                if (gitStatusResult.code === 0) {
-                  const statusOutput = gitStatusResult.stdout.toString().trim();
-                  if (statusOutput) {
-                    uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + statusOutput + '\n```';
-                  }
-                }
-              } catch {
-                // If we can't get the file list, continue without it
+              if (changes.length > 0) {
+                uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
               const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
@@ -258,46 +191,19 @@ export const watchForFeedback = async (params) => {
                 owner,
                 repo,
                 prNumber,
-                operation: 'comment_on_pr'
+                operation: 'comment_on_pr',
               });
               // Don't fail if comment posting fails
               await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
             }
           }
 
-          // Add uncommitted changes info to feedbackLines for the run
+          // Add uncommitted changes info to feedbackLines using shared utility
           if (!feedbackLines) {
             feedbackLines = [];
           }
-          feedbackLines.push('');
-          feedbackLines.push(`⚠️ UNCOMMITTED CHANGES DETECTED (Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}):`);
-          feedbackLines.push('The following uncommitted changes were found in the repository:');
-
-          try {
-            const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-            if (gitStatusResult.code === 0) {
-              const statusOutput = gitStatusResult.stdout.toString().trim();
-              feedbackLines.push('');
-              for (const line of statusOutput.split('\n')) {
-                feedbackLines.push(`  ${line}`);
-              }
-              feedbackLines.push('');
-              feedbackLines.push('IMPORTANT: You MUST handle these uncommitted changes by either:');
-              feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
-              feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
-              feedbackLines.push('');
-              feedbackLines.push('DO NOT leave uncommitted changes behind. The session will auto-restart until all changes are resolved.');
-            }
-          } catch (e) {
-            reportError(e, {
-              context: 'recheck_claude_file',
-              owner,
-              repo,
-              branchName,
-              operation: 'verify_file_in_branch'
-            });
-            // Ignore errors
-          }
+          const uncommittedFeedback = buildUncommittedChangesFeedback(changes, autoRestartCount, maxAutoRestartIterations);
+          feedbackLines.push(...uncommittedFeedback);
         } else {
           await log(formatAligned('📢', 'FEEDBACK DETECTED!', '', 2));
           feedbackLines.forEach(async line => {
@@ -307,138 +213,23 @@ export const watchForFeedback = async (params) => {
           await log(formatAligned('🔄', 'Restarting:', `Re-running ${argv.tool.toUpperCase()} to handle feedback...`));
         }
 
-        // Import necessary modules for tool execution
-        const memoryCheck = await import('./memory-check.mjs');
-        const { getResourceSnapshot } = memoryCheck;
-
-        let toolResult;
-        if (argv.tool === 'opencode') {
-          // Use OpenCode
-          const opencodeExecLib = await import('./opencode.lib.mjs');
-          const { executeOpenCode } = opencodeExecLib;
-
-          // Get opencode path
-          const opencodePath = argv.opencodePath || 'opencode';
-
-          toolResult = await executeOpenCode({
-            issueUrl,
-            issueNumber,
-            prNumber,
-            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            branchName,
-            tempDir,
-            isContinueMode: true,
-            mergeStateStatus,
-            forkedRepo: argv.fork,
-            feedbackLines,
-            owner,
-            repo,
-            argv,
-            log,
-            formatAligned,
-            getResourceSnapshot,
-            opencodePath,
-            $
-          });
-        } else if (argv.tool === 'codex') {
-          // Use Codex
-          const codexExecLib = await import('./codex.lib.mjs');
-          const { executeCodex } = codexExecLib;
-
-          // Get codex path
-          const codexPath = argv.codexPath || 'codex';
-
-          toolResult = await executeCodex({
-            issueUrl,
-            issueNumber,
-            prNumber,
-            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            branchName,
-            tempDir,
-            isContinueMode: true,
-            mergeStateStatus,
-            forkedRepo: argv.fork,
-            feedbackLines,
-            forkActionsUrl: null,
-            owner,
-            repo,
-            argv,
-            log,
-            setLogFile: () => {},
-            getLogFile: () => '',
-            formatAligned,
-            getResourceSnapshot,
-            codexPath,
-            $
-          });
-        } else if (argv.tool === 'agent') {
-          // Use Agent
-          const agentExecLib = await import('./agent.lib.mjs');
-          const { executeAgent } = agentExecLib;
-
-          // Get agent path
-          const agentPath = argv.agentPath || 'agent';
-
-          toolResult = await executeAgent({
-            issueUrl,
-            issueNumber,
-            prNumber,
-            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            branchName,
-            tempDir,
-            isContinueMode: true,
-            mergeStateStatus,
-            forkedRepo: argv.fork,
-            feedbackLines,
-            forkActionsUrl: null,
-            owner,
-            repo,
-            argv,
-            log,
-            formatAligned,
-            getResourceSnapshot,
-            agentPath,
-            $
-          });
-        } else {
-          // Use Claude (default)
-          const claudeExecLib = await import('./claude.lib.mjs');
-          const { executeClaude } = claudeExecLib;
-
-          // Get claude path
-          const claudePath = argv.claudePath || 'claude';
-
-          toolResult = await executeClaude({
-            issueUrl,
-            issueNumber,
-            prNumber,
-            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            branchName,
-            tempDir,
-            isContinueMode: true,
-            mergeStateStatus,
-            forkedRepo: argv.fork,
-            feedbackLines,
-            owner,
-            repo,
-            argv,
-            log,
-            formatAligned,
-            getResourceSnapshot,
-            claudePath,
-            $
-          });
-        }
+        // Execute tool using shared utility
+        const toolResult = await executeToolIteration({
+          issueUrl,
+          owner,
+          repo,
+          issueNumber,
+          prNumber,
+          branchName: prBranch || branchName,
+          tempDir,
+          mergeStateStatus,
+          feedbackLines,
+          argv,
+        });
 
         if (!toolResult.success) {
-          // Check if this is an API error (404, 401, 400, etc.) from the result
-          const isApiError = toolResult.result &&
-            (toolResult.result.includes('API Error:') ||
-             toolResult.result.includes('not_found_error') ||
-             toolResult.result.includes('authentication_error') ||
-             toolResult.result.includes('invalid_request_error'));
-
-          if (isApiError) {
+          // Check if this is an API error using shared utility
+          if (isApiError(toolResult)) {
             consecutiveApiErrors++;
             await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
 
@@ -483,6 +274,55 @@ export const watchForFeedback = async (params) => {
             }
           }
 
+          // Issue #1107: Attach log after each auto-restart session with its own cost estimation
+          // This ensures each restart has its own log comment instead of one combined log at the end
+          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+            await log('');
+            await log(formatAligned('📎', 'Uploading auto-restart session log...', ''));
+            try {
+              const logFile = getLogFile();
+              if (logFile) {
+                // Use "Auto-restart X/Y Log" format as requested in issue #1107
+                const customTitle = `🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Log`;
+                const logUploadSuccess = await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  customTitle,
+                  sessionId: latestSessionId,
+                  tempDir,
+                  anthropicTotalCostUSD: latestAnthropicCost,
+                  // Pass agent tool pricing data when available
+                  publicPricingEstimate: toolResult.publicPricingEstimate,
+                  pricingInfo: toolResult.pricingInfo,
+                });
+
+                if (logUploadSuccess) {
+                  await log(formatAligned('', '✅ Auto-restart session log uploaded to PR', '', 2));
+                } else {
+                  await log(formatAligned('', '⚠️  Could not upload auto-restart session log', '', 2));
+                }
+              }
+            } catch (logUploadError) {
+              reportError(logUploadError, {
+                context: 'attach_auto_restart_log',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'upload_session_log',
+              });
+              await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
+
           await log('');
           if (isTemporaryWatch) {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Checking for remaining changes...'));
@@ -491,8 +331,6 @@ export const watchForFeedback = async (params) => {
           }
         }
 
-        // Note: lastCheckTime tracking removed as it was not being used
-
         // Clear the first iteration flag after handling initial uncommitted changes
         if (firstIterationInTemporaryMode) {
           firstIterationInTemporaryMode = false;
@@ -500,14 +338,13 @@ export const watchForFeedback = async (params) => {
       } else {
         await log(formatAligned('', 'No feedback detected', 'Continuing to watch...', 2));
       }
-
     } catch (error) {
       reportError(error, {
         context: 'watch_pr_general',
         prNumber,
         owner,
         repo,
-        operation: 'watch_pull_request'
+        operation: 'watch_pull_request',
       });
       await log(formatAligned('⚠️', 'Check failed:', cleanErrorMessage(error), 2));
       if (!isTemporaryWatch) {
@@ -533,14 +370,14 @@ export const watchForFeedback = async (params) => {
   // Return latest session data for accurate pricing in log uploads
   return {
     latestSessionId,
-    latestAnthropicCost
+    latestAnthropicCost,
   };
 };
 
 /**
  * Start watch mode after initial execution
  */
-export const startWatchMode = async (params) => {
+export const startWatchMode = async params => {
   const { argv } = params;
 
   if (argv.verbose) {

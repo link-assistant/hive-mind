@@ -8,7 +8,7 @@ const testRegularModePrompt = () => {
   const issueUrl = 'https://github.com/link-assistant/hive-mind/issues/71';
   const branchName = 'issue-71-145a3af2';
   const tempDir = '/tmp/test-dir';
-  
+
   // This is the same logic as in solve.mjs
   let prompt;
   if (isContinueMode) {
@@ -21,16 +21,16 @@ Your prepared working directory: ${tempDir}
 
 Proceed.`;
   }
-  
+
   console.log('Generated regular mode prompt:');
   console.log('=====================================');
   console.log(prompt);
   console.log('=====================================');
-  
+
   // Verify mergeStateStatus is NOT mentioned in regular mode
   const containsMergeStateStatus = prompt.includes('mergeStateStatus');
   console.log(`\nTest result: mergeStateStatus mentioned = ${containsMergeStateStatus} (should be false)`);
-  
+
   return !containsMergeStateStatus; // Return true if NOT mentioned (which is correct)
 };
 

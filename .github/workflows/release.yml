@@ -1,0 +1,2281 @@
+name: Checks and release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Manual release support - consolidated here to work with npm trusted publishing
+  # npm only allows ONE workflow file as trusted publisher, so all publishing
+  # must go through this workflow (release.yml)
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: 'Manual release mode'
+        required: true
+        type: choice
+        default: 'instant'
+        options:
+          - instant
+          - changeset-pr
+      bump_type:
+        description: 'Manual release type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      description:
+        description: 'Manual release description (optional)'
+        required: false
+        type: string
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  # === DETECT CHANGES ===
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      mjs-changed: ${{ steps.changes.outputs.mjs }}
+      package-changed: ${{ steps.changes.outputs.package }}
+      docs-changed: ${{ steps.changes.outputs.docs }}
+      workflow-changed: ${{ steps.changes.outputs.workflow }}
+      docker-changed: ${{ steps.changes.outputs.docker }}
+      any-code-changed: ${{ steps.changes.outputs.code }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Detect changes
+      id: changes
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: node scripts/detect-code-changes.mjs
+
+  # === VERSION CHANGE CHECK ===
+  # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
+  version-check:
+    name: Check for Manual Version Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for version changes in package.json
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: node scripts/check-version.mjs
+
+  # === CHANGESET CHECK - only runs on PRs with code changes ===
+  # Docs-only PRs (./docs folder, markdown files) don't require changesets
+  changeset-check:
+    name: Check for Changesets
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check for changesets
+        env:
+          # Pass PR context to the validation script
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Skip changeset check for automated version PRs
+          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+            echo "Skipping changeset check for automated release PR"
+            exit 0
+          fi
+
+          # Run changeset validation script
+          # This validates that exactly ONE changeset was ADDED by this PR
+          # Pre-existing changesets from other merged PRs are ignored
+          node scripts/validate-changeset.mjs
+
+  # === FAST CHECKS (FAIL FAST) ===
+  # These checks run quickly (~7-21 seconds each) and should pass before long-running tests
+
+  # === COMPILATION & SYNTAX CHECKS ===
+  test-compilation:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Test solve.mjs compilation
+      run: |
+        echo "Testing solve.mjs compilation..."
+        timeout 30s node --check src/solve.mjs
+        echo "solve.mjs compiles successfully"
+
+    - name: Test hive.mjs compilation
+      run: |
+        echo "Testing hive.mjs compilation..."
+        timeout 30s node --check src/hive.mjs
+        echo "hive.mjs compiles successfully"
+
+    - name: Check Node.js syntax for all .mjs files
+      run: |
+        echo "Checking syntax for all .mjs files..."
+        for file in *.mjs; do
+          if [ -f "$file" ]; then
+            echo "Checking $file..."
+            timeout 10s node --check "$file"
+          fi
+        done
+        for file in src/*.mjs; do
+          if [ -f "$file" ]; then
+            echo "Checking $file..."
+            timeout 10s node --check "$file"
+          fi
+        done
+        for file in tests/*.mjs; do
+          if [ -f "$file" ]; then
+            echo "Checking $file..."
+            node --check "$file"
+          fi
+        done
+
+  # === ESLINT CODE QUALITY CHECK ===
+  # Lint runs independently of changeset-check - it's a fast check that should always run
+  # See: docs/case-studies/issue-1023 for why this dependency was removed
+  # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
+  # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
+  lint:
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # For PRs, fetch enough history to merge with base branch
+        fetch-depth: 0
+
+    - name: Simulate fresh merge with base branch (PR only)
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        echo "=== Synchronizing PR with latest $BASE_REF ==="
+        echo "This prevents stale merge preview issues (see issue #1141)"
+        echo ""
+
+        # Configure git for merge
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+
+        # Fetch the latest base branch
+        echo "Fetching latest $BASE_REF..."
+        git fetch origin "$BASE_REF"
+
+        # Get current and base branch info
+        CURRENT_SHA=$(git rev-parse HEAD)
+        BASE_SHA=$(git rev-parse "origin/$BASE_REF")
+
+        echo "Current checkout (merge preview): $CURRENT_SHA"
+        echo "Latest base branch ($BASE_REF): $BASE_SHA"
+        echo ""
+
+        # Check if base branch has new commits not in the merge preview
+        BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+
+        if [ "$BEHIND_COUNT" -eq 0 ]; then
+          echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
+        else
+          echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
+          echo "Simulating fresh merge to validate actual merge result..."
+          echo ""
+
+          # Attempt to merge the latest base branch
+          if git merge origin/$BASE_REF --no-edit; then
+            echo ""
+            echo "Fresh merge simulation successful!"
+            echo "Checks will now run against the up-to-date merged state."
+          else
+            echo ""
+            echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
+            echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
+            exit 1
+          fi
+        fi
+        echo ""
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run Prettier format check
+      run: |
+        echo "Running Prettier format check..."
+        npm run format:check
+        echo "Prettier format check passed"
+
+    - name: Run ESLint
+      run: |
+        echo "Running ESLint code quality checks..."
+        npm run lint
+        echo "ESLint checks passed"
+
+  # === FILE LINE LIMIT CHECK ===
+  # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
+  # See docs/case-studies/issue-1141 for why this is critical.
+  check-file-line-limits:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # For PRs, fetch enough history to merge with base branch
+        fetch-depth: 0
+
+    - name: Simulate fresh merge with base branch (PR only)
+      if: github.event_name == 'pull_request'
+      env:
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        echo "=== Synchronizing PR with latest $BASE_REF ==="
+        echo "This prevents stale merge preview issues (see issue #1141)"
+        echo ""
+
+        # Configure git for merge
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "github-actions[bot]"
+
+        # Fetch the latest base branch
+        echo "Fetching latest $BASE_REF..."
+        git fetch origin "$BASE_REF"
+
+        # Get current and base branch info
+        CURRENT_SHA=$(git rev-parse HEAD)
+        BASE_SHA=$(git rev-parse "origin/$BASE_REF")
+
+        echo "Current checkout (merge preview): $CURRENT_SHA"
+        echo "Latest base branch ($BASE_REF): $BASE_SHA"
+        echo ""
+
+        # Check if base branch has new commits not in the merge preview
+        BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
+
+        if [ "$BEHIND_COUNT" -eq 0 ]; then
+          echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
+        else
+          echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
+          echo "Simulating fresh merge to validate actual merge result..."
+          echo ""
+
+          # Attempt to merge the latest base branch
+          if git merge origin/$BASE_REF --no-edit; then
+            echo ""
+            echo "Fresh merge simulation successful!"
+            echo "Checks will now run against the up-to-date merged state."
+          else
+            echo ""
+            echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
+            echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
+            exit 1
+          fi
+        fi
+        echo ""
+
+    - name: Check .mjs file line limits
+      run: |
+        echo "Checking that all .mjs files are under 1500 lines..."
+
+        FAILURES_FILE=$(mktemp)
+
+        find . -name "*.mjs" -type f | while read -r file; do
+          line_count=$(wc -l < "$file")
+          echo "$file: $line_count lines"
+
+          if [ $line_count -gt 1500 ]; then
+            echo "ERROR: $file has $line_count lines, which exceeds the 1500 line limit!"
+            echo "::error file=$file::File has $line_count lines (limit: 1500)"
+            echo "$file" >> "$FAILURES_FILE"
+          fi
+        done
+
+        if [ -s "$FAILURES_FILE" ]; then
+          echo ""
+          echo "The following .mjs files exceed the 1500 line limit:"
+          cat "$FAILURES_FILE"
+          rm -f "$FAILURES_FILE"
+          exit 1
+        else
+          echo ""
+          echo "All .mjs files are within the 1500 line limit!"
+          rm -f "$FAILURES_FILE"
+        fi
+
+  # === LONG-RUNNING CHECKS ===
+  # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
+
+  # === UNIT TESTS ===
+  test-suites:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run test suite for solve.mjs
+      run: |
+        echo "Running test suite for solve.mjs..."
+        node tests/test-solve.mjs
+
+    - name: Run test suite for hive.mjs
+      run: |
+        echo "Running test suite for hive.mjs..."
+        node tests/test-hive.mjs
+
+    - name: Run test suite for memory-check.mjs
+      run: |
+        echo "Running test suite for memory-check.mjs..."
+        node tests/test-memory-check.mjs
+
+    - name: Run branch name validation test (Issue #647)
+      run: |
+        echo "Running test suite for branch name validation..."
+        node tests/test-branch-name-validation.mjs
+
+    - name: Run feedback lines regression test (Issue #168)
+      run: |
+        echo "Running feedback lines regression test..."
+        node tests/test-feedback-lines-simple.mjs
+
+    - name: Run feedback lines integration test (Issue #168)
+      env:
+        GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
+        TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
+        TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
+      run: |
+        echo "Running feedback lines integration test with real repository..."
+        node tests/test-feedback-lines-integration.mjs
+
+    - name: Run Sentry integration test
+      run: |
+        echo "Running test suite for Sentry integration..."
+        node tests/test-sentry.mjs
+
+    - name: Run telegram-bot dry-run test (Issue #487)
+      run: |
+        echo "Running test suite for telegram-bot --dry-run mode..."
+        node tests/test-telegram-bot-dry-run.mjs
+
+    - name: Run telegram-bot hero Links Notation test (Issue #623)
+      run: |
+        echo "Running test suite for telegram-bot hero example with Links Notation..."
+        node tests/test-telegram-bot-hero-links-notation.mjs
+
+    - name: Run hive command silent failure test (Issue #504)
+      run: |
+        echo "Running test suite for hive command silent failures..."
+        node tests/test-hive-no-silent-failure.mjs
+
+    - name: Run GitHub linking keyword detection test (Issue #568)
+      run: |
+        echo "Running test suite for GitHub linking keyword detection..."
+        node tests/test-github-linking.mjs
+
+    - name: Run Telegram Markdown escaping test (Issue #580)
+      run: |
+        echo "Running test suite for Telegram Markdown escaping..."
+        node tests/test-telegram-markdown-escaping.mjs
+
+    - name: Run lenv-reader test (Issue #604)
+      run: |
+        echo "Running test suite for lenv-reader.lib.mjs..."
+        node tests/test-lenv-reader.mjs
+
+    - name: Run lino test (Issue #1086)
+      run: |
+        echo "Running test suite for lino.lib.mjs..."
+        node tests/test-lino.mjs
+
+    - name: Run Telegram URL extraction test (Issue #603)
+      run: |
+        echo "Running test suite for Telegram URL extraction..."
+        node tests/test-telegram-url-extraction.mjs
+
+    - name: Run Telegram URL validation test (Issue #630)
+      run: |
+        echo "Running test suite for Telegram URL validation..."
+        node tests/test-telegram-validate-url.mjs
+
+    - name: Run interactive mode test (Issue #800)
+      run: |
+        echo "Running test suite for interactive mode..."
+        node tests/test-interactive-mode.mjs
+
+    - name: Run start-screen test (Issue #539)
+      run: |
+        echo "Running test suite for start-screen.mjs..."
+        node tests/test-start-screen.mjs
+
+    - name: Run buildCostInfoString test (Issue #1015)
+      run: |
+        echo "Running test suite for buildCostInfoString..."
+        node tests/test-build-cost-info-string.mjs
+
+    - name: Run token sanitization test (Issue #1037)
+      run: |
+        echo "Running test suite for token sanitization..."
+        node tests/test-token-sanitization.mjs
+
+    - name: Run Telegram special character handling test (Issue #1070)
+      run: |
+        echo "Running test suite for Telegram special character handling..."
+        node tests/test-telegram-special-char-handling.mjs
+
+    - name: Run usage limit test (Issues #942, #1122)
+      run: |
+        echo "Running test suite for usage limit detection and parsing..."
+        node tests/test-usage-limit.mjs
+
+  # === EXECUTION TESTS ===
+  test-execution:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Test solve.mjs execution
+      run: |
+        echo "Testing solve.mjs basic execution..."
+        timeout 10s ./src/solve.mjs --help || echo "Help command completed"
+        echo "solve.mjs executes without critical errors"
+        timeout 10s ./src/solve.mjs --version || true
+
+    - name: Verify log files contain version and command (Issue #517)
+      run: |
+        echo "Testing that log files contain version and command at the start..."
+        timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt || true
+
+        LOG_FILE=$(grep -o "solve-[0-9T-]*Z\.log" test-log-output.txt | head -1)
+
+        if [ -z "$LOG_FILE" ]; then
+          echo "Could not find log file path in output"
+          cat test-log-output.txt
+          exit 1
+        fi
+
+        echo "Log file: $LOG_FILE"
+
+        if [ ! -f "$LOG_FILE" ]; then
+          echo "Log file not found: $LOG_FILE"
+          ls -la solve-*.log || echo "No solve log files found"
+          exit 1
+        fi
+
+        echo ""
+        echo "Checking log file contents..."
+        head -30 "$LOG_FILE"
+
+        echo ""
+        echo "Verifying version appears in log..."
+        if grep -q "solve v" "$LOG_FILE"; then
+          echo "Version found in log file"
+        else
+          echo "Version NOT found in log file"
+          exit 1
+        fi
+
+        echo ""
+        echo "Verifying command appears in log..."
+        if grep -q "Raw command executed:" "$LOG_FILE"; then
+          echo "Command found in log file"
+        else
+          echo "Command NOT found in log file"
+          exit 1
+        fi
+
+        echo ""
+        echo "Log file verification passed - version and command are present"
+
+    - name: Test hive.mjs execution
+      run: |
+        echo "Testing hive.mjs basic execution..."
+        timeout 10s ./src/hive.mjs --help || echo "Help command completed"
+        echo "hive.mjs executes without critical errors"
+        timeout 10s ./src/hive.mjs --version || true
+
+    - name: Test telegram-bot.mjs execution
+      run: |
+        echo "Testing telegram-bot.mjs basic execution..."
+        timeout 10s ./src/telegram-bot.mjs --help || echo "Help command completed"
+        echo "telegram-bot.mjs executes without critical errors"
+
+        echo ""
+        echo "Testing telegram-bot.mjs --dry-run with issue #487 command..."
+        timeout 10s ./src/telegram-bot.mjs \
+          --token "test_token_123" \
+          --allowed-chats "(-1002975819706 -1002861722681)" \
+          --no-hive \
+          --solve-overrides $'( \n  --auto-continue\n  --attach-logs\n  --verbose\n  --no-tool-check\n)' \
+          --dry-run
+        echo "Issue #487 command passes with --dry-run"
+
+    - name: Test memory-check.mjs execution
+      run: |
+        ./src/memory-check.mjs --help
+        ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
+
+    - name: Test global command installation
+      run: |
+        echo "Testing npm global command installation from local folder..."
+        npm link
+        echo "npm link completed successfully"
+
+        echo ""
+        echo "Testing 'hive' global command..."
+        timeout 10s hive --version || true
+        timeout 10s hive --help || echo "Help command completed"
+        echo "'hive' global command works"
+
+        echo ""
+        echo "Testing 'solve' global command..."
+        timeout 10s solve --version || true
+        timeout 10s solve --help || echo "Help command completed"
+        echo "'solve' global command works"
+
+        echo ""
+        echo "Testing 'hive-telegram-bot' global command..."
+        timeout 10s hive-telegram-bot --help || echo "Help command completed"
+        echo "'hive-telegram-bot' global command works"
+
+        echo ""
+        echo "Testing hive-telegram-bot --dry-run (issue #487)..."
+        timeout 30s hive-telegram-bot \
+          --token "test_token" \
+          --allowed-chats "(-1 -2)" \
+          --no-hive \
+          --solve-overrides "(--auto-continue --verbose)" \
+          --dry-run
+        echo "'hive-telegram-bot --dry-run' works"
+
+        echo ""
+        echo "Cleaning up global link..."
+        npm unlink || true
+
+    - name: Test hive dry-run with solve integration
+      run: |
+        echo "Testing hive dry-run mode with solve command integration..."
+        timeout 30s ./src/hive.mjs https://github.com/test/repo --dry-run --skip-claude-check --once --max-issues 1 2>&1 | tee hive_dry_run.log || true
+
+        if grep -q "solve.*--dry-run.*--skip-claude-check" hive_dry_run.log; then
+          echo "hive correctly passes --dry-run and --skip-claude-check flags to solve command"
+        else
+          echo "Could not verify flag propagation in dry-run mode (may be due to no issues found)"
+        fi
+
+        echo ""
+        echo "Testing solve.mjs with --dry-run and --skip-claude-check flags..."
+        timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --dry-run --skip-claude-check 2>&1 | head -20 || true
+        echo "solve.mjs accepts --dry-run and --skip-claude-check flags"
+
+    - name: Test --auto-fork option
+      run: |
+        echo "Testing --auto-fork option with dry-run mode..."
+
+        echo ""
+        echo "Testing solve.mjs with --auto-fork and --dry-run..."
+        timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --auto-fork --dry-run --skip-tool-check 2>&1 | tee solve_auto_fork.log || true
+        if grep -qE "(auto-fork|Auto-fork)" solve_auto_fork.log; then
+          echo "solve.mjs recognizes --auto-fork flag"
+        else
+          echo "Could not verify --auto-fork flag in solve output"
+        fi
+
+        echo ""
+        echo "Testing hive.mjs with --auto-fork and --dry-run..."
+        timeout 30s ./src/hive.mjs https://github.com/test/repo --auto-fork --dry-run --skip-tool-check --once --max-issues 1 2>&1 | tee hive_auto_fork.log || true
+        if grep -qE "(auto-fork|Auto-fork)" hive_auto_fork.log; then
+          echo "hive.mjs recognizes --auto-fork flag"
+        else
+          echo "Could not verify --auto-fork flag in hive output"
+        fi
+
+        echo ""
+        echo "Testing start-screen.mjs passes --auto-fork to solve..."
+        timeout 5s ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork 2>&1 | tee start_screen_auto_fork.log || true
+        if grep -qE "(auto-fork|GNU Screen|screen.*not.*installed)" start_screen_auto_fork.log; then
+          echo "start-screen.mjs accepts --auto-fork flag"
+        else
+          echo "Could not verify start-screen flag acceptance"
+        fi
+
+        echo ""
+        echo "All --auto-fork option tests completed"
+
+  # === MEMORY CHECKS - LINUX ===
+  memory-check-linux:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      needs.test-compilation.result == 'success' &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: System info
+      run: |
+        echo "=== System Information ==="
+        uname -a
+        echo ""
+        echo "=== Memory Information ==="
+        free -h
+        echo ""
+        echo "=== Disk Information ==="
+        df -h
+        echo ""
+        echo "=== CPU Information ==="
+        lscpu | head -20
+
+    - name: Run memory-check tests
+      run: |
+        chmod +x tests/test-memory-check.mjs
+        node tests/test-memory-check.mjs
+
+    - name: Test memory-check with various thresholds
+      run: |
+        echo "Testing with low thresholds (should pass)..."
+        ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
+
+        echo ""
+        echo "Testing verbose output..."
+        ./src/memory-check.mjs --min-memory 10 --min-disk-space 100
+
+        echo ""
+        echo "Testing quiet mode..."
+        ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --quiet --json
+
+    - name: Test memory-check failure conditions
+      run: |
+        echo "Testing with impossible memory requirement (should fail)..."
+        if ./src/memory-check.mjs --min-memory 999999 --exit-on-failure --quiet --json; then
+          echo "ERROR: Should have failed with impossible memory requirement"
+          exit 1
+        else
+          echo "Correctly failed with impossible memory requirement"
+        fi
+
+        echo ""
+        echo "Testing with impossible disk requirement (should fail)..."
+        if ./src/memory-check.mjs --min-disk-space 999999999 --exit-on-failure --quiet --json; then
+          echo "ERROR: Should have failed with impossible disk requirement"
+          exit 1
+        else
+          echo "Correctly failed with impossible disk requirement"
+        fi
+
+  # === DOCUMENTATION VALIDATION (FAST) ===
+  validate-docs:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    - name: Validate documentation files
+      run: |
+        echo "Running documentation validation tests..."
+        chmod +x tests/docs-validation.mjs
+        node tests/docs-validation.mjs
+
+  # === DOCKER PR CHECK ===
+  docker-pr-check:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+    # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
+    if: |
+      always() &&
+      !cancelled() &&
+      !contains(needs.*.result, 'failure') &&
+      github.event_name == 'pull_request' &&
+      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+      (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
+      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
+      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Build Docker image with log capture
+        run: |
+          echo "Building Docker image with log capture..."
+          # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
+          # PR checks only validate amd64 using standard docker build (not buildx) to ensure
+          # the image is properly loaded into Docker daemon for container verification
+          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
+
+          echo ""
+          echo "Docker image built successfully"
+          docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
+
+      - name: Verify system & development tools installation in build logs
+        run: |
+          echo "Checking installation status in build logs..."
+          echo "Verifying all tools are installed (in alphabetical order to reduce merge conflicts)"
+          echo ""
+
+          # Check for failures - alphabetical order
+          if grep -E '\[!\] Bun: not found' build-output.log; then
+            echo "ERROR: Bun installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Cargo: not found' build-output.log; then
+            echo "ERROR: Cargo installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Clang: not found' build-output.log; then
+            echo "ERROR: Clang installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Clang\+\+: not found' build-output.log; then
+            echo "ERROR: Clang++ installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] CMake: not found' build-output.log; then
+            echo "ERROR: CMake installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Deno: not found' build-output.log; then
+            echo "ERROR: Deno installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Elan: not found' build-output.log; then
+            echo "ERROR: Elan installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] G\+\+: not found' build-output.log; then
+            echo "ERROR: G++ installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] GCC: not found' build-output.log; then
+            echo "ERROR: GCC installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Git: not found' build-output.log; then
+            echo "ERROR: Git installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] GitHub CLI: not found' build-output.log; then
+            echo "ERROR: GitHub CLI installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Go: not found' build-output.log; then
+            echo "ERROR: Go installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Homebrew: not found' build-output.log; then
+            echo "ERROR: Homebrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Java: not found' build-output.log; then
+            echo "ERROR: Java installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lake: not found' build-output.log; then
+            echo "ERROR: Lake installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Lean: not found' build-output.log; then
+            echo "ERROR: Lean installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] LLD Linker: not found' build-output.log; then
+            echo "ERROR: LLD Linker installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] LLVM: not found' build-output.log; then
+            echo "ERROR: LLVM installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Make: not found' build-output.log; then
+            echo "ERROR: Make installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Node\.js: not found' build-output.log; then
+            echo "ERROR: Node.js installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] NPM: not found' build-output.log; then
+            echo "ERROR: NPM installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Opam: not found' build-output.log; then
+            echo "ERROR: Opam installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] PHP: not found' build-output.log; then
+            echo "ERROR: PHP installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Perl: not found' build-output.log; then
+            echo "ERROR: Perl installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Perlbrew: not found' build-output.log; then
+            echo "ERROR: Perlbrew installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Playwright: not found' build-output.log; then
+            echo "ERROR: Playwright installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Python: not found' build-output.log; then
+            echo "ERROR: Python installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Pyenv: not found' build-output.log; then
+            echo "ERROR: Pyenv installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Rocq/Coq: not found' build-output.log; then
+            echo "ERROR: Rocq/Coq installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] Rust: not found' build-output.log; then
+            echo "ERROR: Rust installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          if grep -E '\[!\] SDKMAN: not found' build-output.log; then
+            echo "ERROR: SDKMAN installation failed - showing as 'not found'"
+            exit 1
+          fi
+
+          # Check for unbound variable errors (issue #989)
+          # These indicate shell scripts using $1 or other variables without protection under set -u
+          if grep -E 'unbound variable' build-output.log; then
+            echo "ERROR: Unbound variable error detected in Docker build"
+            echo "This typically indicates a shell script issue with set -u compatibility"
+            grep -E 'unbound variable' build-output.log || true
+            exit 1
+          fi
+
+          # Verify successful installations - alphabetical order
+          echo ""
+          echo "Verifying successful installations..."
+
+          if grep -E '\[✓\] Bun:' build-output.log; then
+            echo "Bun installation verified in build logs"
+          else
+            echo "WARNING: Bun success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Cargo:' build-output.log; then
+            echo "Cargo installation verified in build logs"
+          else
+            echo "WARNING: Cargo success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Clang:' build-output.log; then
+            echo "Clang installation verified in build logs"
+          else
+            echo "WARNING: Clang success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Clang\+\+:' build-output.log; then
+            echo "Clang++ installation verified in build logs"
+          else
+            echo "WARNING: Clang++ success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] CMake:' build-output.log; then
+            echo "CMake installation verified in build logs"
+          else
+            echo "WARNING: CMake success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Deno:' build-output.log; then
+            echo "Deno installation verified in build logs"
+          else
+            echo "WARNING: Deno success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Elan:' build-output.log; then
+            echo "Elan installation verified in build logs"
+          else
+            echo "WARNING: Elan success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] G\+\+:' build-output.log; then
+            echo "G++ installation verified in build logs"
+          else
+            echo "WARNING: G++ success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] GCC:' build-output.log; then
+            echo "GCC installation verified in build logs"
+          else
+            echo "WARNING: GCC success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Git:' build-output.log; then
+            echo "Git installation verified in build logs"
+          else
+            echo "WARNING: Git success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] GitHub CLI:' build-output.log; then
+            echo "GitHub CLI installation verified in build logs"
+          else
+            echo "WARNING: GitHub CLI success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Go:' build-output.log; then
+            echo "Go installation verified in build logs"
+          else
+            echo "WARNING: Go success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Homebrew:' build-output.log; then
+            echo "Homebrew installation verified in build logs"
+          else
+            echo "WARNING: Homebrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Java:' build-output.log; then
+            echo "Java installation verified in build logs"
+          else
+            echo "WARNING: Java success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lake:' build-output.log; then
+            echo "Lake installation verified in build logs"
+          else
+            echo "WARNING: Lake success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Lean:' build-output.log; then
+            echo "Lean installation verified in build logs"
+          else
+            echo "WARNING: Lean success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] LLD Linker:' build-output.log; then
+            echo "LLD Linker installation verified in build logs"
+          else
+            echo "WARNING: LLD Linker success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] LLVM:' build-output.log; then
+            echo "LLVM installation verified in build logs"
+          else
+            echo "WARNING: LLVM success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Make:' build-output.log; then
+            echo "Make installation verified in build logs"
+          else
+            echo "WARNING: Make success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Node\.js:' build-output.log; then
+            echo "Node.js installation verified in build logs"
+          else
+            echo "WARNING: Node.js success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] NPM:' build-output.log; then
+            echo "NPM installation verified in build logs"
+          else
+            echo "WARNING: NPM success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Opam:' build-output.log; then
+            echo "Opam installation verified in build logs"
+          else
+            echo "WARNING: Opam success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] PHP:' build-output.log; then
+            echo "PHP installation verified in build logs"
+          else
+            echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
+          fi
+
+          if grep -E '\[✓\] Perl:' build-output.log; then
+            echo "Perl installation verified in build logs"
+          else
+            echo "WARNING: Perl success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Perlbrew:' build-output.log; then
+            echo "Perlbrew installation verified in build logs"
+          else
+            echo "WARNING: Perlbrew success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Playwright:' build-output.log; then
+            echo "Playwright installation verified in build logs"
+          else
+            echo "WARNING: Playwright success message not found in logs"
+          fi
+
+          # Verify Playwright browsers were installed during build
+          echo ""
+          echo "Verifying Playwright browser installation in build logs..."
+          PLAYWRIGHT_BROWSERS_VERIFIED=true
+
+          # Check for required browsers (chromium, firefox, webkit)
+          if grep -E '\[✓\] Playwright browser verified: chromium' build-output.log; then
+            echo "Chromium browser installation verified in build logs"
+          elif grep -E 'chromium installed successfully' build-output.log; then
+            echo "Chromium browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: Chromium browser verification not found in build logs"
+            # Don't fail here - will be verified in container step
+          fi
+
+          if grep -E '\[✓\] Playwright browser verified: firefox' build-output.log; then
+            echo "Firefox browser installation verified in build logs"
+          elif grep -E 'firefox installed successfully' build-output.log; then
+            echo "Firefox browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: Firefox browser verification not found in build logs"
+          fi
+
+          if grep -E '\[✓\] Playwright browser verified: webkit' build-output.log; then
+            echo "WebKit browser installation verified in build logs"
+          elif grep -E 'webkit installed successfully' build-output.log; then
+            echo "WebKit browser installation verified in build logs (alt format)"
+          else
+            echo "WARNING: WebKit browser verification not found in build logs"
+          fi
+
+          # Check if any browser installation failed
+          if grep -E '\[!\] Failed to install some Playwright browsers' build-output.log; then
+            echo "WARNING: Some Playwright browsers failed during build - will verify in container step"
+          fi
+
+          echo ""
+
+          if grep -E '\[✓\] Python:' build-output.log; then
+            echo "Python installation verified in build logs"
+          else
+            echo "WARNING: Python success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Pyenv:' build-output.log; then
+            echo "Pyenv installation verified in build logs"
+          else
+            echo "WARNING: Pyenv success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] Rocq verified:|\[✓\] Coq verified' build-output.log; then
+            echo "Rocq/Coq installation verified in build logs"
+          elif grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
+            echo "Rocq/Coq installation verified in build logs (legacy format)"
+          elif grep -E '\[!\] Rocq package installed but binaries not in PATH' build-output.log; then
+            echo "WARNING: Rocq package installed but binaries not accessible - will verify in container step"
+            echo "This may indicate the opam environment wasn't properly sourced during installation"
+          elif grep -E '\[!\] Rocq:.*not in current PATH' build-output.log; then
+            echo "WARNING: Rocq installed but not in PATH during build (will be verified in container step)"
+          else
+            echo "ERROR: Rocq/Coq installation failed in build logs"
+            echo "Showing relevant log lines:"
+            grep -i "rocq\|coq\|opam" build-output.log | tail -30 || true
+            exit 1
+          fi
+
+          if grep -E '\[✓\] Rust:' build-output.log; then
+            echo "Rust installation verified in build logs"
+          else
+            echo "WARNING: Rust success message not found in logs"
+          fi
+
+          if grep -E '\[✓\] SDKMAN:' build-output.log; then
+            echo "SDKMAN installation verified in build logs"
+          else
+            echo "WARNING: SDKMAN success message not found in logs"
+          fi
+
+          echo ""
+          echo "All system & development tools verification completed"
+
+      - name: Verify tools in running container
+        run: |
+          echo "Verifying tools are available in the running container..."
+          echo "Checking all tools in alphabetical order to reduce merge conflicts"
+          echo ""
+
+          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
+            # Source shell initialization files for tools that need it
+            export HOME=/home/hive
+            [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
+            [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
+            [ -s \"\$HOME/.elan/env\" ] && source \"\$HOME/.elan/env\"
+            export PYENV_ROOT=\"\$HOME/.pyenv\"
+            export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
+            if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
+            export SDKMAN_DIR=\"\$HOME/.sdkman\"
+            if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
+            # Source Go environment (GOPATH moved to .go/path in issue #1004)
+            if [ -d \"\$HOME/.go\" ]; then
+              export GOROOT=\"\$HOME/.go\"
+              export GOPATH=\"\$HOME/.go/path\"
+              export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
+            fi
+
+            # Perlbrew moved to .perl5 in issue #1004
+            export PERLBREW_ROOT=\"\$HOME/.perl5\"
+            [ -s \"\$PERLBREW_ROOT/etc/bashrc\" ] && source \"\$PERLBREW_ROOT/etc/bashrc\"
+
+
+            # Verify all system & development tools - alphabetical order
+            echo 'Checking Bun...'
+            if command -v bun &>/dev/null; then
+              bun --version
+              echo 'Bun is accessible'
+            else
+              echo 'Bun command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Cargo...'
+            if command -v cargo &>/dev/null; then
+              cargo --version
+              echo 'Cargo is accessible'
+            else
+              echo 'Cargo command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Clang...'
+            if command -v clang &>/dev/null; then
+              clang --version | head -n1
+              echo 'Clang is accessible'
+            else
+              echo 'Clang command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Clang++...'
+            if command -v clang++ &>/dev/null; then
+              clang++ --version | head -n1
+              echo 'Clang++ is accessible'
+            else
+              echo 'Clang++ command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking CMake...'
+            if command -v cmake &>/dev/null; then
+              cmake --version | head -n1
+              echo 'CMake is accessible'
+            else
+              echo 'CMake command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Deno...'
+            if command -v deno &>/dev/null; then
+              deno --version | head -n1
+              echo 'Deno is accessible'
+            else
+              echo 'Deno command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Elan...'
+            if command -v elan &>/dev/null; then
+              elan --version
+              echo 'Elan is accessible'
+            else
+              echo 'Elan command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking G++...'
+            if command -v g++ &>/dev/null; then
+              g++ --version | head -n1
+              echo 'G++ is accessible'
+            else
+              echo 'G++ command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking GCC...'
+            if command -v gcc &>/dev/null; then
+              gcc --version | head -n1
+              echo 'GCC is accessible'
+            else
+              echo 'GCC command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Git...'
+            if command -v git &>/dev/null; then
+              git --version
+              echo 'Git is accessible'
+            else
+              echo 'Git command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking GitHub CLI...'
+            if command -v gh &>/dev/null; then
+              gh --version | head -n1
+              echo 'GitHub CLI is accessible'
+            else
+              echo 'GitHub CLI command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Go...'
+            if command -v go &>/dev/null; then
+              go version
+              echo 'Go is accessible'
+            else
+              echo 'Go command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Homebrew...'
+            if command -v brew &>/dev/null; then
+              brew --version | head -n1
+              echo 'Homebrew is accessible'
+            else
+              echo 'Homebrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Java...'
+            if command -v java &>/dev/null; then
+              java -version 2>&1 | head -n1
+              echo 'Java is accessible'
+            else
+              echo 'Java command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lake...'
+            if command -v lake &>/dev/null; then
+              lake --version
+              echo 'Lake is accessible'
+            else
+              echo 'Lake command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Lean...'
+            if command -v lean &>/dev/null; then
+              lean --version
+              echo 'Lean is accessible'
+            else
+              echo 'Lean command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking LLD Linker...'
+            if command -v lld &>/dev/null; then
+              lld --version | head -n1
+              echo 'LLD Linker is accessible'
+            else
+              echo 'LLD Linker command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking LLVM...'
+            if command -v llvm-config &>/dev/null; then
+              echo \"LLVM \$(llvm-config --version)\"
+              echo 'LLVM is accessible'
+            else
+              echo 'LLVM command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Make...'
+            if command -v make &>/dev/null; then
+              make --version | head -n1
+              echo 'Make is accessible'
+            else
+              echo 'Make command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Node.js...'
+            if command -v node &>/dev/null; then
+              node --version
+              echo 'Node.js is accessible'
+            else
+              echo 'Node.js command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking NPM...'
+            if command -v npm &>/dev/null; then
+              npm --version
+              echo 'NPM is accessible'
+            else
+              echo 'NPM command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Opam...'
+            if command -v opam &>/dev/null; then
+              opam --version
+              echo 'Opam is accessible'
+            else
+              echo 'Opam command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking PHP...'
+            if command -v php &>/dev/null; then
+              php --version | head -n1
+              echo 'PHP is accessible'
+            else
+              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
+                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
+                echo 'PHP is installed but not in PATH (may need shell restart)'
+              else
+                echo 'PHP not found in container'
+                exit 1
+              fi
+            fi
+
+            echo ''
+            echo 'Checking Perl...'
+            if command -v perl &>/dev/null; then
+              perl --version | head -n2 | tail -n1
+              echo 'Perl is accessible'
+            else
+              echo 'Perl command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Perlbrew...'
+            if command -v perlbrew &>/dev/null; then
+              perlbrew --version
+              echo 'Perlbrew is accessible'
+            else
+              echo 'Perlbrew command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Playwright...'
+            if command -v playwright &>/dev/null; then
+              playwright --version
+              echo 'Playwright is accessible'
+            else
+              echo 'Playwright command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Playwright browsers...'
+            PLAYWRIGHT_CACHE=\"\$HOME/.cache/ms-playwright\"
+            BROWSERS_REQUIRED=\"chromium firefox webkit\"
+            BROWSERS_MISSING=\"\"
+
+            for browser in \$BROWSERS_REQUIRED; do
+              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
+              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
+                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
+              else
+                echo \"  \$browser: MISSING\"
+                BROWSERS_MISSING=\"\$BROWSERS_MISSING \$browser\"
+              fi
+            done
+
+            # Check optional browsers (chromium_headless_shell, ffmpeg)
+            for browser in chromium_headless_shell ffmpeg; do
+              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
+              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
+                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
+              else
+                echo \"  \$browser: not installed (optional)\"
+              fi
+            done
+
+            if [ -n \"\$BROWSERS_MISSING\" ]; then
+              echo 'ERROR: Required Playwright browsers missing:\$BROWSERS_MISSING'
+              echo 'The Playwright MCP server requires these browsers to function properly.'
+              echo 'See issue #1060 for more details.'
+              exit 1
+            else
+              echo 'All required Playwright browsers are installed'
+            fi
+
+            echo ''
+            echo 'Checking Python...'
+            if command -v python &>/dev/null; then
+              python --version
+              echo 'Python is accessible'
+            else
+              echo 'Python command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Pyenv...'
+            if command -v pyenv &>/dev/null; then
+              pyenv --version
+              echo 'Pyenv is accessible'
+            else
+              echo 'Pyenv command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Rocq/Coq...'
+            # Source opam environment for Rocq/Coq access
+            # Reference: https://rocq-prover.org/docs/using-opam
+            if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
+              source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
+            fi
+            # Also try eval opam env for full environment setup
+            eval \"\$(opam env --switch=default 2>/dev/null)\" || true
+
+            # Verify Rocq installation
+            # Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)
+            ROCQ_VERIFIED=false
+            if rocq -v &>/dev/null; then
+              rocq -v | head -n1
+              echo 'Rocq is accessible (verified with rocq -v)'
+              ROCQ_VERIFIED=true
+            elif command -v rocqc &>/dev/null && rocqc --version &>/dev/null; then
+              rocqc --version | head -n1
+              echo 'Rocq is accessible (verified with rocqc)'
+              ROCQ_VERIFIED=true
+            elif command -v coqc &>/dev/null && coqc --version &>/dev/null; then
+              coqc --version | head -n1
+              echo 'Coq is accessible (legacy compiler)'
+              ROCQ_VERIFIED=true
+            fi
+
+            if [ \"\$ROCQ_VERIFIED\" = false ]; then
+              echo 'Rocq/Coq verification failed: checking opam installation...'
+              # Show diagnostic information
+              if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
+                echo 'rocq-prover package is installed in opam'
+                echo 'Opam bin directory contents:'
+                ls -la \"\$HOME/.opam/default/bin/\" 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq binaries found in opam bin'
+                echo 'Installed opam packages:'
+                opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq packages found'
+              else
+                echo 'rocq-prover package NOT installed in opam'
+                echo 'Available opam packages:'
+                opam list 2>/dev/null | head -20 || echo 'Could not list opam packages'
+              fi
+              echo ''
+              echo 'ERROR: Rocq/Coq not accessible in container'
+              echo 'This indicates the Rocq installation failed or binaries were not properly installed'
+              echo 'See issue #952 for more details: https://github.com/link-assistant/hive-mind/issues/952'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking Rust...'
+            if command -v rustc &>/dev/null; then
+              rustc --version
+              echo 'Rust is accessible'
+            else
+              echo 'Rust command not found in container'
+              exit 1
+            fi
+
+            echo ''
+            echo 'Checking SDKMAN...'
+            if command -v sdk &>/dev/null; then
+              sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'SDKMAN installed'
+              echo 'SDKMAN is accessible'
+            else
+              echo 'SDKMAN command not found in container'
+              exit 1
+            fi
+          "
+
+          echo ""
+          echo "All system & development tools verification checks passed!"
+
+  # === HELM PR CHECK (FAST) ===
+  helm-pr-check:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, changeset-check]
+    # Run if: changeset-check succeeded OR was skipped (docs-only PR)
+    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Get package version
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Lint Helm chart
+        run: |
+          echo "Linting Helm chart..."
+          helm lint helm/hive-mind
+          echo "Helm chart validation passed"
+
+      - name: Verify Chart.yaml structure
+        run: |
+          echo "Verifying Chart.yaml structure..."
+          if [ ! -f "helm/hive-mind/Chart.yaml" ]; then
+            echo "Chart.yaml not found"
+            exit 1
+          fi
+
+          if ! grep -q "^name:" helm/hive-mind/Chart.yaml; then
+            echo "Chart name not found"
+            exit 1
+          fi
+
+          if ! grep -q "^version:" helm/hive-mind/Chart.yaml; then
+            echo "Chart version not found"
+            exit 1
+          fi
+
+          if ! grep -q "^appVersion:" helm/hive-mind/Chart.yaml; then
+            echo "Chart appVersion not found"
+            exit 1
+          fi
+
+          echo "Chart.yaml structure is valid"
+
+  # === RELEASE - only runs on main after tests pass ===
+  release:
+    name: Release
+    needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
+    # Use always() to ensure this job runs even if changeset-check was skipped
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-suites.result == 'success' && needs.test-execution.result == 'success' && needs.memory-check-linux.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      published_version: ${{ steps.publish.outputs.published_version }}
+    # Permissions required for npm OIDC trusted publishing
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update npm for OIDC trusted publishing
+        run: node scripts/setup-npm.mjs
+
+      - name: Check for changesets
+        id: check_changesets
+        run: |
+          # Count changeset files (excluding README.md and config.json)
+          CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
+          echo "Found $CHANGESET_COUNT changeset file(s)"
+          echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "changeset_count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Merge multiple changesets
+        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+        run: |
+          echo "Multiple changesets detected, merging..."
+          node scripts/merge-changesets.mjs
+
+      - name: Version packages and commit to main
+        if: steps.check_changesets.outputs.has_changesets == 'true'
+        id: version
+        run: node scripts/version-and-commit.mjs --mode changeset
+
+      - name: Publish to npm
+        # Run if version was committed OR if a previous attempt already committed (for re-runs)
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish_npm
+        run: node scripts/publish-to-npm.mjs --should-pull
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        # It runs after npm publish and reads the script's outputs to pass them along
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+      - name: Post-publish - Upload Source Maps to Sentry
+        if: steps.publish.outputs.published == 'true'
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          echo "Uploading source maps to Sentry for published packages..."
+          chmod +x scripts/upload-sourcemaps.mjs
+          node scripts/upload-sourcemaps.mjs
+
+  # === DOCKER PUBLISH ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
+  docker-publish:
+    name: Docker Publish (${{ matrix.platform }})
+    needs: [release]
+    # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
+    # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    outputs:
+      digest-amd64: ${{ steps.build.outputs.digest }}
+      digest-arm64: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete
+  docker-publish-merge:
+    name: Docker Publish (Merge)
+    needs: [release, docker-publish]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.release.outputs.published_version }}
+            type=raw,value=latest
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
+  # === HELM CHART RELEASE ===
+  helm-release:
+    name: Helm Release
+    needs: [release, docker-publish-merge]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.release.outputs.published_version }}
+          files: .helm-packages/*.tgz
+
+  # === MANUAL INSTANT RELEASE ===
+  instant-release:
+    name: Instant Release
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      published_version: ${{ steps.publish.outputs.published_version }}
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update npm for OIDC trusted publishing
+        run: node scripts/setup-npm.mjs
+
+      - name: Version packages and commit to main
+        id: version
+        run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Publish to npm
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        id: publish_npm
+        run: node scripts/publish-to-npm.mjs
+
+      - name: Set publish outputs
+        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
+        id: publish
+        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+        run: |
+          echo "published=true" >> $GITHUB_OUTPUT
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+
+      - name: Create GitHub Release
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+
+      - name: Format GitHub release notes
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+
+  # === DOCKER PUBLISH FOR INSTANT RELEASE ===
+  # Multi-platform Docker builds using native runners (no QEMU emulation)
+  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
+  # See: docs/case-studies/issue-982/README.md
+  #
+  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
+  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
+  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
+  # - Homebrew ARM64 Linux bottles have limited availability
+  # See: docs/case-studies/issue-998/README.md
+  docker-publish-instant:
+    name: Docker Publish Instant (${{ matrix.platform }})
+    needs: [instant-release]
+    # Use always() to ensure the condition is evaluated properly
+    if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
+    # Timeout after 60 minutes to prevent indefinite hangs
+    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            # Using ubuntu-24.04-arm native runner (no QEMU emulation)
+            # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: docker.io
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: node scripts/free-disk-space.mjs
+
+      - name: Wait for NPM package availability
+        # Only run on first matrix job to avoid duplicate waits
+        if: matrix.platform == 'linux/amd64'
+        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+          echo "Digest for ${{ matrix.platform }}: $digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Merge multi-platform manifests after all platform builds complete (instant release)
+  docker-publish-instant-merge:
+    name: Docker Publish Instant (Merge)
+    needs: [instant-release, docker-publish-instant]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: konard/hive-mind
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-instant-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.instant-release.outputs.published_version }}
+            type=raw,value=latest
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          echo "Creating multi-platform manifest..."
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digests:"
+          ls -la
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          echo "Inspecting multi-platform image..."
+          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+
+      - name: Verify published image
+        run: |
+          echo "Docker image published successfully"
+          echo "Image: ${{ env.IMAGE_NAME }}"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+
+  # === HELM CHART RELEASE FOR INSTANT RELEASE ===
+  helm-release-instant:
+    name: Helm Release (Instant)
+    needs: [instant-release, docker-publish-instant-merge]
+    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
+    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Release Helm chart
+        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+
+      - name: Upload chart to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.instant-release.outputs.published_version }}
+          files: .helm-packages/*.tgz
+
+  # === MANUAL CHANGESET PR ===
+  changeset-pr:
+    name: Create Changeset PR
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Create changeset file
+        run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+
+      - name: Format changeset with Prettier
+        run: |
+          npx prettier --write ".changeset/*.md" || true
+          echo "Formatted changeset files"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
+          branch: changeset-manual-release-${{ github.run_id }}
+          delete-branch: true
+          title: 'chore: manual ${{ github.event.inputs.bump_type }} release'
+          body: |
+            ## Manual Release Request
+
+            This PR was created by a manual workflow trigger to prepare a **${{ github.event.inputs.bump_type }}** release.
+
+            ### Release Details
+            - **Type:** ${{ github.event.inputs.bump_type }}
+            - **Description:** ${{ github.event.inputs.description || 'Manual release' }}
+            - **Triggered by:** @${{ github.actor }}
+
+            ### Next Steps
+            1. Review the changeset in this PR
+            2. Merge this PR to main
+            3. The automated release workflow will create a version PR
+            4. Merge the version PR to publish to npm and create a GitHub release

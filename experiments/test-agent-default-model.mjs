@@ -18,28 +18,28 @@ const testCases = [
   {
     name: 'Agent tool without model flag',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'agent'],
-    expected: { tool: 'agent', model: 'grok-code' }
+    expected: { tool: 'agent', model: 'grok-code' },
   },
   {
     name: 'Agent tool with explicit model',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'agent', '--model', 'sonnet'],
-    expected: { tool: 'agent', model: 'sonnet' }
+    expected: { tool: 'agent', model: 'sonnet' },
   },
   {
     name: 'OpenCode tool without model flag',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'opencode'],
-    expected: { tool: 'opencode', model: 'grok-code-fast-1' }
+    expected: { tool: 'opencode', model: 'grok-code-fast-1' },
   },
   {
     name: 'Codex tool without model flag',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'codex'],
-    expected: { tool: 'codex', model: 'gpt-5' }
+    expected: { tool: 'codex', model: 'gpt-5' },
   },
   {
     name: 'Claude tool (default) without model flag',
     args: ['https://github.com/test/repo/issues/1'],
-    expected: { tool: undefined, model: 'sonnet' }
-  }
+    expected: { tool: undefined, model: 'sonnet' },
+  },
 ];
 
 let passed = 0;
@@ -58,9 +58,7 @@ for (const testCase of testCases) {
     process.argv = originalArgv;
 
     // Check tool
-    const toolMatch = testCase.expected.tool === undefined
-      ? argv.tool === undefined || argv.tool === 'claude'
-      : argv.tool === testCase.expected.tool;
+    const toolMatch = testCase.expected.tool === undefined ? argv.tool === undefined || argv.tool === 'claude' : argv.tool === testCase.expected.tool;
 
     // Check model
     const modelMatch = argv.model === testCase.expected.model;

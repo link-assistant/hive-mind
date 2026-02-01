@@ -12,13 +12,13 @@ const yargsInstance = yargs(['--invalid', '--fork'])
     type: 'boolean',
     description: 'Fork the repository',
     alias: 'f',
-    default: false
+    default: false,
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   });
 
 const argv = yargsInstance.argv;
@@ -39,4 +39,7 @@ Object.keys(aliases).forEach(key => {
 
 console.log('\nknownOptions:', Array.from(knownOptions));
 console.log('\nargv keys:', Object.keys(argv));
-console.log('\nUnknown options:', Object.keys(argv).filter(k => !knownOptions.has(k) && k !== '_' && k !== '$0'));
+console.log(
+  '\nUnknown options:',
+  Object.keys(argv).filter(k => !knownOptions.has(k) && k !== '_' && k !== '$0')
+);

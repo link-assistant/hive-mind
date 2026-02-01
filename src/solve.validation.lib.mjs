@@ -21,7 +21,7 @@ const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
 const {
   log,
-  setLogFile
+  setLogFile,
   // getLogFile - not currently used
 } = lib;
 
@@ -29,9 +29,13 @@ const {
 const githubLib = await import('./github.lib.mjs');
 const {
   checkGitHubPermissions,
-  parseGitHubUrl
+  parseGitHubUrl,
   // isGitHubUrlType - not currently used
 } = githubLib;
+
+// Import git-related functions for identity validation and repair
+const gitLib = await import('./git.lib.mjs');
+const { checkGitIdentity, repairGitIdentity } = gitLib;
 
 // Import Claude-related functions
 const claudeLib = await import('./claude.lib.mjs');
@@ -39,12 +43,10 @@ const claudeLib = await import('./claude.lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-const {
-  validateClaudeConnection
-} = claudeLib;
+const { validateClaudeConnection } = claudeLib;
 
 // Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 500) => {
+const checkDiskSpace = async (minSpaceMB = 2048) => {
   const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
   return result.success;
 };
@@ -56,7 +58,7 @@ const checkMemory = async (minMemoryMB = 256) => {
 };
 
 // Validate GitHub issue or pull request URL format
-export const validateGitHubUrl = (issueUrl) => {
+export const validateGitHubUrl = issueUrl => {
   if (!issueUrl) {
     return { isValid: false, isIssueUrl: null, isPrUrl: null };
   }
@@ -66,10 +68,9 @@ export const validateGitHubUrl = (issueUrl) => {
 
   if (!parsedUrl.valid) {
     console.error('Error: Invalid GitHub URL format');
-    if (parsedUrl.error) {
-      console.error(`  ${parsedUrl.error}`);
-    }
-    console.error('  Please provide a valid GitHub issue or pull request URL');
+    if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
+    if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+    console.error('\n  Please provide a valid GitHub issue or pull request URL');
     console.error('  Examples:');
     console.error('    https://github.com/owner/repo/issues/123 (issue)');
     console.error('    https://github.com/owner/repo/pull/456 (pull request)');
@@ -101,12 +102,12 @@ export const validateGitHubUrl = (issueUrl) => {
     normalizedUrl: parsedUrl.normalized,
     owner: parsedUrl.owner,
     repo: parsedUrl.repo,
-    number: parsedUrl.number
+    number: parsedUrl.number,
   };
 };
 
 // Show security warning for attach-logs option
-export const showAttachLogsWarning = async (shouldAttachLogs) => {
+export const showAttachLogsWarning = async shouldAttachLogs => {
   if (!shouldAttachLogs) return;
 
   await log('');
@@ -147,7 +148,7 @@ export const initializeLogFile = async (logDir = null) => {
   } catch (error) {
     reportError(error, {
       context: 'create_log_directory',
-      operation: 'mkdir_log_dir'
+      operation: 'mkdir_log_dir',
     });
     // If directory doesn't exist, try to create it
     try {
@@ -156,7 +157,7 @@ export const initializeLogFile = async (logDir = null) => {
       reportError(mkdirError, {
         context: 'create_log_directory_fallback',
         targetDir,
-        operation: 'mkdir_recursive'
+        operation: 'mkdir_recursive',
       });
       await log(`⚠️  Unable to create log directory: ${targetDir}`, { level: 'error' });
       await log('   Falling back to current working directory', { level: 'error' });
@@ -180,7 +181,7 @@ export const initializeLogFile = async (logDir = null) => {
 };
 
 // Validate GitHub URL requirement
-export const validateUrlRequirement = async (issueUrl) => {
+export const validateUrlRequirement = async issueUrl => {
   if (!issueUrl) {
     await log('❌ GitHub issue URL is required', { level: 'error' });
     await log('   Usage: solve <github-issue-url> [options]', { level: 'error' });
@@ -207,7 +208,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection = false, model = 'sonnet', argv = {}) => {
+export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -218,6 +219,77 @@ export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection
   const hasEnoughMemory = await checkMemory(256);
   if (!hasEnoughMemory) {
     return false;
+  }
+
+  // Check git identity configuration before proceeding
+  // This prevents the "fatal: empty ident name" error during commits
+  // See: https://github.com/link-assistant/hive-mind/issues/1131
+  let gitIdentity = await checkGitIdentity();
+  if (!gitIdentity.isValid) {
+    // Check if auto-repair is enabled
+    if (argv.autoGhConfigurationRepair) {
+      await log('');
+      await log('⚠️  Git identity not configured, attempting auto-repair...', { level: 'warning' });
+      await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
+      await log('');
+
+      const repairResult = await repairGitIdentity();
+      if (repairResult.success) {
+        await log('✅ Git identity successfully repaired using gh-setup-git-identity --repair');
+        // Re-check identity to display the configured values
+        gitIdentity = await checkGitIdentity();
+        await log(`   user.name:  ${gitIdentity.name}`);
+        await log(`   user.email: ${gitIdentity.email}`);
+        await log('');
+      } else {
+        await log('');
+        await log('❌ Auto-repair failed', { level: 'error' });
+        await log(`   ${repairResult.error}`);
+        await log('');
+        await log('   Current configuration:');
+        await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
+        await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
+        await log('');
+        await log('   🔧 How to fix manually:');
+        await log('');
+        await log('   Option 1: Install gh-setup-git-identity and use --auto-gh-configuration-repair');
+        await log('     npm install -g @link-foundation/gh-setup-git-identity');
+        await log('');
+        await log('   Option 2: Set identity manually');
+        await log('     git config --global user.name "Your Name"');
+        await log('     git config --global user.email "you@example.com"');
+        await log('');
+        await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
+        await log('');
+        return false;
+      }
+    } else {
+      await log('');
+      await log('❌ Git identity not configured', { level: 'error' });
+      await log('');
+      await log('   Git commits require both user.name and user.email to be set.');
+      await log(`   ${gitIdentity.error || 'Configuration is incomplete'}`);
+      await log('');
+      await log('   Current configuration:');
+      await log(`     user.name:  ${gitIdentity.name || '(not set)'}`);
+      await log(`     user.email: ${gitIdentity.email || '(not set)'}`);
+      await log('');
+      await log('   🔧 How to fix:');
+      await log('');
+      await log('   Option 1: Use GitHub CLI to set identity from your account');
+      await log('     gh-setup-git-identity');
+      await log('');
+      await log('   Option 2: Set identity manually');
+      await log('     git config --global user.name "Your Name"');
+      await log('     git config --global user.email "you@example.com"');
+      await log('');
+      await log('   Option 3: Enable auto-repair (requires gh-setup-git-identity)');
+      await log('     solve <issue-url> --auto-gh-configuration-repair');
+      await log('');
+      await log('   Related error: "fatal: empty ident name (for <>) not allowed"');
+      await log('');
+      return false;
+    }
   }
 
   // Skip tool connection validation if in dry-run mode or explicitly requested
@@ -264,25 +336,39 @@ export const performSystemChecks = async (minDiskSpace = 500, skipToolConnection
       return false;
     }
   } else {
-    await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
-    await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
+    await log('⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)', {
+      verbose: true,
+    });
+    await log('⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)', {
+      verbose: true,
+    });
   }
 
   return true;
 };
 
-// Parse URL components
-export const parseUrlComponents = (issueUrl) => {
-  const urlParts = issueUrl.split('/');
+// Parse URL components using Node.js URL API
+// Note: This function is a simpler alternative to parseGitHubUrl for cases where
+// you only need owner, repo, and urlNumber without full validation.
+// For full validation, use validateGitHubUrl() which internally uses parseGitHubUrl().
+// Uses Node.js URL API (https://nodejs.org/api/url.html) for stable parsing.
+export const parseUrlComponents = issueUrl => {
+  // Use Node.js URL API for reliable parsing
+  // This automatically handles hash fragments, query params, and edge cases
+  const urlObj = new globalThis.URL(issueUrl);
+
+  // Extract path segments, filtering out empty strings from leading/trailing slashes
+  const pathParts = urlObj.pathname.split('/').filter(p => p);
+
   return {
-    owner: urlParts[3],
-    repo: urlParts[4],
-    urlNumber: urlParts[6] // Could be issue or PR number
+    owner: pathParts[0],
+    repo: pathParts[1],
+    urlNumber: pathParts[3], // Could be issue or PR number (pathParts[2] is 'issues' or 'pull')
   };
 };
 
 // Helper function to parse time string and calculate wait time
-export const parseResetTime = (timeStr) => {
+export const parseResetTime = timeStr => {
   // Normalize and parse time formats like:
   // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
   const normalized = (timeStr || '').toString().trim();
@@ -309,7 +395,7 @@ export const parseResetTime = (timeStr) => {
 };
 
 // Calculate milliseconds until the next occurrence of the specified time
-export const calculateWaitTime = (resetTime) => {
+export const calculateWaitTime = resetTime => {
   const { hour, minute } = parseResetTime(resetTime);
 
   const now = new Date();

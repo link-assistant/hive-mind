@@ -19,7 +19,7 @@ console.log('✅ Sync logic (PR #158): Correctly fetches and resets to upstream'
 console.log('❌ Push logic (PR #158): Failed silently on non-fast-forward rejection');
 console.log('- When fork is 45 commits behind, regular git push fails');
 console.log('- Git rejects non-fast-forward updates to prevent data loss');
-console.log('- Previous code only logged warning but didn\'t resolve the issue\n');
+console.log("- Previous code only logged warning but didn't resolve the issue\n");
 
 console.log('🔧 ENHANCED SOLUTION:');
 console.log('1. **Smart Push Logic:**');

@@ -64,9 +64,7 @@ runTest('Sentry packages in package.json', () => {
   const packagePath = join(projectRoot, 'package.json');
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
 
-  return packageJson.dependencies &&
-         packageJson.dependencies['@sentry/node'] &&
-         packageJson.dependencies['@sentry/profiling-node'];
+  return packageJson.dependencies && packageJson.dependencies['@sentry/node'] && packageJson.dependencies['@sentry/profiling-node'];
 });
 
 // Test 4: Test --no-sentry flag in hive.mjs
@@ -76,7 +74,7 @@ runTest('hive.mjs supports --no-sentry flag', () => {
     const output = execSync(`node ${join(projectRoot, 'src', 'hive.mjs')} --help 2>&1`, {
       encoding: 'utf8',
       cwd: projectRoot,
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     return output.includes('--no-sentry');
   } catch (error) {
@@ -95,7 +93,7 @@ runTest('solve.mjs supports --no-sentry flag', () => {
     const output = execSync(`node ${join(projectRoot, 'src', 'solve.mjs')} --help 2>&1`, {
       encoding: 'utf8',
       cwd: projectRoot,
-      stdio: 'pipe'
+      stdio: 'pipe',
     });
     return output.includes('--no-sentry');
   } catch (error) {
@@ -113,8 +111,8 @@ runTest('instrument.mjs has correct imports', () => {
   const content = fs.readFileSync(instrumentPath, 'utf8');
 
   // Check for lazy/conditional imports (dynamic imports)
-  return content.includes('import("@sentry/node")') &&
-         content.includes('import("@sentry/profiling-node")');
+  // Accept both single and double quotes (Prettier uses single quotes)
+  return (content.includes('import("@sentry/node")') || content.includes("import('@sentry/node')")) && (content.includes('import("@sentry/profiling-node")') || content.includes("import('@sentry/profiling-node')"));
 });
 
 // Test 7: Check if DSN is configured
@@ -125,8 +123,7 @@ runTest('Sentry DSN is configured', () => {
   const configContent = fs.readFileSync(configPath, 'utf8');
 
   // DSN should be in config.lib.mjs and referenced in instrument.mjs
-  return instrumentContent.includes('dsn:') &&
-         configContent.includes('https://77b711f23c84cbf74366df82090dc389@o4510072519983104.ingest.us.sentry.io/4510072523325440');
+  return instrumentContent.includes('dsn:') && configContent.includes('https://77b711f23c84cbf74366df82090dc389@o4510072519983104.ingest.us.sentry.io/4510072523325440');
 });
 
 // Test 8: Check environment variable support
@@ -166,8 +163,7 @@ runTest('Sentry has privacy protections', () => {
   const instrumentPath = join(projectRoot, 'src', 'instrument.mjs');
   const content = fs.readFileSync(instrumentPath, 'utf8');
 
-  return content.includes('sendDefaultPii: false') &&
-         content.includes('beforeSend');
+  return content.includes('sendDefaultPii: false') && content.includes('beforeSend');
 });
 
 // Test 13: Verify export functions in sentry.lib.mjs
@@ -175,13 +171,7 @@ runTest('sentry.lib.mjs exports required functions', () => {
   const sentryLibPath = join(projectRoot, 'src', 'sentry.lib.mjs');
   const content = fs.readFileSync(sentryLibPath, 'utf8');
 
-  const requiredExports = [
-    'export const initializeSentry',
-    'export const withSentry',
-    'export const reportError',
-    'export const flushSentry',
-    'export const closeSentry'
-  ];
+  const requiredExports = ['export const initializeSentry', 'export const withSentry', 'export const reportError', 'export const flushSentry', 'export const closeSentry'];
 
   return requiredExports.every(exp => content.includes(exp));
 });
@@ -191,9 +181,7 @@ runTest('Sentry filters common network errors', () => {
   const instrumentPath = join(projectRoot, 'src', 'instrument.mjs');
   const content = fs.readFileSync(instrumentPath, 'utf8');
 
-  return content.includes('ignoreErrors') &&
-         content.includes('ECONNRESET') &&
-         content.includes('ETIMEDOUT');
+  return content.includes('ignoreErrors') && content.includes('ECONNRESET') && content.includes('ETIMEDOUT');
 });
 
 // Test 15: Test version configuration
@@ -201,8 +189,7 @@ runTest('Version is properly configured', () => {
   const instrumentPath = join(projectRoot, 'src', 'instrument.mjs');
   const content = fs.readFileSync(instrumentPath, 'utf8');
 
-  return content.includes('release:') &&
-         content.includes('hive-mind@');
+  return content.includes('release:') && content.includes('hive-mind@');
 });
 
 // Summary

@@ -17,7 +17,7 @@ console.log('Testing command-stream with proper completion handling...\n');
 // Test the pattern
 const command = $({
   shell: true,
-  exitOnError: false
+  exitOnError: false,
 })`echo '${mockOutput}'`;
 
 let outputReceived = false;

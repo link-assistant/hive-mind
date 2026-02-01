@@ -77,6 +77,47 @@ export class LenvReader {
 
         // The values are the variable value
         if (link.values && link.values.length > 0) {
+          // Check for nested structures (multiple items on same line) - reject with error
+          // A nested tuple with id=null that appears amongst other direct values indicates
+          // same-line grouping (e.g., "--option1  --option2" on same line)
+          // However, if the entire list is a SINGLE nested tuple (e.g., "VAR: (\n  1\n  2\n)"),
+          // that's valid parenthesized syntax
+          const hasDirectValues = link.values.some(v => v && typeof v === 'object' && v.id !== null);
+          const hasNestedTuples = link.values.some(v => v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0);
+
+          if (hasDirectValues && hasNestedTuples) {
+            // Mixed direct values and nested tuples indicates same-line grouping
+            for (const v of link.values) {
+              if (v && typeof v === 'object' && v.id === null && v.values && v.values.length > 0) {
+                const nestedItems = v.values.map(nested => nested.id || nested).join(' ');
+                throw new Error(`Invalid LINO format in "${varName}": Multiple values on the same line are not supported.\n` + `Found: "${nestedItems}"\n` + `Each value must be on its own line with proper indentation.`);
+              }
+            }
+          }
+
+          // Determine which values to validate for invalid characters
+          // If it's a single nested tuple (parenthesized list), unwrap it for validation
+          let valuesToValidate = link.values;
+          if (link.values.length === 1 && link.values[0] && typeof link.values[0] === 'object' && link.values[0].id === null && link.values[0].values) {
+            // Single parenthesized list - use inner values
+            valuesToValidate = link.values[0].values;
+          }
+
+          // Check for invalid characters in option-like values
+          for (const v of valuesToValidate) {
+            // Options should match pattern: --option-name or -o (with optional =value)
+            const valueStr = v.id || v;
+            if (typeof valueStr === 'string' && valueStr.startsWith('-')) {
+              // This looks like a command-line option, validate it
+              // Valid option pattern: -x, --option-name, --option-name=value
+              // Invalid characters: ?, !, @, #, $, %, ^, &, *, etc.
+              const invalidCharMatch = valueStr.match(/[^a-zA-Z0-9=_.-]/);
+              if (invalidCharMatch) {
+                throw new Error(`Invalid LINO format in "${varName}": Unrecognized character "${invalidCharMatch[0]}" in option.\n` + `Found: "${valueStr}"\n` + `Options should only contain letters, numbers, hyphens, underscores, and equals signs.`);
+              }
+            }
+          }
+
           // If there are multiple values, format them as LINO notation
           const values = link.values.map(v => v.id || v);
 
@@ -98,6 +139,11 @@ export class LenvReader {
 
       return result;
     } catch (error) {
+      // Re-throw validation errors so users can correct their configuration
+      if (error.message.includes('Invalid LINO format')) {
+        throw error;
+      }
+      // For other parsing errors, log and return empty
       console.error(`Error parsing LINO configuration: ${error.message}`);
       return {};
     }
@@ -108,15 +154,17 @@ export class LenvReader {
    * @param {string} filePath - Path to .lenv file
    * @returns {Object} - Object with environment variable key-value pairs
    */
-  readFile(filePath) {
+  async readFile(filePath) {
     try {
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
+      // Check if file exists using access
+      await fs.promises.access(filePath);
 
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = await fs.promises.readFile(filePath, 'utf8');
       return this.parse(content);
     } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null;
+      }
       console.error(`Error reading .lenv file ${filePath}: ${error.message}`);
       return null;
     }
@@ -131,13 +179,8 @@ export class LenvReader {
    * @param {boolean} options.quiet - Whether to suppress log messages (default: false)
    * @returns {Object} - Object with loaded variables
    */
-  config(options = {}) {
-    const {
-      path: configPath = '.lenv',
-      configuration = null,
-      override = false,
-      quiet = false
-    } = options;
+  async config(options = {}) {
+    const { path: configPath = '.lenv', configuration = null, override = false, quiet = false } = options;
 
     let envVars = {};
 
@@ -150,7 +193,7 @@ export class LenvReader {
     }
     // Priority 2: .lenv file
     else if (configPath) {
-      const fileVars = this.readFile(configPath);
+      const fileVars = await this.readFile(configPath);
       if (fileVars) {
         envVars = fileVars;
         if (!quiet && Object.keys(envVars).length > 0) {
@@ -174,12 +217,14 @@ export class LenvReader {
    * @param {string} lenvPath - Path to .lenv file
    * @returns {boolean} - True if .lenv should be used
    */
-  shouldUseLenv(lenvPath = '.lenv') {
+  async shouldUseLenv(lenvPath = '.lenv') {
     // If .lenv exists, use it (has priority)
-    if (fs.existsSync(lenvPath)) {
+    try {
+      await fs.promises.access(lenvPath);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   }
 }
 
@@ -197,6 +242,6 @@ export const lenvReader = new LenvReader();
  * @param {Object} options - Configuration options
  * @returns {Object} - Loaded environment variables
  */
-export function loadLenvConfig(options = {}) {
-  return lenvReader.config(options);
+export async function loadLenvConfig(options = {}) {
+  return await lenvReader.config(options);
 }

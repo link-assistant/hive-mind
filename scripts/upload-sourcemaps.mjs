@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Script to upload source maps to Sentry for each release
- * This should be run in CI/CD after a new version is published
+ * Script to upload source maps to Sentry for each release.
+ * This should be run in CI/CD after a new version is published.
+ *
+ * Updated for sentry-cli v3.0.0+ which removed the `releases files` command.
+ * @see https://github.com/link-assistant/hive-mind/issues/969
  */
 
 import { execSync } from 'child_process';
@@ -49,61 +52,48 @@ try {
 
   // Create a release in Sentry
   console.log(`🔄 Creating release ${version} in Sentry...`);
-  execSync(
-    `npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`,
-    {
-      stdio: 'inherit',
-      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-    }
-  );
+  execSync(`npx @sentry/cli releases new ${version} --org ${orgName} --project ${projectName}`, {
+    stdio: 'inherit',
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+  });
 
-  // Upload source maps for all .mjs files
+  // Upload source maps using the new sentry-cli 3.0.0+ API
+  // Note: The old command `releases files <VERSION> upload-sourcemaps` was removed in sentry-cli 3.0.0
+  // See: https://github.com/link-assistant/hive-mind/issues/969
   console.log('📤 Uploading source maps...');
 
   // Upload source files from src directory
   if (existsSync(join(rootDir, 'src'))) {
-    execSync(
-      `npx @sentry/cli releases files ${version} upload-sourcemaps ./src --org ${orgName} --project ${projectName} --url-prefix '~/src'`,
-      {
-        stdio: 'inherit',
-        cwd: rootDir,
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli sourcemaps upload ./src --release ${version} --org ${orgName} --project ${projectName} --url-prefix '~/src'`, {
+      stdio: 'inherit',
+      cwd: rootDir,
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+    });
   }
 
   // Upload test files (useful for debugging test failures)
   if (existsSync(join(rootDir, 'tests'))) {
-    execSync(
-      `npx @sentry/cli releases files ${version} upload-sourcemaps ./tests --org ${orgName} --project ${projectName} --url-prefix '~/tests'`,
-      {
-        stdio: 'inherit',
-        cwd: rootDir,
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli sourcemaps upload ./tests --release ${version} --org ${orgName} --project ${projectName} --url-prefix '~/tests'`, {
+      stdio: 'inherit',
+      cwd: rootDir,
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+    });
   }
 
   // Finalize the release
   console.log('✅ Finalizing release...');
-  execSync(
-    `npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`,
-    {
-      stdio: 'inherit',
-      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-    }
-  );
+  execSync(`npx @sentry/cli releases finalize ${version} --org ${orgName} --project ${projectName}`, {
+    stdio: 'inherit',
+    env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+  });
 
   // Set release commits (if in Git repository)
   try {
     const gitCommit = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-    execSync(
-      `npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`,
-      {
-        stdio: 'inherit',
-        env: { ...process.env, SENTRY_AUTH_TOKEN: authToken }
-      }
-    );
+    execSync(`npx @sentry/cli releases set-commits ${version} --auto --org ${orgName} --project ${projectName}`, {
+      stdio: 'inherit',
+      env: { ...process.env, SENTRY_AUTH_TOKEN: authToken },
+    });
     console.log(`📝 Associated commits with release ${version}`);
   } catch (err) {
     console.log('⚠️  Could not associate commits (not a git repository or no commits)');

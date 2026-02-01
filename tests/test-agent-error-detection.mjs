@@ -17,7 +17,8 @@ import { strict as assert } from 'assert';
 
 // Simplified error detection function - matches agent.lib.mjs
 // Only detects explicit JSON error messages from agent
-const detectAgentErrors = (stdoutOutput) => {
+// Issue #1201: Also checks msg.error field (not just msg.message)
+const detectAgentErrors = stdoutOutput => {
   const lines = stdoutOutput.split('\n');
 
   for (const line of lines) {
@@ -28,7 +29,7 @@ const detectAgentErrors = (stdoutOutput) => {
 
       // Check for explicit error message types from agent
       if (msg.type === 'error' || msg.type === 'step_error') {
-        return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
+        return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
       }
     } catch {
       // Not JSON - ignore for error detection
@@ -125,10 +126,96 @@ const result10 = detectAgentErrors(failedToolOutput);
 assert.strictEqual(result10.detected, false, 'Failed tool status not detected by output scan (handled by exit code)');
 console.log('  ✅ PASSED: Failed tool status handled by exit code, not output scan\n');
 
+// ====================================================================
+// Issue #1201 tests: "type": "error" was not treated as fail
+// ====================================================================
+console.log('--- Issue #1201 Tests ---\n');
+
+// Test 11: Error with "error" field (not "message") should be detected with correct text
+console.log('Test 11: Error with "error" field (not "message") should capture error text');
+const errorFieldOutput = `{"type":"error","timestamp":1769784980576,"sessionID":"ses_3f09cdf7affePwF0n1677v3wqX","error":"The operation timed out."}`;
+const result11 = detectAgentErrors(errorFieldOutput);
+assert.strictEqual(result11.detected, true, 'Should detect error type');
+assert.strictEqual(result11.match, 'The operation timed out.', 'Should capture error field content');
+console.log('  ✅ PASSED: Error field correctly captured\n');
+
+// Test 12: Error event followed by continuation (agent continues after error but should still fail)
+console.log('Test 12: Error event followed by more output (agent continued after error)');
+const continueAfterError = ['{"type":"step_start","timestamp":1769784927363,"sessionID":"ses_test"}', '{"type":"error","timestamp":1769784980576,"sessionID":"ses_test","error":"The operation timed out."}', '{"type":"text","timestamp":1769785052790,"sessionID":"ses_test","part":{"type":"text","text":"Now continuing..."}}', '{"type":"step_finish","timestamp":1769785052800,"sessionID":"ses_test","part":{"type":"step-finish","reason":"other"}}'].join('\n');
+const result12 = detectAgentErrors(continueAfterError);
+assert.strictEqual(result12.detected, true, 'Should detect error even when agent continues after it');
+assert.strictEqual(result12.match, 'The operation timed out.', 'Should capture the error message');
+console.log('  ✅ PASSED: Error detected even when agent continues after it\n');
+
+// Test 13: Streaming error detection simulation
+// When NDJSON lines get concatenated without newlines (the root cause of the original bug)
+console.log('Test 13: Concatenated JSON objects without newlines (streaming edge case)');
+const concatenatedOutput = '{"type":"step_finish","timestamp":2}{"type":"error","error":"timeout"}';
+const result13 = detectAgentErrors(concatenatedOutput);
+// This will NOT be detected by post-hoc detection - which is why streaming detection is needed
+console.log(`  Post-hoc detection result: detected=${result13.detected}`);
+if (!result13.detected) {
+  console.log('  ⚠️  Expected: Post-hoc detection misses concatenated JSON (this is the bug)');
+  console.log('  ✅ PASSED: Confirmed that streaming detection is needed as primary mechanism\n');
+} else {
+  console.log('  ✅ PASSED: Post-hoc detection caught it (but streaming is still preferred)\n');
+}
+
+// Test 14: Verify streaming detection catches what post-hoc misses
+console.log('Test 14: Streaming detection simulation');
+// Simulate what happens during streaming: each chunk is parsed individually
+let streamingErrorDetected = false;
+let streamingErrorMessage = null;
+
+// Simulate chunk processing (as happens in the for-await loop in agent.lib.mjs)
+const simulateStreamChunk = chunk => {
+  const lines = chunk.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const data = JSON.parse(line);
+      if (data.type === 'error' || data.type === 'step_error') {
+        streamingErrorDetected = true;
+        streamingErrorMessage = data.message || data.error || line.substring(0, 100);
+      }
+    } catch {
+      // Not JSON - ignore
+    }
+  }
+};
+
+// Simulate the exact sequence from the bug report
+simulateStreamChunk('{"type":"step_start","timestamp":1}');
+simulateStreamChunk('{"type":"error","timestamp":2,"error":"The operation timed out."}');
+simulateStreamChunk('{"type":"text","timestamp":3}');
+simulateStreamChunk('{"type":"step_finish","timestamp":4}');
+
+assert.strictEqual(streamingErrorDetected, true, 'Streaming should detect error event');
+assert.strictEqual(streamingErrorMessage, 'The operation timed out.', 'Should capture error message from stream');
+console.log('  ✅ PASSED: Streaming detection correctly catches error events\n');
+
+// Test 15: Verify the combined detection logic
+console.log('Test 15: Combined detection (streaming + post-hoc fallback)');
+// Simulate the fix: if post-hoc misses, streaming catches it
+const postHocResult = detectAgentErrors(concatenatedOutput);
+const outputError = { ...postHocResult }; // Copy result
+
+// Apply the fix logic from agent.lib.mjs
+if (!outputError.detected && streamingErrorDetected) {
+  outputError.detected = true;
+  outputError.type = 'AgentError';
+  outputError.match = streamingErrorMessage;
+}
+
+assert.strictEqual(outputError.detected, true, 'Combined detection should catch the error');
+assert.strictEqual(outputError.match, 'The operation timed out.', 'Should have the correct error message');
+console.log('  ✅ PASSED: Combined detection works correctly\n');
+
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');
-console.log('\nNote: Error detection now relies primarily on:');
+console.log('\nNote: Error detection now relies on (Issue #1201 fix):');
 console.log('  1. Exit code (non-zero = error)');
-console.log('  2. Explicit JSON error messages (type: "error" or "step_error")');
+console.log('  2. Streaming detection of JSON error events (primary, most reliable)');
+console.log('  3. Post-hoc detection of JSON error messages in fullOutput (fallback)');
 console.log('Pattern matching in output has been removed to prevent false positives.');

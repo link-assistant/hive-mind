@@ -88,7 +88,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
           if (code === 0) {
             // Marker file exists, session is ready!
             // Clean up the marker file
-            await execAsync(`rm -f ${markerFile}`).catch(() => { });
+            await execAsync(`rm -f ${markerFile}`).catch(() => {});
             return true;
           }
         } catch {
@@ -101,7 +101,7 @@ async function waitForSessionReady(sessionName, maxWaitSeconds = 5) {
 
       // Marker file didn't appear, session is still busy
       // Clean up any leftover marker file from the queued command
-      await execAsync(`rm -f ${markerFile}`).catch(() => { });
+      await execAsync(`rm -f ${markerFile}`).catch(() => {});
     } catch {
       // Error sending test command or checking marker
     }
@@ -141,16 +141,16 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     console.log('Sending command to existing session...');
 
     // Build the full command to send to the existing session
-    const quotedArgs = args.map(arg => {
-      // If arg contains spaces or special chars, wrap in single quotes
-      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-          arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-          arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-        // Escape single quotes within the argument
-        return `'${arg.replace(/'/g, "'\\''")}'`;
-      }
-      return arg;
-    }).join(' ');
+    const quotedArgs = args
+      .map(arg => {
+        // If arg contains spaces or special chars, wrap in single quotes
+        if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+          // Escape single quotes within the argument
+          return `'${arg.replace(/'/g, "'\\''")}'`;
+        }
+        return arg;
+      })
+      .join(' ');
 
     const fullCommand = `${command} ${quotedArgs}`;
 
@@ -163,7 +163,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
       // The \n at the end simulates pressing Enter
       await execAsync(`screen -S ${sessionName} -X stuff '${escapedCommand}\n'`);
       console.log(`Command sent to session '${sessionName}' successfully.`);
-      console.log(`To attach and view the session, run: screen -r ${sessionName}`);
+      console.log(`To attach and view the session, run: screen -R ${sessionName}`);
     } catch (error) {
       console.error('Failed to send command to existing screen session:', error.message);
       console.error('You may need to terminate the old session and try again.');
@@ -176,16 +176,16 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
 
   // Create a detached session with the command
   // Quote arguments properly to preserve spaces and special characters
-  const quotedArgs = args.map(arg => {
-    // If arg contains spaces or special chars, wrap in single quotes
-    if (arg.includes(' ') || arg.includes('&') || arg.includes('|') ||
-        arg.includes(';') || arg.includes('$') || arg.includes('*') ||
-        arg.includes('?') || arg.includes('(') || arg.includes(')')) {
-      // Escape single quotes within the argument
-      return `'${arg.replace(/'/g, "'\\''")}'`;
-    }
-    return arg;
-  }).join(' ');
+  const quotedArgs = args
+    .map(arg => {
+      // If arg contains spaces or special chars, wrap in single quotes
+      if (arg.includes(' ') || arg.includes('&') || arg.includes('|') || arg.includes(';') || arg.includes('$') || arg.includes('*') || arg.includes('?') || arg.includes('(') || arg.includes(')')) {
+        // Escape single quotes within the argument
+        return `'${arg.replace(/'/g, "'\\''")}'`;
+      }
+      return arg;
+    })
+    .join(' ');
 
   let screenCommand;
   if (autoTerminate) {
@@ -208,7 +208,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     } else {
       console.log('Session will remain active after command completes');
     }
-    console.log(`To attach to this session, run: screen -r ${sessionName}`);
+    console.log(`To attach to this session, run: screen -R ${sessionName}`);
   } catch (error) {
     console.error('Failed to create screen session:', error.message);
     process.exit(1);
@@ -318,7 +318,7 @@ async function main() {
 }
 
 // Run the main function
-main().catch((error) => {
+main().catch(error => {
   console.error('Unexpected error:', error);
   process.exit(1);
 });

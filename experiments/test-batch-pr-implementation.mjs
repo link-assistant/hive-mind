@@ -6,7 +6,7 @@ import { batchCheckPullRequestsForIssues } from '../github.lib.mjs';
 
 async function testBatchImplementation() {
   console.log('🧪 Testing Batch PR Checking Implementation\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   // Test with some real issues from the hive-mind repository
   const testCases = [
@@ -14,8 +14,8 @@ async function testBatchImplementation() {
       owner: 'link-assistant',
       repo: 'hive-mind',
       issues: [186, 194, 197, 183, 184], // Mix of issues with and without PRs
-      description: 'Mixed issues from hive-mind repo'
-    }
+      description: 'Mixed issues from hive-mind repo',
+    },
   ];
 
   for (const testCase of testCases) {
@@ -28,11 +28,7 @@ async function testBatchImplementation() {
 
     try {
       // Call our new batch function
-      const results = await batchCheckPullRequestsForIssues(
-        testCase.owner,
-        testCase.repo,
-        testCase.issues
-      );
+      const results = await batchCheckPullRequestsForIssues(testCase.owner, testCase.repo, testCase.issues);
 
       const elapsed = Date.now() - startTime;
 
@@ -70,8 +66,7 @@ async function testBatchImplementation() {
       console.log('   Individual REST API approach (estimated):');
       console.log(`      - API calls: ${testCase.issues.length}`);
       console.log(`      - Estimated time: ${testCase.issues.length * 1000}ms (with delays)`);
-      console.log(`   \n   💡 Efficiency improvement: ${Math.round((1 - 1/testCase.issues.length) * 100)}% fewer API calls`);
-
+      console.log(`   \n   💡 Efficiency improvement: ${Math.round((1 - 1 / testCase.issues.length) * 100)}% fewer API calls`);
     } catch (error) {
       console.error('❌ Test failed:', error.message);
       if (error.stack) {
@@ -80,7 +75,7 @@ async function testBatchImplementation() {
     }
   }
 
-  console.log('\n' + '=' .repeat(60));
+  console.log('\n' + '='.repeat(60));
   console.log('✅ Testing complete!');
 }
 

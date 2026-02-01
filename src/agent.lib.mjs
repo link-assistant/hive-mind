@@ -19,9 +19,9 @@ import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
-// We reuse fetchModelInfo to get pricing data from models.dev API
+// We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
-const { fetchModelInfo } = claudeLib;
+const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
 
 /**
  * Parse agent JSON output to extract token usage from step_finish events
@@ -29,7 +29,7 @@ const { fetchModelInfo } = claudeLib;
  * @param {string} output - Raw stdout output from agent command
  * @returns {Object} Aggregated token usage and cost data
  */
-export const parseAgentTokenUsage = (output) => {
+export const parseAgentTokenUsage = output => {
   const usage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -37,7 +37,7 @@ export const parseAgentTokenUsage = (output) => {
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     totalCost: 0,
-    stepCount: 0
+    stepCount: 0,
   };
 
   // Try to parse each line as JSON (agent outputs NDJSON format)
@@ -114,17 +114,17 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           inputPerMillion: cost.input || 0,
           outputPerMillion: cost.output || 0,
           cacheReadPerMillion: cost.cache_read || 0,
-          cacheWritePerMillion: cost.cache_write || 0
+          cacheWritePerMillion: cost.cache_write || 0,
         },
         tokenUsage,
         breakdown: {
           input: inputCost,
           output: outputCost,
           cacheRead: cacheReadCost,
-          cacheWrite: cacheWriteCost
+          cacheWrite: cacheWriteCost,
         },
         totalCostUSD: totalCost,
-        isFreeModel: cost.input === 0 && cost.output === 0
+        isFreeModel: cost.input === 0 && cost.output === 0,
       };
     }
 
@@ -135,7 +135,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       provider: 'Unknown',
       tokenUsage,
       totalCostUSD: null,
-      error: 'Model not found in models.dev API'
+      error: 'Model not found in models.dev API',
     };
   } catch (error) {
     // Error fetching pricing, return with error info
@@ -144,23 +144,24 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       modelName,
       tokenUsage,
       totalCostUSD: null,
-      error: error.message
+      error: error.message,
     };
   }
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
-// Agent uses OpenCode's JSON interface and models
-export const mapModelToId = (model) => {
+// Agent uses OpenCode Zen's JSON interface and models
+// Issue #1185: Free models use opencode/ prefix (not openai/)
+export const mapModelToId = model => {
   const modelMap = {
-    'grok': 'opencode/grok-code',
+    grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
-    'gpt-5-nano': 'openai/gpt-5-nano',
-    'sonnet': 'anthropic/claude-3-5-sonnet',
-    'haiku': 'anthropic/claude-3-5-haiku',
-    'opus': 'anthropic/claude-3-opus',
+    'gpt-5-nano': 'opencode/gpt-5-nano',
+    sonnet: 'anthropic/claude-3-5-sonnet',
+    haiku: 'anthropic/claude-3-5-haiku',
+    opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
   };
 
@@ -209,7 +210,9 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
 
         if (stderr.includes('auth') || stderr.includes('login')) {
           await log('❌ Agent authentication failed', { level: 'error' });
-          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', { level: 'error' });
+          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', {
+            level: 'error',
+          });
           return false;
         }
 
@@ -223,7 +226,9 @@ export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
       return true;
     } catch (error) {
       await log(`❌ Failed to validate Agent connection: ${error.message}`, { level: 'error' });
-      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', { level: 'error' });
+      await log('   💡 Make sure @link-assistant/agent is installed globally: bun install -g @link-assistant/agent', {
+        level: 'error',
+      });
       return false;
     }
   };
@@ -240,31 +245,18 @@ export const handleAgentRuntimeSwitch = async () => {
 };
 
 // Main function to execute Agent with prompts and settings
-export const executeAgent = async (params) => {
-  const {
-    issueUrl,
-    issueNumber,
-    prNumber,
-    prUrl,
-    branchName,
-    tempDir,
-    isContinueMode,
-    mergeStateStatus,
-    forkedRepo,
-    feedbackLines,
-    forkActionsUrl,
-    owner,
-    repo,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    agentPath = 'agent',
-    $
-  } = params;
+export const executeAgent = async params => {
+  const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, formatAligned, getResourceSnapshot, agentPath = 'agent', $ } = params;
 
   // Import prompt building functions from agent.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./agent.prompts.lib.mjs');
+
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
 
   // Build the user prompt
   const prompt = buildUserPrompt({
@@ -274,6 +266,7 @@ export const executeAgent = async (params) => {
     prUrl,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     mergeStateStatus,
     forkedRepo,
@@ -281,7 +274,7 @@ export const executeAgent = async (params) => {
     forkActionsUrl,
     owner,
     repo,
-    argv
+    argv,
   });
 
   // Build the system prompt
@@ -292,9 +285,11 @@ export const executeAgent = async (params) => {
     prNumber,
     branchName,
     tempDir,
+    workspaceTmpDir,
     isContinueMode,
     forkedRepo,
-    argv
+    argv,
+    modelSupportsVision,
   });
 
   // Log prompt details in verbose mode
@@ -331,25 +326,12 @@ export const executeAgent = async (params) => {
     forkedRepo,
     feedbackLines,
     agentPath,
-    $
+    $,
   });
 };
 
-export const executeAgentCommand = async (params) => {
-  const {
-    tempDir,
-    branchName,
-    prompt,
-    systemPrompt,
-    argv,
-    log,
-    formatAligned,
-    getResourceSnapshot,
-    forkedRepo,
-    feedbackLines,
-    agentPath,
-    $
-  } = params;
+export const executeAgentCommand = async params => {
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $ } = params;
 
   // Retry configuration
   const maxRetries = 3;
@@ -391,6 +373,11 @@ export const executeAgentCommand = async (params) => {
     // Build agent command arguments
     let agentArgs = `--model ${mappedModel}`;
 
+    // Propagate verbose flag to agent for detailed debugging output
+    if (argv.verbose) {
+      agentArgs += ' --verbose';
+    }
+
     // Agent supports stdin in both plain text and JSON format
     // We'll combine system and user prompts into a single message
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
@@ -409,10 +396,11 @@ export const executeAgentCommand = async (params) => {
 
     try {
       // Pipe the prompt file to agent via stdin
+      // Use agentArgs which includes --model and optionally --verbose
       execCommand = $({
         cwd: tempDir,
-        mirror: false
-      })`cat ${promptFile} | ${agentPath} --model ${mappedModel}`;
+        mirror: false,
+      })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -430,11 +418,40 @@ export const executeAgentCommand = async (params) => {
       let limitResetTime = null;
       let lastMessage = '';
       let fullOutput = ''; // Collect all output for pricing calculation and error detection
+      // Issue #1201: Track error events detected during streaming for reliable error detection
+      // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
+      let streamingErrorDetected = false;
+      let streamingErrorMessage = null;
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          await log(output);
+          // Split output into individual lines for NDJSON parsing
+          // Agent outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
+          // This allows us to parse each event independently and extract structured data like session IDs
+          const lines = output.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              // Output formatted JSON
+              await log(JSON.stringify(data, null, 2));
+              // Capture session ID from the first message
+              if (!sessionId && data.sessionID) {
+                sessionId = data.sessionID;
+                await log(`📌 Session ID: ${sessionId}`);
+              }
+              // Issue #1201: Detect error events during streaming for reliable detection
+              if (data.type === 'error' || data.type === 'step_error') {
+                streamingErrorDetected = true;
+                streamingErrorMessage = data.message || data.error || line.substring(0, 100);
+                await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+              }
+            } catch {
+              // Not JSON - log as plain text
+              await log(line);
+            }
+          }
           lastMessage = output;
           fullOutput += output; // Collect for both pricing calculation and error detection
         }
@@ -442,7 +459,33 @@ export const executeAgentCommand = async (params) => {
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
-            await log(errorOutput, { stream: 'stderr' });
+            // Agent sends all output (including verbose logs and structured events) to stderr
+            // Process each line as NDJSON, same as stdout handling
+            const stderrLines = errorOutput.split('\n');
+            for (const stderrLine of stderrLines) {
+              if (!stderrLine.trim()) continue;
+              try {
+                const stderrData = JSON.parse(stderrLine);
+                // Output formatted JSON (same formatting as stdout)
+                await log(JSON.stringify(stderrData, null, 2));
+                // Capture session ID from stderr too (agent sends it via stderr)
+                if (!sessionId && stderrData.sessionID) {
+                  sessionId = stderrData.sessionID;
+                  await log(`📌 Session ID: ${sessionId}`);
+                }
+                // Issue #1201: Detect error events during streaming (stderr) for reliable detection
+                if (stderrData.type === 'error' || stderrData.type === 'step_error') {
+                  streamingErrorDetected = true;
+                  streamingErrorMessage = stderrData.message || stderrData.error || stderrLine.substring(0, 100);
+                  await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+                }
+              } catch {
+                // Not JSON - log as plain text
+                await log(stderrLine);
+              }
+            }
+            // Also collect stderr for error detection
+            fullOutput += errorOutput;
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -458,7 +501,7 @@ export const executeAgentCommand = async (params) => {
       // 1. Non-zero exit code (agent returns 1 on errors)
       // 2. Explicit JSON error messages from agent (type: "error")
       // 3. Usage limit detection (handled separately)
-      const detectAgentErrors = (stdoutOutput) => {
+      const detectAgentErrors = stdoutOutput => {
         const lines = stdoutOutput.split('\n');
 
         for (const line of lines) {
@@ -469,7 +512,7 @@ export const executeAgentCommand = async (params) => {
 
             // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {
-              return { detected: true, type: 'AgentError', match: msg.message || line.substring(0, 100) };
+              return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
             }
           } catch {
             // Not JSON - ignore for error detection
@@ -483,18 +526,27 @@ export const executeAgentCommand = async (params) => {
       // Only check for JSON error messages, not pattern matching in output
       const outputError = detectAgentErrors(fullOutput);
 
+      // Issue #1201: Use streaming detection as primary, post-hoc as fallback
+      // Streaming detection is more reliable because it parses each JSON line as it arrives,
+      // avoiding issues where NDJSON lines get concatenated without newline delimiters in fullOutput
+      if (!outputError.detected && streamingErrorDetected) {
+        outputError.detected = true;
+        outputError.type = 'AgentError';
+        outputError.match = streamingErrorMessage;
+      }
+
       if (exitCode !== 0 || outputError.detected) {
         // Build JSON error structure for consistent error reporting
         const errorInfo = {
           type: 'error',
           exitCode,
           errorDetectedInOutput: outputError.detected,
-          errorType: outputError.detected ? outputError.type : (exitCode !== 0 ? 'NonZeroExitCode' : null),
+          errorType: outputError.detected ? outputError.type : exitCode !== 0 ? 'NonZeroExitCode' : null,
           errorMatch: outputError.detected ? outputError.match : null,
           message: null,
           sessionId,
           limitReached: false,
-          limitResetTime: null
+          limitResetTime: null,
         };
 
         // Check for usage limit errors first (more specific)
@@ -511,14 +563,14 @@ export const executeAgentCommand = async (params) => {
             tool: 'Agent',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,
           });
 
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
         } else if (outputError.detected) {
-          // Explicit JSON error message from agent
+          // Explicit JSON error message from agent (Issue #1201: includes streaming-detected errors)
           errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
         } else {
@@ -544,10 +596,10 @@ export const executeAgentCommand = async (params) => {
           sessionId,
           limitReached,
           limitResetTime,
-          errorInfo,  // Include structured error information
+          errorInfo, // Include structured error information
           tokenUsage,
           pricingInfo,
-          publicPricingEstimate: pricingInfo.totalCostUSD
+          publicPricingEstimate: pricingInfo.totalCostUSD,
         };
       }
 
@@ -590,14 +642,14 @@ export const executeAgentCommand = async (params) => {
         limitResetTime,
         tokenUsage,
         pricingInfo,
-        publicPricingEstimate: pricingInfo.totalCostUSD
+        publicPricingEstimate: pricingInfo.totalCostUSD,
       };
     } catch (error) {
       reportError(error, {
         context: 'execute_agent',
         command: params.command,
         agentPath: params.agentPath,
-        operation: 'run_agent_command'
+        operation: 'run_agent_command',
       });
 
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
@@ -608,7 +660,7 @@ export const executeAgentCommand = async (params) => {
         limitResetTime: null,
         tokenUsage: null,
         pricingInfo: null,
-        publicPricingEstimate: null
+        publicPricingEstimate: null,
       };
     }
   };
@@ -649,13 +701,19 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
               if (pushResult.code === 0) {
                 await log('✅ Changes pushed successfully');
               } else {
-                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, { level: 'warning' });
+                await log(`⚠️ Warning: Could not push changes: ${pushResult.stderr?.toString().trim()}`, {
+                  level: 'warning',
+                });
               }
             } else {
-              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, { level: 'warning' });
+              await log(`⚠️ Warning: Could not commit changes: ${commitResult.stderr?.toString().trim()}`, {
+                level: 'warning',
+              });
             }
           } else {
-            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+            await log(`⚠️ Warning: Could not stage changes: ${addResult.stderr?.toString().trim()}`, {
+              level: 'warning',
+            });
           }
           return false;
         } else if (autoRestartEnabled) {
@@ -679,14 +737,16 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
         return false;
       }
     } else {
-      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, { level: 'warning' });
+      await log(`⚠️ Warning: Could not check git status: ${gitStatusResult.stderr?.toString().trim()}`, {
+        level: 'warning',
+      });
       return false;
     }
   } catch (gitError) {
     reportError(gitError, {
       context: 'check_uncommitted_changes_agent',
       tempDir,
-      operation: 'git_status_check'
+      operation: 'git_status_check',
     });
     await log(`⚠️ Warning: Error checking for uncommitted changes: ${gitError.message}`, { level: 'warning' });
     return false;
@@ -701,5 +761,5 @@ export default {
   executeAgentCommand,
   checkForUncommittedChanges,
   parseAgentTokenUsage,
-  calculateAgentPricing
+  calculateAgentPricing,
 };

@@ -44,7 +44,7 @@ const { getVersionInfo, formatVersionMessage } = await import('./version-info.li
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 // Import extracted message filter functions for testability (issue #1207)
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -839,7 +839,8 @@ registerMergeCommand(bot, {
   addBreadcrumb,
 });
 
-bot.command(/^solve$/i, async ctx => {
+// Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
+async function handleSolveCommand(ctx) {
   if (VERBOSE) {
     console.log('[VERBOSE] /solve command received');
   }
@@ -1039,9 +1040,12 @@ bot.command(/^solve$/i, async ctx => {
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
-});
+}
 
-bot.command(/^hive$/i, async ctx => {
+bot.command(/^solve$/i, handleSolveCommand);
+
+// Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
+async function handleHiveCommand(ctx) {
   if (VERBOSE) {
     console.log('[VERBOSE] /hive command received');
   }
@@ -1176,7 +1180,9 @@ bot.command(/^hive$/i, async ctx => {
 
   const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
-});
+}
+
+bot.command(/^hive$/i, handleHiveCommand);
 
 // Register /top command from separate module
 // This keeps telegram-bot.mjs under the 1500 line limit
@@ -1209,6 +1215,10 @@ if (VERBOSE) {
     });
     if (msg) {
       console.log('[VERBOSE] Msg fields:', Object.keys(msg));
+      // Log entities for command matching diagnostics (issue #1207)
+      if (msg.entities) {
+        console.log('[VERBOSE] Entities:', JSON.stringify(msg.entities));
+      }
       console.log('[VERBOSE] Forward/reply:', {
         forward_origin: msg.forward_origin,
         forward_from: msg.forward_from,
@@ -1222,6 +1232,45 @@ if (VERBOSE) {
     return next();
   });
 }
+
+// Text-based fallback for command matching (issue #1207)
+// Telegraf's bot.command() relies on Telegram's bot_command entities. In rare cases,
+// messages may not have the expected entity at offset 0 (e.g., certain clients, edge cases
+// with message formatting, or entity ordering), causing bot.command() to silently skip
+// the message. This fallback uses text pattern matching to catch those missed commands.
+// It runs AFTER bot.command() handlers, so it only fires when entity-based matching fails.
+bot.on('message', async (ctx, next) => {
+  const text = ctx.message?.text;
+  if (!text) return next();
+
+  // Extract command from text using the testable filter function
+  // Note: We pass null for botUsername here and check it separately with ctx.me
+  // which is set by Telegraf after bot initialization
+  const extracted = extractCommandFromText(text);
+  if (!extracted) return next();
+
+  // If command mentions a specific bot, verify it's us
+  if (extracted.botMention) {
+    const myUsername = ctx.me; // Telegraf sets this from getMe()
+    if (!myUsername || extracted.botMention.toLowerCase() !== myUsername.toLowerCase()) {
+      return next(); // Command is for a different bot or we can't verify
+    }
+  }
+
+  // Check if this is a command we handle
+  const handlers = {
+    solve: handleSolveCommand,
+    hive: handleHiveCommand,
+  };
+
+  const handler = handlers[extracted.command];
+  if (!handler) return next();
+
+  // Log that fallback was triggered - this indicates bot.command() entity matching failed
+  console.warn(`[WARNING] Command /${extracted.command} matched by text fallback, not by entity-based bot.command(). ` + `Entities: ${JSON.stringify(ctx.message.entities || [])}. ` + `User: ${ctx.from?.username || ctx.from?.id}. ` + `This may indicate a Telegram client entity issue (issue #1207).`);
+
+  await handler(ctx);
+});
 
 // Add global error handler for uncaught errors in middleware
 bot.catch((error, ctx) => {

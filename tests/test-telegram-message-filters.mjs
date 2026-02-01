@@ -14,7 +14,7 @@
  * @see https://github.com/link-assistant/hive-mind/pull/496
  */
 
-import { isOldMessage, isGroupChat, isChatAuthorized, isForwardedOrReply } from '../src/telegram-message-filters.lib.mjs';
+import { isOldMessage, isGroupChat, isChatAuthorized, isForwardedOrReply, extractCommandFromText } from '../src/telegram-message-filters.lib.mjs';
 
 console.log('='.repeat(80));
 console.log('Unit Tests: Telegram Message Filters (Issue #1207)');
@@ -351,6 +351,96 @@ runTest('Handles message with forward_origin.type = "channel"', () => {
     },
   });
   return isForwardedOrReply(ctx) === true;
+});
+
+// ===========================================================================
+// Tests for extractCommandFromText() - Issue #1207 text-based fallback
+// ===========================================================================
+console.log('\n--- extractCommandFromText() Tests ---\n');
+
+console.log('  Basic command extraction:\n');
+
+runTest('Extracts /solve command', () => {
+  const result = extractCommandFromText('/solve https://github.com/owner/repo/issues/1');
+  return result !== null && result.command === 'solve' && result.botMention === null;
+});
+
+runTest('Extracts /hive command', () => {
+  const result = extractCommandFromText('/hive https://github.com/owner/repo');
+  return result !== null && result.command === 'hive' && result.botMention === null;
+});
+
+runTest('Extracts /help command', () => {
+  const result = extractCommandFromText('/help');
+  return result !== null && result.command === 'help' && result.botMention === null;
+});
+
+runTest('Extracts command with @botname mention', () => {
+  const result = extractCommandFromText('/solve@SwarmMindBot https://github.com/owner/repo/issues/1');
+  return result !== null && result.command === 'solve' && result.botMention === 'SwarmMindBot';
+});
+
+runTest('Case-insensitive command extraction (lowercase)', () => {
+  const result = extractCommandFromText('/SOLVE https://github.com/owner/repo/issues/1');
+  return result !== null && result.command === 'solve';
+});
+
+console.log('\n  Bot username validation:\n');
+
+runTest('Returns result when botUsername matches mention', () => {
+  const result = extractCommandFromText('/solve@SwarmMindBot args', 'SwarmMindBot');
+  return result !== null && result.command === 'solve';
+});
+
+runTest('Returns null when botUsername does not match mention', () => {
+  const result = extractCommandFromText('/solve@OtherBot args', 'SwarmMindBot');
+  return result === null;
+});
+
+runTest('Case-insensitive botUsername matching', () => {
+  const result = extractCommandFromText('/solve@swarmmindbot args', 'SwarmMindBot');
+  return result !== null && result.command === 'solve';
+});
+
+runTest('Returns result when no mention and botUsername provided', () => {
+  const result = extractCommandFromText('/solve args', 'SwarmMindBot');
+  return result !== null && result.command === 'solve' && result.botMention === null;
+});
+
+console.log('\n  Edge cases and invalid input:\n');
+
+runTest('Returns null for null text', () => {
+  return extractCommandFromText(null) === null;
+});
+
+runTest('Returns null for undefined text', () => {
+  return extractCommandFromText(undefined) === null;
+});
+
+runTest('Returns null for empty string', () => {
+  return extractCommandFromText('') === null;
+});
+
+runTest('Returns null for non-command text', () => {
+  return extractCommandFromText('hello world') === null;
+});
+
+runTest('Returns null for text not starting with /', () => {
+  return extractCommandFromText('solve https://github.com/owner/repo/issues/1') === null;
+});
+
+runTest('Returns null for slash only', () => {
+  return extractCommandFromText('/ no command') === null;
+});
+
+runTest('Handles command with no arguments', () => {
+  const result = extractCommandFromText('/solve');
+  return result !== null && result.command === 'solve';
+});
+
+runTest('Handles command from issue #1207 exact text', () => {
+  const result = extractCommandFromText('/solve https://github.com/avers52/VAD-DOT/issues/1  --model opus');
+  return result !== null && result.command === 'solve' && result.botMention === null;
 });
 
 // ===========================================================================

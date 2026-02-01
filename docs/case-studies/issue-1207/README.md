@@ -2,65 +2,67 @@
 
 ## Summary
 
-A user reported that their `/solve` commands were not being recognized by the Telegram bot, while commands from other users in the same group chat worked correctly. This intermittent, user-specific failure points to Telegram's Privacy Mode behavior as the primary root cause.
+A user reported that their `/solve` commands were not being recognized by the Telegram bot, while commands from other users in the same group chat worked correctly. Investigation revealed that the bot received the message (confirmed by verbose logs), but Telegraf's entity-based `bot.command()` handler did not trigger. The root cause is that Telegraf's `bot.command()` relies on Telegram `bot_command` entities at offset 0 in the message, and when these entities are missing or malformed (which can happen with certain Telegram clients or edge cases), commands are silently skipped.
 
 ## Timeline of Events
 
 | Timestamp   | Event                                                                                              |
 | ----------- | -------------------------------------------------------------------------------------------------- |
 | User Action | User "Avers" sends `/solve https://github.com/avers52/VAD-DOT/issues/1 --model opus` in group chat |
+| Bot Log     | `[VERBOSE] Message:` shows the message IS received with `isOld: false`, `isForwarded: false`, `isAuthorized: true` |
+| Bot Log     | `[VERBOSE] /solve command received` does NOT appear in logs |
 | Expected    | Bot should parse command, validate URL, and start solving                                          |
-| Observed    | Messages from this user are not recognized, while other users' commands work                       |
-| Workaround  | Unknown - eventually the commands started working (as shown in screenshot)                         |
+| Observed    | Messages from this user are not recognized; only 1 of 54 users affected                           |
 
 ## Evidence
 
+### Server Logs Analysis
+
+From the bot's verbose logs (posted in [issue comment](https://github.com/link-assistant/hive-mind/issues/1207#issuecomment-3831634171)):
+
+1. **Message IS received by the bot** - the `bot.on('message')` middleware fires and logs the complete message
+2. **All filters pass** - `isOld: false`, `isForwarded: false`, `isAuthorized: true`
+3. **Command handler does NOT fire** - `[VERBOSE] /solve command received` is absent from logs
+4. **Bot IS a group admin** - confirmed by maintainer, so privacy mode is not the issue
+
+### Key Observation
+
+The verbose message middleware (`bot.on('message')`) at line 1194 runs AFTER `bot.command()` handlers in Telegraf's middleware chain. In Telegraf, `bot.command()` calls `next()` if the command doesn't match, allowing subsequent middleware to run. The fact that `bot.on('message')` fires but `/solve command received` does not means Telegraf's entity-based command matching failed.
+
 ### Screenshot Analysis
 
-The issue screenshot shows two instances of the `/solve` command from user "Avers" being successfully processed by the bot. This suggests the issue was intermittent - sometimes commands are recognized, sometimes they are not.
-
-### Command Sent
-
-```
-/solve https://github.com/avers52/VAD-DOT/issues/1  --model opus
-```
-
-This is a valid command with correct syntax. The URL points to a valid GitHub issue, and `--model opus` is a recognized option.
+The issue screenshot shows two instances of the `/solve` command from user "Avers" with no bot response, while GitHub link previews display normally.
 
 ## Root Cause Analysis
 
-### Primary Root Cause: Telegram Privacy Mode
+### Primary Root Cause: Telegraf Entity-Based Command Matching Failure
 
-Telegram bots have **Privacy Mode** enabled by default. When enabled, bots in group chats only receive:
+Telegraf's `bot.command()` uses this logic to match commands (from `composer.ts`):
 
-1. Commands explicitly mentioning the bot (e.g., `/solve@SwarmMindBot`)
-2. General commands (e.g., `/solve`) **only if the bot was the last bot to send a message**
-3. Replies to the bot's own messages
-4. Messages sent via the bot
+```javascript
+const { entities } = ctx.message;
+const cmdEntity = entities?.[0];
+if (cmdEntity?.type !== 'bot_command') return next();
+if (cmdEntity.offset > 0) return next();
+```
 
-**Critical detail from Telegram docs:** "Each particular message can only be available to one privacy-enabled bot at a time." This means if multiple bots are in the group:
+The command handler only fires when:
+1. `entities[0]` exists
+2. `entities[0].type === 'bot_command'`
+3. `entities[0].offset === 0`
 
-- A reply to Bot A containing a command for Bot B will only be delivered to Bot A
-- General commands without `@botname` suffix may be routed to whichever bot last sent a message
+If ANY of these conditions fail, the command is silently skipped via `next()`. This can happen when:
+- The message has no `bot_command` entity (certain Telegram clients may not add it)
+- The first entity is not `bot_command` (e.g., a `url` or `text_link` entity appears first)
+- The entity offset is not 0 (invisible characters or formatting before the command)
 
-This perfectly explains the observed behavior:
+### Why Only 1 of 54 Users Is Affected
 
-- **User A's commands work** because they happen when SwarmMindBot was the last bot to send a message
-- **User B's commands don't work** because they happen when a different bot was the last to send a message, so Telegram routes the command to that other bot instead
+This is consistent with a client-side entity generation issue. Different Telegram clients (Android, iOS, Desktop, Web, third-party) may generate different entity arrays for the same text. If one user's client generates entities differently (e.g., URL entity before bot_command entity, or missing bot_command entirely), only that user's commands would be affected.
 
-### Contributing Factors
+### Missing Diagnostic Information
 
-#### 1. No `@botname` Suffix in Commands
-
-Users send `/solve ...` instead of `/solve@SwarmMindBot ...`. Without the explicit bot mention, Telegram's privacy mode routing decides which bot receives the command based on context.
-
-#### 2. No Server-Side Diagnostic for Missing Messages
-
-When Telegram's privacy mode silently routes a command to another bot, the SwarmMindBot has no way to know the command was even sent. There are no server-side logs because the message never reaches the bot.
-
-#### 3. Lack of Tests for Message Recognition Pipeline
-
-The message filtering functions (`isOldMessage`, `isForwardedOrReply`, `isGroupChat`, `isChatAuthorized`) lacked dedicated unit tests, making it harder to verify correct behavior and detect regressions.
+The verbose logging did not include entity values, making it impossible to confirm the exact entity issue from the existing logs. The entities field was listed in `Object.keys(msg)` but the actual entity objects were not logged.
 
 ### Previously Fixed Related Issues
 
@@ -70,57 +72,51 @@ The message filtering functions (`isOldMessage`, `isForwardedOrReply`, `isGroupC
 | [#496](https://github.com/link-assistant/hive-mind/pull/496) | Messages not received in forum topics | Forum topic messages treated as replies due to `reply_to_message` field      |
 | [#494](https://github.com/link-assistant/hive-mind/pull/494) | No diagnostics                        | Added `--verbose` flag and privacy mode diagnostic experiment                |
 
-## Solutions
+## Solutions Implemented
 
-### Solution 1: Disable Privacy Mode (Operational)
+### Solution 1: Text-Based Fallback Command Matching (Code Fix)
 
-**Recommended immediate fix:**
+Added a `bot.on('message')` handler registered AFTER all `bot.command()` handlers that uses text pattern matching (`/^\/(\w+)(?:@(\S+))?\s*/`) as a fallback. When Telegraf's entity-based `bot.command()` skips a message, this fallback catches it by matching the text directly.
 
-1. Open a chat with `@BotFather` on Telegram
-2. Send `/setprivacy`
-3. Select the bot (e.g., `@SwarmMindBot`)
-4. Choose "Disable"
-5. **Remove the bot from the group and re-add it** (privacy mode changes only apply to newly joined groups)
+Key design decisions:
+- Runs only when `bot.command()` doesn't match (registered after, only receives `next()` calls)
+- Validates bot username mention (if `/solve@BotName` is used)
+- Logs a warning with entity details when triggered, for ongoing diagnostics
+- Reuses extracted named handler functions (`handleSolveCommand`, `handleHiveCommand`)
 
-### Solution 2: Make Bot a Group Admin (Operational)
+### Solution 2: Entity Logging for Diagnostics (Code Fix)
 
-**Alternative fix:**
+Added entity logging to the verbose message listener:
+```javascript
+if (msg.entities) {
+  console.log('[VERBOSE] Entities:', JSON.stringify(msg.entities));
+}
+```
 
-1. Go to the Telegram group settings
-2. Navigate to Administrators
-3. Add the bot as an admin
-4. Admins receive all messages regardless of privacy mode
+This will show the exact entity array in future verbose logs, making it possible to confirm entity-related issues without speculation.
 
-### Solution 3: Add Message Recognition Tests (Code)
+### Solution 3: Named Handler Functions (Refactor)
 
-Add comprehensive unit tests for the message filtering pipeline to:
+Extracted `/solve` and `/hive` command handlers from anonymous functions into named functions (`handleSolveCommand`, `handleHiveCommand`). This enables:
+- Reuse by the text-based fallback handler
+- Better stack traces in error reporting
+- Easier testing
 
-- Verify `isOldMessage` correctly identifies old vs new messages
-- Verify `isForwardedOrReply` handles all edge cases (normal messages, forwarded, replies, forum topics)
-- Verify `isGroupChat` correctly identifies group/supergroup chats
-- Verify `isChatAuthorized` handles whitelist and open-access scenarios
-- Detect regressions if the filtering logic is modified
+### Solution 4: Message Recognition Tests (Code)
 
-### Solution 4: Add Diagnostic Logging (Code)
-
-Improve logging to help diagnose future message delivery issues:
-
-- Log when messages pass each filter stage (at debug/verbose level)
-- Document privacy mode as a common cause in the help command
-- Add a periodic "heartbeat" log showing the bot is alive and listening
+Added 34 unit tests for the message filtering pipeline to verify correct behavior of `isOldMessage`, `isForwardedOrReply`, `isGroupChat`, and `isChatAuthorized`.
 
 ## External References
 
+- [Telegraf Source: composer.ts - command matching logic](https://github.com/telegraf/telegraf/blob/v4/src/composer.ts)
+- [Telegraf Issue #898 - Context.command does not support regex matching](https://github.com/telegraf/telegraf/issues/898)
+- [Telegram Bot API - Message Entities](https://core.telegram.org/bots/api#messageentity)
 - [Telegram Bot Privacy Mode Documentation](https://core.telegram.org/bots/features#privacy-mode)
-- [Telegram Bots FAQ](https://core.telegram.org/bots/faq)
 - [Telegraf Issue #1335 - Bot can't receive messages in groups](https://github.com/telegraf/telegraf/issues/1335)
-- [Telegraf Issue #287 - /command@BotName is case sensitive](https://github.com/telegraf/telegraf/issues/287)
-- [TeleMe - Group Privacy Mode Explanation](https://www.teleme.io/articles/group_privacy_mode_of_telegram_bots?hl=en)
 
 ## Recommendations
 
-1. **Disable privacy mode** for the bot in BotFather (or make it a group admin)
-2. **Add unit tests** for the message recognition pipeline
-3. **Enhance `/help` command** to more prominently display privacy mode troubleshooting
-4. **Consider adding a `/diagnose` command** that checks bot permissions and privacy mode status
-5. **Document** in README that privacy mode must be disabled for reliable operation in group chats
+1. **Monitor fallback handler warnings** - If the text-based fallback triggers, the warning log will show which entities were present, helping identify the exact client-side issue
+2. **Consider reporting upstream** - If entity data confirms a Telegraf or Telegram API issue, file a bug report with the specific entity array
+3. **Keep verbose mode enabled** in production for a period to collect diagnostic data
+4. **Consider adding a `/diagnose` command** that checks bot permissions and reports entity information for the user's message

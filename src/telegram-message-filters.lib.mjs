@@ -138,3 +138,36 @@ export function isForwardedOrReply(ctx, options = {}) {
   }
   return false;
 }
+
+/**
+ * Extract a bot command from message text using text-based pattern matching.
+ * This is a fallback for when Telegraf's entity-based bot.command() fails
+ * to match due to missing or malformed bot_command entities.
+ *
+ * @param {string} text - Message text
+ * @param {string|null} [botUsername] - Bot's username for @mention validation (case-insensitive)
+ * @returns {{ command: string, botMention: string|null } | null} Extracted command info, or null if no command found
+ * @see https://github.com/link-assistant/hive-mind/issues/1207
+ */
+export function extractCommandFromText(text, botUsername = null) {
+  if (!text || typeof text !== 'string') {
+    return null;
+  }
+
+  const match = text.match(/^\/(\w+)(?:@(\S+))?\s*/);
+  if (!match) {
+    return null;
+  }
+
+  const command = match[1].toLowerCase();
+  const botMention = match[2] || null;
+
+  // If command mentions a specific bot, verify it matches ours
+  if (botMention && botUsername) {
+    if (botMention.toLowerCase() !== botUsername.toLowerCase()) {
+      return null; // Command is for a different bot
+    }
+  }
+
+  return { command, botMention };
+}

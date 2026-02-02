@@ -8,7 +8,7 @@ const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 // Import log from general lib
-import { log } from './lib.mjs';
+import { log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -1008,12 +1008,8 @@ export const executeClaudeCommand = async params => {
                     errorDuringExecution = true;
                     await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
                     // Issue #1212: Check if ENOSPC is in the errors array and warn user
-                    const errors = data.errors || [];
-                    const hasENOSPC = errors.some(e => typeof e === 'string' && (e.includes('ENOSPC') || e.includes('no space left on device')));
-                    if (hasENOSPC) {
-                      await log('❌ ENOSPC: No space left on device detected in execution errors');
-                      await log('   The disk ran out of space during execution. Consider freeing disk space.');
-                      await log('   Tip: Check ~/.claude/debug for large debug files (see anthropics/claude-code#16093)');
+                    if ((data.errors || []).some(e => isENOSPC(e))) {
+                      await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
                     }
                   } else {
                     commandFailed = true;

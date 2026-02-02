@@ -11,15 +11,13 @@ This case study documents a configuration validation failure where `TELEGRAM_SOL
 1. **User Configuration:** A user configured `hive-telegram-bot` with the following overrides:
 
    ```yaml
-   TELEGRAM_SOLVE_OVERRIDES:
-     --attach-logs
+   TELEGRAM_SOLVE_OVERRIDES: --attach-logs
      --verbose
      --no-tool-check
      --auto-resume-on-limit-reset
      --tokens-budget-stats
      --getkeep-file
-   TELEGRAM_HIVE_OVERRIDES:
-     --all-issues
+   TELEGRAM_HIVE_OVERRIDES: --all-issues
      --once
      --skip-issues-with-prs
      --attach-logs
@@ -68,6 +66,7 @@ if (argv.fork) args.push('--fork');
 ```
 
 This means:
+
 - Adding a new solve option requires updating 3-4 files
 - Several existing solve options are never forwarded from hive
 - Some options defined in hive.config aren't forwarded to solve (e.g., `--prompt-general-purpose-sub-agent`, `--tokens-budget-stats`, `--prompt-check-sibling-pull-requests`, `--prompt-architecture-care`)

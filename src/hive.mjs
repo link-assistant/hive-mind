@@ -745,65 +745,58 @@ if (isDirectExecution) {
             const startTime = Date.now();
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-            // Build arguments array to avoid shell parsing issues
+            // Build arguments array using automatic solve option forwarding.
+            // This loop auto-forwards all solve-passthrough options from hive argv to solve,
+            // eliminating the need for manual if statements per option.
+            // New options added to solve.config.lib.mjs are automatically forwarded.
+            // See: https://github.com/link-assistant/hive-mind/issues/1209
+            const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
+            const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
+            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) args.push('--tool', argv.tool);
-            if (argv.fork) args.push('--fork');
-            if (argv.autoFork) args.push('--auto-fork');
-            if (argv.verbose) args.push('--verbose');
-            if (argv.attachLogs) args.push('--attach-logs');
-            // Fix: hive uses --target-branch but solve uses --base-branch (issue #1209)
+
+            // Special handling: hive uses --target-branch but solve uses --base-branch
             if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
             else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
-            if (argv.logDir) args.push('--log-dir', argv.logDir);
-            if (argv.dryRun) args.push('--dry-run');
-            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
-            args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
-            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
-            if (argv.think) args.push('--think', argv.think);
-            if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
-            if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
-            if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) args.push('--no-sentry');
-            if (argv.watch) args.push('--watch');
-            if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
-            if (argv.interactiveMode) args.push('--interactive-mode');
-            if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
-            if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
-            if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
-            if (argv.promptExperimentsFolder !== undefined) args.push('--prompt-experiments-folder', argv.promptExperimentsFolder);
-            if (argv.promptExamplesFolder !== undefined) args.push('--prompt-examples-folder', argv.promptExamplesFolder);
-            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
-            if (argv.autoMerge) args.push('--auto-merge');
-            if (argv.autoRestartUntilMergable) args.push('--auto-restart-until-mergable');
-            // Solve-passthrough options added in issue #1209
-            if (argv.promptGeneralPurposeSubAgent) args.push('--prompt-general-purpose-sub-agent');
-            if (argv.tokensBudgetStats) args.push('--tokens-budget-stats');
-            if (argv.promptCheckSiblingPullRequests !== undefined) args.push(argv.promptCheckSiblingPullRequests ? '--prompt-check-sibling-pull-requests' : '--no-prompt-check-sibling-pull-requests');
-            if (argv.promptArchitectureCare) args.push('--prompt-architecture-care');
-            if (argv.claudeFile !== undefined) args.push(argv.claudeFile ? '--claude-file' : '--no-claude-file');
-            if (argv.gitkeepFile !== undefined) args.push(argv.gitkeepFile ? '--gitkeep-file' : '--no-gitkeep-file');
-            if (argv.autoGitkeepFile !== undefined) args.push(argv.autoGitkeepFile ? '--auto-gitkeep-file' : '--no-auto-gitkeep-file');
-            if (argv.autoClosePullRequestOnFail) args.push('--auto-close-pull-request-on-fail');
-            if (argv.autoRestartOnLimitReset) args.push('--auto-restart-on-limit-reset');
-            if (argv.autoResumeOnErrors) args.push('--auto-resume-on-errors');
-            if (argv.autoContinueOnlyOnNewComments) args.push('--auto-continue-only-on-new-comments');
-            if (argv.autoCommitUncommittedChanges) args.push('--auto-commit-uncommitted-changes');
-            if (argv.autoRestartOnUncommittedChanges !== undefined) args.push(argv.autoRestartOnUncommittedChanges ? '--auto-restart-on-uncommitted-changes' : '--no-auto-restart-on-uncommitted-changes');
-            if (argv.autoRestartMaxIterations !== undefined) args.push('--auto-restart-max-iterations', argv.autoRestartMaxIterations);
-            if (argv.autoRestartOnNonUpdatedPullRequestDescription) args.push('--auto-restart-on-non-updated-pull-request-description');
-            if (argv.continueOnlyOnFeedback) args.push('--continue-only-on-feedback');
-            if (argv.watchInterval !== undefined) args.push('--watch-interval', argv.watchInterval);
-            if (argv.thinkingBudgetClaudeMinimumVersion !== undefined) args.push('--thinking-budget-claude-minimum-version', argv.thinkingBudgetClaudeMinimumVersion);
-            if (argv.autoMergeDefaultBranchToPullRequestBranch) args.push('--auto-merge-default-branch-to-pull-request-branch');
-            if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) args.push('--allow-fork-divergence-resolution-using-force-push-with-lease');
-            if (argv.allowToPushToContributorsPullRequestsAsMaintainer) args.push('--allow-to-push-to-contributors-pull-requests-as-maintainer');
-            if (argv.enableWorkspaces) args.push('--enable-workspaces');
-            if (argv.playwrightMcpAutoCleanup !== undefined) args.push(argv.playwrightMcpAutoCleanup ? '--playwright-mcp-auto-cleanup' : '--no-playwright-mcp-auto-cleanup');
-            if (argv.autoGhConfigurationRepair) args.push('--auto-gh-configuration-repair');
-            if (argv.promptSubagentsViaAgentCommander) args.push('--prompt-subagents-via-agent-commander');
-            if (argv.autoPullRequestCreation !== undefined) args.push(argv.autoPullRequestCreation ? '--auto-pull-request-creation' : '--no-auto-pull-request-creation');
+
+            // Special handling: --skip-tool-connection-check consolidation
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+              args.push('--skip-tool-connection-check');
+            }
+
+            // Options handled above or via deprecated aliases (skip in generic loop)
+            const SKIP_AUTO_FORWARD = new Set([
+              'model', // always pushed as first positional arg pair
+              'base-branch', // special mapping from target-branch above
+              'skip-tool-connection-check', // consolidated with tool-connection-check above
+              'tool-connection-check', // consolidated above
+              'skip-tool-check', // deprecated alias
+              'skip-claude-check', // deprecated alias
+              'tool-check', // deprecated alias
+            ]);
+
+            for (const optionName of getSolvePassthroughOptionNames()) {
+              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
+              const camelName = kebabToCamel(optionName);
+              const value = argv[camelName];
+              const def = SOLVE_OPTION_DEFINITIONS[optionName];
+              if (!def) continue;
+
+              if (def.type === 'boolean') {
+                if (value === undefined) continue;
+                // For booleans with default true or undefined, forward both --flag and --no-flag
+                if (def.default === true || def.default === undefined) {
+                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
+                } else {
+                  // Default false: only forward when truthy
+                  if (value) args.push(`--${optionName}`);
+                }
+              } else if (def.type === 'string' || def.type === 'number') {
+                if (value !== undefined) {
+                  args.push(`--${optionName}`, String(value));
+                }
+              }
+            }
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 

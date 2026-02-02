@@ -288,6 +288,19 @@ export const measureTime = async (fn, label = 'Operation') => {
 };
 
 /**
+ * Check if an error is an ENOSPC (no space left on device) error
+ * Issue #1212: ENOSPC errors need specific handling because they cascade
+ * (once disk is full, all operations fail) and require user action (cleanup).
+ * @param {Error|string} error - Error object or message
+ * @returns {boolean} True if the error is an ENOSPC error
+ */
+export const isENOSPC = error => {
+  if (!error) return false;
+  const message = error?.message || (typeof error === 'string' ? error : '');
+  return error?.code === 'ENOSPC' || message.includes('ENOSPC') || message.includes('no space left on device');
+};
+
+/**
  * Clean up error messages for better user experience
  * @param {Error|string} error - Error object or message
  * @returns {string} Cleaned error message
@@ -449,6 +462,7 @@ export default {
   retry,
   formatBytes,
   measureTime,
+  isENOSPC,
   cleanErrorMessage,
   formatAligned,
   displayFormattedError,

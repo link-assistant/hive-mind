@@ -1007,6 +1007,14 @@ export const executeClaudeCommand = async params => {
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
                     await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                    // Issue #1212: Check if ENOSPC is in the errors array and warn user
+                    const errors = data.errors || [];
+                    const hasENOSPC = errors.some(e => typeof e === 'string' && (e.includes('ENOSPC') || e.includes('no space left on device')));
+                    if (hasENOSPC) {
+                      await log('❌ ENOSPC: No space left on device detected in execution errors');
+                      await log('   The disk ran out of space during execution. Consider freeing disk space.');
+                      await log('   Tip: Check ~/.claude/debug for large debug files (see anthropics/claude-code#16093)');
+                    }
                   } else {
                     commandFailed = true;
                     await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });

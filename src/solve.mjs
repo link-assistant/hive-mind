@@ -987,10 +987,12 @@ try {
           if (logUploadSuccess) {
             await log('  ✅ Logs uploaded successfully');
           } else {
-            await log('  ⚠️  Failed to upload logs', { verbose: true });
+            // Issue #1212: Always show log upload failures (not just verbose)
+            await log('  ⚠️  Failed to upload logs');
           }
         } catch (uploadError) {
-          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+          // Issue #1212: Always show log upload errors (not just verbose)
+          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
         }
       } else if (prNumber) {
         // Fallback: Post simple failure comment if logs are not attached
@@ -1051,10 +1053,12 @@ try {
             if (logUploadSuccess) {
               await log('  ✅ Logs uploaded successfully');
             } else {
-              await log('  ⚠️  Failed to upload logs', { verbose: true });
+              // Issue #1212: Always show log upload failures (not just verbose)
+              await log('  ⚠️  Failed to upload logs');
             }
           } catch (uploadError) {
-            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+            // Issue #1212: Always show log upload errors (not just verbose)
+            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
           }
         } else {
           // Fallback: Post simple waiting comment if logs are not attached
@@ -1140,10 +1144,12 @@ try {
         if (logUploadSuccess) {
           await log('  ✅ Failure logs uploaded successfully');
         } else {
-          await log('  ⚠️  Failed to upload logs', { verbose: true });
+          // Issue #1212: Always show log upload failures (not just verbose)
+          await log('  ⚠️  Failed to upload failure logs');
         }
       } catch (uploadError) {
-        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+        // Issue #1212: Always show log upload errors (not just verbose)
+        await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
     }
 

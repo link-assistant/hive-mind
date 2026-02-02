@@ -393,6 +393,19 @@ export async function attachLogToGitHub(options) {
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {
+    // Issue #1212: Check disk space before attempting log upload operations
+    try {
+      const { checkDiskSpace } = await import('./memory-check.mjs');
+      const diskCheck = await checkDiskSpace(100, { log: async () => {} }); // 100MB minimum for log operations
+      if (!diskCheck.success) {
+        await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required)`);
+        await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
+        return false;
+      }
+    } catch {
+      // If disk check fails, continue anyway - the actual operation will fail with a clearer error
+    }
+
     // Check if log file exists and is not empty
     const logStats = await fs.stat(logFile);
     if (logStats.size === 0) {
@@ -772,7 +785,14 @@ ${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Ma
       return await attachRegularComment(options, logComment);
     }
   } catch (uploadError) {
-    await log(`  ❌ Error uploading log file: ${uploadError.message}`);
+    // Issue #1212: Detect ENOSPC specifically and provide actionable guidance
+    const isNoSpace = uploadError?.code === 'ENOSPC' || uploadError?.message?.includes('ENOSPC') || uploadError?.message?.includes('no space left on device');
+    if (isNoSpace) {
+      await log(`  ❌ ENOSPC: No space left on device during log upload`);
+      await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
+    } else {
+      await log(`  ❌ Error uploading log file: ${uploadError.message}`);
+    }
     return false;
   }
 }

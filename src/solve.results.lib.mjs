@@ -678,7 +678,12 @@ Fixes ${issueRef}
           });
         }
 
-        await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        // Issue #1212: Differentiate between clean success and success-with-errors
+        if (errorDuringExecution) {
+          await log('\n⚠️  PARTIAL SUCCESS: A solution draft has been prepared as a pull request, but execution finished with errors');
+        } else {
+          await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+        }
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
           await log('📎 Solution draft log has been attached to the Pull Request');

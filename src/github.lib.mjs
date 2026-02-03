@@ -389,6 +389,8 @@ export async function attachLogToGitHub(options) {
     pricingInfo = null,
     // Issue #1088: Track error_during_execution for "Finished with errors" state
     errorDuringExecution = false,
+    // Issue #787: Per-model usage data from Claude CLI result (includes sub-agents)
+    anthropicModelUsage = null,
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -408,7 +410,24 @@ export async function attachLogToGitHub(options) {
     }
     // Calculate token usage if sessionId and tempDir are provided
     // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
+    // Issue #787: Prefer anthropicModelUsage (includes all sub-agents) over JSONL (main session only)
     let totalCostUSD = publicPricingEstimate;
+    if (totalCostUSD === null && anthropicModelUsage && !errorMessage) {
+      try {
+        const { convertAnthropicModelUsage } = await import('./claude.cost.lib.mjs');
+        const tokenUsage = await convertAnthropicModelUsage(anthropicModelUsage);
+        if (tokenUsage && tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+          totalCostUSD = tokenUsage.totalCostUSD;
+          if (verbose) {
+            await log(`  💰 Calculated cost from Anthropic modelUsage: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+          }
+        }
+      } catch (modelUsageError) {
+        if (verbose) {
+          await log(`  ⚠️  Could not calculate cost from modelUsage: ${modelUsageError.message}`, { verbose: true });
+        }
+      }
+    }
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');

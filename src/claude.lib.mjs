@@ -18,6 +18,8 @@ import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 // Import runtime switch module (extracted to maintain file line limits, see issue #1141)
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs';
+// Issue #787: Import convertAnthropicModelUsage for using complete Anthropic cost data
+import { convertAnthropicModelUsage } from './claude.cost.lib.mjs';
 
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -652,6 +654,7 @@ const displayCostComparison = async (publicCost, anthropicCost, log) => {
     await log('      Difference:              unknown');
   }
 };
+export { convertAnthropicModelUsage };
 export const calculateSessionTokens = async (sessionId, tempDir) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
@@ -858,6 +861,7 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
+    let anthropicModelUsage = null; // Capture per-model usage data from Claude CLI result (includes sub-agents)
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
 
     // Create interactive mode handler if enabled
@@ -997,6 +1001,11 @@ export const executeClaudeCommand = async params => {
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                  // Issue #787: Capture per-model usage data (includes all sub-agents)
+                  if (data.modelUsage && typeof data.modelUsage === 'object') {
+                    anthropicModelUsage = data.modelUsage;
+                    await log(`💰 Anthropic modelUsage captured: ${Object.keys(anthropicModelUsage).length} model(s)`, { verbose: true });
+                  }
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
@@ -1106,6 +1115,10 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;
+            // Issue #787: Capture per-model usage data from buffer
+            if (data.modelUsage && typeof data.modelUsage === 'object') {
+              anthropicModelUsage = data.modelUsage;
+            }
           }
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
@@ -1299,55 +1312,34 @@ export const executeClaudeCommand = async params => {
         await log('\n\n✅ Claude command completed');
       }
       await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
-      // Calculate and display total token usage from session JSONL file
-      if (sessionId && tempDir) {
-        try {
-          const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
-          if (tokenUsage) {
-            await log('\n💰 Token Usage Summary:');
-            // Display per-model breakdown
-            if (tokenUsage.modelUsage) {
-              const modelIds = Object.keys(tokenUsage.modelUsage);
-              for (const modelId of modelIds) {
-                const usage = tokenUsage.modelUsage[modelId];
-                await log(`\n   📊 ${usage.modelName || modelId}:`);
-                await displayModelUsage(usage, log);
-                // Display budget stats if flag is enabled
-                if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
-                  await displayBudgetStats(usage, log);
-                }
-              }
-              // Show totals if multiple models were used
-              if (modelIds.length > 1) {
-                await log('\n   📈 Total across all models:');
-              }
-              // Show cost comparison (for both single and multiple models)
-              await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
-              // Show total tokens for single model only
-              if (modelIds.length === 1) {
-                await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
-              }
-            } else {
-              // Fallback to old format if modelUsage is not available
-              await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
-              if (tokenUsage.cacheCreationTokens > 0) {
-                await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
-              }
-              if (tokenUsage.cacheReadTokens > 0) {
-                await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
-              }
-              await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
-              await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+      // Issue #787: Prefer anthropicModelUsage (includes all sub-agents) over JSONL (main session only)
+      try {
+        let tokenUsage = anthropicModelUsage ? await convertAnthropicModelUsage(anthropicModelUsage) : null;
+        if (!tokenUsage && sessionId && tempDir) tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+        if (tokenUsage) {
+          await log('\n💰 Token Usage Summary:');
+          if (tokenUsage.modelUsage) {
+            const modelIds = Object.keys(tokenUsage.modelUsage);
+            for (const modelId of modelIds) {
+              const usage = tokenUsage.modelUsage[modelId];
+              await log(`\n   📊 ${usage.modelName || modelId}:`);
+              await displayModelUsage(usage, log);
+              if (argv.tokensBudgetStats && usage.modelInfo?.limit) await displayBudgetStats(usage, log);
             }
+            if (modelIds.length > 1) await log('\n   📈 Total across all models:');
+            await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log);
+            if (modelIds.length === 1) await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+          } else {
+            await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
+            if (tokenUsage.cacheCreationTokens > 0) await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
+            if (tokenUsage.cacheReadTokens > 0) await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
+            await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
+            await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
           }
-        } catch (tokenError) {
-          reportError(tokenError, {
-            context: 'calculate_session_tokens',
-            sessionId,
-            operation: 'read_session_jsonl',
-          });
-          await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
         }
+      } catch (tokenError) {
+        reportError(tokenError, { context: 'calculate_session_tokens', sessionId, operation: 'token_usage_display' });
+        await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
       }
       await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
       return {
@@ -1359,6 +1351,7 @@ export const executeClaudeCommand = async params => {
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
+        anthropicModelUsage, // Issue #787: Pass per-model usage data (includes sub-agents)
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
       };
     } catch (error) {

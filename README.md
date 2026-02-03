@@ -11,6 +11,12 @@
 
 It is also possible to connect this AI to collective human intelligence, meaning this system can communicate with humans for requirements, expertise, feedback.
 
+## 🌐 Multi-Platform Support
+
+Hive Mind now supports multiple code repository platforms:
+- **GitHub** - Full support with GitHub CLI integration
+- **SourceCraft** - Beta support via REST API (see [SourceCraft Integration Guide](./docs/SOURCECRAFT_INTEGRATION.md))
+
 [![Universal Problem Solving Algorithm](https://github.com/user-attachments/assets/1d91e911-9ba4-456e-a00a-14cdd60d9a0a)](https://github.com/konard/problem-solving)
 
 Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
@@ -317,8 +323,11 @@ The oAuth callback server on 1455 port will be started, and the link to oAuth wi
 ### Core Operations
 
 ```bash
-# Solve using maximum power
+# Solve using maximum power (GitHub)
 solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --auto-fork --think max
+
+# Solve SourceCraft issues (auto-detected from URL)
+solve https://sourcecraft.dev/org/repo/issues/bug-123 --auto-fork --model sonnet
 
 # Solve GitHub issues automatically (auto-fork if no write access)
 solve https://github.com/owner/repo/issues/123 --auto-fork --model sonnet
@@ -334,6 +343,9 @@ solve https://github.com/owner/repo/issues/123 --resume session-id
 
 # Start hive orchestration (monitor and solve issues automatically)
 hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
+
+# Monitor SourceCraft repository
+hive https://sourcecraft.dev/org/repo --all-issues --max-issues 5 --auto-fork
 
 # Monitor all issues in organization with auto-fork
 hive https://github.com/microsoft --all-issues --max-issues 10 --auto-fork

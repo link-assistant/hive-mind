@@ -100,6 +100,12 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
+  .option('useOrchestrator', {
+    type: 'string',
+    description: 'Send tasks to orchestrator instead of executing directly. Specify orchestrator URL (e.g., localhost:8080)',
+    alias: 'use-orchestrator',
+    default: getenv('TELEGRAM_USE_ORCHESTRATOR', ''),
+  })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
@@ -109,17 +115,7 @@ const config = yargs(hideBin(process.argv))
   .strict() // Enable strict mode to reject unknown options (consistent with solve.mjs and hive.mjs)
   .parse();
 
-// Load configuration from --configuration option if provided
-// This allows users to pass environment variables via command line
-//
-// Complete configuration priority order (highest priority last):
-// 1. .env (base configuration, loaded first - already loaded above at line 24)
-// 2. .lenv (overrides .env - already loaded above at line 28)
-// 3. yargs CLI options parsed above (lines 41-102) use getenv() for defaults,
-//    which reads from process.env populated by .env and .lenv
-// 4. --configuration option (overrides process.env, affecting getenv() calls below)
-// 5. Final resolution (lines 116+): CLI option values > environment variables
-//    Pattern: config.X || getenv('VAR') means CLI options have highest priority
+// Load configuration from --configuration option if provided (priority: .env < .lenv < CLI options < --configuration)
 if (config.configuration) {
   loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
 }

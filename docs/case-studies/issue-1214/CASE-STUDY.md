@@ -1,6 +1,7 @@
 # Case Study: Pull Request Unexpectedly Closed During AI-Assisted Work Session
 
 ## Issue Reference
+
 - **Issue**: [link-assistant/hive-mind#1214](https://github.com/link-assistant/hive-mind/issues/1214)
 - **Related PR**: [netkeep80/jsonRVM#7](https://github.com/netkeep80/jsonRVM/pull/7)
 
@@ -14,56 +15,62 @@ This case study investigates the root cause and proposes solutions to prevent si
 
 ### Session 1 (18:26:00Z - 18:49:11Z) - Successful
 
-| Timestamp | Event | Actor |
-|-----------|-------|-------|
-| 18:26:54Z | Session 1 started | AI (konard) |
-| 18:41:52Z | PR #7 created from fork | AI (konard) |
-| 18:48:16Z | PR renamed with bilingual title | AI (konard) |
-| 18:48:51Z | PR marked ready for review | AI (konard) |
-| 18:48:56Z | CI triggered (Rocq Proofs CI) | GitHub Actions |
-| 18:49:11Z | Session 1 completed successfully | AI (konard) |
+| Timestamp | Event                            | Actor          |
+| --------- | -------------------------------- | -------------- |
+| 18:26:54Z | Session 1 started                | AI (konard)    |
+| 18:41:52Z | PR #7 created from fork          | AI (konard)    |
+| 18:48:16Z | PR renamed with bilingual title  | AI (konard)    |
+| 18:48:51Z | PR marked ready for review       | AI (konard)    |
+| 18:48:56Z | CI triggered (Rocq Proofs CI)    | GitHub Actions |
+| 18:49:11Z | Session 1 completed successfully | AI (konard)    |
 
 ### Session 2 (19:03:30Z - 19:19:16Z) - PR Closed Unexpectedly
 
-| Timestamp | Event | Actor |
-|-----------|-------|-------|
-| 19:03:30Z | Session 2 started (continue mode) | AI (konard) |
-| 19:03:31Z | PR converted to draft | AI (konard) |
-| 19:03:32Z | "Work session started" comment posted | AI (konard) |
-| 19:05:53Z | First fix committed: permission workaround | AI (konard) |
-| 19:06:09Z | Second commit: include workflow in paths filter | AI (konard) |
-| 19:06:15Z | Push to fork completed | AI (konard) |
-| **19:06:17Z** | **PR CLOSED** | **konard (unexpected)** |
-| 19:06:18Z | AI continues unaware PR is closed | AI (konard) |
-| 19:06:51Z | AI checks CI status, sees no new runs | AI (konard) |
-| 19:07:01Z | "no checks reported" error | GitHub CLI |
-| 19:12:33Z | AI discovers PR is closed | AI (konard) |
-| 19:12:39Z | PR reopened manually | Repository owner (netkeep80) |
-| 19:15:22Z | AI pushes final fix | AI (konard) |
-| 19:17:01Z | CI passes (both Coq 8.18 and 8.19) | GitHub Actions |
-| 19:18:33Z | PR marked ready for review | Repository owner (netkeep80) |
-| 19:18:43Z | PR merged | Repository owner (netkeep80) |
-| 19:19:16Z | Session 2 completed | AI (konard) |
+| Timestamp     | Event                                           | Actor                        |
+| ------------- | ----------------------------------------------- | ---------------------------- |
+| 19:03:30Z     | Session 2 started (continue mode)               | AI (konard)                  |
+| 19:03:31Z     | PR converted to draft                           | AI (konard)                  |
+| 19:03:32Z     | "Work session started" comment posted           | AI (konard)                  |
+| 19:05:53Z     | First fix committed: permission workaround      | AI (konard)                  |
+| 19:06:09Z     | Second commit: include workflow in paths filter | AI (konard)                  |
+| 19:06:15Z     | Push to fork completed                          | AI (konard)                  |
+| **19:06:17Z** | **PR CLOSED**                                   | **konard (unexpected)**      |
+| 19:06:18Z     | AI continues unaware PR is closed               | AI (konard)                  |
+| 19:06:51Z     | AI checks CI status, sees no new runs           | AI (konard)                  |
+| 19:07:01Z     | "no checks reported" error                      | GitHub CLI                   |
+| 19:12:33Z     | AI discovers PR is closed                       | AI (konard)                  |
+| 19:12:39Z     | PR reopened manually                            | Repository owner (netkeep80) |
+| 19:15:22Z     | AI pushes final fix                             | AI (konard)                  |
+| 19:17:01Z     | CI passes (both Coq 8.18 and 8.19)              | GitHub Actions               |
+| 19:18:33Z     | PR marked ready for review                      | Repository owner (netkeep80) |
+| 19:18:43Z     | PR merged                                       | Repository owner (netkeep80) |
+| 19:19:16Z     | Session 2 completed                             | AI (konard)                  |
 
 ## Key Observations
 
 ### 1. No Explicit Close Command
+
 Searching through 8,384 lines of logs, there is **no `gh pr close` command** executed by the AI. The close event occurred between 19:06:15Z (push completed) and 19:06:17Z (PR closed).
 
 ### 2. Cross-Repository Configuration
+
 - **Upstream repository**: `netkeep80/jsonRVM`
 - **Fork repository**: `konard/netkeep80-jsonRVM`
 - **PR type**: Cross-repository (from fork to upstream)
 - **`isCrossRepository`**: `true`
 
 ### 3. Fork Sync Mechanics
+
 The PR was using commit `f081cbe24b8ae27c4364393d566b1b39d4955fb0` from the fork. After pushing, the fork was updated to `b74e4e6985713179e982792a36fff6ba79d047a6`, but the PR head ref was not updated synchronously.
 
 ### 4. AI Behavior
+
 The AI continued working for approximately 6 minutes after the PR was closed before discovering the issue at 19:12:33Z. This indicates a need for more frequent PR state validation.
 
 ### 5. Hive-Mind Tool Command
+
 The solve tool was invoked with:
+
 ```bash
 solve https://github.com/netkeep80/jsonRVM/pull/7 --model opus --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats
 ```
@@ -77,6 +84,7 @@ solve https://github.com/netkeep80/jsonRVM/pull/7 --model opus --attach-logs --v
 When commits are pushed to a cross-repository fork PR, GitHub must synchronize the head reference between the fork and the upstream PR view. If this synchronization fails or encounters a race condition, the PR may be marked as having an invalid head ref.
 
 **Evidence**:
+
 - The PR `head_sha` showed `f081cbe` even after the fork was updated to `b74e4e6`
 - The PR was closed within 2 seconds of push completion
 - GitHub documentation mentions that PRs can be closed when the head branch becomes unavailable
@@ -100,11 +108,13 @@ The 2-second gap between push (19:06:15Z) and close (19:06:17Z) suggests a poten
 ### Severity: Medium
 
 **Positive mitigations**:
+
 - Repository owner was able to manually reopen the PR
 - No code was lost
 - PR was eventually merged successfully
 
 **Negative impacts**:
+
 - ~6 minutes of AI work wasted (unaware of closed state)
 - Manual intervention required from repository owner
 - Potential confusion and trust issues with automated systems
@@ -217,4 +227,4 @@ To decompress logs: `gunzip -k *.gz`
 
 ---
 
-*Case study prepared on 2026-02-05*
+_Case study prepared on 2026-02-05_

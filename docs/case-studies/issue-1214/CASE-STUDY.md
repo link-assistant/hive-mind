@@ -62,6 +62,14 @@ The PR was using commit `f081cbe24b8ae27c4364393d566b1b39d4955fb0` from the fork
 ### 4. AI Behavior
 The AI continued working for approximately 6 minutes after the PR was closed before discovering the issue at 19:12:33Z. This indicates a need for more frequent PR state validation.
 
+### 5. Hive-Mind Tool Command
+The solve tool was invoked with:
+```bash
+solve https://github.com/netkeep80/jsonRVM/pull/7 --model opus --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats
+```
+
+**Notably**: The `--auto-close-pull-request-on-fail` flag was **NOT** used, confirming this was not a programmatic closure by the hive-mind tool.
+
 ## Root Cause Analysis
 
 ### Hypothesis 1: GitHub Head Ref Desync (Most Likely)

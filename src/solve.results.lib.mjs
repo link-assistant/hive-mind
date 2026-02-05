@@ -688,11 +688,16 @@ Fixes ${issueRef}
         await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
         // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
+        // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
         const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
         if (shouldAutoRestartForPlaceholder) {
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
-        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder) {
+        const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergable;
+        if (shouldWaitForAutoMerge) {
+          await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
+        }
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
           await safeExit(0, 'Process completed successfully');
         }
         // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
@@ -759,7 +764,9 @@ Fixes ${issueRef}
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
       // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-      if (!argv.watch && !shouldRestart) {
+      // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
+      const shouldWaitForAutoMergeComment = argv.autoMerge || argv.autoRestartUntilMergable;
+      if (!argv.watch && !shouldRestart && !shouldWaitForAutoMergeComment) {
         await safeExit(0, 'Process completed successfully');
       }
       // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
@@ -778,7 +785,9 @@ Fixes ${issueRef}
     const reviewLogPath = path.resolve(getLogFile());
     await log(`   ${reviewLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
+    const shouldWaitForAutoMergeNoAction = argv.autoMerge || argv.autoRestartUntilMergable;
+    if (!argv.watch && !shouldWaitForAutoMergeNoAction) {
       await safeExit(0, 'Process completed successfully');
     }
     // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
@@ -795,7 +804,9 @@ Fixes ${issueRef}
     const checkLogPath = path.resolve(getLogFile());
     await log(`   ${checkLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
+    const shouldWaitForAutoMergeError = argv.autoMerge || argv.autoRestartUntilMergable;
+    if (!argv.watch && !shouldWaitForAutoMergeError) {
       await safeExit(0, 'Process completed successfully');
     }
     // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads

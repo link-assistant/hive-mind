@@ -1178,17 +1178,59 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   }
 
   // This is someone else's fork - add it as pr-fork remote
-  // Determine the fork repository name (might be prefixed if --prefix-fork-name-with-owner-name was used)
-  // Try both standard and prefixed names
-  let prForkRepoName = repo;
-  if (owner && argv.prefixForkNameWithOwnerName) {
-    // When prefix option is enabled, try prefixed name first
-    prForkRepoName = `${owner}-${repo}`;
-  }
+  // IMPORTANT: The fork owner's repository name is independent of our naming preferences
+  // We need to discover the actual fork name, not assume it matches our convention
+  // This fixes issue #1217 where incorrect fork name was used
 
   await log(`${formatAligned('🔗', 'Setting up pr-fork:', "Branch exists in another user's fork")}`);
   await log(`${formatAligned('', 'PR fork owner:', prForkOwner)}`);
   await log(`${formatAligned('', 'Current user:', currentUser)}`);
+
+  // Discover the actual fork repository name by querying GitHub API
+  // The fork could have any name (standard, prefixed, or custom renamed)
+  let prForkRepoName = null;
+
+  // Strategy 1: Query the upstream repo's forks to find this user's fork
+  if (owner) {
+    await log(`${formatAligned('🔍', 'Discovering fork name:', `Searching ${owner}/${repo}/forks for ${prForkOwner}'s fork...`)}`);
+    const forksResult = await $`gh api repos/${owner}/${repo}/forks --paginate --jq '.[] | select(.owner.login == "${prForkOwner}") | .name'`;
+    if (forksResult.code === 0 && forksResult.stdout) {
+      const forkName = forksResult.stdout.toString().trim().split('\n')[0]; // Take first match
+      if (forkName) {
+        prForkRepoName = forkName;
+        await log(`${formatAligned('✅', 'Found fork:', `${prForkOwner}/${prForkRepoName}`)}`);
+      }
+    }
+  }
+
+  // Strategy 2: If not found in forks list, try common naming patterns
+  if (!prForkRepoName) {
+    const possibleNames = [
+      repo, // Standard name: "eo2js"
+      owner ? `${owner}-${repo}` : null, // Prefixed name: "objectionary-eo2js"
+    ].filter(Boolean);
+
+    await log(`${formatAligned('🔍', 'Trying common names:', possibleNames.join(', '))}`);
+
+    for (const candidateName of possibleNames) {
+      const checkResult = await $`gh repo view ${prForkOwner}/${candidateName} --json name 2>/dev/null`;
+      if (checkResult.code === 0) {
+        prForkRepoName = candidateName;
+        await log(`${formatAligned('✅', 'Found fork:', `${prForkOwner}/${prForkRepoName}`)}`);
+        break;
+      }
+    }
+  }
+
+  // If still not found, we cannot proceed
+  if (!prForkRepoName) {
+    await log(`${formatAligned('❌', 'Error:', `Could not find ${prForkOwner}'s fork of ${owner}/${repo}`)}`);
+    await log(`${formatAligned('', 'Checked:', `${prForkOwner}/${repo} and ${prForkOwner}/${owner}-${repo}`)}`);
+    await log(`${formatAligned('', 'Suggestion:', 'The fork may have been deleted or renamed')}`);
+    await log(`${formatAligned('', 'Workaround:', 'Remove --fork flag to continue work in the original fork')}`);
+    return null;
+  }
+
   await log(`${formatAligned('', 'Action:', `Adding ${prForkOwner}/${prForkRepoName} as pr-fork remote`)}`);
 
   const addRemoteResult = await $({
@@ -1224,7 +1266,8 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
 };
 
 // Checkout branch for continue mode (PR branch from remote)
-export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prForkOwner) => {
+// prNumber is optional - when provided, enables PR refs fallback (refs/pull/{number}/head)
+export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prForkOwner, prNumber = null) => {
   await log(`\n${formatAligned('🔄', 'Checking out PR branch:', branchName)}`);
 
   // Determine which remote to use for branch checkout
@@ -1284,6 +1327,32 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
           }
         } else {
           await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch from upstream')}`, { level: 'warning' });
+        }
+      }
+    }
+
+    // FALLBACK: If all remote checks failed and we have a PR number,
+    // use GitHub's special PR refs (refs/pull/{number}/head)
+    // This works regardless of fork naming conventions and doesn't require fork access
+    // See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/checking-out-pull-requests-locally
+    if (checkoutResult.code !== 0 && prNumber) {
+      await log(`${formatAligned('🔄', 'Trying PR refs fallback:', `Fetching refs/pull/${prNumber}/head...`)}`);
+
+      // Fetch the PR head using GitHub's special refs
+      const prRefFetchResult = await $({ cwd: tempDir })`git fetch origin pull/${prNumber}/head:${branchName}`;
+
+      if (prRefFetchResult.code === 0) {
+        await log(`${formatAligned('✅', 'Fetched PR ref:', `refs/pull/${prNumber}/head`)}`);
+        checkoutResult = await $({ cwd: tempDir })`git checkout ${branchName}`;
+
+        if (checkoutResult.code === 0) {
+          await log(`${formatAligned('ℹ️', 'Note:', 'Checked out using GitHub PR refs (fork access not required)')}`);
+          await log(`${formatAligned('', '', 'This is a read-only checkout - you may need to push to a different branch')}`);
+        }
+      } else {
+        await log(`${formatAligned('⚠️', 'PR refs fallback failed:', 'Could not fetch PR head')}`);
+        if (prRefFetchResult.stderr) {
+          await log(`${formatAligned('', 'Details:', prRefFetchResult.stderr.toString().trim())}`);
         }
       }
     }

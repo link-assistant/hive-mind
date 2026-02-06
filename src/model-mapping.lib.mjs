@@ -13,10 +13,16 @@ export const claudeModels = {
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
+  // Shorter version aliases (Issue #1221 - PR comment feedback)
+  'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
+  'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
+  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
+  'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
   // Version aliases for backward compatibility (Issue #1221)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5
+  'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
 };
 
 // Agent models (OpenCode API via agent CLI)

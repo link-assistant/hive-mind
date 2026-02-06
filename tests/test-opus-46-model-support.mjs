@@ -277,6 +277,62 @@ test('getAvailableModelNames includes claude-opus-4-5 alias', () => {
 });
 
 // ============================================================
+// Section 10b: Shorter Alias Tests (Issue #1221 - PR comment feedback)
+// ============================================================
+console.log('\n=== 10b. Shorter Alias Tests ===');
+
+test('opus-4-6 alias maps to claude-opus-4-6', () => {
+  const result = validateModelName('opus-4-6', 'claude');
+  assert(result.valid, `opus-4-6 should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus-4-6 should map to claude-opus-4-6');
+});
+
+test('opus-4-5 alias maps to claude-opus-4-5-20251101', () => {
+  const result = validateModelName('opus-4-5', 'claude');
+  assert(result.valid, `opus-4-5 should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'opus-4-5 should map to claude-opus-4-5-20251101');
+});
+
+test('sonnet-4-5 alias maps to claude-sonnet-4-5-20250929', () => {
+  const result = validateModelName('sonnet-4-5', 'claude');
+  assert(result.valid, `sonnet-4-5 should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-5-20250929', 'sonnet-4-5 should map to claude-sonnet-4-5-20250929');
+});
+
+test('haiku-4-5 alias maps to claude-haiku-4-5-20251001', () => {
+  const result = validateModelName('haiku-4-5', 'claude');
+  assert(result.valid, `haiku-4-5 should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-haiku-4-5-20251001', 'haiku-4-5 should map to claude-haiku-4-5-20251001');
+});
+
+test('opus-4-6[1m] supports 1M context', () => {
+  const result = validateModelName('opus-4-6[1m]', 'claude');
+  assert(result.valid, `opus-4-6[1m] should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6[1m]', 'opus-4-6[1m] should map to claude-opus-4-6[1m]');
+  assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
+});
+
+test('sonnet-4-5[1m] supports 1M context', () => {
+  const result = validateModelName('sonnet-4-5[1m]', 'claude');
+  assert(result.valid, `sonnet-4-5[1m] should be valid, got: ${result.message}`);
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-5-20250929[1m]', 'sonnet-4-5[1m] should map to claude-sonnet-4-5-20250929[1m]');
+  assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
+});
+
+test('mapModelToId handles opus-4-6', () => {
+  const result = mapModelToId('opus-4-6');
+  assert.strictEqual(result, 'claude-opus-4-6', 'mapModelToId should map opus-4-6 to claude-opus-4-6');
+});
+
+test('isOpus46OrLater returns true for opus-4-6', () => {
+  assert.strictEqual(isOpus46OrLater('opus-4-6'), true, 'opus-4-6 should be identified as Opus 4.6+');
+});
+
+test('getMaxOutputTokensForModel returns 128000 for opus-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('opus-4-6'), 128000, 'opus-4-6 should have 128K max output tokens');
+});
+
+// ============================================================
 // Section 11: Case Insensitivity Tests
 // ============================================================
 console.log('\n=== 11. Case Insensitivity Tests ===');

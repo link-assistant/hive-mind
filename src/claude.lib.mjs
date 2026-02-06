@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Claude CLI-related utility functions
-// If not, fetch it (when running standalone)
+// Claude CLI-related utility functions. Fetch use-m if not available.
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
@@ -10,14 +9,14 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
-// Import Claude command builder for generating resume commands
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
-// Import runtime switch module (extracted to maintain file line limits, see issue #1141)
-import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs';
+import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
+import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
+export { availableModels }; // Re-export for backward compatibility
 
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -36,16 +35,21 @@ export const formatNumber = num => {
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
-// Available model configurations
-export const availableModels = {
-  sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  opus: 'claude-opus-4-5-20251101', // Opus 4.5
-  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
-  'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
-};
 // Model mapping to translate aliases to full model IDs
+// Supports [1m] suffix for 1 million token context (Issue #1221)
 export const mapModelToId = model => {
+  if (!model || typeof model !== 'string') {
+    return model;
+  }
+
+  // Check for [1m] suffix (case-insensitive)
+  const match = model.match(/^(.+?)\[1m\]$/i);
+  if (match) {
+    const baseModel = match[1];
+    const mappedBase = availableModels[baseModel] || baseModel;
+    return `${mappedBase}[1m]`;
+  }
+
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
@@ -218,9 +222,7 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // Start the validation with retry logic
   return await attemptValidation();
 };
-// handleClaudeRuntimeSwitch is imported from ./claude.runtime-switch.lib.mjs (see issue #1141)
-// Re-export it for backwards compatibility
-export { handleClaudeRuntimeSwitch };
+export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
 
 // Store Claude Code version globally (set during validation)
 let detectedClaudeVersion = null;
@@ -913,8 +915,10 @@ export const executeClaudeCommand = async params => {
 
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
       // and MCP timeout configurations (see issue #1066)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
-      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      // Pass model for model-specific max output tokens (Issue #1221)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel });
+      const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
+      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {

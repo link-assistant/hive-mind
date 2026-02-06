@@ -37,7 +37,7 @@ export const QUEUE_CONFIG = {
   RAM_THRESHOLD: 0.65, // Enqueue if RAM usage >= 65%
   // CPU threshold uses 5-minute load average, not instantaneous CPU usage
   CPU_THRESHOLD: 0.65, // Enqueue if 5-minute load average >= 65% of CPU count
-  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%, tuned to VM with 100 GB drive
+  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%, tuned for VM with 100 GB drive
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)

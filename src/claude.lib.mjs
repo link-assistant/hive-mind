@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// Claude CLI-related utility functions
-// If not, fetch it (when running standalone)
+// Claude CLI-related utility functions. Fetch use-m if not available.
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
@@ -14,10 +13,10 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
-// Import Claude command builder for generating resume commands
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
-// Import runtime switch module (extracted to maintain file line limits, see issue #1141)
-import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs';
+import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
+import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
+export { availableModels }; // Re-export for backward compatibility
 
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -35,25 +34,6 @@ export const formatNumber = num => {
   const decimalPart = parts[1];
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-};
-// Available model configurations
-// Updated for Opus 4.6 support (Issue #1221)
-export const availableModels = {
-  sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  opus: 'claude-opus-4-6', // Opus 4.6 (latest)
-  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
-  'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
-  // Shorter version aliases (Issue #1221 - PR comment feedback)
-  'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
-  'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
-  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
-  'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221)
-  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
-  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
-  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
 };
 // Model mapping to translate aliases to full model IDs
 // Supports [1m] suffix for 1 million token context (Issue #1221)
@@ -242,9 +222,7 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // Start the validation with retry logic
   return await attemptValidation();
 };
-// handleClaudeRuntimeSwitch is imported from ./claude.runtime-switch.lib.mjs (see issue #1141)
-// Re-export it for backwards compatibility
-export { handleClaudeRuntimeSwitch };
+export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
 
 // Store Claude Code version globally (set during validation)
 let detectedClaudeVersion = null;

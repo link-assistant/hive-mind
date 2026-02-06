@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.16.1
+
+### Patch Changes
+
+- f596d3e: Fix branch checkout failure when PR is from fork with different naming convention
+
 ## 1.16.0
 
 ### Minor Changes

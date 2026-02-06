@@ -25,18 +25,18 @@ opusplan  Special mode that uses opus during plan mode, then switches to sonnet 
 
 ### Configuration Methods in Claude Code
 
-| Method | Example |
-|--------|---------|
-| At startup | `claude --model opusplan` |
-| During session | `/model opusplan` |
+| Method               | Example                    |
+| -------------------- | -------------------------- |
+| At startup           | `claude --model opusplan`  |
+| During session       | `/model opusplan`          |
 | Environment variable | `ANTHROPIC_MODEL=opusplan` |
-| Settings file | `{ "model": "opusplan" }` |
+| Settings file        | `{ "model": "opusplan" }`  |
 
 ### Environment Variables
 
-| Variable | Role |
-|----------|------|
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Model used for `opus` or for `opusplan` when Plan Mode is active |
+| Variable                         | Role                                                                   |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL`   | Model used for `opus` or for `opusplan` when Plan Mode is active       |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | Model used for `sonnet` or for `opusplan` when Plan Mode is not active |
 
 ## Requirements from Issue
@@ -56,6 +56,7 @@ CLI Arguments (--model) → yargs parsing → validateModelName() → mapModelTo
 ```
 
 Key files involved:
+
 - `src/model-validation.lib.mjs` - CLAUDE_MODELS map, validation logic
 - `src/model-mapping.lib.mjs` - Unified model mapping
 - `src/claude.lib.mjs` - mapModelToId(), executeClaudeCommand()
@@ -66,6 +67,7 @@ Key files involved:
 ### How `opusplan` Works in Claude Code
 
 In Claude Code's internal implementation:
+
 1. `opusplan` is recognized as a special model alias
 2. When passed as `--model opusplan`, Claude Code internally:
    - Uses Opus for planning subagent operations
@@ -75,9 +77,20 @@ In Claude Code's internal implementation:
 ### Implementation Strategy
 
 Since `opusplan` is handled by Claude Code internally:
+
 1. **Model validation**: Add `opusplan` as a valid alias that maps to itself (passthrough)
 2. **CLI option**: Add `--plan-model` for explicit plan model specification
-3. **Execution**: When `--plan-model` is specified, set `ANTHROPIC_DEFAULT_OPUS_MODEL` env var
+3. **Auto-switch to opusplan**: When `--plan-model` is specified, automatically switch to `opusplan` mode
+4. **Dual env vars**: Set `ANTHROPIC_DEFAULT_OPUS_MODEL` (plan model) and `ANTHROPIC_DEFAULT_SONNET_MODEL` (execution model)
+
+### Experiment Results
+
+Verified locally with Claude Code 2.1.33:
+
+- `--model opusplan` is accepted and correctly uses Sonnet for execution
+- `ANTHROPIC_DEFAULT_OPUS_MODEL` overrides the plan-mode model (verified with `--model opus`)
+- `ANTHROPIC_DEFAULT_SONNET_MODEL` overrides the execution-mode model in opusplan
+- Both env vars together enable arbitrary plan/execution combinations (e.g., sonnet for planning, haiku for execution)
 
 ## Known Issues and History
 

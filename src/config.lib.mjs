@@ -222,7 +222,10 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
-// Supports planModel for setting ANTHROPIC_DEFAULT_OPUS_MODEL (Issue #1223)
+// Supports planModel/executionModel for opusplan mode (Issue #1223)
+// See: https://code.claude.com/docs/en/model-config
+//   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
+//   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -232,8 +235,6 @@ export const getClaudeEnv = (options = {}) => {
     CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens),
     // MCP timeout configurations to prevent tool calls from hanging indefinitely
     // See: https://github.com/link-assistant/hive-mind/issues/1066
-    // MCP_TIMEOUT: Timeout for MCP server startup
-    // MCP_TOOL_TIMEOUT: Timeout for MCP tool execution (the one that prevents stuck tools)
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
@@ -244,10 +245,15 @@ export const getClaudeEnv = (options = {}) => {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
   }
   // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
-  // This tells Claude Code which model to use during plan mode
-  // See: https://code.claude.com/docs/en/model-config
+  // This tells Claude Code which model to use during plan mode in opusplan
   if (options.planModel) {
     env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(options.planModel);
+  }
+  // Set ANTHROPIC_DEFAULT_SONNET_MODEL when executionModel is specified (Issue #1223)
+  // This tells Claude Code which model to use during execution mode in opusplan
+  // Enables combinations like --plan-model opus --model haiku
+  if (options.executionModel) {
+    env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
   }
   return env;
 };

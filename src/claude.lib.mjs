@@ -432,12 +432,6 @@ export const executeClaude = async params => {
   });
 };
 /**
- * Calculate total token usage from a session's JSONL file
- * @param {string} sessionId - The session ID
- * @param {string} tempDir - The temporary directory where the session ran
- * @returns {Object} Token usage statistics
- */
-/**
  * Fetches model information from pricing API
  * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
  * @returns {Promise<Object|null>} Model information or null if not found
@@ -882,8 +876,12 @@ export const executeClaudeCommand = async params => {
     let execCommand;
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
+    // Issue #1223: When --plan-model is specified, auto-switch to opusplan mode
+    const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined;
+    const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
+    const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
     // Build claude command arguments
-    let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
+    let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
@@ -913,15 +911,16 @@ export const executeClaudeCommand = async params => {
       // See issue #1146 for details on thinking budget translation
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
 
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
-      // and MCP timeout configurations (see issue #1066)
-      // Pass model for model-specific max output tokens (Issue #1221)
-      // Pass planModel for ANTHROPIC_DEFAULT_OPUS_MODEL (Issue #1223)
-      const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined;
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, planModel: resolvedPlanModel });
-      const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
+      // Build Claude env: MAX_OUTPUT_TOKENS (#1076), MAX_THINKING_TOKENS (#1146), MCP timeouts (#1066),
+      // planModel/executionModel for opusplan (#1223, resolved above)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel });
+      const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
-      if (resolvedPlanModel && argv.verbose) await log(`📊 ANTHROPIC_DEFAULT_OPUS_MODEL: ${resolvedPlanModel} (--plan-model)`, { verbose: true });
+      if (resolvedPlanModel && argv.verbose) {
+        await log(`📊 ANTHROPIC_DEFAULT_OPUS_MODEL: ${resolvedPlanModel} (--plan-model → plan mode)`, { verbose: true });
+        await log(`📊 ANTHROPIC_DEFAULT_SONNET_MODEL: ${resolvedExecutionModel} (--model → execution mode)`, { verbose: true });
+        await log(`📊 Effective model: opusplan (auto-switched for plan/execution split)`, { verbose: true });
+      }
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {
@@ -931,15 +930,12 @@ export const executeClaudeCommand = async params => {
       if (!isNewVersion && thinkLevel) {
         await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       }
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
-        const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
-        const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

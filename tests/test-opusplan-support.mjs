@@ -117,9 +117,9 @@ test('getDefaultMaxThinkingBudgetForModel returns 64000 for opusplan', () => {
 });
 
 // ============================================================
-// Section 6: getClaudeEnv with planModel
+// Section 6: getClaudeEnv with planModel and executionModel
 // ============================================================
-console.log('\n=== 6. getClaudeEnv with planModel ===');
+console.log('\n=== 6. getClaudeEnv with planModel and executionModel ===');
 
 test('getClaudeEnv sets ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is provided', () => {
   const env = getClaudeEnv({ planModel: 'claude-opus-4-6' });
@@ -128,7 +128,6 @@ test('getClaudeEnv sets ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is provided'
 
 test('getClaudeEnv does not set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is not provided', () => {
   const env = getClaudeEnv({});
-  // Should not have ANTHROPIC_DEFAULT_OPUS_MODEL unless it was already in process.env
   const hasKey = 'ANTHROPIC_DEFAULT_OPUS_MODEL' in env && !('ANTHROPIC_DEFAULT_OPUS_MODEL' in process.env);
   assert.strictEqual(hasKey, false, 'Should not set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is not provided');
 });
@@ -137,6 +136,41 @@ test('getClaudeEnv sets both model and planModel correctly', () => {
   const env = getClaudeEnv({ model: 'opusplan', planModel: 'claude-opus-4-6' });
   assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4-6', 'Should set ANTHROPIC_DEFAULT_OPUS_MODEL');
   assert.strictEqual(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '128000', 'opusplan should get 128K max output tokens');
+});
+
+test('getClaudeEnv sets ANTHROPIC_DEFAULT_SONNET_MODEL when executionModel is provided', () => {
+  const env = getClaudeEnv({ executionModel: 'claude-haiku-4-5-20251001' });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-haiku-4-5-20251001', 'Should set ANTHROPIC_DEFAULT_SONNET_MODEL');
+});
+
+test('getClaudeEnv does not set ANTHROPIC_DEFAULT_SONNET_MODEL when executionModel is not provided', () => {
+  const env = getClaudeEnv({});
+  const hasKey = 'ANTHROPIC_DEFAULT_SONNET_MODEL' in env && !('ANTHROPIC_DEFAULT_SONNET_MODEL' in process.env);
+  assert.strictEqual(hasKey, false, 'Should not set ANTHROPIC_DEFAULT_SONNET_MODEL when executionModel is not provided');
+});
+
+test('getClaudeEnv configures full plan/execution split (--plan-model opus --model haiku)', () => {
+  // This simulates: --plan-model opus --model haiku
+  // The code auto-switches to opusplan and sets both env vars
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-opus-4-6',
+    executionModel: 'claude-haiku-4-5-20251001',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4-6', 'Plan model should be opus');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-haiku-4-5-20251001', 'Execution model should be haiku');
+  assert.strictEqual(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '128000', 'opusplan should get 128K max output tokens');
+});
+
+test('getClaudeEnv configures --plan-model sonnet --model haiku', () => {
+  // Verifies the reviewer-requested combination works
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-sonnet-4-5-20250929',
+    executionModel: 'claude-haiku-4-5-20251001',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-sonnet-4-5-20250929', 'Plan model should be sonnet');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-haiku-4-5-20251001', 'Execution model should be haiku');
 });
 
 // ============================================================

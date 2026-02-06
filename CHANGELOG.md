@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.15.2
+
+### Patch Changes
+
+- 5723a93: fix: prevent early exit when --auto-merge flag is used
+
+  The `verifyResults()` function was calling `safeExit(0)` before the auto-merge logic could run. This caused the `--auto-merge` flag to be silently ignored. Now the exit condition properly checks for `argv.autoMerge` and `argv.autoRestartUntilMergable` flags.
+
 ## 1.15.1
 
 ### Patch Changes

@@ -91,13 +91,18 @@ export const retryLimits = {
 
 // Claude Code CLI configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1076
-// Claude models support up to 64K output tokens, but Claude Code CLI defaults to 32K
+// Claude models support different max output tokens:
+// - Opus 4.6: 128K tokens (Issue #1221)
+// - Sonnet 4.5, Opus 4.5, Haiku 4.5: 64K tokens
 // Setting a higher limit allows Claude to generate longer responses without hitting the limit
 export const claudeCode = {
   // Maximum output tokens for Claude Code CLI responses
   // Default: 64000 (matches Claude Sonnet/Opus/Haiku 4.5 model capabilities)
   // Set via CLAUDE_CODE_MAX_OUTPUT_TOKENS or HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS
   maxOutputTokens: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS', 64000)),
+  // Maximum output tokens for Opus 4.6 (Issue #1221)
+  // See: https://platform.claude.com/docs/en/about-claude/models/overview
+  maxOutputTokensOpus46: parseIntWithDefault('CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46', parseIntWithDefault('HIVE_MIND_CLAUDE_CODE_MAX_OUTPUT_TOKENS_OPUS_46', 128000)),
   // MCP (Model Context Protocol) timeout configurations
   // See: https://github.com/link-assistant/hive-mind/issues/1066
   // See: https://code.claude.com/docs/en/settings#environment-variables
@@ -113,6 +118,47 @@ export const claudeCode = {
 // This is the default value used by Claude Code when extended thinking is enabled
 // Can be overridden via --max-thinking-budget option
 export const DEFAULT_MAX_THINKING_BUDGET = 31999;
+
+// Default max thinking budget for Opus 4.6 (Issue #1221)
+// Opus 4.6 supports higher thinking budgets due to 128K max output tokens
+// Can be overridden via --max-thinking-budget option or HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46
+export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 64000);
+
+/**
+ * Check if a model is Opus 4.6 or later (Issue #1221)
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Opus 4.6 or later
+ */
+export const isOpus46OrLater = model => {
+  if (!model) return false;
+  const normalizedModel = model.toLowerCase();
+  // Check for opus alias (which maps to 4.6) or explicit opus-4-6
+  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+};
+
+/**
+ * Get the max output tokens for a specific model (Issue #1221)
+ * @param {string} model - The model name or ID
+ * @returns {number} The max output tokens for the model
+ */
+export const getMaxOutputTokensForModel = model => {
+  if (isOpus46OrLater(model)) {
+    return claudeCode.maxOutputTokensOpus46;
+  }
+  return claudeCode.maxOutputTokens;
+};
+
+/**
+ * Get the default max thinking budget for a specific model (Issue #1221)
+ * @param {string} model - The model name or ID
+ * @returns {number} The default max thinking budget for the model
+ */
+export const getDefaultMaxThinkingBudgetForModel = model => {
+  if (isOpus46OrLater(model)) {
+    return DEFAULT_MAX_THINKING_BUDGET_OPUS_46;
+  }
+  return DEFAULT_MAX_THINKING_BUDGET;
+};
 
 /**
  * Get thinking level token values calculated from max budget
@@ -174,10 +220,14 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Helper function to get Claude CLI environment with CLAUDE_CODE_MAX_OUTPUT_TOKENS set
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
+// Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
 export const getClaudeEnv = (options = {}) => {
+  // Get max output tokens based on model (Issue #1221)
+  const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
+
   const env = {
     ...process.env,
-    CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(claudeCode.maxOutputTokens),
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens),
     // MCP timeout configurations to prevent tool calls from hanging indefinitely
     // See: https://github.com/link-assistant/hive-mind/issues/1066
     // MCP_TIMEOUT: Timeout for MCP server startup
@@ -187,7 +237,7 @@ export const getClaudeEnv = (options = {}) => {
   };
   // Set MAX_THINKING_TOKENS if thinkingBudget is provided
   // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 31999, set to 0 to disable thinking, max is 63999 for 64K output models
+  // Default is 31999 (or 64000 for Opus 4.6), set to 0 to disable thinking
   if (options.thinkingBudget !== undefined) {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
   }

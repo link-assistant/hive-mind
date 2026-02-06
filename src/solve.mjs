@@ -539,11 +539,15 @@ try {
   });
 
   // Verify default branch and status using the new module
+  // Pass argv, owner, repo for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
     log,
     formatAligned,
     $,
+    argv,
+    owner,
+    repo,
   });
   // Create or checkout branch using the new module
   const branchName = await createOrCheckoutBranch({

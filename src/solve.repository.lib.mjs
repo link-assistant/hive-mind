@@ -328,8 +328,9 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
 };
 
 // Try to initialize an empty repository by creating a simple README.md
-// This makes the repository forkable
-const tryInitializeEmptyRepository = async (owner, repo) => {
+// This makes the repository forkable and allows branch creation
+// Exported for use in solve.repo-setup.lib.mjs (direct access path for empty repos)
+export const tryInitializeEmptyRepository = async (owner, repo) => {
   try {
     await log(`${formatAligned('🔧', 'Auto-fix:', 'Attempting to initialize empty repository...')}`);
 

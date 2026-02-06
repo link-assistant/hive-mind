@@ -359,6 +359,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
     default: false,
   },
+  'auto-init-repository': {
+    type: 'boolean',
+    description: 'Automatically initialize empty repositories by creating a simple README.md file. Only works when you have write access to the repository. This allows branch creation and pull request workflows to proceed on repositories that have no commits.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication

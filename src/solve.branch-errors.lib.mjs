@@ -232,15 +232,35 @@ export async function handleBranchCreationError({ branchName, errorOutput, tempD
     await log(`     ${line}`);
   }
   await log('');
-  await log('  💡 Possible causes:');
-  await log('     • Branch name already exists');
-  await log('     • Uncommitted changes in repository');
-  await log('     • Git configuration issues');
-  await log('');
-  await log('  🔧 How to fix:');
-  await log('     1. Try running the command again (uses random names)');
-  await log(`     2. Check git status: cd ${tempDir} && git status`);
-  await log(`     3. View existing branches: cd ${tempDir} && git branch -a`);
+
+  // Check if this is an empty repository error (no commits to branch from)
+  const isEmptyRepoError = errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision');
+  if (isEmptyRepoError) {
+    await log('  💡 Root cause:');
+    await log('     The repository appears to be empty (no commits).');
+    await log('     Cannot create a branch from a non-existent commit.');
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     Use the --auto-init-repository flag to automatically initialize the repository:');
+    if (owner && repo) {
+      await log(`       solve https://github.com/${owner}/${repo}/issues/<number> --auto-init-repository`);
+    } else {
+      await log('       solve <issue-url> --auto-init-repository');
+    }
+    await log('');
+    await log('     This will create a simple README.md file to make the repository non-empty,');
+    await log('     allowing branch creation and pull request workflows to proceed.');
+  } else {
+    await log('  💡 Possible causes:');
+    await log('     • Branch name already exists');
+    await log('     • Uncommitted changes in repository');
+    await log('     • Git configuration issues');
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     1. Try running the command again (uses random names)');
+    await log(`     2. Check git status: cd ${tempDir} && git status`);
+    await log(`     3. View existing branches: cd ${tempDir} && git branch -a`);
+  }
 }
 
 export async function handleBranchVerificationError({ isContinueMode, branchName, actualBranch, prNumber, owner, repo, tempDir, formatAligned, log, $ }) {

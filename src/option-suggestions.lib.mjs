@@ -215,6 +215,7 @@ const KNOWN_OPTION_NAMES = [
   'prompt-examples-folder',
   'session-type',
   'working-directory',
+  'auto-init-repository',
 ];
 
 /**

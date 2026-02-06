@@ -60,9 +60,14 @@ export const createYargsConfig = yargsInstance => {
     })
     .option('model', {
       type: 'string',
-      description: 'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
+      description: 'Model to use for solve (opus, sonnet, haiku, opusplan, haiku-3-5, haiku-3, or any model ID supported by the tool)',
       alias: 'm',
       default: 'sonnet',
+    })
+    .option('plan-model', {
+      type: 'string',
+      description: 'Model to use for plan mode (e.g., opus). When specified, sets ANTHROPIC_DEFAULT_OPUS_MODEL for Claude Code. Use with --model to set separate plan and execution models (e.g., --plan-model opus --model sonnet). Only works with --tool claude.',
+      default: undefined,
     })
     .option('interval', {
       type: 'number',

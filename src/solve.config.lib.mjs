@@ -92,7 +92,7 @@ export const createYargsConfig = yargsInstance => {
       })
       .option('model', {
         type: 'string',
-        description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
+        description: 'Model to use (for claude: opus, sonnet, haiku, opusplan, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
         alias: 'm',
         default: currentParsedArgs => {
           // Dynamic default based on tool selection
@@ -105,6 +105,11 @@ export const createYargsConfig = yargsInstance => {
           }
           return 'sonnet';
         },
+      })
+      .option('plan-model', {
+        type: 'string',
+        description: 'Model to use for plan mode (e.g., opus). When specified, sets ANTHROPIC_DEFAULT_OPUS_MODEL for Claude Code. Use with --model to set separate plan and execution models (e.g., --plan-model opus --model sonnet). Only works with --tool claude.',
+        default: undefined,
       })
       .option('auto-pull-request-creation', {
         type: 'boolean',

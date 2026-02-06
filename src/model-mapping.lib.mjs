@@ -13,6 +13,7 @@ export const claudeModels = {
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
+  opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
   // Shorter version aliases (Issue #1221 - PR comment feedback)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
@@ -96,8 +97,8 @@ export const isModelCompatibleWithTool = (tool, model) => {
 
   switch (tool) {
     case 'claude':
-      // Claude only accepts models in the claude- namespace
-      return mappedModel.startsWith('claude-');
+      // Claude accepts models in the claude- namespace or special aliases like opusplan (Issue #1223)
+      return mappedModel.startsWith('claude-') || mappedModel === 'opusplan';
     case 'agent':
       // Agent accepts any model with provider prefix (opencode/, anthropic/, etc.)
       // or models in the agentModels list

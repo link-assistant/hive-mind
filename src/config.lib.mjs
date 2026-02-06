@@ -132,8 +132,9 @@ export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIN
 export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // Check for opus alias (which maps to 4.6) or explicit opus-4-6
-  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // Check for opus alias (which maps to 4.6), explicit opus-4-6, or opusplan (Issue #1223)
+  // opusplan uses Opus 4.6 for planning, so it should get Opus-level settings
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**
@@ -221,6 +222,7 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
+// Supports planModel for setting ANTHROPIC_DEFAULT_OPUS_MODEL (Issue #1223)
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -240,6 +242,12 @@ export const getClaudeEnv = (options = {}) => {
   // Default is 31999 (or 64000 for Opus 4.6), set to 0 to disable thinking
   if (options.thinkingBudget !== undefined) {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
+  }
+  // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
+  // This tells Claude Code which model to use during plan mode
+  // See: https://code.claude.com/docs/en/model-config
+  if (options.planModel) {
+    env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(options.planModel);
   }
   return env;
 };
@@ -299,6 +307,7 @@ const defaultAvailableModels = `(
   opus
   sonnet
   haiku
+  opusplan
 )`;
 
 export const modelConfig = {

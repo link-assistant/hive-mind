@@ -462,6 +462,15 @@ if (isDirectExecution) {
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
+    // Validate --plan-model if provided (Issue #1223)
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
+
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
     // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
@@ -761,6 +770,7 @@ if (isDirectExecution) {
             if (argv.think) args.push('--think', argv.think);
             if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
             if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
+            if (argv.planModel) args.push('--plan-model', argv.planModel);
             if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
             if (!argv.sentry) args.push('--no-sentry');
             if (argv.watch) args.push('--watch');

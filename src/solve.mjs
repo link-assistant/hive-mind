@@ -224,6 +224,15 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
+// Validate --plan-model if provided (Issue #1223)
+if (argv.planModel) {
+  if (tool !== 'claude') {
+    await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    await safeExit(1, '--plan-model requires --tool claude');
+  }
+  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+}
+
 // Perform all system checks using validation module
 // Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
 // Note: This does NOT skip model validation which is performed above

@@ -916,9 +916,12 @@ export const executeClaudeCommand = async params => {
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
       // and MCP timeout configurations (see issue #1066)
       // Pass model for model-specific max output tokens (Issue #1221)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel });
+      // Pass planModel for ANTHROPIC_DEFAULT_OPUS_MODEL (Issue #1223)
+      const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined;
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, planModel: resolvedPlanModel });
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
+      if (resolvedPlanModel && argv.verbose) await log(`📊 ANTHROPIC_DEFAULT_OPUS_MODEL: ${resolvedPlanModel} (--plan-model)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {

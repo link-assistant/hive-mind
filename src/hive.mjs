@@ -745,35 +745,22 @@ if (isDirectExecution) {
             const startTime = Date.now();
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-            // Build arguments array using automatic solve option forwarding.
-            // This loop auto-forwards all solve-passthrough options from hive argv to solve,
-            // eliminating the need for manual if statements per option.
-            // New options added to solve.config.lib.mjs are automatically forwarded.
+            // Auto-forward all solve-passthrough options from hive argv to solve.
+            // New options added to SOLVE_OPTION_DEFINITIONS are automatically forwarded.
             // See: https://github.com/link-assistant/hive-mind/issues/1209
             const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
             const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
             const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
-
-            // Special handling: hive uses --target-branch but solve uses --base-branch
+            // Special handling for options with different semantics in hive vs solve
             if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
             else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default
 
-            // Special handling: --skip-tool-connection-check consolidation
-            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
-              args.push('--skip-tool-connection-check');
-            }
-
-            // Options handled above or via deprecated aliases (skip in generic loop)
-            const SKIP_AUTO_FORWARD = new Set([
-              'model', // always pushed as first positional arg pair
-              'base-branch', // special mapping from target-branch above
-              'skip-tool-connection-check', // consolidated with tool-connection-check above
-              'tool-connection-check', // consolidated above
-              'skip-tool-check', // deprecated alias
-              'skip-claude-check', // deprecated alias
-              'tool-check', // deprecated alias
-            ]);
+            // Options already handled above or deprecated aliases (skip in generic loop)
+            const SKIP_AUTO_FORWARD = new Set(['model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
 
             for (const optionName of getSolvePassthroughOptionNames()) {
               if (SKIP_AUTO_FORWARD.has(optionName)) continue;
@@ -781,20 +768,16 @@ if (isDirectExecution) {
               const value = argv[camelName];
               const def = SOLVE_OPTION_DEFINITIONS[optionName];
               if (!def) continue;
-
               if (def.type === 'boolean') {
                 if (value === undefined) continue;
                 // For booleans with default true or undefined, forward both --flag and --no-flag
                 if (def.default === true || def.default === undefined) {
                   args.push(value ? `--${optionName}` : `--no-${optionName}`);
-                } else {
-                  // Default false: only forward when truthy
-                  if (value) args.push(`--${optionName}`);
+                } else if (value) {
+                  args.push(`--${optionName}`); // Default false: only forward when truthy
                 }
-              } else if (def.type === 'string' || def.type === 'number') {
-                if (value !== undefined) {
-                  args.push(`--${optionName}`, String(value));
-                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+                args.push(`--${optionName}`, String(value));
               }
             }
             // Log the actual command being executed so users can investigate/reproduce

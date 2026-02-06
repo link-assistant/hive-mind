@@ -10,7 +10,7 @@ const path = (await use('path')).default;
 // Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
@@ -37,15 +37,33 @@ export const formatNumber = num => {
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
 // Available model configurations
+// Updated for Opus 4.6 support (Issue #1221)
 export const availableModels = {
   sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  opus: 'claude-opus-4-5-20251101', // Opus 4.5
+  opus: 'claude-opus-4-6', // Opus 4.6 (latest)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
+  // Version aliases for backward compatibility (Issue #1221)
+  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
+  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
+  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5
 };
 // Model mapping to translate aliases to full model IDs
+// Supports [1m] suffix for 1 million token context (Issue #1221)
 export const mapModelToId = model => {
+  if (!model || typeof model !== 'string') {
+    return model;
+  }
+
+  // Check for [1m] suffix (case-insensitive)
+  const match = model.match(/^(.+?)\[1m\]$/i);
+  if (match) {
+    const baseModel = match[1];
+    const mappedBase = availableModels[baseModel] || baseModel;
+    return `${mappedBase}[1m]`;
+  }
+
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
@@ -913,8 +931,10 @@ export const executeClaudeCommand = async params => {
 
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
       // and MCP timeout configurations (see issue #1066)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget });
-      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      // Pass model for model-specific max output tokens (Issue #1221)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel });
+      const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
+      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {

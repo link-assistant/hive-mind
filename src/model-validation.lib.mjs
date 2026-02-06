@@ -15,10 +15,15 @@ import { log } from './lib.mjs';
 export const CLAUDE_MODELS = {
   // Short aliases
   sonnet: 'claude-sonnet-4-5-20250929',
-  opus: 'claude-opus-4-5-20251101',
+  opus: 'claude-opus-4-6', // Updated to Opus 4.6 (Issue #1221)
   haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
   'haiku-3': 'claude-3-haiku-20240307',
+  // Opus version aliases (Issue #1221)
+  'claude-opus-4-6': 'claude-opus-4-6', // Latest Opus
+  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Backward compatibility alias
+  // Sonnet version aliases
+  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
   // Full model IDs (also valid inputs)
   'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
   'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
@@ -26,6 +31,10 @@ export const CLAUDE_MODELS = {
   'claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
   'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
+
+// Models that support 1M token context window via [1m] suffix (Issue #1221)
+// See: https://code.claude.com/docs/en/model-config
+export const MODELS_SUPPORTING_1M_CONTEXT = ['claude-opus-4-6', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4-5', 'sonnet', 'opus'];
 
 export const OPENCODE_MODELS = {
   gpt4: 'openai/gpt-4',
@@ -197,10 +206,65 @@ export const findSimilarModels = (input, validModels, maxSuggestions = 3, maxDis
 };
 
 /**
+ * Parse model name to extract base model and optional [1m] suffix
+ * @param {string} model - The model name (e.g., "opus[1m]", "claude-opus-4-6[1m]")
+ * @returns {{ baseModel: string, has1mSuffix: boolean }}
+ */
+export const parseModelWith1mSuffix = model => {
+  if (!model || typeof model !== 'string') {
+    return { baseModel: model, has1mSuffix: false };
+  }
+
+  // Check for [1m] suffix (case-insensitive)
+  const match = model.match(/^(.+?)\[1m\]$/i);
+  if (match) {
+    return { baseModel: match[1], has1mSuffix: true };
+  }
+
+  return { baseModel: model, has1mSuffix: false };
+};
+
+/**
+ * Check if a model supports the [1m] context window
+ * @param {string} model - The base model name (without [1m] suffix)
+ * @param {string} tool - The tool name
+ * @returns {boolean} True if the model supports 1M context
+ */
+export const supports1mContext = (model, tool = 'claude') => {
+  if (tool !== 'claude') {
+    return false;
+  }
+
+  const normalizedModel = model.toLowerCase();
+
+  // Check if the model or its mapped version supports 1M context
+  for (const supportedModel of MODELS_SUPPORTING_1M_CONTEXT) {
+    if (supportedModel.toLowerCase() === normalizedModel) {
+      return true;
+    }
+  }
+
+  // Also check if the mapped model supports 1M context
+  const modelMap = getModelMapForTool(tool);
+  const matchedKey = Object.keys(modelMap).find(key => key.toLowerCase() === normalizedModel);
+  if (matchedKey) {
+    const mappedModel = modelMap[matchedKey];
+    for (const supportedModel of MODELS_SUPPORTING_1M_CONTEXT) {
+      if (supportedModel.toLowerCase() === mappedModel.toLowerCase()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
+/**
  * Validate a model name against the available models for a tool
- * @param {string} model - The model name to validate
+ * Supports [1m] suffix for 1 million token context (Issue #1221)
+ * @param {string} model - The model name to validate (e.g., "opus", "opus[1m]", "claude-opus-4-6[1m]")
  * @param {string} tool - The tool name ('claude', 'opencode', 'codex')
- * @returns {{ valid: boolean, message?: string, suggestions?: string[] }}
+ * @returns {{ valid: boolean, message?: string, suggestions?: string[], mappedModel?: string, has1mSuffix?: boolean }}
  */
 export const validateModelName = (model, tool = 'claude') => {
   if (!model || typeof model !== 'string') {
@@ -211,23 +275,47 @@ export const validateModelName = (model, tool = 'claude') => {
     };
   }
 
+  // Parse [1m] suffix (Issue #1221)
+  const { baseModel, has1mSuffix } = parseModelWith1mSuffix(model);
+
   const modelMap = getModelMapForTool(tool);
   const availableNames = Object.keys(modelMap);
 
   // Case-insensitive exact match
-  const normalizedModel = model.toLowerCase();
+  const normalizedModel = baseModel.toLowerCase();
   const matchedKey = availableNames.find(key => key.toLowerCase() === normalizedModel);
 
   if (matchedKey) {
+    const mappedModel = modelMap[matchedKey];
+
+    // If [1m] suffix is present, validate it's supported
+    if (has1mSuffix) {
+      if (!supports1mContext(baseModel, tool)) {
+        const supportedModels = MODELS_SUPPORTING_1M_CONTEXT.filter(m => !m.includes('-')).join(', ');
+        return {
+          valid: false,
+          message: `Model "${baseModel}" does not support [1m] context window.\n   Models supporting 1M context: ${supportedModels}`,
+          suggestions: [],
+        };
+      }
+      // Return the mapped model with [1m] suffix appended
+      return {
+        valid: true,
+        mappedModel: `${mappedModel}[1m]`,
+        has1mSuffix: true,
+      };
+    }
+
     return {
       valid: true,
-      mappedModel: modelMap[matchedKey],
+      mappedModel,
+      has1mSuffix: false,
     };
   }
 
   // Model not found - provide helpful error with suggestions
   const shortNames = getAvailableModelNames(tool);
-  const suggestions = findSimilarModels(model, shortNames);
+  const suggestions = findSimilarModels(baseModel, shortNames);
 
   let message = `Unrecognized model: "${model}"`;
 
@@ -236,6 +324,11 @@ export const validateModelName = (model, tool = 'claude') => {
   }
 
   message += `\n   Available models for ${tool}: ${shortNames.join(', ')}`;
+
+  // Add hint about [1m] suffix if available
+  if (tool === 'claude') {
+    message += `\n   Tip: Use [1m] suffix for 1M context (e.g., opus[1m], sonnet[1m])`;
+  }
 
   return {
     valid: false,

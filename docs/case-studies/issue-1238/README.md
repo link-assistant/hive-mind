@@ -47,12 +47,12 @@ From [Claude Code Settings](https://code.claude.com/docs/en/settings):
 
 ### Key Facts
 
-| Setting | Claude Code Default | Hive-Mind Before Fix | Hive-Mind After Fix |
-|---------|-------------------|---------------------|-------------------|
-| Thinking enabled by default? | Yes (31,999 tokens) | Yes (passthrough) | **No (0 tokens)** |
-| MAX_THINKING_TOKENS default | 31,999 | Not set (undefined) | **0** |
-| Opus 4.6 max thinking budget | N/A (uses effort level) | 64,000 | **31,999** |
-| Standard model max budget | 31,999 | 31,999 | 31,999 (unchanged) |
+| Setting                      | Claude Code Default     | Hive-Mind Before Fix | Hive-Mind After Fix |
+| ---------------------------- | ----------------------- | -------------------- | ------------------- |
+| Thinking enabled by default? | Yes (31,999 tokens)     | Yes (passthrough)    | **No (0 tokens)**   |
+| MAX_THINKING_TOKENS default  | 31,999                  | Not set (undefined)  | **0**               |
+| Opus 4.6 max thinking budget | N/A (uses effort level) | 64,000               | **31,999**          |
+| Standard model max budget    | 31,999                  | 31,999               | 31,999 (unchanged)  |
 
 ### Opus 4.6 Thinking Behavior
 
@@ -78,6 +78,7 @@ For Opus 4.6, Claude Code uses `CLAUDE_CODE_EFFORT_LEVEL` (default: `high`) inst
 #### Default Thinking Budget = 0
 
 In `getClaudeEnv()`:
+
 ```javascript
 // Before: only set MAX_THINKING_TOKENS when thinkingBudget is explicitly provided
 if (options.thinkingBudget !== undefined) {

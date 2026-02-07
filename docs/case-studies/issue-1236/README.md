@@ -13,22 +13,22 @@
 
 All timestamps are in UTC.
 
-| # | Timestamp (UTC) | Event | Details |
-|---|-----------------|-------|---------|
-| 1 | 14:44:40 | Session started | `solve v1.16.0` launched with `--auto-resume-on-limit-reset` for `xlabtg/krypton-platform#1` |
-| 2 | 14:44:49 | Branch created | `issue-1-39d2d7cb4eaf` from `main` |
-| 3 | 14:44:51 | Branch pushed | Initial commit with CLAUDE.md |
-| 4 | 14:44:56 | Draft PR created | PR #2 created |
-| 5 | ~14:45:17 | Usage limit hit | Claude returned usage limit error with reset time "4:00 PM" (no timezone) |
-| 6 | 14:45:18 | Limit detected | System logged: "The limit will reset at: 4:00 PM" |
-| 7 | 14:45:20 | PR comment posted | "Usage Limit Reached" comment with **Reset Time: 4:00 PM** (absolute time only, no timezone, no relative time) |
-| 8 | 14:45:22 | Auto-resume engaged | "Waiting until in 14m (Feb 6, 3:00 PM UTC) + 5 min buffer" — Wait time: 0:00:19:37 |
-| 9 | 14:45:22 → 15:04:22 | Countdown | 1-minute intervals showing remaining time |
-| 10 | 15:05:00 | Buffer elapsed | "Limit reset time reached (+ 5 min buffer)! Resuming session..." |
-| 11 | 15:05:00 | Resume command | Session resumed with `--resume` and `--working-directory` flags |
-| 12 | 15:05:55 | New session started | Auto-resumed session posted "Auto Resume (on limit reset)" comment |
-| 13 | 15:07:48 | Work resumed | AI work session started, PR converted to draft |
-| 14 | 15:17:56 | Session completed | Draft log uploaded with cost estimation |
+| #   | Timestamp (UTC)     | Event               | Details                                                                                                        |
+| --- | ------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | 14:44:40            | Session started     | `solve v1.16.0` launched with `--auto-resume-on-limit-reset` for `xlabtg/krypton-platform#1`                   |
+| 2   | 14:44:49            | Branch created      | `issue-1-39d2d7cb4eaf` from `main`                                                                             |
+| 3   | 14:44:51            | Branch pushed       | Initial commit with CLAUDE.md                                                                                  |
+| 4   | 14:44:56            | Draft PR created    | PR #2 created                                                                                                  |
+| 5   | ~14:45:17           | Usage limit hit     | Claude returned usage limit error with reset time "4:00 PM" (no timezone)                                      |
+| 6   | 14:45:18            | Limit detected      | System logged: "The limit will reset at: 4:00 PM"                                                              |
+| 7   | 14:45:20            | PR comment posted   | "Usage Limit Reached" comment with **Reset Time: 4:00 PM** (absolute time only, no timezone, no relative time) |
+| 8   | 14:45:22            | Auto-resume engaged | "Waiting until in 14m (Feb 6, 3:00 PM UTC) + 5 min buffer" — Wait time: 0:00:19:37                             |
+| 9   | 14:45:22 → 15:04:22 | Countdown           | 1-minute intervals showing remaining time                                                                      |
+| 10  | 15:05:00            | Buffer elapsed      | "Limit reset time reached (+ 5 min buffer)! Resuming session..."                                               |
+| 11  | 15:05:00            | Resume command      | Session resumed with `--resume` and `--working-directory` flags                                                |
+| 12  | 15:05:55            | New session started | Auto-resumed session posted "Auto Resume (on limit reset)" comment                                             |
+| 13  | 15:07:48            | Work resumed        | AI work session started, PR converted to draft                                                                 |
+| 14  | 15:17:56            | Session completed   | Draft log uploaded with cost estimation                                                                        |
 
 ## Root Cause Analysis
 
@@ -55,6 +55,7 @@ logComment += `\n- **Reset Time**: ${limitResetTime}`;
 The `limitResetTime` comes from `extractResetTime()` in `usage-limit.lib.mjs` which returns absolute times like "4:00 PM" or "Jan 15, 8:00 AM" — without timezone context or relative time.
 
 **Evidence**: The PR comment showed:
+
 ```
 - **Reset Time**: 4:00 PM
 ```
@@ -68,7 +69,7 @@ Meanwhile, the console output already uses `formatResetTimeWithRelative()` which
 **Root Cause**: The "waiting" comment posted to PRs at `solve.mjs` line 1082 uses `global.limitResetTime` directly:
 
 ```javascript
-`**Reset time:** ${global.limitResetTime}`
+`**Reset time:** ${global.limitResetTime}`;
 ```
 
 This displays "4:00 PM" without relative time or UTC conversion, same issue as Problem 2.
@@ -80,11 +81,13 @@ This displays "4:00 PM" without relative time or UTC conversion, same issue as P
 Change the default buffer from 5 minutes to 10 minutes, and add a random jitter of 0-300 seconds (0-5 minutes) to distribute load.
 
 **Implementation**:
+
 - In `config.lib.mjs`: Change default from `5 * 60 * 1000` to `10 * 60 * 1000`
 - In `solve.auto-continue.lib.mjs`: Add random jitter `Math.floor(Math.random() * 5 * 60 * 1000)` (0-5 minutes)
 - New env var: `HIVE_MIND_LIMIT_RESET_JITTER_MS` (default: `5 * 60 * 1000`)
 
 **Rationale**: This is a well-established pattern for avoiding the [thundering herd problem](https://medium.com/@avnein4988/mitigating-the-thundering-herd-problem-exponential-backoff-with-jitter-b507cdf90d62). AWS, Google Cloud, and other major cloud providers [recommend](https://betterstack.com/community/guides/monitoring/exponential-backoff/) adding jitter to retry/backoff strategies. The total wait after reset becomes 10-15 minutes, which provides a comfortable margin for:
+
 - Clock synchronization differences
 - API propagation delays
 - Load distribution across concurrent instances
@@ -113,16 +116,17 @@ Apply `formatResetTimeWithRelative()` to all places where reset time is shown to
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `src/config.lib.mjs` | Increase default buffer to 10 min, add jitter config |
-| `src/solve.auto-continue.lib.mjs` | Add random jitter to wait time |
-| `src/github.lib.mjs` | Use `formatResetTimeWithRelative()` for reset time in PR comments |
-| `src/solve.mjs` | Use `formatResetTimeWithRelative()` for reset time in waiting comment |
+| File                              | Changes                                                               |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `src/config.lib.mjs`              | Increase default buffer to 10 min, add jitter config                  |
+| `src/solve.auto-continue.lib.mjs` | Add random jitter to wait time                                        |
+| `src/github.lib.mjs`              | Use `formatResetTimeWithRelative()` for reset time in PR comments     |
+| `src/solve.mjs`                   | Use `formatResetTimeWithRelative()` for reset time in waiting comment |
 
 ## Logs
 
 See the `raw-data/` directory for the raw comment data:
+
 - `comment-3860860522-usage-limit-reached.md` - The "Usage Limit Reached" PR comment
 - `comment-3860955310-solution-draft-log.md` - The solution draft log containing auto-resume countdown
 - `comment-3860958566-auto-resume-started.md` - The auto-resume session start comment

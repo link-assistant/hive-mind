@@ -220,7 +220,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget for Claude Code (0-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking. For older Claude Code versions, translated back to --think level.',
+    description: 'Thinking token budget for Claude Code (0-31999). Controls MAX_THINKING_TOKENS. Default: 0 (thinking disabled). For older Claude Code versions, translated back to --think level.',
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {

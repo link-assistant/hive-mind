@@ -5,7 +5,7 @@
  */
 
 // Test config.lib.mjs exports
-import { DEFAULT_MAX_THINKING_BUDGET, getThinkingLevelToTokens, getTokensToThinkingLevel, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget } from '../src/config.lib.mjs';
+import { DEFAULT_MAX_THINKING_BUDGET, DEFAULT_MAX_THINKING_BUDGET_OPUS_46, getThinkingLevelToTokens, getTokensToThinkingLevel, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget, getClaudeEnv } from '../src/config.lib.mjs';
 
 console.log('=== Testing Thinking Budget Translation (Issue #1146) ===\n');
 
@@ -105,9 +105,44 @@ for (const { version, minVersion, expected } of test6Cases) {
 console.log('   Status:', test6Pass ? '✅ PASS' : '❌ FAIL');
 console.log();
 
+// Test 7: Opus 4.6 max thinking budget should equal standard models (Issue #1238)
+console.log('7. DEFAULT_MAX_THINKING_BUDGET_OPUS_46 equals DEFAULT_MAX_THINKING_BUDGET:');
+console.log('   DEFAULT_MAX_THINKING_BUDGET_OPUS_46:', DEFAULT_MAX_THINKING_BUDGET_OPUS_46);
+console.log('   DEFAULT_MAX_THINKING_BUDGET:', DEFAULT_MAX_THINKING_BUDGET);
+console.log('   Expected: both should be 31999');
+const test7Pass = DEFAULT_MAX_THINKING_BUDGET_OPUS_46 === 31999 && DEFAULT_MAX_THINKING_BUDGET_OPUS_46 === DEFAULT_MAX_THINKING_BUDGET;
+console.log('   Status:', test7Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 8: Default thinking budget should be 0 when not specified (Issue #1238)
+console.log('8. getClaudeEnv() sets MAX_THINKING_TOKENS=0 by default:');
+const envDefault = getClaudeEnv();
+const envDefaultValue = envDefault.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (no options):', envDefaultValue, '(expected: "0")');
+const test8aPass = envDefaultValue === '0';
+console.log('   Status:', test8aPass ? '✅ PASS' : '❌ FAIL');
+
+console.log('   getClaudeEnv({ thinkingBudget: 16000 }) sets MAX_THINKING_TOKENS=16000:');
+const envExplicit = getClaudeEnv({ thinkingBudget: 16000 });
+const envExplicitValue = envExplicit.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (explicit 16000):', envExplicitValue, '(expected: "16000")');
+const test8bPass = envExplicitValue === '16000';
+console.log('   Status:', test8bPass ? '✅ PASS' : '❌ FAIL');
+
+console.log('   getClaudeEnv({ thinkingBudget: 0 }) sets MAX_THINKING_TOKENS=0:');
+const envZero = getClaudeEnv({ thinkingBudget: 0 });
+const envZeroValue = envZero.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (explicit 0):', envZeroValue, '(expected: "0")');
+const test8cPass = envZeroValue === '0';
+console.log('   Status:', test8cPass ? '✅ PASS' : '❌ FAIL');
+
+const test8Pass = test8aPass && test8bPass && test8cPass;
+console.log('   Overall Test 8 Status:', test8Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
 // Summary
 console.log('=== Test Summary ===');
-const allPass = test2Pass && test3Pass && test4Pass && test5Pass && test6Pass;
+const allPass = test2Pass && test3Pass && test4Pass && test5Pass && test6Pass && test7Pass && test8Pass;
 console.log('Overall:', allPass ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED');
 
 process.exit(allPass ? 0 : 1);

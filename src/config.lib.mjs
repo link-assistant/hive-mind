@@ -119,10 +119,12 @@ export const claudeCode = {
 // Can be overridden via --max-thinking-budget option
 export const DEFAULT_MAX_THINKING_BUDGET = 31999;
 
-// Default max thinking budget for Opus 4.6 (Issue #1221)
-// Opus 4.6 supports higher thinking budgets due to 128K max output tokens
+// Default max thinking budget for Opus 4.6 (Issue #1221, updated in Issue #1238)
+// Aligned with standard models (31999) for consistency.
+// Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth instead of MAX_THINKING_TOKENS
+// (MAX_THINKING_TOKENS is ignored for Opus 4.6 unless set to 0 to disable thinking).
 // Can be overridden via --max-thinking-budget option or HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46
-export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 64000);
+export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 
 /**
  * Check if a model is Opus 4.6 or later (Issue #1221)
@@ -235,12 +237,10 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
-  // Set MAX_THINKING_TOKENS if thinkingBudget is provided
-  // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 31999 (or 64000 for Opus 4.6), set to 0 to disable thinking
-  if (options.thinkingBudget !== undefined) {
-    env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
-  }
+  // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
+  // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
+  // Users can explicitly enable thinking via --think or --thinking-budget options.
+  env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
   return env;
 };
 

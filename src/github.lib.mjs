@@ -19,6 +19,10 @@ import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTok
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent };
 // Import log upload function from separate module
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+// Import model info helpers (Issue #1225)
+import { getToolDisplayName, getModelInfoForComment } from './model-info.lib.mjs';
+// Re-export for use by other modules
+export { getToolDisplayName };
 
 /**
  * Build cost estimation string for log comments
@@ -389,6 +393,9 @@ export async function attachLogToGitHub(options) {
     pricingInfo = null,
     // Issue #1088: Track error_during_execution for "Finished with errors" state
     errorDuringExecution = false,
+    // Issue #1225: Model information for PR comments
+    requestedModel = null, // The --model flag value (e.g., "opus", "sonnet")
+    tool = null, // The tool used (e.g., "claude", "agent", "codex", "opencode")
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -425,6 +432,21 @@ export async function attachLogToGitHub(options) {
         // Don't fail the entire upload if token calculation fails
         if (verbose) {
           await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
+        }
+      }
+    }
+    // Issue #1225: Fetch model information for comment
+    let modelInfoString = '';
+    if (requestedModel || tool) {
+      try {
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo });
+        if (verbose && modelInfoString) {
+          await log('  🤖 Model info fetched for comment', { verbose: true });
+        }
+      } catch (modelInfoError) {
+        // Non-critical: continue without model info
+        if (verbose) {
+          await log(`  ⚠️  Could not fetch model info: ${modelInfoError.message}`, { verbose: true });
         }
       }
     }
@@ -495,7 +517,7 @@ ${resumeCommand}
         }
       }
 
-      logComment += `
+      logComment += `${modelInfoString}
 
 <details>
 <summary>Click to expand execution log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -514,7 +536,7 @@ ${logContent}
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`
+\`\`\`${modelInfoString}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -531,7 +553,7 @@ ${logContent}
       // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
       logComment = `## ⚠️ Solution Draft Finished with Errors
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
 **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
@@ -564,7 +586,7 @@ ${logContent}
         sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
       }
       logComment = `## ${title}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${sessionNote}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}${sessionNote}
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -684,7 +706,7 @@ ${resumeCommand}
               }
             }
 
-            logUploadComment += `
+            logUploadComment += `${modelInfoString}
 
 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete execution log](${logUrl})
@@ -697,7 +719,7 @@ ${resumeCommand}
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`
+\`\`\`${modelInfoString}
 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete failure log](${logUrl})
 ---
@@ -706,7 +728,7 @@ ${errorMessage}
             // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
             logUploadComment = `## ⚠️ Solution Draft Finished with Errors
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
 **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
@@ -732,7 +754,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
               sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
             }
             logUploadComment = `## ${title}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 ${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete solution draft log](${logUrl})
 ---
@@ -1450,6 +1472,7 @@ export default {
   checkGitHubPermissions,
   checkRepositoryWritePermission,
   attachLogToGitHub,
+  getToolDisplayName,
   uploadLogWithGhUploadLog,
   fetchAllIssuesWithPagination,
   fetchProjectIssues,

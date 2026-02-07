@@ -54,6 +54,9 @@ export const handleFailure = async options => {
         sanitizeLogContent,
         verbose: argv.verbose,
         errorMessage: cleanErrorMessage(error),
+        // Issue #1225: Pass model and tool info for PR comments
+        requestedModel: argv.model,
+        tool: argv.tool || 'claude',
       });
       if (logUploadSuccess) {
         await log('📎 Failure log attached to Pull Request');

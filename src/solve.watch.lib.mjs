@@ -302,6 +302,9 @@ export const watchForFeedback = async params => {
                   // Pass agent tool pricing data when available
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
+                  // Issue #1225: Pass model and tool info for PR comments
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
                 });
 
                 if (logUploadSuccess) {

@@ -445,6 +445,9 @@ export const watchUntilMergable = async params => {
                   anthropicTotalCostUSD: latestAnthropicCost,
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
+                  // Issue #1225: Pass model and tool info for PR comments
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
                 });
                 await log(formatAligned('', '✅ Session log uploaded to PR', '', 2));
               }

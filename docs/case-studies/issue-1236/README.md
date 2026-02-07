@@ -122,7 +122,7 @@ Apply `formatResetTimeWithRelative()` to all places where reset time is shown to
 
 ## Logs
 
-See the `logs/` directory for the raw comment data:
+See the `raw-data/` directory for the raw comment data:
 - `comment-3860860522-usage-limit-reached.md` - The "Usage Limit Reached" PR comment
 - `comment-3860955310-solution-draft-log.md` - The solution draft log containing auto-resume countdown
 - `comment-3860958566-auto-resume-started.md` - The auto-resume session start comment

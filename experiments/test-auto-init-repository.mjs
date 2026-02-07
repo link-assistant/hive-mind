@@ -84,8 +84,8 @@ async function testAutoInitRepository() {
 
   // Check solve.mjs passes new parameters
   const solveContent = readFileSync(join(srcDir, 'solve.mjs'), 'utf-8');
-  if (solveContent.includes('argv,') && solveContent.includes('owner,') && solveContent.includes('repo,')) {
-    log('  ✅ solve.mjs passes argv, owner, repo to verifyDefaultBranchAndStatus');
+  if (solveContent.includes('argv,') && solveContent.includes('owner,') && solveContent.includes('repo,') && solveContent.includes('issueUrl,')) {
+    log('  ✅ solve.mjs passes argv, owner, repo, issueUrl to verifyDefaultBranchAndStatus');
   } else {
     log('  ❌ solve.mjs may not pass all required parameters');
   }
@@ -98,6 +98,13 @@ async function testAutoInitRepository() {
     log('  ❌ Branch error handler may be incomplete');
   }
 
+  // Check issue comment functionality
+  if (repoSetupContent.includes('tryCommentOnIssueAboutEmptyRepo') && repoSetupContent.includes('gh issue comment')) {
+    log('  ✅ Issue comment functionality for empty repos implemented');
+  } else {
+    log('  ❌ Issue comment functionality may be incomplete');
+  }
+
   log('\n=== Summary ===');
   log('The --auto-init-repository feature:');
   log('1. ✅ Adds new CLI option --auto-init-repository (default: false)');
@@ -107,6 +114,8 @@ async function testAutoInitRepository() {
   log('5. ✅ Provides clear error messages when auto-init is disabled or fails');
   log('6. ✅ Improves branch creation error messages for empty repo cases');
   log('7. ✅ Maintains backward compatibility (default: false, opt-in only)');
+  log('8. ✅ Posts comment on issue when empty repo cannot be resolved (similar to fork path)');
+  log('9. ✅ Skips issue comment when auto-init succeeds (no user action needed)');
 }
 
 testAutoInitRepository().catch(console.error);

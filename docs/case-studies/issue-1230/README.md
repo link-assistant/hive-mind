@@ -56,11 +56,14 @@ Added a new CLI option `--auto-init-repository` that:
 2. **Auto-initializes** using the existing `tryInitializeEmptyRepository()` function (creates README.md via GitHub API)
 3. **Re-fetches and continues** - After initialization, fetches the new commit, checks out the default branch, and proceeds normally
 
-### Improved Error Messages
+### Improved Error Messages and Issue Comments
 
-- When `--auto-init-repository` is NOT enabled: Clear message suggesting the flag
+- When `--auto-init-repository` is NOT enabled: Clear message suggesting the flag + comment on the issue informing the user
+- When `--auto-init-repository` fails: Clear error message + comment on the issue with actionable guidance
+- When `--auto-init-repository` succeeds: No issue comment posted (no user action needed)
 - When branch creation fails due to empty repo: Specific "is not a commit" pattern detection with actionable fix suggestion
 - Reuses existing `tryInitializeEmptyRepository()` code (DRY principle)
+- Issue comment behavior mirrors the existing fork-path comment in `solve.repository.lib.mjs`
 
 ## Files Changed
 
@@ -69,8 +72,8 @@ Added a new CLI option `--auto-init-repository` that:
 | `src/solve.config.lib.mjs`        | Added `--auto-init-repository` option definition                             |
 | `src/option-suggestions.lib.mjs`  | Added to `KNOWN_OPTION_NAMES` for typo detection                             |
 | `src/solve.repository.lib.mjs`    | Exported `tryInitializeEmptyRepository` for reuse                            |
-| `src/solve.repo-setup.lib.mjs`    | Added empty repo detection and auto-init in `verifyDefaultBranchAndStatus()` |
-| `src/solve.mjs`                   | Pass `argv`, `owner`, `repo` to `verifyDefaultBranchAndStatus()`             |
+| `src/solve.repo-setup.lib.mjs`    | Added empty repo detection, auto-init, and issue comment in `verifyDefaultBranchAndStatus()` |
+| `src/solve.mjs`                   | Pass `argv`, `owner`, `repo`, `issueUrl` to `verifyDefaultBranchAndStatus()`             |
 | `src/solve.branch-errors.lib.mjs` | Improved error message for empty repo branch creation failures               |
 
 ## Artifacts

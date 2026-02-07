@@ -63,11 +63,11 @@ runTest('tryInitializeEmptyRepository is exported from solve.repository.lib.mjs'
 });
 
 // =============================================
-// Test 4: verifyDefaultBranchAndStatus accepts new parameters
+// Test 4: verifyDefaultBranchAndStatus accepts new parameters including issueUrl
 // =============================================
-runTest('verifyDefaultBranchAndStatus accepts argv, owner, repo parameters', () => {
+runTest('verifyDefaultBranchAndStatus accepts argv, owner, repo, issueUrl parameters', () => {
   const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
-  assert(repoSetupContent.includes('argv, owner, repo'), 'verifyDefaultBranchAndStatus should accept argv, owner, repo parameters');
+  assert(repoSetupContent.includes('argv, owner, repo, issueUrl'), 'verifyDefaultBranchAndStatus should accept argv, owner, repo, issueUrl parameters');
 });
 
 // =============================================
@@ -112,12 +112,12 @@ runTest('handleBranchCreationError detects "is not a commit" empty repo pattern'
 });
 
 // =============================================
-// Test 9: solve.mjs passes required parameters
+// Test 9: solve.mjs passes required parameters including issueUrl
 // =============================================
-runTest('solve.mjs passes argv, owner, repo to verifyDefaultBranchAndStatus', () => {
+runTest('solve.mjs passes argv, owner, repo, issueUrl to verifyDefaultBranchAndStatus', () => {
   const solveContent = readFileSync(join(srcDir, 'solve.mjs'), 'utf-8');
-  // Check that the call includes argv, owner, repo
-  assert(solveContent.includes('argv,\n    owner,\n    repo,'), 'solve.mjs should pass argv, owner, repo to verifyDefaultBranchAndStatus');
+  // Check that the call includes argv, owner, repo, issueUrl
+  assert(solveContent.includes('argv,\n    owner,\n    repo,\n    issueUrl,'), 'solve.mjs should pass argv, owner, repo, issueUrl to verifyDefaultBranchAndStatus');
 });
 
 // =============================================
@@ -152,6 +152,72 @@ runTest('Case study documentation created for issue #1230', () => {
   // Verify the solve log is saved
   const logContent = readFileSync(join(caseStudyDir, 'solve-log.txt'), 'utf-8');
   assert(logContent.includes('BRANCH CREATION FAILED'), 'Solve log should contain the original error');
+});
+
+// =============================================
+// Test 13: tryCommentOnIssueAboutEmptyRepo helper function exists
+// =============================================
+runTest('tryCommentOnIssueAboutEmptyRepo helper function is implemented', () => {
+  const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
+  assert(repoSetupContent.includes('async function tryCommentOnIssueAboutEmptyRepo'), 'tryCommentOnIssueAboutEmptyRepo helper should exist');
+  assert(repoSetupContent.includes('gh issue comment'), 'Should use gh issue comment to post to the issue');
+  assert(repoSetupContent.includes('Repository Initialization Required'), 'Comment body should explain the issue clearly');
+  assert(repoSetupContent.includes('--auto-init-repository'), 'Comment should suggest --auto-init-repository flag');
+});
+
+// =============================================
+// Test 14: Comment is posted when empty repo detected without --auto-init-repository flag
+// =============================================
+runTest('Issue comment is posted when empty repo detected without --auto-init-repository', () => {
+  const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
+  // Find the "else if (isEmptyRepo)" block and verify it calls tryCommentOnIssueAboutEmptyRepo
+  const emptyRepoBlock = repoSetupContent.indexOf('EMPTY REPOSITORY DETECTED');
+  const throwAfterBlock = repoSetupContent.indexOf("throw new Error('Empty repository detected - use --auto-init-repository to initialize');");
+  assert(emptyRepoBlock !== -1, 'Should have EMPTY REPOSITORY DETECTED block');
+  assert(throwAfterBlock !== -1, 'Should throw error after empty repo detection');
+  const blockContent = repoSetupContent.substring(emptyRepoBlock, throwAfterBlock);
+  assert(blockContent.includes('tryCommentOnIssueAboutEmptyRepo'), 'Should call tryCommentOnIssueAboutEmptyRepo before throwing');
+});
+
+// =============================================
+// Test 15: Comment is posted when auto-init fails
+// =============================================
+runTest('Issue comment is posted when auto-init fails', () => {
+  const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
+  // Find the "AUTO-INIT FAILED" block and verify it calls tryCommentOnIssueAboutEmptyRepo
+  const autoInitFailedBlock = repoSetupContent.indexOf('AUTO-INIT FAILED');
+  const throwAfterBlock = repoSetupContent.indexOf("throw new Error('Empty repository auto-initialization failed');");
+  assert(autoInitFailedBlock !== -1, 'Should have AUTO-INIT FAILED block');
+  assert(throwAfterBlock !== -1, 'Should throw error after auto-init failure');
+  const blockContent = repoSetupContent.substring(autoInitFailedBlock, throwAfterBlock);
+  assert(blockContent.includes('tryCommentOnIssueAboutEmptyRepo'), 'Should call tryCommentOnIssueAboutEmptyRepo before throwing');
+});
+
+// =============================================
+// Test 16: No comment posted when auto-init succeeds
+// =============================================
+runTest('No issue comment is posted when auto-init succeeds', () => {
+  const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
+  // Find the success path (between 'initialized' check and the 'else' for auto-init failure)
+  const successStart = repoSetupContent.indexOf("await log(`${formatAligned('✅', 'Repository initialized:'");
+  const successEnd = repoSetupContent.indexOf('AUTO-INIT FAILED');
+  assert(successStart !== -1, 'Should have Repository initialized success message');
+  assert(successEnd !== -1, 'Should have AUTO-INIT FAILED block');
+  const successBlock = repoSetupContent.substring(successStart, successEnd);
+  assert(!successBlock.includes('tryCommentOnIssueAboutEmptyRepo'), 'Success path should NOT call tryCommentOnIssueAboutEmptyRepo');
+});
+
+// =============================================
+// Test 17: Comment function handles missing issueUrl gracefully
+// =============================================
+runTest('tryCommentOnIssueAboutEmptyRepo handles missing issueUrl gracefully', () => {
+  const repoSetupContent = readFileSync(join(srcDir, 'solve.repo-setup.lib.mjs'), 'utf-8');
+  // Find the function definition
+  const funcStart = repoSetupContent.indexOf('async function tryCommentOnIssueAboutEmptyRepo');
+  assert(funcStart !== -1, 'Function should exist');
+  const funcBlock = repoSetupContent.substring(funcStart, funcStart + 500);
+  assert(funcBlock.includes('if (!issueUrl) return'), 'Should return early if issueUrl is not provided');
+  assert(funcBlock.includes('issueUrl.match(/\\/issues\\/(\\d+)/)'), 'Should extract issue number from URL');
 });
 
 // =============================================

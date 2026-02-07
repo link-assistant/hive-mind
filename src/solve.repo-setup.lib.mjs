@@ -56,7 +56,7 @@ async function setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMod
   return await setupPrForkFn(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 }
 
-export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo }) {
+export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned, $, argv, owner, repo, issueUrl }) {
   // Verify we're on the default branch and get its name
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
@@ -139,6 +139,10 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
         await log('                --method PUT --field message="Initialize repository" \\');
         await log('                --field content="$(echo "# repo" | base64)"');
         await log('');
+
+        // Post a comment on the issue informing about the empty repository
+        await tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, formatAligned, $ });
+
         throw new Error('Empty repository auto-initialization failed');
       }
     } else if (isEmptyRepo) {
@@ -157,6 +161,10 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
       await log('     Option 2: Ask repository owner to add initial content');
       await log('              Even a simple README.md file would allow branch creation');
       await log('');
+
+      // Post a comment on the issue informing about the empty repository
+      await tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, formatAligned, $ });
+
       throw new Error('Empty repository detected - use --auto-init-repository to initialize');
     } else {
       // Not an empty repo, some other issue with branch detection
@@ -198,6 +206,55 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   }
 
   return defaultBranch;
+}
+
+/**
+ * Try to post a comment on the issue informing the user about the empty repository.
+ * This is a non-critical operation - errors are silently ignored.
+ * When --auto-init-repository succeeds, no comment is posted (no action needed from the user).
+ */
+async function tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, formatAligned, $ }) {
+  if (!issueUrl) return;
+
+  try {
+    const issueMatch = issueUrl.match(/\/issues\/(\d+)/);
+    if (!issueMatch) return;
+
+    const issueNumber = issueMatch[1];
+    await log(`${formatAligned('💬', 'Creating comment:', 'Informing about empty repository...')}`);
+
+    const commentBody = `## ⚠️ Repository Initialization Required
+
+Hello! I attempted to work on this issue, but encountered a problem:
+
+**Issue**: The repository is empty (no commits) and branches cannot be created.
+**Reason**: Git cannot create branches in a repository with no commits.
+
+### 🔧 How to resolve:
+
+**Option 1: Use \`--auto-init-repository\` flag**
+Re-run the solver with the \`--auto-init-repository\` flag to automatically create a simple README.md:
+\`\`\`
+solve ${issueUrl} --auto-init-repository
+\`\`\`
+
+**Option 2: Initialize the repository yourself**
+Please add initial content to the repository. Even a simple README.md (even if it is empty or contains just the title) file would make it possible to create branches and work on this issue.
+
+Once the repository contains at least one commit with any file, I'll be able to proceed with solving this issue.
+
+Thank you!`;
+
+    const commentResult = await $`gh issue comment ${issueNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+    if (commentResult.code === 0) {
+      await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}`)}`);
+    } else {
+      await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
+    }
+  } catch {
+    // Silently ignore comment creation errors - not critical to the process
+    await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
+  }
 }
 
 /**

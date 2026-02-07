@@ -45,6 +45,7 @@ This means the bug only manifests when the user explicitly passes `--fork` on th
 ### GitHub API behavior
 
 GitHub's fork API (`POST /repos/{owner}/{repo}/forks`) returns HTTP 403 when:
+
 1. The authenticated user IS the repository owner (cannot fork own repo)
 2. The repository is empty (no git content)
 3. The token lacks required scopes
@@ -82,10 +83,10 @@ if (currentUser === owner) {
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `src/solve.repository.lib.mjs` | Added owner detection check in `setupRepository` |
-| `tests/test-owner-fork-detection.mjs` | 10 tests for owner detection logic |
+| File                                  | Change                                           |
+| ------------------------------------- | ------------------------------------------------ |
+| `src/solve.repository.lib.mjs`        | Added owner detection check in `setupRepository` |
+| `tests/test-owner-fork-detection.mjs` | 10 tests for owner detection logic               |
 
 ## Test Coverage
 

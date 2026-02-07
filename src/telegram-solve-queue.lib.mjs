@@ -37,11 +37,12 @@ export const QUEUE_CONFIG = {
   RAM_THRESHOLD: 0.65, // Enqueue if RAM usage >= 65%
   // CPU threshold uses 5-minute load average, not instantaneous CPU usage
   CPU_THRESHOLD: 0.65, // Enqueue if 5-minute load average >= 65% of CPU count
-  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%
+  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%, tuned for VM with 100 GB drive
 
   // API limit thresholds (usage ratios: 0.0 - 1.0)
   // All thresholds use >= comparison (inclusive)
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.75, // One-at-a-time if 5-hour limit >= 75%
+  // Fine-tuned for Claude MAX $200 subscription
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.65, // One-at-a-time if 5-hour limit >= 65%
   CLAUDE_WEEKLY_THRESHOLD: 0.97, // One-at-a-time if weekly limit >= 97%
   GITHUB_API_THRESHOLD: 0.75, // Enqueue if GitHub >= 75% with parallel claude
 
@@ -92,9 +93,9 @@ export async function getRunningClaudeProcesses(verbose = false) {
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve-queue found ${processes.length} running claude processes`);
+      console.log(`[VERBOSE] /solve_queue found ${processes.length} running claude processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve-queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -104,7 +105,7 @@ export async function getRunningClaudeProcesses(verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve-queue error counting claude processes:', error.message);
+      console.error('[VERBOSE] /solve_queue error counting claude processes:', error.message);
     }
     return { count: 0, processes: [] };
   }
@@ -333,7 +334,7 @@ export class SolveQueue {
    */
   log(message) {
     if (this.verbose) {
-      console.log(`[VERBOSE] /solve-queue: ${message}`);
+      console.log(`[VERBOSE] /solve_queue: ${message}`);
     }
   }
 
@@ -837,7 +838,7 @@ export class SolveQueue {
 
     this.consumerTask = this.runConsumer();
     this.consumerTask.catch(error => {
-      console.error('[solve-queue] Consumer error:', error);
+      console.error('[solve_queue] Consumer error:', error);
       this.consumerTask = null;
     });
   }
@@ -933,7 +934,7 @@ export class SolveQueue {
 
         // Execute in background
         this.executeItem(item).catch(error => {
-          console.error(`[solve-queue] Execution error for ${item.id}:`, error);
+          console.error(`[solve_queue] Execution error for ${item.id}:`, error);
         });
       }
     }
@@ -1011,7 +1012,7 @@ export class SolveQueue {
             } catch (error) {
               // Log message edit failures for debugging
               // See: https://github.com/link-assistant/hive-mind/issues/1062
-              console.error(`[solve-queue] Failed to update message for item ${item.id}: ${error.message}`);
+              console.error(`[solve_queue] Failed to update message for item ${item.id}: ${error.message}`);
             }
           }
         }
@@ -1022,7 +1023,7 @@ export class SolveQueue {
     } catch (error) {
       item.setFailed(error);
       this.stats.totalFailed++;
-      console.error(`[solve-queue] Item failed: ${item.id}`, error);
+      console.error(`[solve_queue] Item failed: ${item.id}`, error);
 
       // Try to update message with error
       const { chatId, messageId } = item.messageInfo || {};
@@ -1032,7 +1033,7 @@ export class SolveQueue {
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062
-          console.error(`[solve-queue] Failed to update error message for item ${item.id}: ${editError.message}`);
+          console.error(`[solve_queue] Failed to update error message for item ${item.id}: ${editError.message}`);
         }
       }
     } finally {

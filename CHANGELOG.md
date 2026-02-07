@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.17.1
+
+### Patch Changes
+
+- 0e59647: Fix /solve-queue command: register /solve_queue handler, fix hint text to use underscore instead of hyphen (Telegram Bot API only supports underscores in command names)
+
 ## 1.17.0
 
 ### Minor Changes

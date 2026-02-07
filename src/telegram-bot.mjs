@@ -683,10 +683,10 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
-  message += '*/solve\\_queue* - Show solve queue status\n';
+  message += '`/solve_queue` - Show solve queue status\n';
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
-  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
+  message += '`/accept_invites` - Accept all pending GitHub invitations\n';
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";

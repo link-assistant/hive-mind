@@ -838,7 +838,7 @@ export class SolveQueue {
 
     this.consumerTask = this.runConsumer();
     this.consumerTask.catch(error => {
-      console.error('[solve-queue] Consumer error:', error);
+      console.error('[solve_queue] Consumer error:', error);
       this.consumerTask = null;
     });
   }
@@ -934,7 +934,7 @@ export class SolveQueue {
 
         // Execute in background
         this.executeItem(item).catch(error => {
-          console.error(`[solve-queue] Execution error for ${item.id}:`, error);
+          console.error(`[solve_queue] Execution error for ${item.id}:`, error);
         });
       }
     }
@@ -1012,7 +1012,7 @@ export class SolveQueue {
             } catch (error) {
               // Log message edit failures for debugging
               // See: https://github.com/link-assistant/hive-mind/issues/1062
-              console.error(`[solve-queue] Failed to update message for item ${item.id}: ${error.message}`);
+              console.error(`[solve_queue] Failed to update message for item ${item.id}: ${error.message}`);
             }
           }
         }
@@ -1023,7 +1023,7 @@ export class SolveQueue {
     } catch (error) {
       item.setFailed(error);
       this.stats.totalFailed++;
-      console.error(`[solve-queue] Item failed: ${item.id}`, error);
+      console.error(`[solve_queue] Item failed: ${item.id}`, error);
 
       // Try to update message with error
       const { chatId, messageId } = item.messageInfo || {};
@@ -1033,7 +1033,7 @@ export class SolveQueue {
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062
-          console.error(`[solve-queue] Failed to update error message for item ${item.id}: ${editError.message}`);
+          console.error(`[solve_queue] Failed to update error message for item ${item.id}: ${editError.message}`);
         }
       }
     } finally {

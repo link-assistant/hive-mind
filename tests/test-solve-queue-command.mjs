@@ -276,9 +276,11 @@ await asyncTest('telegram-bot.mjs uses /solve_queue in hint text (not /solve-que
   assert.ok(!content.includes('Use /solve-queue to check'), 'Should NOT use /solve-queue in hint text');
 });
 
-await asyncTest('telegram-bot.mjs includes /solve_queue in help text', async () => {
+await asyncTest('telegram-bot.mjs includes /solve_queue in help text using backtick code block', async () => {
   const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
-  assert.ok(content.includes('solve\\\\_queue'), 'Help text should include /solve_queue (escaped for Markdown)');
+  assert.ok(content.includes('`/solve_queue`'), 'Help text should include /solve_queue in backtick code block');
+  // Should NOT use bold+escaped format which renders backslashes in Telegram
+  assert.ok(!content.includes('*/solve\\\\_queue*'), 'Help text should NOT use */solve\\_queue* format (renders backslashes)');
 });
 
 await asyncTest('telegram-bot.mjs includes solve_queue in text fallback handlers', async () => {
@@ -290,6 +292,25 @@ await asyncTest('telegram-solve-queue.lib.mjs uses /solve_queue in log messages 
   const content = await readFile(join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs'), 'utf-8');
   assert.ok(!content.includes('[VERBOSE] /solve-queue'), 'Should NOT use /solve-queue in VERBOSE log messages');
   assert.ok(content.includes('[VERBOSE] /solve_queue'), 'Should use /solve_queue in VERBOSE log messages');
+});
+
+await asyncTest('telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])', async () => {
+  const content = await readFile(join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs'), 'utf-8');
+  assert.ok(!content.includes('[solve-queue]'), 'Should NOT use [solve-queue] log tag');
+  assert.ok(content.includes('[solve_queue]'), 'Should use [solve_queue] log tag');
+});
+
+await asyncTest('telegram-bot.mjs includes /accept_invites in help text using backtick code block', async () => {
+  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
+  assert.ok(content.includes('`/accept_invites`'), 'Help text should include /accept_invites in backtick code block');
+  // Should NOT use bold+escaped format which renders backslashes in Telegram
+  assert.ok(!content.includes('*/accept\\\\_invites*'), 'Help text should NOT use */accept\\_invites* format (renders backslashes)');
+});
+
+await asyncTest('telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)', async () => {
+  const content = await readFile(join(__dirname, '..', 'src', 'telegram-accept-invitations.lib.mjs'), 'utf-8');
+  assert.ok(!content.includes('/accept-invites'), 'Should NOT use /accept-invites in log messages');
+  assert.ok(content.includes('/accept_invites'), 'Should use /accept_invites in log messages');
 });
 
 // ============================================================================

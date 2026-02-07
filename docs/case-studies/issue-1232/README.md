@@ -88,24 +88,38 @@ Added `solve_queue` and `solvequeue` to the text-based command fallback (issue #
 
 ### Fix 5: Fix log messages to use `/solve_queue`
 
-Updated all `[VERBOSE] /solve-queue` log messages in `telegram-solve-queue.lib.mjs` to use `/solve_queue` for consistency.
+Updated all `[VERBOSE] /solve-queue` log messages in `telegram-solve-queue.lib.mjs` to use `/solve_queue` for consistency. Also updated `[solve-queue]` log tags to `[solve_queue]`.
+
+### Fix 6: Fix `/accept-invites` log messages to use `/accept_invites`
+
+Updated all `/accept-invites` references in `telegram-accept-invitations.lib.mjs` log messages to use `/accept_invites` for consistency with Telegram's command naming requirements.
+
+### Fix 7: Fix Telegram Markdown rendering of commands with underscores
+
+Commands with underscores (`/solve_queue`, `/accept_invites`) in the `/help` text were rendered with visible backslash characters in Telegram when using the `*/command\_name*` bold format. The `\_` escape sequence inside Telegram Markdown V1 bold markers (`*...*`) renders the backslash literally.
+
+**Fix**: Changed from bold formatting (`*/solve\_queue*`) to inline code formatting (`` `/solve_queue` ``) for commands containing underscores. This prevents the backslash from being visible and provides consistent styling.
+
+**Note**: The `\_` escape works correctly outside of bold markers, so the `⚠️ Note:` line at the bottom of the help text (which uses `\\_` without bold) renders correctly and was not changed.
 
 ## Files Changed
 
 - `src/telegram-solve-queue-command.lib.mjs` — **New**: `/solve_queue` command handler module
-- `src/telegram-bot.mjs` — Fixed hint text, registered command, added to help text and fallback handlers
-- `src/telegram-solve-queue.lib.mjs` — Fixed log messages from `/solve-queue` to `/solve_queue`
-- `tests/test-solve-queue-command.mjs` — **New**: 19 tests for the command handler
+- `src/telegram-bot.mjs` — Fixed hint text, registered command, added to help text (using backtick code blocks for commands with underscores) and fallback handlers
+- `src/telegram-solve-queue.lib.mjs` — Fixed log messages from `/solve-queue` to `/solve_queue`, log tags from `[solve-queue]` to `[solve_queue]`
+- `src/telegram-accept-invitations.lib.mjs` — Fixed log messages from `/accept-invites` to `/accept_invites`
+- `tests/test-solve-queue-command.mjs` — **New**: 22 tests for the command handler
+- `tests/test-telegram-message-edit-error-handling.mjs` — Updated `[solve-queue]` references to `[solve_queue]`
 - `package.json` — Added new test to the test script
 
 ## Testing
 
-19 new tests covering:
+22 tests covering:
 
 - Command registration and regex matching (8 tests)
 - Permission checks: non-group chat, unauthorized, old messages, forwarded messages (4 tests)
 - Queue status output: empty queue, Claude process count, queue with items (3 tests)
-- Hint text regression: ensures `/solve-queue` is not used in user-facing text (4 tests)
+- Hint text regression: ensures `/solve-queue` is not used in user-facing text, backtick code block formatting for underscore commands, `/accept_invites` consistency (7 tests)
 
 ## References
 

@@ -417,6 +417,15 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     }
     const currentUser = userResult.stdout.toString().trim();
 
+    // Check if user owns the repository (Issue #1206)
+    // GitHub doesn't allow forking your own repositories and returns HTTP 403
+    // If the user is the owner, skip fork creation and work directly with the repo
+    if (currentUser === owner) {
+      await log(`${formatAligned('✅', 'Owner detected:', 'You own this repository, fork is not needed')}`);
+      await log(`${formatAligned('', 'Working directly:', `Using ${owner}/${repo} without fork`)}`);
+      return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
+    }
+
     // Check for fork conflicts (Issue #344)
     // Detect if we're trying to fork a repository that shares the same root
     // as an existing fork we already have

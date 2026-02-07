@@ -93,9 +93,9 @@ export async function getRunningClaudeProcesses(verbose = false) {
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve-queue found ${processes.length} running claude processes`);
+      console.log(`[VERBOSE] /solve_queue found ${processes.length} running claude processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve-queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -105,7 +105,7 @@ export async function getRunningClaudeProcesses(verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve-queue error counting claude processes:', error.message);
+      console.error('[VERBOSE] /solve_queue error counting claude processes:', error.message);
     }
     return { count: 0, processes: [] };
   }
@@ -334,7 +334,7 @@ export class SolveQueue {
    */
   log(message) {
     if (this.verbose) {
-      console.log(`[VERBOSE] /solve-queue: ${message}`);
+      console.log(`[VERBOSE] /solve_queue: ${message}`);
     }
   }
 

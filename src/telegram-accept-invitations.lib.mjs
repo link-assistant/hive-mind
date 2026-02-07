@@ -122,10 +122,10 @@ export function registerAcceptInvitesCommand(bot, options) {
   const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb } = options;
 
   bot.command(/^accept[_-]?invites$/i, async ctx => {
-    VERBOSE && console.log('[VERBOSE] /accept-invites command received');
+    VERBOSE && console.log('[VERBOSE] /accept_invites command received');
     await addBreadcrumb({
       category: 'telegram.command',
-      message: '/accept-invites command received',
+      message: '/accept_invites command received',
       level: 'info',
       data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
     });
@@ -165,7 +165,7 @@ export function registerAcceptInvitesCommand(bot, options) {
       } catch (err) {
         // Ignore "message not modified" errors
         if (!err.message?.includes('message is not modified')) {
-          VERBOSE && console.log(`[VERBOSE] /accept-invites: Error updating message: ${err.message}`);
+          VERBOSE && console.log(`[VERBOSE] /accept_invites: Error updating message: ${err.message}`);
         }
       }
     };
@@ -228,7 +228,7 @@ export function registerAcceptInvitesCommand(bot, options) {
       state.isComplete = true;
       await updateMessage();
     } catch (error) {
-      console.error('Error in /accept-invites:', error);
+      console.error('Error in /accept_invites:', error);
       const escapedError = escapeMarkdown(error.message);
       await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapedError}\n\nMake sure \`gh\` CLI is installed and authenticated\\.`, { parse_mode: 'MarkdownV2' });
     }

@@ -1013,8 +1013,9 @@ async function handleSolveCommand(ctx) {
   const normalizedUrl = validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\nOptions: ${optionsText}`;
+  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
+  const userOptionsText = userArgs.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\n\n🛠 Options: ${userOptionsText}`;
   if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
@@ -1172,8 +1173,9 @@ async function handleHiveCommand(ctx) {
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const escapedUrl = escapeMarkdown(args[0]);
-  const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
+  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
+  const userOptionsText = normalizedArgs.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\n\n🛠 Options: ${userOptionsText}`;
   if (hiveOverrides.length > 0) {
     infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
   }

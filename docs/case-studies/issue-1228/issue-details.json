@@ -1,0 +1,12 @@
+{
+  "body": "\n\n```\nOptions: --model opus --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats\n🔒 Locked options: --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats\n```\n\n=>\n\n```\nOptions: --model opus\n🔒 Locked options: --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats\n```\n\nIt will help to read it easier and faster, reduce duplication.\n\nMay be we can add appropriate emoji for user's requested options.\n\nWe should add one empty line between requested url and options.\n\nComment example: https://github.com/link-assistant/hive-mind/pull/1229#issuecomment-3860846361\n\nPlease collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), and propose possible solutions  (including known existing components/libraries, that solve similar problem or can help in solutions).\n",
+  "createdAt": "2026-02-06T14:41:11Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "state": "OPEN",
+  "title": "Make options communication clear from duplication in /solve command responses in hive-telegram-bot",
+  "updatedAt": "2026-02-06T15:08:50Z"
+}

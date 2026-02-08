@@ -57,12 +57,7 @@ export function isRetryableError(error) {
  * @returns {number} Delay in milliseconds before next retry
  */
 export function calculateRetryDelay(attempt, options = {}) {
-  const {
-    baseDelayMs = LAUNCHER_DEFAULTS.baseDelayMs,
-    maxDelayMs = LAUNCHER_DEFAULTS.maxDelayMs,
-    backoffMultiplier = LAUNCHER_DEFAULTS.backoffMultiplier,
-    jitterFraction = LAUNCHER_DEFAULTS.jitterFraction,
-  } = options;
+  const { baseDelayMs = LAUNCHER_DEFAULTS.baseDelayMs, maxDelayMs = LAUNCHER_DEFAULTS.maxDelayMs, backoffMultiplier = LAUNCHER_DEFAULTS.backoffMultiplier, jitterFraction = LAUNCHER_DEFAULTS.jitterFraction } = options;
 
   const exponentialDelay = baseDelayMs * Math.pow(backoffMultiplier, attempt - 1);
   const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
@@ -153,11 +148,7 @@ export async function launchBotWithRetry(bot, launchOptions, retryOptions = {}) 
       // Calculate delay with exponential backoff
       const delayMs = calculateRetryDelay(attempt, backoffConfig);
 
-      console.warn(
-        `⚠️  Bot launch attempt ${attempt} failed` +
-          ` (${error.code || 'unknown'}): ${error.message}.` +
-          ` Retrying in ${formatDelay(delayMs)}...`
-      );
+      console.warn(`⚠️  Bot launch attempt ${attempt} failed` + ` (${error.code || 'unknown'}): ${error.message}.` + ` Retrying in ${formatDelay(delayMs)}...`);
 
       if (verbose) {
         console.warn(`[VERBOSE] Retry delay: ${delayMs}ms, next attempt: ${attempt + 1}`);

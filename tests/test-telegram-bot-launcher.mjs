@@ -9,13 +9,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1240
  */
 
-import {
-  isRetryableError,
-  calculateRetryDelay,
-  formatDelay,
-  launchBotWithRetry,
-  LAUNCHER_DEFAULTS,
-} from '../src/telegram-bot-launcher.lib.mjs';
+import { isRetryableError, calculateRetryDelay, formatDelay, launchBotWithRetry, LAUNCHER_DEFAULTS } from '../src/telegram-bot-launcher.lib.mjs';
 
 console.log('='.repeat(80));
 console.log('Unit Tests: Telegram Bot Launcher with Retry (Issue #1240)');
@@ -295,7 +289,7 @@ console.log('\n  Retry cases:\n');
 
 await runAsyncTest('Retries on 409 Conflict and succeeds on 2nd attempt', async () => {
   const bot = makeMockBot({
-    launchBehavior: (callCount) => {
+    launchBehavior: callCount => {
       if (callCount === 1) throw makeTelegramError(409, 'Conflict: terminated by other getUpdates request');
       return undefined; // success on 2nd attempt
     },
@@ -306,7 +300,7 @@ await runAsyncTest('Retries on 409 Conflict and succeeds on 2nd attempt', async 
 
 await runAsyncTest('Retries on network error and succeeds', async () => {
   const bot = makeMockBot({
-    launchBehavior: (callCount) => {
+    launchBehavior: callCount => {
       if (callCount === 1) {
         const err = new Error('ECONNRESET');
         err.code = 'ECONNRESET';
@@ -321,7 +315,7 @@ await runAsyncTest('Retries on network error and succeeds', async () => {
 
 await runAsyncTest('Retries multiple times (409, 500, then success)', async () => {
   const bot = makeMockBot({
-    launchBehavior: (callCount) => {
+    launchBehavior: callCount => {
       if (callCount === 1) throw makeTelegramError(409, 'Conflict');
       if (callCount === 2) throw makeTelegramError(500, 'Internal Server Error');
       return undefined; // success on 3rd
@@ -334,26 +328,23 @@ await runAsyncTest('Retries multiple times (409, 500, then success)', async () =
 await runAsyncTest('Calls onRetry callback on each retry', async () => {
   const retryLog = [];
   const bot = makeMockBot({
-    launchBehavior: (callCount) => {
+    launchBehavior: callCount => {
       if (callCount <= 2) throw makeTelegramError(409, 'Conflict');
       return undefined;
     },
   });
-  await launchBotWithRetry(bot, {}, {
-    baseDelayMs: 10,
-    jitterFraction: 0,
-    onRetry: (attempt, error, delayMs) => {
-      retryLog.push({ attempt, code: error.code, delayMs });
-    },
-  });
-  return (
-    retryLog.length === 2 &&
-    retryLog[0].attempt === 1 &&
-    retryLog[0].code === 409 &&
-    retryLog[0].delayMs === 10 &&
-    retryLog[1].attempt === 2 &&
-    retryLog[1].delayMs === 20
+  await launchBotWithRetry(
+    bot,
+    {},
+    {
+      baseDelayMs: 10,
+      jitterFraction: 0,
+      onRetry: (attempt, error, delayMs) => {
+        retryLog.push({ attempt, code: error.code, delayMs });
+      },
+    }
   );
+  return retryLog.length === 2 && retryLog[0].attempt === 1 && retryLog[0].code === 409 && retryLog[0].delayMs === 10 && retryLog[1].attempt === 2 && retryLog[1].delayMs === 20;
 });
 
 console.log('\n  Non-retryable errors:\n');
@@ -386,7 +377,7 @@ await runAsyncTest('Aborts before first attempt if signal already aborted', asyn
 
 await runAsyncTest('Aborts during retry wait', async () => {
   const bot = makeMockBot({
-    launchBehavior: (callCount) => {
+    launchBehavior: callCount => {
       if (callCount === 1) throw makeTelegramError(409, 'Conflict');
       return undefined;
     },
@@ -397,11 +388,15 @@ await runAsyncTest('Aborts during retry wait', async () => {
   setTimeout(() => controller.abort(), 50);
 
   try {
-    await launchBotWithRetry(bot, {}, {
-      baseDelayMs: 5000, // Long delay so abort happens during wait
-      jitterFraction: 0,
-      signal: controller.signal,
-    });
+    await launchBotWithRetry(
+      bot,
+      {},
+      {
+        baseDelayMs: 5000, // Long delay so abort happens during wait
+        jitterFraction: 0,
+        signal: controller.signal,
+      }
+    );
     return false; // Should have thrown
   } catch (error) {
     return error.message.includes('aborted') && bot.launchCallCount === 1;
@@ -414,7 +409,7 @@ await runAsyncTest('Calls deleteWebhook with drop_pending_updates: true', async 
   let webhookOptions = null;
   const bot = {
     telegram: {
-      deleteWebhook: async (options) => {
+      deleteWebhook: async options => {
         webhookOptions = options;
         return true;
       },

@@ -15,6 +15,7 @@ The Telegram Bot API documentation for `getUpdates` states:
 **Constraint**: Only one `getUpdates` connection is allowed per bot token at any time. The API enforces this by returning a 409 Conflict error when a second client attempts to poll.
 
 **Two distinct 409 error messages**:
+
 - `"Conflict: terminated by other getUpdates request; make sure that only one bot instance is running"` -- Another polling client exists for the same token
 - `"Conflict: can't use getUpdates method while webhook is active; use deleteWebhook to delete the webhook first"` -- A webhook is set, blocking polling
 
@@ -26,16 +27,16 @@ Source: https://core.telegram.org/bots/api#getupdates
 
 The 409 error is documented across every major Telegram bot library:
 
-| Library | Language | Issue | URL |
-|---------|----------|-------|-----|
-| node-telegram-bot-api | JavaScript | #550 | https://github.com/yagop/node-telegram-bot-api/issues/550 |
-| node-telegram-bot-api | JavaScript | #488 | https://github.com/yagop/node-telegram-bot-api/issues/488 |
-| telegraf | JavaScript | #215, #704, #832 | https://github.com/telegraf/telegraf/issues/215 |
-| pyTelegramBotAPI | Python | #25, #1778 | https://github.com/eternnoir/pyTelegramBotAPI/issues/25 |
-| python-telegram-bot | Python | #582, #4018 | https://github.com/python-telegram-bot/python-telegram-bot/issues/582 |
-| TelegramBots (Java) | Java | #1221 | https://github.com/rubenlagus/TelegramBots/issues/1221 |
-| java-telegram-bot-api | Java | #261 | https://github.com/pengrad/java-telegram-bot-api/issues/261 |
-| nestjs-telegraf | TypeScript | #1238 | https://github.com/nksmnf/nestjs-telegraf/issues/1238 |
+| Library               | Language   | Issue            | URL                                                                   |
+| --------------------- | ---------- | ---------------- | --------------------------------------------------------------------- |
+| node-telegram-bot-api | JavaScript | #550             | https://github.com/yagop/node-telegram-bot-api/issues/550             |
+| node-telegram-bot-api | JavaScript | #488             | https://github.com/yagop/node-telegram-bot-api/issues/488             |
+| telegraf              | JavaScript | #215, #704, #832 | https://github.com/telegraf/telegraf/issues/215                       |
+| pyTelegramBotAPI      | Python     | #25, #1778       | https://github.com/eternnoir/pyTelegramBotAPI/issues/25               |
+| python-telegram-bot   | Python     | #582, #4018      | https://github.com/python-telegram-bot/python-telegram-bot/issues/582 |
+| TelegramBots (Java)   | Java       | #1221            | https://github.com/rubenlagus/TelegramBots/issues/1221                |
+| java-telegram-bot-api | Java       | #261             | https://github.com/pengrad/java-telegram-bot-api/issues/261           |
+| nestjs-telegraf       | TypeScript | #1238            | https://github.com/nksmnf/nestjs-telegraf/issues/1238                 |
 
 This confirms the error is a **Telegram API-level constraint**, not a library-specific bug.
 
@@ -44,29 +45,37 @@ This confirms the error is a **Telegram API-level constraint**, not a library-sp
 ## 3. All Known Causes
 
 ### 3.1 Multiple instances with same token
+
 The most common cause. Running two or more bot processes with the same API token, whether intentionally (dev+prod) or accidentally (stale process).
 
 ### 3.2 Process restart overlap
+
 When a process manager (Docker, systemd, PM2) restarts the bot, the new instance starts before the old one's long-polling connection has fully closed. The long-polling timeout (commonly 30-50 seconds) creates a window for conflicts.
 
 ### 3.3 Unclean process termination
+
 Killing a bot with `SIGKILL`, power failure, or OOM killer prevents graceful shutdown. The `bot.stop()` method never runs, and Telegram keeps the old connection until it times out.
 
 ### 3.4 Double `bot.launch()` or `startPolling()` calls
+
 Accidentally calling the launch method twice in the same process creates two polling loops. This was the root cause in Telegraf Issue #704.
 
 ### 3.5 Webhook conflict
+
 Setting a webhook and then trying to use `getUpdates` produces a variant of the 409 error. The bot must call `deleteWebhook()` before switching to polling.
 
 ### 3.6 Network-level connection persistence
+
 If the TCP connection between the bot and Telegram is interrupted without a proper FIN/RST (network partition, NAT timeout, load balancer reset), Telegram may keep the old connection in a half-open state. When the bot reconnects, Telegram sees two connections.
 
 Evidence: python-telegram-bot #4018 reports this on Raspberry Pi with unstable connectivity.
 
 ### 3.7 Deployment/CI environment overlap
+
 Running automated tests or CI pipelines that start a bot with the same token as a production instance.
 
 ### 3.8 Multiple services on same platform
+
 NestJS applications with multiple modules that each try to initialize the same Telegram bot.
 
 ---
@@ -74,33 +83,39 @@ NestJS applications with multiple modules that each try to initialize the same T
 ## 4. How Other Projects Handle This Error
 
 ### 4.1 python-telegram-bot (Python)
+
 - Does not auto-retry on 409
 - Documents it in FAQ: "only one instance can call getUpdates"
 - Recommends checking for stale processes
 - Source: https://python-telegram-bot.readthedocs.io/
 
 ### 4.2 pyTelegramBotAPI (Python)
+
 - Threaded polling can trigger 409 during restart
 - Community recommends `remove_webhook()` before starting polling
 - Source: https://github.com/eternnoir/pyTelegramBotAPI/issues/1778
 
 ### 4.3 node-telegram-bot-api (JavaScript)
+
 - 409 terminates polling
 - Recommends: ensure only one instance, avoid manual `startPolling()` when auto-polling is enabled
 - Source: https://github.com/yagop/node-telegram-bot-api/issues/550
 
 ### 4.4 grammY (JavaScript/TypeScript)
+
 - Documents long polling vs webhooks trade-offs
 - Recommends webhooks for production deployment
 - Provides built-in retry for transient errors but not 409
 - Source: https://grammy.dev/guide/deployment-types
 
 ### 4.5 Home Assistant (Python)
+
 - Large number of users report 409 after system migration, service restart, or running duplicate integrations
 - Solution: ensure only one Telegram integration is configured
 - Source: https://community.home-assistant.io/t/177544
 
 ### 4.6 NestJS Telegram Bot
+
 - 409 occurs when multiple NestJS modules initialize the same bot
 - Fix: restructure dependency injection to ensure single bot instance
 - Source: https://dev.to/endykaufman/nestjs-telegram-bot-fix-error-409-conflict-terminated-by-other-getupdates-request-22g8
@@ -112,6 +127,7 @@ NestJS applications with multiple modules that each try to initialize the same T
 ### 5.1 Do NOT blindly retry 409 without investigation
 
 The 409 error usually indicates a real problem (multiple instances). Blindly retrying can cause:
+
 - Rapid flip-flopping between instances
 - Message processing loops (handlers fire multiple times)
 - Increased API load
@@ -165,17 +181,19 @@ const totalDelay = baseDelay + jitter;
 
 ## 7. Webhook vs Polling Trade-offs
 
-| Aspect | Long Polling | Webhooks |
-|--------|-------------|----------|
-| 409 Conflict risk | High (single-consumer constraint) | None (push-based) |
-| Setup complexity | Low (no domain/SSL needed) | Medium (requires HTTPS endpoint) |
-| Latency | Depends on polling interval | Near-instant (push) |
-| Resource usage | Constant (open connection) | On-demand (per-update HTTP request) |
-| Multiple instances | Not possible | Possible (with load balancer) |
-| Best for | Development, simple bots | Production, high-traffic bots |
+| Aspect             | Long Polling                      | Webhooks                            |
+| ------------------ | --------------------------------- | ----------------------------------- |
+| 409 Conflict risk  | High (single-consumer constraint) | None (push-based)                   |
+| Setup complexity   | Low (no domain/SSL needed)        | Medium (requires HTTPS endpoint)    |
+| Latency            | Depends on polling interval       | Near-instant (push)                 |
+| Resource usage     | Constant (open connection)        | On-demand (per-update HTTP request) |
+| Multiple instances | Not possible                      | Possible (with load balancer)       |
+| Best for           | Development, simple bots          | Production, high-traffic bots       |
 
 ### Recommendation for production
+
 Webhooks eliminate the 409 problem entirely but require:
+
 - Public HTTPS endpoint (domain + SSL)
 - Reverse proxy (nginx, Caddy)
 - Firewall configuration

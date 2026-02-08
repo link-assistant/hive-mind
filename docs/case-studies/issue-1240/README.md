@@ -15,6 +15,7 @@ TelegramError: 409: Conflict: terminated by other getUpdates request; make sure 
 ```
 
 Error response payload:
+
 ```json
 {
   "ok": false,
@@ -42,6 +43,7 @@ The Telegram Bot API allows only one active `getUpdates` connection per bot toke
 > "Each bot can have only one update listener attached at each given time."
 
 The 409 response has two known variants:
+
 - `"Conflict: terminated by other getUpdates request; make sure that only one bot instance is running"` -- another polling client exists
 - `"Conflict: can't use getUpdates method while webhook is active; use deleteWebhook to delete the webhook first"` -- a webhook is set
 
@@ -67,7 +69,7 @@ In Telegraf's `polling.ts` source code, error codes 401 and 409 are treated iden
 // From telegraf/src/core/network/polling.ts
 if (err.code === 401 || err.code === 409) {
   this.skipOffsetSync = true;
-  throw err;  // Fatal -- no internal retry
+  throw err; // Fatal -- no internal retry
 }
 ```
 
@@ -103,6 +105,7 @@ Even when the operator believes only one bot instance is running, several scenar
 ### Solution 1: Add retry logic with exponential backoff (recommended)
 
 Wrap `bot.launch()` in a retry loop with exponential backoff, capped at a maximum interval (e.g., 10 minutes as requested in the issue). Differentiate between:
+
 - **Retryable errors**: 409 (Conflict), network errors, 5xx server errors
 - **Non-retryable errors**: 401 (Unauthorized -- invalid token), which should still exit immediately
 
@@ -130,10 +133,7 @@ async function launchBotWithRetry(bot, options, maxRetries = Infinity, maxDelayM
       const jitter = delay * 0.1 * Math.random(); // 10% jitter
       const totalDelay = delay + jitter;
 
-      console.warn(
-        `Bot launch attempt ${attempt} failed (${error.code || 'unknown'}): ${error.message}. ` +
-        `Retrying in ${Math.round(totalDelay / 1000)}s...`
-      );
+      console.warn(`Bot launch attempt ${attempt} failed (${error.code || 'unknown'}): ${error.message}. ` + `Retrying in ${Math.round(totalDelay / 1000)}s...`);
 
       await new Promise(resolve => setTimeout(resolve, totalDelay));
     }
@@ -167,6 +167,7 @@ bot.launch({
 ```
 
 However, this requires:
+
 - A publicly accessible HTTPS endpoint
 - SSL certificate setup
 - Infrastructure changes (reverse proxy, firewall rules)
@@ -179,7 +180,10 @@ Before starting the bot, check for and kill any existing bot processes:
 import { execSync } from 'child_process';
 try {
   const result = execSync('pgrep -f "telegram-bot.mjs"', { encoding: 'utf8' });
-  const pids = result.trim().split('\n').filter(pid => pid !== String(process.pid));
+  const pids = result
+    .trim()
+    .split('\n')
+    .filter(pid => pid !== String(process.pid));
   for (const pid of pids) {
     console.warn(`Killing stale bot process: ${pid}`);
     process.kill(Number(pid), 'SIGTERM');
@@ -187,7 +191,9 @@ try {
   if (pids.length > 0) {
     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for cleanup
   }
-} catch { /* No stale processes */ }
+} catch {
+  /* No stale processes */
+}
 ```
 
 ### Solution 5: Use `dropPendingUpdates` with offset reset
@@ -197,16 +203,18 @@ The bot already uses `dropPendingUpdates: true`, which is correct. Additionally,
 ```javascript
 try {
   await bot.telegram.callApi('getUpdates', { offset: -1, limit: 1, timeout: 0 });
-} catch { /* ignore */ }
+} catch {
+  /* ignore */
+}
 ```
 
 ## Existing Libraries and Tools
 
-| Library | Purpose | npm |
-|---------|---------|-----|
-| [p-retry](https://github.com/sindresorhus/p-retry) | Promise retry with exponential backoff | `p-retry` |
-| [async-retry](https://www.npmjs.com/package/async-retry) | Retry with configurable backoff (factor, min/max timeout) | `async-retry` |
-| [exponential-backoff](https://www.npmjs.com/package/exponential-backoff) | Exponential delay with jitter support ("full"/"none") | `exponential-backoff` |
+| Library                                                                  | Purpose                                                   | npm                   |
+| ------------------------------------------------------------------------ | --------------------------------------------------------- | --------------------- |
+| [p-retry](https://github.com/sindresorhus/p-retry)                       | Promise retry with exponential backoff                    | `p-retry`             |
+| [async-retry](https://www.npmjs.com/package/async-retry)                 | Retry with configurable backoff (factor, min/max timeout) | `async-retry`         |
+| [exponential-backoff](https://www.npmjs.com/package/exponential-backoff) | Exponential delay with jitter support ("full"/"none")     | `exponential-backoff` |
 
 Since the project uses `use-m` for dynamic module loading, any of these can be used without adding to `package.json`:
 
@@ -216,20 +224,21 @@ const { default: pRetry } = await use('p-retry');
 
 ## Related Telegraf GitHub Issues
 
-| Issue | Title | Status | Relevance |
-|-------|-------|--------|-----------|
-| [#215](https://github.com/telegraf/telegraf/issues/215) | Can not catch error 409 | Closed (fixed: "stop on conflict" for 401/409) | Shows historical inability to catch 409 |
-| [#241](https://github.com/telegraf/telegraf/issues/241) | Detecting of stop polling when error in handleUpdates | Closed | Polling stops silently on error |
-| [#494](https://github.com/telegraf/telegraf/pull/494) | Adds the option to reconnect after a 409 error | Closed (not merged) | Rejected for breaking backward compat; told to use webhooks |
-| [#704](https://github.com/telegraf/telegraf/issues/704) | ERROR 409 / Failed to process updates | Closed | Caused by duplicate `bot.launch()` calls |
-| [#832](https://github.com/telegraf/telegraf/issues/832) | Stopping and relaunching a bot is broken | Closed | Stop/relaunch causes 409; fix: increase polling timeout, delay restart |
-| [#1234](https://github.com/telegraf/telegraf/discussions/1234) | Long polling silently hangs or swallows errors | Discussion | Errors thrown after handlerTimeout are swallowed |
-| [#1563](https://github.com/telegraf/telegraf/issues/1563) | Should handle 429 flood wait errors during polling | Open | 429 gets backoff but 409 does not |
-| [#1657](https://github.com/telegraf/telegraf/issues/1657) | Add ability to recover from errors | Closed (v4.11.0) | `bot.launch()` now returns catchable promise |
+| Issue                                                          | Title                                                 | Status                                         | Relevance                                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| [#215](https://github.com/telegraf/telegraf/issues/215)        | Can not catch error 409                               | Closed (fixed: "stop on conflict" for 401/409) | Shows historical inability to catch 409                                |
+| [#241](https://github.com/telegraf/telegraf/issues/241)        | Detecting of stop polling when error in handleUpdates | Closed                                         | Polling stops silently on error                                        |
+| [#494](https://github.com/telegraf/telegraf/pull/494)          | Adds the option to reconnect after a 409 error        | Closed (not merged)                            | Rejected for breaking backward compat; told to use webhooks            |
+| [#704](https://github.com/telegraf/telegraf/issues/704)        | ERROR 409 / Failed to process updates                 | Closed                                         | Caused by duplicate `bot.launch()` calls                               |
+| [#832](https://github.com/telegraf/telegraf/issues/832)        | Stopping and relaunching a bot is broken              | Closed                                         | Stop/relaunch causes 409; fix: increase polling timeout, delay restart |
+| [#1234](https://github.com/telegraf/telegraf/discussions/1234) | Long polling silently hangs or swallows errors        | Discussion                                     | Errors thrown after handlerTimeout are swallowed                       |
+| [#1563](https://github.com/telegraf/telegraf/issues/1563)      | Should handle 429 flood wait errors during polling    | Open                                           | 429 gets backoff but 409 does not                                      |
+| [#1657](https://github.com/telegraf/telegraf/issues/1657)      | Add ability to recover from errors                    | Closed (v4.11.0)                               | `bot.launch()` now returns catchable promise                           |
 
 ### Key takeaway from Telegraf history
 
 Telegraf v4.11.0 made `bot.launch()` errors catchable, but **the framework explicitly does not retry on 409 errors**. The library's position is:
+
 - 409 indicates a "real" conflict (multiple instances), not a transient error
 - Recovery requires manual intervention (create new bot instance)
 - For production 24/7 operation, webhooks are recommended over polling

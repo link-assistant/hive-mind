@@ -42,6 +42,10 @@ export default [
         setImmediate: 'readonly',
         clearImmediate: 'readonly',
 
+        // Web API globals available in Node.js 18+
+        AbortController: 'readonly',
+        AbortSignal: 'readonly',
+
         // Custom globals
         use: 'readonly',
         fetch: 'readonly',

@@ -45,6 +45,8 @@ const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCha
 const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 // Import extracted message filter functions for testability (issue #1207)
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
+// Import bot launcher with exponential backoff retry (issue #1240)
+const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -1388,26 +1390,22 @@ if (VERBOSE) {
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
 
-// Delete existing webhook (critical: webhooks prevent polling from working)
-if (VERBOSE) console.log('[VERBOSE] Deleting webhook...');
-bot.telegram
-  .deleteWebhook({ drop_pending_updates: true })
-  .then(result => {
-    if (VERBOSE) {
-      console.log('[VERBOSE] Webhook deletion result:', result);
-    }
-    console.log('🔄 Webhook deleted (if existed), starting polling mode...');
-    if (VERBOSE) {
-      console.log('[VERBOSE] Launching bot with config:', {
-        allowedUpdates: ['message'],
-        dropPendingUpdates: true,
-      });
-    }
-    return bot.launch({
-      allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
-      dropPendingUpdates: true, // Drop pending updates sent before bot started
-    });
-  })
+// Launch bot with retry logic (issue #1240: handle 409 Conflict with exponential backoff)
+// The launcher handles deleteWebhook + bot.launch() with retry on transient errors.
+// Non-retryable errors (401 Unauthorized) cause immediate exit.
+const launchAbortController = new AbortController();
+
+launchBotWithRetry(
+  bot,
+  {
+    allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+    dropPendingUpdates: true, // Drop pending updates sent before bot started
+  },
+  {
+    verbose: VERBOSE,
+    signal: launchAbortController.signal,
+  }
+)
   .then(async () => {
     if (isShuttingDown) return; // Skip success messages if shutting down
 
@@ -1476,6 +1474,7 @@ process.once('SIGINT', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGINT, PID: ${process.pid}, PPID: ${process.ppid}`);
+  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
   stopSolveQueue();
   bot.stop('SIGINT');
 });
@@ -1484,6 +1483,7 @@ process.once('SIGTERM', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
+  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
   stopSolveQueue();
   bot.stop('SIGTERM');
 });

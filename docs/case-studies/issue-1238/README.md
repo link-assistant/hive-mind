@@ -66,13 +66,23 @@ For Opus 4.6, Claude Code uses `CLAUDE_CODE_EFFORT_LEVEL` (default: `high`) inst
 1. **`src/config.lib.mjs`**:
    - Changed `DEFAULT_MAX_THINKING_BUDGET_OPUS_46` from 64000 to 31999 (same as standard models)
    - Updated `getClaudeEnv()` to set `MAX_THINKING_TOKENS=0` by default when no thinking budget is explicitly provided
+   - Added `CLAUDE_CODE_EFFORT_LEVEL` support for Opus 4.6 models
+   - Added `thinkLevelToEffortLevel()` and `thinkingBudgetToEffortLevel()` functions for Opus 4.6 effort level conversion
+   - Added `OPUS_46_EFFORT_LEVELS` constant
 
-2. **`src/solve.config.lib.mjs`**:
+2. **`src/claude.lib.mjs`**:
+   - Updated `getClaudeEnv()` call to pass `thinkLevel` and `maxBudget` for Opus 4.6 effort level conversion
+   - Added verbose logging for `CLAUDE_CODE_EFFORT_LEVEL` when set
+
+3. **`src/solve.config.lib.mjs`**:
    - Updated `--thinking-budget` option description to reflect that default is now 0
    - Updated `--max-thinking-budget` option description
 
-3. **`experiments/thinking-budget-test.mjs`**:
+4. **`experiments/thinking-budget-test.mjs`**:
    - Updated test expectations for the new Opus 4.6 max budget (31999)
+   - Added tests for `thinkLevelToEffortLevel()` conversion
+   - Added tests for `thinkingBudgetToEffortLevel()` conversion
+   - Added tests for `CLAUDE_CODE_EFFORT_LEVEL` in `getClaudeEnv()` for Opus 4.6
 
 ### Code Changes
 
@@ -99,6 +109,41 @@ export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIN
 // After
 export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 ```
+
+#### CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (PR Comment Feedback)
+
+Based on PR comment feedback, we now properly convert `--think` and `--thinking-budget` to `CLAUDE_CODE_EFFORT_LEVEL` for Opus 4.6 models:
+
+```javascript
+// Mapping from hive-mind thinking levels to Opus 4.6 effort levels:
+// - 'off' → No effort level (thinking disabled via MAX_THINKING_TOKENS=0)
+// - 'low' → 'low'
+// - 'medium' → 'medium'
+// - 'high' → 'high'
+// - 'max' → 'high' (Opus 4.6 only supports up to 'high')
+
+export const thinkLevelToEffortLevel = thinkLevel => {
+  if (!thinkLevel || thinkLevel === 'off') return undefined;
+  if (thinkLevel === 'max') return 'high';
+  return thinkLevel; // 'low', 'medium', 'high'
+};
+
+// getClaudeEnv now sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6:
+if (options.model && isOpus46OrLater(options.model)) {
+  const effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+  if (effortLevel) {
+    env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
+  }
+}
+```
+
+| hive-mind `--think` | `CLAUDE_CODE_EFFORT_LEVEL` |
+| ------------------- | -------------------------- |
+| `off`               | Not set (disabled)         |
+| `low`               | `low`                      |
+| `medium`            | `medium`                   |
+| `high`              | `high`                     |
+| `max`               | `high`                     |
 
 ## Impact Assessment
 

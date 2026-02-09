@@ -911,18 +911,23 @@ export const executeClaudeCommand = async params => {
     try {
       // Resolve thinking settings (handles translation between --think and --thinking-budget based on Claude version)
       // See issue #1146 for details on thinking budget translation
-      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
+      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
 
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
-      // and MCP timeout configurations (see issue #1066)
+      // MCP timeout configurations (see issue #1066), and CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (Issue #1238)
       // Pass model for model-specific max output tokens (Issue #1221)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel });
+      // Pass thinkLevel and maxBudget for Opus 4.6 effort level conversion (Issue #1238)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) {
         await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+      }
+      // Log effort level for Opus 4.6 models (Issue #1238)
+      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) {
+        await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
       }
       // Log thinking level for older Claude Code versions that use thinking keywords
       if (!isNewVersion && thinkLevel) {

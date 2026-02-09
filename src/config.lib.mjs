@@ -205,6 +205,59 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 // Default tokens to thinking level function (using default max budget)
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
+/**
+ * Valid effort levels for Opus 4.6 (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
+ * @type {string[]}
+ */
+export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high'];
+
+/**
+ * Convert thinking level to Opus 4.6 effort level (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL (low/medium/high) instead of MAX_THINKING_TOKENS
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkLevelToEffortLevel = thinkLevel => {
+  if (!thinkLevel || thinkLevel === 'off') {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Map hive-mind thinking levels to Opus 4.6 effort levels
+  // Note: Opus 4.6 only supports low/medium/high, not 'max'
+  // We map 'max' to 'high' as it's the highest available level
+  switch (thinkLevel) {
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'high':
+    case 'max':
+      return 'high';
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Convert thinking budget (tokens) to Opus 4.6 effort level (Issue #1238)
+ * Uses token thresholds to determine the appropriate effort level
+ * @param {number|undefined} thinkingBudget - The thinking budget in tokens
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  if (thinkingBudget === undefined || thinkingBudget === 0) {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Convert tokens to thinking level, then to effort level
+  const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
+  return thinkLevelToEffortLevel(thinkLevel);
+};
+
 // Check if a version supports thinking budget (>= minimum version)
 // Uses semver npm package for reliable version comparison (see issue #1146)
 export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
@@ -224,6 +277,7 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
+// Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -238,10 +292,29 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
+
   // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
   // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
   // Users can explicitly enable thinking via --think or --thinking-budget options.
   env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+
+  // For Opus 4.6+, also set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238)
+  // Opus 4.6 uses effort level (low/medium/high) instead of MAX_THINKING_TOKENS for thinking depth.
+  // MAX_THINKING_TOKENS is only used to disable thinking (when set to 0).
+  if (options.model && isOpus46OrLater(options.model)) {
+    // Convert thinkLevel or thinkingBudget to effort level
+    let effortLevel;
+    if (options.thinkLevel) {
+      effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+    } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
+      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget);
+    }
+
+    if (effortLevel) {
+      env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
+    }
+  }
+
   return env;
 };
 

@@ -54,11 +54,11 @@ The following free models are fully supported and tested in hive-mind:
 - **Release Date**: December 23, 2025
 - **Open Weights**: Yes
 
-### 5. opencode/kimi-k2.5-free
+### 5. opencode/kimi-k2.5-free ⭐ **Default Model**
 
 - **Short Alias**: `kimi-k2.5-free`
 - **Provider**: OpenCode Zen
-- **Status**: ✅ Fully Supported
+- **Status**: ✅ Fully Supported (Default for `--tool agent`)
 - **Features**: Reasoning, tool calling, temperature control
 - **Context Window**: 262,144 tokens
 - **Output Limit**: 262,144 tokens
@@ -86,6 +86,20 @@ hive --tool agent --model gpt-5-nano https://github.com/owner/repo/issues/123
 hive --tool agent --model glm-4.7-free https://github.com/owner/repo/issues/123
 hive --tool agent --model minimax-m2.1-free https://github.com/owner/repo/issues/123
 hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/123
+```
+
+### Telegram Bot Usage
+
+```bash
+# Using /solve command in Telegram group chats
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
+/solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
+/solve https://github.com/owner/repo/issues/123 --tool agent --model glm-4.7-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
+
+# Note: kimi-k2.5-free is the default, so --model flag is optional:
+/solve https://github.com/owner/repo/issues/123 --tool agent
 ```
 
 ### Direct Agent CLI Usage

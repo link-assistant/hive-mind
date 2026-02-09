@@ -127,15 +127,16 @@ export const DEFAULT_MAX_THINKING_BUDGET = 31999;
 export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 
 /**
- * Check if a model is Opus 4.6 or later (Issue #1221)
+ * Check if a model is Opus 4.6 or later (Issue #1221, updated in Issue #1238)
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Opus 4.6 or later
  */
 export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // Check for opus alias (which maps to 4.6) or explicit opus-4-6
-  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // Check for explicit opus-4-6 or later versions
+  // Note: The 'opus' alias now maps to Opus 4.5 (Issue #1238), so we only check explicit version identifiers
+  return normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**

@@ -15,7 +15,7 @@ import { log } from './lib.mjs';
 export const CLAUDE_MODELS = {
   // Short aliases (single word)
   sonnet: 'claude-sonnet-4-5-20250929',
-  opus: 'claude-opus-4-6', // Updated to Opus 4.6 (Issue #1221)
+  opus: 'claude-opus-4-5-20251101', // Changed to Opus 4.5 (Issue #1238)
   haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
   'haiku-3': 'claude-3-haiku-20240307',
@@ -25,8 +25,8 @@ export const CLAUDE_MODELS = {
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
   // Opus version aliases (Issue #1221)
-  'claude-opus-4-6': 'claude-opus-4-6', // Latest Opus
-  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Backward compatibility alias
+  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
+  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
   // Sonnet version aliases
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
   // Haiku version aliases
@@ -39,15 +39,17 @@ export const CLAUDE_MODELS = {
   'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
 
-// Models that support 1M token context window via [1m] suffix (Issue #1221)
+// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-6',
+  'claude-opus-4-5-20251101',
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
   'sonnet',
   'opus',
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
+  'opus-4-5', // Short alias (Issue #1238)
   'sonnet-4-5', // Short alias (Issue #1221 - PR comment feedback)
 ];
 

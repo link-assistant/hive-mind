@@ -1,4 +1,4 @@
-# Case Study: Default Thinking Budget Should Be Zero
+# Case Study: Default Thinking Budget Should Be Zero, Opus Alias to 4.5
 
 ## Issue Reference
 
@@ -9,10 +9,11 @@
 
 ## Executive Summary
 
-This case study documents the analysis and implementation of two changes to hive-mind's thinking budget configuration:
+This case study documents the analysis and implementation of three changes to hive-mind's configuration:
 
 1. **Default thinking budget should be zero** - When no `--think` or `--thinking-budget` option is provided, thinking should be turned off (budget = 0) instead of relying on Claude Code's default of 31,999 tokens.
 2. **Opus 4.6 max thinking budget should match Opus 4.5** - The `DEFAULT_MAX_THINKING_BUDGET_OPUS_46` should be 31,999 (same as standard models), not 64,000.
+3. **Opus alias maps to Opus 4.5 by default** (PR comment feedback) - The `opus` model alias should map to `claude-opus-4-5-20251101` instead of `claude-opus-4-6`, while supporting both versions via explicit aliases (`opus-4-5`, `opus-4-6`).
 
 ## Problem Analysis
 
@@ -121,6 +122,44 @@ export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIN
 - [Extended Thinking Documentation](https://platform.claude.com/docs/en/build-with-claude/extended-thinking)
 - [Issue #1146 - Ultrathink Deprecation](https://github.com/link-assistant/hive-mind/issues/1146) (related)
 - [Issue #1221 - Opus 4.6 Support](https://github.com/link-assistant/hive-mind/issues/1221) (related)
+
+## Additional Change: Opus Alias Maps to Opus 4.5 (PR Comment Feedback)
+
+Based on PR comment feedback, an additional change was implemented:
+
+### Problem
+
+The `opus` model alias was mapping to `claude-opus-4-6` (Opus 4.6), but users requested it map to `claude-opus-4-5-20251101` (Opus 4.5) by default, while still supporting both Opus 4.5 and 4.6 via explicit aliases.
+
+### Solution
+
+1. **Changed `opus` alias to map to Opus 4.5**:
+   - `opus` → `claude-opus-4-5-20251101`
+
+2. **Added explicit version aliases**:
+   - `opus-4-5` → `claude-opus-4-5-20251101`
+   - `opus-4-6` → `claude-opus-4-6`
+
+3. **Updated `isOpus46OrLater()` function**:
+   - Now only returns `true` for explicit Opus 4.6+ identifiers (e.g., `opus-4-6`, `claude-opus-4-6`)
+   - No longer treats `opus` alias as Opus 4.6 (since it now maps to 4.5)
+
+### Files Modified
+
+- `src/config.lib.mjs` - Updated `isOpus46OrLater()` function
+- `src/model-mapping.lib.mjs` - Updated `claudeModels.opus` mapping
+- `src/model-validation.lib.mjs` - Updated `CLAUDE_MODELS.opus` mapping, added `opus-4-5` to 1M context support list
+- `tests/test-opus-46-model-support.mjs` - Updated tests to reflect new mappings
+
+### Model Alias Summary
+
+| Alias             | Maps To                    | Notes                            |
+| ----------------- | -------------------------- | -------------------------------- |
+| `opus`            | `claude-opus-4-5-20251101` | Default (changed in Issue #1238) |
+| `opus-4-5`        | `claude-opus-4-5-20251101` | Explicit Opus 4.5                |
+| `opus-4-6`        | `claude-opus-4-6`          | Explicit Opus 4.6                |
+| `claude-opus-4-5` | `claude-opus-4-5-20251101` | Full version alias               |
+| `claude-opus-4-6` | `claude-opus-4-6`          | Full model ID                    |
 
 ## Related Case Studies
 

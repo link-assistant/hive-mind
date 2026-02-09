@@ -18,6 +18,12 @@ dayjs.extend(utc);
 // Import cache TTL configuration
 import { cacheTtl } from './config.lib.mjs';
 
+// Import centralized queue thresholds for progress bar visualization
+// This ensures thresholds are consistent between queue logic and display formatting
+// See: https://github.com/link-assistant/hive-mind/issues/1242
+export { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
+import { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
+
 const execAsync = promisify(exec);
 
 /**
@@ -626,13 +632,35 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
 /**
  * Generate a text-based progress bar for usage percentage
  * @param {number} percentage - Usage percentage (0-100)
+ * @param {number|null} thresholdPercentage - Optional threshold position to show in the bar (0-100)
  * @returns {string} Text-based progress bar
+ * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
-export function getProgressBar(percentage) {
+export function getProgressBar(percentage, thresholdPercentage = null) {
   const totalBlocks = 30;
   const filledBlocks = Math.round((percentage / 100) * totalBlocks);
-  const emptyBlocks = totalBlocks - filledBlocks;
-  return '\u2593'.repeat(filledBlocks) + '\u2591'.repeat(emptyBlocks);
+
+  if (thresholdPercentage === null) {
+    // No threshold - original behavior
+    const emptyBlocks = totalBlocks - filledBlocks;
+    return '\u2593'.repeat(filledBlocks) + '\u2591'.repeat(emptyBlocks);
+  }
+
+  // With threshold marker
+  const thresholdPos = Math.round((thresholdPercentage / 100) * totalBlocks);
+  let bar = '';
+
+  for (let i = 0; i < totalBlocks; i++) {
+    if (i === thresholdPos) {
+      bar += '│'; // Threshold marker (U+2502 Box Drawings Light Vertical)
+    } else if (i < filledBlocks) {
+      bar += '▓'; // Filled (U+2593)
+    } else {
+      bar += '░'; // Empty (U+2591)
+    }
+  }
+
+  return bar;
 }
 
 /**
@@ -664,12 +692,15 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
 
 /**
  * Format Claude usage data into a Telegram-friendly message
+ * Shows threshold markers in progress bars to indicate where queue behavior changes.
+ *
  * @param {Object} usage - The usage object from getClaudeUsageLimits
  * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
  * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
  * @param {Object} cpuLoad - Optional CPU load info from getCpuLoadInfo
  * @param {Object} memory - Optional memory info from getMemoryInfo
  * @returns {string} Formatted message
+ * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
 export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null) {
   // Use code block for monospace font to align progress bars properly
@@ -679,38 +710,46 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   message += `Current time: ${formatCurrentTime()}\n\n`;
 
   // CPU load section (if provided)
+  // Threshold: Blocks new commands when usage >= 65%
   if (cpuLoad) {
     message += 'CPU\n';
-    const usedBar = getProgressBar(cpuLoad.usagePercentage);
-    message += `${usedBar} ${cpuLoad.usagePercentage}% used\n`;
+    const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
+    const warning = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : '';
+    message += `${usedBar} ${cpuLoad.usagePercentage}%${warning}\n`;
     // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
     // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
     message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores used\n\n`;
   }
 
   // Memory section (if provided)
+  // Threshold: Blocks new commands when usage >= 65%
   if (memory) {
     message += 'RAM\n';
-    const usedBar = getProgressBar(memory.usedPercentage);
-    message += `${usedBar} ${memory.usedPercentage}% used\n`;
+    const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
+    const warning = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : '';
+    message += `${usedBar} ${memory.usedPercentage}%${warning}\n`;
     message += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n\n`;
   }
 
   // Disk space section (if provided)
+  // Threshold: One-at-a-time mode when usage >= 90%
   if (diskSpace) {
     message += 'Disk space\n';
-    // Show used percentage with progress bar
-    const usedBar = getProgressBar(diskSpace.usedPercentage);
-    message += `${usedBar} ${diskSpace.usedPercentage}% used\n`;
+    // Show used percentage with progress bar and threshold marker
+    const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
+    const warning = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : '';
+    message += `${usedBar} ${diskSpace.usedPercentage}%${warning}\n`;
     message += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n\n`;
   }
 
   // GitHub API rate limits section (if provided)
+  // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
     message += 'GitHub API\n';
-    // Show used percentage with progress bar
-    const usedBar = getProgressBar(githubRateLimit.usedPercentage);
-    message += `${usedBar} ${githubRateLimit.usedPercentage}% used\n`;
+    // Show used percentage with progress bar and threshold marker
+    const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
+    const warning = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : '';
+    message += `${usedBar} ${githubRateLimit.usedPercentage}%${warning}\n`;
     message += `${githubRateLimit.used}/${githubRateLimit.limit} requests used\n`;
     if (githubRateLimit.relativeReset) {
       message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
@@ -721,21 +760,23 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   }
 
   // Claude 5 hour session (five_hour)
+  // Threshold: One-at-a-time mode when usage >= 65%
   message += 'Claude 5 hour session\n';
   if (usage.currentSession.percentage !== null) {
-    // Add time passed progress bar first
+    // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
       message += `${timeBar} ${timePassed}% passed\n`;
     }
 
-    // Add usage progress bar second
+    // Add usage progress bar second with threshold marker
     // Use Math.floor so 100% only appears when usage is exactly 100%
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.currentSession.percentage);
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
+    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : '';
+    message += `${bar} ${pct}%${warning}\n`;
 
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
@@ -751,21 +792,23 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   message += '\n';
 
   // Current week (all models / seven_day)
+  // Threshold: One-at-a-time mode when usage >= 97%
   message += 'Current week (all models)\n';
   if (usage.allModels.percentage !== null) {
-    // Add time passed progress bar first (168 hours = 7 days)
+    // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
       message += `${timeBar} ${timePassed}% passed\n`;
     }
 
-    // Add usage progress bar second
+    // Add usage progress bar second with threshold marker
     // Use Math.floor so 100% only appears when usage is exactly 100%
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.allModels.percentage);
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
+    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : '';
+    message += `${bar} ${pct}%${warning}\n`;
 
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
@@ -781,21 +824,23 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   message += '\n';
 
   // Current week (Sonnet only / seven_day_sonnet)
+  // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
   message += 'Current week (Sonnet only)\n';
   if (usage.sonnetOnly.percentage !== null) {
-    // Add time passed progress bar first (168 hours = 7 days)
+    // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
     if (timePassed !== null) {
       const timeBar = getProgressBar(timePassed);
       message += `${timeBar} ${timePassed}% passed\n`;
     }
 
-    // Add usage progress bar second
+    // Add usage progress bar second with threshold marker
     // Use Math.floor so 100% only appears when usage is exactly 100%
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.sonnetOnly.percentage);
-    const bar = getProgressBar(pct);
-    message += `${bar} ${pct}% used\n`;
+    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
+    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : '';
+    message += `${bar} ${pct}%${warning}\n`;
 
     if (usage.sonnetOnly.resetTime) {
       const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
@@ -973,6 +1018,8 @@ export default {
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  // Threshold constants for progress bar visualization
+  DISPLAY_THRESHOLDS,
   // Cache management
   CACHE_TTL,
   getLimitCache,

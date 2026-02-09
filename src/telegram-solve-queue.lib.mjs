@@ -23,39 +23,11 @@ const execAsync = promisify(exec);
 // Import centralized limits and caching
 import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
-/**
- * Configuration constants for queue throttling
- * All thresholds use ratios (0.0 - 1.0) representing usage percentage
- *
- * IMPORTANT: Running claude processes is NOT a blocking limit by itself.
- * Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded.
- * See: https://github.com/link-assistant/hive-mind/issues/1078
- */
-export const QUEUE_CONFIG = {
-  // Resource thresholds (usage ratios: 0.0 - 1.0)
-  // All thresholds use >= comparison (inclusive)
-  RAM_THRESHOLD: 0.65, // Enqueue if RAM usage >= 65%
-  // CPU threshold uses 5-minute load average, not instantaneous CPU usage
-  CPU_THRESHOLD: 0.65, // Enqueue if 5-minute load average >= 65% of CPU count
-  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%, tuned for VM with 100 GB drive
-
-  // API limit thresholds (usage ratios: 0.0 - 1.0)
-  // All thresholds use >= comparison (inclusive)
-  // Fine-tuned for Claude MAX $200 subscription
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.65, // One-at-a-time if 5-hour limit >= 65%
-  CLAUDE_WEEKLY_THRESHOLD: 0.97, // One-at-a-time if weekly limit >= 97%
-  GITHUB_API_THRESHOLD: 0.75, // Enqueue if GitHub >= 75% with parallel claude
-
-  // Timing
-  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
-  // This ensures that when API limits are checked, the running process is counted
-  MIN_START_INTERVAL_MS: 60000, // 1 minutes between starts
-  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks
-  MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
-
-  // Process detection
-  CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
-};
+// Import centralized queue configuration
+// This ensures thresholds are consistent between queue logic and display formatting
+// See: https://github.com/link-assistant/hive-mind/issues/1242
+export { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 
 /**
  * Status enum for queue items

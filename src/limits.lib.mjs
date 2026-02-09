@@ -18,19 +18,11 @@ dayjs.extend(utc);
 // Import cache TTL configuration
 import { cacheTtl } from './config.lib.mjs';
 
-/**
- * Queue threshold constants for progress bar visualization
- * These values are synchronized with QUEUE_CONFIG in telegram-solve-queue.lib.mjs
- * @see https://github.com/link-assistant/hive-mind/issues/1242
- */
-export const DISPLAY_THRESHOLDS = {
-  RAM: 65, // Blocks at 65%
-  CPU: 65, // Blocks at 65%
-  DISK: 90, // One-at-a-time at 90%
-  CLAUDE_5_HOUR_SESSION: 65, // One-at-a-time at 65%
-  CLAUDE_WEEKLY: 97, // One-at-a-time at 97%
-  GITHUB_API: 75, // Blocks parallel claude at 75%
-};
+// Import centralized queue thresholds for progress bar visualization
+// This ensures thresholds are consistent between queue logic and display formatting
+// See: https://github.com/link-assistant/hive-mind/issues/1242
+export { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
+import { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
 
 const execAsync = promisify(exec);
 

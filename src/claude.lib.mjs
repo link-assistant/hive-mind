@@ -922,17 +922,9 @@ export const executeClaudeCommand = async params => {
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
-      if (resolvedThinkingBudget !== undefined) {
-        await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
-      }
-      // Log effort level for Opus 4.6 models (Issue #1238)
-      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) {
-        await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
-      }
-      // Log thinking level for older Claude Code versions that use thinking keywords
-      if (!isNewVersion && thinkLevel) {
-        await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
-      }
+      if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+      if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       if (argv.resume) {
         // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');

@@ -921,7 +921,6 @@ export const classifyCloneError = errorOutput => {
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
   const maxRetries = 3;
   const baseDelay = 2000; // Start with 2 seconds
-  let lastError = null;
 
   await log(`\n${formatAligned('📥', 'Cloning repository:', repoToClone)}`);
 
@@ -949,7 +948,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 
     // Clone failed - analyze error and determine if retry is appropriate
     const errorOutput = (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
-    lastError = errorOutput;
 
     const errorClassification = classifyCloneError(errorOutput);
 

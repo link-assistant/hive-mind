@@ -123,42 +123,42 @@
 
 ### Currently Used
 
-| Character | Unicode | Name |
-|-----------|---------|------|
-| ▓ | U+2593 | Dark shade |
-| ░ | U+2591 | Light shade |
+| Character | Unicode | Name        |
+| --------- | ------- | ----------- |
+| ▓         | U+2593  | Dark shade  |
+| ░         | U+2591  | Light shade |
 
 ### Candidates for Threshold Markers
 
-| Character | Unicode | Name | Notes |
-|-----------|---------|------|-------|
-| │ | U+2502 | Box drawings light vertical | Recommended - clear divider |
-| ┃ | U+2503 | Box drawings heavy vertical | Bold alternative |
-| ┆ | U+2506 | Box drawings light triple dash vertical | Dashed alternative |
-| ║ | U+2551 | Box drawings double vertical | Double line |
-| ▏ | U+258F | Left one eighth block | Thin marker |
-| ❘ | U+2758 | Light vertical bar | Thin line |
-| ⎸ | U+23B8 | Left vertical box line | Math bracket |
+| Character | Unicode | Name                                    | Notes                       |
+| --------- | ------- | --------------------------------------- | --------------------------- |
+| │         | U+2502  | Box drawings light vertical             | Recommended - clear divider |
+| ┃         | U+2503  | Box drawings heavy vertical             | Bold alternative            |
+| ┆         | U+2506  | Box drawings light triple dash vertical | Dashed alternative          |
+| ║         | U+2551  | Box drawings double vertical            | Double line                 |
+| ▏         | U+258F  | Left one eighth block                   | Thin marker                 |
+| ❘         | U+2758  | Light vertical bar                      | Thin line                   |
+| ⎸         | U+23B8  | Left vertical box line                  | Math bracket                |
 
 ### Zone Differentiation Characters
 
-| Character | Unicode | Name | Suggested Use |
-|-----------|---------|------|---------------|
-| ░ | U+2591 | Light shade | Safe zone (empty) |
-| ▒ | U+2592 | Medium shade | Warning zone (empty) |
-| ▓ | U+2593 | Dark shade | Safe zone (filled) |
-| █ | U+2588 | Full block | Warning zone (filled) |
+| Character | Unicode | Name         | Suggested Use         |
+| --------- | ------- | ------------ | --------------------- |
+| ░         | U+2591  | Light shade  | Safe zone (empty)     |
+| ▒         | U+2592  | Medium shade | Warning zone (empty)  |
+| ▓         | U+2593  | Dark shade   | Safe zone (filled)    |
+| █         | U+2588  | Full block   | Warning zone (filled) |
 
 ### Status Indicators
 
-| Character | Name | Suggested Use |
-|-----------|------|---------------|
-| ⚠️ | Warning sign | Above threshold |
-| ✅ | Check mark | Below threshold |
-| ❌ | Cross mark | Blocked state |
-| 🔴 | Red circle | Critical |
-| 🟡 | Yellow circle | Warning |
-| 🟢 | Green circle | OK |
+| Character | Name          | Suggested Use   |
+| --------- | ------------- | --------------- |
+| ⚠️        | Warning sign  | Above threshold |
+| ✅        | Check mark    | Below threshold |
+| ❌        | Cross mark    | Blocked state   |
+| 🔴        | Red circle    | Critical        |
+| 🟡        | Yellow circle | Warning         |
+| 🟢        | Green circle  | OK              |
 
 ## Search Queries Used
 

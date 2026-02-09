@@ -30,6 +30,7 @@ Resets in 1h 34m (Dec 3, 6:59pm UTC)
 ```
 
 Users see usage but cannot tell:
+
 - CPU threshold is at 65% (not visible)
 - RAM threshold is at 65% (not visible)
 - Claude 5-hour session threshold is at 65% (not visible)
@@ -40,23 +41,24 @@ From `src/telegram-solve-queue.lib.mjs`, the following thresholds control queue 
 
 ### System Resource Thresholds
 
-| Resource | Threshold | Behavior |
-|----------|-----------|----------|
-| RAM | 65% (0.65) | **Blocks** new commands when usage >= 65% |
-| CPU | 65% (0.65) | **Blocks** new commands when 5-min load avg >= 65% of CPU count |
-| Disk | 90% (0.90) | **One-at-a-time** mode when usage >= 90% |
+| Resource | Threshold  | Behavior                                                        |
+| -------- | ---------- | --------------------------------------------------------------- |
+| RAM      | 65% (0.65) | **Blocks** new commands when usage >= 65%                       |
+| CPU      | 65% (0.65) | **Blocks** new commands when 5-min load avg >= 65% of CPU count |
+| Disk     | 90% (0.90) | **One-at-a-time** mode when usage >= 90%                        |
 
 ### API Limit Thresholds
 
-| Limit | Threshold | Behavior |
-|-------|-----------|----------|
-| Claude 5-hour session | 65% (0.65) | **One-at-a-time** mode when usage >= 65% |
-| Claude weekly | 97% (0.97) | **One-at-a-time** mode when usage >= 97% |
-| GitHub API | 75% (0.75) | **Blocks** parallel claude commands when >= 75% |
+| Limit                 | Threshold  | Behavior                                        |
+| --------------------- | ---------- | ----------------------------------------------- |
+| Claude 5-hour session | 65% (0.65) | **One-at-a-time** mode when usage >= 65%        |
+| Claude weekly         | 97% (0.97) | **One-at-a-time** mode when usage >= 97%        |
+| GitHub API            | 75% (0.75) | **Blocks** parallel claude commands when >= 75% |
 
 ### Threshold Impact
 
 When thresholds are crossed:
+
 - **Blocks**: New commands cannot start until usage drops below threshold
 - **One-at-a-time**: Only one command runs at a time; others queue and wait
 
@@ -76,6 +78,7 @@ export function getProgressBar(percentage) {
 ```
 
 **Characteristics:**
+
 - Uses 30 character blocks
 - Uses Unicode shade characters: `▓` (filled) and `░` (empty)
 - No threshold visualization
@@ -83,26 +86,28 @@ export function getProgressBar(percentage) {
 
 ### Unicode Characters Available
 
-| Character | Code Point | Description |
-|-----------|------------|-------------|
-| ░ | U+2591 | Light shade (empty) |
-| ▒ | U+2592 | Medium shade |
-| ▓ | U+2593 | Dark shade (filled) |
-| █ | U+2588 | Full block |
-| ▏▎▍▌▋▊▉ | U+258F-2589 | Fractional blocks |
-| ▁▂▃▄▅▆▇ | U+2581-2587 | Lower blocks |
+| Character | Code Point  | Description         |
+| --------- | ----------- | ------------------- |
+| ░         | U+2591      | Light shade (empty) |
+| ▒         | U+2592      | Medium shade        |
+| ▓         | U+2593      | Dark shade (filled) |
+| █         | U+2588      | Full block          |
+| ▏▎▍▌▋▊▉   | U+258F-2589 | Fractional blocks   |
+| ▁▂▃▄▅▆▇   | U+2581-2587 | Lower blocks        |
 
 ## Research: Threshold Visualization Techniques
 
 ### 1. Marker-Based Approaches
 
 **Inline Threshold Marker:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░│░░░░░░░░░░ 25% (threshold: 65%)
                     ↑ threshold at 65%
 ```
 
 **Multiple Markers:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░|░░░░░░░░░|░ 25% used
                    65%       90%
@@ -111,6 +116,7 @@ export function getProgressBar(percentage) {
 ### 2. Zone-Based Approaches
 
 **Color Zones (with ANSI colors):**
+
 ```
 [████████████░░░░░░░░░░░░░░░░░░] 40% - Safe Zone
 [█████████████████████░░░░░░░░░] 70% - Warning Zone
@@ -118,6 +124,7 @@ export function getProgressBar(percentage) {
 ```
 
 **Character Differentiation:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒░ 25% (warning zone at 65%+)
         safe        warning   critical
@@ -126,12 +133,14 @@ export function getProgressBar(percentage) {
 ### 3. Dual-Line Approaches
 
 **Threshold Line Below:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░ 25% used
 ───────────────────┬──────────  threshold: 65%
 ```
 
 **Legend Line:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░ 25% used
 0%─────────────────65%──────100%
@@ -140,11 +149,13 @@ export function getProgressBar(percentage) {
 ### 4. Compact Threshold Notation
 
 **Inline Text:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░ 25% used [threshold: 65%]
 ```
 
 **Bracketed Format:**
+
 ```
 ▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░ 25/65% used
 ```
@@ -202,12 +213,14 @@ Disk space
 ```
 
 **Pros:**
+
 - Clear visual indicator of threshold position
 - Maintains 30-character bar width (marker replaces one block)
 - Works in monospace fonts (Telegram)
 - Minimal code changes
 
 **Cons:**
+
 - Slightly reduces bar resolution (29 blocks + 1 marker)
 - Single threshold per bar only
 
@@ -229,10 +242,10 @@ export function getProgressBarWithZones(percentage, thresholdPercentage) {
   for (let i = 0; i < totalBlocks; i++) {
     if (i < filledBlocks) {
       // Filled: use different char above threshold
-      bar += (i >= thresholdPos) ? '█' : '▓';
+      bar += i >= thresholdPos ? '█' : '▓';
     } else {
       // Empty: use different char above threshold
-      bar += (i >= thresholdPos) ? '▒' : '░';
+      bar += i >= thresholdPos ? '▒' : '░';
     }
   }
 
@@ -253,11 +266,13 @@ Claude 5 hour session
 ```
 
 **Pros:**
+
 - Visual distinction between safe and threshold zones
 - Full 30-block resolution maintained
 - No marker character needed
 
 **Cons:**
+
 - Subtle visual difference may be hard to notice
 - Requires explanation in legend
 
@@ -289,11 +304,13 @@ Claude 5 hour session
 ```
 
 **Pros:**
+
 - Clear textual explanation
 - No changes to bar rendering
 - Can show threshold behavior description
 
 **Cons:**
+
 - Longer text lines
 - Less visual and more textual
 
@@ -339,11 +356,13 @@ Disk space
 ```
 
 **Pros:**
+
 - Very clear threshold position
 - Can show multiple thresholds
 - Preserves original bar appearance
 
 **Cons:**
+
 - Takes extra vertical space
 - More complex implementation
 - May clutter the display
@@ -500,6 +519,7 @@ Resets in 2d 5h 10m (Dec 6, 12:00pm UTC)
 ## Conclusion
 
 The recommended approach is **Solution 5: Hybrid Approach** which combines:
+
 - Inline threshold marker (`│`) for visual positioning
 - Optional warning emoji when threshold is exceeded
 - Clean, minimal changes to existing code structure

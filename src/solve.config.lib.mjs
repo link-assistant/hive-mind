@@ -399,7 +399,7 @@ export const createYargsConfig = yargsInstance => {
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
-          return 'grok-code';
+          return 'kimi-k2.5-free';
         }
         return 'sonnet';
       },
@@ -528,7 +528,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'gpt-5';
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'grok-code';
+    argv.model = 'kimi-k2.5-free';
   }
 
   // Tool-specific defaults for --claude-file and --gitkeep-file

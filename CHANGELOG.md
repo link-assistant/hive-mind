@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.20.0
+
+### Minor Changes
+
+- 98a7582: Set kimi-k2.5-free as default model for --tool agent and enhance documentation with free model examples.
+
 ## 1.19.0
 
 ### Minor Changes

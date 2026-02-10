@@ -80,6 +80,26 @@ export const parseAgentTokenUsage = output => {
 };
 
 /**
+ * Helper function to get provider name from provider identifier
+ * @param {string} providerId - Provider identifier (e.g., 'openai', 'anthropic', 'moonshot')
+ * @returns {string} Human-readable provider name
+ */
+const getProviderName = providerId => {
+  if (!providerId) return 'OpenCode Zen';
+
+  const providerMap = {
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    moonshot: 'Moonshot AI',
+    google: 'Google',
+    opencode: 'OpenCode Zen',
+    grok: 'xAI',
+  };
+
+  return providerMap[providerId] || providerId.charAt(0).toUpperCase() + providerId.slice(1);
+};
+
+/**
  * Calculate pricing for agent tool usage using models.dev API
  * @param {string} modelId - The model ID used (e.g., 'opencode/grok-code')
  * @param {Object} tokenUsage - Token usage data from parseAgentTokenUsage
@@ -89,6 +109,9 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
   const modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+
+  // Extract provider from model ID for better fallback detection
+  const providerFromModel = modelId.includes('/') ? modelId.split('/')[0] : null;
 
   try {
     // Fetch model info from models.dev API
@@ -109,7 +132,8 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
       return {
         modelId,
         modelName: modelInfo.name || modelName,
-        provider: modelInfo.provider || 'OpenCode Zen',
+        // Prioritize provider from model ID over API response to fix issue #1250
+        provider: getProviderName(providerFromModel) || modelInfo.provider || 'OpenCode Zen',
         pricing: {
           inputPerMillion: cost.input || 0,
           outputPerMillion: cost.output || 0,
@@ -127,12 +151,11 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
         isFreeModel: cost.input === 0 && cost.output === 0,
       };
     }
-
     // Model not found in API, return what we have
     return {
       modelId,
       modelName,
-      provider: 'Unknown',
+      provider: getProviderName(providerFromModel),
       tokenUsage,
       totalCostUSD: null,
       error: 'Model not found in models.dev API',
@@ -142,6 +165,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
     return {
       modelId,
       modelName,
+      provider: getProviderName(providerFromModel),
       tokenUsage,
       totalCostUSD: null,
       error: error.message,
@@ -163,6 +187,12 @@ export const mapModelToId = model => {
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
+    // Free models mapping for issue #1250
+    'kimi-k2.5-free': 'moonshot/kimi-k2.5-free',
+    'gpt-4o-mini': 'openai/gpt-4o-mini',
+    'gpt-4o': 'openai/gpt-4o',
+    'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
+    'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is

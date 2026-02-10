@@ -93,10 +93,10 @@ hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/12
 ```bash
 # Using /solve command in Telegram group chats
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
+/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-4.7-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
 
 # Note: kimi-k2.5-free is the default, so --model flag is optional:
 /solve https://github.com/owner/repo/issues/123 --tool agent

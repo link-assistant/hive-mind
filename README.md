@@ -477,10 +477,10 @@ Examples:
 
 Free Models (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
+/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-4.7-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models.
 ```

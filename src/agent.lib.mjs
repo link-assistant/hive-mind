@@ -101,9 +101,57 @@ const getOriginalProviderName = providerId => {
 };
 
 /**
+ * Issue #1250: Normalize model name and find base model for pricing lookup
+ * Free models like "kimi-k2.5-free" should use pricing from base model "kimi-k2.5"
+ *
+ * @param {string} modelName - The model name (e.g., 'kimi-k2.5-free')
+ * @returns {Object} Object with:
+ *   - baseModelName: The base model name for pricing lookup
+ *   - isFreeVariant: Whether this is a free variant
+ */
+const getBaseModelForPricing = modelName => {
+  // Known mappings for free models to their base paid versions
+  const freeToBaseMap = {
+    'kimi-k2.5-free': 'kimi-k2.5',
+    'glm-4.7-free': 'glm-4.7',
+    'minimax-m2.1-free': 'minimax-m2.1',
+    'trinity-large-preview-free': 'trinity-large-preview',
+    // Grok models don't have a paid equivalent with same name
+    // These are kept as-is since they're truly free
+  };
+
+  // Check if there's a direct mapping
+  if (freeToBaseMap[modelName]) {
+    return {
+      baseModelName: freeToBaseMap[modelName],
+      isFreeVariant: true,
+    };
+  }
+
+  // Try removing "-free" suffix
+  if (modelName.endsWith('-free')) {
+    return {
+      baseModelName: modelName.replace(/-free$/, ''),
+      isFreeVariant: true,
+    };
+  }
+
+  // Not a free variant
+  return {
+    baseModelName: modelName,
+    isFreeVariant: false,
+  };
+};
+
+/**
  * Calculate pricing for agent tool usage using models.dev API
  * Issue #1250: Shows actual provider (OpenCode Zen) and calculates public pricing estimate
  * based on original provider prices (Moonshot AI, OpenAI, Anthropic, etc.)
+ *
+ * For free models like "kimi-k2.5-free", this function:
+ * 1. First fetches the free model info to get the model name
+ * 2. Then fetches the base model (e.g., "kimi-k2.5") for actual pricing
+ * 3. Calculates public pricing estimate based on the base model's cost
  *
  * @param {string} modelId - The model ID used (e.g., 'opencode/grok-code')
  * @param {Object} tokenUsage - Token usage data from parseAgentTokenUsage
@@ -122,14 +170,34 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
   const providerFromModel = modelId.includes('/') ? modelId.split('/')[0] : null;
 
   // Get original provider name for pricing reference
-  const originalProvider = getOriginalProviderName(providerFromModel);
+  let originalProvider = getOriginalProviderName(providerFromModel);
 
   try {
     // Fetch model info from models.dev API
-    const modelInfo = await fetchModelInfo(modelName);
+    let modelInfo = await fetchModelInfo(modelName);
 
-    if (modelInfo && modelInfo.cost) {
-      const cost = modelInfo.cost;
+    // Issue #1250: Check if model has zero pricing (free model from OpenCode Zen)
+    // If so, look up the base model for actual public pricing estimate
+    const { baseModelName, isFreeVariant } = getBaseModelForPricing(modelName);
+    let baseModelInfo = null;
+    let pricingCost = modelInfo?.cost;
+
+    if (modelInfo && modelInfo.cost && modelInfo.cost.input === 0 && modelInfo.cost.output === 0 && baseModelName !== modelName) {
+      // This is a free model with zero pricing - look up base model for public pricing
+      baseModelInfo = await fetchModelInfo(baseModelName);
+      if (baseModelInfo && baseModelInfo.cost) {
+        // Use base model pricing for public estimate
+        pricingCost = baseModelInfo.cost;
+        // Update original provider from base model if available
+        if (baseModelInfo.provider && !originalProvider) {
+          originalProvider = baseModelInfo.provider;
+        }
+      }
+    }
+
+    if (modelInfo || baseModelInfo) {
+      const effectiveModelInfo = modelInfo || baseModelInfo;
+      const cost = pricingCost || { input: 0, output: 0, cache_read: 0, cache_write: 0 };
 
       // Calculate public pricing estimate based on original provider prices
       // Prices are per 1M tokens, so divide by 1,000,000
@@ -142,15 +210,18 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
       // Determine if this is a free model from OpenCode Zen
       // Models accessed via OpenCode Zen are free, regardless of original provider pricing
-      const isOpencodeFreeModel = providerFromModel === 'opencode' || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
+      const isOpencodeFreeModel = providerFromModel === 'opencode' || isFreeVariant || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
+
+      // Use base model's provider for original provider reference if available
+      const effectiveOriginalProvider = baseModelInfo?.provider || originalProvider || effectiveModelInfo?.provider || null;
 
       return {
         modelId,
-        modelName: modelInfo.name || modelName,
+        modelName: effectiveModelInfo?.name || modelName,
         // Issue #1250: Always show OpenCode Zen as actual provider
         provider: 'OpenCode Zen',
         // Store original provider for reference in pricing display
-        originalProvider: originalProvider || modelInfo.provider || null,
+        originalProvider: effectiveOriginalProvider,
         pricing: {
           inputPerMillion: cost.input || 0,
           outputPerMillion: cost.output || 0,
@@ -164,14 +235,16 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           cacheRead: cacheReadCost,
           cacheWrite: cacheWriteCost,
         },
-        // Public pricing estimate based on original provider prices
+        // Public pricing estimate based on original/base model prices
         totalCostUSD: totalCost,
         // Actual cost from OpenCode Zen (free for supported models)
         opencodeCost: isOpencodeFreeModel ? 0 : totalCost,
-        // Keep for backward compatibility - indicates if model has zero pricing
-        isFreeModel: cost.input === 0 && cost.output === 0,
+        // Keep for backward compatibility - indicates if the accessed model has zero pricing
+        isFreeModel: modelInfo?.cost?.input === 0 && modelInfo?.cost?.output === 0,
         // New flag to indicate if OpenCode Zen provides this model for free
         isOpencodeFreeModel,
+        // Issue #1250: Include base model info for transparency
+        baseModelName: baseModelName !== modelName ? baseModelName : null,
       };
     }
     // Model not found in API, return what we have

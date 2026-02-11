@@ -30,6 +30,7 @@ import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
  *   - opencodeCost: Actual billed cost from OpenCode Zen (for agent tool)
  *   - isOpencodeFreeModel: Whether OpenCode Zen provides this model for free
  *   - originalProvider: Original provider for pricing reference
+ *   - baseModelName: Base model name if pricing was derived from base model (Issue #1250)
  * @returns {string} Formatted cost info string for markdown (empty if no data available)
  */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
@@ -47,13 +48,20 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    // For models with zero pricing from original provider, show as free
-    if (pricingInfo?.isFreeModel && totalCostUSD === 0) {
+    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
+    // Only show as completely free if the base model also has no pricing
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
       costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
     } else {
       // Show actual public pricing estimate with original provider reference
-      const originalProviderRef = pricingInfo?.originalProvider ? ` (based on ${pricingInfo.originalProvider} prices)` : '';
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${originalProviderRef}`;
+      // Issue #1250: Include base model reference when pricing comes from base model
+      let pricingRef = '';
+      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
+      } else if (pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
+      }
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
     }
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';

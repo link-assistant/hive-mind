@@ -16,7 +16,7 @@
 
 // Copy of the buildCostInfoString function from src/github.lib.mjs for testing
 // This allows us to test the function in isolation without requiring the full module dependencies
-// Issue #1250: Enhanced to support OpenCode Zen cost and original provider reference
+// Issue #1250: Enhanced to support OpenCode Zen cost, original provider reference, and base model pricing
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
@@ -32,13 +32,20 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    // For models with zero pricing from original provider, show as free
-    if (pricingInfo?.isFreeModel && totalCostUSD === 0) {
+    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
+    // Only show as completely free if the base model also has no pricing
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
       costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
     } else {
       // Show actual public pricing estimate with original provider reference
-      const originalProviderRef = pricingInfo?.originalProvider ? ` (based on ${pricingInfo.originalProvider} prices)` : '';
-      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${originalProviderRef}`;
+      // Issue #1250: Include base model reference when pricing comes from base model
+      let pricingRef = '';
+      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
+      } else if (pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
+      }
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
     }
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';
@@ -460,6 +467,97 @@ runTest('isOpencodeFreeModel triggers hasPricing check', () => {
   });
   // Should not be empty since isOpencodeFreeModel is truthy
   assertContains(result, '💰 **Cost estimation:**', 'Should show cost header');
+});
+
+// ==== Issue #1250: Base model pricing tests ====
+console.log('\n📋 Test Group: Issue #1250 - Base model pricing for free models\n');
+
+runTest('shows base model pricing for kimi-k2.5-free (Issue #1250 main fix)', () => {
+  // This is the exact scenario from Issue #1250:
+  // kimi-k2.5-free is accessed via OpenCode Zen (free), but public pricing should
+  // be based on kimi-k2.5 from Moonshot AI ($0.6/1M input, $3/1M output)
+  const result = buildCostInfoString(3.6, null, {
+    modelName: 'Kimi K2.5 Free',
+    provider: 'OpenCode Zen',
+    originalProvider: 'Moonshot AI',
+    baseModelName: 'kimi-k2.5',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+    isFreeModel: true, // The accessed model has $0 pricing
+    tokenUsage: {
+      inputTokens: 1000000,
+      outputTokens: 1000000,
+    },
+  });
+  assertContains(result, 'Model: Kimi K2.5 Free', 'Should show the free model name');
+  assertContains(result, 'Provider: OpenCode Zen', 'Should show OpenCode Zen as provider');
+  assertContains(result, 'Public pricing estimate: $3.600000 (based on Moonshot AI kimi-k2.5 prices)', 'Should show pricing based on base model');
+  assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show actual free cost');
+  assertContains(result, 'Token usage: 1,000,000 input, 1,000,000 output', 'Should show token usage');
+});
+
+runTest('shows regular free model pricing when base model also has no pricing', () => {
+  // For models like grok-code where there's no paid equivalent
+  const result = buildCostInfoString(0, null, {
+    modelName: 'Grok Code',
+    provider: 'OpenCode Zen',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+    isFreeModel: true,
+    // No baseModelName - truly free model
+  });
+  assertContains(result, 'Public pricing estimate: $0.00 (Free model)', 'Should show as free');
+});
+
+runTest('shows base model reference with original provider', () => {
+  const result = buildCostInfoString(5.0, null, {
+    modelName: 'GPT-4o Mini Free',
+    provider: 'OpenCode Zen',
+    originalProvider: 'OpenAI',
+    baseModelName: 'gpt-4o-mini',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+    isFreeModel: true,
+    tokenUsage: {
+      inputTokens: 10000000,
+      outputTokens: 5000000,
+    },
+  });
+  assertContains(result, 'based on OpenAI gpt-4o-mini prices', 'Should reference base model and provider');
+});
+
+runTest('handles base model pricing with cache tokens', () => {
+  const result = buildCostInfoString(0.5, null, {
+    modelName: 'Claude 3.5 Haiku Free',
+    provider: 'OpenCode Zen',
+    originalProvider: 'Anthropic',
+    baseModelName: 'claude-3-5-haiku-20241022',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+    isFreeModel: true,
+    tokenUsage: {
+      inputTokens: 100000,
+      outputTokens: 50000,
+      cacheReadTokens: 1000000,
+      cacheWriteTokens: 50000,
+    },
+  });
+  assertContains(result, 'Public pricing estimate: $0.500000 (based on Anthropic claude-3-5-haiku-20241022 prices)', 'Should show pricing with base model');
+  assertContains(result, 'cache read', 'Should show cache read tokens');
+  assertContains(result, 'cache write', 'Should show cache write tokens');
+});
+
+runTest('does not show base model reference when no baseModelName', () => {
+  const result = buildCostInfoString(2.5, null, {
+    modelName: 'gpt-4o-mini',
+    provider: 'OpenCode Zen',
+    originalProvider: 'OpenAI',
+    // No baseModelName - not a free variant
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+  });
+  assertContains(result, 'based on OpenAI prices', 'Should only show provider reference');
+  assertNotContains(result, 'gpt-4o-mini prices', 'Should not reference model name in pricing');
 });
 
 // Summary

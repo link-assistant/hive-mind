@@ -16,20 +16,41 @@
 
 // Copy of the buildCostInfoString function from src/github.lib.mjs for testing
 // This allows us to test the function in isolation without requiring the full module dependencies
+// Issue #1250: Enhanced to support OpenCode Zen cost and original provider reference
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel);
-  if (!hasPublic && !hasAnthropic && !hasPricing) return '';
+  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
+  // Issue #1250: Check for OpenCode Zen actual cost
+  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
+  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
   let costInfo = '\n\n💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
+  // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-  } else if (hasPricing) costInfo += '\n- Public pricing estimate: unknown';
+    // For models with zero pricing from original provider, show as free
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0) {
+      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+    } else {
+      // Show actual public pricing estimate with original provider reference
+      const originalProviderRef = pricingInfo?.originalProvider ? ` (based on ${pricingInfo.originalProvider} prices)` : '';
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${originalProviderRef}`;
+    }
+  } else if (hasPricing) {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
+  if (hasOpencodeCost) {
+    if (pricingInfo.isOpencodeFreeModel) {
+      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
+    } else {
+      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+    }
+  }
   if (pricingInfo?.tokenUsage) {
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
@@ -114,17 +135,17 @@ console.log('\n📋 Test Group: Public pricing estimate\n');
 runTest('shows public pricing estimate when available', () => {
   const result = buildCostInfoString(1.5, null, null);
   assertContains(result, '💰 **Cost estimation:**', 'Should contain cost estimation header');
-  assertContains(result, 'Public pricing estimate: $1.500000 USD', 'Should contain formatted cost');
+  assertContains(result, 'Public pricing estimate: $1.500000', 'Should contain formatted cost');
 });
 
 runTest('formats small cost with 6 decimal places', () => {
   const result = buildCostInfoString(0.000123, null, null);
-  assertContains(result, '$0.000123 USD', 'Should format with 6 decimal places');
+  assertContains(result, '$0.000123', 'Should format with 6 decimal places');
 });
 
 runTest('formats zero cost correctly', () => {
   const result = buildCostInfoString(0, null, null);
-  assertContains(result, '$0.000000 USD', 'Should format zero with 6 decimal places');
+  assertContains(result, '$0.000000', 'Should format zero with 6 decimal places');
 });
 
 // ==== Anthropic cost tests ====
@@ -287,7 +308,7 @@ runTest('shows all information when everything is available', () => {
   assertContains(result, '💰 **Cost estimation:**', 'Should have header');
   assertContains(result, 'Model: claude-3-opus', 'Should have model');
   assertContains(result, 'Provider: Anthropic', 'Should have provider');
-  assertContains(result, 'Public pricing estimate: $1.500000 USD', 'Should have public cost');
+  assertContains(result, 'Public pricing estimate: $1.500000', 'Should have public cost');
   assertContains(result, 'Token usage:', 'Should have token usage');
   assertContains(result, '10,000 input', 'Should format input tokens with commas');
   assertContains(result, '5,000 output', 'Should format output tokens with commas');
@@ -316,7 +337,7 @@ runTest('real-world example with actual work', () => {
     },
   });
 
-  assertContains(result, '$8.089715 USD', 'Should show public cost');
+  assertContains(result, '$8.089715', 'Should show public cost');
   assertContains(result, '$5.636999 USD', 'Should show Anthropic cost');
   assertContains(result, 'Difference: $-2.452716 (-30.32%)', 'Should show negative difference');
 });
@@ -337,7 +358,7 @@ runTest('handles large token counts', () => {
 
 runTest('handles very small costs', () => {
   const result = buildCostInfoString(0.000001, 0.000002, null);
-  assertContains(result, '$0.000001 USD', 'Should show small public cost');
+  assertContains(result, '$0.000001', 'Should show small public cost');
   assertContains(result, '$0.000002 USD', 'Should show small Anthropic cost');
 });
 
@@ -364,9 +385,86 @@ runTest('handles isFreeModel being the only truthy pricingInfo field', () => {
   assertContains(result, 'Public pricing estimate: $0.00 (Free model)', 'Should show free model');
 });
 
+// ==== Issue #1250: OpenCode Zen cost tests ====
+console.log('\n📋 Test Group: Issue #1250 - OpenCode Zen cost\n');
+
+runTest('shows OpenCode Zen as provider with free cost', () => {
+  const result = buildCostInfoString(1.5, null, {
+    modelName: 'kimi-k2.5-free',
+    provider: 'OpenCode Zen',
+    originalProvider: 'Moonshot AI',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+  });
+  assertContains(result, 'Provider: OpenCode Zen', 'Should show OpenCode Zen as provider');
+  assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show free cost');
+});
+
+runTest('shows public pricing estimate with original provider reference', () => {
+  const result = buildCostInfoString(2.5, null, {
+    modelName: 'gpt-4o-mini',
+    provider: 'OpenCode Zen',
+    originalProvider: 'OpenAI',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+  });
+  assertContains(result, 'Public pricing estimate: $2.500000 (based on OpenAI prices)', 'Should show original provider reference');
+  assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show OpenCode Zen free cost');
+});
+
+runTest('shows both public pricing and OpenCode Zen cost for agent tool', () => {
+  const result = buildCostInfoString(5.0, null, {
+    modelName: 'claude-3.5-haiku',
+    provider: 'OpenCode Zen',
+    originalProvider: 'Anthropic',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+    tokenUsage: {
+      inputTokens: 10000,
+      outputTokens: 5000,
+    },
+  });
+  assertContains(result, 'Provider: OpenCode Zen', 'Should show OpenCode Zen provider');
+  assertContains(result, 'Public pricing estimate: $5.000000 (based on Anthropic prices)', 'Should show pricing with Anthropic reference');
+  assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show free OpenCode Zen cost');
+  assertContains(result, 'Token usage: 10,000 input, 5,000 output', 'Should show token usage');
+});
+
+runTest('handles OpenCode Zen with non-free cost', () => {
+  const result = buildCostInfoString(3.0, null, {
+    modelName: 'premium-model',
+    provider: 'OpenCode Zen',
+    opencodeCost: 1.5,
+    isOpencodeFreeModel: false,
+  });
+  assertContains(result, 'Public pricing estimate: $3.000000', 'Should show public estimate');
+  assertContains(result, 'Calculated by OpenCode Zen: $1.500000', 'Should show actual OpenCode Zen cost');
+  assertNotContains(result, 'Free model', 'Should not show Free model for non-free cost');
+});
+
+runTest('shows output with only OpenCode Zen cost present', () => {
+  const result = buildCostInfoString(null, null, {
+    modelName: 'grok-code',
+    provider: 'OpenCode Zen',
+    opencodeCost: 0,
+    isOpencodeFreeModel: true,
+  });
+  assertContains(result, 'Provider: OpenCode Zen', 'Should show provider');
+  assertContains(result, 'Public pricing estimate: unknown', 'Should show unknown public estimate');
+  assertContains(result, 'Calculated by OpenCode Zen: $0.00 (Free model)', 'Should show free cost');
+});
+
+runTest('isOpencodeFreeModel triggers hasPricing check', () => {
+  const result = buildCostInfoString(null, null, {
+    isOpencodeFreeModel: true,
+  });
+  // Should not be empty since isOpencodeFreeModel is truthy
+  assertContains(result, '💰 **Cost estimation:**', 'Should show cost header');
+});
+
 // Summary
 console.log('\n' + '='.repeat(80));
-console.log(`Test Results for buildCostInfoString (Issue #1015):`);
+console.log(`Test Results for buildCostInfoString (Issues #1015 & #1250):`);
 console.log(`  ✅ Passed: ${testsPassed}`);
 console.log(`  ❌ Failed: ${testsFailed}`);
 console.log('='.repeat(80));

@@ -80,15 +80,49 @@ export const parseAgentTokenUsage = output => {
 };
 
 /**
+ * Helper function to get original provider name from provider identifier
+ * Used for calculating public pricing estimates based on original provider prices
+ * @param {string} providerId - Provider identifier (e.g., 'openai', 'anthropic', 'moonshot')
+ * @returns {string} Human-readable provider name for pricing reference
+ */
+const getOriginalProviderName = providerId => {
+  if (!providerId) return null;
+
+  const providerMap = {
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    moonshot: 'Moonshot AI',
+    google: 'Google',
+    opencode: 'OpenCode Zen',
+    grok: 'xAI',
+  };
+
+  return providerMap[providerId] || providerId.charAt(0).toUpperCase() + providerId.slice(1);
+};
+
+/**
  * Calculate pricing for agent tool usage using models.dev API
+ * Issue #1250: Shows actual provider (OpenCode Zen) and calculates public pricing estimate
+ * based on original provider prices (Moonshot AI, OpenAI, Anthropic, etc.)
+ *
  * @param {string} modelId - The model ID used (e.g., 'opencode/grok-code')
  * @param {Object} tokenUsage - Token usage data from parseAgentTokenUsage
- * @returns {Object} Pricing information
+ * @returns {Object} Pricing information with:
+ *   - provider: Always "OpenCode Zen" (actual provider)
+ *   - originalProvider: The original model provider for pricing reference
+ *   - totalCostUSD: Public pricing estimate based on original provider prices
+ *   - opencodeCost: Actual billed cost from OpenCode Zen (free for most models)
  */
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
   const modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
+
+  // Extract provider from model ID to determine original provider for pricing
+  const providerFromModel = modelId.includes('/') ? modelId.split('/')[0] : null;
+
+  // Get original provider name for pricing reference
+  const originalProvider = getOriginalProviderName(providerFromModel);
 
   try {
     // Fetch model info from models.dev API
@@ -97,7 +131,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
     if (modelInfo && modelInfo.cost) {
       const cost = modelInfo.cost;
 
-      // Calculate cost based on token usage
+      // Calculate public pricing estimate based on original provider prices
       // Prices are per 1M tokens, so divide by 1,000,000
       const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
       const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
@@ -106,10 +140,17 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
       const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost;
 
+      // Determine if this is a free model from OpenCode Zen
+      // Models accessed via OpenCode Zen are free, regardless of original provider pricing
+      const isOpencodeFreeModel = providerFromModel === 'opencode' || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
+
       return {
         modelId,
         modelName: modelInfo.name || modelName,
-        provider: modelInfo.provider || 'OpenCode Zen',
+        // Issue #1250: Always show OpenCode Zen as actual provider
+        provider: 'OpenCode Zen',
+        // Store original provider for reference in pricing display
+        originalProvider: originalProvider || modelInfo.provider || null,
         pricing: {
           inputPerMillion: cost.input || 0,
           outputPerMillion: cost.output || 0,
@@ -123,18 +164,26 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           cacheRead: cacheReadCost,
           cacheWrite: cacheWriteCost,
         },
+        // Public pricing estimate based on original provider prices
         totalCostUSD: totalCost,
+        // Actual cost from OpenCode Zen (free for supported models)
+        opencodeCost: isOpencodeFreeModel ? 0 : totalCost,
+        // Keep for backward compatibility - indicates if model has zero pricing
         isFreeModel: cost.input === 0 && cost.output === 0,
+        // New flag to indicate if OpenCode Zen provides this model for free
+        isOpencodeFreeModel,
       };
     }
-
     // Model not found in API, return what we have
     return {
       modelId,
       modelName,
-      provider: 'Unknown',
+      provider: 'OpenCode Zen',
+      originalProvider,
       tokenUsage,
       totalCostUSD: null,
+      opencodeCost: 0, // OpenCode Zen is free
+      isOpencodeFreeModel: true,
       error: 'Model not found in models.dev API',
     };
   } catch (error) {
@@ -142,8 +191,12 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
     return {
       modelId,
       modelName,
+      provider: 'OpenCode Zen',
+      originalProvider,
       tokenUsage,
       totalCostUSD: null,
+      opencodeCost: 0, // OpenCode Zen is free
+      isOpencodeFreeModel: true,
       error: error.message,
     };
   }
@@ -163,6 +216,12 @@ export const mapModelToId = model => {
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
+    // Free models mapping for issue #1250
+    'kimi-k2.5-free': 'moonshot/kimi-k2.5-free',
+    'gpt-4o-mini': 'openai/gpt-4o-mini',
+    'gpt-4o': 'openai/gpt-4o',
+    'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
+    'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is

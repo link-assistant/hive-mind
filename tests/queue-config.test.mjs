@@ -4,14 +4,16 @@
  *
  * Tests for the centralized queue-config.lib.mjs module.
  * Verifies that QUEUE_CONFIG and DISPLAY_THRESHOLDS are consistent.
+ * Tests configurable threshold strategies (reject, enqueue, dequeue-one-at-a-time).
  *
  * Run with: node tests/queue-config.test.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1242
+ * @see https://github.com/link-assistant/hive-mind/issues/1253
  */
 
 import assert from 'node:assert/strict';
-import { QUEUE_CONFIG, DISPLAY_THRESHOLDS, thresholdToPercent } from '../src/queue-config.lib.mjs';
+import { QUEUE_CONFIG, DISPLAY_THRESHOLDS, THRESHOLD_STRATEGIES, thresholdToPercent, parseQueueConfig, getStrategy, isRejectStrategy, isEnqueueStrategy, isOneAtATimeStrategy } from '../src/queue-config.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -136,6 +138,129 @@ test('thresholdToPercent rounds correctly', () => {
   assert.equal(thresholdToPercent(0.654), 65, '0.654 should round to 65');
   assert.equal(thresholdToPercent(0.655), 66, '0.655 should round to 66');
   assert.equal(thresholdToPercent(0.999), 100, '0.999 should round to 100');
+});
+
+// ============================================================================
+// Threshold Strategies Tests (Issue #1253)
+// ============================================================================
+
+console.log('\n📋 Threshold Strategies Tests (Issue #1253)\n');
+
+test('THRESHOLD_STRATEGIES contains valid strategies', () => {
+  assert.ok(Array.isArray(THRESHOLD_STRATEGIES), 'THRESHOLD_STRATEGIES should be an array');
+  assert.equal(THRESHOLD_STRATEGIES.length, 3, 'Should have 3 strategies');
+  assert.ok(THRESHOLD_STRATEGIES.includes('reject'), 'Should include reject');
+  assert.ok(THRESHOLD_STRATEGIES.includes('enqueue'), 'Should include enqueue');
+  assert.ok(THRESHOLD_STRATEGIES.includes('dequeue-one-at-a-time'), 'Should include dequeue-one-at-a-time');
+});
+
+test('QUEUE_CONFIG.thresholds has all required metrics', () => {
+  assert.ok(QUEUE_CONFIG.thresholds.ram, 'RAM threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.cpu, 'CPU threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.disk, 'DISK threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.claude5Hour, 'Claude 5 hour threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.claudeWeekly, 'Claude weekly threshold should be defined');
+  assert.ok(QUEUE_CONFIG.thresholds.githubApi, 'GitHub API threshold should be defined');
+});
+
+test('Each threshold has value and strategy properties', () => {
+  for (const [metric, config] of Object.entries(QUEUE_CONFIG.thresholds)) {
+    assert.ok(typeof config.value === 'number', `${metric} should have numeric value`);
+    assert.ok(config.value >= 0 && config.value <= 1, `${metric} value should be between 0 and 1`);
+    assert.ok(THRESHOLD_STRATEGIES.includes(config.strategy), `${metric} should have valid strategy`);
+  }
+});
+
+test('Default strategies are correct', () => {
+  assert.equal(QUEUE_CONFIG.thresholds.ram.strategy, 'enqueue', 'RAM default should be enqueue');
+  assert.equal(QUEUE_CONFIG.thresholds.cpu.strategy, 'enqueue', 'CPU default should be enqueue');
+  assert.equal(QUEUE_CONFIG.thresholds.disk.strategy, 'reject', 'DISK default should be reject (issue #1253)');
+  assert.equal(QUEUE_CONFIG.thresholds.claude5Hour.strategy, 'dequeue-one-at-a-time', 'Claude 5h default should be dequeue-one-at-a-time');
+  assert.equal(QUEUE_CONFIG.thresholds.claudeWeekly.strategy, 'dequeue-one-at-a-time', 'Claude weekly default should be dequeue-one-at-a-time');
+  assert.equal(QUEUE_CONFIG.thresholds.githubApi.strategy, 'enqueue', 'GitHub API default should be enqueue');
+});
+
+test('Legacy flat threshold values match thresholds.*.value', () => {
+  assert.equal(QUEUE_CONFIG.RAM_THRESHOLD, QUEUE_CONFIG.thresholds.ram.value, 'RAM_THRESHOLD should match thresholds.ram.value');
+  assert.equal(QUEUE_CONFIG.CPU_THRESHOLD, QUEUE_CONFIG.thresholds.cpu.value, 'CPU_THRESHOLD should match thresholds.cpu.value');
+  assert.equal(QUEUE_CONFIG.DISK_THRESHOLD, QUEUE_CONFIG.thresholds.disk.value, 'DISK_THRESHOLD should match thresholds.disk.value');
+  assert.equal(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD, QUEUE_CONFIG.thresholds.claude5Hour.value, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should match thresholds.claude5Hour.value');
+  assert.equal(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD, QUEUE_CONFIG.thresholds.claudeWeekly.value, 'CLAUDE_WEEKLY_THRESHOLD should match thresholds.claudeWeekly.value');
+  assert.equal(QUEUE_CONFIG.GITHUB_API_THRESHOLD, QUEUE_CONFIG.thresholds.githubApi.value, 'GITHUB_API_THRESHOLD should match thresholds.githubApi.value');
+});
+
+// ============================================================================
+// parseQueueConfig Tests (Issue #1253)
+// ============================================================================
+
+console.log('\n📋 parseQueueConfig Tests (Issue #1253)\n');
+
+test('parseQueueConfig returns empty object for empty input', () => {
+  assert.deepEqual(parseQueueConfig(''), {}, 'Empty string should return empty object');
+  assert.deepEqual(parseQueueConfig(null), {}, 'Null should return empty object');
+  assert.deepEqual(parseQueueConfig(undefined), {}, 'Undefined should return empty object');
+});
+
+test('parseQueueConfig parses simple config', () => {
+  const config = parseQueueConfig('((disk (90% reject)))');
+  assert.ok(config.disk, 'Should have disk config');
+  assert.equal(config.disk.value, 0.9, 'Disk value should be 0.9');
+  assert.equal(config.disk.strategy, 'reject', 'Disk strategy should be reject');
+});
+
+test('parseQueueConfig parses multiple thresholds', () => {
+  const config = parseQueueConfig('((disk (90% reject)) (ram (65% enqueue)))');
+  assert.ok(config.disk, 'Should have disk config');
+  assert.ok(config.ram, 'Should have ram config');
+  assert.equal(config.disk.value, 0.9, 'Disk value should be 0.9');
+  assert.equal(config.disk.strategy, 'reject', 'Disk strategy should be reject');
+  assert.equal(config.ram.value, 0.65, 'RAM value should be 0.65');
+  assert.equal(config.ram.strategy, 'enqueue', 'RAM strategy should be enqueue');
+});
+
+test('parseQueueConfig normalizes kebab-case metric names', () => {
+  const config = parseQueueConfig('((claude-5-hour (65% dequeue-one-at-a-time)) (github-api (75% enqueue)))');
+  assert.ok(config.claude5Hour, 'Should normalize claude-5-hour to claude5Hour');
+  assert.ok(config.githubApi, 'Should normalize github-api to githubApi');
+});
+
+test('parseQueueConfig defaults to enqueue for invalid strategy', () => {
+  const config = parseQueueConfig('((disk (90% invalid-strategy)))');
+  assert.equal(config.disk.strategy, 'enqueue', 'Invalid strategy should default to enqueue');
+});
+
+// ============================================================================
+// Strategy Helper Functions Tests (Issue #1253)
+// ============================================================================
+
+console.log('\n📋 Strategy Helper Functions Tests (Issue #1253)\n');
+
+test('getStrategy returns correct strategy for each metric', () => {
+  assert.equal(getStrategy('ram'), 'enqueue', 'RAM strategy should be enqueue');
+  assert.equal(getStrategy('cpu'), 'enqueue', 'CPU strategy should be enqueue');
+  assert.equal(getStrategy('disk'), 'reject', 'DISK strategy should be reject');
+  assert.equal(getStrategy('claude5Hour'), 'dequeue-one-at-a-time', 'Claude 5h strategy should be dequeue-one-at-a-time');
+  assert.equal(getStrategy('claudeWeekly'), 'dequeue-one-at-a-time', 'Claude weekly strategy should be dequeue-one-at-a-time');
+  assert.equal(getStrategy('githubApi'), 'enqueue', 'GitHub API strategy should be enqueue');
+});
+
+test('getStrategy returns enqueue for unknown metric', () => {
+  assert.equal(getStrategy('unknown'), 'enqueue', 'Unknown metric should return enqueue');
+});
+
+test('isRejectStrategy works correctly', () => {
+  assert.equal(isRejectStrategy('disk'), true, 'Disk should be reject strategy');
+  assert.equal(isRejectStrategy('ram'), false, 'RAM should not be reject strategy');
+});
+
+test('isEnqueueStrategy works correctly', () => {
+  assert.equal(isEnqueueStrategy('ram'), true, 'RAM should be enqueue strategy');
+  assert.equal(isEnqueueStrategy('disk'), false, 'Disk should not be enqueue strategy');
+});
+
+test('isOneAtATimeStrategy works correctly', () => {
+  assert.equal(isOneAtATimeStrategy('claude5Hour'), true, 'Claude 5h should be one-at-a-time strategy');
+  assert.equal(isOneAtATimeStrategy('ram'), false, 'RAM should not be one-at-a-time strategy');
 });
 
 // ============================================================================

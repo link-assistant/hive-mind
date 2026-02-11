@@ -549,11 +549,39 @@ export const executeAgentCommand = async params => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
-      let fullOutput = ''; // Collect all output for pricing calculation and error detection
+      let fullOutput = ''; // Collect all output for error detection (kept for backward compatibility)
       // Issue #1201: Track error events detected during streaming for reliable error detection
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
       let streamingErrorDetected = false;
       let streamingErrorMessage = null;
+      // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
+      // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
+      const streamingTokenUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalCost: 0,
+        stepCount: 0,
+      };
+      // Helper to accumulate tokens from step_finish events during streaming
+      const accumulateTokenUsage = data => {
+        if (data.type === 'step_finish' && data.part?.tokens) {
+          const tokens = data.part.tokens;
+          streamingTokenUsage.stepCount++;
+          if (tokens.input) streamingTokenUsage.inputTokens += tokens.input;
+          if (tokens.output) streamingTokenUsage.outputTokens += tokens.output;
+          if (tokens.reasoning) streamingTokenUsage.reasoningTokens += tokens.reasoning;
+          if (tokens.cache) {
+            if (tokens.cache.read) streamingTokenUsage.cacheReadTokens += tokens.cache.read;
+            if (tokens.cache.write) streamingTokenUsage.cacheWriteTokens += tokens.cache.write;
+          }
+          if (data.part.cost !== undefined) {
+            streamingTokenUsage.totalCost += data.part.cost;
+          }
+        }
+      };
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -573,6 +601,8 @@ export const executeAgentCommand = async params => {
                 sessionId = data.sessionID;
                 await log(`📌 Session ID: ${sessionId}`);
               }
+              // Issue #1250: Accumulate token usage during streaming
+              accumulateTokenUsage(data);
               // Issue #1201: Detect error events during streaming for reliable detection
               if (data.type === 'error' || data.type === 'step_error') {
                 streamingErrorDetected = true;
@@ -605,6 +635,8 @@ export const executeAgentCommand = async params => {
                   sessionId = stderrData.sessionID;
                   await log(`📌 Session ID: ${sessionId}`);
                 }
+                // Issue #1250: Accumulate token usage during streaming (stderr)
+                accumulateTokenUsage(stderrData);
                 // Issue #1201: Detect error events during streaming (stderr) for reliable detection
                 if (stderrData.type === 'error' || stderrData.type === 'step_error') {
                   streamingErrorDetected = true;
@@ -719,8 +751,9 @@ export const executeAgentCommand = async params => {
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
 
-        // Parse token usage even on failure (partial work may have been done)
-        const tokenUsage = parseAgentTokenUsage(fullOutput);
+        // Issue #1250: Use streaming-accumulated token usage instead of re-parsing fullOutput
+        // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
+        const tokenUsage = streamingTokenUsage;
         const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
 
         return {
@@ -737,8 +770,9 @@ export const executeAgentCommand = async params => {
 
       await log('\n\n✅ Agent command completed');
 
-      // Parse token usage from collected output
-      const tokenUsage = parseAgentTokenUsage(fullOutput);
+      // Issue #1250: Use streaming-accumulated token usage instead of re-parsing fullOutput
+      // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
+      const tokenUsage = streamingTokenUsage;
       const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
 
       // Log pricing information

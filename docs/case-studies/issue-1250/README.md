@@ -32,10 +32,20 @@ The actual market price for this model should be based on the base model `kimi-k
 
 Investigation of the logs showed that `step_finish` events with token data ARE present in the agent output. The token parsing function `parseAgentTokenUsage` correctly parses NDJSON format.
 
-The zero token count issue may be related to:
+**Root cause identified**: The issue was in how `fullOutput` was collected during streaming. When the agent sends data quickly, NDJSON lines can be concatenated without newline separators between them. For example:
 
-1. Output not being properly collected in `fullOutput` during streaming
-2. Some edge case where step_finish events are not present
+```
+{"type":"step_finish",...}{"type":"step_finish",...}
+```
+
+Instead of:
+
+```
+{"type":"step_finish",...}
+{"type":"step_finish",...}
+```
+
+When `JSON.parse` encounters two JSON objects concatenated together, it fails to parse. The `parseAgentTokenUsage` function was running on `fullOutput` after streaming completed, missing tokens from lines that were concatenated.
 
 ## Solution
 
@@ -62,6 +72,21 @@ Modified `buildCostInfoString` to:
 2. Format: `Public pricing estimate: $X.YZ (based on Moonshot AI kimi-k2.5 prices)`
 3. Distinguish between truly free models (no paid equivalent) and free access to paid models
 
+### Fix 3: Streaming Token Accumulation (Token Usage Bug)
+
+The fix accumulates token usage **during streaming** instead of trying to re-parse `fullOutput` afterward:
+
+1. Added `streamingTokenUsage` object to track tokens as events arrive
+2. Added `accumulateTokenUsage` helper function called when parsing each JSON line
+3. Process `step_finish` events in real-time during both stdout and stderr streaming
+4. Use `streamingTokenUsage` instead of `parseAgentTokenUsage(fullOutput)` for final result
+
+This approach is more reliable because:
+
+- Each JSON line is parsed individually as it arrives
+- Avoids the concatenation issue where lines lack newline separators
+- Follows the same pattern as Issue #1201's streaming error detection fix
+
 ## Expected Output After Fix
 
 ```
@@ -74,19 +99,28 @@ Token usage: 15,438 input, 107 output
 
 ## Files Changed
 
-- `src/agent.lib.mjs` - Added `getBaseModelForPricing` and enhanced `calculateAgentPricing`
+- `src/agent.lib.mjs` - Added `getBaseModelForPricing`, enhanced `calculateAgentPricing`, and streaming token accumulation
 - `src/github.lib.mjs` - Enhanced `buildCostInfoString` to show base model reference
 - `tests/test-build-cost-info-string.mjs` - Added tests for base model pricing
+- `tests/test-agent-token-usage.mjs` - Added comprehensive tests for token parsing and streaming accumulation
 
 ## Testing
 
-All 42 unit tests pass, including 5 new tests specifically for Issue #1250:
+All unit tests pass:
+
+- 42 tests for `buildCostInfoString` (Issue #1015 & #1250)
+- 16 tests for agent token usage parsing (Issue #1250)
+
+Tests specifically for Issue #1250:
 
 - Base model pricing for kimi-k2.5-free
 - Regular free model pricing when base model has no pricing
 - Base model reference with original provider
 - Base model pricing with cache tokens
 - No base model reference when not applicable
+- Streaming token accumulation correctly sums all step_finish events
+- Concatenated JSON without newlines (demonstrates the bug)
+- Real-world agent output format parsing
 
 ## References
 

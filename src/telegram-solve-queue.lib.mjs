@@ -28,7 +28,7 @@ import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getC
 // See: https://github.com/link-assistant/hive-mind/issues/1242
 // See: https://github.com/link-assistant/hive-mind/issues/1253 (configurable strategies)
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
-import { QUEUE_CONFIG, getStrategy, isRejectStrategy, isEnqueueStrategy, isOneAtATimeStrategy } from './queue-config.lib.mjs';
+import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 
 /**
  * Status enum for queue items

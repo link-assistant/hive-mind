@@ -7,6 +7,7 @@ This case study analyzes the requirements for making the Hive Mind solve queue c
 **Issue:** [#1253 - Solve queue enhancements](https://github.com/link-assistant/hive-mind/issues/1253)
 
 **Key Requirements:**
+
 1. Make queue thresholds configurable via links notation
 2. Support different handling strategies per threshold: `reject`, `enqueue`, `dequeue-one-at-a-time`
 3. Change default disk threshold behavior from `dequeue-one-at-a-time` to `reject`
@@ -20,14 +21,14 @@ The current system uses environment variables with hardcoded defaults:
 ```javascript
 export const QUEUE_CONFIG = {
   // Resource thresholds (ratios 0.0 - 1.0)
-  RAM_THRESHOLD: 0.65,           // Blocks (enqueue) if RAM >= 65%
-  CPU_THRESHOLD: 0.65,           // Blocks (enqueue) if CPU load >= 65%
-  DISK_THRESHOLD: 0.9,           // One-at-a-time if disk >= 90%
+  RAM_THRESHOLD: 0.65, // Blocks (enqueue) if RAM >= 65%
+  CPU_THRESHOLD: 0.65, // Blocks (enqueue) if CPU load >= 65%
+  DISK_THRESHOLD: 0.9, // One-at-a-time if disk >= 90%
 
   // API limit thresholds
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.65,  // One-at-a-time
-  CLAUDE_WEEKLY_THRESHOLD: 0.97,          // One-at-a-time
-  GITHUB_API_THRESHOLD: 0.75,             // Blocks parallel commands
+  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.65, // One-at-a-time
+  CLAUDE_WEEKLY_THRESHOLD: 0.97, // One-at-a-time
+  GITHUB_API_THRESHOLD: 0.75, // Blocks parallel commands
 };
 ```
 
@@ -69,6 +70,7 @@ This format aligns with the `links-notation` npm package already used in the cod
 ### Threshold Configuration Structure
 
 Each threshold needs:
+
 1. **Resource Name** - Identifier for the metric (disk, ram, cpu, etc.)
 2. **Threshold Value** - Percentage (0-100) when action is triggered
 3. **Handling Strategy** - What to do when threshold is exceeded: `reject`, `enqueue`, `dequeue-one-at-a-time`
@@ -76,6 +78,7 @@ Each threshold needs:
 ### Default Behavior Changes
 
 Per the issue, the disk threshold should default to `reject` instead of `dequeue-one-at-a-time` because:
+
 - Queue is stored in RAM (in-memory)
 - Server restart clears the queue
 - When disk is full, server often restarts
@@ -114,25 +117,27 @@ From research on queue management patterns:
 
 Relevant libraries for queue/rate limiting:
 
-| Library | Key Features | Relevance |
-|---------|--------------|-----------|
+| Library                                                                      | Key Features                   | Relevance                       |
+| ---------------------------------------------------------------------------- | ------------------------------ | ------------------------------- |
 | [rate-limiter-flexible](https://www.npmjs.com/package/rate-limiter-flexible) | Modular, configurable policies | High - shows pattern for config |
-| [qrate](https://github.com/glynnbird/qrate) | Concurrency + rate limiting | Medium - async.queue based |
-| [backpressure-queue](https://github.com/r-k-b/backpressure-queue) | Pipes streams to async.queue | Low - focused on streams |
+| [qrate](https://github.com/glynnbird/qrate)                                  | Concurrency + rate limiting    | Medium - async.queue based      |
+| [backpressure-queue](https://github.com/r-k-b/backpressure-queue)            | Pipes streams to async.queue   | Low - focused on streams        |
 
 ### Links Notation Format
 
 The `links-notation` library (already used in codebase) provides:
+
 - S-expression-like syntax with parentheses
 - Hierarchical data representation
 - Multi-language support (JavaScript, Rust, Python, etc.)
 - Sources: [links-notation on npm](https://www.npmjs.com/package/links-notation)
 
 Example parsing:
+
 ```javascript
 import { Parser } from 'links-notation';
 const parser = new Parser();
-const links = parser.parse("(disk (90% reject))");
+const links = parser.parse('(disk (90% reject))');
 // Returns structured data representing the configuration
 ```
 
@@ -143,13 +148,14 @@ const links = parser.parse("(disk (90% reject))");
 **Description:** Add a handling strategy field to each threshold configuration.
 
 **Configuration Schema:**
+
 ```javascript
 // New QUEUE_CONFIG structure
 export const QUEUE_CONFIG = {
   thresholds: {
     disk: {
       value: 0.9,
-      strategy: 'reject',  // 'reject' | 'enqueue' | 'dequeue-one-at-a-time'
+      strategy: 'reject', // 'reject' | 'enqueue' | 'dequeue-one-at-a-time'
     },
     ram: {
       value: 0.65,
@@ -166,6 +172,7 @@ export const QUEUE_CONFIG = {
 ```
 
 **Links Notation Parsing:**
+
 ```lino
 (queue-config
   (disk (90% reject))
@@ -178,11 +185,13 @@ export const QUEUE_CONFIG = {
 ```
 
 **Pros:**
+
 - Unified configuration format
 - Easy to understand and extend
 - Aligns with existing lino usage
 
 **Cons:**
+
 - Requires parsing logic for percentage + strategy
 - Breaking change to existing config structure
 
@@ -191,6 +200,7 @@ export const QUEUE_CONFIG = {
 **Description:** Add strategy environment variables alongside threshold values.
 
 **Configuration:**
+
 ```bash
 HIVE_MIND_DISK_THRESHOLD=0.9
 HIVE_MIND_DISK_STRATEGY=reject  # New
@@ -200,11 +210,13 @@ HIVE_MIND_RAM_STRATEGY=enqueue  # New
 ```
 
 **Pros:**
+
 - Backwards compatible
 - Simple to implement
 - No new dependencies
 
 **Cons:**
+
 - Doubles the number of environment variables
 - Not as elegant as single links notation config
 
@@ -213,6 +225,7 @@ HIVE_MIND_RAM_STRATEGY=enqueue  # New
 **Description:** Use one environment variable with full links notation configuration.
 
 **Configuration:**
+
 ```bash
 HIVE_MIND_QUEUE_CONFIG='(
   (disk (90% reject))
@@ -222,11 +235,13 @@ HIVE_MIND_QUEUE_CONFIG='(
 ```
 
 **Pros:**
+
 - Single configuration source
 - Uses existing lino library
 - Matches issue requirement exactly
 
 **Cons:**
+
 - More complex parsing
 - Multi-line env vars can be tricky
 
@@ -287,6 +302,7 @@ Combine Solutions 1 and 3:
 ## References
 
 ### Internal Files
+
 - `src/queue-config.lib.mjs` - Current queue configuration
 - `src/telegram-solve-queue.lib.mjs` - Queue implementation
 - `src/limits.lib.mjs` - Limit checking and display
@@ -294,6 +310,7 @@ Combine Solutions 1 and 3:
 - `tests/queue-config.test.mjs` - Existing queue config tests
 
 ### External Resources
+
 - [links-notation npm package](https://www.npmjs.com/package/links-notation)
 - [links-notation GitHub repository](https://github.com/link-foundation/links-notation)
 - [Node.js Backpressuring in Streams](https://nodejs.org/en/learn/modules/backpressuring-in-streams)

@@ -41,12 +41,14 @@ Each threshold is a triplet: `(metric-name (percentage% strategy))`
 ### 1. Reject
 
 **Behavior:**
+
 - Immediately reject the command
 - No queue insertion
 - Clear error message returned to user
 - No waiting, no retry
 
 **Use Cases:**
+
 - Disk full (queue lost on restart anyway)
 - Critical resource exhaustion
 - Quota exceeded (no point waiting)
@@ -67,17 +69,20 @@ if (limitCheck.reject) {
 ### 2. Enqueue (Block)
 
 **Behavior:**
+
 - Command waits in queue
 - Checked on each poll interval
 - Cannot start until metric drops below threshold
 - Multiple commands can queue up
 
 **Use Cases:**
+
 - RAM high (transient, will improve)
 - CPU high (load will decrease)
 - API rate limit (will reset)
 
 **Implementation:**
+
 ```javascript
 // Current behavior - blocks all commands
 if (usedRatio >= threshold) {
@@ -88,15 +93,18 @@ if (usedRatio >= threshold) {
 ### 3. Dequeue-One-At-A-Time
 
 **Behavior:**
+
 - Allows exactly ONE command to run when above threshold
 - Subsequent commands wait until running one completes
 - Useful for cleanup/recovery scenarios
 
 **Use Cases:**
+
 - Disk space (let one command try to free space)
 - API limits near max (let one command finish)
 
 **Implementation:**
+
 ```javascript
 // Current one-at-a-time implementation
 if (usedRatio >= threshold) {
@@ -315,7 +323,7 @@ async function handleSolveCommand(ctx, url, args) {
   }
 
   // Normal enqueue flow
-  const item = queue.enqueue({ url, args, ctx, /* ... */ });
+  const item = queue.enqueue({ url, args, ctx /* ... */ });
   // ...
 }
 ```
@@ -354,8 +362,8 @@ test('parseQueueConfig parses valid lino', () => {
 test('reject strategy prevents queueing', async () => {
   const queue = new SolveQueue({
     thresholds: {
-      disk: { value: 0.1, strategy: 'reject' } // Low threshold to trigger
-    }
+      disk: { value: 0.1, strategy: 'reject' }, // Low threshold to trigger
+    },
   });
   const check = await queue.canStartCommand();
   assert.equal(check.rejected, true);
@@ -364,8 +372,8 @@ test('reject strategy prevents queueing', async () => {
 test('enqueue strategy adds to queue', async () => {
   const queue = new SolveQueue({
     thresholds: {
-      ram: { value: 0.1, strategy: 'enqueue' }
-    }
+      ram: { value: 0.1, strategy: 'enqueue' },
+    },
   });
   const check = await queue.canStartCommand();
   assert.equal(check.rejected, false);
@@ -375,8 +383,8 @@ test('enqueue strategy adds to queue', async () => {
 test('dequeue-one-at-a-time allows first command', async () => {
   const queue = new SolveQueue({
     thresholds: {
-      disk: { value: 0.1, strategy: 'dequeue-one-at-a-time' }
-    }
+      disk: { value: 0.1, strategy: 'dequeue-one-at-a-time' },
+    },
   });
   const check = await queue.canStartCommand();
   assert.equal(check.canStart, true);
@@ -389,17 +397,21 @@ test('dequeue-one-at-a-time allows first command', async () => {
 ### For Users
 
 **Before (using old defaults):**
+
 - Disk: One-at-a-time mode when >= 90%
 
 **After (new defaults):**
+
 - Disk: Reject mode when >= 90%
 
 **To restore old behavior:**
+
 ```bash
 HIVE_MIND_DISK_STRATEGY=dequeue-one-at-a-time
 ```
 
 Or via links notation:
+
 ```bash
 HIVE_MIND_QUEUE_CONFIG='((disk (90% dequeue-one-at-a-time)))'
 ```

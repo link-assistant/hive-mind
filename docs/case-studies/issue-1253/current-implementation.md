@@ -4,21 +4,21 @@
 
 ### Current Thresholds (as of v1.20.0)
 
-| Metric | Threshold | Mode | Environment Variable |
-|--------|-----------|------|---------------------|
-| RAM | 65% | Enqueue (block) | `HIVE_MIND_RAM_THRESHOLD` |
-| CPU | 65% | Enqueue (block) | `HIVE_MIND_CPU_THRESHOLD` |
-| Disk | 90% | Dequeue-one-at-a-time | `HIVE_MIND_DISK_THRESHOLD` |
-| Claude 5-hour Session | 65% | Dequeue-one-at-a-time | `HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD` |
-| Claude Weekly | 97% | Dequeue-one-at-a-time | `HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD` |
-| GitHub API | 75% | Enqueue (with parallel check) | `HIVE_MIND_GITHUB_API_THRESHOLD` |
+| Metric                | Threshold | Mode                          | Environment Variable                        |
+| --------------------- | --------- | ----------------------------- | ------------------------------------------- |
+| RAM                   | 65%       | Enqueue (block)               | `HIVE_MIND_RAM_THRESHOLD`                   |
+| CPU                   | 65%       | Enqueue (block)               | `HIVE_MIND_CPU_THRESHOLD`                   |
+| Disk                  | 90%       | Dequeue-one-at-a-time         | `HIVE_MIND_DISK_THRESHOLD`                  |
+| Claude 5-hour Session | 65%       | Dequeue-one-at-a-time         | `HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD` |
+| Claude Weekly         | 97%       | Dequeue-one-at-a-time         | `HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD`         |
+| GitHub API            | 75%       | Enqueue (with parallel check) | `HIVE_MIND_GITHUB_API_THRESHOLD`            |
 
 ### Timing Configuration
 
-| Setting | Default | Environment Variable |
-|---------|---------|---------------------|
-| Min Start Interval | 60000ms (1 min) | `HIVE_MIND_MIN_START_INTERVAL_MS` |
-| Consumer Poll Interval | 60000ms (1 min) | `HIVE_MIND_CONSUMER_POLL_INTERVAL_MS` |
+| Setting                 | Default         | Environment Variable                   |
+| ----------------------- | --------------- | -------------------------------------- |
+| Min Start Interval      | 60000ms (1 min) | `HIVE_MIND_MIN_START_INTERVAL_MS`      |
+| Consumer Poll Interval  | 60000ms (1 min) | `HIVE_MIND_CONSUMER_POLL_INTERVAL_MS`  |
 | Message Update Interval | 60000ms (1 min) | `HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS` |
 
 ## File: `src/telegram-solve-queue.lib.mjs`
@@ -41,6 +41,7 @@ export const QueueItemStatus = {
 #### `canStartCommand(options)`
 
 Current logic flow:
+
 1. Check minimum interval since last start
 2. Count running claude processes
 3. Check system resources (RAM, CPU, disk)
@@ -48,6 +49,7 @@ Current logic flow:
 5. Determine if "claude running" should be a blocking reason
 
 Returns:
+
 - `canStart: boolean`
 - `reason?: string`
 - `reasons?: string[]`
@@ -56,6 +58,7 @@ Returns:
 #### `checkSystemResources(totalProcessing)`
 
 Current behavior:
+
 - **RAM**: If >= threshold, adds blocking reason (enqueue mode)
 - **CPU**: If >= threshold, adds blocking reason (enqueue mode)
 - **Disk**: If >= threshold, sets `oneAtATime = true`, only blocks if `totalProcessing > 0`
@@ -63,6 +66,7 @@ Current behavior:
 #### `checkApiLimits(hasRunningClaude, claudeProcessingCount, tool)`
 
 Current behavior:
+
 - **Claude 5-hour**: If >= threshold, sets `oneAtATime = true`, blocks if `totalClaudeProcessing > 0`
 - **Claude Weekly**: Same as 5-hour
 - **GitHub API**: If >= threshold AND claude running, adds blocking reason
@@ -88,10 +92,10 @@ class LinksNotationManager {
 const lino = new LinksNotationManager();
 
 // Parse simple list
-lino.parse("(a b c)"); // ["a", "b", "c"]
+lino.parse('(a b c)'); // ["a", "b", "c"]
 
 // Parse nested structure
-lino.parse("papa (loves mama)");
+lino.parse('papa (loves mama)');
 // Returns parsed link structure
 ```
 
@@ -126,6 +130,7 @@ if (usedRatio >= QUEUE_CONFIG.DISK_THRESHOLD) {
 ### Missing: Reject Mode
 
 Not currently implemented. Would need:
+
 1. Immediate return with error
 2. No queueing
 3. Clear error message to user

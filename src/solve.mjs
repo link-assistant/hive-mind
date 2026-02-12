@@ -1303,6 +1303,11 @@ try {
   // After watch mode completes (either user watch or temporary)
   // Push any committed changes if this was a temporary watch mode
   if (temporaryWatchMode) {
+    // Issue #1256: Reset logsAlreadyUploaded for auto-restart case
+    // The initial session's log was already uploaded before auto-restart, but now we need
+    // to upload a NEW final log that includes the complete auto-restart session(s).
+    // Without this reset, the final log would be skipped due to Issue #1154's duplicate prevention.
+    logsAlreadyUploaded = false;
     await log('');
     await log('📤 Pushing committed changes to GitHub...');
     await log('');
@@ -1327,11 +1332,14 @@ try {
       await log(`   cd ${tempDir} && git push origin ${branchName}`, { level: 'error' });
     }
 
-    // Attach updated logs to PR after auto-restart completes
+    // Attach final logs to PR after auto-restart completes
+    // Issue #1256: Always upload final log after auto-restart to confirm completion
     // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
     if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
-      await log('📎 Uploading working session logs to Pull Request...');
+      await log('📎 Uploading final solution draft log to Pull Request...');
       try {
+        // Issue #1256: Use custom title to distinguish final log from auto-restart logs
+        const customTitle = '🤖 Solution Draft Log';
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
           targetType: 'pr',
@@ -1342,21 +1350,23 @@ try {
           log,
           sanitizeLogContent,
           verbose: argv.verbose,
+          customTitle,
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
         });
 
         if (logUploadSuccess) {
-          await log('✅ Working session logs uploaded successfully');
+          await log('✅ Final solution draft log uploaded successfully');
           logsAttached = true;
         } else {
-          await log('⚠️  Failed to upload working session logs', { level: 'warning' });
+          await log('⚠️  Failed to upload final solution draft log', { level: 'warning' });
         }
       } catch (uploadError) {
-        await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
+        await log(`⚠️  Error uploading final log: ${uploadError.message}`, { level: 'warning' });
       }
     } else if (logsAlreadyUploaded) {
+      // Note: With Issue #1256 fix, this branch should not execute in temporaryWatchMode
       await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
       logsAttached = true;
     }

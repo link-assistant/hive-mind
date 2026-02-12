@@ -6,55 +6,7 @@ This document provides comprehensive information about the free models supported
 
 The following free models are fully supported and tested in hive-mind:
 
-### 1. opencode/big-pickle
-
-- **Short Alias**: `big-pickle`
-- **Provider**: OpenCode Zen
-- **Status**: ✅ Fully Supported
-- **Features**: Reasoning, tool calling, temperature control
-- **Context Window**: 200,000 tokens
-- **Output Limit**: 128,000 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: January 2025
-
-### 2. opencode/gpt-5-nano
-
-- **Short Alias**: `gpt-5-nano`
-- **Provider**: OpenCode Zen
-- **Status**: ✅ Fully Supported
-- **Features**: Reasoning, tool calling, structured output, temperature control
-- **Context Window**: 200,000 tokens
-- **Output Limit**: 128,000 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: January 2025
-
-### 3. opencode/glm-4.7-free
-
-- **Short Alias**: `glm-4.7-free`
-- **Provider**: OpenCode Zen
-- **Status**: ✅ Fully Supported
-- **Features**: Reasoning, tool calling, interleaved thinking, temperature control
-- **Context Window**: 204,800 tokens
-- **Output Limit**: 131,072 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: April 2025
-- **Release Date**: December 22, 2025
-- **Open Weights**: Yes
-
-### 4. opencode/minimax-m2.1-free
-
-- **Short Alias**: `minimax-m2.1-free`
-- **Provider**: OpenCode Zen
-- **Status**: ✅ Fully Supported
-- **Features**: Reasoning, tool calling, temperature control
-- **Context Window**: 204,800 tokens
-- **Output Limit**: 131,072 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: January 2025
-- **Release Date**: December 23, 2025
-- **Open Weights**: Yes
-
-### 5. opencode/kimi-k2.5-free ⭐ **Default Model**
+### 1. opencode/kimi-k2.5-free ⭐ **Default Model**
 
 - **Short Alias**: `kimi-k2.5-free`
 - **Provider**: OpenCode Zen
@@ -68,24 +20,72 @@ The following free models are fully supported and tested in hive-mind:
 - **Open Weights**: Yes
 - **Special Features**: Visual agentic intelligence, multimodal capabilities, agent swarm architecture
 
+### 2. opencode/minimax-m2.1-free
+
+- **Short Alias**: `minimax-m2.1-free`
+- **Provider**: OpenCode Zen
+- **Status**: ✅ Fully Supported
+- **Features**: Reasoning, tool calling, temperature control
+- **Context Window**: 204,800 tokens
+- **Output Limit**: 131,072 tokens
+- **Cost**: Free (no input/output charges)
+- **Knowledge Cutoff**: January 2025
+- **Release Date**: December 23, 2025
+- **Open Weights**: Yes
+
+### 3. opencode/gpt-5-nano
+
+- **Short Alias**: `gpt-5-nano`
+- **Provider**: OpenCode Zen
+- **Status**: ✅ Fully Supported
+- **Features**: Reasoning, tool calling, structured output, temperature control
+- **Context Window**: 200,000 tokens
+- **Output Limit**: 128,000 tokens
+- **Cost**: Free (no input/output charges)
+- **Knowledge Cutoff**: January 2025
+
+### 4. opencode/glm-4.7-free
+
+- **Short Alias**: `glm-4.7-free`
+- **Provider**: OpenCode Zen
+- **Status**: ✅ Fully Supported
+- **Features**: Reasoning, tool calling, interleaved thinking, temperature control
+- **Context Window**: 204,800 tokens
+- **Output Limit**: 131,072 tokens
+- **Cost**: Free (no input/output charges)
+- **Knowledge Cutoff**: April 2025
+- **Release Date**: December 22, 2025
+- **Open Weights**: Yes
+
+### 5. opencode/big-pickle
+
+- **Short Alias**: `big-pickle`
+- **Provider**: OpenCode Zen
+- **Status**: ✅ Fully Supported
+- **Features**: Reasoning, tool calling, temperature control
+- **Context Window**: 200,000 tokens
+- **Output Limit**: 128,000 tokens
+- **Cost**: Free (no input/output charges)
+- **Knowledge Cutoff**: January 2025
+
 ## Usage Examples
 
 ### Command Line Usage
 
 ```bash
 # Using full model names
-hive --tool agent --model opencode/big-pickle https://github.com/owner/repo/issues/123
+hive --tool agent --model opencode/kimi-k2.5-free https://github.com/owner/repo/issues/123
+hive --tool agent --model opencode/minimax-m2.1-free https://github.com/owner/repo/issues/123
 hive --tool agent --model opencode/gpt-5-nano https://github.com/owner/repo/issues/123
 hive --tool agent --model opencode/glm-4.7-free https://github.com/owner/repo/issues/123
-hive --tool agent --model opencode/minimax-m2.1-free https://github.com/owner/repo/issues/123
-hive --tool agent --model opencode/kimi-k2.5-free https://github.com/owner/repo/issues/123
+hive --tool agent --model opencode/big-pickle https://github.com/owner/repo/issues/123
 
 # Using short aliases
-hive --tool agent --model big-pickle https://github.com/owner/repo/issues/123
+hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/123
+hive --tool agent --model minimax-m2.1-free https://github.com/owner/repo/issues/123
 hive --tool agent --model gpt-5-nano https://github.com/owner/repo/issues/123
 hive --tool agent --model glm-4.7-free https://github.com/owner/repo/issues/123
-hive --tool agent --model minimax-m2.1-free https://github.com/owner/repo/issues/123
-hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/123
+hive --tool agent --model big-pickle https://github.com/owner/repo/issues/123
 ```
 
 ### Telegram Bot Usage
@@ -106,8 +106,8 @@ hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/12
 
 ```bash
 # All models also work directly with agent CLI
-echo "Your prompt here" | agent --model opencode/big-pickle
 echo "Your prompt here" | agent --model opencode/kimi-k2.5-free
+echo "Your prompt here" | agent --model opencode/big-pickle
 ```
 
 ## Model Selection Guide

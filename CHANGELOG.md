@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.21.2
+
+### Patch Changes
+
+- 586b84d: Add retry mechanism for GitHub 500 errors during repository clone
+
+  This change adds intelligent retry logic with exponential backoff to handle transient GitHub server errors during repository cloning operations.
+
 ## 1.21.1
 
 ### Patch Changes

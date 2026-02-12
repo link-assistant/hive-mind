@@ -703,6 +703,51 @@ export const executeAgentCommand = async params => {
         outputError.match = streamingErrorMessage;
       }
 
+      // Issue #1258: Fallback pattern match for error detection
+      // When JSON parsing fails (e.g., multi-line pretty-printed JSON in logs),
+      // we need to detect error patterns in the raw output string
+      if (!outputError.detected && !streamingErrorDetected) {
+        // Check for error type patterns in raw output (handles pretty-printed JSON)
+        const errorTypePatterns = [
+          { pattern: '"type": "error"', type: 'AgentError' },
+          { pattern: '"type":"error"', type: 'AgentError' },
+          { pattern: '"type": "step_error"', type: 'AgentStepError' },
+          { pattern: '"type":"step_error"', type: 'AgentStepError' },
+        ];
+
+        for (const { pattern, type } of errorTypePatterns) {
+          if (fullOutput.includes(pattern)) {
+            outputError.detected = true;
+            outputError.type = type;
+            // Try to extract the error message from the output
+            const messageMatch = fullOutput.match(/"message":\s*"([^"]+)"/);
+            outputError.match = messageMatch ? messageMatch[1] : `Error event detected in output (fallback pattern match for ${pattern})`;
+            await log(`⚠️  Error event detected via fallback pattern match: ${outputError.match}`, { level: 'warning' });
+            break;
+          }
+        }
+
+        // Also check for known critical error patterns that indicate failure
+        if (!outputError.detected) {
+          const criticalErrorPatterns = [
+            { pattern: 'AI_RetryError:', extract: /AI_RetryError:\s*(.+?)(?:\n|$)/ },
+            { pattern: 'UnhandledRejection', extract: /"errorType":\s*"UnhandledRejection"/ },
+            { pattern: 'Failed after 3 attempts', extract: /Failed after \d+ attempts[^"]*/ },
+          ];
+
+          for (const { pattern, extract } of criticalErrorPatterns) {
+            if (fullOutput.includes(pattern)) {
+              outputError.detected = true;
+              outputError.type = 'CriticalError';
+              const match = fullOutput.match(extract);
+              outputError.match = match ? match[0] : `Critical error pattern detected: ${pattern}`;
+              await log(`⚠️  Critical error pattern detected via fallback: ${outputError.match}`, { level: 'warning' });
+              break;
+            }
+          }
+        }
+      }
+
       if (exitCode !== 0 || outputError.detected) {
         // Build JSON error structure for consistent error reporting
         const errorInfo = {

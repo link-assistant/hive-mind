@@ -1190,7 +1190,9 @@ try {
   // Issue #1152: Pass sessionType for differentiated log comments
   // Issue #1154: Track if logs were already uploaded to prevent duplicates
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
-  const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
+  // Issue #1256: Use 'let' instead of 'const' because we need to reset this flag
+  // after auto-restart completes to allow final log upload
+  let logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content
   if (argv.autoRestartOnNonUpdatedPullRequestDescription && (verifyResult?.prTitleHasPlaceholder || verifyResult?.prBodyHasPlaceholder)) {

@@ -861,6 +861,7 @@ export const executeClaudeCommand = async params => {
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
+    let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
 
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
@@ -1000,6 +1001,12 @@ export const executeClaudeCommand = async params => {
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
+                }
+                // Issue #1263: Extract result summary for --attach-solution-summary and --auto-attach-solution-summary
+                // The result field contains the AI's summary of the work done
+                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
+                  resultSummary = data.result;
+                  await log('📝 Captured result summary from Claude output', { verbose: true });
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1162,6 +1169,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
           };
         }
       }
@@ -1211,6 +1219,7 @@ export const executeClaudeCommand = async params => {
             toolUseCount,
             is503Error: true,
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
           };
         }
       }
@@ -1290,6 +1299,7 @@ export const executeClaudeCommand = async params => {
           toolUseCount,
           errorDuringExecution,
           anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+          resultSummary, // Issue #1263: Include result summary
         };
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
@@ -1361,6 +1371,7 @@ export const executeClaudeCommand = async params => {
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
+        resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
       };
     } catch (error) {
       reportError(error, {
@@ -1409,6 +1420,7 @@ export const executeClaudeCommand = async params => {
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+        resultSummary, // Issue #1263: Include result summary
       };
     }
   }; // End of executeWithRetry function

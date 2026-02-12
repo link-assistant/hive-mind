@@ -386,6 +386,7 @@ export const executeCodexCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
         };
       }
 
@@ -396,6 +397,7 @@ export const executeCodexCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
       };
     } catch (error) {
       // Don't report auth errors to Sentry as they are user configuration issues
@@ -420,6 +422,7 @@ export const executeCodexCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
       };
     }
   };

@@ -293,6 +293,8 @@ solve <issue-url> [options]
 | `--skip-tool-connection-check`                                   |       | boolean | false     | Skip tool connection check                                                                              |
 | `--auto-pull-request-creation`                                   |       | boolean | true      | Create draft PR before execution                                                                        |
 | `--attach-logs`                                                  |       | boolean | false     | Attach logs to PR (sensitive)                                                                           |
+| `--attach-solution-summary`                                      |       | boolean | false     | Attach AI solution summary as PR/issue comment                                                          |
+| `--auto-attach-solution-summary`                                 |       | boolean | false     | Auto-attach summary only if AI didn't post comments                                                     |
 | `--auto-close-pull-request-on-fail`                              |       | boolean | false     | Close PR on fail                                                                                        |
 | `--auto-continue`                                                |       | boolean | true      | Continue with existing PR                                                                               |
 | `--auto-resume-on-limit-reset`                                   |       | boolean | false     | Auto-resume when limit resets                                                                           |
@@ -350,6 +352,8 @@ hive <github-url> [options]
 | `--fork`                               | `-f`  | boolean | false         | Fork repos if no write access                |
 | `--auto-fork`                          |       | boolean | true          | Automatically fork public repos              |
 | `--attach-logs`                        |       | boolean | false         | Attach logs to PRs (sensitive)               |
+| `--attach-solution-summary`            |       | boolean | false         | Attach AI solution summary as comment        |
+| `--auto-attach-solution-summary`       |       | boolean | false         | Auto-attach summary if no AI comments        |
 | `--project-number`                     | `-pn` | number  |               | GitHub Project number to monitor             |
 | `--project-owner`                      | `-po` | string  |               | GitHub Project owner                         |
 | `--project-status`                     | `-ps` | string  | "Ready"       | Project status column to monitor             |

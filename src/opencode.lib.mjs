@@ -374,6 +374,7 @@ export const executeOpenCodeCommand = async params => {
           limitReached: false,
           limitResetTime: null,
           permissionPromptDetected: true,
+          resultSummary: null, // Issue #1263: OpenCode tool doesn't provide result summary
         };
       }
 
@@ -409,6 +410,7 @@ export const executeOpenCodeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          resultSummary: null, // Issue #1263: OpenCode tool doesn't provide result summary
         };
       }
 
@@ -419,6 +421,7 @@ export const executeOpenCodeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        resultSummary: null, // Issue #1263: OpenCode tool doesn't provide result summary
       };
     } catch (error) {
       // Clean up the opencode.json config file even on error
@@ -441,6 +444,7 @@ export const executeOpenCodeCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        resultSummary: null, // Issue #1263: OpenCode tool doesn't provide result summary
       };
     }
   };

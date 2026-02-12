@@ -359,6 +359,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
     default: false,
   },
+  'attach-solution-summary': {
+    type: 'boolean',
+    description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
+    default: false,
+  },
+  'auto-attach-solution-summary': {
+    type: 'boolean',
+    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication

@@ -769,6 +769,7 @@ export const executeAgentCommand = async params => {
           tokenUsage,
           pricingInfo,
           publicPricingEstimate: pricingInfo.totalCostUSD,
+          resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary in same format as Claude
         };
       }
 
@@ -830,6 +831,7 @@ export const executeAgentCommand = async params => {
         tokenUsage,
         pricingInfo,
         publicPricingEstimate: pricingInfo.totalCostUSD,
+        resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary in same format as Claude
       };
     } catch (error) {
       reportError(error, {
@@ -848,6 +850,7 @@ export const executeAgentCommand = async params => {
         tokenUsage: null,
         pricingInfo: null,
         publicPricingEstimate: null,
+        resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary
       };
     }
   };

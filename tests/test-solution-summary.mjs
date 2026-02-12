@@ -89,19 +89,25 @@ runTest('claude.lib.mjs exports resultSummary in return type (by checking variab
 runTest('agent.lib.mjs includes resultSummary in return type', async () => {
   const fs = await import('fs');
   const agentLib = fs.readFileSync('./src/agent.lib.mjs', 'utf-8');
-  assertTrue(agentLib.includes('resultSummary: null, // Issue #1263'), 'resultSummary should be in return statements');
+  // Issue #1263: Agent now extracts lastTextContent from JSON output stream
+  assertTrue(agentLib.includes('resultSummary: lastTextContent || null') || agentLib.includes('resultSummary: null'), 'resultSummary should be in return statements');
+  assertTrue(agentLib.includes('lastTextContent'), 'lastTextContent variable should be declared for result summary');
 });
 
 runTest('codex.lib.mjs includes resultSummary in return type', async () => {
   const fs = await import('fs');
   const codexLib = fs.readFileSync('./src/codex.lib.mjs', 'utf-8');
-  assertTrue(codexLib.includes('resultSummary: null, // Issue #1263'), 'resultSummary should be in return statements');
+  // Issue #1263: Codex now extracts lastTextContent from JSON output stream
+  assertTrue(codexLib.includes('resultSummary: lastTextContent || null') || codexLib.includes('resultSummary: null'), 'resultSummary should be in return statements');
+  assertTrue(codexLib.includes('lastTextContent'), 'lastTextContent variable should be declared for result summary');
 });
 
 runTest('opencode.lib.mjs includes resultSummary in return type', async () => {
   const fs = await import('fs');
   const opencodeLib = fs.readFileSync('./src/opencode.lib.mjs', 'utf-8');
-  assertTrue(opencodeLib.includes('resultSummary: null, // Issue #1263'), 'resultSummary should be in return statements');
+  // Issue #1263: OpenCode now extracts lastTextContent from JSON output stream
+  assertTrue(opencodeLib.includes('resultSummary: lastTextContent || null') || opencodeLib.includes('resultSummary: null'), 'resultSummary should be in return statements');
+  assertTrue(opencodeLib.includes('lastTextContent'), 'lastTextContent variable should be declared for result summary');
 });
 
 // Test solve.mjs integration

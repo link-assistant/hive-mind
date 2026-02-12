@@ -553,6 +553,7 @@ export const executeAgentCommand = async params => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
+      let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let fullOutput = ''; // Collect all output for error detection (kept for backward compatibility)
       // Issue #1201: Track error events detected during streaming for reliable error detection
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
@@ -613,6 +614,33 @@ export const executeAgentCommand = async params => {
                 streamingErrorMessage = data.message || data.error || line.substring(0, 100);
                 await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
               }
+              // Issue #1263: Track text content for result summary
+              // Agent outputs text via 'text', 'assistant', or 'message' type events
+              if (data.type === 'text' && data.text) {
+                lastTextContent = data.text;
+              } else if (data.type === 'assistant' && data.message?.content) {
+                // Extract text from assistant message content
+                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                for (const item of content) {
+                  if (item.type === 'text' && item.text) {
+                    lastTextContent = item.text;
+                  }
+                }
+              } else if (data.type === 'message' && data.content) {
+                // Direct message content
+                if (typeof data.content === 'string') {
+                  lastTextContent = data.content;
+                } else if (Array.isArray(data.content)) {
+                  for (const item of data.content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                }
+              } else if (data.type === 'result' && data.result) {
+                // Explicit result message (like Claude outputs)
+                lastTextContent = data.result;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -646,6 +674,29 @@ export const executeAgentCommand = async params => {
                   streamingErrorDetected = true;
                   streamingErrorMessage = stderrData.message || stderrData.error || stderrLine.substring(0, 100);
                   await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+                }
+                // Issue #1263: Track text content for result summary (stderr)
+                if (stderrData.type === 'text' && stderrData.text) {
+                  lastTextContent = stderrData.text;
+                } else if (stderrData.type === 'assistant' && stderrData.message?.content) {
+                  const content = Array.isArray(stderrData.message.content) ? stderrData.message.content : [stderrData.message.content];
+                  for (const item of content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                } else if (stderrData.type === 'message' && stderrData.content) {
+                  if (typeof stderrData.content === 'string') {
+                    lastTextContent = stderrData.content;
+                  } else if (Array.isArray(stderrData.content)) {
+                    for (const item of stderrData.content) {
+                      if (item.type === 'text' && item.text) {
+                        lastTextContent = item.text;
+                      }
+                    }
+                  }
+                } else if (stderrData.type === 'result' && stderrData.result) {
+                  lastTextContent = stderrData.result;
                 }
               } catch {
                 // Not JSON - log as plain text
@@ -769,7 +820,7 @@ export const executeAgentCommand = async params => {
           tokenUsage,
           pricingInfo,
           publicPricingEstimate: pricingInfo.totalCostUSD,
-          resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary in same format as Claude
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
@@ -823,6 +874,11 @@ export const executeAgentCommand = async params => {
         }
       }
 
+      // Issue #1263: Log if result summary was captured
+      if (lastTextContent) {
+        await log('📝 Captured result summary from Agent output', { verbose: true });
+      }
+
       return {
         success: true,
         sessionId,
@@ -831,7 +887,7 @@ export const executeAgentCommand = async params => {
         tokenUsage,
         pricingInfo,
         publicPricingEstimate: pricingInfo.totalCostUSD,
-        resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary in same format as Claude
+        resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
       reportError(error, {
@@ -850,7 +906,7 @@ export const executeAgentCommand = async params => {
         tokenUsage: null,
         pricingInfo: null,
         publicPricingEstimate: null,
-        resultSummary: null, // Issue #1263: Agent tool doesn't provide result summary
+        resultSummary: null, // Issue #1263: No result summary available on error
       };
     }
   };

@@ -288,6 +288,7 @@ export const executeCodexCommand = async params => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
+      let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let authError = false;
 
       for await (const chunk of execCommand.stream()) {
@@ -324,6 +325,31 @@ export const executeCodexCommand = async params => {
                 await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
                 await log('   This error cannot be resolved by retrying.', { level: 'error' });
                 await log('   💡 Please run: codex login', { level: 'error' });
+              }
+
+              // Issue #1263: Track text content for result summary
+              // Codex outputs text via 'text', 'assistant', 'message', or 'result' type events
+              if (data.type === 'text' && data.text) {
+                lastTextContent = data.text;
+              } else if (data.type === 'assistant' && data.message?.content) {
+                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                for (const item of content) {
+                  if (item.type === 'text' && item.text) {
+                    lastTextContent = item.text;
+                  }
+                }
+              } else if (data.type === 'message' && data.content) {
+                if (typeof data.content === 'string') {
+                  lastTextContent = data.content;
+                } else if (Array.isArray(data.content)) {
+                  for (const item of data.content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                }
+              } else if (data.type === 'result' && data.result) {
+                lastTextContent = data.result;
               }
             }
           } catch {
@@ -386,18 +412,23 @@ export const executeCodexCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
-          resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
       await log('\n\n✅ Codex command completed');
+
+      // Issue #1263: Log if result summary was captured
+      if (lastTextContent) {
+        await log('📝 Captured result summary from Codex output', { verbose: true });
+      }
 
       return {
         success: true,
         sessionId,
         limitReached,
         limitResetTime,
-        resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
+        resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
       // Don't report auth errors to Sentry as they are user configuration issues
@@ -422,7 +453,7 @@ export const executeCodexCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
-        resultSummary: null, // Issue #1263: Codex tool doesn't provide result summary
+        resultSummary: null, // Issue #1263: No result summary available on error
       };
     }
   };

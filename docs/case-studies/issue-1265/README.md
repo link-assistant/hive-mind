@@ -30,17 +30,18 @@ Create a GitHub Action workflow that can be manually triggered with an issue URL
 
 Based on research and the existing `docs/FREE_MODELS.md`:
 
-| Model | Provider | Context Window | Cost |
-|-------|----------|----------------|------|
-| `kimi-k2.5-free` | OpenCode Zen | 262,144 tokens | Free |
+| Model               | Provider     | Context Window | Cost |
+| ------------------- | ------------ | -------------- | ---- |
+| `kimi-k2.5-free`    | OpenCode Zen | 262,144 tokens | Free |
 | `minimax-m2.1-free` | OpenCode Zen | 204,800 tokens | Free |
-| `gpt-5-nano` | OpenCode Zen | 200,000 tokens | Free |
-| `glm-4.7-free` | OpenCode Zen | 204,800 tokens | Free |
-| `big-pickle` | OpenCode Zen | 200,000 tokens | Free |
+| `gpt-5-nano`        | OpenCode Zen | 200,000 tokens | Free |
+| `glm-4.7-free`      | OpenCode Zen | 204,800 tokens | Free |
+| `big-pickle`        | OpenCode Zen | 200,000 tokens | Free |
 
 **Key Point**: These models work with `--tool agent` and require **NO AI provider authentication**.
 
 **Usage**:
+
 ```bash
 hive --tool agent --model kimi-k2.5-free https://github.com/owner/repo/issues/123
 # or using short alias
@@ -53,14 +54,14 @@ solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-fr
 
 GitHub automatically creates `GITHUB_TOKEN` for every workflow run. Key capabilities:
 
-| Permission | Scope | What It Can Do |
-|-----------|-------|----------------|
-| `contents` | read/write | Read and push code to branches |
+| Permission      | Scope      | What It Can Do                 |
+| --------------- | ---------- | ------------------------------ |
+| `contents`      | read/write | Read and push code to branches |
 | `pull-requests` | read/write | Create, update, comment on PRs |
-| `issues` | read/write | Create, comment on issues |
-| `actions` | read/write | Trigger other workflows |
-| `checks` | read/write | Create check runs |
-| `statuses` | read/write | Update commit statuses |
+| `issues`        | read/write | Create, comment on issues      |
+| `actions`       | read/write | Trigger other workflows        |
+| `checks`        | read/write | Create check runs              |
+| `statuses`      | read/write | Update commit statuses         |
 
 #### Using with `gh` CLI
 
@@ -75,11 +76,11 @@ GitHub automatically creates `GITHUB_TOKEN` for every workflow run. Key capabili
 
 #### Default vs Explicit Permissions
 
-| Aspect | Default | With `permissions` key |
-|--------|---------|------------------------|
-| Contents | read | Must specify `write` |
-| Pull-requests | read | Must specify `write` |
-| Issues | read | Must specify `write` |
+| Aspect        | Default | With `permissions` key |
+| ------------- | ------- | ---------------------- |
+| Contents      | read    | Must specify `write`   |
+| Pull-requests | read    | Must specify `write`   |
+| Issues        | read    | Must specify `write`   |
 
 **Important**: When using `permissions` key, all unspecified permissions default to `none` (except metadata: read).
 
@@ -219,12 +220,12 @@ For the initial prototype, implement **Solution 1** with graceful fallback to **
 
 ### Rate Limits
 
-| Token Type | Rate Limit |
-|-----------|------------|
-| GITHUB_TOKEN | 1,000 requests/hour per repo |
-| PAT (classic) | 5,000 requests/hour |
-| PAT (fine-grained) | 5,000 requests/hour |
-| GitHub App | 5,000 requests/hour per installation |
+| Token Type         | Rate Limit                           |
+| ------------------ | ------------------------------------ |
+| GITHUB_TOKEN       | 1,000 requests/hour per repo         |
+| PAT (classic)      | 5,000 requests/hour                  |
+| PAT (fine-grained) | 5,000 requests/hour                  |
+| GitHub App         | 5,000 requests/hour per installation |
 
 ### Security Best Practices
 
@@ -237,11 +238,13 @@ For the initial prototype, implement **Solution 1** with graceful fallback to **
 ## References
 
 ### Internal Documentation
+
 - [FREE_MODELS.md](../../FREE_MODELS.md) - Free AI models documentation
 - [DOCKER.md](../../DOCKER.md) - Docker setup guide
 - [agent.lib.mjs](../../../src/agent.lib.mjs) - Agent tool implementation
 
 ### External Sources
+
 - [GitHub Actions - Automatic Token Authentication](https://docs.github.com/en/actions/security-guides/automatic-token-authentication)
 - [Controlling GITHUB_TOKEN Permissions](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token)
 - [Manually Running a Workflow](https://docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow)

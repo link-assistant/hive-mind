@@ -197,16 +197,18 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
     if (modelInfo || baseModelInfo) {
       const effectiveModelInfo = modelInfo || baseModelInfo;
-      const cost = pricingCost || { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+      const cost = pricingCost || { input: 0, output: 0, cache_read: 0, cache_write: 0, reasoning: 0 };
 
       // Calculate public pricing estimate based on original provider prices
       // Prices are per 1M tokens, so divide by 1,000,000
+      // All priced components from models.dev: input, output, cache_read, cache_write, reasoning
       const inputCost = (tokenUsage.inputTokens * (cost.input || 0)) / 1_000_000;
       const outputCost = (tokenUsage.outputTokens * (cost.output || 0)) / 1_000_000;
       const cacheReadCost = (tokenUsage.cacheReadTokens * (cost.cache_read || 0)) / 1_000_000;
       const cacheWriteCost = (tokenUsage.cacheWriteTokens * (cost.cache_write || 0)) / 1_000_000;
+      const reasoningCost = (tokenUsage.reasoningTokens * (cost.reasoning || 0)) / 1_000_000;
 
-      const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost;
+      const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 
       // Determine if this is a free model from OpenCode Zen
       // Models accessed via OpenCode Zen are free, regardless of original provider pricing
@@ -227,6 +229,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           outputPerMillion: cost.output || 0,
           cacheReadPerMillion: cost.cache_read || 0,
           cacheWritePerMillion: cost.cache_write || 0,
+          reasoningPerMillion: cost.reasoning || 0,
         },
         tokenUsage,
         breakdown: {
@@ -234,6 +237,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
           output: outputCost,
           cacheRead: cacheReadCost,
           cacheWrite: cacheWriteCost,
+          reasoning: reasoningCost,
         },
         // Public pricing estimate based on original/base model prices
         totalCostUSD: totalCost,
@@ -775,25 +779,42 @@ export const executeAgentCommand = async params => {
       const tokenUsage = streamingTokenUsage;
       const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
 
-      // Log pricing information
+      // Log pricing information (similar to --tool claude breakdown)
       if (tokenUsage.stepCount > 0) {
         await log('\n💰 Token Usage Summary:');
-        await log(`   📊 ${pricingInfo.modelName || mappedModel}:`);
-        await log(`      Input tokens: ${tokenUsage.inputTokens.toLocaleString()}`);
-        await log(`      Output tokens: ${tokenUsage.outputTokens.toLocaleString()}`);
+        await log(`   📊 ${pricingInfo.modelName || mappedModel} (${tokenUsage.stepCount} steps):`);
+        await log(`      Input tokens:     ${tokenUsage.inputTokens.toLocaleString()}`);
+        await log(`      Output tokens:    ${tokenUsage.outputTokens.toLocaleString()}`);
         if (tokenUsage.reasoningTokens > 0) {
           await log(`      Reasoning tokens: ${tokenUsage.reasoningTokens.toLocaleString()}`);
         }
         if (tokenUsage.cacheReadTokens > 0 || tokenUsage.cacheWriteTokens > 0) {
-          await log(`      Cache read: ${tokenUsage.cacheReadTokens.toLocaleString()}`);
-          await log(`      Cache write: ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
+          await log(`      Cache read:       ${tokenUsage.cacheReadTokens.toLocaleString()}`);
+          await log(`      Cache write:      ${tokenUsage.cacheWriteTokens.toLocaleString()}`);
         }
 
-        if (pricingInfo.totalCostUSD !== null) {
-          if (pricingInfo.isFreeModel) {
-            await log('      Cost: $0.00 (Free model)');
-          } else {
-            await log(`      Cost: $${pricingInfo.totalCostUSD.toFixed(6)}`);
+        if (pricingInfo.totalCostUSD !== null && pricingInfo.breakdown) {
+          // Show per-component cost breakdown (similar to --tool claude)
+          await log('      Cost breakdown:');
+          await log(`        Input:      $${pricingInfo.breakdown.input.toFixed(6)} (${(pricingInfo.pricing?.inputPerMillion || 0).toFixed(2)}/M tokens)`);
+          await log(`        Output:     $${pricingInfo.breakdown.output.toFixed(6)} (${(pricingInfo.pricing?.outputPerMillion || 0).toFixed(2)}/M tokens)`);
+          if (tokenUsage.cacheReadTokens > 0) {
+            await log(`        Cache read: $${pricingInfo.breakdown.cacheRead.toFixed(6)} (${(pricingInfo.pricing?.cacheReadPerMillion || 0).toFixed(2)}/M tokens)`);
+          }
+          if (tokenUsage.cacheWriteTokens > 0) {
+            await log(`        Cache write: $${pricingInfo.breakdown.cacheWrite.toFixed(6)} (${(pricingInfo.pricing?.cacheWritePerMillion || 0).toFixed(2)}/M tokens)`);
+          }
+          if (tokenUsage.reasoningTokens > 0 && pricingInfo.breakdown.reasoning > 0) {
+            await log(`        Reasoning:  $${pricingInfo.breakdown.reasoning.toFixed(6)} (${(pricingInfo.pricing?.reasoningPerMillion || 0).toFixed(2)}/M tokens)`);
+          }
+          // Show public pricing estimate
+          const pricingRef = pricingInfo.baseModelName && pricingInfo.originalProvider ? ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)` : pricingInfo.originalProvider ? ` (based on ${pricingInfo.originalProvider} prices)` : '';
+          await log(`      Public pricing estimate: $${pricingInfo.totalCostUSD.toFixed(6)}${pricingRef}`);
+          // Show actual OpenCode Zen cost
+          if (pricingInfo.isOpencodeFreeModel) {
+            await log('      Calculated by OpenCode Zen: $0.00 (Free model)');
+          } else if (pricingInfo.opencodeCost !== undefined) {
+            await log(`      Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`);
           }
           await log(`      Provider: ${pricingInfo.provider || 'OpenCode Zen'}`);
         } else {

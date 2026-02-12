@@ -78,14 +78,6 @@ function assertEqual(actual, expected, message = '') {
   }
 }
 
-function assertDeepEqual(actual, expected, message = '') {
-  const actualStr = JSON.stringify(actual);
-  const expectedStr = JSON.stringify(expected);
-  if (actualStr !== expectedStr) {
-    throw new Error(`${message}\nExpected: ${expectedStr}\nActual: ${actualStr}`);
-  }
-}
-
 console.log('🧪 Running agent token usage tests (Issue #1250)...\n');
 console.log('='.repeat(80));
 

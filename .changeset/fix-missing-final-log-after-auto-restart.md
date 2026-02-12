@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 Fix missing final solution log after auto-restart completion (Issue #1256)

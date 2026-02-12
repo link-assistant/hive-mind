@@ -11,6 +11,7 @@
 Based on analysis of logs from PR #1255 (working on Issue #1250):
 
 ### Session 1: Initial Solve Run
+
 - **Started**: 2026-02-11T21:21:34.055Z
 - **Completed**: 2026-02-11T21:43:29.706Z (successful, 98 turns)
 - **Cost**: $6.455024 (Anthropic), $9.772118 (public estimate)
@@ -24,6 +25,7 @@ Based on analysis of logs from PR #1255 (working on Issue #1250):
 4. Posted "🔄 Auto-restart 1/3" comment notifying about uncommitted changes
 
 ### Session 2: Auto-Restart Session
+
 - **Started**: Immediately after Session 1
 - **Completed**: 2026-02-11T22:03:18.570Z (successful, 94 turns)
 - **Cost**: $5.822637 (Anthropic), $8.269417 (public estimate)
@@ -38,6 +40,7 @@ Based on analysis of logs from PR #1255 (working on Issue #1250):
 ### What User Saw (Screenshot)
 
 The terminal output ends at:
+
 ```
 📎 Uploading auto-restart session log...
 💰 Calculated cost: $8.269417
@@ -56,6 +59,7 @@ With no subsequent "✅ Solution draft log uploaded" message for the final sessi
 3. **solve.watch.lib.mjs:280-324** - Inside `watchForFeedback()`, each auto-restart iteration uploads an "Auto-restart X/Y Log"
 
 4. **solve.watch.lib.mjs:97-105** - When all changes committed, loop exits:
+
    ```javascript
    if (!hasUncommitted) {
      await log('✅ CHANGES COMMITTED! Exiting auto-restart mode');
@@ -78,6 +82,7 @@ With no subsequent "✅ Solution draft log uploaded" message for the final sessi
 ### The Bug
 
 The `logsAlreadyUploaded` flag is set to `true` after the **initial** session's log is uploaded (before auto-restart). When auto-restart completes:
+
 - `logsAlreadyUploaded` is still `true` from the initial upload
 - The condition `!logsAlreadyUploaded` is `false`
 - **The final log is NOT uploaded**
@@ -186,6 +191,7 @@ This single line change ensures the final log upload happens after auto-restart 
 ## Testing
 
 To verify the fix:
+
 1. Run solve command on an issue that causes uncommitted changes
 2. Verify "Solution Draft Log" is uploaded after initial session
 3. Verify "Auto-restart X/Y" notification and log are uploaded

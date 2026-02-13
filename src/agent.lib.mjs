@@ -559,6 +559,9 @@ export const executeAgentCommand = async params => {
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
       let streamingErrorDetected = false;
       let streamingErrorMessage = null;
+      // Issue #1276: Track successful completion events to clear error flags
+      // When agent emits session.idle or disposal events, it means it recovered and completed successfully
+      let agentCompletedSuccessfully = false;
       // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
       const streamingTokenUsage = {
@@ -641,6 +644,12 @@ export const executeAgentCommand = async params => {
                 // Explicit result message (like Claude outputs)
                 lastTextContent = data.result;
               }
+              // Issue #1276: Detect successful completion events
+              // When agent emits session.idle or log with "exiting loop" message, it completed successfully
+              // This means any previous error events were recovered from (e.g., timeout then retry)
+              if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
+                agentCompletedSuccessfully = true;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -698,6 +707,11 @@ export const executeAgentCommand = async params => {
                 } else if (stderrData.type === 'result' && stderrData.result) {
                   lastTextContent = stderrData.result;
                 }
+                // Issue #1276: Detect successful completion events (stderr)
+                // When agent emits session.idle or log with "exiting loop" message, it completed successfully
+                if (stderrData.type === 'session.idle' || (stderrData.type === 'log' && stderrData.message === 'exiting loop')) {
+                  agentCompletedSuccessfully = true;
+                }
               } catch {
                 // Not JSON - log as plain text
                 await log(stderrLine);
@@ -745,6 +759,19 @@ export const executeAgentCommand = async params => {
       // Only check for JSON error messages, not pattern matching in output
       const outputError = detectAgentErrors(fullOutput);
 
+      // Issue #1276: Clear streaming error detection if agent completed successfully
+      // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,
+      // we should NOT treat it as a failure. The exit code is the authoritative success indicator.
+      // Check for: exit code 0 AND (completion event detected OR no streaming error)
+      if (exitCode === 0 && (agentCompletedSuccessfully || !streamingErrorDetected)) {
+        // Agent exited successfully - clear any streaming errors that were recovered from
+        if (streamingErrorDetected && agentCompletedSuccessfully) {
+          await log(`ℹ️  Agent recovered from earlier error and completed successfully`, { verbose: true });
+        }
+        streamingErrorDetected = false;
+        streamingErrorMessage = null;
+      }
+
       // Issue #1201: Use streaming detection as primary, post-hoc as fallback
       // Streaming detection is more reliable because it parses each JSON line as it arrives,
       // avoiding issues where NDJSON lines get concatenated without newline delimiters in fullOutput
@@ -770,9 +797,16 @@ export const executeAgentCommand = async params => {
           if (fullOutput.includes(pattern)) {
             outputError.detected = true;
             outputError.type = type;
-            // Try to extract the error message from the output
-            const messageMatch = fullOutput.match(/"message":\s*"([^"]+)"/);
-            outputError.match = messageMatch ? messageMatch[1] : `Error event detected in output (fallback pattern match for ${pattern})`;
+            // Issue #1276: Try to extract the error message from the output
+            // First try "error" field (agent error format), then "message" field (generic format)
+            // Find the error closest to the "type": "error" pattern for more accurate extraction
+            const patternIndex = fullOutput.indexOf(pattern);
+            const relevantOutput = patternIndex >= 0 ? fullOutput.substring(patternIndex) : fullOutput;
+            // Look for "error" or "message" field near the error type pattern
+            const errorFieldMatch = relevantOutput.match(/"error":\s*"([^"]+)"/);
+            const messageFieldMatch = relevantOutput.match(/"message":\s*"([^"]+)"/);
+            // Prefer "error" field over "message" for agent error events
+            outputError.match = errorFieldMatch ? errorFieldMatch[1] : messageFieldMatch ? messageFieldMatch[1] : `Error event detected in output (fallback pattern match for ${pattern})`;
             await log(`⚠️  Error event detected via fallback pattern match: ${outputError.match}`, { level: 'warning' });
             break;
           }

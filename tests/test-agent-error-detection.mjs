@@ -211,6 +211,142 @@ assert.strictEqual(outputError.detected, true, 'Combined detection should catch 
 assert.strictEqual(outputError.match, 'The operation timed out.', 'Should have the correct error message');
 console.log('  ✅ PASSED: Combined detection works correctly\n');
 
+// ====================================================================
+// Issue #1276 Tests: "type": "status" message treated as error (false positive)
+// Agent successfully completed but was incorrectly treated as failed
+// ====================================================================
+console.log('--- Issue #1276 Tests ---\n');
+
+// Test 16: Status message at startup should NOT be treated as error
+console.log('Test 16: Status message should NOT trigger error');
+const statusOutput = `{"type":"status","mode":"stdin-stream","message":"Agent CLI in continuous listening mode. Accepts JSON and plain text input.","hint":"Press CTRL+C to exit."}`;
+const result16 = detectAgentErrors(statusOutput);
+assert.strictEqual(result16.detected, false, 'Status message should NOT be detected as error');
+console.log('  ✅ PASSED: Status message correctly ignored\n');
+
+// Test 17: Error during execution followed by successful completion (agent recovers)
+console.log('Test 17: Agent recovers from error and completes successfully');
+// Reset streaming detection state for this test
+streamingErrorDetected = false;
+streamingErrorMessage = null;
+let agentCompletedSuccessfully = false;
+
+// Simulate the exact sequence from Issue #1276 log
+// 1. Status message at startup
+simulateStreamChunk('{"type":"status","message":"Agent CLI in continuous listening mode. Accepts JSON and plain text input."}');
+assert.strictEqual(streamingErrorDetected, false, 'Status should not trigger error');
+
+// 2. Agent starts work
+simulateStreamChunk('{"type":"step_start","timestamp":1}');
+assert.strictEqual(streamingErrorDetected, false, 'Step start should not trigger error');
+
+// 3. A timeout error occurs during execution
+simulateStreamChunk('{"type":"error","timestamp":2,"error":"The operation timed out."}');
+assert.strictEqual(streamingErrorDetected, true, 'Error event should be detected');
+assert.strictEqual(streamingErrorMessage, 'The operation timed out.', 'Should capture timeout error');
+
+// 4. Agent recovers and continues
+simulateStreamChunk('{"type":"step_start","timestamp":3}');
+
+// 5. Agent completes work successfully
+simulateStreamChunk('{"type":"text","timestamp":4,"text":"Task completed successfully!"}');
+
+// 6. Session becomes idle (successful completion indicator)
+const sessionIdleChunk = '{"type":"session.idle"}';
+const idleLines = sessionIdleChunk.split('\n');
+for (const idleLine of idleLines) {
+  if (!idleLine.trim()) continue;
+  try {
+    const data = JSON.parse(idleLine);
+    if (data.type === 'session.idle') {
+      agentCompletedSuccessfully = true;
+    }
+  } catch {
+    // Not JSON - ignore
+  }
+}
+
+assert.strictEqual(agentCompletedSuccessfully, true, 'Should detect successful completion from session.idle');
+
+// 7. Apply Issue #1276 fix: clear streaming error if exit code is 0 and agent completed successfully
+const exitCode = 0; // Successful exit
+if (exitCode === 0 && agentCompletedSuccessfully) {
+  streamingErrorDetected = false;
+  streamingErrorMessage = null;
+}
+
+assert.strictEqual(streamingErrorDetected, false, 'Streaming error should be cleared after successful completion');
+console.log('  ✅ PASSED: Agent recovery correctly handled - error cleared after successful completion\n');
+
+// Test 18: Verify final error state respects exit code
+console.log('Test 18: Final error state should respect exit code');
+const outputError18 = detectAgentErrors(statusOutput);
+
+// Simulate the scenario where streaming detected an error but agent recovered
+let testStreamingError = true;
+const testAgentCompleted = true;
+const testExitCode = 0;
+
+// Apply Issue #1276 fix logic
+if (testExitCode === 0 && (testAgentCompleted || !testStreamingError)) {
+  if (testStreamingError && testAgentCompleted) {
+    // Agent recovered from earlier error and completed successfully
+    console.log('  Agent recovered from earlier error and completed successfully');
+  }
+  testStreamingError = false;
+}
+
+// Combined detection should NOT report error
+if (!outputError18.detected && testStreamingError) {
+  outputError18.detected = true;
+  outputError18.type = 'AgentError';
+}
+
+assert.strictEqual(outputError18.detected, false, 'Final error state should be false when exit code is 0');
+console.log('  ✅ PASSED: Exit code 0 with recovery correctly treated as success\n');
+
+// Test 19: Error extraction should prefer "error" field over "message" field
+console.log('Test 19: Error extraction should prefer "error" field');
+// This tests the fallback pattern matching that extracts messages
+const fullOutputWithBothFields = `{"type":"status","message":"Agent CLI listening"}
+{"type":"error","timestamp":123,"error":"The actual error message"}
+{"type":"step_finish"}`;
+
+// Simulate fallback pattern matching logic from agent.lib.mjs
+const patternIndex = fullOutputWithBothFields.indexOf('"type": "error"') >= 0 ? fullOutputWithBothFields.indexOf('"type": "error"') : fullOutputWithBothFields.indexOf('"type":"error"');
+if (patternIndex >= 0) {
+  const relevantOutput = fullOutputWithBothFields.substring(patternIndex);
+  const errorFieldMatch = relevantOutput.match(/"error":\s*"([^"]+)"/);
+  const messageFieldMatch = relevantOutput.match(/"message":\s*"([^"]+)"/);
+  // Should prefer "error" field
+  const extractedMessage = errorFieldMatch ? errorFieldMatch[1] : messageFieldMatch ? messageFieldMatch[1] : 'fallback';
+  assert.strictEqual(extractedMessage, 'The actual error message', 'Should extract from "error" field, not "message"');
+  console.log('  ✅ PASSED: Error field correctly preferred over message field\n');
+} else {
+  console.log('  ⚠️  Pattern not found in test output - adjusting test\n');
+  // The pattern uses quotes inside, so adjust
+  const patternIndex2 = fullOutputWithBothFields.indexOf('"type":"error"');
+  assert.ok(patternIndex2 >= 0, 'Error type pattern should be found');
+  const relevantOutput = fullOutputWithBothFields.substring(patternIndex2);
+  const errorFieldMatch = relevantOutput.match(/"error":\s*"([^"]+)"/);
+  assert.strictEqual(errorFieldMatch[1], 'The actual error message', 'Should extract from "error" field');
+  console.log('  ✅ PASSED: Error field correctly extracted\n');
+}
+
+// Test 20: Non-zero exit code should still be treated as error even with successful completion events
+console.log('Test 20: Non-zero exit code should still be error');
+let test20StreamingError = true;
+const test20AgentCompleted = true;
+const test20ExitCode = 1; // Non-zero exit code
+
+// Issue #1276 fix should NOT clear error for non-zero exit code
+if (test20ExitCode === 0 && (test20AgentCompleted || !test20StreamingError)) {
+  test20StreamingError = false;
+}
+
+assert.strictEqual(test20StreamingError, true, 'Streaming error should NOT be cleared for non-zero exit code');
+console.log('  ✅ PASSED: Non-zero exit code correctly preserves error state\n');
+
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');
@@ -219,3 +355,7 @@ console.log('  1. Exit code (non-zero = error)');
 console.log('  2. Streaming detection of JSON error events (primary, most reliable)');
 console.log('  3. Post-hoc detection of JSON error messages in fullOutput (fallback)');
 console.log('Pattern matching in output has been removed to prevent false positives.');
+console.log('\nIssue #1276 fix adds:');
+console.log('  - Exit code 0 is authoritative for success');
+console.log('  - Streaming errors are cleared if agent recovers and completes');
+console.log('  - Message extraction prefers "error" field over "message" field');

@@ -32,7 +32,14 @@ on:
         required: false
         type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# Concurrency: Only one workflow run per branch at a time
+# - For main branch (releases): cancel older runs to prevent blocking newer releases
+#   When multiple commits are pushed quickly, we want the latest to release, not wait
+# - For PR branches: queue runs to avoid cancelling checks on force-pushes
+# See: docs/case-studies/issue-1274/README.md for why this is important
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
   # === DETECT CHANGES ===

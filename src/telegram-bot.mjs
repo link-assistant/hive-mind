@@ -42,7 +42,7 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 // Import extracted message filter functions for testability (issue #1207)
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
 
@@ -786,10 +786,11 @@ bot.command('limits', async ctx => {
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   // Insert per-queue status into the code block
   // Shows each queue (claude, agent) with pending/processing counts
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   const codeBlockEnd = message.lastIndexOf('```');
   if (codeBlockEnd !== -1) {
-    const queueStatus = solveQueue.formatStatus();
+    const queueStatus = await solveQueue.formatStatus();
     message = message.slice(0, codeBlockEnd) + `\n${queueStatus}` + message.slice(codeBlockEnd);
   }
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
@@ -847,7 +848,6 @@ const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
   isChatAuthorized,
   addBreadcrumb,
   getSolveQueue,
-  getRunningClaudeProcesses,
 });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)

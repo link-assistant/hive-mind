@@ -402,21 +402,23 @@ test('recordThrottle increments throttle reason count', () => {
 
 console.log('\n📋 Format Tests\n');
 
-test('formatStatus returns correct string for empty queue', () => {
+await asyncTest('formatStatus returns correct string for empty queue', async () => {
   beforeEach();
   const queue = new SolveQueue();
 
-  const status = queue.formatStatus();
+  const status = await queue.formatStatus();
   // New format: per-queue breakdown with pending/processing counts
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   assert.ok(status.includes('Queues'), 'Should include Queues header');
-  assert.ok(status.includes('claude (pending: 0, processing: 0)'), 'Should show claude queue with 0/0');
-  assert.ok(status.includes('agent (pending: 0, processing: 0)'), 'Should show agent queue with 0/0');
+  assert.ok(status.includes('claude') && status.includes('pending: 0'), 'Should show claude queue with 0 pending');
+  assert.ok(status.includes('agent') && status.includes('pending: 0'), 'Should show agent queue with 0 pending');
+  assert.ok(status.includes('processing:'), 'Should include processing counts');
 
   queue.stop();
 });
 
-test('formatStatus returns correct string for non-empty queue', () => {
+await asyncTest('formatStatus returns correct string for non-empty queue', async () => {
   beforeEach();
   const queue = new SolveQueue();
 
@@ -427,16 +429,18 @@ test('formatStatus returns correct string for non-empty queue', () => {
     infoBlock: 'Test info',
   });
 
-  const status = queue.formatStatus();
+  const status = await queue.formatStatus();
   // New format: per-queue breakdown
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
-  assert.ok(status.includes('claude (pending: 1, processing: 0)'), 'Should show claude queue with 1 pending');
-  assert.ok(status.includes('agent (pending: 0, processing: 0)'), 'Should show agent queue with 0 pending');
+  assert.ok(status.includes('claude') && status.includes('pending: 1'), 'Should show claude queue with 1 pending');
+  assert.ok(status.includes('agent') && status.includes('pending: 0'), 'Should show agent queue with 0 pending');
+  assert.ok(status.includes('processing:'), 'Should include processing counts');
 
   queue.stop();
 });
 
-test('formatDetailedStatus includes all sections', () => {
+await asyncTest('formatDetailedStatus includes all sections', async () => {
   beforeEach();
   const queue = new SolveQueue();
 
@@ -447,9 +451,10 @@ test('formatDetailedStatus includes all sections', () => {
     infoBlock: 'Test info',
   });
 
-  const status = queue.formatDetailedStatus();
+  const status = await queue.formatDetailedStatus();
 
   // Updated format: per-queue grouping with items
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   assert.ok(status.includes('Solve Queue Status'), 'Should include title');
   assert.ok(status.includes('claude'), 'Should include claude queue');
@@ -1112,7 +1117,7 @@ test('processing map correctly tracks items', () => {
 
 console.log('\n📋 Format Waiting Reason Tests\n');
 
-test('formatDetailedStatus shows waiting items with reasons', () => {
+await asyncTest('formatDetailedStatus shows waiting items with reasons', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -1126,9 +1131,10 @@ test('formatDetailedStatus shows waiting items with reasons', () => {
   // Set waiting with a reason that includes Claude processes (use tool queue)
   queue.getToolQueue('claude')[0].setWaiting('Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)');
 
-  const status = queue.formatDetailedStatus();
+  const status = await queue.formatDetailedStatus();
 
   // Updated format: per-queue grouping with items
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   assert.ok(status.includes('claude'), 'Should include claude queue section');
   assert.ok(status.includes('waiting'), 'Should show waiting status');
@@ -1400,7 +1406,7 @@ asyncTest('agent tasks can start when claude min interval is not reached', async
   queue.stop();
 });
 
-test('getStats and getQueueSummary show per-tool breakdown', () => {
+await asyncTest('getStats and getQueueSummary show per-tool breakdown', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
@@ -1415,10 +1421,12 @@ test('getStats and getQueueSummary show per-tool breakdown', () => {
   assert.ok(summary.pending.some(i => i.tool === 'claude'));
   assert.ok(summary.pending.some(i => i.tool === 'agent'));
   // Updated format: per-queue lines
+  // Processing counts are actual running system processes (via pgrep)
   // See: https://github.com/link-assistant/hive-mind/issues/1267
-  const status = queue.formatStatus();
-  assert.ok(status.includes('claude (pending: 2, processing: 0)'), 'Should show claude queue with 2 pending');
-  assert.ok(status.includes('agent (pending: 1, processing: 0)'), 'Should show agent queue with 1 pending');
+  const status = await queue.formatStatus();
+  assert.ok(status.includes('claude') && status.includes('pending: 2'), 'Should show claude queue with 2 pending');
+  assert.ok(status.includes('agent') && status.includes('pending: 1'), 'Should show agent queue with 1 pending');
+  assert.ok(status.includes('processing:'), 'Should include processing counts from pgrep');
   queue.stop();
 });
 

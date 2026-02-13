@@ -86,7 +86,6 @@ function createOptions(overrides = {}) {
       const queue = new SolveQueue(opts);
       return queue;
     },
-    getRunningClaudeProcesses: async () => ({ count: overrides.claudeProcessCount || 0 }),
     ...overrides,
   };
 }
@@ -214,20 +213,26 @@ await asyncTest('Shows queue status for empty queue', async () => {
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
   assert.ok(ctx.replies[0].text.includes('Solve Queue Status'), 'Should include queue status header');
-  // Updated format: per-queue breakdown (see issue #1267)
+  // Updated format: per-queue breakdown with processing counts from pgrep (see issue #1267)
+  // Processing counts are actual running system processes, not queue internal state
   assert.ok(ctx.replies[0].text.includes('pending: 0'), 'Should show zero pending');
-  assert.ok(ctx.replies[0].text.includes('Claude processes'), 'Should include Claude processes count');
+  assert.ok(ctx.replies[0].text.includes('claude'), 'Should include claude queue');
+  assert.ok(ctx.replies[0].text.includes('agent'), 'Should include agent queue');
+  assert.ok(ctx.replies[0].text.includes('processing:'), 'Should include processing count');
   assert.equal(ctx.replies[0].opts.parse_mode, 'Markdown', 'Should use Markdown parse mode');
 });
 
-await asyncTest('Shows Claude process count', async () => {
+await asyncTest('Shows processing count in per-queue breakdown', async () => {
   resetSolveQueue();
   const bot = createMockBot();
-  const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, createOptions({ claudeProcessCount: 3 }));
+  const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, createOptions());
   const ctx = createMockCtx();
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
-  assert.ok(ctx.replies[0].text.includes('Claude processes: 3'), 'Should show correct Claude process count');
+  // Processing count should be shown for each queue (claude, agent)
+  // The actual count comes from pgrep detecting running processes
+  assert.ok(ctx.replies[0].text.includes('claude') && ctx.replies[0].text.includes('processing:'), 'Should show processing count for claude queue');
+  assert.ok(ctx.replies[0].text.includes('agent') && ctx.replies[0].text.includes('processing:'), 'Should show processing count for agent queue');
 });
 
 await asyncTest('Shows queue with pending items', async () => {

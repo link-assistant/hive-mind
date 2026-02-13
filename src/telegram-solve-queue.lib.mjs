@@ -43,13 +43,14 @@ export const QueueItemStatus = {
 };
 
 /**
- * Count running claude processes
+ * Count running processes by name
+ * @param {string} processName - Process name to search for (e.g., 'claude', 'agent')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
-export async function getRunningClaudeProcesses(verbose = false) {
+export async function getRunningProcesses(processName, verbose = false) {
   try {
-    const { stdout } = await execAsync('pgrep -l -x claude 2>/dev/null || true');
+    const { stdout } = await execAsync(`pgrep -l -x ${processName} 2>/dev/null || true`);
     const lines = stdout
       .trim()
       .split('\n')
@@ -60,13 +61,13 @@ export async function getRunningClaudeProcesses(verbose = false) {
         const parts = line.trim().split(/\s+/);
         return {
           pid: parts[0],
-          name: parts.slice(1).join(' ') || 'claude',
+          name: parts.slice(1).join(' ') || processName,
         };
       })
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve_queue found ${processes.length} running claude processes`);
+      console.log(`[VERBOSE] /solve_queue found ${processes.length} running ${processName} processes`);
       if (processes.length > 0) {
         console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
       }
@@ -78,10 +79,28 @@ export async function getRunningClaudeProcesses(verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve_queue error counting claude processes:', error.message);
+      console.error(`[VERBOSE] /solve_queue error counting ${processName} processes:`, error.message);
     }
     return { count: 0, processes: [] };
   }
+}
+
+/**
+ * Count running claude processes
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningClaudeProcesses(verbose = false) {
+  return getRunningProcesses('claude', verbose);
+}
+
+/**
+ * Count running agent processes
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningAgentProcesses(verbose = false) {
+  return getRunningProcesses('agent', verbose);
 }
 
 /**
@@ -1192,6 +1211,10 @@ export class SolveQueue {
    * Format queue status for display in /limits command
    * Shows per-tool queue breakdown with processing counts.
    *
+   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
+   * This is because items transition quickly through the processing state, but the actual
+   * work happens in the spawned system process (claude, agent, etc.).
+   *
    * Output format:
    * ```
    * Queues
@@ -1199,16 +1222,27 @@ export class SolveQueue {
    * agent (pending: 2, processing: 0)
    * ```
    *
-   * @returns {string}
+   * @returns {Promise<string>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  formatStatus() {
+  async formatStatus() {
+    // Get actual process counts for each tool queue
+    // The "processing" count is the number of running system processes, not queue internal state
+    // This ensures users see accurate counts of what's actually running
+    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
+    const agentProcs = await getRunningAgentProcesses(this.verbose);
+
+    const processCounts = {
+      claude: claudeProcs.count,
+      agent: agentProcs.count,
+    };
+
     // Always show per-tool breakdown for all known queues
     let message = 'Queues\n';
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = this.getProcessingCountByTool(tool);
+      const processing = processCounts[tool] || 0;
       message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
     }
 
@@ -1218,6 +1252,10 @@ export class SolveQueue {
   /**
    * Format detailed queue status for Telegram message
    * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
+   *
+   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
+   * This is because items transition quickly through the processing state, but the actual
+   * work happens in the spawned system process (claude, agent, etc.).
    *
    * Output format:
    * ```
@@ -1232,28 +1270,31 @@ export class SolveQueue {
    * • url3 (waiting, 1h 2m 5s)
    * ```
    *
-   * @returns {string}
+   * @returns {Promise<string>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  formatDetailedStatus() {
+  async formatDetailedStatus() {
     const stats = this.getStats();
+
+    // Get actual process counts for each tool queue
+    // The "processing" count is the number of running system processes, not queue internal state
+    // This ensures users see accurate counts of what's actually running
+    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
+    const agentProcs = await getRunningAgentProcesses(this.verbose);
+
+    const processCounts = {
+      claude: claudeProcs.count,
+      agent: agentProcs.count,
+    };
 
     let message = '📋 *Solve Queue Status*\n\n';
 
     // Show per-tool queue breakdown with items grouped by queue
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       const pending = toolQueue.length;
-      const processing = this.getProcessingCountByTool(tool);
+      const processing = processCounts[tool] || 0;
       message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
-
-      // Show processing items for this tool
-      for (const item of this.processing.values()) {
-        if (item.tool === tool) {
-          const runTime = formatDuration(Date.now() - (item.startedAt || item.createdAt));
-          message += `  ▶ ${item.url} (${item.status}, ${runTime})\n`;
-        }
-      }
 
       // Show first 5 queued items for this tool
       const displayItems = toolQueue.slice(0, 5);
@@ -1323,7 +1364,9 @@ export default {
   SolveQueueItem,
   getSolveQueue,
   resetSolveQueue,
+  getRunningProcesses,
   getRunningClaudeProcesses,
+  getRunningAgentProcesses,
   createQueueExecuteCallback,
   formatDuration,
   QUEUE_CONFIG,

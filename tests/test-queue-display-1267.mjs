@@ -88,20 +88,22 @@ test('formatDuration handles negative values gracefully', () => {
 
 console.log('\n📋 Queue Display Tests\n');
 
-test('formatStatus shows all queues even when empty', () => {
+await asyncTest('formatStatus shows all queues even when empty', async () => {
   beforeEach();
   const queue = new SolveQueue();
 
-  const status = queue.formatStatus();
+  const status = await queue.formatStatus();
   assert.ok(status.includes('Queues'), 'Should show Queues header');
   assert.ok(status.includes('claude'), 'Should show claude queue');
   assert.ok(status.includes('agent'), 'Should show agent queue');
   assert.ok(status.includes('pending: 0'), 'Should show 0 pending for empty queues');
+  // Processing count should come from pgrep (actual running processes)
+  assert.ok(status.includes('processing:'), 'Should show processing count');
 
   queue.stop();
 });
 
-test('formatDetailedStatus groups items by tool queue', () => {
+await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -127,20 +129,22 @@ test('formatDetailedStatus groups items by tool queue', () => {
     tool: 'claude',
   });
 
-  const status = queue.formatDetailedStatus();
+  const status = await queue.formatDetailedStatus();
 
   // Should show both queues with correct counts
   assert.ok(status.includes('claude'), 'Should include claude queue');
   assert.ok(status.includes('agent'), 'Should include agent queue');
   assert.ok(status.includes('pending: 2'), 'Should show 2 pending for claude');
   assert.ok(status.includes('pending: 1'), 'Should show 1 pending for agent');
+  // Processing count should come from pgrep (actual running processes)
+  assert.ok(status.includes('processing:'), 'Should show processing count');
   // Items should show human-readable time, not raw seconds
   assert.ok(!status.includes('s)') || status.includes('0s)'), 'Should use human-readable time format');
 
   queue.stop();
 });
 
-test('formatDetailedStatus shows max 5 items per queue', () => {
+await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
@@ -155,7 +159,7 @@ test('formatDetailedStatus shows max 5 items per queue', () => {
     });
   }
 
-  const status = queue.formatDetailedStatus();
+  const status = await queue.formatDetailedStatus();
 
   // Should show first 5 items and "... and 2 more"
   assert.ok(status.includes('issues/1'), 'Should show first item');

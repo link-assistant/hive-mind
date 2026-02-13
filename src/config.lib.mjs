@@ -49,6 +49,9 @@ export const timeouts = {
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
   retryBackoffDelay: parseIntWithDefault('HIVE_MIND_RETRY_BACKOFF_DELAY_MS', 1000),
+  // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
+  // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
+  resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
 };
 
 // Auto-continue configurations

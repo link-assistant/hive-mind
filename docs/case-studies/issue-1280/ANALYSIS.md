@@ -27,151 +27,91 @@ Based on the log file `2ab1d239-9581-4d03-a895-af10c9fcb863.log`:
 | `21:10:07.696Z` | PR summary comment posted                                     | ~15s              |
 | `21:10:17.135Z` | Final assistant message output                                | ~10s              |
 | `21:10:17.168Z` | **SUCCESS RESULT** - `"type": "result", "subtype": "success"` | -                 |
-| `21:10:17.169Z` | Cost captured: $5.573962                                      | < 1ms             |
+| `21:10:17.169Z` | Cost captured: $5.573962 (by our code, inside `for await`)    | < 1ms             |
 | `21:10:17.169Z` | "Captured result summary from Claude output"                  | < 1ms             |
-| **GAP**         | **PROCESS STUCK - NO ACTIVITY**                               | **~5 min 26 sec** |
+| **GAP**         | **`for await` loop stuck waiting for stream to close**        | **~5 min 26 sec** |
 | `21:15:43.123Z` | User interrupted with CTRL+C                                  | -                 |
-| `21:15:43.126Z` | "Claude command completed"                                    | ~3ms              |
-| `21:15:43.127Z` | "Interrupted (CTRL+C)"                                        | ~1ms              |
+| `21:15:43.124Z` | Exit code updated to 130 (SIGINT)                             | ~1ms              |
+| `21:15:43.126Z` | "Claude command completed" (Total messages: 0, Tool uses: 0)  | ~3ms              |
 
-**Critical Gap**: Between `21:10:17.169Z` (last logged activity) and `21:15:43.123Z` (CTRL+C interrupt), there was **5 minutes 26 seconds** of no activity, despite the Claude execution having completed successfully.
+**Critical Gap**: Between `21:10:17.169Z` and `21:15:43.123Z`, there was **5 minutes 26 seconds** where the `for await (const chunk of execCommand.stream())` loop was stuck waiting for `command-stream` to signal stream completion.
 
 ## Root Cause Analysis
 
-### 1. Known Claude Code CLI Hanging Issues
+### Primary Root Cause: `command-stream` Library Stream Lifecycle Issue
 
-The investigation found multiple related issues in the `anthropics/claude-code` repository:
+The hang occurs in the `for await` loop in `src/claude.lib.mjs` due to how the `command-stream` library (v0.9.4) implements its `stream()` async iterator.
 
-#### Issue #1920: Missing Final Result Event in Streaming JSON Output
+**How `command-stream` `stream()` works:**
 
-- **Status**: Closed (auto-closed due to inactivity)
-- **Description**: Claude Code CLI intermittently fails to send the final `{"type":"result",...}` event after successful tool execution, causing the process to hang indefinitely
-- **Pattern**: Same behavior - functional completion occurs, but process never exits
-- **URL**: https://github.com/anthropics/claude-code/issues/1920
+1. The `stream()` method is an async generator that listens for `'data'` and `'end'` events
+2. The `'end'` event is emitted by `finish()` in `$.process-runner-base.mjs`
+3. `finish()` is called from `executeChildProcess()` only after:
+   ```javascript
+   const code = await exited; // Wait for process exit
+   await Promise.all([outPump, errPump, stdinPumpPromise]); // Wait for pipe close
+   ```
+4. `outPump` is `pumpReadable()` which does `for await (const chunk of readable)` on stdout
+5. **If the child process keeps stdout open, `pumpReadable()` hangs indefinitely**
+6. Without `finish()`, `'end'` is never emitted, and `stream()` iterator never terminates
 
-#### Issue #3187: Claude Code Input Stream JSON Hang
+### Secondary Issue: Dead Code — `chunk.type === 'exit'` Never Fires
 
-- **Status**: Closed
-- **Description**: Print/headless mode significantly slower than interactive; process hangs after first conversation
-- **URL**: https://github.com/anthropics/claude-code/issues/3187
+`command-stream` v0.9.4 `stream()` only yields `{type:'stdout'}` and `{type:'stderr'}` chunks. It does NOT yield `{type:'exit'}` chunks. The `finish()` method emits `'exit'` as an EventEmitter event, but the `stream()` generator only listens to `'data'` and `'end'` — it never captures exit information.
 
-#### Issue #24478: Claude Code CLI Freezes and Becomes Unresponsive
-
-- **Status**: Open (as of 2026-02-13)
-- **Description**: CLI becomes completely unresponsive after ~10 minutes, all signals ignored except SIGKILL
-- **Possible causes**: Event loop blocking, conversation state serialization issues, signal handler problems
-- **URL**: https://github.com/anthropics/claude-code/issues/24478
-
-#### Issue #24481: CLI Hangs Indefinitely on Simple Queries
-
-- **Status**: Closed (duplicate of #24324)
-- **Description**: CLI hangs indefinitely in print mode, never completes or exits
-- **Pattern**: MCP initialization completes but process never proceeds
-- **URL**: https://github.com/anthropics/claude-code/issues/24481
-
-### 2. Exit Code Evidence
-
-The log shows `exit code: 130` which corresponds to:
-
-- `128 + SIGINT (2) = 130`
-- This confirms the process was killed by SIGINT (Ctrl+C), not a graceful exit
-
-### 3. Execution Flow Analysis
-
-Looking at the code in `src/claude.lib.mjs`:
+This means the following code in `claude.lib.mjs` (and 5 other source files) is dead code:
 
 ```javascript
-// Line 950: Stream processing loop
-for await (const chunk of execCommand.stream()) {
-  if (chunk.type === 'stdout') {
-    // Process NDJSON lines...
+} else if (chunk.type === 'exit') {
+  exitCode = chunk.code;      // ← Never executes
+  if (chunk.code !== 0) {
+    commandFailed = true;      // ← Never executes
   }
 }
 ```
 
-The `for await` loop processes streaming output from Claude CLI. When Claude sends the final `result` event, the loop should complete. However, the issue appears to be that:
+The exit code is actually obtained from `execCommand.result.code` after the loop (Issue #1165 workaround).
 
-1. The Claude CLI sends the `result` event (logged at `21:10:17.168Z`)
-2. The solve.mjs processes and logs it (`21:10:17.169Z`)
-3. **But the `for await` loop doesn't complete** because the stdout stream hasn't closed
+### Supporting Evidence: Claude CLI May Not Close stdout
 
-This suggests the Claude CLI process remains running after sending the result event, keeping stdout open.
+The Claude CLI process sends the result event to stdout but may not close the stdout stream or exit promptly. Multiple related issues exist:
 
-### 4. command-stream Library
+- https://github.com/anthropics/claude-code/issues/1920 (missing result event / hang)
+- https://github.com/anthropics/claude-code/issues/24478 (CLI freeze/unresponsive)
+- https://github.com/anthropics/claude-code/issues/24481 (hang in print mode)
 
-The `command-stream` library (v0.9.4) is used for async iteration over command output. Related issues in that repository:
+However, as @konard noted in the PR review: the lines "Cost captured" and "Captured result summary" are printed by **our code** after the result event arrives. The hang is in our `for await` loop waiting for the `command-stream` library's `stream()` to terminate — NOT in the Claude CLI itself.
 
-- Issue #43: "Stream output handling issues" - mentions real-time output handling problems
-- **URL**: https://github.com/link-foundation/command-stream
+### Exit Code Evidence
 
-## Proposed Solutions
+Exit code `130` = `128 + SIGINT(2)`, confirming the process was killed by user CTRL+C, not a graceful exit.
 
-### Solution 1: Add Timeout After Result Event (Workaround)
+## Applied Solution
 
-In `src/claude.lib.mjs`, add a timeout mechanism after receiving the `result` event:
+### Workaround: Configurable Timeout After Result Event
 
-```javascript
-let resultReceived = false;
-let resultTimeout = null;
+In `src/claude.lib.mjs`, after receiving the result event, a timeout starts to force-kill the process:
 
-for await (const chunk of execCommand.stream()) {
-  if (chunk.type === 'stdout') {
-    // ... existing code ...
-    if (data.type === 'result') {
-      resultReceived = true;
-      // Set a timeout to force exit if stream doesn't close
-      resultTimeout = setTimeout(() => {
-        log('⚠️  Timeout waiting for stream to close after result, forcing exit');
-        // Force kill the child process
-        execCommand.kill('SIGKILL');
-      }, 30000); // 30 second timeout
-    }
-  }
-}
+1. When `data.type === 'result'` is received → start timeout (default 30s)
+2. If `stream()` doesn't close within the timeout:
+   - Send SIGTERM to the process
+   - Wait 2 seconds
+   - Send SIGKILL if still running
+3. The `for await` loop breaks due to `forceExitTriggered` flag
 
-if (resultTimeout) clearTimeout(resultTimeout);
-```
+The timeout is configurable via `HIVE_MIND_RESULT_STREAM_CLOSE_MS` environment variable (default: 30000ms).
 
-### Solution 2: Report Upstream Bug to Anthropic
+### Upstream Bug Report
 
-The root cause appears to be in Claude Code CLI itself. A detailed bug report should be filed:
+Filed issue on `command-stream` repository:
 
-**Suggested Report Content:**
+- https://github.com/link-foundation/command-stream/issues/155
+  - `stream()` does not yield exit chunks
+  - `stream()` hangs if stdout stays open after process exit
 
-- Title: "Claude Code CLI hangs after streaming result event - process doesn't exit cleanly"
-- Symptoms: Process sends `{"type":"result","subtype":"success",...}` but doesn't close stdout or exit
-- Environment: Headless mode with `--output-format stream-json --dangerously-skip-permissions`
-- Reproducible: Intermittent, more likely with longer sessions (~18 minutes in this case)
+Previously filed report to Anthropic:
 
-### Solution 3: Graceful Termination on Result
-
-Modify the streaming loop to proactively terminate when a `result` event is received:
-
-```javascript
-if (data.type === 'result') {
-  // Process result...
-
-  // Break out of the stream loop - we have everything we need
-  break;
-}
-```
-
-This requires restructuring the code to properly handle the early exit.
-
-### Solution 4: Use Process Exit Code Instead of Stream Completion
-
-Instead of waiting for the stream to complete, monitor the child process exit:
-
-```javascript
-const exitPromise = new Promise(resolve => {
-  execCommand.on('exit', code => resolve(code));
-});
-
-const streamPromise = processStream(execCommand.stream());
-
-// Race between stream completion and process exit
-await Promise.race([streamPromise, exitPromise]);
-```
+- https://github.com/anthropics/claude-code/issues/25629
 
 ## Impact Assessment
 
@@ -182,26 +122,15 @@ await Promise.race([streamPromise, exitPromise]);
 | User Experience | High     | Users must manually monitor and interrupt stuck processes            |
 | Data Integrity  | Low      | Work is saved before hang occurs; no data loss                       |
 
-## Recommendations
+## Long-term Recommendations
 
-### Immediate (Workaround)
-
-1. Implement Solution 1 (timeout after result event) in hive-mind
-2. Add verbose logging to identify exactly where the hang occurs
-
-### Short-term
-
-1. File detailed bug report to `anthropics/claude-code` with session ID and logs
-2. Add a CLI flag `--force-exit-after-result` to solve.mjs for users experiencing this issue
-
-### Long-term
-
-1. Work with Anthropic to fix the root cause in Claude Code CLI
-2. Consider alternative approaches like using the Claude API directly instead of CLI
+1. **Fix `command-stream`** to yield exit chunks and handle stdout staying open
+2. **Consider alternative**: If command-stream is fixed to yield exit chunks, the timeout workaround can be removed
+3. **Monitor**: If Claude CLI starts closing stdout properly, the timeout will simply clear without firing
 
 ## Files and Evidence
 
-- Log file: `./full-log.log` (1.16 MB, 8302 lines)
+- Log file: Available via gist (8304 lines, ~4MB)
 - Screenshot 1: `./screenshot1.png` - Shows success result JSON
 - Screenshot 2: `./screenshot2.png` - Shows CTRL+C interrupt and subsequent cleanup
 
@@ -209,9 +138,9 @@ await Promise.race([streamPromise, exitPromise]);
 
 - Original Issue: https://github.com/link-assistant/hive-mind/issues/1280
 - Related PR: https://github.com/link-assistant/agent/pull/158
+- **command-stream Issue**: https://github.com/link-foundation/command-stream/issues/155
+- **Upstream Claude CLI Issue**: https://github.com/anthropics/claude-code/issues/25629
 - Claude Code Issues:
   - https://github.com/anthropics/claude-code/issues/1920
-  - https://github.com/anthropics/claude-code/issues/3187
   - https://github.com/anthropics/claude-code/issues/24478
   - https://github.com/anthropics/claude-code/issues/24481
-- command-stream Repository: https://github.com/link-foundation/command-stream

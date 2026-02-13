@@ -863,20 +863,34 @@ export const executeClaudeCommand = async params => {
       // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
       // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
       let stdoutLineBuffer = '';
-      // Issue #1280: Track result event and timeout for hung Claude CLI processes
+      // Issue #1280: Track result event and timeout for hung processes
+      // Root cause: command-stream's stream() async iterator waits for BOTH process exit AND
+      // stdout/stderr pipe close before emitting 'end'. If the CLI process keeps stdout open after
+      // sending the result event, pumpReadable() hangs → finish() never fires → stream never ends.
+      // Additionally, command-stream v0.9.4 does NOT yield {type:'exit'} chunks from stream(),
+      // so the exit code detection via chunk.type==='exit' below is dead code.
+      // Workaround: after receiving the result event, start a timeout to force-kill the process.
+      // See: https://github.com/link-foundation/command-stream/issues/155
       let resultEventReceived = false;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
+      const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
-        await log(`⚠️ Stream didn't close 30s after result, forcing exit (Issue #1280)`, { verbose: true });
+        const elapsed = `${streamCloseTimeoutMs / 1000}s`;
+        await log(`⚠️ Stream didn't close ${elapsed} after result event, forcing exit (Issue #1280)`, { verbose: true });
+        await log(`   command-stream stream() is likely stuck waiting for pipe close`, { verbose: true });
         try {
           if (execCommand.kill) {
+            await log(`   Sending SIGTERM to process...`, { verbose: true });
             execCommand.kill('SIGTERM');
             setTimeout(() => {
               try {
-                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
+                if (!execCommand.result?.code) {
+                  log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
+                  execCommand.kill('SIGKILL');
+                }
               } catch {
                 /* process may have exited */
               }
@@ -934,8 +948,8 @@ export const executeClaudeCommand = async params => {
                 // Issue #1280: Start 30s timeout for stream close after result event
                 if (!resultEventReceived) {
                   resultEventReceived = true;
-                  await log('📌 Result event received, starting 30s stream close timeout', { verbose: true });
-                  resultTimeoutId = setTimeout(forceExitOnTimeout, 30000);
+                  await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
+                  resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
                 }
                 // Issue #1104: Only extract cost from subtype 'success' results
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
@@ -1040,11 +1054,13 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
+          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280).
+          // Exit code is obtained from execCommand.result.code after the loop.
+          // This branch is kept for forward-compatibility if command-stream adds exit chunks.
           exitCode = chunk.code;
           if (chunk.code !== 0) {
             commandFailed = true;
           }
-          // Don't break here - let the loop finish naturally to process all output
         }
       }
 
@@ -1060,10 +1076,14 @@ export const executeClaudeCommand = async params => {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
       }
-      // Issue #1280: Clear the stream close timeout since we exited the loop properly
+      // Issue #1280: Clear the stream close timeout since we exited the loop
       if (resultTimeoutId) {
         clearTimeout(resultTimeoutId);
-        if (!forceExitTriggered) await log('✅ Stream closed normally after result event', { verbose: true });
+        if (forceExitTriggered) {
+          await log('⚠️ Stream exited via force-kill timeout (Issue #1280)', { verbose: true });
+        } else {
+          await log('✅ Stream closed normally after result event', { verbose: true });
+        }
       }
       // Issue #1165: Check actual exit code from command result for more reliable detection
       // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code

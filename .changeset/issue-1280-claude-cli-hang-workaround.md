@@ -2,14 +2,19 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Fix: Add workaround for Claude CLI hanging after completion (Issue #1280)
+Fix: Add workaround for process stream hanging after completion (Issue #1280)
 
-Claude CLI sometimes hangs indefinitely after sending the result event without closing stdout.
-This fix adds a 30-second timeout after receiving the result event. If the stream doesn't close
-within that time, the process is forcefully terminated with SIGTERM/SIGKILL.
+After the Claude CLI sends the final result event, the `for await` loop over
+`command-stream`'s `stream()` can hang indefinitely. Root cause: `command-stream` v0.9.4's
+`stream()` async iterator waits for both process exit AND stdout/stderr pipe close before
+ending. If the CLI process keeps stdout open after sending the result, `pumpReadable()` hangs,
+`finish()` never fires, and the stream iterator never terminates.
 
-This is a workaround for an upstream bug in Claude Code CLI:
-https://github.com/anthropics/claude-code/issues/25629
+Additionally, `command-stream` v0.9.4 `stream()` does NOT yield `{type:'exit'}` chunks,
+making the exit code detection via `chunk.type === 'exit'` dead code (exit code is obtained
+from `execCommand.result.code` after the loop instead).
 
-The fix ensures that automation workflows using `solve` command don't get stuck waiting for
-a process that has already completed its work.
+Workaround: after receiving the result event, start a configurable timeout (default 30s,
+`HIVE_MIND_RESULT_STREAM_CLOSE_MS`) to force-kill the process with SIGTERM/SIGKILL.
+
+Related: https://github.com/link-foundation/command-stream/issues/155

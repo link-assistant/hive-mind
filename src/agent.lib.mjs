@@ -848,7 +848,18 @@ export const executeAgentCommand = async params => {
         };
 
         // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        // Issue #1287: Check multiple sources for usage limit detection:
+        // 1. lastMessage (the last chunk of output)
+        // 2. errorMatch (the extracted error message from JSON output)
+        // 3. fullOutput (complete output - fallback)
+        let limitInfo = detectUsageLimit(lastMessage);
+        if (!limitInfo.isUsageLimit && outputError.match) {
+          limitInfo = detectUsageLimit(outputError.match);
+        }
+        if (!limitInfo.isUsageLimit) {
+          // Fallback: scan fullOutput for usage limit patterns
+          limitInfo = detectUsageLimit(fullOutput);
+        }
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;

@@ -1112,7 +1112,9 @@ try {
     }
 
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
-    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+    // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
+    // This aligns with the pattern in handleFailure() in solve.error-handlers.lib.mjs
+    if (shouldAttachLogs && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
         // Build Claude CLI resume command

@@ -470,19 +470,31 @@ export async function checkMergePermissions(owner, repo, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {Object} options - Merge options
- * @param {boolean} options.squash - Whether to squash merge (default: false, uses default merge method)
+ * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge')
+ *                                       Note: Must specify one method when running non-interactively.
+ *                                       See Issue #1269 for details.
+ * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{success: boolean, error: string|null}>}
  */
 export async function mergePullRequest(owner, repo, prNumber, options = {}, verbose = false) {
-  const { squash = false, deleteAfter = false } = options;
+  const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
 
   try {
     let mergeArgs = `--repo ${owner}/${repo}`;
-    if (squash) {
+
+    // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
+    // We must always specify a merge method to prevent the command from hanging or failing
+    if (squash || mergeMethod === 'squash') {
       mergeArgs += ' --squash';
+    } else if (mergeMethod === 'rebase') {
+      mergeArgs += ' --rebase';
+    } else {
+      // Default to --merge for standard merge commits
+      mergeArgs += ' --merge';
     }
+
     if (deleteAfter) {
       mergeArgs += ' --delete-branch';
     }
@@ -516,15 +528,39 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
  * @returns {Promise<{success: boolean, status: string, error: string|null}>}
  */
 export async function waitForCI(owner, repo, prNumber, options = {}, verbose = false) {
-  const { timeout = 30 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const {
+    timeout = 30 * 60 * 1000,
+    pollInterval = 30 * 1000,
+    onStatusUpdate = null,
+    // Issue #1269: Add timeout for callback to prevent infinite blocking
+    callbackTimeout = 60 * 1000, // 1 minute max for callback
+  } = options;
 
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
-    const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    let ciStatus;
+    try {
+      ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    } catch (error) {
+      // Issue #1269: Log and continue on CI check errors instead of crashing
+      console.error(`[ERROR] /merge: Error checking CI status for PR #${prNumber}: ${error.message}`);
+      verbose && console.error(`[VERBOSE] /merge: CI check error details:`, error);
+      // Wait and retry
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
 
     if (onStatusUpdate) {
-      await onStatusUpdate(ciStatus);
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking
+      try {
+        await Promise.race([onStatusUpdate(ciStatus), new Promise((_, reject) => setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout))]);
+      } catch (callbackError) {
+        // Issue #1269: Log callback errors but continue processing
+        console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);
+        verbose && console.error(`[VERBOSE] /merge: Callback error details:`, callbackError);
+        // Continue processing even if callback fails - don't let UI issues block merging
+      }
     }
 
     if (ciStatus.status === 'success') {

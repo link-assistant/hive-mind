@@ -1,5 +1,213 @@
 # @link-assistant/hive-mind
 
+## 1.22.3
+
+### Patch Changes
+
+- 34a6937: Fix false positive error detection when agent recovers from transient errors (Issue #1276)
+  - Trust exit code 0 as authoritative indicator of success even if errors occurred during execution
+  - Clear streaming error detection when agent completes successfully (emits session.idle or "exiting loop")
+  - Fix message extraction to prefer "error" field over "message" field for agent error events
+  - Add tests for agent recovery scenarios and false positive prevention
+
+## 1.22.2
+
+### Patch Changes
+
+- 5b018dc: fix: prevent CI/CD release blocking by enabling cancel-in-progress for main branch (Issue #1274)
+
+  When multiple commits are pushed to main quickly (e.g., multiple PRs merged in succession),
+  the old concurrency configuration would queue newer runs indefinitely until older runs complete.
+  This caused releases to be blocked when Docker ARM64 builds took too long.
+
+  Changes:
+  - Add `cancel-in-progress: true` for main branch to allow newer releases to proceed
+  - PR branches still queue runs to avoid cancelling checks during development
+  - Document the issue and solution in docs/case-studies/issue-1274/
+
+## 1.22.1
+
+### Patch Changes
+
+- fix: add --merge flag to gh pr merge command to prevent "not running interactively" error (Issue #1269)
+
+  The merge queue was stuck because `gh pr merge` requires an explicit merge method flag
+  (`--merge`, `--squash`, or `--rebase`) when running in a non-interactive context.
+  Without a merge method, the command would fail with:
+  "--merge, --rebase, or --squash required when not running interactively"
+
+  This fix:
+  - Adds `--merge` flag by default to the `mergePullRequest()` function
+  - Adds `mergeMethod` option to configure the merge strategy ('merge', 'squash', 'rebase')
+  - Adds `HIVE_MIND_MERGE_QUEUE_MERGE_METHOD` environment variable for configuration
+
+  Fix release notes to show ALL related pull requests when multiple PRs are merged before a release (Issue #1271)
+  - Extract ALL commit hashes from changelog entry (not just the first one)
+  - Look up PRs for each commit hash via GitHub API
+  - Display all unique PR numbers in release notes (e.g., "Related Pull Requests: #1268, #1270")
+  - Use plural "Pull Requests" label when multiple PRs are found
+  - Add comprehensive case study documentation in docs/case-studies/issue-1271/
+
+## 1.22.0
+
+### Minor Changes
+
+- c000f7b: Add `--attach-solution-summary` and `--auto-attach-solution-summary` options
+
+  This feature allows users to automatically attach the AI's result summary as a PR/issue comment:
+  - `--attach-solution-summary`: Always attach the solution summary when available
+  - `--auto-attach-solution-summary`: Only attach the summary if the AI didn't create any comments during the session
+
+  The solution summary is extracted from the JSON output stream of all AI tools (claude, agent, codex, opencode). Each tool captures the last text content from various JSON event types (text, assistant, message, result) to provide a summary of the work done.
+
+  Fixes #1263
+
+## 1.21.4
+
+### Patch Changes
+
+- ea19c72: Fix queue issues: rejection, display, and formatting
+  - Fix disk rejection not blocking queue placement when threshold exceeded
+  - Restore "used" label on progress bars when below threshold
+  - Show per-queue breakdown in /limits command
+  - Group queue items by tool and use human-readable time in /solve_queue
+
+- aa42f3a: fix: improve merge queue error handling and debugging (Issue #1269)
+  - Always log errors (not just in verbose mode) for critical merge queue failures
+  - Always notify users via Telegram when merge queue fails unexpectedly
+  - Add timeout wrapper (60s) for onStatusUpdate callback to prevent infinite blocking
+  - Add error handling for CI check failures in waitForCI loop
+  - Add comprehensive case study documentation in docs/case-studies/issue-1269/
+
+## 1.21.3
+
+### Patch Changes
+
+- 4426112: Fix error detection for `--tool agent` when JSON errors are pretty-printed (Issue #1258)
+  - Add fallback pattern matching for error events when NDJSON parsing fails
+  - Detect `"type": "error"` and `"type": "step_error"` patterns in raw output
+  - Detect critical error patterns like `AI_RetryError` and `UnhandledRejection`
+  - Extract error messages from output for better error reporting
+
+## 1.21.2
+
+### Patch Changes
+
+- 586b84d: Add retry mechanism for GitHub 500 errors during repository clone
+
+  This change adds intelligent retry logic with exponential backoff to handle transient GitHub server errors during repository cloning operations.
+
+## 1.21.1
+
+### Patch Changes
+
+- fbfc0c3: Fix `--tool agent` pricing display for free models (Issue #1250)
+  - Add base model pricing lookup for free model variants (e.g., `kimi-k2.5-free` → `kimi-k2.5`)
+  - Show actual market price as "Public pricing estimate" based on the underlying paid model
+  - Display base model reference in cost output: "(based on Moonshot AI kimi-k2.5 prices)"
+  - Distinguish between truly free models and free access to paid models
+  - Fix token usage showing "0 input, 0 output" by accumulating tokens during streaming
+  - Token accumulation now happens in real-time as step_finish events arrive, avoiding NDJSON concatenation issues
+
+## 1.21.0
+
+### Minor Changes
+
+- 6cf54b7: Add configurable queue threshold strategies (reject, enqueue, dequeue-one-at-a-time)
+  - Add three handling strategies for each queue threshold:
+    - `reject`: Immediately reject the command, no queueing
+    - `enqueue`: Block and wait in queue until metric drops
+    - `dequeue-one-at-a-time`: Allow one command, block subsequent
+  - Support configuration via `HIVE_MIND_QUEUE_CONFIG` environment variable (links notation format)
+  - Support individual strategy env vars (e.g., `HIVE_MIND_DISK_STRATEGY`)
+
+  **Breaking change:** Disk threshold default strategy changed from `dequeue-one-at-a-time` to `reject`
+  because the queue is lost on server restart. To restore old behavior: `HIVE_MIND_DISK_STRATEGY=dequeue-one-at-a-time`
+
+## 1.20.1
+
+### Patch Changes
+
+- 1689caf: Fix agent tool pricing display to show correct provider
+  - Add proper model mapping for free models (kimi-k2.5-free, gpt-4o-mini, etc.)
+  - Add getProviderName helper function to detect provider from model ID
+  - Prioritize provider from model ID over API response to fix issue #1250
+  - Display correct provider names: Moonshot AI, OpenAI, Anthropic instead of generic "OpenCode Zen"
+
+## 1.20.0
+
+### Minor Changes
+
+- 98a7582: Set kimi-k2.5-free as default model for --tool agent and enhance documentation with free model examples.
+
+## 1.19.0
+
+### Minor Changes
+
+- 64687ce: Add support and documentation for free AI models:
+  - Added support for opencode/big-pickle, opencode/gpt-5-nano, opencode/kimi-k2.5-free, opencode/glm-4.7-free, opencode/minimax-m2.1-free
+  - Updated model mapping and validation to handle free models
+  - Created comprehensive documentation in FREE_MODELS.md
+  - Added tests for all free model support
+  - Created case study analysis for issue #1244
+
+## 1.18.0
+
+### Minor Changes
+
+- 6b7f026: Add threshold markers to /limits command progress bars
+
+  This change implements visual threshold markers in the progress bars displayed by the /limits command. Users can now see:
+  - **Threshold position marker (│)**: Shows where queue behavior changes (e.g., blocking, one-at-a-time mode)
+  - **Warning emoji (⚠️)**: Appears when usage exceeds the threshold
+
+  Thresholds displayed:
+  - RAM: 65% (blocks new commands)
+  - CPU: 65% (blocks new commands)
+  - Disk: 90% (one-at-a-time mode)
+  - Claude 5-hour session: 65% (one-at-a-time mode)
+  - Claude weekly: 97% (one-at-a-time mode)
+  - GitHub API: 75% (blocks parallel claude commands)
+
+  Example output:
+
+  ```
+  CPU
+  ▓▓▓▓▓▓▓░░░░░░░░░░░░│░░░░░░░░░░ 25%
+  0.04/6 CPU cores used
+
+  Claude 5 hour session
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│▓ 98% ⚠️
+  Resets in 2h 10m (Dec 6, 12:00pm UTC)
+  ```
+
+  Fixes #1242
+
+## 1.17.2
+
+### Patch Changes
+
+- ae013b3: Default thinking budget to zero (thinking disabled by default), align Opus 4.6 max thinking budget with standard models (31999), change `opus` alias to map to Opus 4.5 by default (supports both `opus-4-5` and `opus-4-6` aliases)
+
+## 1.17.1
+
+### Patch Changes
+
+- 0e59647: Fix /solve-queue command: register /solve_queue handler, fix hint text to use underscore instead of hyphen (Telegram Bot API only supports underscores in command names)
+
+## 1.17.0
+
+### Minor Changes
+
+- 52cef77: feat: automatic solve option forwarding from hive config (issue #1209)
+
+  Refactored hive-to-solve option forwarding to be fully automatic. New solve options are now
+  automatically available in hive and TELEGRAM_HIVE_OVERRIDES without manual code changes.
+  - Extracted `SOLVE_OPTION_DEFINITIONS` from solve.config.lib.mjs as a shared data structure
+  - hive.config.lib.mjs auto-registers all solve options (minus hive-only and solve-only exclusions)
+  - hive.mjs uses a generic forwarding loop instead of per-option if statements
+  - Added `getSolvePassthroughOptionNames()` export for programmatic access to passthrough list
+
 ## 1.16.1
 
 ### Patch Changes

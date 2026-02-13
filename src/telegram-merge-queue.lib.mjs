@@ -55,6 +55,7 @@ export const MergeItemStatus = {
  * - HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS: CI polling interval (default: 300000 = 5 minutes)
  * - HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS: CI timeout (default: 1800000 = 30 minutes)
  * - HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS: Post-merge wait (default: 10000 = 10 seconds)
+ * - HIVE_MIND_MERGE_QUEUE_MERGE_METHOD: Merge method (default: 'merge', options: 'merge', 'squash', 'rebase')
  */
 export const MERGE_QUEUE_CONFIG = {
   // CI/CD wait settings - check every 5 minutes per issue #1143 feedback
@@ -69,6 +70,10 @@ export const MERGE_QUEUE_CONFIG = {
 
   // Maximum PRs to process in one session (configurable, default 10)
   MAX_PRS_PER_SESSION: mergeQueueConfig.maxPrsPerSession,
+
+  // Merge method: 'merge', 'squash', or 'rebase' (Issue #1269)
+  // gh pr merge requires explicit method when running non-interactively
+  MERGE_METHOD: mergeQueueConfig.mergeMethod,
 };
 
 /**
@@ -339,8 +344,9 @@ export class MergeQueueProcessor {
       }
 
       // Step 4: Merge the PR
+      // Issue #1269: Pass the configured merge method to prevent "not running interactively" error
       item.status = MergeItemStatus.MERGING;
-      const mergeResult = await mergePullRequest(this.owner, this.repo, item.pr.number, {}, this.verbose);
+      const mergeResult = await mergePullRequest(this.owner, this.repo, item.pr.number, { mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
 
       if (!mergeResult.success) {
         item.status = MergeItemStatus.FAILED;
@@ -360,6 +366,11 @@ export class MergeQueueProcessor {
       item.error = error.message;
       item.completedAt = new Date();
       this.stats.failed++;
+      // Issue #1269: Always log errors (not just in verbose mode) for debugging
+      console.error(`[ERROR] /merge-queue: Error processing PR #${item.pr.number}: ${error.message}`);
+      if (error.stack) {
+        console.error(`[ERROR] /merge-queue: Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+      }
       this.log(`Error processing PR #${item.pr.number}: ${error.message}`);
     }
   }
@@ -448,6 +459,19 @@ export class MergeQueueProcessor {
     if (update.current) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
       message += `${statusEmoji} ${update.current}\n\n`;
+    }
+
+    // Show errors/failures inline so user gets immediate feedback (Issue #1269)
+    const failedItems = update.items.filter(item => item.status === MergeItemStatus.FAILED && item.error);
+    if (failedItems.length > 0) {
+      message += `⚠️ *Errors:*\n`;
+      for (const item of failedItems.slice(0, 3)) {
+        message += `  \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 60))}${item.error.length > 60 ? '...' : ''}\n`;
+      }
+      if (failedItems.length > 3) {
+        message += `  _...and ${failedItems.length - 3} more errors_\n`;
+      }
+      message += '\n';
     }
 
     // PRs list with emojis

@@ -861,6 +861,7 @@ export const executeClaudeCommand = async params => {
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
+    let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
 
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
@@ -901,33 +902,28 @@ export const executeClaudeCommand = async params => {
       await log('---BEGIN USER PROMPT---', { verbose: true });
       await log(prompt, { verbose: true });
       await log('---END USER PROMPT---', { verbose: true });
-      await log('', { verbose: true });
       await log('📋 System prompt:', { verbose: true });
       await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
       await log(systemPrompt, { verbose: true });
       await log('---END SYSTEM PROMPT---', { verbose: true });
-      await log('', { verbose: true });
     }
     try {
       // Resolve thinking settings (handles translation between --think and --thinking-budget based on Claude version)
       // See issue #1146 for details on thinking budget translation
-      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion } = await resolveThinkingSettings(argv, log);
+      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
 
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
-      // and MCP timeout configurations (see issue #1066)
+      // MCP timeout configurations (see issue #1066), and CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (Issue #1238)
       // Pass model for model-specific max output tokens (Issue #1221)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel });
+      // Pass thinkLevel and maxBudget for Opus 4.6 effort level conversion (Issue #1238)
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
-      if (resolvedThinkingBudget !== undefined) {
-        await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
-      }
-      // Log thinking level for older Claude Code versions that use thinking keywords
-      if (!isNewVersion && thinkLevel) {
-        await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
-      }
+      if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+      if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
       if (argv.resume) {
         // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
@@ -1004,6 +1000,12 @@ export const executeClaudeCommand = async params => {
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
+                // Issue #1263: Extract result summary for --attach-solution-summary and --auto-attach-solution-summary
+                // The result field contains the AI's summary of the work done
+                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
+                  resultSummary = data.result;
+                  await log('📝 Captured result summary from Claude output', { verbose: true });
+                }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
@@ -1070,8 +1072,7 @@ export const executeClaudeCommand = async params => {
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
                   commandFailed = true;
-                  await log('\n❌ Claude Code requires terms acceptance - please run `claude` interactively to accept the updated terms', { level: 'error' });
-                  await log('   This is not an error in your code, but Claude CLI needs human interaction.', { level: 'error' });
+                  await log('\n❌ Claude Code requires terms acceptance - please run `claude` interactively to accept the updated terms\n   This is not an error in your code, but Claude CLI needs human interaction.', { level: 'error' });
                 }
               }
             }
@@ -1128,8 +1129,7 @@ export const executeClaudeCommand = async params => {
         // Specifically detect "command not found" via exit code 127
         if (resultExitCode === 127 && !commandFailed) {
           commandFailed = true;
-          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH`, { level: 'error' });
-          await log('   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code', { level: 'error' });
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
       }
 
@@ -1154,8 +1154,7 @@ export const executeClaudeCommand = async params => {
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
-          await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
+          await log(`\n\n❌ API overload error persisted after ${maxRetries} retries\n   The API appears to be heavily loaded. Please try again later.`, { level: 'error' });
           return {
             success: false,
             sessionId,
@@ -1165,6 +1164,7 @@ export const executeClaudeCommand = async params => {
             messageCount,
             toolUseCount,
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
           };
         }
       }
@@ -1199,11 +1199,7 @@ export const executeClaudeCommand = async params => {
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, {
-            level: 'error',
-          });
-          await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
-          await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+          await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries\n   The Anthropic API appears to be experiencing network issues.\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
           return {
             success: false,
             sessionId,
@@ -1214,6 +1210,7 @@ export const executeClaudeCommand = async params => {
             toolUseCount,
             is503Error: true,
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
           };
         }
       }
@@ -1268,11 +1265,11 @@ export const executeClaudeCommand = async params => {
       // See: docs/dependencies-research/claude-code-issues/README.md for full details
       if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
-        await log('\n\n❌ Command failed: No messages processed and errors detected in stderr', { level: 'error' });
-        await log('Stderr errors:', { level: 'error' });
-        for (const err of stderrErrors.slice(0, 5)) {
-          await log(`   ${err.substring(0, 200)}`, { level: 'error' });
-        }
+        const errorsPreview = stderrErrors
+          .slice(0, 5)
+          .map(e => `   ${e.substring(0, 200)}`)
+          .join('\n');
+        await log(`\n\n❌ Command failed: No messages processed and errors detected in stderr\nStderr errors:\n${errorsPreview}`, { level: 'error' });
       }
       if (commandFailed) {
         // Take resource snapshot after failure
@@ -1280,8 +1277,6 @@ export const executeClaudeCommand = async params => {
         await log('\n📈 System resources after execution:', { verbose: true });
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
-        // Log attachment will be handled by solve.mjs when it receives success=false
-        await log('', { verbose: true });
         await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
         return {
           success: false,
@@ -1293,6 +1288,7 @@ export const executeClaudeCommand = async params => {
           toolUseCount,
           errorDuringExecution,
           anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+          resultSummary, // Issue #1263: Include result summary
         };
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
@@ -1364,6 +1360,7 @@ export const executeClaudeCommand = async params => {
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
+        resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
       };
     } catch (error) {
       reportError(error, {
@@ -1412,6 +1409,7 @@ export const executeClaudeCommand = async params => {
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+        resultSummary, // Issue #1263: Include result summary
       };
     }
   }; // End of executeWithRetry function

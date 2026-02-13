@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "1.16.1",
+  "version": "1.22.3",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -13,7 +13,7 @@
     "hive-telegram-bot": "./src/telegram-bot.mjs"
   },
   "scripts": {
-    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-telegram-message-filters.mjs",
+    "test": "node tests/solve-queue.test.mjs && node tests/limits-display.test.mjs && node tests/test-usage-limit.mjs && node tests/test-telegram-message-filters.mjs && node tests/test-solve-queue-command.mjs && node tests/test-queue-display-1267.mjs",
     "test:queue": "node tests/solve-queue.test.mjs",
     "test:limits-display": "node tests/limits-display.test.mjs",
     "test:usage-limit": "node tests/test-usage-limit.mjs",

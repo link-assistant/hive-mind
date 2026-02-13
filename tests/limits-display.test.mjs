@@ -4,16 +4,18 @@
  *
  * Tests for the /limits command display formatting, especially:
  * - Math.floor for percentage display (100% only appears when exactly 100%)
- * - Progress bar generation
+ * - Progress bar generation with threshold markers
  * - Time passed percentage calculation
+ * - Warning emoji display when thresholds are exceeded
  *
  * Run with: node tests/limits-display.test.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1133
+ * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage } from '../src/limits.lib.mjs';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -72,6 +74,71 @@ test('getProgressBar handles edge values', () => {
 });
 
 // ============================================================================
+// Progress Bar with Threshold Marker Tests (Issue #1242)
+// ============================================================================
+
+console.log('\n📋 Progress Bar Threshold Marker Tests (Issue #1242)\n');
+
+test('getProgressBar with threshold returns correct length', () => {
+  const bar = getProgressBar(50, 65);
+  assert.equal(bar.length, 30, 'Progress bar with threshold should be 30 characters');
+});
+
+test('getProgressBar with threshold includes marker character', () => {
+  const bar = getProgressBar(50, 65);
+  assert.ok(bar.includes('│'), 'Progress bar should include threshold marker │');
+  assert.equal(bar.split('│').length - 1, 1, 'Should have exactly one threshold marker');
+});
+
+test('getProgressBar with threshold at 65% places marker correctly', () => {
+  // 65% of 30 blocks = 19.5, rounds to 20
+  const bar = getProgressBar(50, 65);
+  const markerPos = bar.indexOf('│');
+  // At 65% threshold, marker should be at position 19 or 20 (depending on rounding)
+  assert.ok(markerPos >= 19 && markerPos <= 20, `Marker at position ${markerPos} should be at position 19-20 for 65% threshold`);
+});
+
+test('getProgressBar with threshold at 90% places marker correctly', () => {
+  // 90% of 30 blocks = 27
+  const bar = getProgressBar(50, 90);
+  const markerPos = bar.indexOf('│');
+  assert.equal(markerPos, 27, 'Marker should be at position 27 for 90% threshold');
+});
+
+test('getProgressBar with threshold at 97% places marker correctly', () => {
+  // 97% of 30 blocks = 29.1, rounds to 29
+  const bar = getProgressBar(50, 97);
+  const markerPos = bar.indexOf('│');
+  assert.equal(markerPos, 29, 'Marker should be at position 29 for 97% threshold');
+});
+
+test('getProgressBar with null threshold returns original format', () => {
+  const barWithThreshold = getProgressBar(50, null);
+  const barWithoutThreshold = getProgressBar(50);
+  assert.equal(barWithThreshold, barWithoutThreshold, 'Null threshold should return same as no threshold');
+  assert.ok(!barWithThreshold.includes('│'), 'Null threshold should not include marker');
+});
+
+test('getProgressBar threshold marker replaces one block', () => {
+  const bar = getProgressBar(25, 65);
+  // Count filled + empty + marker should equal 30
+  const filledCount = bar.split('▓').length - 1;
+  const emptyCount = bar.split('░').length - 1;
+  const markerCount = bar.split('│').length - 1;
+  assert.equal(filledCount + emptyCount + markerCount, 30, 'Total blocks + marker should equal 30');
+});
+
+test('DISPLAY_THRESHOLDS constants are defined', () => {
+  assert.ok(DISPLAY_THRESHOLDS !== undefined, 'DISPLAY_THRESHOLDS should be defined');
+  assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK threshold should be 90');
+  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
+  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API threshold should be 75');
+});
+
+// ============================================================================
 // Math.floor for Percentage Display Tests (Issue #1133)
 // ============================================================================
 
@@ -100,8 +167,9 @@ test('formatUsageMessage uses Math.floor for session percentage', () => {
   const message = formatUsageMessage(usage);
 
   // 99.5% should be floored to 99%, NOT rounded to 100%
-  assert.ok(message.includes('99% used'), 'Should show 99% (floored from 99.5%), not 100%');
-  assert.ok(!message.includes('100% used'), 'Should NOT show 100% when value is 99.5%');
+  // Note: format changed from "99% used" to "99%" with optional warning emoji
+  assert.ok(message.includes('99%'), 'Should show 99% (floored from 99.5%), not 100%');
+  assert.ok(!message.match(/100%[^%]*Claude/), 'Should NOT show 100% when value is 99.5%');
 });
 
 test('formatUsageMessage shows 100% only when exactly 100', () => {
@@ -125,8 +193,8 @@ test('formatUsageMessage shows 100% only when exactly 100', () => {
 
   const message = formatUsageMessage(usage);
 
-  // Exactly 100 should show 100%
-  assert.ok(message.includes('100% used'), 'Should show 100% when value is exactly 100');
+  // Exactly 100 should show 100% (with warning emoji since it exceeds threshold)
+  assert.ok(message.includes('100%'), 'Should show 100% when value is exactly 100');
 });
 
 test('formatUsageMessage floors various percentages correctly', () => {
@@ -315,7 +383,8 @@ test('formatUsageMessage handles 0% correctly', () => {
   };
 
   const message = formatUsageMessage(usage);
-  assert.ok(message.includes('0% used'), 'Should show 0% used');
+  // Note: format changed from "0% used" to "0%" with optional warning emoji
+  assert.ok(message.includes('0%'), 'Should show 0%');
 });
 
 test('formatUsageMessage handles extreme values', () => {
@@ -334,8 +403,99 @@ test('formatUsageMessage handles extreme values', () => {
     };
 
     const message = formatUsageMessage(usage);
-    assert.ok(message.includes(`${pct}% used`), `Should show ${pct}% used`);
+    // Note: format changed from "X% used" to "X%" with optional warning emoji
+    assert.ok(message.includes(`${pct}%`), `Should show ${pct}%`);
   }
+});
+
+// ============================================================================
+// Warning Emoji Tests (Issue #1242)
+// ============================================================================
+
+console.log('\n📋 Warning Emoji Tests (Issue #1242)\n');
+
+test('formatUsageMessage shows warning emoji when session exceeds threshold', () => {
+  const usage = {
+    currentSession: {
+      percentage: 70, // Above 65% threshold
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const message = formatUsageMessage(usage);
+  // Should show warning emoji for 70% (above 65% threshold)
+  assert.ok(message.includes('70%') && message.includes('⚠️'), 'Should show warning emoji when session exceeds 65% threshold');
+});
+
+test('formatUsageMessage does not show warning emoji when below threshold', () => {
+  const usage = {
+    currentSession: {
+      percentage: 50, // Below 65% threshold
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null }, // Below 97%
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null }, // Below 97%
+  };
+
+  const message = formatUsageMessage(usage);
+  // Should not show warning emoji when all values are below their thresholds
+  assert.ok(!message.includes('⚠️'), 'Should not show warning emoji when below thresholds');
+});
+
+test('formatUsageMessage shows warning for system resources when exceeded', () => {
+  const usage = {
+    currentSession: { percentage: 30, resetTime: null, resetsAt: null },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const cpuLoad = {
+    usagePercentage: 70, // Above 65% threshold
+    loadAvg5: 2.8,
+    cpuCount: 4,
+  };
+
+  const memory = {
+    usedPercentage: 70, // Above 65% threshold
+    usedBytes: 7 * 1024 * 1024 * 1024,
+    totalBytes: 10 * 1024 * 1024 * 1024,
+  };
+
+  const diskSpace = {
+    usedPercentage: 95, // Above 90% threshold
+    usedBytes: 95 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+
+  const message = formatUsageMessage(usage, diskSpace, null, cpuLoad, memory);
+  // Should show warning emoji for each exceeded threshold
+  assert.ok(message.includes('⚠️'), 'Should show warning emoji for exceeded system thresholds');
+});
+
+test('formatUsageMessage shows threshold markers in progress bars', () => {
+  const usage = {
+    currentSession: {
+      percentage: 50,
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const cpuLoad = {
+    usagePercentage: 30,
+    loadAvg5: 1.2,
+    cpuCount: 4,
+  };
+
+  const message = formatUsageMessage(usage, null, null, cpuLoad, null);
+  // Should include threshold marker character
+  assert.ok(message.includes('│'), 'Should include threshold marker in progress bars');
 });
 
 // ============================================================================

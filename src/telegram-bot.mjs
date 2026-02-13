@@ -42,7 +42,7 @@ const { validateModelName } = await import('./model-validation.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 // Import extracted message filter functions for testability (issue #1207)
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
 
@@ -683,14 +683,15 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
+  message += '`/solve_queue` - Show solve queue status\n';
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
-  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
+  message += '`/accept_invites` - Accept all pending GitHub invitations\n';
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -783,16 +784,14 @@ bot.command('limits', async ctx => {
   // Format the message with usage limits and queue status
   let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  const queueStats = solveQueue.getStats();
-  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
-  // Calculate total processing: queue-internal + external claude processes
-  // This provides a uniform view of all processing happening
-  // See: https://github.com/link-assistant/hive-mind/issues/1133
-  const totalProcessing = queueStats.processing + claudeProcs.count;
+  // Insert per-queue status into the code block
+  // Shows each queue (claude, agent) with pending/processing counts
+  // Processing counts are actual running system processes (via pgrep)
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
   const codeBlockEnd = message.lastIndexOf('```');
   if (codeBlockEnd !== -1) {
-    const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
-    message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
+    const queueStatus = await solveQueue.formatStatus();
+    message = message.slice(0, codeBlockEnd) + `\n${queueStatus}` + message.slice(codeBlockEnd);
   }
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
@@ -837,6 +836,18 @@ registerMergeCommand(bot, {
   isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
+});
+
+// Register /solve_queue command from separate module (issue #1232)
+const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
+const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat,
+  isChatAuthorized,
+  addBreadcrumb,
+  getSolveQueue,
 });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
@@ -1023,12 +1034,22 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve-queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
+
+  // Handle rejection: when a threshold strategy is 'reject', the command should fail immediately
+  // without being placed in the queue. This ensures users get clear feedback about why
+  // their command cannot be processed (e.g., disk full, server maintenance pending).
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  if (check.rejected) {
+    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
@@ -1261,6 +1282,8 @@ bot.on('message', async (ctx, next) => {
   const handlers = {
     solve: handleSolveCommand,
     hive: handleHiveCommand,
+    solve_queue: handleSolveQueueCommand,
+    solvequeue: handleSolveQueueCommand,
   };
 
   const handler = handlers[extracted.command];

@@ -32,7 +32,16 @@ on:
         required: false
         type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# Concurrency: Only one workflow run per branch at a time
+# - For main branch (releases): cancel older runs to prevent blocking newer releases
+#   When multiple commits are pushed quickly, we want the latest to release, not wait
+# - For PR branches: queue runs to avoid cancelling checks on force-pushes
+# IMPORTANT: Docker jobs use !cancelled() instead of always() to ensure they respect
+# concurrency cancellation. Using always() prevents workflow cancellation entirely.
+# See: docs/case-studies/issue-1274/README.md and docs/case-studies/issue-1278/README.md
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
 jobs:
   # === DETECT CHANGES ===
@@ -1806,12 +1815,15 @@ jobs:
   docker-publish:
     name: Docker Publish (${{ matrix.platform }})
     needs: [release]
-    # Use always() to ensure the condition is evaluated even if some jobs were skipped in the dependency chain
-    # See: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
-    if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'
-    # Timeout after 60 minutes to prevent indefinite hangs
-    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
-    timeout-minutes: 60
+    # Use !cancelled() instead of always() to allow concurrency cancellation while still
+    # evaluating conditions when dependencies are skipped. This prevents Docker jobs from
+    # blocking subsequent workflow runs when cancel-in-progress is enabled.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    # Original issue refs: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+    # Timeout after 30 minutes to prevent indefinite hangs and reduce concurrency blocking.
+    # ARM64 builds on native runners typically complete in 10-20 minutes.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -1893,8 +1905,9 @@ jobs:
   docker-publish-merge:
     name: Docker Publish (Merge)
     needs: [release, docker-publish]
-    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
-    if: always() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1954,8 +1967,9 @@ jobs:
   helm-release:
     name: Helm Release
     needs: [release, docker-publish-merge]
-    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
-    if: always() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -2055,11 +2069,12 @@ jobs:
   docker-publish-instant:
     name: Docker Publish Instant (${{ matrix.platform }})
     needs: [instant-release]
-    # Use always() to ensure the condition is evaluated properly
-    if: always() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'
-    # Timeout after 60 minutes to prevent indefinite hangs
-    # ARM64 builds may be slow due to Homebrew bottle downloads - verbose mode will help diagnose
-    timeout-minutes: 60
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+    # Timeout after 30 minutes to prevent indefinite hangs and reduce concurrency blocking.
+    # ARM64 builds on native runners typically complete in 10-20 minutes.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -2137,8 +2152,9 @@ jobs:
   docker-publish-instant-merge:
     name: Docker Publish Instant (Merge)
     needs: [instant-release, docker-publish-instant]
-    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
-    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2198,8 +2214,9 @@ jobs:
   helm-release-instant:
     name: Helm Release (Instant)
     needs: [instant-release, docker-publish-instant-merge]
-    # Use always() to ensure the condition is evaluated properly, then check that both dependencies succeeded
-    if: always() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'
+    # Use !cancelled() instead of always() to allow concurrency cancellation.
+    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
+    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
     permissions:
       contents: write

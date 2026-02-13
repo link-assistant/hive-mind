@@ -1204,8 +1204,6 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
   formatStatus() {
-    const stats = this.getStats();
-
     // Always show per-tool breakdown for all known queues
     let message = 'Queues\n';
     for (const [tool, toolQueue] of Object.entries(this.queues)) {

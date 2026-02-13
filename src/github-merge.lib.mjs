@@ -439,19 +439,31 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {Object} options - Merge options
- * @param {boolean} options.squash - Whether to squash merge (default: false, uses default merge method)
+ * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge')
+ *                                       Note: Must specify one method when running non-interactively.
+ *                                       See Issue #1269 for details.
+ * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{success: boolean, error: string|null}>}
  */
 export async function mergePullRequest(owner, repo, prNumber, options = {}, verbose = false) {
-  const { squash = false, deleteAfter = false } = options;
+  const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
 
   try {
     let mergeArgs = `--repo ${owner}/${repo}`;
-    if (squash) {
+
+    // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
+    // We must always specify a merge method to prevent the command from hanging or failing
+    if (squash || mergeMethod === 'squash') {
       mergeArgs += ' --squash';
+    } else if (mergeMethod === 'rebase') {
+      mergeArgs += ' --rebase';
+    } else {
+      // Default to --merge for standard merge commits
+      mergeArgs += ' --merge';
     }
+
     if (deleteAfter) {
       mergeArgs += ' --delete-branch';
     }

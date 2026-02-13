@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI } = githubMergeLib;
+const { checkPRCIStatus, checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -506,6 +506,13 @@ export const attemptAutoMerge = async params => {
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
 
+  // Issue #1226: Check merge permissions before attempting
+  const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
+  if (!canMerge) {
+    await log(formatAligned('⚠️', 'Cannot merge:', `Insufficient permissions (${permission || 'unknown'})`, 2));
+    return { success: false, reason: 'insufficient_permissions', error: `User has ${permission || 'unknown'} access, needs push/maintain/admin` };
+  }
+
   // Wait for CI to complete (with timeout)
   const ciWaitResult = await waitForCI(
     owner,
@@ -564,7 +571,7 @@ export const attemptAutoMerge = async params => {
  * Start auto-restart-until-mergable mode
  */
 export const startAutoRestartUntilMergable = async params => {
-  const { argv } = params;
+  const { argv, owner, repo, prNumber } = params;
 
   // Determine the mode
   const isAutoMerge = argv.autoMerge || false;
@@ -574,11 +581,55 @@ export const startAutoRestartUntilMergable = async params => {
     return null; // Neither mode enabled
   }
 
-  if (!params.prNumber) {
+  if (!prNumber) {
     await log('');
     await log(formatAligned('⚠️', 'Auto-restart-until-mergable:', 'Requires a pull request'));
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
+  }
+
+  // Issue #1226: Check if running in fork mode — auto-merge cannot work without write access
+  if (argv.fork && isAutoMerge) {
+    await log('');
+    await log(formatAligned('⚠️', 'Auto-merge:', 'Cannot auto-merge fork PRs'));
+    await log(formatAligned('', 'Reason:', 'Fork contributors do not have write access to merge PRs to upstream repositories', 2));
+    await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+    await log('');
+
+    // Post a comment to the PR notifying the maintainer
+    try {
+      const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because this PR was created from a fork (no write access to the target repository).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag (fork mode)*`;
+      await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+      await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+    } catch {
+      // Don't fail if comment posting fails
+    }
+
+    return { success: false, reason: 'fork_no_write_access' };
+  }
+
+  // Issue #1226: Verify merge permissions before entering the auto-merge/restart loop
+  if (isAutoMerge && owner && repo) {
+    const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
+    if (!canMerge) {
+      await log('');
+      await log(formatAligned('⚠️', 'Auto-merge:', 'Insufficient permissions to merge'));
+      await log(formatAligned('', 'Permission level:', permission || 'unknown', 2));
+      await log(formatAligned('', 'Required:', 'push, maintain, or admin access', 2));
+      await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+      await log('');
+
+      // Post a comment to the PR notifying the maintainer
+      try {
+        const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag*`;
+        await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+        await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+      } catch {
+        // Don't fail if comment posting fails
+      }
+
+      return { success: false, reason: 'insufficient_permissions' };
+    }
   }
 
   // If --auto-merge implies --auto-restart-until-mergable

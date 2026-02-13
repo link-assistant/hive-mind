@@ -20,22 +20,23 @@ PR #1273 was merged but its changes were not included in any release. The invest
 
 ## Timeline of Events
 
-| Time (UTC) | Event | Details |
-|------------|-------|---------|
-| 12:10:43 | PR #1264 merged | Commit `9e53458` merged to main |
-| 12:10:47 | Run 21986352082 started | Workflow triggered for PR #1264 |
-| 12:16:25 | PR #1273 commit ready | Commit `9371610` with merge queue fix |
-| 12:16:45 | Release job started | For run 21986352082 (PR #1264's workflow) |
-| 12:17:05 | **v1.22.0 released** | Published to npm and GitHub |
-| 12:17:30 | Docker amd64 build completed | In run 21986352082 |
-| 12:17:33 | Docker arm64 build started | **Still running - stuck at build step** |
-| 12:19:22 | PR #1272 merged | Commit `969f7a9` (AFTER v1.22.0) |
-| 12:32:05 | PR #1273 merged | Commit `64d9b79` (AFTER v1.22.0) |
-| 12:32:08 | Run 21986955037 queued | **BLOCKED** - waiting for run 21986352082 |
+| Time (UTC) | Event                        | Details                                   |
+| ---------- | ---------------------------- | ----------------------------------------- |
+| 12:10:43   | PR #1264 merged              | Commit `9e53458` merged to main           |
+| 12:10:47   | Run 21986352082 started      | Workflow triggered for PR #1264           |
+| 12:16:25   | PR #1273 commit ready        | Commit `9371610` with merge queue fix     |
+| 12:16:45   | Release job started          | For run 21986352082 (PR #1264's workflow) |
+| 12:17:05   | **v1.22.0 released**         | Published to npm and GitHub               |
+| 12:17:30   | Docker amd64 build completed | In run 21986352082                        |
+| 12:17:33   | Docker arm64 build started   | **Still running - stuck at build step**   |
+| 12:19:22   | PR #1272 merged              | Commit `969f7a9` (AFTER v1.22.0)          |
+| 12:32:05   | PR #1273 merged              | Commit `64d9b79` (AFTER v1.22.0)          |
+| 12:32:08   | Run 21986955037 queued       | **BLOCKED** - waiting for run 21986352082 |
 
 ### Key Insight
 
 The changesets from PR #1272 and PR #1273 are still in the `.changeset/` folder:
+
 - `fix-release-notes-multiple-prs.md` (PR #1272)
 - `fix-merge-queue-method.md` (PR #1273)
 
@@ -54,6 +55,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 ```
 
 This means:
+
 - Only ONE run of "Checks and release" workflow can execute per branch
 - New runs are **queued** (not cancelled) until the current run completes
 - If a run takes too long (e.g., stuck ARM64 build), subsequent runs wait indefinitely
@@ -72,6 +74,7 @@ Run 21986352082 is stuck at the ARM64 Docker build step:
 ```
 
 This is a **known issue** documented in [Issue #982 Case Study](../issue-982/README.md):
+
 - ARM64 builds use QEMU emulation on x86_64 runners
 - QEMU introduces 10-100x performance overhead
 - Complex Dockerfiles (1420+ lines) cause extreme slowdown
@@ -88,21 +91,23 @@ This is a **known issue** documented in [Issue #982 Case Study](../issue-982/REA
 ## Impact Assessment
 
 ### Immediate Impact
+
 - PR #1273's fix for merge queue is NOT in v1.22.0
 - PR #1272's fix for release notes is NOT in v1.22.0
 - Users who install v1.22.0 don't get these fixes
 
 ### Blocking Impact
+
 - Run 21986955037 is stuck in "pending" state
 - No new releases can be published until run 21986352082 completes
 - All future merges to main will also be blocked
 
 ### Workflow Status
 
-| Run ID | Status | Commit | Wait Reason |
-|--------|--------|--------|-------------|
+| Run ID      | Status      | Commit  | Wait Reason              |
+| ----------- | ----------- | ------- | ------------------------ |
 | 21986352082 | in_progress | 9e53458 | ARM64 Docker build stuck |
-| 21986955037 | pending | 64d9b79 | Blocked by 21986352082 |
+| 21986955037 | pending     | 64d9b79 | Blocked by 21986352082   |
 
 ---
 
@@ -115,6 +120,7 @@ gh run cancel 21986352082 --repo link-assistant/hive-mind
 ```
 
 This will:
+
 1. Cancel the stuck ARM64 build
 2. Allow run 21986955037 to start
 3. Release v1.22.1 with PR #1272 and #1273 changes
@@ -127,7 +133,7 @@ Add a timeout to prevent indefinite blocking:
 
 ```yaml
 docker-publish:
-  timeout-minutes: 60  # 1 hour max
+  timeout-minutes: 60 # 1 hour max
 ```
 
 ### Long-term Fix: Change Concurrency Strategy
@@ -166,7 +172,7 @@ docker-publish:
         - platform: linux/amd64
           runner: ubuntu-latest
         - platform: linux/arm64
-          runner: ubuntu-24.04-arm  # Native ARM64 runner
+          runner: ubuntu-24.04-arm # Native ARM64 runner
   runs-on: ${{ matrix.runner }}
 ```
 
@@ -185,11 +191,11 @@ Based on this analysis, we recommend:
 
 ## Data Files
 
-| File | Description |
-|------|-------------|
-| [timeline.json](./timeline.json) | Event timeline with timestamps |
-| [logs/run-21986352082-details.json](./logs/run-21986352082-details.json) | Details of blocking run |
-| [logs/run-21986955037-details.json](./logs/run-21986955037-details.json) | Details of blocked run |
+| File                                                                     | Description                    |
+| ------------------------------------------------------------------------ | ------------------------------ |
+| [timeline.json](./timeline.json)                                         | Event timeline with timestamps |
+| [logs/run-21986352082-details.json](./logs/run-21986352082-details.json) | Details of blocking run        |
+| [logs/run-21986955037-details.json](./logs/run-21986955037-details.json) | Details of blocked run         |
 
 ---
 
@@ -198,11 +204,13 @@ Based on this analysis, we recommend:
 The fix implemented in this PR changes the concurrency configuration:
 
 **Before:**
+
 ```yaml
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 ```
 
 **After:**
+
 ```yaml
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -210,6 +218,7 @@ concurrency:
 ```
 
 This ensures:
+
 - **Main branch**: Newer runs cancel older runs, preventing blocking
 - **PR branches**: Runs are queued to preserve check history for developers
 
@@ -226,10 +235,12 @@ This ensures:
 ## References
 
 ### GitHub Documentation
+
 - [Concurrency in GitHub Actions](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency)
 - [Using concurrency](https://docs.github.com/en/actions/using-jobs/using-concurrency)
 
 ### External Resources
+
 - [Why is my workflow stuck in "queued" state?](https://github.com/orgs/community/discussions/147604) - GitHub Community Discussion
 - [docker/build-push-action#982](https://github.com/docker/build-push-action/issues/982) - Multiplatform build slowdown
 - [Building ARM64 Images in GitHub Actions](https://www.blacksmith.sh/blog/building-multi-platform-docker-images-for-arm64-in-github-actions) - Blacksmith Blog
@@ -253,8 +264,8 @@ All push events to `main` share this same group, meaning only one can run at a t
 
 The ARM64 build started at 12:17:33Z and was still running at the time of this analysis (12:50+). This is consistent with the QEMU performance issues documented in Issue #982:
 
-| Build Type | Expected Duration | Actual (QEMU) |
-|------------|-------------------|---------------|
-| AMD64 | 5-10 minutes | ~3 minutes |
-| ARM64 (native) | 5-10 minutes | N/A |
-| ARM64 (QEMU) | 30-60+ minutes | Still running after 30+ min |
+| Build Type     | Expected Duration | Actual (QEMU)               |
+| -------------- | ----------------- | --------------------------- |
+| AMD64          | 5-10 minutes      | ~3 minutes                  |
+| ARM64 (native) | 5-10 minutes      | N/A                         |
+| ARM64 (QEMU)   | 30-60+ minutes    | Still running after 30+ min |

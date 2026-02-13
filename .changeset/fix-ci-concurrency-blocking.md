@@ -9,6 +9,7 @@ the old concurrency configuration would queue newer runs indefinitely until olde
 This caused releases to be blocked when Docker ARM64 builds took too long.
 
 Changes:
+
 - Add `cancel-in-progress: true` for main branch to allow newer releases to proceed
 - PR branches still queue runs to avoid cancelling checks during development
 - Document the issue and solution in docs/case-studies/issue-1274/

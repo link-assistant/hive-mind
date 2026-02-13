@@ -348,6 +348,22 @@ test('MergeQueueProcessor formatProgressMessage hides errors section when no fai
 });
 
 // ============================================================================
+// Issue #1269: Merge Method Configuration Tests
+// ============================================================================
+
+console.log('\n📋 Issue #1269: Merge Method Configuration Tests\n');
+
+test('MERGE_QUEUE_CONFIG has MERGE_METHOD field', () => {
+  assert.ok(MERGE_QUEUE_CONFIG.MERGE_METHOD !== undefined, 'MERGE_METHOD should be defined');
+  assert.ok(typeof MERGE_QUEUE_CONFIG.MERGE_METHOD === 'string', 'MERGE_METHOD should be a string');
+});
+
+test('MERGE_QUEUE_CONFIG.MERGE_METHOD has valid default value', () => {
+  const validMethods = ['merge', 'squash', 'rebase'];
+  assert.ok(validMethods.includes(MERGE_QUEUE_CONFIG.MERGE_METHOD), `MERGE_METHOD should be one of: ${validMethods.join(', ')}`);
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

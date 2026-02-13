@@ -2,11 +2,13 @@
 
 ## Executive Summary
 
-The `/merge` command in the Telegram bot became stuck after initializing with "Found 3 PRs with 'ready' label" and never completed merging any PRs. After 10-12 hours, no PRs were merged. This case study identifies multiple root causes related to async/await patterns, silent exception swallowing, and missing timeout protections.
+The `/merge` command in the Telegram bot became stuck after initializing with "Found 3 PRs with 'ready' label" and never completed merging any PRs. After 10-12 hours, no PRs were merged. This case study documents the investigation across multiple iterations, identifying root causes and implementing fixes.
+
+**Update (2026-02-13):** After PR #1270 was merged with error handling improvements, the merge queue still didn't work. Further investigation revealed the **actual root cause**: the `gh pr merge` command requires an explicit merge method flag (`--merge`, `--squash`, or `--rebase`) when running in a non-interactive context.
 
 ## Timeline Reconstruction
 
-Based on the issue report and code analysis:
+### Initial Report
 
 1. **User Action**: User sent `/merge https://github.com/link-assistant/hive-mind` command
 2. **Initial Response**: Bot replied with "Found 3 PRs with 'ready' label. Starting merge process..."
@@ -14,11 +16,59 @@ Based on the issue report and code analysis:
 4. **Duration**: Queue remained stuck for 10-12+ hours without any merges
 5. **Final State**: 3 PRs (1264, 1257, 1241) remained open with passing CI checks
 
+### After PR #1270 (Error Handling Fix)
+
+1. **User Action**: User sent `/merge https://github.com/link-assistant/hive-mind` again (version 1.21.4)
+2. **Same Result**: Message stuck at "Starting merge process..." with Cancel button
+3. **Observation**: No GitHub Actions triggered, no error shown in Telegram message
+
 ## Root Cause Analysis
 
-### Primary Root Cause: Fire-and-Forget Promise with Silent Error Swallowing
+### NEW: Primary Root Cause - Missing Merge Method Flag (Issue #1269 Update)
 
-**Location**: `telegram-merge-command.lib.mjs:304-307`
+**Location**: `github-merge.lib.mjs:459`
+
+```javascript
+const { stdout } = await exec(`gh pr merge ${prNumber} ${mergeArgs}`);
+// Where mergeArgs was: "--repo owner/repo" (missing merge method!)
+```
+
+**Problem**:
+
+When `gh pr merge` runs in a non-interactive context (stdin closed, no TTY), it **requires** an explicit merge method flag:
+
+- `--merge` (create merge commit)
+- `--squash` (squash and merge)
+- `--rebase` (rebase and merge)
+
+Without one of these flags, the command fails with:
+
+```
+--merge, --rebase, or --squash required when not running interactively
+```
+
+**Evidence from experiments**:
+
+```bash
+$ gh pr merge 1264 --repo link-assistant/hive-mind
+# Error: --merge, --rebase, or --squash required when not running interactively
+
+$ gh pr merge 1264 --repo link-assistant/hive-mind --merge
+# Success: PR merged
+```
+
+**Why this happened**:
+
+1. The repository allows multiple merge methods (squash, merge, rebase)
+2. The `mergePullRequest` function defaulted to no merge method flag
+3. The error was returned but only logged when VERBOSE was enabled
+4. The Telegram message wasn't updated with the error
+
+### Previous Analysis (Still Valid)
+
+### Secondary Root Cause: Fire-and-Forget Promise with Silent Error Swallowing
+
+**Location**: `telegram-merge-command.lib.mjs:304-307` (Fixed in PR #1270)
 
 ```javascript
 // Run the merge queue (this runs asynchronously)
@@ -35,7 +85,7 @@ processor.run().catch(error => {
 3. No user notification is sent when the processing fails
 4. The Telegram message remains stuck in "Starting merge process..." state
 
-### Secondary Root Cause: Callback Exception Traps
+### Tertiary Root Cause: Callback Exception Traps
 
 All callback handlers (`onProgress`, `onComplete`, `onError`, `onStatusUpdate`) follow this pattern:
 
@@ -56,9 +106,9 @@ const callback = async data => {
 - No user notification
 - Processing continues with corrupted state
 
-### Tertiary Root Cause: Missing Timeout Wrappers
+### Additional Root Cause: Missing Timeout Wrappers
 
-**Location**: `github-merge.lib.mjs:495-496`
+**Location**: `github-merge.lib.mjs:495-496` (Partially fixed in PR #1270)
 
 ```javascript
 if (onStatusUpdate) {
@@ -137,9 +187,45 @@ Based on external research:
 - Handler timeout mechanism can cause errors thrown after timeout to be [swallowed](https://github.com/telegraf/telegraf/issues/1479)
 - The bot is configured with `handlerTimeout: Infinity` (line 289 in telegram-bot.mjs), which prevents timeout-based cleanup
 
-## Proposed Solutions
+## Implemented Fix (PR #1273)
 
-### Solution 1: Add Proper Error Propagation (Immediate)
+### Fix: Add --merge Flag by Default
+
+**Files modified**:
+
+- `src/github-merge.lib.mjs` - Updated `mergePullRequest()` function
+- `src/config.lib.mjs` - Added `mergeQueue.mergeMethod` configuration
+- `src/telegram-merge-queue.lib.mjs` - Pass merge method to `mergePullRequest()`
+
+**Change in `github-merge.lib.mjs`**:
+
+```javascript
+// Before (Issue #1269 bug):
+let mergeArgs = `--repo ${owner}/${repo}`;
+if (squash) {
+  mergeArgs += ' --squash';
+}
+// Missing merge method flag!
+
+// After (Fix):
+let mergeArgs = `--repo ${owner}/${repo}`;
+if (squash || mergeMethod === 'squash') {
+  mergeArgs += ' --squash';
+} else if (mergeMethod === 'rebase') {
+  mergeArgs += ' --rebase';
+} else {
+  mergeArgs += ' --merge'; // Always specify a merge method
+}
+```
+
+**Configuration**:
+The merge method is now configurable via environment variable:
+
+- `HIVE_MIND_MERGE_QUEUE_MERGE_METHOD`: 'merge' (default), 'squash', or 'rebase'
+
+## Previous Proposed Solutions
+
+### Solution 1: Add Proper Error Propagation (Immediate) - Implemented in PR #1270
 
 Replace silent error swallowing with proper error handling and user notification:
 
@@ -299,6 +385,16 @@ This case study created the following files:
 - `docs/case-studies/issue-1269/data/pr-1264.json`
 - `docs/case-studies/issue-1269/data/pr-1257.json`
 - `docs/case-studies/issue-1269/data/pr-1241.json`
+- `docs/case-studies/issue-1269/data/screenshot-issue-1.png` (original issue screenshot)
+- `docs/case-studies/issue-1269/data/screenshot-comment-1.png` (user comment screenshot)
+- `experiments/test-gh-pr-merge-interactive.mjs` (experiment script)
+- `experiments/test-gh-pr-merge-with-dry-run.mjs` (experiment script)
+
+Files modified for the fix:
+
+- `src/github-merge.lib.mjs` - Added `mergeMethod` option with `--merge` default
+- `src/config.lib.mjs` - Added `mergeQueue.mergeMethod` configuration
+- `src/telegram-merge-queue.lib.mjs` - Added `MERGE_METHOD` config and pass to merge function
 
 ## References
 

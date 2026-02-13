@@ -396,6 +396,7 @@ export const version = {
 
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
+// See: https://github.com/link-assistant/hive-mind/issues/1269
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -409,6 +410,10 @@ export const mergeQueue = {
   // Wait time after merge before processing next PR
   // Default: 1 minute (60000ms) - allows CI to stabilize
   postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+  // Default merge method: 'merge', 'squash', or 'rebase'
+  // Issue #1269: gh pr merge requires explicit method when running non-interactively
+  // Default: 'merge' - creates a merge commit
+  mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
 };
 
 // Helper function to validate configuration values

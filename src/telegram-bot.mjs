@@ -1043,6 +1043,16 @@ async function handleSolveCommand(ctx) {
 
   const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
+
+  // Handle rejection: when a threshold strategy is 'reject', the command should fail immediately
+  // without being placed in the queue. This ensures users get clear feedback about why
+  // their command cannot be processed (e.g., disk full, server maintenance pending).
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  if (check.rejected) {
+    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);

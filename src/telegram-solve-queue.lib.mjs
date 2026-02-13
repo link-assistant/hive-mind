@@ -1035,7 +1035,11 @@ export class SolveQueue {
           const itemCheck = await this.canStartCommand({ tool: item.tool });
           const previousStatus = item.status;
           const previousReason = item.waitingReason;
-          item.setWaiting(itemCheck.reason || 'Waiting in queue');
+          // Use rejectReason when threshold strategy is 'reject', otherwise use reason
+          // This ensures disk-full and other rejection reasons are shown properly
+          // See: https://github.com/link-assistant/hive-mind/issues/1267
+          const waitReason = itemCheck.rejectReason || itemCheck.reason || 'Waiting in queue';
+          item.setWaiting(waitReason);
 
           // Update message if status/reason changed or it's time for periodic update
           const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);

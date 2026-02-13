@@ -12,49 +12,49 @@ Additionally, the `--auto-restart-until-mergable` loop (which `--auto-merge` imp
 
 ## Affected Pull Requests
 
-| PR | Repository | Created | Merged | Merged By | Auto-Merge Result |
-|----|-----------|---------|--------|-----------|-------------------|
-| [ideav/crm#233](https://github.com/ideav/crm/pull/233) | ideav/crm | 10:08:45 UTC | 10:20:28 UTC | `ideav` (manual) | Never attempted |
-| [netkeep80/isocubic#265](https://github.com/netkeep80/isocubic/pull/265) | netkeep80/isocubic | 09:51:36 UTC | 10:19:08 UTC | `netkeep80` (manual) | Never attempted |
+| PR                                                                       | Repository         | Created      | Merged       | Merged By            | Auto-Merge Result |
+| ------------------------------------------------------------------------ | ------------------ | ------------ | ------------ | -------------------- | ----------------- |
+| [ideav/crm#233](https://github.com/ideav/crm/pull/233)                   | ideav/crm          | 10:08:45 UTC | 10:20:28 UTC | `ideav` (manual)     | Never attempted   |
+| [netkeep80/isocubic#265](https://github.com/netkeep80/isocubic/pull/265) | netkeep80/isocubic | 09:51:36 UTC | 10:19:08 UTC | `netkeep80` (manual) | Never attempted   |
 
 ## Timeline of Events
 
 ### PR 265 (netkeep80/isocubic) — Opus model, $11.03 estimated cost
 
-| Time (UTC) | Event |
-|------------|-------|
-| 09:51:15 | Solve command started with `--auto-merge --attach-logs --verbose` |
-| 09:51:20 | **No write access detected** → fork mode enabled |
-| 09:51:29 | Branch pushed to fork (`konard/netkeep80-isocubic`) |
-| 09:51:36 | PR #265 created (draft) from fork to upstream |
-| 10:07:07 | Main solution commit pushed |
-| 10:08:18 | CLAUDE.md revert committed and pushed |
-| 10:08:19 | Session completed — no uncommitted changes |
-| 10:08:19 | `verifyResults()` called — PR found, "Auto-merge mode enabled" logged |
-| 10:08:20 | **Log upload to gist started** ← log file ends here |
-| ~10:08:26 | Log uploaded to PR as comment |
-| ~10:08:30 | CI checks start running (all pass by 10:12:45) |
-| 10:19:08 | **PR merged manually by `netkeep80`** |
+| Time (UTC) | Event                                                                 |
+| ---------- | --------------------------------------------------------------------- |
+| 09:51:15   | Solve command started with `--auto-merge --attach-logs --verbose`     |
+| 09:51:20   | **No write access detected** → fork mode enabled                      |
+| 09:51:29   | Branch pushed to fork (`konard/netkeep80-isocubic`)                   |
+| 09:51:36   | PR #265 created (draft) from fork to upstream                         |
+| 10:07:07   | Main solution commit pushed                                           |
+| 10:08:18   | CLAUDE.md revert committed and pushed                                 |
+| 10:08:19   | Session completed — no uncommitted changes                            |
+| 10:08:19   | `verifyResults()` called — PR found, "Auto-merge mode enabled" logged |
+| 10:08:20   | **Log upload to gist started** ← log file ends here                   |
+| ~10:08:26  | Log uploaded to PR as comment                                         |
+| ~10:08:30  | CI checks start running (all pass by 10:12:45)                        |
+| 10:19:08   | **PR merged manually by `netkeep80`**                                 |
 
 **Key observation:** The log file (uploaded to gist) captures everything up to the gist upload itself. After that, the process continued to `startAutoRestartUntilMergable()`, but we don't have logs for that phase. However, even if it reached the merge step, `gh pr merge` would have **failed with a permissions error** since the user only has read access.
 
 ### PR 233 (ideav/crm) — Sonnet model, $1.60 + $0.57 estimated cost
 
-| Time (UTC) | Event |
-|------------|-------|
-| 10:08:30 | Solve command started with `--auto-merge` (detected from auto-restart log) |
-| 10:08:31 | **No write access detected** → fork mode enabled |
-| 10:08:45 | PR #233 created from fork to upstream |
-| 10:12:20 | Main fix committed |
-| 10:13:51 | CLAUDE.md revert committed |
-| 10:13:55 | Session completed with **uncommitted changes** (`experiments/test-metadata-api.html`, `issue-screenshot.png`) |
-| 10:14:00 | `verifyResults()` called — "Auto-merge mode enabled" logged |
-| 10:14:00 | **Temporary watch mode entered** (to handle uncommitted changes) |
-| 10:14:06 | Auto-restart 1/3 triggered for uncommitted changes |
-| 10:14:09 | New Claude session started to commit remaining files |
-| ~10:15:18 | Claude session completed — "Auto-restart Complete" comment posted |
-| 10:15:31 | **Log upload to gist started** ← log file ends here |
-| 10:20:28 | **PR merged manually by `ideav`** |
+| Time (UTC) | Event                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------- |
+| 10:08:30   | Solve command started with `--auto-merge` (detected from auto-restart log)                                    |
+| 10:08:31   | **No write access detected** → fork mode enabled                                                              |
+| 10:08:45   | PR #233 created from fork to upstream                                                                         |
+| 10:12:20   | Main fix committed                                                                                            |
+| 10:13:51   | CLAUDE.md revert committed                                                                                    |
+| 10:13:55   | Session completed with **uncommitted changes** (`experiments/test-metadata-api.html`, `issue-screenshot.png`) |
+| 10:14:00   | `verifyResults()` called — "Auto-merge mode enabled" logged                                                   |
+| 10:14:00   | **Temporary watch mode entered** (to handle uncommitted changes)                                              |
+| 10:14:06   | Auto-restart 1/3 triggered for uncommitted changes                                                            |
+| 10:14:09   | New Claude session started to commit remaining files                                                          |
+| ~10:15:18  | Claude session completed — "Auto-restart Complete" comment posted                                             |
+| 10:15:31   | **Log upload to gist started** ← log file ends here                                                           |
+| 10:20:28   | **PR merged manually by `ideav`**                                                                             |
 
 **Key observation:** The temporary watch mode ran one iteration to commit uncommitted files. After the watch mode completed, the process should have proceeded to `startAutoRestartUntilMergable()` (line 1368 of solve.mjs). However, even if it did, the merge would have failed due to lack of write access. The log was truncated at the gist upload point.
 
@@ -75,6 +75,7 @@ Both repositories show that the solver user (`konard`) only has **read (pull) ac
 ```
 
 The `mergePullRequest()` function in `github-merge.lib.mjs:459` executes:
+
 ```bash
 gh pr merge ${prNumber} --repo ${owner}/${repo}
 ```
@@ -115,11 +116,11 @@ The solution draft logs uploaded to gists are **point-in-time snapshots** — th
 
 ## Impact Assessment
 
-| Impact | Description |
-|--------|-------------|
-| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually. |
-| **Cost** | The auto-restart-until-mergable loop could potentially run indefinitely, consuming API credits, if the merge always fails due to permissions. |
-| **Trust** | The `--auto-merge` flag gives a false sense of automation when used in fork mode. |
+| Impact              | Description                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually.                                             |
+| **Cost**            | The auto-restart-until-mergable loop could potentially run indefinitely, consuming API credits, if the merge always fails due to permissions. |
+| **Trust**           | The `--auto-merge` flag gives a false sense of automation when used in fork mode.                                                             |
 
 ## Proposed Solutions
 
@@ -144,7 +145,9 @@ export const startAutoRestartUntilMergable = async params => {
     try {
       const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested but cannot be performed because this PR was created from a fork (no write access to the target repository).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag (fork mode)*`;
       await $`gh pr comment ${params.prNumber} --repo ${params.owner}/${params.repo} --body ${commentBody}`;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     return { success: false, reason: 'fork_no_write_access' };
   }
@@ -184,6 +187,7 @@ gh pr merge ${prNumber} --repo ${owner}/${repo} --auto --squash
 ```
 
 This leverages GitHub's server-side merge queue rather than polling from the client side. However, this only works when:
+
 1. Repository setting "Allow auto-merge" is enabled
 2. Branch protection rules are configured
 3. The authenticated user has write access
@@ -191,6 +195,7 @@ This leverages GitHub's server-side merge queue rather than polling from the cli
 ### Solution 4: Maintainer Notification System
 
 For fork-mode PRs, instead of attempting to merge, implement a notification system:
+
 1. Post a comment on the PR: "Ready to merge — requesting maintainer review"
 2. Apply a label (e.g., "ready-to-merge") to the PR
 3. Optionally tag the repository maintainer in the comment
@@ -212,35 +217,35 @@ if (argv.autoMerge && argv.fork) {
 
 ### Documented Requirements (from GitHub docs)
 
-| Requirement | Source |
-|-------------|--------|
-| Write/push access to target repository | [Merging a PR](https://docs.github.com/articles/merging-a-pull-request) |
-| `contents: write` + `pull-requests: write` for tokens | [gh CLI discussions](https://github.com/cli/cli/discussions/6379) |
-| Branch protection must be configured for `--auto` flag | [GitHub Community #129063](https://github.com/orgs/community/discussions/129063) |
+| Requirement                                                  | Source                                                                                                                                                                                                     |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Write/push access to target repository                       | [Merging a PR](https://docs.github.com/articles/merging-a-pull-request)                                                                                                                                    |
+| `contents: write` + `pull-requests: write` for tokens        | [gh CLI discussions](https://github.com/cli/cli/discussions/6379)                                                                                                                                          |
+| Branch protection must be configured for `--auto` flag       | [GitHub Community #129063](https://github.com/orgs/community/discussions/129063)                                                                                                                           |
 | Repository must have "Allow auto-merge" enabled for `--auto` | [Managing auto-merge](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-auto-merge-for-pull-requests-in-your-repository) |
 
 ### Known `gh pr merge` Error Messages
 
-| Scenario | Error |
-|----------|-------|
-| No write access | `GraphQL: Resource not accessible by integration` |
-| No branch protection for `--auto` | `GraphQL: Pull request Protected branch rules not configured for this branch` |
-| Auto-merge not enabled in repo settings | `GraphQL: Pull request is in unstable status` |
-| PR has merge conflicts | `Pull request is not mergeable` |
+| Scenario                                | Error                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------- |
+| No write access                         | `GraphQL: Resource not accessible by integration`                             |
+| No branch protection for `--auto`       | `GraphQL: Pull request Protected branch rules not configured for this branch` |
+| Auto-merge not enabled in repo settings | `GraphQL: Pull request is in unstable status`                                 |
+| PR has merge conflicts                  | `Pull request is not mergeable`                                               |
 
 ## Evidence Files
 
-| File | Description |
-|------|-------------|
-| `evidence/pr-233-ideav-crm/pr-details.json` | Full PR 233 details |
-| `evidence/pr-233-ideav-crm/commits.json` | PR 233 commit history |
-| `evidence/pr-233-ideav-crm/review-comments.json` | PR 233 review comments |
-| `evidence/pr-265-netkeep80-isocubic/pr-details.json` | Full PR 265 details |
-| `evidence/pr-265-netkeep80-isocubic/commits.json` | PR 265 commit history |
-| `evidence/pr-265-netkeep80-isocubic/review-comments.json` | PR 265 review comments |
-| `logs/pr-233-solution-draft-log.txt` | PR 233 main session log (639KB) |
-| `logs/pr-233-auto-restart-log.txt` | PR 233 auto-restart session log (857KB) |
-| `logs/pr-265-solution-draft-log.txt` | PR 265 session log (2.0MB) |
+| File                                                      | Description                             |
+| --------------------------------------------------------- | --------------------------------------- |
+| `evidence/pr-233-ideav-crm/pr-details.json`               | Full PR 233 details                     |
+| `evidence/pr-233-ideav-crm/commits.json`                  | PR 233 commit history                   |
+| `evidence/pr-233-ideav-crm/review-comments.json`          | PR 233 review comments                  |
+| `evidence/pr-265-netkeep80-isocubic/pr-details.json`      | Full PR 265 details                     |
+| `evidence/pr-265-netkeep80-isocubic/commits.json`         | PR 265 commit history                   |
+| `evidence/pr-265-netkeep80-isocubic/review-comments.json` | PR 265 review comments                  |
+| `logs/pr-233-solution-draft-log.txt`                      | PR 233 main session log (639KB)         |
+| `logs/pr-233-auto-restart-log.txt`                        | PR 233 auto-restart session log (857KB) |
+| `logs/pr-265-solution-draft-log.txt`                      | PR 265 session log (2.0MB)              |
 
 ## Recommendations
 

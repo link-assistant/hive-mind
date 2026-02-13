@@ -76,8 +76,8 @@ await asyncTest('checkMergePermissions returns correct result for link-assistant
 });
 
 await asyncTest('checkMergePermissions returns false for repos without write access', async () => {
-  // ideav/crm is a repo where the solver has only read access (from our case study)
-  const result = await checkMergePermissions('ideav', 'crm', false);
+  // torvalds/linux is a public repo where we definitely don't have write access
+  const result = await checkMergePermissions('torvalds', 'linux', false);
   assert.equal(result.canMerge, false, 'Should return canMerge=false for read-only repo');
   assert.equal(result.permission, 'read', 'Should return permission=read for read-only repo');
 });

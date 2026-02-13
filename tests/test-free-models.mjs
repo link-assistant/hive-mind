@@ -17,7 +17,7 @@ const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'g
 // Kilo Gateway free models (Issue #1282)
 const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
 
-const KILO_SHORT_ALIASES = ['glm-5-free', 'kilo-glm-5-free', 'kilo-glm-4.7-free', 'kilo-kimi-k2.5-free', 'kilo-minimax-m2.1-free', 'kilo-giga-potato-free', 'kilo-trinity-large-preview'];
+const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
 
 // Combined lists
 const ALL_FREE_MODELS = [...OPENCODE_FREE_MODELS, ...KILO_FREE_MODELS];

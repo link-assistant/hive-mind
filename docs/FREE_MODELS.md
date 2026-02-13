@@ -83,7 +83,7 @@ Hive-mind supports free models from two providers:
 
 ### 1. kilo/glm-5-free **Recommended for Kilo**
 
-- **Short Alias**: `glm-5-free` or `kilo-glm-5-free`
+- **Model ID**: `kilo/glm-5-free`
 - **Provider**: Kilo Gateway (Z.AI)
 - **Status**: Fully Supported (Free for limited time)
 - **Features**: Deep reasoning, fast inference, bilingual (Chinese/English), tool calling, structured outputs
@@ -95,7 +95,7 @@ Hive-mind supports free models from two providers:
 
 ### 2. kilo/glm-4.7-free
 
-- **Short Alias**: `kilo-glm-4.7-free`
+- **Model ID**: `kilo/glm-4.7-free`
 - **Provider**: Kilo Gateway (Z.AI)
 - **Status**: Fully Supported
 - **Features**: Agent-centric, strong coding capabilities, tool calling
@@ -105,7 +105,7 @@ Hive-mind supports free models from two providers:
 
 ### 3. kilo/kimi-k2.5-free
 
-- **Short Alias**: `kilo-kimi-k2.5-free`
+- **Model ID**: `kilo/kimi-k2.5-free`
 - **Provider**: Kilo Gateway (MoonshotAI)
 - **Status**: Fully Supported
 - **Features**: Agentic capabilities, tool use, reasoning, code synthesis
@@ -115,7 +115,7 @@ Hive-mind supports free models from two providers:
 
 ### 4. kilo/minimax-m2.1-free
 
-- **Short Alias**: `kilo-minimax-m2.1-free`
+- **Model ID**: `kilo/minimax-m2.1-free`
 - **Provider**: Kilo Gateway (MiniMax)
 - **Status**: Fully Supported
 - **Features**: Strong general-purpose performance
@@ -125,7 +125,7 @@ Hive-mind supports free models from two providers:
 
 ### 5. kilo/giga-potato-free
 
-- **Short Alias**: `kilo-giga-potato-free`
+- **Model ID**: `kilo/giga-potato-free`
 - **Provider**: Kilo Gateway
 - **Status**: Fully Supported (Evaluation period)
 - **Features**: General-purpose evaluation model
@@ -135,7 +135,7 @@ Hive-mind supports free models from two providers:
 
 ### 6. kilo/trinity-large-preview
 
-- **Short Alias**: `kilo-trinity-large-preview`
+- **Model ID**: `kilo/trinity-large-preview`
 - **Provider**: Kilo Gateway (Arcee AI)
 - **Status**: Fully Supported (Preview)
 - **Features**: Strong capabilities, preview model
@@ -156,8 +156,7 @@ hive https://github.com/owner/repo --tool agent --model opencode/glm-4.7-free
 
 # Kilo Gateway models
 solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
-hive https://github.com/owner/repo --tool agent --model glm-5-free
-hive https://github.com/owner/repo --tool agent --model kilo-glm-4.7-free
+hive https://github.com/owner/repo --tool agent --model kilo/glm-4.7-free
 ```
 
 ### Telegram Bot Usage
@@ -169,8 +168,7 @@ hive https://github.com/owner/repo --tool agent --model kilo-glm-4.7-free
 
 # Kilo Gateway models
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
-/solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
-/hive https://github.com/owner/repo --tool agent --model kilo-glm-4.7-free
+/hive https://github.com/owner/repo --tool agent --model kilo/glm-4.7-free
 
 # Default model (kimi-k2.5-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent

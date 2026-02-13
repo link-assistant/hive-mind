@@ -1,5 +1,22 @@
 # @link-assistant/hive-mind
 
+## 1.21.4
+
+### Patch Changes
+
+- ea19c72: Fix queue issues: rejection, display, and formatting
+  - Fix disk rejection not blocking queue placement when threshold exceeded
+  - Restore "used" label on progress bars when below threshold
+  - Show per-queue breakdown in /limits command
+  - Group queue items by tool and use human-readable time in /solve_queue
+
+- aa42f3a: fix: improve merge queue error handling and debugging (Issue #1269)
+  - Always log errors (not just in verbose mode) for critical merge queue failures
+  - Always notify users via Telegram when merge queue fails unexpectedly
+  - Add timeout wrapper (60s) for onStatusUpdate callback to prevent infinite blocking
+  - Add error handling for CI check failures in waitForCI loop
+  - Add comprehensive case study documentation in docs/case-studies/issue-1269/
+
 ## 1.21.3
 
 ### Patch Changes

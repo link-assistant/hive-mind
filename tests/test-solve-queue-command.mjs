@@ -214,7 +214,8 @@ await asyncTest('Shows queue status for empty queue', async () => {
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
   assert.ok(ctx.replies[0].text.includes('Solve Queue Status'), 'Should include queue status header');
-  assert.ok(ctx.replies[0].text.includes('Pending: 0'), 'Should show zero pending');
+  // Updated format: per-queue breakdown (see issue #1267)
+  assert.ok(ctx.replies[0].text.includes('pending: 0'), 'Should show zero pending');
   assert.ok(ctx.replies[0].text.includes('Claude processes'), 'Should include Claude processes count');
   assert.equal(ctx.replies[0].opts.parse_mode, 'Markdown', 'Should use Markdown parse mode');
 });
@@ -251,7 +252,8 @@ await asyncTest('Shows queue with pending items', async () => {
   const ctx = createMockCtx();
   await handleSolveQueueCommand(ctx);
   assert.equal(ctx.replies.length, 1, 'Should reply once');
-  assert.ok(ctx.replies[0].text.includes('Pending: 1'), 'Should show one pending item');
+  // Updated format: per-queue breakdown (see issue #1267)
+  assert.ok(ctx.replies[0].text.includes('pending: 1'), 'Should show one pending item');
   assert.ok(ctx.replies[0].text.includes('test/repo/issues/1'), 'Should show the queued URL');
   queue.stop();
 });

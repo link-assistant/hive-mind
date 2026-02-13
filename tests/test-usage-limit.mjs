@@ -527,6 +527,26 @@ runTest('Integration: detectUsageLimit includes timezone (Issue #1122)', () => {
   assertEqual(result.timezone, 'Europe/Berlin', 'Should extract timezone');
 });
 
+// === Agent/OpenCode Zen FreeUsageLimitError tests (Issue #1287) ===
+
+runTest('isUsageLimitError: detects FreeUsageLimitError from Agent/OpenCode Zen', () => {
+  // JSON error message from agent
+  const errorJson = '{"type":"error","error":{"type":"FreeUsageLimitError","message":"Rate limit exceeded. Please try again later."}}';
+  assertTrue(isUsageLimitError(errorJson), 'Should detect FreeUsageLimitError in JSON');
+
+  // Direct error type
+  assertTrue(isUsageLimitError('FreeUsageLimitError'), 'Should detect FreeUsageLimitError directly');
+
+  // Case insensitive
+  assertTrue(isUsageLimitError('freeusagelimiterror'), 'Should detect lowercase freeusagelimiterror');
+});
+
+runTest('detectUsageLimit: detects agent rate limit error message (Issue #1287)', () => {
+  const errorMessage = 'Failed after 3 attempts. Last error: Rate limit exceeded. Please try again later.';
+  const result = detectUsageLimit(errorMessage);
+  assertTrue(result.isUsageLimit, 'Should detect rate limit in error message');
+});
+
 // === Summary ===
 
 console.log('\n' + '='.repeat(50));

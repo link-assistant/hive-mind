@@ -44,7 +44,7 @@ export function isUsageLimitError(message) {
     'rate limit exceeded',
     'limit reached',
     'limit has been reached',
-    // Provider-specific phrasings we’ve seen in the wild
+    // Provider-specific phrasings we've seen in the wild
     'session limit reached', // Claude
     'weekly limit reached', // Claude
     'daily limit reached',
@@ -52,7 +52,9 @@ export function isUsageLimitError(message) {
     'billing hard limit',
     'please try again at', // Codex/OpenCode style
     'available again at',
-    'resets', // Claude shows: “∙ resets 5am”
+    'resets', // Claude shows: "∙ resets 5am"
+    // Agent/OpenCode Zen specific - issue #1287
+    'freeusagelimiterror', // Agent JSON error type
   ];
 
   return patterns.some(pattern => lowerMessage.includes(pattern));

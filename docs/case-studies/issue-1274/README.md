@@ -193,6 +193,28 @@ Based on this analysis, we recommend:
 
 ---
 
+## Implemented Fix
+
+The fix implemented in this PR changes the concurrency configuration:
+
+**Before:**
+```yaml
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+```
+
+**After:**
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+```
+
+This ensures:
+- **Main branch**: Newer runs cancel older runs, preventing blocking
+- **PR branches**: Runs are queued to preserve check history for developers
+
+---
+
 ## Related Case Studies
 
 - [Issue #982](../issue-982/README.md) - Docker Multi-Platform Build Stuck/Timeout

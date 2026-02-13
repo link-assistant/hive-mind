@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 Fix false positive error detection when agent recovers from transient errors (Issue #1276)

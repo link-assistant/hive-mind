@@ -44,6 +44,7 @@ outputError.match = messageMatch ? messageMatch[1] : `Error event detected...`;
 ```
 
 **Problem:** This regex matches the **first** `"message"` field in the output, which is from the status JSON:
+
 ```json
 {
   "type": "status",
@@ -52,6 +53,7 @@ outputError.match = messageMatch ? messageMatch[1] : `Error event detected...`;
 ```
 
 Not from the actual error JSON which uses `"error"` field:
+
 ```json
 {
   "type": "error",
@@ -62,6 +64,7 @@ Not from the actual error JSON which uses `"error"` field:
 ### Third Issue: Exit Code Ignored When Error Detected During Streaming
 
 At `src/agent.lib.mjs:802`:
+
 ```javascript
 if (exitCode !== 0 || outputError.detected) {
   // Report error...
@@ -73,6 +76,7 @@ if (exitCode !== 0 || outputError.detected) {
 ## Evidence from Log File
 
 ### Status Message (Line 245-260)
+
 ```
 [2026-02-13T11:56:31.982Z] [INFO] {
 [2026-02-13T11:56:31.982Z] [INFO]   "type": "status",
@@ -82,6 +86,7 @@ if (exitCode !== 0 || outputError.detected) {
 ```
 
 ### Actual Timeout Error (Line 9446-9451)
+
 ```
 [2026-02-13T12:01:32.081Z] [INFO] {
 [2026-02-13T12:01:32.081Z] [INFO]   "type": "error",
@@ -92,12 +97,14 @@ if (exitCode !== 0 || outputError.detected) {
 ```
 
 ### Agent Recovery and Completion (Line 11439-11440)
+
 ```
 [2026-02-13T12:02:17.589Z] [INFO]   "message": "exiting loop"
 }
 ```
 
 ### False Positive Error Detection (Line 11538-11554)
+
 ```
 [2026-02-13T12:02:17.830Z] [WARNING] Error event detected via fallback pattern match: Agent CLI in continuous listening mode. Accepts JSON and plain text input.
 
@@ -132,8 +139,7 @@ if (exitCode !== 0) {
 Detect when the agent sends completion signals (like `"session.idle"`, `"message": "exiting loop"`) and clear the streaming error flag:
 
 ```javascript
-if (data.type === 'session.idle' ||
-    (data.type === 'log' && data.message === 'exiting loop')) {
+if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
   // Agent completed successfully, clear any previous error flags
   streamingErrorDetected = false;
   streamingErrorMessage = null;
@@ -145,8 +151,7 @@ if (data.type === 'session.idle' ||
 Update the fallback message extraction to also look for `"error"` field:
 
 ```javascript
-const messageMatch = fullOutput.match(/"message":\s*"([^"]+)"/) ||
-                     fullOutput.match(/"error":\s*"([^"]+)"/);
+const messageMatch = fullOutput.match(/"message":\s*"([^"]+)"/) || fullOutput.match(/"error":\s*"([^"]+)"/);
 ```
 
 ### Recommended Approach

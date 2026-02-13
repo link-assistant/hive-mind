@@ -485,15 +485,39 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
  * @returns {Promise<{success: boolean, status: string, error: string|null}>}
  */
 export async function waitForCI(owner, repo, prNumber, options = {}, verbose = false) {
-  const { timeout = 30 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const {
+    timeout = 30 * 60 * 1000,
+    pollInterval = 30 * 1000,
+    onStatusUpdate = null,
+    // Issue #1269: Add timeout for callback to prevent infinite blocking
+    callbackTimeout = 60 * 1000, // 1 minute max for callback
+  } = options;
 
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
-    const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    let ciStatus;
+    try {
+      ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    } catch (error) {
+      // Issue #1269: Log and continue on CI check errors instead of crashing
+      console.error(`[ERROR] /merge: Error checking CI status for PR #${prNumber}: ${error.message}`);
+      verbose && console.error(`[VERBOSE] /merge: CI check error details:`, error);
+      // Wait and retry
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
 
     if (onStatusUpdate) {
-      await onStatusUpdate(ciStatus);
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking
+      try {
+        await Promise.race([onStatusUpdate(ciStatus), new Promise((_, reject) => setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout))]);
+      } catch (callbackError) {
+        // Issue #1269: Log callback errors but continue processing
+        console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);
+        verbose && console.error(`[VERBOSE] /merge: Callback error details:`, callbackError);
+        // Continue processing even if callback fails - don't let UI issues block merging
+      }
     }
 
     if (ciStatus.status === 'success') {

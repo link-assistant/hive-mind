@@ -292,6 +292,61 @@ test('MergeQueueProcessor formatFinalMessage returns string', () => {
   assert.ok(message.includes('test-repo'), 'Should include repo');
 });
 
+// Issue #1269: Test error display in progress message
+test('MergeQueueProcessor formatProgressMessage shows errors inline', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  // Simulate adding a failed item with all required methods
+  processor.items = [
+    {
+      pr: { number: 123, title: 'Test PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.FAILED,
+      error: 'CI checks failed',
+      getStatusEmoji: () => '❌',
+      getDescription: () => 'PR #123: Test PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.failed = 1;
+
+  const message = processor.formatProgressMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('Errors'), 'Should include Errors section for failed items');
+  assert.ok(message.includes('CI checks failed'), 'Should include the error message');
+  assert.ok(message.includes('123'), 'Should include the PR number');
+});
+
+test('MergeQueueProcessor formatProgressMessage hides errors section when no failures', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  // Simulate adding a successful item with all required methods
+  processor.items = [
+    {
+      pr: { number: 456, title: 'Successful PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.MERGED,
+      error: null,
+      getStatusEmoji: () => '✅',
+      getDescription: () => 'PR #456: Successful PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.merged = 1;
+
+  const message = processor.formatProgressMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(!message.includes('⚠️ *Errors:*'), 'Should not include Errors section when no failures');
+});
+
 // ============================================================================
 // Summary
 // ============================================================================

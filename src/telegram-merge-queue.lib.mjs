@@ -360,6 +360,11 @@ export class MergeQueueProcessor {
       item.error = error.message;
       item.completedAt = new Date();
       this.stats.failed++;
+      // Issue #1269: Always log errors (not just in verbose mode) for debugging
+      console.error(`[ERROR] /merge-queue: Error processing PR #${item.pr.number}: ${error.message}`);
+      if (error.stack) {
+        console.error(`[ERROR] /merge-queue: Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+      }
       this.log(`Error processing PR #${item.pr.number}: ${error.message}`);
     }
   }
@@ -448,6 +453,19 @@ export class MergeQueueProcessor {
     if (update.current) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
       message += `${statusEmoji} ${update.current}\n\n`;
+    }
+
+    // Show errors/failures inline so user gets immediate feedback (Issue #1269)
+    const failedItems = update.items.filter(item => item.status === MergeItemStatus.FAILED && item.error);
+    if (failedItems.length > 0) {
+      message += `⚠️ *Errors:*\n`;
+      for (const item of failedItems.slice(0, 3)) {
+        message += `  \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 60))}${item.error.length > 60 ? '...' : ''}\n`;
+      }
+      if (failedItems.length > 3) {
+        message += `  _...and ${failedItems.length - 3} more errors_\n`;
+      }
+      message += '\n';
     }
 
     // PRs list with emojis

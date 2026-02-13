@@ -360,6 +360,11 @@ export class MergeQueueProcessor {
       item.error = error.message;
       item.completedAt = new Date();
       this.stats.failed++;
+      // Issue #1269: Always log errors (not just in verbose mode) for debugging
+      console.error(`[ERROR] /merge-queue: Error processing PR #${item.pr.number}: ${error.message}`);
+      if (error.stack) {
+        console.error(`[ERROR] /merge-queue: Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+      }
       this.log(`Error processing PR #${item.pr.number}: ${error.message}`);
     }
   }

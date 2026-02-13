@@ -246,13 +246,17 @@ export function registerMergeCommand(bot, options) {
             await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, message, {
               parse_mode: 'MarkdownV2',
             });
+            VERBOSE && console.log(`[VERBOSE] /merge: Merge queue completed successfully for ${repoKey}`);
           } catch (err) {
-            VERBOSE && console.log(`[VERBOSE] /merge: Error sending final message: ${err.message}`);
+            // Issue #1269: Always log completion failures (critical for debugging)
+            console.error(`[ERROR] /merge: Error sending final message for ${repoKey}: ${err.message}`);
           }
           activeMergeOperations.delete(repoKey);
         },
         onError: async error => {
-          VERBOSE && console.error(`[VERBOSE] /merge error for ${repoKey}:`, error);
+          // Issue #1269: Always log errors (not just in verbose mode)
+          console.error(`[ERROR] /merge: Queue error for ${repoKey}:`, error.message);
+          VERBOSE && console.error(`[VERBOSE] /merge: Full error:`, error);
           try {
             const userMessage = formatUserError(error, VERBOSE);
             const finalReport = processor.formatFinalMessage();
@@ -260,7 +264,8 @@ export function registerMergeCommand(bot, options) {
               parse_mode: 'MarkdownV2',
             });
           } catch (err) {
-            VERBOSE && console.log(`[VERBOSE] /merge: Error sending error message: ${err.message}`);
+            // Issue #1269: Always log notification failures
+            console.error(`[ERROR] /merge: Error sending error message for ${repoKey}: ${err.message}`);
           }
           activeMergeOperations.delete(repoKey);
         },
@@ -301,10 +306,30 @@ export function registerMergeCommand(bot, options) {
       });
 
       // Run the merge queue (this runs asynchronously)
-      processor.run().catch(error => {
-        VERBOSE && console.error(`[VERBOSE] /merge: Unhandled error in run(): ${error.message}`);
-        activeMergeOperations.delete(repoKey);
-      });
+      // Issue #1269: Improved error handling - always log errors and notify users
+      processor
+        .run()
+        .then(() => {
+          VERBOSE && console.log(`[VERBOSE] /merge: Merge queue completed for ${repoKey}`);
+        })
+        .catch(async error => {
+          // Always log errors (not just in verbose mode) - critical for debugging stuck queues
+          console.error(`[ERROR] /merge: Unhandled error in run() for ${repoKey}:`, error.message);
+          if (error.stack) {
+            console.error(`[ERROR] /merge: Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+          }
+
+          // Always notify user about failure (Issue #1269)
+          try {
+            const userMessage = formatUserError(error, VERBOSE);
+            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed unexpectedly*\n\n${escapeMarkdownV2(userMessage)}\n\n_The queue processing has stopped\\. Please try again or check server logs\\._`, { parse_mode: 'MarkdownV2' });
+          } catch (notifyError) {
+            // Log notification failure but don't throw
+            console.error(`[ERROR] /merge: Failed to notify user about error: ${notifyError.message}`);
+          }
+
+          activeMergeOperations.delete(repoKey);
+        });
     } catch (error) {
       VERBOSE && console.error('[VERBOSE] /merge error:', error);
 

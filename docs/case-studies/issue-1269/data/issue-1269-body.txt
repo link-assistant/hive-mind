@@ -1,0 +1,21 @@
+Screenshot:
+
+<img width="390" height="521" alt="Image" src="https://github.com/user-attachments/assets/6b4d0a89-51c2-495f-8f8a-6e9e5b329101" />
+
+```
+/merge https://github.com/link-assistant/hive-mind
+```
+
+```
+Merge Queue - link-assistant/hive-mind
+
+Found 3 PRs with 'ready' label.
+
+Starting merge process...
+```
+
+I got that message, and after that queue, just stuck, the end result that after a night (more than 10-12 hours) 3 pull requests were not merged, but they should be merged one by one, and merge queue should have been waited for all GitHub Actions to finish between merges.
+
+Please download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions (including known existing components/libraries, that solve similar problem or can help in solutions).
+
+If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.

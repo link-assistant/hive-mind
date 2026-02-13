@@ -714,11 +714,13 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   if (cpuLoad) {
     message += 'CPU\n';
     const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
-    const warning = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : '';
-    message += `${usedBar} ${cpuLoad.usagePercentage}%${warning}\n`;
+    // Show 'used' label when below threshold, warning emoji when at/above threshold
+    // See: https://github.com/link-assistant/hive-mind/issues/1267
+    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ' used';
+    message += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
     // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
     // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
-    message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores used\n\n`;
+    message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores\n\n`;
   }
 
   // Memory section (if provided)
@@ -726,8 +728,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   if (memory) {
     message += 'RAM\n';
     const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
-    const warning = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : '';
-    message += `${usedBar} ${memory.usedPercentage}%${warning}\n`;
+    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ' used';
+    message += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
     message += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n\n`;
   }
 
@@ -737,8 +739,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'Disk space\n';
     // Show used percentage with progress bar and threshold marker
     const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
-    const warning = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : '';
-    message += `${usedBar} ${diskSpace.usedPercentage}%${warning}\n`;
+    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ' used';
+    message += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
     message += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n\n`;
   }
 
@@ -748,9 +750,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += 'GitHub API\n';
     // Show used percentage with progress bar and threshold marker
     const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
-    const warning = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : '';
-    message += `${usedBar} ${githubRateLimit.usedPercentage}%${warning}\n`;
-    message += `${githubRateLimit.used}/${githubRateLimit.limit} requests used\n`;
+    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ' used';
+    message += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
+    message += `${githubRateLimit.used}/${githubRateLimit.limit} requests\n`;
     if (githubRateLimit.relativeReset) {
       message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
     } else if (githubRateLimit.resetTime) {
@@ -775,8 +777,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.currentSession.percentage);
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : '';
-    message += `${bar} ${pct}%${warning}\n`;
+    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
+    message += `${bar} ${pct}%${suffix}\n`;
 
     if (usage.currentSession.resetTime) {
       const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
@@ -807,8 +809,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.allModels.percentage);
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : '';
-    message += `${bar} ${pct}%${warning}\n`;
+    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+    message += `${bar} ${pct}%${suffix}\n`;
 
     if (usage.allModels.resetTime) {
       const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
@@ -839,8 +841,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     // See: https://github.com/link-assistant/hive-mind/issues/1133
     const pct = Math.floor(usage.sonnetOnly.percentage);
     const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-    const warning = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : '';
-    message += `${bar} ${pct}%${warning}\n`;
+    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+    message += `${bar} ${pct}%${suffix}\n`;
 
     if (usage.sonnetOnly.resetTime) {
       const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);

@@ -94,6 +94,33 @@ function formatThresholdPercent(ratio) {
 }
 
 /**
+ * Format milliseconds into human-readable duration
+ * Shows days, hours, minutes, and seconds as appropriate.
+ * Examples: "5h 43m 23s", "2m 15s", "45s", "1d 3h 12m 5s"
+ *
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} Human-readable duration
+ * @see https://github.com/link-assistant/hive-mind/issues/1267
+ */
+export function formatDuration(ms) {
+  if (ms < 0) ms = 0;
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+
+  return parts.join(' ');
+}
+
+/**
  * Generate human-readable waiting reason based on threshold violation
  * @param {string} metric - The metric name (ram, cpu, disk, etc.)
  * @param {number} currentValue - Current value (as percentage 0-100)
@@ -1162,73 +1189,92 @@ export class SolveQueue {
   }
 
   /**
-   * Format queue status for display
-   * Shows per-tool queue counts.
+   * Format queue status for display in /limits command
+   * Shows per-tool queue breakdown with processing counts.
+   *
+   * Output format:
+   * ```
+   * Queues
+   * claude (pending: 6, processing: 0)
+   * agent (pending: 2, processing: 0)
+   * ```
+   *
    * @returns {string}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
+   * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
   formatStatus() {
     const stats = this.getStats();
-    if (stats.queued > 0 || stats.processing > 0) {
-      // Show per-tool breakdown if there are items
-      const toolBreakdown = Object.entries(stats.queuedByTool)
-        .filter(entry => entry[1] > 0)
-        .map(([tool, count]) => `${tool}: ${count}`)
-        .join(', ');
-      const queueInfo = toolBreakdown ? ` (${toolBreakdown})` : '';
-      return `Solve Queue: ${stats.queued} pending${queueInfo}, ${stats.processing} processing\n`;
+
+    // Always show per-tool breakdown for all known queues
+    let message = 'Queues\n';
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const pending = toolQueue.length;
+      const processing = this.getProcessingCountByTool(tool);
+      message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
     }
-    return 'Solve Queue: empty\n';
+
+    return message;
   }
 
   /**
    * Format detailed queue status for Telegram message
-   * Shows per-tool queue breakdown.
+   * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
+   *
+   * Output format:
+   * ```
+   * 📋 Solve Queue Status
+   *
+   * claude (pending: 6, processing: 0)
+   * • url1 (waiting, 5h 43m 23s)
+   *   └ RAM usage is 70% (threshold: 65%)
+   * • url2 (queued, 2m 15s)
+   *
+   * agent (pending: 2, processing: 0)
+   * • url3 (waiting, 1h 2m 5s)
+   * ```
+   *
    * @returns {string}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
+   * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
   formatDetailedStatus() {
     const stats = this.getStats();
-    const summary = this.getQueueSummary();
 
     let message = '📋 *Solve Queue Status*\n\n';
-    message += `Pending: ${stats.queued}`;
 
-    // Add per-tool breakdown
-    const toolBreakdown = Object.entries(stats.queuedByTool)
-      .filter(entry => entry[1] > 0)
-      .map(([tool, count]) => `${tool}: ${count}`)
-      .join(', ');
-    if (toolBreakdown) {
-      message += ` (${toolBreakdown})`;
-    }
-    message += '\n';
+    // Show per-tool queue breakdown with items grouped by queue
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const pending = toolQueue.length;
+      const processing = this.getProcessingCountByTool(tool);
+      message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
 
-    message += `Processing: ${stats.processing}\n`;
-    message += `Completed: ${stats.completed}\n`;
-    message += `Failed: ${stats.failed}\n\n`;
-
-    if (summary.processing.length > 0) {
-      message += '*Currently Processing:*\n';
-      for (const item of summary.processing) {
-        message += `• ${item.url} [${item.tool}]\n`;
+      // Show processing items for this tool
+      for (const item of this.processing.values()) {
+        if (item.tool === tool) {
+          const runTime = formatDuration(Date.now() - (item.startedAt || item.createdAt));
+          message += `  ▶ ${item.url} (${item.status}, ${runTime})\n`;
+        }
       }
+
+      // Show first 5 queued items for this tool
+      const displayItems = toolQueue.slice(0, 5);
+      for (const item of displayItems) {
+        const waitTime = formatDuration(item.getWaitTime());
+        message += `  • ${item.url} (${item.status}, ${waitTime})\n`;
+        if (item.waitingReason) {
+          message += `    └ ${item.waitingReason}\n`;
+        }
+      }
+      if (toolQueue.length > 5) {
+        message += `    ... and ${toolQueue.length - 5} more\n`;
+      }
+
       message += '\n';
     }
 
-    if (summary.pending.length > 0) {
-      message += '*Waiting in Queue:*\n';
-      for (const item of summary.pending.slice(0, 5)) {
-        const waitSeconds = Math.floor(item.waitTime / 1000);
-        message += `• ${item.url} [${item.tool}] (${item.status}, ${waitSeconds}s)\n`;
-        if (item.waitingReason) {
-          message += `  └ ${item.waitingReason}\n`;
-        }
-      }
-      if (summary.pending.length > 5) {
-        message += `  ... and ${summary.pending.length - 5} more\n`;
-      }
-    }
+    // Summary stats
+    message += `Completed: ${stats.completed}, Failed: ${stats.failed}\n`;
 
     return message;
   }
@@ -1281,6 +1327,7 @@ export default {
   resetSolveQueue,
   getRunningClaudeProcesses,
   createQueueExecuteCallback,
+  formatDuration,
   QUEUE_CONFIG,
   QueueItemStatus,
 };

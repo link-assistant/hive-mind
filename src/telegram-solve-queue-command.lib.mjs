@@ -75,10 +75,12 @@ export function registerSolveQueueCommand(bot, options) {
     const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
 
     // Use the queue's built-in detailed status formatter
+    // Shows per-queue breakdown with first 5 items per queue and human-readable times
+    // See: https://github.com/link-assistant/hive-mind/issues/1267
     let message = solveQueue.formatDetailedStatus();
 
-    // Add running Claude processes info
-    message += `\n🖥️ Running Claude processes: ${claudeProcs.count}`;
+    // Add external Claude processes info (processes not tracked by the queue)
+    message += `🖥️ Claude processes: ${claudeProcs.count}`;
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',

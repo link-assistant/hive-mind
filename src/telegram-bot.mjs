@@ -784,16 +784,13 @@ bot.command('limits', async ctx => {
   // Format the message with usage limits and queue status
   let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  const queueStats = solveQueue.getStats();
-  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
-  // Calculate total processing: queue-internal + external claude processes
-  // This provides a uniform view of all processing happening
-  // See: https://github.com/link-assistant/hive-mind/issues/1133
-  const totalProcessing = queueStats.processing + claudeProcs.count;
+  // Insert per-queue status into the code block
+  // Shows each queue (claude, agent) with pending/processing counts
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
   const codeBlockEnd = message.lastIndexOf('```');
   if (codeBlockEnd !== -1) {
-    const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
-    message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
+    const queueStatus = solveQueue.formatStatus();
+    message = message.slice(0, codeBlockEnd) + `\n${queueStatus}` + message.slice(codeBlockEnd);
   }
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });

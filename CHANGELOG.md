@@ -1,5 +1,28 @@
 # @link-assistant/hive-mind
 
+## 1.22.1
+
+### Patch Changes
+
+- fix: add --merge flag to gh pr merge command to prevent "not running interactively" error (Issue #1269)
+
+  The merge queue was stuck because `gh pr merge` requires an explicit merge method flag
+  (`--merge`, `--squash`, or `--rebase`) when running in a non-interactive context.
+  Without a merge method, the command would fail with:
+  "--merge, --rebase, or --squash required when not running interactively"
+
+  This fix:
+  - Adds `--merge` flag by default to the `mergePullRequest()` function
+  - Adds `mergeMethod` option to configure the merge strategy ('merge', 'squash', 'rebase')
+  - Adds `HIVE_MIND_MERGE_QUEUE_MERGE_METHOD` environment variable for configuration
+
+  Fix release notes to show ALL related pull requests when multiple PRs are merged before a release (Issue #1271)
+  - Extract ALL commit hashes from changelog entry (not just the first one)
+  - Look up PRs for each commit hash via GitHub API
+  - Display all unique PR numbers in release notes (e.g., "Related Pull Requests: #1268, #1270")
+  - Use plural "Pull Requests" label when multiple PRs are found
+  - Add comprehensive case study documentation in docs/case-studies/issue-1271/
+
 ## 1.22.0
 
 ### Minor Changes

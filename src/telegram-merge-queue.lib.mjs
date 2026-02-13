@@ -455,6 +455,19 @@ export class MergeQueueProcessor {
       message += `${statusEmoji} ${update.current}\n\n`;
     }
 
+    // Show errors/failures inline so user gets immediate feedback (Issue #1269)
+    const failedItems = update.items.filter(item => item.status === MergeItemStatus.FAILED && item.error);
+    if (failedItems.length > 0) {
+      message += `⚠️ *Errors:*\n`;
+      for (const item of failedItems.slice(0, 3)) {
+        message += `  \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 60))}${item.error.length > 60 ? '...' : ''}\n`;
+      }
+      if (failedItems.length > 3) {
+        message += `  _...and ${failedItems.length - 3} more errors_\n`;
+      }
+      message += '\n';
+    }
+
     // PRs list with emojis
     message += `*Queue:*\n`;
     for (const item of update.items.slice(0, 10)) {

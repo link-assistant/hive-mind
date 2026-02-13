@@ -260,8 +260,13 @@ export function registerMergeCommand(bot, options) {
           try {
             const userMessage = formatUserError(error, VERBOSE);
             const finalReport = processor.formatFinalMessage();
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed*\n\n${escapeMarkdownV2(userMessage)}\n\n${finalReport}`, {
+            // Issue #1269: Show error in the reply message with immediate feedback
+            // Keep a button so users know the error was displayed and can dismiss
+            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n${finalReport}`, {
               parse_mode: 'MarkdownV2',
+              reply_markup: {
+                inline_keyboard: [[{ text: '❌ Failed - Click to dismiss', callback_data: `merge_dismiss_${repoKey}` }]],
+              },
             });
           } catch (err) {
             // Issue #1269: Always log notification failures
@@ -320,9 +325,15 @@ export function registerMergeCommand(bot, options) {
           }
 
           // Always notify user about failure (Issue #1269)
+          // Show error in the reply message with immediate feedback
           try {
             const userMessage = formatUserError(error, VERBOSE);
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed unexpectedly*\n\n${escapeMarkdownV2(userMessage)}\n\n_The queue processing has stopped\\. Please try again or check server logs\\._`, { parse_mode: 'MarkdownV2' });
+            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed unexpectedly*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n_The queue processing has stopped\\. Please try again or check server logs\\._`, {
+              parse_mode: 'MarkdownV2',
+              reply_markup: {
+                inline_keyboard: [[{ text: '❌ Failed - Click to dismiss', callback_data: `merge_dismiss_${repoKey}` }]],
+              },
+            });
           } catch (notifyError) {
             // Log notification failure but don't throw
             console.error(`[ERROR] /merge: Failed to notify user about error: ${notifyError.message}`);
@@ -358,6 +369,21 @@ export function registerMergeCommand(bot, options) {
     await ctx.answerCbQuery('Merge operation cancellation requested. The current PR will finish processing.');
 
     VERBOSE && console.log(`[VERBOSE] /merge: Cancelled operation for ${repoKey}`);
+  });
+
+  // Handle dismiss button callback (Issue #1269: for error acknowledgement)
+  bot.action(/^merge_dismiss_(.+)$/, async ctx => {
+    const repoKey = ctx.match[1];
+    VERBOSE && console.log(`[VERBOSE] /merge dismiss callback received for ${repoKey}`);
+
+    // Remove the inline keyboard button after user acknowledges the error
+    try {
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+      await ctx.answerCbQuery('Error acknowledged.');
+    } catch {
+      // Ignore errors (message might have been edited already)
+      await ctx.answerCbQuery('Error acknowledged.');
+    }
   });
 }
 

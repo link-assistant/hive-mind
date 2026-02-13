@@ -1483,10 +1483,6 @@ test('default tool for queue item is claude', () => {
   queue.stop();
 });
 
-// ============================================================================
-// Summary
-// ============================================================================
-
 console.log('\n📊 Test Results\n');
 console.log(`Tests passed: ${testsPassed}`);
 console.log(`Tests failed: ${testsFailed}`);

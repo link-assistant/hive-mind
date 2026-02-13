@@ -25,8 +25,9 @@ export const claudeModels = {
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
 };
 
-// Agent models (OpenCode API via agent CLI)
+// Agent models (OpenCode API and Kilo Gateway via agent CLI)
 export const agentModels = {
+  // OpenCode Zen free models
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
@@ -35,6 +36,15 @@ export const agentModels = {
   'glm-4.7-free': 'opencode/glm-4.7-free',
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Kilo Gateway free models (Issue #1282)
+  'glm-5-free': 'kilo/glm-5-free',
+  'kilo-glm-5-free': 'kilo/glm-5-free',
+  'kilo-glm-4.7-free': 'kilo/glm-4.7-free',
+  'kilo-kimi-k2.5-free': 'kilo/kimi-k2.5-free',
+  'kilo-minimax-m2.1-free': 'kilo/minimax-m2.1-free',
+  'kilo-giga-potato-free': 'kilo/giga-potato-free',
+  'kilo-trinity-large-preview': 'kilo/trinity-large-preview',
+  // Premium models
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',

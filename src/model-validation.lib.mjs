@@ -102,18 +102,36 @@ export const AGENT_MODELS = {
   'glm-4.7-free': 'opencode/glm-4.7-free',
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Free models (via Kilo Gateway)
+  // Issue #1282: Kilo provider adds access to 500+ models including free tier
+  // See: https://kilo.ai/docs/advanced-usage/free-and-budget-models
+  'glm-5-free': 'kilo/glm-5-free', // Z.AI flagship model (free limited time)
+  'kilo-glm-5-free': 'kilo/glm-5-free',
+  'kilo-glm-4.7-free': 'kilo/glm-4.7-free', // Z.AI agent-centric model
+  'kilo-kimi-k2.5-free': 'kilo/kimi-k2.5-free', // MoonshotAI agentic model
+  'kilo-minimax-m2.1-free': 'kilo/minimax-m2.1-free', // MiniMax general-purpose
+  'kilo-giga-potato-free': 'kilo/giga-potato-free', // Evaluation model
+  'kilo-trinity-large-preview': 'kilo/trinity-large-preview', // Arcee AI preview
   // Premium models (requires OpenCode Zen subscription)
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',
   'gemini-3-pro': 'google/gemini-3-pro',
-  // Full model IDs with provider prefix
+  // Full model IDs with provider prefix (OpenCode Zen)
   'opencode/grok-code': 'opencode/grok-code',
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free',
   'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Full model IDs with provider prefix (Kilo Gateway)
+  'kilo/glm-5-free': 'kilo/glm-5-free',
+  'kilo/glm-4.7-free': 'kilo/glm-4.7-free',
+  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free',
+  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free',
+  'kilo/giga-potato-free': 'kilo/giga-potato-free',
+  'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
+  // Premium models with provider prefix
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
   'anthropic/claude-3-opus': 'anthropic/claude-3-opus',

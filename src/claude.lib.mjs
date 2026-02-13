@@ -17,7 +17,6 @@ import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
-
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
@@ -25,7 +24,6 @@ const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => 
   await log('\n💡 To continue this session in Claude Code interactive mode:\n');
   await log(`   ${cmd}\n`);
 };
-
 /** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
@@ -38,10 +36,7 @@ export const formatNumber = num => {
 // Model mapping to translate aliases to full model IDs
 // Supports [1m] suffix for 1 million token context (Issue #1221)
 export const mapModelToId = model => {
-  if (!model || typeof model !== 'string') {
-    return model;
-  }
-
+  if (!model || typeof model !== 'string') return model;
   // Check for [1m] suffix (case-insensitive)
   const match = model.match(/^(.+?)\[1m\]$/i);
   if (match) {
@@ -49,7 +44,6 @@ export const mapModelToId = model => {
     const mappedBase = availableModels[baseModel] || baseModel;
     return `${mappedBase}[1m]`;
   }
-
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
@@ -108,7 +102,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
           throw timeoutError;
         }
       }
-
       // Check for common error patterns
       const stdout = result.stdout?.toString() || '';
       const stderr = result.stderr?.toString() || '';
@@ -137,7 +130,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
       const jsonError = checkForJsonError(stdout) || checkForJsonError(stderr);
       // Check for API overload error pattern
       const isOverloadError = (stdout.includes('API Error: 500') && stdout.includes('Overloaded')) || (stderr.includes('API Error: 500') && stderr.includes('Overloaded')) || (jsonError && jsonError.type === 'api_error' && jsonError.message === 'Overloaded');
-
       // Handle overload errors with retry
       if (isOverloadError) {
         if (retryCount < maxRetries) {
@@ -223,47 +215,27 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   return await attemptValidation();
 };
 export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
-
 // Store Claude Code version globally (set during validation)
 let detectedClaudeVersion = null;
-
-/**
- * Get the detected Claude Code version
- * @returns {string|null} The detected version or null if not yet detected
- */
+/** Get the detected Claude Code version @returns {string|null} */
 export const getClaudeVersion = () => detectedClaudeVersion;
-
-/**
- * Set the detected Claude Code version (called during validation)
- * @param {string} version - The detected version string
- */
+/** Set the detected Claude Code version (called during validation) @param {string} version */
 export const setClaudeVersion = version => {
   detectedClaudeVersion = version;
 };
-
-/**
- * Resolve thinking settings based on --think and --thinking-budget options
- * Handles translation between thinking levels and token budgets based on Claude Code version
- * @param {Object} argv - Command line arguments
- * @param {Function} log - Logging function
- * @returns {Object} { thinkingBudget, thinkLevel, translation, maxBudget } - Resolved settings
- */
+/** Resolve thinking settings based on --think and --thinking-budget options */
 export const resolveThinkingSettings = async (argv, log) => {
   const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
   const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
   const isNewVersion = supportsThinkingBudget(version, minVersion);
-
   // Get max thinking budget from argv or use default (see issue #1146)
   const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
-
   // Get thinking level mappings calculated from maxBudget
   const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
   const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
-
   let thinkingBudget = argv.thinkingBudget;
   let thinkLevel = argv.think;
   let translation = null;
-
   if (isNewVersion) {
     // Claude Code >= 2.1.12: translate --think to --thinking-budget
     if (thinkLevel !== undefined && thinkingBudget === undefined) {
@@ -290,45 +262,23 @@ export const resolveThinkingSettings = async (argv, log) => {
       thinkingBudget = undefined;
     }
   }
-
   return { thinkingBudget, thinkLevel, translation, isNewVersion, maxBudget };
 };
-/**
- * Check if Playwright MCP is available and connected to Claude
- * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
- */
+/** Check if Playwright MCP is available and connected to Claude @returns {Promise<boolean>} */
 export const checkPlaywrightMcpAvailability = async () => {
   try {
-    // Try to run a simple claude command that would list MCP servers if available
-    // Use a timeout to avoid hanging if Claude is not installed
     const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
-
-    if (!result || result.code !== 0) {
-      return false;
-    }
-
+    if (!result || result.code !== 0) return false;
     const output = result.stdout?.toString() || '';
-
-    // Check if playwright is in the list of MCP servers
-    if (output.toLowerCase().includes('playwright')) {
-      return true;
-    }
-
+    if (output.toLowerCase().includes('playwright')) return true;
     return false;
   } catch {
-    // If any error occurs, assume Playwright MCP is not available
     return false;
   }
 };
-/**
- * Execute Claude with all prompts and settings
- * This is the main entry point that handles all prompt building and execution
- * @param {Object} params - Parameters for Claude execution
- * @returns {Object} Result of the execution including success status and session info
- */
+/** Execute Claude with all prompts and settings - main entry point */
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
-
   // Check if agent-commander is installed when the option is enabled
   if (argv.promptSubagentsViaAgentCommander) {
     try {
@@ -339,17 +289,14 @@ export const executeClaude = async params => {
       await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
     }
   }
-
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
-
   // Check if the model supports vision using models.dev API
   const mappedModel = mapModelToId(argv.model);
   const modelSupportsVision = await checkModelVisionCapability(mappedModel);
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -489,34 +436,18 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
-
-/**
- * Check if a model supports vision (image input) using models.dev API
- * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
- * @returns {Promise<boolean>} True if the model supports vision, false otherwise
- */
+/** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
 export const checkModelVisionCapability = async modelId => {
   try {
     const modelInfo = await fetchModelInfo(modelId);
-    if (!modelInfo) {
-      return false;
-    }
-    // Check if 'image' is in the input modalities
+    if (!modelInfo) return false;
     const inputModalities = modelInfo.modalities?.input || [];
     return inputModalities.includes('image');
   } catch {
-    // If we can't determine vision capability, default to false
     return false;
   }
 };
-
-/**
- * Calculate USD cost for a model's usage with detailed breakdown
- * @param {Object} usage - Token usage object
- * @param {Object} modelInfo - Model information from pricing API
- * @param {boolean} includeBreakdown - Whether to include detailed calculation breakdown
- * @returns {Object} Cost data with optional breakdown
- */
+/** Calculate USD cost for a model's usage with detailed breakdown */
 export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
   if (!modelInfo || !modelInfo.cost) {
     return includeBreakdown ? { total: 0, breakdown: null } : 0;
@@ -862,26 +793,16 @@ export const executeClaudeCommand = async params => {
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
     let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
-
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
       await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
-      interactiveHandler = createInteractiveHandler({
-        owner,
-        repo,
-        prNumber,
-        $,
-        log,
-        verbose: argv.verbose,
-      });
+      interactiveHandler = createInteractiveHandler({ owner, repo, prNumber, $, log, verbose: argv.verbose });
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-
     // Build claude command with optional resume flag
     let execCommand;
-    // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
     // Build claude command arguments
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
@@ -890,13 +811,10 @@ export const executeClaudeCommand = async params => {
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
     claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
-    // Build the full command for display (with jq for formatting as in v0.3.2)
     const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
-    // Print the actual raw command being executed
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
     await log('');
-    // Output prompts in verbose mode for debugging
     if (argv.verbose) {
       await log('📋 User prompt:', { verbose: true });
       await log('---BEGIN USER PROMPT---', { verbose: true });
@@ -908,10 +826,8 @@ export const executeClaudeCommand = async params => {
       await log('---END SYSTEM PROMPT---', { verbose: true });
     }
     try {
-      // Resolve thinking settings (handles translation between --think and --thinking-budget based on Claude version)
-      // See issue #1146 for details on thinking budget translation
+      // Resolve thinking settings (see issue #1146)
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-
       // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
       // MCP timeout configurations (see issue #1066), and CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (Issue #1238)
       // Pass model for model-specific max output tokens (Issue #1221)
@@ -947,7 +863,45 @@ export const executeClaudeCommand = async params => {
       // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
       // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
       let stdoutLineBuffer = '';
+      // Issue #1280: Track result event and timeout for hung processes
+      // Root cause: command-stream's stream() async iterator waits for BOTH process exit AND
+      // stdout/stderr pipe close before emitting 'end'. If the CLI process keeps stdout open after
+      // sending the result event, pumpReadable() hangs → finish() never fires → stream never ends.
+      // Additionally, command-stream v0.9.4 does NOT yield {type:'exit'} chunks from stream(),
+      // so the exit code detection via chunk.type==='exit' below is dead code.
+      // Workaround: after receiving the result event, start a timeout to force-kill the process.
+      // See: https://github.com/link-foundation/command-stream/issues/155
+      let resultEventReceived = false;
+      let resultTimeoutId = null;
+      let forceExitTriggered = false;
+      const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
+      const forceExitOnTimeout = async () => {
+        if (forceExitTriggered) return;
+        forceExitTriggered = true;
+        const elapsed = `${streamCloseTimeoutMs / 1000}s`;
+        await log(`⚠️ Stream didn't close ${elapsed} after result event, forcing exit (Issue #1280)`, { verbose: true });
+        await log(`   command-stream stream() is likely stuck waiting for pipe close`, { verbose: true });
+        try {
+          if (execCommand.kill) {
+            await log(`   Sending SIGTERM to process...`, { verbose: true });
+            execCommand.kill('SIGTERM');
+            setTimeout(() => {
+              try {
+                if (!execCommand.result?.code) {
+                  log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
+                  execCommand.kill('SIGKILL');
+                }
+              } catch {
+                /* process may have exited */
+              }
+            }, 2000);
+          }
+        } catch (e) {
+          await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
+        }
+      };
       for await (const chunk of execCommand.stream()) {
+        if (forceExitTriggered) break;
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           // Append to buffer and split; keep last element (may be incomplete) for next chunk
@@ -990,10 +944,14 @@ export const executeClaudeCommand = async params => {
                 toolUseCount++;
               }
               // Handle session result type from Claude CLI (emitted when session completes)
-              // Subtypes: "success", "error_during_execution" (work may have been done), etc.
               if (data.type === 'result') {
+                // Issue #1280: Start 30s timeout for stream close after result event
+                if (!resultEventReceived) {
+                  resultEventReceived = true;
+                  await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
+                  resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+                }
                 // Issue #1104: Only extract cost from subtype 'success' results
-                // This is explicit and reliable - error_during_execution results have zero cost
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
@@ -1096,11 +1054,13 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
+          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280).
+          // Exit code is obtained from execCommand.result.code after the loop.
+          // This branch is kept for forward-compatibility if command-stream adds exit chunks.
           exitCode = chunk.code;
           if (chunk.code !== 0) {
             commandFailed = true;
           }
-          // Don't break here - let the loop finish naturally to process all output
         }
       }
 
@@ -1116,7 +1076,15 @@ export const executeClaudeCommand = async params => {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
       }
-
+      // Issue #1280: Clear the stream close timeout since we exited the loop
+      if (resultTimeoutId) {
+        clearTimeout(resultTimeoutId);
+        if (forceExitTriggered) {
+          await log('⚠️ Stream exited via force-kill timeout (Issue #1280)', { verbose: true });
+        } else {
+          await log('✅ Stream closed normally after result event', { verbose: true });
+        }
+      }
       // Issue #1165: Check actual exit code from command result for more reliable detection
       // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
       // Exit code 127 is the standard Unix convention for "command not found"

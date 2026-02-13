@@ -434,6 +434,37 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
 }
 
 /**
+ * Check if the authenticated user has write/merge permissions on the repository
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{canMerge: boolean, permission: string|null}>}
+ */
+export async function checkMergePermissions(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.permissions'`);
+    const permissions = JSON.parse(stdout.trim());
+
+    const canMerge = permissions.admin === true || permissions.maintain === true || permissions.push === true;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Merge permissions for ${owner}/${repo}: push=${permissions.push}, admin=${permissions.admin}, maintain=${permissions.maintain}`);
+      console.log(`[VERBOSE] /merge: Can merge: ${canMerge}`);
+    }
+
+    return {
+      canMerge,
+      permission: permissions.admin ? 'admin' : permissions.maintain ? 'maintain' : permissions.push ? 'push' : 'read',
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking merge permissions: ${error.message}`);
+    }
+    return { canMerge: false, permission: null };
+  }
+}
+
+/**
  * Merge a pull request
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -600,6 +631,7 @@ export default {
   getAllReadyPRs,
   checkPRCIStatus,
   checkPRMergeable,
+  checkMergePermissions,
   mergePullRequest,
   waitForCI,
   parseRepositoryUrl,

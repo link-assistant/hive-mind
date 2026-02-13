@@ -19,6 +19,7 @@
     "test:usage-limit": "node tests/test-usage-limit.mjs",
     "lint": "eslint 'src/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' --fix",
+    "check:duplication": "jscpd .",
     "format": "prettier --write \"**/*.{js,mjs,json,md}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,json,md}\"",
     "changeset": "changeset",
@@ -59,6 +60,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
     "lint-staged": "^16.2.7",
     "prettier": "^3.6.2"
   },

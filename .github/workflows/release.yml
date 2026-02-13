@@ -262,6 +262,12 @@ jobs:
         npm run lint
         echo "ESLint checks passed"
 
+    - name: Run code duplication check
+      run: |
+        echo "Running jscpd code duplication detection..."
+        npm run check:duplication
+        echo "Code duplication check passed"
+
   # === FILE LINE LIMIT CHECK ===
   # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
   # See docs/case-studies/issue-1141 for why this is critical.

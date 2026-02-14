@@ -1,5 +1,18 @@
 # @link-assistant/hive-mind
 
+## 1.23.2
+
+### Patch Changes
+
+- 241ce36: Fix false error categorization and missing log upload for `--tool agent` auto-restart
+  - Fix `isUsageLimitError()` "resets" pattern causing false positives when scanning code output
+    - Changed from substring match to regex that requires time-like content after "resets"
+    - Prevents ordinary English words like "loads a shell and resets" from triggering usage limit detection
+  - Fix agent fallback pattern matching running after agent successfully recovered from errors
+    - Skip fallback when exitCode=0 and agentCompletedSuccessfully to prevent false error detection
+  - Upload failure logs when auto-restart iteration fails for `--tool agent` with `--attach-logs`
+  - Add comprehensive tests for false positive scenarios (Issue #1290)
+
 ## 1.23.1
 
 ### Patch Changes

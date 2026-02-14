@@ -1367,7 +1367,10 @@ try {
 
     // Attach updated logs to PR after auto-restart completes
     // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
-    if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
+    // Issue #1290: Always upload if auto-restart ran but last iteration's logs weren't uploaded
+    //   This ensures final logs are uploaded even when the last iteration failed
+    const autoRestartRanButNotUploaded = watchResult?.autoRestartIterationsRan && !watchResult?.lastIterationLogUploaded;
+    if (shouldAttachLogs && prNumber && (!logsAlreadyUploaded || autoRestartRanButNotUploaded)) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1394,8 +1397,8 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
-    } else if (logsAlreadyUploaded) {
-      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+    } else if (logsAlreadyUploaded && !autoRestartRanButNotUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload');
       logsAttached = true;
     }
   }

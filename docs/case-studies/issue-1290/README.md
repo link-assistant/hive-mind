@@ -28,9 +28,9 @@ Based on the log file `solve-2026-02-14T08-28-31-968Z.log`:
 
 ## Root Cause Analysis
 
-Looking at the code flow:
+There are **two distinct problems** found through deep analysis of the log file.
 
-### What happens with `--tool claude`:
+### Problem 1: Missing log upload on auto-restart failure
 
 When the auto-restart loop completes (lines 1368-1400 in `solve.mjs`), logs are uploaded:
 
@@ -41,74 +41,110 @@ if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
 }
 ```
 
-### What happens with `--tool agent`:
+But the per-iteration log upload in `solve.watch.lib.mjs` only happens on `toolResult.success`.
+When an iteration fails, no logs are uploaded, and the final log upload at `solve.mjs:1370`
+may be skipped due to the `logsAlreadyUploaded` flag from `verifyResults()`.
 
-The same code runs, but there are two issues:
+### Problem 2: AI_JSONParseError falsely categorized as Usage Limit (the deeper bug)
 
-1. **Per-iteration log upload in `solve.watch.lib.mjs`** (lines 277-324): This uploads logs after each successful auto-restart iteration.
+The log shows this chain of events at `08:34:12`:
 
-2. **Missing final report when agent fails with error**: When the auto-restart session fails with a usage limit error (line 258 in `solve.watch.lib.mjs`):
+1. The `kimi-k2.5` model returns a **malformed SSE stream** — two JSON objects concatenated
+   without proper framing: `chatcmpl-jQugNdata:{...}`
+2. The agent's internal JSON parser fails with `AI_JSONParseError`
+3. The agent emits a `{"type": "error"}` event with the error details
+4. The agent then emits `session.idle` and exits with **exit code 0** (recovered)
 
-   ```javascript
-   await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
-   ```
+**The false categorization happens through this chain:**
 
-   No logs are uploaded because:
-   - The per-iteration log upload only happens on `toolResult.success` (line 261)
-   - The final log upload at `solve.mjs:1370` is skipped because `logsAlreadyUploaded` flag behavior
+1. **Issue #1276 fix** correctly clears `streamingErrorDetected` because
+   `exitCode === 0 && agentCompletedSuccessfully`
+2. **Fallback pattern matching** (line 787-833 of `agent.lib.mjs`) then runs because
+   both `outputError.detected` and `streamingErrorDetected` are now false
+3. The fallback finds `"type": "error"` in the raw `fullOutput` and extracts
+   `"Tool execution aborted"` as the error message (from a different event!)
+4. **`detectUsageLimit(fullOutput)`** scans the **entire output** (36K+ lines) which
+   contains C# game code with comments like:
+   - `"loads a shell and resets"` (line 5083)
+   - `"Also resets drag start"` (line 5083)
+5. The **overly broad `'resets'` pattern** in `usage-limit.lib.mjs` (line 55)
+   matches these English words, falsely triggering `limitReached = true`
 
-3. **Specific issue**: In this case, the agent tool failed with `UsageLimit` error (JSON parse error), but the changes had already been committed. The code then detects "CHANGES COMMITTED" and exits the loop, but no final report is posted.
+**Evidence from the log:**
 
-## The Gap
+```
+[08:34:12.293Z] ⚠️  Error event detected via fallback pattern match: Tool execution aborted
+[08:34:12.301Z] ⏳ Usage Limit Reached!
+[08:34:12.301Z] Your Agent usage limit has been reached.
+```
 
-The gap is that when an auto-restart iteration fails (e.g., due to usage limit, API error, or other failure), but the overall goal is achieved (changes committed), there's no final report posted. The last comment on the PR is just the "Auto-restart 1/3" notification.
+```json
+{
+  "exitCode": 0,
+  "errorType": "UsageLimit",
+  "errorMatch": "Tool execution aborted",
+  "limitReached": true,
+  "limitResetTime": null
+}
+```
+
+The error was NOT a usage limit — it was a stream parsing error from the model provider,
+and the agent had already recovered and completed successfully.
 
 ## Solution
 
-Two fixes are needed:
+### Fix 1: Upload failure logs on auto-restart iteration failure (`solve.watch.lib.mjs`)
 
-1. **In `solve.watch.lib.mjs`**: Add log upload for failed iterations in auto-restart mode when `--attach-logs` is enabled.
+- Added log upload for failed auto-restart iterations when `--attach-logs` is enabled
+- Added tracking variables `autoRestartIterationsRan` and `lastIterationLogUploaded`
+- Updated return value to include these flags for `solve.mjs` to decide on final upload
 
-2. **In `solve.mjs`**: Ensure the final log upload happens when auto-restart mode exits (either success or failure) with uncommitted changes resolved, regardless of whether individual iterations uploaded logs.
+### Fix 2: Make `'resets'` pattern more specific (`usage-limit.lib.mjs`)
 
-## PR Comments on #778 (Jhon-Crow/godot-topdown-MVP)
+Changed from a simple substring match:
 
-Only 2 comments exist:
+```javascript
+'resets', // Too broad - matches "loads a shell and resets"
+```
 
-1. `## 🤖 Solution Draft Log` - uploaded after first agent run
-2. `## 🔄 Auto-restart 1/3` - notification about auto-restart starting
+To a regex that requires time-like content after "resets":
 
-Missing:
+```javascript
+/resets\s+(?:(?:at\s+)?[0-9]|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i;
+```
 
-- Final completion report after auto-restart finishes
-- Log upload for the auto-restart session
+This matches `"resets 5am"`, `"resets Jan 15, 8am"`, `"resets at 10pm"` but NOT
+`"loads a shell and resets"` or `"Also resets drag start"`.
 
-## Fix Implementation
+### Fix 3: Skip fallback pattern matching when agent recovered (`agent.lib.mjs`)
 
-### Changes Made
+Added `!(exitCode === 0 && agentCompletedSuccessfully)` to the fallback condition:
 
-1. **`src/solve.watch.lib.mjs`**:
-   - Added log upload for failed auto-restart iterations (lines 281-319)
-   - Added tracking variables `autoRestartIterationsRan` and `lastIterationLogUploaded`
-   - Updated return value to include these flags
+```javascript
+if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
+```
 
-2. **`src/solve.mjs`**:
-   - Updated final log upload condition to check `autoRestartRanButNotUploaded` (lines 1370-1375)
-   - Ensures logs are uploaded when auto-restart ran but last iteration's logs weren't uploaded
+This prevents the fallback from finding stale error events in the output when the agent
+has already recovered and completed successfully.
 
-### Key Logic
+### Fix 4: Final log upload condition in `solve.mjs`
 
-When an auto-restart iteration fails:
+Updated to check `autoRestartRanButNotUploaded`:
 
-1. Upload failure logs immediately with a descriptive title (`⚠️ Auto-restart X/Y Failure Log`)
-2. Include error information, usage limit details if applicable
-3. Mark `lastIterationLogUploaded = true` on success
+```javascript
+const autoRestartRanButNotUploaded = watchResult?.autoRestartIterationsRan && !watchResult?.lastIterationLogUploaded;
+if (shouldAttachLogs && prNumber && (!logsAlreadyUploaded || autoRestartRanButNotUploaded)) {
+```
 
-When auto-restart mode exits:
+## Tests Added
 
-1. Check if iterations ran (`autoRestartIterationsRan`)
-2. Check if last iteration's logs were uploaded (`lastIterationLogUploaded`)
-3. If iterations ran but logs weren't uploaded, upload final logs
+- `test-usage-limit.mjs`: 2 new test groups for Issue #1290:
+  - False positive tests: "resets" in code comments should NOT trigger usage limit
+  - True positive tests: valid "resets" usage limit messages should still be detected
+- `test-agent-error-detection.mjs`: 3 new tests for Issue #1290:
+  - Fallback skipped when agent completed successfully
+  - Fallback still runs when agent did NOT complete successfully
+  - "resets" in code output does not trigger usage limit
 
 ## References
 

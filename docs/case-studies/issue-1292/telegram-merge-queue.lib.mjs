@@ -440,8 +440,7 @@ export class MergeQueueProcessor {
     const update = this.getProgressUpdate();
 
     let message = `*Merge Queue*\n`;
-    // Issue #1292: Escape owner/repo for MarkdownV2 (may contain hyphens, underscores, etc.)
-    message += `${this.escapeMarkdown(this.owner)}/${this.escapeMarkdown(this.repo)}\n\n`;
+    message += `${this.owner}/${this.repo}\n\n`;
 
     // Progress bar in code block for better style
     const progressBar = getProgressBar(update.progress.percentage);
@@ -516,8 +515,7 @@ export class MergeQueueProcessor {
     }
 
     let message = `${statusEmoji} *Merge Queue ${statusText}*\n`;
-    // Issue #1292: Escape owner/repo for MarkdownV2 (may contain hyphens, underscores, etc.)
-    message += `${this.escapeMarkdown(this.owner)}/${this.escapeMarkdown(this.repo)}\n\n`;
+    message += `${this.owner}/${this.repo}\n\n`;
 
     // Final progress bar in code block
     const percentage = report.stats.total > 0 ? Math.round((report.stats.merged / report.stats.total) * 100) : 0;

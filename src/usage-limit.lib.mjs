@@ -33,6 +33,7 @@ export function isUsageLimitError(message) {
   const lowerMessage = message.toLowerCase();
 
   // Check for specific usage limit patterns
+  // Supports both plain string patterns (checked via .includes()) and RegExp patterns
   const patterns = [
     // Generic
     "you've hit your usage limit",
@@ -52,12 +53,21 @@ export function isUsageLimitError(message) {
     'billing hard limit',
     'please try again at', // Codex/OpenCode style
     'available again at',
-    'resets', // Claude shows: "∙ resets 5am"
+    // Claude shows: "∙ resets 5am" or "resets Jan 15, 8am"
+    // Issue #1290: Use regex to avoid false positives when "resets" appears in code output
+    // (e.g., "loads a shell and resets", "Also resets drag start")
+    // Only match "resets" when followed by a time-like pattern (digit or month name)
+    /resets\s+(?:(?:at\s+)?[0-9]|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i,
     // Agent/OpenCode Zen specific - issue #1287
     'freeusagelimiterror', // Agent JSON error type
   ];
 
-  return patterns.some(pattern => lowerMessage.includes(pattern));
+  return patterns.some(pattern => {
+    if (pattern instanceof RegExp) {
+      return pattern.test(lowerMessage);
+    }
+    return lowerMessage.includes(pattern);
+  });
 }
 
 /**

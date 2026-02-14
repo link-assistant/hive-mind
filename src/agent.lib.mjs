@@ -784,7 +784,10 @@ export const executeAgentCommand = async params => {
       // Issue #1258: Fallback pattern match for error detection
       // When JSON parsing fails (e.g., multi-line pretty-printed JSON in logs),
       // we need to detect error patterns in the raw output string
-      if (!outputError.detected && !streamingErrorDetected) {
+      // Issue #1290: Skip fallback when agent completed successfully with exit code 0
+      // The fallback can cause false positives when error events (like AI_JSONParseError)
+      // appear in the output but the agent recovered and completed successfully
+      if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
         // Check for error type patterns in raw output (handles pretty-printed JSON)
         const errorTypePatterns = [
           { pattern: '"type": "error"', type: 'AgentError' },

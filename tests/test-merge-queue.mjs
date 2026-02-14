@@ -266,30 +266,30 @@ test('MergeQueueProcessor escapeMarkdown escapes special characters', () => {
 
 test('MergeQueueProcessor formatProgressMessage returns string', () => {
   const processor = new MergeQueueProcessor({
-    owner: 'test-owner',
-    repo: 'test-repo',
+    owner: 'testowner',
+    repo: 'testrepo',
   });
 
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.length > 0, 'Should not be empty');
-  assert.ok(message.includes('test-owner'), 'Should include owner');
-  assert.ok(message.includes('test-repo'), 'Should include repo');
+  assert.ok(message.includes('testowner'), 'Should include owner');
+  assert.ok(message.includes('testrepo'), 'Should include repo');
 });
 
 test('MergeQueueProcessor formatFinalMessage returns string', () => {
   const processor = new MergeQueueProcessor({
-    owner: 'test-owner',
-    repo: 'test-repo',
+    owner: 'testowner',
+    repo: 'testrepo',
   });
 
   const message = processor.formatFinalMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.length > 0, 'Should not be empty');
-  assert.ok(message.includes('test-owner'), 'Should include owner');
-  assert.ok(message.includes('test-repo'), 'Should include repo');
+  assert.ok(message.includes('testowner'), 'Should include owner');
+  assert.ok(message.includes('testrepo'), 'Should include repo');
 });
 
 // Issue #1269: Test error display in progress message
@@ -345,6 +345,92 @@ test('MergeQueueProcessor formatProgressMessage hides errors section when no fai
 
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(!message.includes('⚠️ *Errors:*'), 'Should not include Errors section when no failures');
+});
+
+// ============================================================================
+// Issue #1292: MarkdownV2 Escaping Tests
+// ============================================================================
+
+console.log('\n📋 Issue #1292: MarkdownV2 Escaping Tests\n');
+
+test('MergeQueueProcessor escapeMarkdown escapes hyphens', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  const input = 'link-assistant/hive-mind';
+  const escaped = processor.escapeMarkdown(input);
+
+  assert.ok(escaped.includes('\\-'), 'Should escape hyphens');
+  assert.equal(escaped, 'link\\-assistant/hive\\-mind', 'Should properly escape all hyphens');
+});
+
+test('MergeQueueProcessor escapeMarkdown escapes underscores', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test_owner',
+    repo: 'test_repo',
+  });
+
+  const input = 'test_owner/test_repo';
+  const escaped = processor.escapeMarkdown(input);
+
+  assert.ok(escaped.includes('\\_'), 'Should escape underscores');
+  assert.equal(escaped, 'test\\_owner/test\\_repo', 'Should properly escape all underscores');
+});
+
+test('MergeQueueProcessor escapeMarkdown escapes periods', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test.owner',
+    repo: 'test.repo',
+  });
+
+  const input = 'test.owner/test.repo';
+  const escaped = processor.escapeMarkdown(input);
+
+  assert.ok(escaped.includes('\\.'), 'Should escape periods');
+  assert.equal(escaped, 'test\\.owner/test\\.repo', 'Should properly escape all periods');
+});
+
+test('MergeQueueProcessor formatProgressMessage escapes owner/repo with hyphens (Issue #1292)', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+  });
+
+  const message = processor.formatProgressMessage();
+
+  // The message should contain escaped hyphens in owner/repo
+  assert.ok(message.includes('link\\-assistant'), 'Should include escaped owner');
+  assert.ok(message.includes('hive\\-mind'), 'Should include escaped repo');
+  // Should NOT contain unescaped versions outside of code blocks
+  // (We check the raw message, which should have escaped special chars)
+});
+
+test('MergeQueueProcessor formatFinalMessage escapes owner/repo with hyphens (Issue #1292)', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+  });
+
+  const message = processor.formatFinalMessage();
+
+  // The message should contain escaped hyphens in owner/repo
+  assert.ok(message.includes('link\\-assistant'), 'Should include escaped owner');
+  assert.ok(message.includes('hive\\-mind'), 'Should include escaped repo');
+});
+
+test('MergeQueueProcessor formatProgressMessage escapes special chars in owner/repo', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'org.name_test-123',
+    repo: 'repo.name_test-456',
+  });
+
+  const message = processor.formatProgressMessage();
+
+  // Check that all special characters are escaped
+  assert.ok(message.includes('org\\.name\\_test\\-123'), 'Should escape all special chars in owner');
+  assert.ok(message.includes('repo\\.name\\_test\\-456'), 'Should escape all special chars in repo');
 });
 
 // ============================================================================

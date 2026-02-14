@@ -1,0 +1,63 @@
+# Raw Logs from Issue #1292
+
+## Telegram Bot Verbose Logs
+
+```
+[VERBOSE] /merge command received
+[VERBOSE] isForwardedOrReply: Checking message fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE]   message.reply_to_message: {"message_id":32470,"from":{"id":1339837872,"is_bot":false,"first_name":"Konstantin","last_name":"Dyachenko","username":"drakonard","language_code":"en","is_premium":true},"chat":{"id":-1002975819706,"title":"Pull Request from Hive Mind","is_forum":true,"type":"supergroup"},"date":1766849807,"message_thread_id":32470,"forum_topic_created":{"name":"Testing","icon_color":7322096,"icon_custom_emoji_id":"5411138633765757782"},"is_topic_message":true}
+[VERBOSE]   message.reply_to_message?.message_id: 32470
+[VERBOSE] isForwardedOrReply: FALSE - reply is to forum topic creation, not user reply
+[VERBOSE]   Forum topic: {
+  name: 'Testing',
+  icon_color: 7322096,
+  icon_custom_emoji_id: '5411138633765757782'
+}
+[VERBOSE] isForwardedOrReply: FALSE - no forwarding or reply detected
+[VERBOSE] /merge: Processing repository link-assistant/hive-mind
+[VERBOSE] /merge: Repository permissions for link-assistant/hive-mind: {"admin":true,"maintain":true,"pull":true,"push":true,"triage":true}
+[VERBOSE] /merge: Can manage labels: true
+[VERBOSE] /merge: 'ready' label exists in link-assistant/hive-mind
+[VERBOSE] /merge-queue: Initializing merge queue for link-assistant/hive-mind
+[VERBOSE] /merge: 'ready' label exists in link-assistant/hive-mind
+[VERBOSE] /merge: Found 2 open PRs with 'ready' label in link-assistant/hive-mind
+[VERBOSE] /merge: Found 2 open issues with 'ready' label in link-assistant/hive-mind
+[VERBOSE] /merge: Issue #1256 linked to PR #1257
+[VERBOSE] /merge: Issue #1240 linked to PR #1241
+[VERBOSE] /merge: Total unique ready PRs: 2
+[VERBOSE] /merge:   PR #1241: fix: add retry with exponential backoff for bot launch 409 Conflict (linked to issue #1240)
+[VERBOSE] /merge:   PR #1257: Fix missing final solution log after auto-restart (Issue #1256) (linked to issue #1256)
+[VERBOSE] /merge-queue: Initialized with 2 PRs to merge
+[VERBOSE] /merge-queue: Processing PR #1241: fix: add retry with exponential backoff for bot launch 409 Conflict (Issue #1240)
+[VERBOSE] /merge: PR #1241 mergeable: false, state: DIRTY
+[VERBOSE] /merge-queue: Skipped PR #1241: PR has merge conflicts
+[VERBOSE] /merge: Error updating message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+[VERBOSE] /merge-queue: Processing PR #1257: Fix missing final solution log after auto-restart (Issue #1256) (Issue #1256)
+[VERBOSE] /merge: PR #1257 mergeable: false, state: DIRTY
+[VERBOSE] /merge-queue: Skipped PR #1257: PR has merge conflicts
+[VERBOSE] /merge: Error updating message: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+[ERROR] /merge: Error sending final message for link-assistant/hive-mind: 400: Bad Request: can't parse entities: Character '-' is reserved and must be escaped with the preceding '\'
+[VERBOSE] /merge: Merge queue completed for link-assistant/hive-mind
+```
+
+## User-Visible Telegram Message
+
+The message in Telegram got stuck at:
+
+```
+Merge Queue - link-assistant/hive-mind
+
+Found 2 PRs with 'ready' label.
+
+Starting merge process...
+```
+
+The message never updated after that point, and no error was displayed to the user.

@@ -462,15 +462,17 @@ export class MergeQueueProcessor {
       message += `${statusEmoji} ${update.current}\n\n`;
     }
 
-    // Show errors/failures inline so user gets immediate feedback (Issue #1269)
-    const failedItems = update.items.filter(item => item.status === MergeItemStatus.FAILED && item.error);
-    if (failedItems.length > 0) {
-      message += `⚠️ *Errors:*\n`;
-      for (const item of failedItems.slice(0, 3)) {
-        message += `  \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 60))}${item.error.length > 60 ? '...' : ''}\n`;
+    // Show errors/failures/skips inline so user gets immediate feedback (Issue #1269, #1294)
+    // Include both FAILED and SKIPPED items with their reasons
+    const problemItems = update.items.filter(item => (item.status === MergeItemStatus.FAILED || item.status === MergeItemStatus.SKIPPED) && item.error);
+    if (problemItems.length > 0) {
+      message += `⚠️ *Issues:*\n`;
+      for (const item of problemItems.slice(0, 5)) {
+        const statusEmoji = item.status === MergeItemStatus.FAILED ? '❌' : '⏭️';
+        message += `  ${statusEmoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '...' : ''}\n`;
       }
-      if (failedItems.length > 3) {
-        message += `  _...and ${failedItems.length - 3} more errors_\n`;
+      if (problemItems.length > 5) {
+        message += `  _...and ${problemItems.length - 5} more issues_\n`;
       }
       message += '\n';
     }
@@ -538,7 +540,14 @@ export class MergeQueueProcessor {
       message += `*Results:*\n`;
       for (const item of report.items) {
         const issueRef = item.issueNumber ? ` \\(Issue \\#${item.issueNumber}\\)` : '';
-        message += `${item.emoji} \\#${item.prNumber}${issueRef}\n`;
+        // Issue #1294: Show skip/fail reason so users understand what action is required
+        let reasonText = '';
+        if (item.error && (item.status === MergeItemStatus.SKIPPED || item.status === MergeItemStatus.FAILED)) {
+          // Truncate long reasons and escape for MarkdownV2
+          const truncatedReason = item.error.length > 50 ? item.error.substring(0, 47) + '...' : item.error;
+          reasonText = `: ${this.escapeMarkdown(truncatedReason)}`;
+        }
+        message += `${item.emoji} \\#${item.prNumber}${issueRef}${reasonText}\n`;
       }
     }
 

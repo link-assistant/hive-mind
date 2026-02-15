@@ -340,7 +340,7 @@ solve <issue-url> [options]
 | `--auto-attach-solution-summary`                                 |       | boolean | false         | Auto-attach summary only if AI didn't post comments                                                     |
 | `--auto-close-pull-request-on-fail`                              |       | boolean | false         | Close PR on fail                                                                                        |
 | `--auto-continue`                                                |       | boolean | true          | Continue with existing PR                                                                               |
-| `--auto-resume-on-limit-reset`                                   |       | boolean | false         | Auto-resume when limit resets (maintains session context)                                               |
+| `--auto-resume-on-limit-reset`                                   |       | boolean | true          | Auto-resume when limit resets (maintains session context)                                               |
 | `--auto-restart-on-limit-reset`                                  |       | boolean | false         | Auto-restart when limit resets (fresh start without --resume)                                           |
 | `--auto-resume-on-errors`                                        |       | boolean | false         | Auto-resume on network errors                                                                           |
 | `--auto-continue-only-on-new-comments`                           |       | boolean | false         | Fail if no new comments                                                                                 |
@@ -420,7 +420,7 @@ hive <github-url> [options]
 | `--target-branch`                      | `-tb` | string  | (default)     | Target branch for PRs                           |
 | `--log-dir`                            | `-l`  | string  | (cwd)         | Directory for log files                         |
 | `--auto-continue`                      |       | boolean | true          | Pass --auto-continue to solve                   |
-| `--auto-resume-on-limit-reset`         |       | boolean | false         | Auto-resume when limit resets (passed to solve) |
+| `--auto-resume-on-limit-reset`         |       | boolean | true          | Auto-resume when limit resets (passed to solve) |
 | `--think`                              |       | string  |               | Thinking level (low, medium, high, max)         |
 | `--prompt-plan-sub-agent`              |       | boolean | false         | Use Plan sub-agent                              |
 | `--sentry`                             |       | boolean | true          | Enable Sentry (use --no-sentry to disable)      |

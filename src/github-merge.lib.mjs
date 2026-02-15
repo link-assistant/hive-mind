@@ -340,6 +340,22 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       })),
     ];
 
+    // Issue #1304: If no checks exist yet, treat as pending
+    // This handles the race condition where CI hasn't started yet after a commit is pushed.
+    // An empty array would otherwise pass all checks due to JavaScript's vacuous truth
+    // ([].every(fn) returns true for any fn).
+    if (allChecks.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as pending`);
+      }
+      return {
+        status: 'pending',
+        checks: [],
+        allPassed: false,
+        hasPending: true,
+      };
+    }
+
     const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
     const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
     const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');

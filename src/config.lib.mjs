@@ -409,6 +409,7 @@ export const version = {
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
 // See: https://github.com/link-assistant/hive-mind/issues/1269
+// See: https://github.com/link-assistant/hive-mind/issues/1307
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -426,6 +427,18 @@ export const mergeQueue = {
   // Issue #1269: gh pr merge requires explicit method when running non-interactively
   // Default: 'merge' - creates a merge commit
   mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
+  // Issue #1307: Wait for main branch CI to complete before processing merge queue
+  // When enabled, the merge queue will wait for any active CI runs on the target branch
+  // (usually main) to complete before merging the first PR.
+  // Default: true - ensures all post-merge CI workflows complete before next merge
+  waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
+  // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
+  // If active runs don't complete within this time, proceed with merge anyway
+  // Default: 45 minutes (2700000ms)
+  targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
+  // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - more frequent than PR CI polling since we're blocking
+  targetBranchCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_POLL_INTERVAL_MS', 30 * 1000),
 };
 
 // Helper function to validate configuration values

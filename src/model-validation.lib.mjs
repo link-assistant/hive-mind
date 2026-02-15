@@ -15,7 +15,7 @@ import { log } from './lib.mjs';
 export const CLAUDE_MODELS = {
   // Short aliases (single word)
   sonnet: 'claude-sonnet-4-5-20250929',
-  opus: 'claude-opus-4-6', // Updated to Opus 4.6 (Issue #1221)
+  opus: 'claude-opus-4-5-20251101', // Changed to Opus 4.5 (Issue #1238)
   haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
   'haiku-3': 'claude-3-haiku-20240307',
@@ -25,8 +25,8 @@ export const CLAUDE_MODELS = {
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
   // Opus version aliases (Issue #1221)
-  'claude-opus-4-6': 'claude-opus-4-6', // Latest Opus
-  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Backward compatibility alias
+  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
+  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
   // Sonnet version aliases
   'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
   // Haiku version aliases
@@ -39,15 +39,17 @@ export const CLAUDE_MODELS = {
   'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
 
-// Models that support 1M token context window via [1m] suffix (Issue #1221)
+// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-6',
+  'claude-opus-4-5-20251101',
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
   'sonnet',
   'opus',
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
+  'opus-4-5', // Short alias (Issue #1238)
   'sonnet-4-5', // Short alias (Issue #1221 - PR comment feedback)
 ];
 
@@ -97,15 +99,31 @@ export const AGENT_MODELS = {
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
+  'glm-4.7-free': 'opencode/glm-4.7-free',
+  'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
+  'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Free models (via Kilo Gateway)
+  // Issue #1282: Kilo provider adds access to 500+ models including free tier
+  // See: https://kilo.ai/docs/advanced-usage/free-and-budget-models
+  'kilo/glm-5-free': 'kilo/glm-5-free', // Z.AI flagship model (free limited time)
+  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Z.AI agent-centric model
+  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // MoonshotAI agentic model
+  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // MiniMax general-purpose
+  'kilo/giga-potato-free': 'kilo/giga-potato-free', // Evaluation model
+  'kilo/trinity-large-preview': 'kilo/trinity-large-preview', // Arcee AI preview
   // Premium models (requires OpenCode Zen subscription)
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',
   'gemini-3-pro': 'google/gemini-3-pro',
-  // Full model IDs with provider prefix
+  // Full model IDs with provider prefix (OpenCode Zen)
   'opencode/grok-code': 'opencode/grok-code',
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
+  'opencode/glm-4.7-free': 'opencode/glm-4.7-free',
+  'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free',
+  'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Premium models with provider prefix
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
   'anthropic/claude-3-opus': 'anthropic/claude-3-opus',

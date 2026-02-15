@@ -49,6 +49,9 @@ export const timeouts = {
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
   retryBackoffDelay: parseIntWithDefault('HIVE_MIND_RETRY_BACKOFF_DELAY_MS', 1000),
+  // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
+  // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
+  resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
 };
 
 // Auto-continue configurations
@@ -119,21 +122,24 @@ export const claudeCode = {
 // Can be overridden via --max-thinking-budget option
 export const DEFAULT_MAX_THINKING_BUDGET = 31999;
 
-// Default max thinking budget for Opus 4.6 (Issue #1221)
-// Opus 4.6 supports higher thinking budgets due to 128K max output tokens
+// Default max thinking budget for Opus 4.6 (Issue #1221, updated in Issue #1238)
+// Aligned with standard models (31999) for consistency.
+// Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth instead of MAX_THINKING_TOKENS
+// (MAX_THINKING_TOKENS is ignored for Opus 4.6 unless set to 0 to disable thinking).
 // Can be overridden via --max-thinking-budget option or HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46
-export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 64000);
+export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 
 /**
- * Check if a model is Opus 4.6 or later (Issue #1221)
+ * Check if a model is Opus 4.6 or later (Issue #1221, updated in Issue #1238)
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Opus 4.6 or later
  */
 export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // Check for opus alias (which maps to 4.6) or explicit opus-4-6
-  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // Check for explicit opus-4-6 or later versions
+  // Note: The 'opus' alias now maps to Opus 4.5 (Issue #1238), so we only check explicit version identifiers
+  return normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**
@@ -202,6 +208,59 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 // Default tokens to thinking level function (using default max budget)
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
+/**
+ * Valid effort levels for Opus 4.6 (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
+ * @type {string[]}
+ */
+export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high'];
+
+/**
+ * Convert thinking level to Opus 4.6 effort level (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL (low/medium/high) instead of MAX_THINKING_TOKENS
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkLevelToEffortLevel = thinkLevel => {
+  if (!thinkLevel || thinkLevel === 'off') {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Map hive-mind thinking levels to Opus 4.6 effort levels
+  // Note: Opus 4.6 only supports low/medium/high, not 'max'
+  // We map 'max' to 'high' as it's the highest available level
+  switch (thinkLevel) {
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'high':
+    case 'max':
+      return 'high';
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Convert thinking budget (tokens) to Opus 4.6 effort level (Issue #1238)
+ * Uses token thresholds to determine the appropriate effort level
+ * @param {number|undefined} thinkingBudget - The thinking budget in tokens
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  if (thinkingBudget === undefined || thinkingBudget === 0) {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Convert tokens to thinking level, then to effort level
+  const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
+  return thinkLevelToEffortLevel(thinkLevel);
+};
+
 // Check if a version supports thinking budget (>= minimum version)
 // Uses semver npm package for reliable version comparison (see issue #1146)
 export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
@@ -221,6 +280,7 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
+// Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -235,12 +295,29 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
-  // Set MAX_THINKING_TOKENS if thinkingBudget is provided
-  // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 31999 (or 64000 for Opus 4.6), set to 0 to disable thinking
-  if (options.thinkingBudget !== undefined) {
-    env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
+
+  // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
+  // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
+  // Users can explicitly enable thinking via --think or --thinking-budget options.
+  env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+
+  // For Opus 4.6+, also set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238)
+  // Opus 4.6 uses effort level (low/medium/high) instead of MAX_THINKING_TOKENS for thinking depth.
+  // MAX_THINKING_TOKENS is only used to disable thinking (when set to 0).
+  if (options.model && isOpus46OrLater(options.model)) {
+    // Convert thinkLevel or thinkingBudget to effort level
+    let effortLevel;
+    if (options.thinkLevel) {
+      effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+    } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
+      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget);
+    }
+
+    if (effortLevel) {
+      env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
+    }
   }
+
   return env;
 };
 
@@ -322,6 +399,7 @@ export const version = {
 
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
+// See: https://github.com/link-assistant/hive-mind/issues/1269
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -335,6 +413,10 @@ export const mergeQueue = {
   // Wait time after merge before processing next PR
   // Default: 1 minute (60000ms) - allows CI to stabilize
   postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+  // Default merge method: 'merge', 'squash', or 'rebase'
+  // Issue #1269: gh pr merge requires explicit method when running non-interactively
+  // Default: 'merge' - creates a merge commit
+  mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
 };
 
 // Helper function to validate configuration values

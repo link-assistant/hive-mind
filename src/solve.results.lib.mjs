@@ -876,3 +876,133 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
 
   await safeExit(1, 'Execution error');
 };
+
+/**
+ * Check if new comments were created by the AI during the session.
+ * This is used by --auto-attach-solution-summary to determine if the AI
+ * already provided feedback.
+ *
+ * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ *
+ * @param {Date} referenceTime - The timestamp before tool execution
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number (null if working on issue only)
+ * @param {number} issueNumber - Issue number
+ * @returns {Promise<boolean>} - True if AI created comments during the session
+ */
+export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNumber, issueNumber) => {
+  try {
+    // Get the current user's GitHub username
+    const userResult = await $`gh api user --jq .login`;
+    if (userResult.code !== 0) {
+      return false; // Cannot determine, default to not attaching
+    }
+    const currentUser = userResult.stdout.toString().trim();
+    if (!currentUser) {
+      return false;
+    }
+
+    // Check comments on the PR first (if we have a PR)
+    if (prNumber) {
+      // Check PR conversation comments
+      const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+      if (prCommentsResult.code === 0) {
+        const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
+        const newPrComments = prComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newPrComments.length > 0) {
+          return true;
+        }
+      }
+
+      // Check PR review comments (inline code comments)
+      const reviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+      if (reviewCommentsResult.code === 0) {
+        const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
+        const newReviewComments = reviewComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newReviewComments.length > 0) {
+          return true;
+        }
+      }
+    }
+
+    // Check issue comments (if different from PR number or no PR)
+    if (issueNumber && issueNumber !== prNumber) {
+      const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+      if (issueCommentsResult.code === 0) {
+        const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
+        const newIssueComments = issueComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newIssueComments.length > 0) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    // On error, default to not attaching (safer choice)
+    await log(`⚠️  Could not check for AI comments: ${error.message}`, { verbose: true });
+    return false;
+  }
+};
+
+/**
+ * Attach the AI's solution summary as a comment to the PR or issue.
+ * The summary is extracted from the tool's result field and posted
+ * with a "Solution summary" header.
+ *
+ * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ *
+ * @param {Object} options - Options object
+ * @param {string} options.resultSummary - The AI's result summary text
+ * @param {number} options.prNumber - Pull request number (null if posting to issue)
+ * @param {number} options.issueNumber - Issue number
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @returns {Promise<boolean>} - True if comment was posted successfully
+ */
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo }) => {
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('⚠️  No solution summary available to attach', { verbose: true });
+    return false;
+  }
+
+  const targetNumber = prNumber || issueNumber;
+  const targetType = prNumber ? 'pr' : 'issue';
+  const ghCommand = prNumber ? 'pr' : 'issue';
+
+  if (!targetNumber) {
+    await log('⚠️  No PR or issue number to attach solution summary to', { verbose: true });
+    return false;
+  }
+
+  try {
+    const comment = `## Solution summary
+
+${resultSummary}
+
+---
+*This summary was automatically extracted from the AI working session output.*`;
+
+    const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body ${comment}`;
+
+    if (result.code === 0) {
+      await log(`✅ Solution summary attached to ${targetType} #${targetNumber}`);
+      return true;
+    } else {
+      await log(`⚠️  Failed to attach solution summary: ${result.stderr?.toString() || 'Unknown error'}`, {
+        level: 'warning',
+      });
+      return false;
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'attach_solution_summary',
+      targetType,
+      targetNumber,
+      operation: 'post_solution_summary_comment',
+    });
+    await log(`⚠️  Error attaching solution summary: ${error.message}`, { level: 'warning' });
+    return false;
+  }
+};

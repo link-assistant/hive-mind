@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -910,6 +910,7 @@ try {
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
+  let resultSummary = toolResult.resultSummary || null; // Issue #1263: Capture result summary for --attach-solution-summary
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1111,7 +1112,9 @@ try {
     }
 
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
-    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+    // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
+    // This aligns with the pattern in handleFailure() in solve.error-handlers.lib.mjs
+    if (shouldAttachLogs && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
         // Build Claude CLI resume command
@@ -1182,6 +1185,41 @@ try {
 
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+
+  // Issue #1263: Handle solution summary attachment
+  // --attach-solution-summary: Always attach if result summary is available
+  // --auto-attach-solution-summary: Only attach if AI didn't create any comments during session
+  if (success && resultSummary && (argv.attachSolutionSummary || argv.autoAttachSolutionSummary)) {
+    let shouldAttachSummary = false;
+
+    if (argv.attachSolutionSummary) {
+      // Explicit flag - always attach
+      shouldAttachSummary = true;
+      await log('📝 --attach-solution-summary enabled, attaching result summary...');
+    } else if (argv.autoAttachSolutionSummary) {
+      // Auto mode - only attach if AI didn't create comments
+      await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+      const aiCreatedComments = await checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber);
+      if (aiCreatedComments) {
+        await log('ℹ️  AI created comments during session, skipping solution summary attachment');
+      } else {
+        shouldAttachSummary = true;
+        await log('📝 No AI comments detected, attaching solution summary...');
+      }
+    }
+
+    if (shouldAttachSummary) {
+      await attachSolutionSummary({
+        resultSummary,
+        prNumber,
+        issueNumber,
+        owner,
+        repo,
+      });
+    }
+  } else if ((argv.attachSolutionSummary || argv.autoAttachSolutionSummary) && !resultSummary) {
+    await log('ℹ️  No solution summary available from AI tool output', { verbose: true });
+  }
 
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
@@ -1329,7 +1367,10 @@ try {
 
     // Attach updated logs to PR after auto-restart completes
     // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
-    if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
+    // Issue #1290: Always upload if auto-restart ran but last iteration's logs weren't uploaded
+    //   This ensures final logs are uploaded even when the last iteration failed
+    const autoRestartRanButNotUploaded = watchResult?.autoRestartIterationsRan && !watchResult?.lastIterationLogUploaded;
+    if (shouldAttachLogs && prNumber && (!logsAlreadyUploaded || autoRestartRanButNotUploaded)) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1356,8 +1397,8 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
-    } else if (logsAlreadyUploaded) {
-      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+    } else if (logsAlreadyUploaded && !autoRestartRanButNotUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload');
       logsAttached = true;
     }
   }

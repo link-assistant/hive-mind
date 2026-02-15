@@ -55,6 +55,7 @@ export const MergeItemStatus = {
  * - HIVE_MIND_MERGE_QUEUE_CI_POLL_INTERVAL_MS: CI polling interval (default: 300000 = 5 minutes)
  * - HIVE_MIND_MERGE_QUEUE_CI_TIMEOUT_MS: CI timeout (default: 1800000 = 30 minutes)
  * - HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS: Post-merge wait (default: 10000 = 10 seconds)
+ * - HIVE_MIND_MERGE_QUEUE_MERGE_METHOD: Merge method (default: 'merge', options: 'merge', 'squash', 'rebase')
  */
 export const MERGE_QUEUE_CONFIG = {
   // CI/CD wait settings - check every 5 minutes per issue #1143 feedback
@@ -69,6 +70,10 @@ export const MERGE_QUEUE_CONFIG = {
 
   // Maximum PRs to process in one session (configurable, default 10)
   MAX_PRS_PER_SESSION: mergeQueueConfig.maxPrsPerSession,
+
+  // Merge method: 'merge', 'squash', or 'rebase' (Issue #1269)
+  // gh pr merge requires explicit method when running non-interactively
+  MERGE_METHOD: mergeQueueConfig.mergeMethod,
 };
 
 /**
@@ -339,8 +344,9 @@ export class MergeQueueProcessor {
       }
 
       // Step 4: Merge the PR
+      // Issue #1269: Pass the configured merge method to prevent "not running interactively" error
       item.status = MergeItemStatus.MERGING;
-      const mergeResult = await mergePullRequest(this.owner, this.repo, item.pr.number, {}, this.verbose);
+      const mergeResult = await mergePullRequest(this.owner, this.repo, item.pr.number, { mergeMethod: MERGE_QUEUE_CONFIG.MERGE_METHOD }, this.verbose);
 
       if (!mergeResult.success) {
         item.status = MergeItemStatus.FAILED;
@@ -360,6 +366,11 @@ export class MergeQueueProcessor {
       item.error = error.message;
       item.completedAt = new Date();
       this.stats.failed++;
+      // Issue #1269: Always log errors (not just in verbose mode) for debugging
+      console.error(`[ERROR] /merge-queue: Error processing PR #${item.pr.number}: ${error.message}`);
+      if (error.stack) {
+        console.error(`[ERROR] /merge-queue: Stack trace: ${error.stack.split('\n').slice(0, 5).join('\n')}`);
+      }
       this.log(`Error processing PR #${item.pr.number}: ${error.message}`);
     }
   }
@@ -429,7 +440,8 @@ export class MergeQueueProcessor {
     const update = this.getProgressUpdate();
 
     let message = `*Merge Queue*\n`;
-    message += `${this.owner}/${this.repo}\n\n`;
+    // Issue #1292: Escape owner/repo for MarkdownV2 (may contain hyphens, underscores, etc.)
+    message += `${this.escapeMarkdown(this.owner)}/${this.escapeMarkdown(this.repo)}\n\n`;
 
     // Progress bar in code block for better style
     const progressBar = getProgressBar(update.progress.percentage);
@@ -448,6 +460,21 @@ export class MergeQueueProcessor {
     if (update.current) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
       message += `${statusEmoji} ${update.current}\n\n`;
+    }
+
+    // Show errors/failures/skips inline so user gets immediate feedback (Issue #1269, #1294)
+    // Include both FAILED and SKIPPED items with their reasons
+    const problemItems = update.items.filter(item => (item.status === MergeItemStatus.FAILED || item.status === MergeItemStatus.SKIPPED) && item.error);
+    if (problemItems.length > 0) {
+      message += `⚠️ *Issues:*\n`;
+      for (const item of problemItems.slice(0, 5)) {
+        const statusEmoji = item.status === MergeItemStatus.FAILED ? '❌' : '⏭️';
+        message += `  ${statusEmoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '...' : ''}\n`;
+      }
+      if (problemItems.length > 5) {
+        message += `  _...and ${problemItems.length - 5} more issues_\n`;
+      }
+      message += '\n';
     }
 
     // PRs list with emojis
@@ -491,7 +518,8 @@ export class MergeQueueProcessor {
     }
 
     let message = `${statusEmoji} *Merge Queue ${statusText}*\n`;
-    message += `${this.owner}/${this.repo}\n\n`;
+    // Issue #1292: Escape owner/repo for MarkdownV2 (may contain hyphens, underscores, etc.)
+    message += `${this.escapeMarkdown(this.owner)}/${this.escapeMarkdown(this.repo)}\n\n`;
 
     // Final progress bar in code block
     const percentage = report.stats.total > 0 ? Math.round((report.stats.merged / report.stats.total) * 100) : 0;
@@ -512,7 +540,14 @@ export class MergeQueueProcessor {
       message += `*Results:*\n`;
       for (const item of report.items) {
         const issueRef = item.issueNumber ? ` \\(Issue \\#${item.issueNumber}\\)` : '';
-        message += `${item.emoji} \\#${item.prNumber}${issueRef}\n`;
+        // Issue #1294: Show skip/fail reason so users understand what action is required
+        let reasonText = '';
+        if (item.error && (item.status === MergeItemStatus.SKIPPED || item.status === MergeItemStatus.FAILED)) {
+          // Truncate long reasons and escape for MarkdownV2
+          const truncatedReason = item.error.length > 50 ? item.error.substring(0, 47) + '...' : item.error;
+          reasonText = `: ${this.escapeMarkdown(truncatedReason)}`;
+        }
+        message += `${item.emoji} \\#${item.prNumber}${issueRef}${reasonText}\n`;
       }
     }
 

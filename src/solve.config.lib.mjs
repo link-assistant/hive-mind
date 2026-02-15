@@ -220,7 +220,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget for Claude Code (0-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking. For older Claude Code versions, translated back to --think level.',
+    description: 'Thinking token budget for Claude Code (0-31999). Controls MAX_THINKING_TOKENS. Default: 0 (thinking disabled). For older Claude Code versions, translated back to --think level.',
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {
@@ -359,6 +359,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
     default: false,
   },
+  'attach-solution-summary': {
+    type: 'boolean',
+    description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
+    default: false,
+  },
+  'auto-attach-solution-summary': {
+    type: 'boolean',
+    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication
@@ -390,7 +400,7 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle, gpt-5-nano, glm-4.7-free, minimax-m2.1-free, kimi-k2.5-free)',
       alias: 'm',
       default: currentParsedArgs => {
         // Dynamic default based on tool selection
@@ -399,7 +409,7 @@ export const createYargsConfig = yargsInstance => {
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
-          return 'grok-code';
+          return 'kimi-k2.5-free';
         }
         return 'sonnet';
       },
@@ -528,7 +538,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'gpt-5';
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'grok-code';
+    argv.model = 'kimi-k2.5-free';
   }
 
   // Tool-specific defaults for --claude-file and --gitkeep-file

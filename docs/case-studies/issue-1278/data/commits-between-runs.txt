@@ -1,0 +1,6 @@
+efc7b75c 2026-02-13T13:36:59Z Initial commit with task details
+34a69376 2026-02-13T13:43:08Z fix: prevent false positive error detection when agent recovers (Issue #1276)
+9c62c6b2 2026-02-13T13:45:23Z style: fix formatting with Prettier
+8ba34cf5 2026-02-13T13:52:14Z Revert "Initial commit with task details"
+4eff52f6 2026-02-13T13:53:21Z 1.22.2
+c69e9d73 2026-02-13T14:02:47Z Merge pull request #1277 from link-assistant/issue-1276-5a77dfe40bcd

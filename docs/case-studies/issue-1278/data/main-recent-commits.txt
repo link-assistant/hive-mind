@@ -1,0 +1,390 @@
+c69e9d73 2026-02-13T14:02:47Z Merge pull request #1277 from link-assistant/issue-1276-5a77dfe40bcd
+4eff52f6 2026-02-13T13:53:21Z 1.22.2
+8ba34cf5 2026-02-13T13:52:14Z Revert "Initial commit with task details"
+9c62c6b2 2026-02-13T13:45:23Z style: fix formatting with Prettier
+34a69376 2026-02-13T13:43:08Z fix: prevent false positive error detection when agent recovers (Issue #1276)
+efc7b75c 2026-02-13T13:36:59Z Initial commit with task details
+a3ff24ba 2026-02-13T13:25:07Z Merge pull request #1275 from link-assistant/issue-1274-84f731e9fa50
+f8902824 2026-02-13T13:08:08Z 1.22.1
+db165627 2026-02-13T12:57:50Z chore: remove CLAUDE.md task file
+5f517f0c 2026-02-13T12:56:28Z style: fix formatting with Prettier
+abd7e793 2026-02-09T21:55:09Z Initial commit with task details
+b5481288 2026-02-09T13:22:23Z 1.19.0
+69641a7b 2026-02-09T13:16:54Z Merge pull request #1245 from link-assistant/issue-1244-fdc9c1b8aedd
+64687ce6 2026-02-09T12:52:40Z Add changeset for free models support
+571a3efc 2026-02-09T08:41:42Z Revert "Initial commit with task details"
+a818ddca 2026-02-09T08:39:55Z Ensure free models are supported and documented
+4cf9f0cc 2026-02-09T07:32:52Z Initial commit with task details
+47df635d 2026-02-09T06:43:07Z 1.18.0
+643e0b46 2026-02-09T06:37:21Z Merge pull request #1243 from link-assistant/issue-1242-520c01cff0c5
+6ef4ccb6 2026-02-09T06:15:22Z refactor: centralize queue thresholds in queue-config.lib.mjs (#1242)
+ece287f0 2026-01-30T11:24:02Z Merge pull request #1196 from link-assistant/issue-1195-cfef78aa8f39
+967c878e 2026-01-30T10:20:03Z Revert "Initial commit with task details"
+9ded9856 2026-01-30T10:17:51Z docs: Add Docker installation instructions to README.md
+2ddbcb80 2026-01-30T10:15:47Z Initial commit with task details
+6360ef17 2026-01-29T18:34:27Z 1.13.0
+fa1b3649 2026-01-29T18:28:38Z Merge pull request #1191 from link-assistant/issue-1190-9619114cb8cb
+0acc307c 2026-01-29T14:45:30Z 1.12.0
+ff4aa4fc 2026-01-29T14:39:43Z Merge pull request #1153 from link-assistant/issue-1152-cde5d2920281
+bf17ab82 2026-01-29T10:16:01Z Merge main branch to resolve conflicts
+3944fbc4 2026-01-29T01:11:47Z 1.11.6
+7d3387c4 2026-01-22T01:01:52Z Add changeset for duplicate log fix
+21c59a71 2026-01-22T01:00:18Z Fix duplicate Solution Draft Log comments (#1154)
+d39bf3ef 2026-01-22T00:57:40Z fix: implement one-at-a-time mode for disk threshold (issue #1155)
+96870279 2026-01-22T00:54:30Z Initial commit with task details
+d846fc46 2026-01-22T00:51:09Z Initial commit with task details
+9b56b260 2026-01-22T00:50:35Z chore: add changeset for MCP timeout configuration
+b04d49b5 2026-01-22T00:47:09Z feat(solve): configure MCP_TIMEOUT and MCP_TOOL_TIMEOUT for claude tool calls
+c5060285 2026-01-21T19:57:23Z docs: update case study with MCP_TOOL_TIMEOUT discovery
+f7488653 2026-01-21T19:55:48Z Merge remote-tracking branch 'origin/main' into issue-1066-c0d47b104166
+196dfdee 2026-01-21T18:56:52Z Fine tune QUEUE_CONFIG
+e3074bf9 2026-01-16T11:41:35Z fix: Remove unused variables in repairGitIdentity
+ebe14962 2026-01-16T11:39:48Z Add --auto-gh-configuration-repair option for automatic git identity repair
+4f859bf5 2026-01-16T11:31:15Z 1.3.0
+13a16494 2026-01-16T11:25:40Z Merge pull request #1117 from link-assistant/issue-1116-248b2438b673
+0241d887 2026-01-16T11:07:03Z docs: Update case study with root cause analysis
+6a0375cd 2026-01-15T15:06:10Z Include package-lock.json with gh-setup-git-identity bin entry
+65891b18 2026-01-15T15:05:13Z Revert "Initial commit with task details"
+0b6f4c6c 2026-01-15T14:44:52Z Fix line count in claude.lib.mjs to stay under 1500 limit
+3239fa1f 2026-01-15T14:44:27Z Add changeset for git identity validation
+cf6a9998 2026-01-15T14:31:57Z Merge main and improve --prompt-subagents-via-agent-commander option
+1f5d101b 2026-01-10T21:29:40Z Revert "Initial commit with task details"
+94dfb134 2026-01-10T21:23:44Z Add changeset for log upload argument parsing fix
+9a0c628b 2026-01-10T21:21:23Z Fix log upload argument parsing bug (#1096)
+1e4b21f6 2026-01-10T21:12:48Z Initial commit with task details
+236a0359 2026-01-10T17:12:59Z Remove CLAUDE.md task file (not needed in repo)
+af950c80 2026-01-10T17:06:35Z Add changeset for PR detection fix
+108ba384 2026-01-10T17:04:44Z Fix PR detection to require closing keywords (fixes, closes, resolves)
+56621b3d 2026-01-10T16:58:03Z Initial commit with task details
+7d6532d4 2026-01-10T15:06:06Z Revert "Initial commit with task details"
+aa60f45d 2026-01-10T14:54:20Z fix: Reduce telegram-bot.mjs to under 1500 lines limit
+014b2b84 2026-01-06T16:09:37Z Merge pull request #1071 from link-assistant/issue-1070-9d7254d6f821
+137caf14 2026-01-06T13:37:16Z test: add CI-executed unit tests for special character handling (issue #1070)
+dec71ace 2026-01-05T14:52:21Z docs: update case study with verified findings and refuted solutions
+bacd2d0c 2026-01-05T14:47:10Z fix: Merge help message lines to meet 1500 line limit
+25937e60 2026-01-05T14:40:44Z fix: add eslint-disable for control regex in cleanNonPrintableChars
+f734d5df 2026-01-05T14:39:23Z chore: Fix Prettier formatting and add --base-branch to README.md
+d2f56f07 2026-01-05T14:38:19Z chore: update changeset with special character handling features
+c87c3cc4 2026-01-05T14:37:26Z feat: enhance special character handling and fix file line limit
+5c446c53 2026-01-05T13:27:42Z Revert "Initial commit with task details"
+c8a5ccdd 2026-01-05T13:26:25Z feat: Add --base-branch to /help and implement option typo suggestions
+90ea7ae7 2025-12-31T12:11:54Z Revert "Initial commit with task details"
+d5b58e38 2025-12-31T12:05:34Z fix: ESLint unused variable and reduce file line count to 1500
+5030328c 2025-12-31T11:57:58Z fix: address ESLint unused variable warnings
+a7f29182 2025-12-31T11:55:56Z style: fix Prettier formatting in changeset
+4af584ca 2025-12-31T11:53:43Z chore: add changeset and fix Prettier formatting
+dd1e8029 2025-12-31T11:51:09Z feat(telegram-bot): implement producer/consumer queue for /solve command
+b52f9c79 2025-12-31T11:39:46Z Initial commit with task details
+e1349a76 2025-12-31T11:03:10Z 0.52.1
+a4eb3095 2025-12-31T10:58:08Z Merge pull request #819 from link-assistant/issue-818-1499ba5a2631
+1a4f1a25 2025-12-31T10:44:54Z chore: Add changeset for telegram message reduction feature
+6800ad9b 2025-12-27T22:49:40Z 0.51.13
+fc8fd896 2025-12-27T22:16:24Z Merge pull request #992 from link-assistant/issue-991-66e00c6b7975
+7452321c 2025-12-27T22:12:16Z 0.51.12
+becf19f5 2025-12-27T21:57:09Z Merge pull request #974 from link-assistant/issue-971-fcdfce67feb3
+2b6d3a21 2025-12-27T21:44:41Z fix: apply Prettier formatting to case study files and changeset
+c5bcaf47 2025-12-27T21:42:06Z chore: add changeset for CLAUDE.md trailing newlines fix
+ce51f59c 2025-12-27T21:36:42Z refactor: use Node.js URL API in parseUrlComponents
+e5096384 2025-12-27T21:32:40Z 0.51.11
+613d294f 2025-12-27T21:27:51Z Merge pull request #1006 from link-assistant/issue-1003-ab33e35c1a0e
+00ddffe0 2025-12-27T20:49:44Z feat: add ESLint rule to enforce --paginate on gh API calls
+6e4b8a12 2025-12-24T18:31:25Z Merge pull request #983 from link-assistant/issue-982-7d4349fab9f1
+b43cb182 2025-12-24T18:21:08Z Merge pull request #985 from link-assistant/issue-984-e3bace77ee4f
+aee92f57 2025-12-24T18:07:25Z Revert "Initial commit with task details"
+cd290368 2025-12-24T18:02:14Z chore: add changeset for harmful prompts case study
+4dc4347d 2025-12-24T18:01:12Z docs: add case study for harmful prompts analysis (issue #984)
+d97a1b3c 2025-12-24T17:53:41Z Initial commit with task details
+de488914 2025-12-24T16:30:17Z Revert "Initial commit with task details"
+868eae92 2025-12-24T16:23:49Z fix(ci): use native ARM64 runners for Docker multi-platform builds
+a14561cd 2025-12-24T16:13:51Z Initial commit with task details
+ce800a94 2025-12-24T16:04:10Z Merge pull request #980 from link-assistant/issue-975-96631a1520cb
+250aedf4 2025-12-21T20:52:02Z 0.48.1
+3516c1fe 2025-12-21T20:47:17Z Merge pull request #959 from link-assistant/issue-958-ddb721a452ed
+279642e9 2025-12-21T20:31:37Z Combine all changesets into single comprehensive changeset
+cbc94dcd 2025-12-21T19:42:39Z Update case study with implemented solution and best practices
+eafeba1d 2025-12-21T19:41:46Z Revert validate-changeset.mjs changes - maintain strict single changeset rule
+460a1b04 2025-12-21T19:03:27Z Fix changeset validation to work in GitHub Actions PR context
+8d121198 2025-12-21T19:01:23Z Fix changeset validation to only check new changesets in PRs
+723e50e3 2025-12-21T18:49:16Z Fix workflow lint conditions for consistent validation
+a99db9de 2025-12-21T18:48:38Z Remove CLAUDE.md task file
+68bde08e 2025-12-21T18:40:55Z Add changeset for branch protection fix
+e556b11e 2025-12-20T23:32:07Z Revert "Initial commit with task details"
+2e223319 2025-12-20T23:17:16Z Remove old changeset from previous PR
+445091bb 2025-12-20T23:15:24Z Fix Perl version detection in ubuntu-24-server-install.sh
+46b98d8f 2025-12-20T23:05:35Z Initial commit with task details
+48a12770 2025-12-20T23:03:35Z Merge pull request #947 from link-assistant/issue-946-f7f9cfa5ec52
+a86b29c8 2025-12-20T23:02:43Z Remove task instruction file CLAUDE.md
+0a5495fa 2025-12-20T22:50:48Z Add changeset for TTY error fix
+b69003ae 2025-12-20T22:49:12Z Fix TTY error in ubuntu-24-server-install.sh for non-interactive contexts
+a9ec0cbe 2025-12-20T22:43:50Z Initial commit with task details
+e34a51ca 2025-12-20T21:57:51Z 0.43.0
+03ec98a9 2025-12-17T18:02:31Z 0.41.7
+54f2362b 2025-12-17T17:57:47Z Merge pull request #908 from link-assistant/issue-899-bb145728c4aa
+781a8e42 2025-12-17T16:17:22Z Add changeset for log upload fix
+328c620c 2025-12-17T16:14:14Z Merge main branch and bump version to 0.41.6
+6c4d74a9 2025-12-17T16:13:19Z 0.41.5
+c3984b3a 2025-12-17T16:08:16Z Merge pull request #924 from link-assistant/issue-923-83a4e1874c65
+53cd4947 2025-12-17T16:00:51Z Sync package-lock.json with version 0.41.4
+27bbc448 2025-12-17T15:52:26Z Add changeset for backslash URL validation feature
+a9f69413 2025-12-17T15:50:41Z Fix lint errors: replace template literal backticks with single quotes
+4bb96094 2025-12-17T15:49:27Z Merge main branch and bump version to 0.41.4
+34b944b1 2025-12-11T13:46:53Z Merge main into issue-909-1e70944b54db
+fe9f8798 2025-12-11T13:42:14Z Merge pull request #915 from link-assistant/issue-914-9d7b25c838e4
+99818892 2025-12-11T13:09:41Z fix: Change preserveCodeBlocks default to false for safer escaping
+5ef7f0b5 2025-12-11T13:04:47Z Merge pull request #907 from link-assistant/issue-906-ab88bc365039
+d7ad54a4 2025-12-11T12:56:25Z feat: Add preserveCodeBlocks option to escapeMarkdownV2
+4db5eca7 2025-12-11T11:59:32Z refactor: Extract markdown escaping to separate library
+2799090a 2025-12-11T08:34:54Z fix: Preserve inline code formatting in MarkdownV2 error messages
+b7d09d19 2025-12-11T08:19:10Z Revert "Initial commit with task details"
+c5359449 2025-12-11T08:13:51Z Fix eslint quote style error
+b416ffe0 2025-12-11T08:12:44Z refactor: Compact escapeMarkdownV2 function to reduce file size
+f0cf1193 2025-12-09T05:47:26Z Merge pull request #874 from link-assistant/issue-873-5ebb183156e4
+7123b498 2025-12-09T05:36:41Z Merge main branch and bump version to 0.37.27
+d0df396e 2025-12-09T05:31:30Z Merge pull request #875 from link-assistant/issue-863-944bec85f33a
+33191d7b 2025-12-09T05:04:28Z Revert "Initial commit with task details for issue #863"
+ec110832 2025-12-09T04:53:51Z Fix YAML syntax error in release notes
+c9db0759 2025-12-09T04:52:00Z Bump version to 0.37.26
+342457b3 2025-12-09T04:50:48Z Merge releases into one
+744b731e 2025-12-09T04:47:47Z Initial commit with task details for issue #863
+3ac28d87 2025-12-09T04:47:43Z Merge main into issue-750-f8ad31ed4489
+236c80af 2025-12-09T04:35:13Z Merge pull request #711 from link-assistant/issue-692-c74f2a6a8733
+edd45710 2025-12-05T23:31:23Z Add PHP paths to Dockerfile ENV PATH
+837b4427 2025-12-05T23:06:30Z Ensure PHP is immediately available in PATH after installation
+b3097b51 2025-12-05T22:30:13Z Revert "Initial commit with task details for issue #826"
+d2305322 2025-12-05T22:01:34Z Fix Homebrew and PHP installation on Ubuntu 24.04 (#826)
+bf1899a4 2025-12-05T22:00:05Z Add git setup step in installation guide
+a3d780d0 2025-12-05T21:58:11Z Initial commit with task details for issue #826
+62b7c881 2025-12-05T21:43:05Z Merge pull request #846 from link-assistant/issue-844-8eda6c8388e2
+b003b104 2025-12-05T21:31:59Z Merge pull request #827 from link-assistant/issue-826-31047ed58a7d
+7a4ef271 2025-12-05T21:03:40Z Add tests and update case study for tool call/result merge fix
+fe712565 2025-12-05T20:52:56Z Revert "Initial commit with task details for issue #844"
+86b6035c 2025-12-04T21:37:00Z Bump version to 0.36.12
+4271cd34 2025-12-04T21:32:35Z Update help text for task.mjs and review.mjs to include --execute-tool-with-bun option
+ceb16402 2025-12-04T21:30:46Z Add experimental --execute-tool-with-bun option
+d055efc0 2025-12-04T21:25:21Z Initial commit with task details for issue #812
+ef40cf8e 2025-12-04T21:20:47Z Add Helm chart support with Kubernetes deployment
+036bbc03 2025-12-04T21:17:20Z Fix Docker build: use rm -f for idempotent cleanup
+f41ca084 2025-12-04T14:39:27Z Move GitHub CLI installation to root level before user switch
+7360ce6e 2025-12-04T14:36:03Z Fix heredoc user switching for Docker compatibility
+ebc4ff52 2025-12-04T14:32:24Z Fix sudo invocation when running as root in Docker
+fd1b4e42 2025-12-04T14:29:41Z Update Docker Hub configuration to konard/hive-mind
+52827f03 2025-12-02T05:43:19Z Add --prefix-fork-name-with-owner-name option to hive and telegram-bot commands
+71ec5769 2025-12-02T05:39:09Z Initial commit with task details for issue #783
+f40e1dd5 2025-11-30T21:48:35Z Sync package-lock.json version to 0.36.3
+0a7616db 2025-11-30T21:46:56Z Revert "Initial commit with task details for issue #755"
+3a745728 2025-11-30T21:42:54Z Update package-lock.json to version 0.36.3
+f7895668 2025-11-30T21:41:40Z Bump version to 0.36.3 for release
+de0770f9 2025-11-30T21:39:43Z Fix OpenCode permission prompt for external directory access
+f6dab7c4 2025-11-30T21:38:18Z Revert "Initial commit with task details for issue #753"
+9393e0d3 2025-11-30T21:35:23Z Initial commit with task details for issue #755
+4708b27b 2025-11-30T21:32:26Z Bump version to 0.36.3
+92e9ef2c 2025-11-14T05:14:56Z Update package-lock.json for version 0.33.5
+48dc8b5d 2025-11-14T05:06:08Z Update case study with actual log analysis and findings
+012f6582 2025-11-14T05:03:49Z Remove Option 3 from empty repository error message
+3320fb1c 2025-11-13T20:03:52Z Fix empty repository auto-fix issues
+6b6b2e3d 2025-11-13T19:59:54Z Revert "Initial commit with task details for issue #731"
+4cbecd9c 2025-11-13T19:53:41Z Bump version to 0.33.5
+b6c9da37 2025-11-13T19:53:16Z Add comprehensive case study analysis for issue #731
+7187a050 2025-11-13T19:45:03Z Initial commit with task details for issue #731
+bb1addb2 2025-11-13T19:38:48Z Remove issue number mention from initial commit message
+0336e9de 2025-11-13T19:37:34Z Merge main into issue-692-c74f2a6a8733
+13c6cfbe 2025-11-05T15:30:25Z Fix PR creation failure with existing branches containing commits
+0cab7294 2025-11-05T15:20:41Z Bump version to 0.29.10 for case study release
+313fcf16 2025-11-05T15:20:06Z Initial commit with task details for issue #683
+2b905192 2025-11-05T15:18:09Z Revert "Initial commit with task details for issue #681"
+594c106d 2025-11-05T15:16:53Z Add comprehensive case study for issue #681: base-branch option not used
+c31b4e0d 2025-11-05T15:07:40Z Initial commit with task details for issue #681
+a7dcd928 2025-11-05T13:40:52Z Merge pull request #680 from deep-assistant/issue-678-5c1c12b869bd
+290245fd 2025-11-05T13:29:32Z Move ANALYSIS.md to case study folder
+b171cc5a 2025-11-05T13:23:51Z Move PR_DESCRIPTION_UPDATED.md to case study folder
+89558c32 2025-11-05T13:12:21Z Organize case study documentation for issue #678
+bceef413 2025-11-03T02:22:56Z Revert "Initial commit with task details for issue #651"
+a0b27309 2025-11-03T02:21:58Z Bump version to 0.28.2 for bug fix release
+e5d4a989 2025-11-03T02:21:04Z Fix lint error: Move issueUrl to function scope
+431fffc6 2025-11-03T02:18:30Z Fix issue #651: Replace argv._[0] with named positional fallback pattern
+401adae4 2025-11-03T02:11:46Z Initial commit with task details for issue #651
+ef3ac288 2025-11-02T10:43:46Z Update README.md
+2d3bee98 2025-11-02T10:04:46Z Add procinfo function to README
+bebcd4a2 2025-11-02T09:53:45Z Add server diagnostics section to README
+d47e153a 2025-11-02T06:31:48Z Merge pull request #648 from deep-assistant/issue-647-2b8599cb
+8102edd7 2025-11-02T06:23:39Z refactor: remove unused _setLogFile and _getLogFile parameters and add branch validation test to CI
+a1f8f9dd 2025-10-27T11:15:19Z Revert "Initial commit with task details for issue #623"
+12bd174c 2025-10-27T11:14:44Z Initial commit with task details for issue #623
+c69437aa 2025-10-27T11:06:30Z Merge pull request #622 from deep-assistant/issue-621-a04fae32
+8fcff0bd 2025-10-27T11:01:13Z Revert "Initial commit with task details for issue #621"
+1f3fcb56 2025-10-27T10:54:48Z Bump version to 0.25.4 for release
+178ee3ff 2025-10-27T10:49:52Z Update links-notation dependency from LinksPlatform to Link.Foundation
+91972810 2025-10-27T10:46:16Z Initial commit with task details for issue #621
+7aab07a6 2025-10-27T10:38:50Z Merge pull request #540 from deep-assistant/issue-539-45ad27f5
+84b7ccaf 2025-10-27T10:26:17Z Restore test-start-screen.mjs to experiments folder
+703981eb 2025-10-27T10:04:38Z Add start-screen test to CI workflow
+7e002c80 2025-10-16T13:10:22Z Filter non-blocking stderr messages in hive worker output (issue #583)
+a9bfa8dd 2025-10-16T13:07:15Z Initial commit with task details for issue #583
+441699c5 2025-10-16T13:05:57Z Merge pull request #584 from deep-assistant/issue-580-d5cddea2
+be6f5216 2025-10-16T12:34:35Z Add unit tests for Telegram Markdown escaping (issue #580)
+2b51ac6e 2025-10-16T12:07:46Z Revert "Initial commit with task details for issue #580"
+8697a182 2025-10-16T12:02:39Z Bump version to 0.24.41 for release
+8425ec4e 2025-10-16T12:00:13Z Fix Telegram Markdown parsing error with URLs containing underscores
+714d4f12 2025-10-16T11:55:10Z Initial commit with task details for issue #580
+c6919413 2025-10-16T11:34:21Z Merge pull request #579 from deep-assistant/issue-543-21ceffea
+246d2bf6 2025-10-16T11:18:52Z Resolve merge conflict - keep version 0.24.40
+9b5b89a3 2025-10-14T15:31:17Z Revert "Initial commit with task details for issue #500"
+d540ac31 2025-10-14T15:27:25Z Move from version bump to changesets workflow
+1d06437d 2025-10-14T15:26:32Z Bump version to 0.24.30 for /top command feature
+22bad1e4 2025-10-14T15:25:33Z Revert "Initial commit with task details for issue #454"
+3ed94e3a 2025-10-14T15:25:17Z Add /top command to show live system monitor in Telegram
+32ed67d4 2025-10-14T15:21:35Z Initial commit with task details for issue #503
+d18175df 2025-10-14T15:21:07Z Fix test: add --no-auto-continue to avoid conflict with -s flag
+210a2b81 2025-10-14T15:19:06Z Initial commit with task details for issue #500
+ce428ccb 2025-10-14T15:14:01Z Make --auto-continue enabled by default
+428c1880 2025-10-14T15:09:38Z Initial commit with task details for issue #454
+645f3cc7 2025-10-13T06:18:06Z refactor: integrate dry-run regression tests into main test suite
+6dd2880e 2025-10-13T05:54:59Z refactor: rename yargs-config.lib.mjs to hive.config.lib.mjs
+24ca78e9 2025-10-13T05:40:15Z fix: resolve hive command silent failure and improve module loading
+fa6e7be5 2025-10-13T05:08:01Z refactor: eliminate code duplication by extracting yargs config and fix Sentry lazy loading
+d87e0d1c 2025-10-13T04:21:31Z fix: restore full --attach-logs description for test
+7e256c49 2025-10-13T04:18:46Z refactor: compact early help config to meet 1500 line limit
+1384351f 2025-10-13T04:14:08Z fix: add --monitor-tag option to early help config
+71dbadfa 2025-10-13T04:10:59Z fix: match exact help text expected by tests
+088c3e0e 2025-10-13T04:08:01Z fix: add missing options to early help display
+3f61b83a 2025-10-13T04:04:14Z fix: resolve hive --help hanging and improve Sentry initialization
+0d3c0eb5 2025-10-11T12:41:53Z Merge pull request #476 from deep-assistant/issue-475-0fa5ade5
+8442b990 2025-10-11T12:20:13Z fix: Remove unused parseErr variable to fix ESLint error
+511a5121 2025-10-11T12:15:45Z feat: Add PR creation verification with gh pr view
+04c3587e 2025-10-11T12:07:58Z Merge pull request #478 from deep-assistant/issue-477-ca652a0e
+89894c0c 2025-10-11T11:58:34Z chore: Remove CLAUDE.md temporary configuration file
+fe6201b2 2025-10-11T10:22:10Z Revert "Initial commit with task details for issue #477"
+d80fe1fb 2025-10-11T10:18:20Z chore: Bump version to 0.24.2
+a621dee2 2025-10-11T10:16:39Z fix: Exclude warning emojis from stderr error detection
+bb87cfc4 2025-10-11T10:13:23Z Initial commit with task details for issue #477
+a6a30ee7 2025-10-11T09:59:03Z fix: Fix ESLint quote errors in solve.auto-pr.lib.mjs
+1d493d2e 2025-10-07T09:31:54Z Fix: Remove model choice restriction in hive command
+ee671a76 2025-10-07T09:23:33Z Initial commit with task details for issue #443
+f0caf3b7 2025-10-05T14:31:06Z Remove CLAUDE.md - Claude command completed
+47d23964 2025-10-05T14:30:27Z Remove CLAUDE.md - Claude command completed
+065c0198 2025-10-05T14:29:37Z chore: Bump version to 0.22.0 for early permission check feature
+0d977bcb 2025-10-05T14:27:38Z feat: Add early repository write permission check to prevent wasting AI tokens
+4a68f925 2025-10-05T14:26:46Z chore: Bump version to 0.21.15 for OpenCode stderr fix
+f3aec730 2025-10-05T14:24:55Z Remove CLAUDE.md - Claude command completed
+370c495a 2025-10-05T14:24:30Z fix: Remove flawed stderr-based failure detection in OpenCode
+43bd1dd7 2025-10-05T14:23:52Z Fix OpenCode connection validation timeout issue
+e13469d0 2025-10-03T06:36:50Z Merge pull request #389 from deep-assistant/issue-379-c4050d4e
+91d7f41f 2025-10-03T06:32:06Z docs: Fix --auto-continue description accuracy in all places
+a7ea0fce 2025-10-03T06:14:26Z Merge main branch and bump version to 0.20.2
+17c7bddf 2025-10-03T06:08:39Z Merge pull request #402 from deep-assistant/issue-400-d2ff6194
+75f23630 2025-10-03T05:58:24Z Merge main branch and bump version to 0.20.1
+1cdb3eff 2025-10-03T05:52:50Z Fix CI failures: bump version, remove unused variable, reduce file size
+0b95a3ac 2025-10-03T05:45:39Z Merge pull request #403 from deep-assistant/issue-397-b8382644
+c840a1c9 2025-10-03T05:38:55Z chore: Bump version to 0.20.0 for 503 error auto-retry feature
+d3af4235 2025-10-03T05:28:31Z chore: Remove CLAUDE.md - task completed
+0dd663b9 2025-10-03T05:27:31Z feat: Add 503 error detection and auto-retry with exponential backoff
+d305b030 2025-10-01T14:47:39Z fix: Handle empty repository fork errors gracefully
+f0c75a1c 2025-10-01T14:43:00Z Initial commit with task details for issue #360
+32d1c880 2025-10-01T13:00:34Z Remove CLAUDE.md - Claude command completed
+1eb12670 2025-10-01T12:59:29Z Add comprehensive research report for Sentry to GitHub Issues conversion
+0674e7ea 2025-10-01T12:51:53Z Initial commit with task details for issue #357
+e4dddd7f 2025-10-01T12:50:00Z Merge pull request #358 from deep-assistant/issue-356-c53d3258
+918c4c05 2025-10-01T12:46:46Z Remove CLAUDE.md - Claude command completed
+8df8ec40 2025-10-01T12:46:18Z chore: Bump version to 0.16.1
+974b2d07 2025-10-01T12:45:05Z chore: Update package-lock.json to version 0.16.0
+aad41646 2025-10-01T12:44:54Z fix: Execute commands in existing screen sessions instead of just printing message
+e5835299 2025-09-30T13:55:22Z Remove CLAUDE.md - Claude command completed
+eda4af39 2025-09-30T13:54:27Z Add start-screen command for launching solve/hive in GNU screen sessions
+1cd517a3 2025-09-30T13:52:33Z Initial commit with task details for issue #330
+d06aaa03 2025-09-30T13:47:32Z Initial commit with task details for issue #333
+6853e302 2025-09-30T10:28:44Z Remove CLAUDE.md - Claude command completed
+602adf5f 2025-09-30T10:27:39Z feat: Add support for custom base branch in pull requests
+71f93321 2025-09-30T10:19:19Z Initial commit with task details for issue #331
+7fa5e602 2025-09-29T12:51:47Z Merge pull request #327 from deep-assistant/issue-326-b64acf06
+eeffa4e3 2025-09-29T12:47:07Z Fix incorrect import paths in test-solve-log-rename.mjs
+1ec1801c 2025-09-29T12:42:47Z Fix additional broken import in test-think-ultra-hard.mjs
+3904ecec 2025-09-25T04:53:44Z Merge pull request #297 from deep-assistant/issue-296-a1b0e00b
+11f2ce73 2025-09-25T04:48:46Z fix: Resolve all ESLint errors and improve error reporting
+9279f8a9 2025-09-25T04:30:11Z fix: Treat unused variables as errors and fix critical unused error variables
+bcfda4b1 2025-09-25T04:09:37Z fix: Make Sentry import optional and bump version to 0.12.6
+210cb5c2 2025-09-25T03:59:53Z Remove CLAUDE.md - Claude command completed
+f40d42cd 2025-09-25T03:59:02Z refactor: Add Sentry error reporting to github.lib.mjs
+22a2d24f 2025-09-25T03:56:57Z refactor: Apply DRY principle and improve code quality
+63d9fa7d 2025-09-25T03:39:56Z Initial commit with task details for issue #296
+c6931879 2025-09-25T02:30:58Z Merge pull request #295 from deep-assistant/issue-293-43d27e98
+65ae4f17 2025-09-25T02:26:39Z fix: Fix lint errors and bump version to 0.12.5
+002829cf 2025-09-21T10:35:41Z feat: Implement auto-restart on uncommitted changes
+d1fc1c98 2025-09-21T10:20:13Z Remove CLAUDE.md - Claude command completed
+4e4f980f 2025-09-21T10:19:23Z feat: Turn off auto-commit by default and add --auto-commit-uncommitted-changes option
+2d777473 2025-09-21T10:11:28Z Initial commit with task details for issue #262
+2fd96a5c 2025-09-21T10:10:26Z Merge pull request #263 from deep-assistant/issue-258-187873d7
+4f591b46 2025-09-21T10:07:51Z Auto-commit: Changes made by Claude during problem-solving session
+83bd45a2 2025-09-21T10:04:45Z chore: bump version to 0.8.9
+09a1edd2 2025-09-21T09:57:47Z Remove CLAUDE.md - Claude command completed
+f3a65324 2025-09-21T09:57:46Z Auto-commit: Changes made by Claude during problem-solving session
+ad007903 2025-09-21T09:57:15Z fix: ensure watch mode works with --auto-continue when creating new PRs
+15c5d89d 2025-09-19T16:41:01Z fix: Remove invalid v0.3.2_solve.mjs file causing CI compilation failure
+234f03d5 2025-09-19T16:35:24Z 'Auto-commit changes made by Claude
+be721856 2025-09-19T16:28:04Z 'Auto-commit changes made by Claude
+8875dd0d 2025-09-19T16:25:19Z chore: Bump version to 0.7.1 for bug fix release
+7dbbb08b 2025-09-19T16:18:26Z Remove CLAUDE.md - Claude command completed
+760a5314 2025-09-19T16:17:51Z fix: Fix async iteration error in solve.claude-execution.lib.mjs
+904cbd69 2025-09-19T16:12:08Z Initial commit with task details for issue #224
+7a73aa72 2025-09-19T16:00:39Z Reorganize files
+a149b5a1 2025-09-19T15:55:57Z Move dependencies research file in separate folder
+c78d6cd9 2025-09-19T15:53:16Z Merge pull request #218 from deep-assistant/issue-216-104c2d99
+f986ec84 2025-09-18T05:08:04Z Extract results processing functions to solve-results.mjs
+f209d1a1 2025-09-18T05:04:12Z Extract repository management functions to solve-repository.mjs
+92185ba0 2025-09-18T04:58:34Z Resolve merge conflicts - keep modular approach
+994a0418 2025-09-18T04:53:53Z Merge pull request #188 from deep-assistant/issue-186-97d42e2c
+78cacfff 2025-09-18T02:20:46Z Merge pull request #191 from deep-assistant/issue-182-82427d86
+c73a2d56 2025-09-18T02:20:05Z Merge pull request #192 from deep-assistant/issue-181-a1e1bca2
+0f7883cd 2025-09-18T02:18:55Z Merge pull request #193 from deep-assistant/issue-180-2ab155b0
+a878136f 2025-09-18T02:15:15Z Remove CLAUDE.md - Claude command completed
+be7d4455 2025-09-18T02:14:48Z Remove --only-prepare-command option from README and code
+2809ea1f 2025-09-18T02:11:59Z Initial commit with task details for issue #180
+0785dab9 2025-09-16T14:46:19Z 0.2.2
+78babe0c 2025-09-16T14:43:16Z Update package.json
+c72258ac 2025-09-16T14:24:11Z Merge pull request #161 from deep-assistant/issue-159-64d50000
+449efffb 2025-09-16T14:12:07Z Remove CLAUDE.md - Claude command completed
+351b704f 2025-09-16T14:11:15Z Fix fork sync failure when upstream remote already exists
+39b8aa8f 2025-09-16T14:06:03Z Initial commit with task details for issue #159
+6026216d 2025-09-16T13:47:34Z Merge pull request #160 from deep-assistant/issue-159-d0e57a9f
+4790e389 2025-09-16T13:45:05Z Implement fail-fast fork sync per maintainer feedback
+f0978c81 2025-09-16T13:36:29Z Remove CLAUDE.md - Claude command completed
+1071011f 2025-09-16T13:35:57Z Fix fork sync push failure when fork is significantly behind upstream
+ea31dcda 2025-09-14T18:23:53Z Add documentation for GitHub Actions job output propagation issue and workarounds
+24b1b2a0 2025-09-14T18:18:20Z Merge branch 'main' of https://github.com/deep-assistant/hive-mind
+5605e6c1 2025-09-14T18:18:10Z Refactor publish job in CI/CD pipeline to always run and conditionally skip publishing if no new version is detected
+667bd827 2025-09-14T18:09:53Z 0.0.13
+85b4c54d 2025-09-14T18:07:44Z Add all-tests-complete job to ensure all tests pass before publishing
+f631f568 2025-09-14T18:03:53Z Simplify publish job dependencies in CI/CD pipeline to only require version detection
+8cd52f55 2025-09-14T17:59:25Z Refactor version detection logic in CI/CD pipeline to use correct output variables and enhance debug information
+a6ad6e6c 2025-09-14T17:55:40Z Fix output variable name for new version detection in CI/CD pipeline and add debug output
+07a5edab 2025-09-14T17:51:48Z Simplify publish condition in CI/CD pipeline to trigger on new version only
+d3c0cf2f 2025-09-14T17:45:15Z Refactor version check logic in CI/CD pipeline to improve clarity and ensure checks only occur on main branch pushes
+b5c05b77 2025-09-13T11:05:56Z Remove CLAUDE.md - Claude command completed
+47caef48 2025-09-13T11:05:08Z Add experimental Claude runtime switching options
+380cb935 2025-09-13T10:52:13Z Initial commit with task details for issue #96
+71bbe69f 2025-09-13T10:08:13Z Update README.md
+642334c9 2025-09-13T10:07:40Z Update README.md
+6819a733 2025-09-13T10:07:19Z Update README.md
+24a6831f 2025-09-13T09:51:46Z Update README.md
+7da1c508 2025-09-13T09:49:55Z Update README.md
+c6fff352 2025-09-13T05:00:08Z Merge pull request #91 from deep-assistant/issue-90-cc02bea4
+3f94990a 2025-09-13T04:56:15Z Remove CLAUDE.md - Claude command completed
+c5f5b6f3 2025-09-12T10:54:16Z Merge pull request #40 from deep-assistant/issue-31-3877df14
+15f0ad08 2025-09-12T10:49:00Z Merge pull request #42 from deep-assistant/issue-29-66f135d6
+4ecaadb8 2025-09-12T10:34:07Z Merge pull request #43 from deep-assistant/issue-28-648c48ab
+7719d727 2025-09-12T10:30:53Z Merge pull request #39 from deep-assistant/issue-32-137a71b8
+91ca5c38 2025-09-10T17:34:20Z Implement Wikifunctions.org integration as AI skills for Hive Mind
+0b1f1202 2025-09-10T17:28:07Z Remove CLAUDE.md - PR created successfully
+41942891 2025-09-10T17:27:51Z Initial commit with task details for issue #1
+545e0afa 2025-09-10T17:22:59Z Implement auto-continue when Claude limit resets
+9a427409 2025-09-10T17:18:19Z Remove CLAUDE.md - PR created successfully
+59e434aa 2025-09-10T17:18:04Z Initial commit with task details for issue #5
+e93a2605 2025-09-06T19:04:25Z Refactor command execution to remove jq dependency and enhance logging of JSON output
+0716e302 2025-09-06T18:51:38Z Remove redundant declaration of permanentLogFile in solve.mjs
+5c66fe70 2025-09-06T18:42:27Z Refactor logging functionality to simplify options and ensure all log messages include timestamps and levels
+395c3c78 2025-09-06T18:29:32Z Implement logging functionality to capture console output and errors in a log file
+792f0c5c 2025-09-06T18:06:08Z Add model option to command line arguments and enhance console output with emojis
+5b879051 2025-09-06T17:47:55Z Merge branch 'main' of https://github.com/deep-assistant/hive-mind
+a7983085 2025-09-06T17:47:42Z Enhance cleanup script to support skipping archived repositories and improve output messages
+812e3aed 2025-09-06T10:22:52Z Update solve-with-opencode.mjs
+ca7c6209 2025-09-06T10:19:12Z Refactor OpenCode command execution for non-interactive mode and update logging details
+88b9f839 2025-09-06T10:06:55Z Add draft for opencode.

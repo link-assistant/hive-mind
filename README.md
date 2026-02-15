@@ -474,7 +474,21 @@ All commands work in **group chats only** (not in private messages with the bot)
 Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
+
+Free Models (with --tool agent):
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.1-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
+/solve https://github.com/owner/repo/issues/123 --tool agent --model glm-4.7-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
+
+Free Models via Kilo Gateway (with --tool agent):
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-4.7-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/kimi-k2.5-free
 ```
+
+> **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
 #### `/hive` - Run Hive Orchestration
 

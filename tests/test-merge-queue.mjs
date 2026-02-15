@@ -316,7 +316,8 @@ test('MergeQueueProcessor formatProgressMessage shows errors inline', () => {
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
-  assert.ok(message.includes('Errors'), 'Should include Errors section for failed items');
+  // Issue #1294: Changed from "Errors" to "Issues" to include both failed and skipped items
+  assert.ok(message.includes('Issues'), 'Should include Issues section for failed items');
   assert.ok(message.includes('CI checks failed'), 'Should include the error message');
   assert.ok(message.includes('123'), 'Should include the PR number');
 });
@@ -344,7 +345,203 @@ test('MergeQueueProcessor formatProgressMessage hides errors section when no fai
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
-  assert.ok(!message.includes('⚠️ *Errors:*'), 'Should not include Errors section when no failures');
+  // Issue #1294: Changed from "Errors" to "Issues"
+  assert.ok(!message.includes('⚠️ *Issues:*'), 'Should not include Issues section when no failures');
+});
+
+// ============================================================================
+// Issue #1294: Skip Reason Display Tests
+// ============================================================================
+
+console.log('\n📋 Issue #1294: Skip Reason Display Tests\n');
+
+test('MergeQueueProcessor formatProgressMessage shows skipped items with reasons', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  // Simulate adding a skipped item with all required methods
+  processor.items = [
+    {
+      pr: { number: 1241, title: 'Skipped PR', createdAt: new Date().toISOString() },
+      issue: { number: 1240 },
+      status: MergeItemStatus.SKIPPED,
+      error: 'PR has merge conflicts',
+      getStatusEmoji: () => '⏭️',
+      getDescription: () => 'PR #1241: Skipped PR (Issue #1240)',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.skipped = 1;
+
+  const message = processor.formatProgressMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('Issues'), 'Should include Issues section for skipped items');
+  assert.ok(message.includes('PR has merge conflicts'), 'Should include the skip reason');
+  assert.ok(message.includes('1241'), 'Should include the PR number');
+});
+
+test('MergeQueueProcessor formatFinalMessage shows skip reasons in results', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+  });
+
+  // Simulate completed queue with skipped items
+  processor.status = MergeStatus.COMPLETED;
+  processor.items = [
+    {
+      pr: { number: 1241, title: 'Skipped PR 1', createdAt: new Date().toISOString() },
+      issue: { number: 1240 },
+      status: MergeItemStatus.SKIPPED,
+      error: 'PR has merge conflicts',
+      getStatusEmoji: () => '⏭️',
+      getDescription: () => 'PR #1241: Skipped PR 1 (Issue #1240)',
+    },
+    {
+      pr: { number: 1257, title: 'Skipped PR 2', createdAt: new Date().toISOString() },
+      issue: { number: 1256 },
+      status: MergeItemStatus.SKIPPED,
+      error: 'PR has merge conflicts',
+      getStatusEmoji: () => '⏭️',
+      getDescription: () => 'PR #1257: Skipped PR 2 (Issue #1256)',
+    },
+  ];
+  processor.stats.total = 2;
+  processor.stats.skipped = 2;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('Results'), 'Should include Results section');
+  assert.ok(message.includes('1241'), 'Should include first PR number');
+  assert.ok(message.includes('1257'), 'Should include second PR number');
+  // Issue #1294: The key assertion - skip reasons should be shown
+  assert.ok(message.includes('PR has merge conflicts'), 'Should include skip reason in final message');
+});
+
+test('MergeQueueProcessor formatFinalMessage shows fail reasons in results', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.status = MergeStatus.COMPLETED;
+  processor.items = [
+    {
+      pr: { number: 100, title: 'Failed PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.FAILED,
+      error: 'CI checks failed',
+      getStatusEmoji: () => '❌',
+      getDescription: () => 'PR #100: Failed PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.failed = 1;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('CI checks failed'), 'Should include fail reason in final message');
+});
+
+test('MergeQueueProcessor formatFinalMessage does not show reasons for merged items', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.status = MergeStatus.COMPLETED;
+  processor.items = [
+    {
+      pr: { number: 200, title: 'Merged PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.MERGED,
+      error: null,
+      getStatusEmoji: () => '✅',
+      getDescription: () => 'PR #200: Merged PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.merged = 1;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  // For merged items, there should be no reason appended
+  // Line should just be: ✅ \#200
+  assert.ok(!message.includes('\\#200:'), 'Should not have colon after PR number for merged items (no reason)');
+});
+
+test('MergeQueueProcessor formatFinalMessage escapes special chars in skip reasons', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.status = MergeStatus.COMPLETED;
+  processor.items = [
+    {
+      pr: { number: 300, title: 'Special PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.SKIPPED,
+      error: 'Error with *bold* and _italic_ chars',
+      getStatusEmoji: () => '⏭️',
+      getDescription: () => 'PR #300: Special PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.skipped = 1;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  // Special chars should be escaped for MarkdownV2
+  assert.ok(message.includes('\\*bold\\*'), 'Should escape asterisks in reason');
+  assert.ok(message.includes('\\_italic\\_'), 'Should escape underscores in reason');
+});
+
+test('MergeQueueProcessor formatFinalMessage truncates long skip reasons', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.status = MergeStatus.COMPLETED;
+  const longReason = 'This is a very long error message that exceeds the maximum character limit and should be truncated';
+  processor.items = [
+    {
+      pr: { number: 400, title: 'Long Error PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.SKIPPED,
+      error: longReason,
+      getStatusEmoji: () => '⏭️',
+      getDescription: () => 'PR #400: Long Error PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.skipped = 1;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  // Long reasons should be truncated (47 chars + "...")
+  // Note: "..." gets escaped to "\.\.\." for MarkdownV2
+  assert.ok(message.includes('\\.\\.\\.'), 'Should truncate long reasons with escaped ellipsis');
+  assert.ok(!message.includes('truncated'), 'Should not include full text beyond truncation point');
 });
 
 // ============================================================================

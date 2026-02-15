@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -74,6 +74,11 @@ export const MERGE_QUEUE_CONFIG = {
   // Merge method: 'merge', 'squash', or 'rebase' (Issue #1269)
   // gh pr merge requires explicit method when running non-interactively
   MERGE_METHOD: mergeQueueConfig.mergeMethod,
+
+  // Issue #1307: Wait for target branch CI before first merge
+  WAIT_FOR_TARGET_BRANCH_CI: mergeQueueConfig.waitForTargetBranchCI,
+  TARGET_BRANCH_CI_TIMEOUT_MS: mergeQueueConfig.targetBranchCITimeoutMs,
+  TARGET_BRANCH_CI_POLL_INTERVAL_MS: mergeQueueConfig.targetBranchCIPollIntervalMs,
 };
 
 /**
@@ -229,6 +234,12 @@ export class MergeQueueProcessor {
     this.isCancelled = false;
 
     try {
+      // Issue #1307: Wait for any active CI runs on the target branch before processing
+      // This prevents merging while post-merge CI from previous merges is still running
+      if (MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI) {
+        await this.waitForTargetBranchCI();
+      }
+
       // Process each PR sequentially
       for (this.currentIndex = 0; this.currentIndex < this.items.length; this.currentIndex++) {
         if (this.isCancelled) {
@@ -384,6 +395,54 @@ export class MergeQueueProcessor {
   }
 
   /**
+   * Wait for any active CI runs on the target branch to complete
+   * Issue #1307: Prevents merging while post-merge CI from previous merges is still running
+   * @returns {Promise<void>}
+   */
+  async waitForTargetBranchCI() {
+    // Track if we're waiting for CI (for progress updates)
+    this.waitingForTargetBranchCI = true;
+    this.targetBranchCIStatus = null;
+
+    try {
+      // Get the default branch (usually 'main' or 'master')
+      const targetBranch = await getDefaultBranch(this.owner, this.repo, this.verbose);
+      this.log(`Checking for active CI runs on ${targetBranch} branch before processing queue...`);
+
+      const waitResult = await waitForBranchCI(
+        this.owner,
+        this.repo,
+        targetBranch,
+        {
+          timeout: MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_TIMEOUT_MS,
+          pollInterval: MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_POLL_INTERVAL_MS,
+          onStatusUpdate: async status => {
+            this.targetBranchCIStatus = status;
+
+            // Report progress while waiting
+            if (this.onProgress) {
+              await this.onProgress(this.getProgressUpdate());
+            }
+          },
+        },
+        this.verbose
+      );
+
+      if (!waitResult.success) {
+        // Log warning but don't fail - proceed with merge anyway
+        console.warn(`[WARN] /merge-queue: ${waitResult.error}. Proceeding with merge anyway.`);
+      } else if (waitResult.waitedForRuns) {
+        this.log(`Waited for ${waitResult.completedRuns} CI runs to complete on ${targetBranch} branch`);
+      } else {
+        this.log(`No active CI runs on ${targetBranch} branch. Ready to proceed.`);
+      }
+    } finally {
+      this.waitingForTargetBranchCI = false;
+      this.targetBranchCIStatus = null;
+    }
+  }
+
+  /**
    * Get current progress update
    */
   getProgressUpdate() {
@@ -456,8 +515,18 @@ export class MergeQueueProcessor {
     message += `⏭️ Skipped: ${update.stats.skipped}  `;
     message += `⏳ Pending: ${update.stats.total - update.progress.processed}\n\n`;
 
+    // Issue #1307: Show waiting status for target branch CI
+    if (this.waitingForTargetBranchCI && this.targetBranchCIStatus) {
+      const elapsedSec = Math.round(this.targetBranchCIStatus.elapsedMs / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const elapsedSecRemainder = elapsedSec % 60;
+      message += `⏱️ Waiting for ${this.targetBranchCIStatus.count} CI run\\(s\\) on target branch to complete \\(${elapsedMin}m ${elapsedSecRemainder}s\\)\\.\\.\\.\\n\\n`;
+    } else if (this.waitingForTargetBranchCI) {
+      message += `⏱️ Checking for active CI runs on target branch\\.\\.\\.\n\n`;
+    }
+
     // Current item being processed
-    if (update.current) {
+    if (update.current && !this.waitingForTargetBranchCI) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
       message += `${statusEmoji} ${update.current}\n\n`;
     }

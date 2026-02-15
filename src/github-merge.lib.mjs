@@ -636,6 +636,160 @@ export function parseRepositoryUrl(url) {
   };
 }
 
+/**
+ * Get active workflow runs on a specific branch
+ * Issue #1307: Used to check if there are any in-progress or queued runs on the target branch
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} branch - Branch name (default: main)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{runs: Array<Object>, hasActiveRuns: boolean, count: number}>}
+ */
+export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose = false) {
+  try {
+    // Query for in_progress and queued runs on the specified branch
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=10" --jq '[.workflow_runs[] | select(.status=="in_progress" or .status=="queued")] | map({id: .id, name: .name, status: .status, created_at: .created_at, html_url: .html_url})'`);
+
+    const runs = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runs.length} active runs on ${owner}/${repo} branch ${branch}`);
+      for (const run of runs) {
+        console.log(`[VERBOSE] /merge:   - Run #${run.id}: ${run.name} (${run.status})`);
+      }
+    }
+
+    return {
+      runs,
+      hasActiveRuns: runs.length > 0,
+      count: runs.length,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking active runs on ${branch}: ${error.message}`);
+    }
+    return {
+      runs: [],
+      hasActiveRuns: false,
+      count: 0,
+    };
+  }
+}
+
+/**
+ * Wait for all active workflow runs on a branch to complete
+ * Issue #1307: Ensures all CI runs on target branch are complete before merging
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} branch - Branch name (default: main)
+ * @param {Object} options - Wait options
+ * @param {number} options.timeout - Maximum wait time in ms (default: 45 minutes)
+ * @param {number} options.pollInterval - Polling interval in ms (default: 30 seconds)
+ * @param {Function} options.onStatusUpdate - Callback for status updates
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
+ */
+export async function waitForBranchCI(owner, repo, branch = 'main', options = {}, verbose = false) {
+  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+
+  const startTime = Date.now();
+  let totalWaitedRuns = 0;
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Checking for active CI runs on ${owner}/${repo} branch ${branch}...`);
+  }
+
+  while (Date.now() - startTime < timeout) {
+    let activeRuns;
+    try {
+      activeRuns = await getActiveBranchRuns(owner, repo, branch, verbose);
+    } catch (error) {
+      // Log and continue on errors
+      console.error(`[ERROR] /merge: Error checking branch CI: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
+
+    if (onStatusUpdate) {
+      try {
+        await onStatusUpdate({
+          hasActiveRuns: activeRuns.hasActiveRuns,
+          count: activeRuns.count,
+          runs: activeRuns.runs,
+          elapsedMs: Date.now() - startTime,
+        });
+      } catch (callbackError) {
+        // Log callback errors but continue
+        console.error(`[ERROR] /merge: Status update callback failed: ${callbackError.message}`);
+      }
+    }
+
+    if (!activeRuns.hasActiveRuns) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: No active CI runs on ${branch} branch. Ready to proceed.`);
+      }
+      return {
+        success: true,
+        waitedForRuns: totalWaitedRuns > 0,
+        completedRuns: totalWaitedRuns,
+        error: null,
+      };
+    }
+
+    totalWaitedRuns = Math.max(totalWaitedRuns, activeRuns.count);
+
+    if (verbose) {
+      const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+      console.log(`[VERBOSE] /merge: Waiting for ${activeRuns.count} active runs on ${branch}... (${elapsedSec}s elapsed)`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+
+  // Timeout reached
+  const finalCheck = await getActiveBranchRuns(owner, repo, branch, verbose);
+  if (finalCheck.hasActiveRuns) {
+    return {
+      success: false,
+      waitedForRuns: true,
+      completedRuns: totalWaitedRuns - finalCheck.count,
+      error: `Timeout waiting for ${finalCheck.count} CI runs on ${branch} branch`,
+    };
+  }
+
+  return {
+    success: true,
+    waitedForRuns: totalWaitedRuns > 0,
+    completedRuns: totalWaitedRuns,
+    error: null,
+  };
+}
+
+/**
+ * Get the default branch for a repository
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<string>} Default branch name (e.g., 'main' or 'master')
+ */
+export async function getDefaultBranch(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.default_branch'`);
+    const branch = stdout.trim();
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Default branch for ${owner}/${repo}: ${branch}`);
+    }
+
+    return branch || 'main';
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting default branch, falling back to 'main': ${error.message}`);
+    }
+    return 'main';
+  }
+}
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -651,4 +805,8 @@ export default {
   mergePullRequest,
   waitForCI,
   parseRepositoryUrl,
+  // Issue #1307: New exports for target branch CI waiting
+  getActiveBranchRuns,
+  waitForBranchCI,
+  getDefaultBranch,
 };

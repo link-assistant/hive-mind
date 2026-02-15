@@ -4,9 +4,9 @@
 
 ### Patch Changes
 
-- d951635: Fix --auto-restart-until-mergable false positive on empty CI checks
+- d951635: Fix --auto-restart-until-mergeable false positive on empty CI checks
 
-  The `--auto-restart-until-mergable` mode was incorrectly posting "Ready to merge" when CI checks hadn't started yet. This was caused by JavaScript's vacuous truth: `[].every(fn)` returns `true`, so an empty checks array would pass all validation.
+  The `--auto-restart-until-mergeable` mode was incorrectly posting "Ready to merge" when CI checks hadn't started yet. This was caused by JavaScript's vacuous truth: `[].every(fn)` returns `true`, so an empty checks array would pass all validation.
 
   Fix: Return `pending` status when no CI checks exist yet, instead of `success`.
 
@@ -137,7 +137,7 @@
 ### Patch Changes
 
 - fdd8eaa: Fix auto-merge failure in fork mode with permission pre-check (Issue #1226)
-  - Add fork-mode guard in `startAutoRestartUntilMergable()` to detect when `--auto-merge` cannot work
+  - Add fork-mode guard in `startAutoRestartUntilMergeable()` to detect when `--auto-merge` cannot work
   - Add `checkMergePermissions()` function to verify write/push/admin/maintain access before merge attempts
   - Add permission pre-check in `attemptAutoMerge()` to fail fast when user lacks write access
   - Post "Ready to merge" comment to PR when auto-merge cannot be performed due to permissions
@@ -385,7 +385,7 @@
 
 - 5723a93: fix: prevent early exit when --auto-merge flag is used
 
-  The `verifyResults()` function was calling `safeExit(0)` before the auto-merge logic could run. This caused the `--auto-merge` flag to be silently ignored. Now the exit condition properly checks for `argv.autoMerge` and `argv.autoRestartUntilMergable` flags.
+  The `verifyResults()` function was calling `safeExit(0)` before the auto-merge logic could run. This caused the `--auto-merge` flag to be silently ignored. Now the exit condition properly checks for `argv.autoMerge|autoRestartUntilMergeable` and `argv.autoMerge|autoRestartUntilMergeable` flags.
 
 ## 1.15.1
 
@@ -468,11 +468,11 @@
 
 ### Minor Changes
 
-- 03adcb6: Add --auto-merge and --auto-restart-until-mergable options for autonomous PR management
+- 03adcb6: Add --auto-merge and --auto-restart-until-mergeable options for autonomous PR management
 
   New CLI options:
-  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergable.
-  - `--auto-restart-until-mergable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
+  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergeable.
+  - `--auto-restart-until-mergeable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
 
   Features:
   - Non-bot comment detection with configurable bot patterns

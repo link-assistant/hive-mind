@@ -103,18 +103,18 @@ runTest('error message references issue #967', () => {
 runTest('fix suggestions provided', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check for delete fork suggestion
-  if (!content.includes('Delete fork') && !content.includes('gh repo delete')) {
+  // Check for Option 1: Delete fork
+  if (!content.includes('Option 1: Delete the problematic fork')) {
     throw new Error('Missing suggestion to delete fork');
   }
 
-  // Check for prefix fork name suggestion
+  // Check for Option 2: Prefix fork name
   if (!content.includes('prefix-fork-name-with-owner-name')) {
     throw new Error('Missing suggestion for --prefix-fork-name-with-owner-name');
   }
 
-  // Check for no-fork suggestion
-  if (!content.includes('--no-fork')) {
+  // Check for Option 3: No fork
+  if (!content.includes('Option 3: Work directly on the repository')) {
     throw new Error('Missing suggestion for --no-fork');
   }
 });
@@ -138,17 +138,17 @@ runTest('API error handling', () => {
 runTest('parent vs source distinction', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Check that both parent and source are extracted (may be destructured or direct assignment)
-  if (!content.includes('parent') || !content.includes('forkInfo.parent')) {
+  // Check that both parent and source are extracted
+  if (!content.includes('const parent = forkInfo.parent')) {
     throw new Error('Fork parent not extracted');
   }
 
-  if (!content.includes('source') || !content.includes('forkInfo.source')) {
+  if (!content.includes('const source = forkInfo.source')) {
     throw new Error('Fork source not extracted');
   }
 
   // Check for intermediate fork detection (source matches but parent doesn't)
-  if (!content.includes('source === expectedUpstream') || !content.includes('parent !== expectedUpstream')) {
+  if (!content.includes('sourceMatches && !parentMatches')) {
     throw new Error('Intermediate fork detection not implemented');
   }
 });
@@ -233,8 +233,8 @@ runTest('network error message differentiation (Issue #1311)', () => {
   }
 
   // Check for network retry/temporary suggestion
-  if (!content.includes('temporary') && !content.includes('retry')) {
-    throw new Error('Missing retry suggestion for network errors');
+  if (!content.includes('temporary network issue')) {
+    throw new Error('Missing temporary network issue message');
   }
 
   // Check for GitHub status link
@@ -261,25 +261,29 @@ runTest('isTransientNetworkError helper exists', () => {
   }
 });
 
-// Test 15: Verify case study reference removed from network error path
-runTest('case study reference not shown for network errors', () => {
+// Test 15: Verify existing error messages preserved (Issue #1311 feedback)
+runTest('existing error messages preserved', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // The case study reference should NOT appear in network error handling code path
-  // Verify that network error path has different content than fork mismatch path
-  if (content.includes('NETWORK ERROR DURING FORK VALIDATION') && content.includes('FORK PARENT MISMATCH')) {
-    // Good - both messages exist, now verify they're separate
-    const networkErrorSection = content.split('NETWORK ERROR DURING FORK VALIDATION')[1];
-    if (networkErrorSection) {
-      // The next "FORK PARENT" should come before any case study reference in network section
-      const nextForkMismatch = networkErrorSection.indexOf('FORK PARENT MISMATCH');
-      const caseStudyInNetwork = networkErrorSection.indexOf('Case study: See issue #967');
+  // Check that original verbose error messages are preserved
+  if (!content.includes('🔍 What happened:')) {
+    throw new Error('Missing "What happened" section in error message');
+  }
 
-      // If case study appears before next FORK_PARENT section, it's in wrong place
-      if (caseStudyInNetwork !== -1 && (nextForkMismatch === -1 || caseStudyInNetwork < nextForkMismatch)) {
-        throw new Error('Case study reference should not appear in network error message');
-      }
-    }
+  if (!content.includes('📦 Fork relationship:')) {
+    throw new Error('Missing "Fork relationship" section in error message');
+  }
+
+  if (!content.includes('⚠️  Why this is a problem:')) {
+    throw new Error('Missing "Why this is a problem" section in error message');
+  }
+
+  if (!content.includes('📖 Case study: See issue #967')) {
+    throw new Error('Missing case study reference in error message');
+  }
+
+  if (!content.includes('💡 How to fix:')) {
+    throw new Error('Missing "How to fix" section in error message');
   }
 });
 

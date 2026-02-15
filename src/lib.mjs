@@ -244,7 +244,8 @@ export const retry = async (fn, options = {}) => {
 };
 
 /**
- * Check if an error is a transient network error that can be retried
+ * Check if an error is a transient network error that can be retried.
+ * Used by validateForkParent to detect network timeouts (Issue #1311).
  * @param {Error|string} error - The error to check
  * @returns {boolean} True if the error is transient and retryable
  */

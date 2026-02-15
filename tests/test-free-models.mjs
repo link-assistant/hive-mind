@@ -18,7 +18,10 @@ const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'm
 // Kilo Gateway free models (Issue #1282, updated in #1300)
 const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
 
+// Kilo-exclusive models also support short aliases without kilo/ prefix (Issue #1300)
 const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
+
+const KILO_EXCLUSIVE_SHORT_ALIASES = ['glm-5-free', 'glm-4.5-air-free', 'deepseek-r1-free', 'giga-potato-free', 'trinity-large-preview'];
 
 // Deprecated models (still work for backward compatibility but not recommended)
 const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free'];
@@ -66,6 +69,15 @@ for (const alias of KILO_SHORT_ALIASES) {
   console.log(`✅ ${alias}: Valid and maps to ${result.mappedModel}`);
 }
 
+// Test 4.5: Kilo-exclusive models support short names without kilo/ prefix
+console.log('\n4️⃣.5️⃣ Testing Kilo-exclusive short names without provider prefix...');
+for (const alias of KILO_EXCLUSIVE_SHORT_ALIASES) {
+  const result = validateModelName(alias, 'agent');
+  assert.ok(result.valid, `Alias ${alias} should be valid`);
+  assert.ok(result.mappedModel.startsWith('kilo/'), `Alias ${alias} should map to kilo/ prefix, got ${result.mappedModel}`);
+  console.log(`✅ ${alias}: Valid and maps to ${result.mappedModel}`);
+}
+
 // Test 5: AGENT_MODELS contains all free models
 console.log('\n5️⃣ Testing AGENT_MODELS configuration...');
 for (const model of ALL_FREE_MODELS) {
@@ -82,6 +94,12 @@ for (const alias of OPENCODE_SHORT_ALIASES) {
 
 for (const alias of KILO_SHORT_ALIASES) {
   assert.ok(alias in AGENT_MODELS, `AGENT_MODELS should contain alias ${alias}`);
+  assert.ok(AGENT_MODELS[alias].startsWith('kilo/'), `Alias ${alias} should map to kilo/ prefix`);
+  console.log(`✅ ${alias}: Found in AGENT_MODELS as ${AGENT_MODELS[alias]}`);
+}
+
+for (const alias of KILO_EXCLUSIVE_SHORT_ALIASES) {
+  assert.ok(alias in AGENT_MODELS, `AGENT_MODELS should contain Kilo-exclusive alias ${alias}`);
   assert.ok(AGENT_MODELS[alias].startsWith('kilo/'), `Alias ${alias} should map to kilo/ prefix`);
   console.log(`✅ ${alias}: Found in AGENT_MODELS as ${AGENT_MODELS[alias]}`);
 }
@@ -112,6 +130,12 @@ for (const alias of KILO_SHORT_ALIASES) {
   const mapped = mapModelForTool('agent', alias);
   assert.strictEqual(mapped, AGENT_MODELS[alias], `Alias ${alias} should map consistently`);
   console.log(`✅ ${alias}: mapModelForTool works correctly`);
+}
+
+for (const alias of KILO_EXCLUSIVE_SHORT_ALIASES) {
+  const mapped = mapModelForTool('agent', alias);
+  assert.strictEqual(mapped, AGENT_MODELS[alias], `Kilo-exclusive alias ${alias} should map consistently`);
+  console.log(`✅ ${alias}: mapModelForTool works correctly (Kilo-exclusive)`);
 }
 
 // Test 8: Tool compatibility
@@ -167,6 +191,17 @@ for (const caseVariant of kiloVariants) {
   console.log(`✅ ${caseVariant}: Case insensitive validation works`);
 }
 
+// Test 12.5: Case insensitive validation for Kilo-exclusive short aliases
+console.log('\n1️⃣2️⃣.5️⃣ Testing Kilo-exclusive short aliases case insensitive validation...');
+const kiloExclusiveVariants = ['GLM-5-FREE', 'Glm-4.5-Air-Free', 'dEePsEeK-r1-fReE', 'GIGA-POTATO-FREE', 'Trinity-Large-Preview'];
+
+for (const caseVariant of kiloExclusiveVariants) {
+  const result = validateModelName(caseVariant, 'agent');
+  assert.ok(result.valid, `Case variant ${caseVariant} should be valid`);
+  assert.ok(result.mappedModel.startsWith('kilo/'), `Should map to kilo/ prefix for ${caseVariant}`);
+  console.log(`✅ ${caseVariant}: Case insensitive validation works (maps to ${result.mappedModel})`);
+}
+
 // Test 14: Deprecated models still work for backward compatibility
 console.log('\n1️⃣4️⃣ Testing deprecated models backward compatibility...');
 const allDeprecatedModels = [...DEPRECATED_OPENCODE_MODELS, ...DEPRECATED_KILO_MODELS];
@@ -181,7 +216,7 @@ console.log('\n🎯 All free model tests passed!');
 // Test 13: Mapping between model-validation.lib.mjs and model-mapping.lib.mjs consistency
 console.log('\n1️⃣3️⃣ Testing consistency between validation and mapping modules...');
 for (const [alias, fullModel] of Object.entries(agentModels)) {
-  if (ALL_FREE_MODELS.includes(fullModel) || OPENCODE_SHORT_ALIASES.includes(alias) || KILO_SHORT_ALIASES.includes(alias)) {
+  if (ALL_FREE_MODELS.includes(fullModel) || OPENCODE_SHORT_ALIASES.includes(alias) || KILO_SHORT_ALIASES.includes(alias) || KILO_EXCLUSIVE_SHORT_ALIASES.includes(alias)) {
     const validationResult = validateModelName(alias, 'agent');
     const mappingResult = mapModelForTool('agent', alias);
 

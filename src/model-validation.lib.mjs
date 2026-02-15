@@ -106,12 +106,19 @@ export const AGENT_MODELS = {
   // Issue #1282: Kilo provider adds access to 500+ models including free tier
   // Issue #1300: Updated Kilo free models with new offerings
   // See: https://kilo.ai/docs/advanced-usage/free-and-budget-models
-  'kilo/glm-5-free': 'kilo/glm-5-free', // Z.AI flagship model (free limited time)
-  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Z.AI agent-centric model (Issue #1300)
-  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // MiniMax general-purpose (upgraded from M2.1)
-  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free', // DeepSeek reasoning model (Issue #1300)
-  'kilo/giga-potato-free': 'kilo/giga-potato-free', // Evaluation model
-  'kilo/trinity-large-preview': 'kilo/trinity-large-preview', // Arcee AI preview
+  // Short names for Kilo-exclusive models (Issue #1300)
+  'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive: Z.AI flagship model
+  'glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Kilo-exclusive: Z.AI agent-centric model
+  'deepseek-r1-free': 'kilo/deepseek-r1-free', // Kilo-exclusive: DeepSeek reasoning model
+  'giga-potato-free': 'kilo/giga-potato-free', // Kilo-exclusive: Evaluation model
+  'trinity-large-preview': 'kilo/trinity-large-preview', // Kilo-exclusive: Arcee AI preview
+  // Full names with kilo/ prefix
+  'kilo/glm-5-free': 'kilo/glm-5-free',
+  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free',
+  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // Also on OpenCode Zen
+  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
+  'kilo/giga-potato-free': 'kilo/giga-potato-free',
+  'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)
   // These models are no longer the recommended options but may still work
   'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free on OpenCode Zen

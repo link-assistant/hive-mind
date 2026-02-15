@@ -84,9 +84,12 @@ The following models were previously free but are no longer available:
 
 [Kilo Gateway](https://kilo.ai) provides access to 500+ AI models through an OpenAI-compatible API. The following free models are available without API key configuration.
 
+> **Note:** Kilo-exclusive models (models only available on Kilo Gateway) support short aliases without the `kilo/` prefix. For example, you can use `glm-5-free` instead of `kilo/glm-5-free` since this model is unique to Kilo.
+
 ### 1. kilo/glm-5-free **Recommended for Kilo**
 
 - **Model ID**: `kilo/glm-5-free`
+- **Short Alias**: `glm-5-free` (Kilo-exclusive model)
 - **Provider**: Kilo Gateway (Z.AI)
 - **Status**: Fully Supported (Free for limited time)
 - **Features**: Deep reasoning, fast inference, bilingual (Chinese/English), tool calling, structured outputs
@@ -99,6 +102,7 @@ The following models were previously free but are no longer available:
 ### 2. kilo/glm-4.5-air-free
 
 - **Model ID**: `kilo/glm-4.5-air-free`
+- **Short Alias**: `glm-4.5-air-free` (Kilo-exclusive model)
 - **Provider**: Kilo Gateway (Z.AI)
 - **Status**: Fully Supported
 - **Features**: Agent-centric, lightweight, fast inference
@@ -119,6 +123,7 @@ The following models were previously free but are no longer available:
 ### 4. kilo/deepseek-r1-free
 
 - **Model ID**: `kilo/deepseek-r1-free`
+- **Short Alias**: `deepseek-r1-free` (Kilo-exclusive model)
 - **Provider**: Kilo Gateway (DeepSeek)
 - **Status**: Fully Supported
 - **Features**: Advanced reasoning, open-source, fully open reasoning tokens
@@ -129,6 +134,7 @@ The following models were previously free but are no longer available:
 ### 5. kilo/giga-potato-free
 
 - **Model ID**: `kilo/giga-potato-free`
+- **Short Alias**: `giga-potato-free` (Kilo-exclusive model)
 - **Provider**: Kilo Gateway
 - **Status**: Fully Supported (Evaluation period)
 - **Features**: General-purpose evaluation model
@@ -139,6 +145,7 @@ The following models were previously free but are no longer available:
 ### 6. kilo/trinity-large-preview
 
 - **Model ID**: `kilo/trinity-large-preview`
+- **Short Alias**: `trinity-large-preview` (Kilo-exclusive model)
 - **Provider**: Kilo Gateway (Arcee AI)
 - **Status**: Fully Supported (Preview)
 - **Features**: Strong capabilities, preview model
@@ -169,25 +176,37 @@ The following Kilo models were previously the recommended free models but have b
 ### Command Line Usage
 
 ```bash
-# OpenCode Zen models
+# OpenCode Zen models (short aliases without prefix)
 solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
+hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
+
+# OpenCode Zen models (full model IDs)
+solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/kimi-k2.5-free
 hive https://github.com/owner/repo --tool agent --model opencode/minimax-m2.5-free
 
-# Kilo Gateway models
+# Kilo Gateway models (full model IDs)
 solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
 hive https://github.com/owner/repo --tool agent --model kilo/deepseek-r1-free
+
+# Kilo-exclusive models (short aliases without kilo/ prefix)
+solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
+hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 ```
 
 ### Telegram Bot Usage
 
 ```bash
-# OpenCode Zen models
+# OpenCode Zen models (short aliases)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
 
-# Kilo Gateway models
+# Kilo Gateway models (full model IDs)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
 /hive https://github.com/owner/repo --tool agent --model kilo/glm-4.5-air-free
+
+# Kilo-exclusive models (short aliases without kilo/ prefix)
+/solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
+/hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
 # Default model (kimi-k2.5-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent

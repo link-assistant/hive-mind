@@ -37,10 +37,17 @@ export const agentModels = {
   'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
   // Kilo Gateway free models (Issue #1282, updated in #1300)
+  // Short names for Kilo-exclusive models (Issue #1300)
+  'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
+  'glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Kilo-exclusive: agent-centric model
+  'deepseek-r1-free': 'kilo/deepseek-r1-free', // Kilo-exclusive: reasoning model
+  'giga-potato-free': 'kilo/giga-potato-free', // Kilo-exclusive
+  'trinity-large-preview': 'kilo/trinity-large-preview', // Kilo-exclusive
+  // Full names with kilo/ prefix
   'kilo/glm-5-free': 'kilo/glm-5-free',
-  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free', // New: agent-centric model
-  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // New: upgraded from M2.1
-  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free', // New: reasoning model
+  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free',
+  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // Also on OpenCode Zen
+  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)

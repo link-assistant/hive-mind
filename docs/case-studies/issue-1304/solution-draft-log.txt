@@ -7,7 +7,7 @@ Solution draft log for https://github.com/link-assistant/hive-mind/pull/1298
 [2026-02-15T13:24:47.790Z] [INFO] 
 [2026-02-15T13:24:47.790Z] [INFO] 🚀 solve v1.23.4
 [2026-02-15T13:24:47.791Z] [INFO] 🔧 Raw command executed:
-[2026-02-15T13:24:47.791Z] [INFO]    /home/hive/.nvm/versions/node/v20.20.0/bin/node /home/hive/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/1296 --model opus --auto-restart-until-mergable --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats
+[2026-02-15T13:24:47.791Z] [INFO]    /home/hive/.nvm/versions/node/v20.20.0/bin/node /home/hive/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/1296 --model opus --auto-restart-until-mergeable --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats
 [2026-02-15T13:24:47.792Z] [INFO] 
 [2026-02-15T13:24:47.810Z] [INFO] 
 [2026-02-15T13:24:47.812Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED

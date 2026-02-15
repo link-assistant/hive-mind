@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Test script for auto-merge and auto-restart-until-mergable options
+ * Test script for auto-merge and auto-restart-until-mergeable options
  * Tests:
  * 1. --auto-merge (default false)
- * 2. --auto-restart-until-mergable (default false)
- * 3. --auto-merge implies --auto-restart-until-mergable
+ * 2. --auto-restart-until-mergeable (default false)
+ * 3. --auto-merge implies --auto-restart-until-mergeable
  * 4. Options can be used independently
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1190
@@ -21,7 +21,7 @@ const { initializeConfig, parseArguments } = configLib;
 // Initialize yargs
 const { yargs, hideBin } = await initializeConfig(use);
 
-console.log('Testing auto-merge and auto-restart-until-mergable options configuration...\n');
+console.log('Testing auto-merge and auto-restart-until-mergeable options configuration...\n');
 
 let allTestsPassed = true;
 
@@ -31,13 +31,13 @@ process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1'];
 try {
   const argv1 = await parseArguments(yargs, hideBin);
   console.log('  autoMerge:', argv1.autoMerge);
-  console.log('  autoRestartUntilMergable:', argv1.autoRestartUntilMergable);
+  console.log('  autoRestartUntilMergeable:', argv1.autoRestartUntilMergeable);
 
   const test1a = argv1.autoMerge === false;
-  const test1b = argv1.autoRestartUntilMergable === false;
+  const test1b = argv1.autoRestartUntilMergeable === false;
 
   console.log('  ✅ Default: auto-merge should be false:', test1a);
-  console.log('  ✅ Default: auto-restart-until-mergable should be false:', test1b);
+  console.log('  ✅ Default: auto-restart-until-mergeable should be false:', test1b);
 
   if (!test1a || !test1b) {
     allTestsPassed = false;
@@ -67,18 +67,18 @@ try {
   console.error('  ❌ Error:', error.message);
 }
 
-// Test 3: Enable auto-restart-until-mergable (without auto-merge)
-console.log('\nTest 3: Enable auto-restart-until-mergable without auto-merge');
-process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1', '--auto-restart-until-mergable'];
+// Test 3: Enable auto-restart-until-mergeable (without auto-merge)
+console.log('\nTest 3: Enable auto-restart-until-mergeable without auto-merge');
+process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1', '--auto-restart-until-mergeable'];
 try {
   const argv3 = await parseArguments(yargs, hideBin);
   console.log('  autoMerge:', argv3.autoMerge);
-  console.log('  autoRestartUntilMergable:', argv3.autoRestartUntilMergable);
+  console.log('  autoRestartUntilMergeable:', argv3.autoRestartUntilMergeable);
 
-  const test3a = argv3.autoRestartUntilMergable === true;
+  const test3a = argv3.autoRestartUntilMergeable === true;
   const test3b = argv3.autoMerge === false;
 
-  console.log('  ✅ auto-restart-until-mergable should be true:', test3a);
+  console.log('  ✅ auto-restart-until-mergeable should be true:', test3a);
   console.log('  ✅ auto-merge should be false (independent):', test3b);
 
   if (!test3a || !test3b) {
@@ -92,17 +92,17 @@ try {
 
 // Test 4: Both options together
 console.log('\nTest 4: Both options together');
-process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1', '--auto-merge', '--auto-restart-until-mergable'];
+process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1', '--auto-merge', '--auto-restart-until-mergeable'];
 try {
   const argv4 = await parseArguments(yargs, hideBin);
   console.log('  autoMerge:', argv4.autoMerge);
-  console.log('  autoRestartUntilMergable:', argv4.autoRestartUntilMergable);
+  console.log('  autoRestartUntilMergeable:', argv4.autoRestartUntilMergeable);
 
   const test4a = argv4.autoMerge === true;
-  const test4b = argv4.autoRestartUntilMergable === true;
+  const test4b = argv4.autoRestartUntilMergeable === true;
 
   console.log('  ✅ auto-merge should be true:', test4a);
-  console.log('  ✅ auto-restart-until-mergable should be true:', test4b);
+  console.log('  ✅ auto-restart-until-mergeable should be true:', test4b);
 
   if (!test4a || !test4b) {
     allTestsPassed = false;

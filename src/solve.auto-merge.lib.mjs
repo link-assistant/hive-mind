@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Auto-merge and auto-restart-until-mergable module for solve.mjs
+ * Auto-merge and auto-restart-until-mergeable module for solve.mjs
  * Handles automatic merging of PRs and continuous restart until PR becomes mergeable
  *
  * Uses shared utilities from solve.restart-shared.lib.mjs for common functions.
@@ -25,7 +25,7 @@ const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
-// appropriate for auto-restart-until-mergable mode
+// appropriate for auto-restart-until-mergeable mode
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -176,9 +176,9 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
 
 /**
  * Main function: Watch and restart until PR becomes mergeable
- * This implements --auto-restart-until-mergable functionality
+ * This implements --auto-restart-until-mergeable functionality
  */
-export const watchUntilMergable = async params => {
+export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
@@ -194,9 +194,9 @@ export const watchUntilMergable = async params => {
   let currentBackoffSeconds = watchInterval;
 
   await log('');
-  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGABLE MODE ACTIVE', ''));
+  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
-  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergable (will NOT auto-merge)', 2));
+  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds`, 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
@@ -215,7 +215,7 @@ export const watchUntilMergable = async params => {
     const isMerged = await checkPRMerged(owner, repo, prNumber);
     if (isMerged) {
       await log('');
-      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
       await log('');
       return { success: true, reason: 'merged', latestSessionId, latestAnthropicCost };
@@ -225,7 +225,7 @@ export const watchUntilMergable = async params => {
     const isClosed = await checkPRClosed(owner, repo, prNumber);
     if (isClosed) {
       await log('');
-      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been closed without merging`, 2));
       await log('');
       return { success: false, reason: 'closed', latestSessionId, latestAnthropicCost };
@@ -272,11 +272,11 @@ export const watchUntilMergable = async params => {
         } else {
           // Just report that PR is mergeable and exit
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
-          await log(formatAligned('', 'Exiting auto-restart-until-mergable mode', '', 2));
+          await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
           // Post success comment
           try {
-            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergable flag*`;
+            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
             await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           } catch {
             // Don't fail if comment posting fails
@@ -345,7 +345,7 @@ export const watchUntilMergable = async params => {
       }
 
       if (shouldRestart) {
-        // Add standard instructions for auto-restart-until-mergable mode using shared utility
+        // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
@@ -353,7 +353,7 @@ export const watchUntilMergable = async params => {
 
         // Post a comment to PR about the restart
         try {
-          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {
@@ -428,7 +428,7 @@ export const watchUntilMergable = async params => {
             try {
               const logFile = getLogFile();
               if (logFile) {
-                const customTitle = `🔄 Auto-restart-until-mergable Log (iteration ${iteration})`;
+                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${iteration})`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -478,7 +478,7 @@ export const watchUntilMergable = async params => {
       lastCheckTime = currentTime;
     } catch (error) {
       reportError(error, {
-        context: 'watch_until_mergable',
+        context: 'watch_until_mergeable',
         prNumber,
         owner,
         repo,
@@ -568,22 +568,22 @@ export const attemptAutoMerge = async params => {
 };
 
 /**
- * Start auto-restart-until-mergable mode
+ * Start auto-restart-until-mergeable mode
  */
-export const startAutoRestartUntilMergable = async params => {
+export const startAutoRestartUntilMergeable = async params => {
   const { argv, owner, repo, prNumber } = params;
 
   // Determine the mode
   const isAutoMerge = argv.autoMerge || false;
-  const isAutoRestartUntilMergable = argv.autoRestartUntilMergable || false;
+  const isAutoRestartUntilMergeable = argv.autoRestartUntilMergeable || false;
 
-  if (!isAutoMerge && !isAutoRestartUntilMergable) {
+  if (!isAutoMerge && !isAutoRestartUntilMergeable) {
     return null; // Neither mode enabled
   }
 
   if (!prNumber) {
     await log('');
-    await log(formatAligned('⚠️', 'Auto-restart-until-mergable:', 'Requires a pull request'));
+    await log(formatAligned('⚠️', 'Auto-restart-until-mergeable:', 'Requires a pull request'));
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
   }
@@ -632,18 +632,18 @@ export const startAutoRestartUntilMergable = async params => {
     }
   }
 
-  // If --auto-merge implies --auto-restart-until-mergable
+  // If --auto-merge implies --auto-restart-until-mergeable
   if (isAutoMerge) {
-    argv.autoRestartUntilMergable = true;
+    argv.autoRestartUntilMergeable = true;
   }
 
   // Start the watch loop
-  return await watchUntilMergable(params);
+  return await watchUntilMergeable(params);
 };
 
 export default {
-  watchUntilMergable,
+  watchUntilMergeable,
   attemptAutoMerge,
-  startAutoRestartUntilMergable,
+  startAutoRestartUntilMergeable,
   checkForNonBotComments,
 };

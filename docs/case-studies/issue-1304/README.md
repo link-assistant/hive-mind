@@ -1,16 +1,16 @@
-# Case Study: Issue #1304 - `--auto-restart-until-mergable` didn't work
+# Case Study: Issue #1304 - `--auto-restart-until-mergeable` didn't work
 
 ## Executive Summary
 
-**Issue:** [#1304 - `--auto-restart-until-mergable` didn't work](https://github.com/link-assistant/hive-mind/issues/1304)
+**Issue:** [#1304 - `--auto-restart-until-mergeable` didn't work](https://github.com/link-assistant/hive-mind/issues/1304)
 
-**Root Cause:** The CI status check function in `github-merge.lib.mjs` incorrectly reports "success" when there are **no check runs** (empty array). This happens because `[].every(fn)` returns `true` in JavaScript (vacuous truth), so an empty `allChecks` array passes all checks. The `--auto-restart-until-mergable` mode checked CI status just 13 seconds after pushing a commit, before CI checks were even created by GitHub Actions.
+**Root Cause:** The CI status check function in `github-merge.lib.mjs` incorrectly reports "success" when there are **no check runs** (empty array). This happens because `[].every(fn)` returns `true` in JavaScript (vacuous truth), so an empty `allChecks` array passes all checks. The `--auto-restart-until-mergeable` mode checked CI status just 13 seconds after pushing a commit, before CI checks were even created by GitHub Actions.
 
 **Impact:**
 
 1. The auto-restart mode incorrectly posted "Ready to merge" when CI actually had a failing check
 2. Users are misled into thinking PRs are ready to merge when checks haven't completed
-3. The entire purpose of `--auto-restart-until-mergable` is defeated
+3. The entire purpose of `--auto-restart-until-mergeable` is defeated
 
 **Fix Status:** Solution implemented and ready.
 
@@ -59,7 +59,7 @@ Result: `status = 'success'` when there are zero checks!
 ### Why This Happened
 
 1. **GitHub Actions delay**: After a commit is pushed, GitHub takes 7-20+ seconds to create check runs
-2. **Race condition**: The auto-restart-until-mergable mode checked CI status too soon (13 seconds after push)
+2. **Race condition**: The auto-restart-until-mergeable mode checked CI status too soon (13 seconds after push)
 3. **No wait logic**: The code doesn't wait for CI checks to be created before evaluating status
 4. **JavaScript quirk**: `[].every(fn)` always returns `true` (vacuous truth in logic)
 

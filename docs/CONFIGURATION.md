@@ -348,7 +348,7 @@ solve <issue-url> [options]
 | `--auto-restart-on-uncommitted-changes`                          |       | boolean | true          | Auto-restart on uncommitted changes                                                                     |
 | `--auto-restart-max-iterations`                                  |       | number  | 3             | Max auto-restart iterations                                                                             |
 | `--auto-merge`                                                   |       | boolean | false         | Auto-merge PR when session finishes and CI passes                                                       |
-| `--auto-restart-until-mergable`                                  |       | boolean | false         | Auto-restart until PR becomes mergeable (no iteration limit)                                            |
+| `--auto-restart-until-mergeable`                                 |       | boolean | false         | Auto-restart until PR becomes mergeable (no iteration limit)                                            |
 | `--auto-restart-on-non-updated-pull-request-description`         |       | boolean | false         | Auto-restart if PR description has placeholder text                                                     |
 | `--auto-merge-default-branch-to-pull-request-branch`             |       | boolean | false         | Merge default branch to PR branch                                                                       |
 | `--allow-fork-divergence-resolution-using-force-push-with-lease` |       | boolean | false         | Allow force-push on fork divergence                                                                     |

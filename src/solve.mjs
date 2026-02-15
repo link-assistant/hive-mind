@@ -74,7 +74,7 @@ const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleM
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
-const { startAutoRestartUntilMergable } = autoMergeLib;
+const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
@@ -1406,11 +1406,11 @@ try {
     }
   }
 
-  // Start auto-restart-until-mergable mode if enabled
+  // Start auto-restart-until-mergeable mode if enabled
   // This runs after the normal watch mode completes (if any)
-  // --auto-merge implies --auto-restart-until-mergable
-  if (argv.autoMerge || argv.autoRestartUntilMergable) {
-    const autoMergeResult = await startAutoRestartUntilMergable({
+  // --auto-merge implies --auto-restart-until-mergeable
+  if (argv.autoMerge || argv.autoRestartUntilMergeable) {
+    const autoMergeResult = await startAutoRestartUntilMergeable({
       issueUrl,
       owner,
       repo,
@@ -1428,7 +1428,7 @@ try {
       anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
       if (argv.verbose) {
         await log('');
-        await log('📊 Updated session data from auto-restart-until-mergable mode:', { verbose: true });
+        await log('📊 Updated session data from auto-restart-until-mergeable mode:', { verbose: true });
         await log(`   Session ID: ${sessionId}`, { verbose: true });
         if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
           await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });

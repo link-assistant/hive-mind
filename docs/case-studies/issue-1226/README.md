@@ -116,11 +116,11 @@ The solution draft logs uploaded to gists are **point-in-time snapshots** — th
 
 ## Impact Assessment
 
-| Impact              | Description                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually.                                             |
-| **Cost**            | The auto-restart-until-mergeable loop could run indefinitely, consuming API credits, if merge always fails due to permissions.                 |
-| **Trust**           | The `--auto-merge` flag gives a false sense of automation when used in fork mode.                                                             |
+| Impact              | Description                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually.                              |
+| **Cost**            | The auto-restart-until-mergeable loop could run indefinitely, consuming API credits, if merge always fails due to permissions. |
+| **Trust**           | The `--auto-merge` flag gives a false sense of automation when used in fork mode.                                              |
 
 ## Proposed Solutions
 

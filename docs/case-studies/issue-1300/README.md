@@ -25,14 +25,15 @@ Based on [agent PR #191](https://github.com/link-assistant/agent/pull/191), the 
 
 Current free models on OpenCode Zen (February 2026):
 
-| Model | Model ID | Status | Notes |
-|-------|----------|--------|-------|
-| Kimi K2.5 Free | `opencode/kimi-k2.5-free` | Free (recommended) | Best for coding tasks |
-| MiniMax M2.5 Free | `opencode/minimax-m2.5-free` | Free | Upgraded from M2.1 |
-| GPT 5 Nano | `opencode/gpt-5-nano` | Free | OpenAI-powered |
-| Big Pickle | `opencode/big-pickle` | Free | Stealth model, evaluation period |
+| Model             | Model ID                     | Status             | Notes                            |
+| ----------------- | ---------------------------- | ------------------ | -------------------------------- |
+| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Free (recommended) | Best for coding tasks            |
+| MiniMax M2.5 Free | `opencode/minimax-m2.5-free` | Free               | Upgraded from M2.1               |
+| GPT 5 Nano        | `opencode/gpt-5-nano`        | Free               | OpenAI-powered                   |
+| Big Pickle        | `opencode/big-pickle`        | Free               | Stealth model, evaluation period |
 
 **Discontinued free models:**
+
 - `opencode/minimax-m2.1-free` - No longer free (replaced by M2.5)
 - `opencode/glm-4.7-free` - No longer free on OpenCode Zen
 
@@ -42,14 +43,14 @@ Current free models on OpenCode Zen (February 2026):
 
 Current free models on Kilo Gateway (February 2026):
 
-| Model | Model ID | Context Window | Notes |
-|-------|----------|----------------|-------|
-| GLM-5 | `kilo/glm-5-free` | 202,752 tokens | Flagship, free limited time |
-| GLM 4.5 Air | `kilo/glm-4.5-air-free` | 131,072 tokens | Agent-centric |
-| MiniMax M2.5 | `kilo/minimax-m2.5-free` | 204,800 tokens | Upgraded from M2.1 |
-| DeepSeek R1 | `kilo/deepseek-r1-free` | 163,840 tokens | Reasoning model |
-| Giga Potato | `kilo/giga-potato-free` | 256,000 tokens | Evaluation model |
-| Trinity Large Preview | `kilo/trinity-large-preview` | 131,000 tokens | Arcee AI preview |
+| Model                 | Model ID                     | Context Window | Notes                       |
+| --------------------- | ---------------------------- | -------------- | --------------------------- |
+| GLM-5                 | `kilo/glm-5-free`            | 202,752 tokens | Flagship, free limited time |
+| GLM 4.5 Air           | `kilo/glm-4.5-air-free`      | 131,072 tokens | Agent-centric               |
+| MiniMax M2.5          | `kilo/minimax-m2.5-free`     | 204,800 tokens | Upgraded from M2.1          |
+| DeepSeek R1           | `kilo/deepseek-r1-free`      | 163,840 tokens | Reasoning model             |
+| Giga Potato           | `kilo/giga-potato-free`      | 256,000 tokens | Evaluation model            |
+| Trinity Large Preview | `kilo/trinity-large-preview` | 131,000 tokens | Arcee AI preview            |
 
 **Note:** `kilo/glm-4.7-free`, `kilo/kimi-k2.5-free`, and `kilo/minimax-m2.1-free` are no longer the recommended free models.
 
@@ -58,6 +59,7 @@ Current free models on Kilo Gateway (February 2026):
 ### 1. Documentation Updates
 
 **docs/FREE_MODELS.md:**
+
 - Replace `opencode/minimax-m2.1-free` with `opencode/minimax-m2.5-free`
 - Remove `opencode/glm-4.7-free` from free models
 - Update Kilo Gateway free models list
@@ -65,16 +67,19 @@ Current free models on Kilo Gateway (February 2026):
 - Document discontinued models
 
 **README.md:**
+
 - Update free model examples in Telegram Bot section
 
 ### 2. Code Updates
 
 **src/model-validation.lib.mjs:**
+
 - Add `minimax-m2.5-free` to AGENT_MODELS
 - Add `kilo/minimax-m2.5-free`, `kilo/glm-4.5-air-free`, `kilo/deepseek-r1-free`
 - Keep deprecated models for backward compatibility (with warnings)
 
 **src/model-mapping.lib.mjs:**
+
 - Add new model mappings
 - Update Kilo Gateway model mappings
 

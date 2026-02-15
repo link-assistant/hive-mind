@@ -71,10 +71,10 @@ Hive-mind supports free models from two providers:
 
 The following models were previously free but are no longer available:
 
-| Model | Former Model ID | Status |
-|-------|-----------------|--------|
+| Model             | Former Model ID              | Status                                   |
+| ----------------- | ---------------------------- | ---------------------------------------- |
 | MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free` |
-| GLM 4.7 Free | `opencode/glm-4.7-free` | No longer free on OpenCode Zen |
+| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen           |
 
 > **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) for the current list of free models.
 
@@ -154,10 +154,10 @@ The following models were previously free but are no longer available:
 
 The following Kilo models were previously the recommended free models but have been updated:
 
-| Model | Former Model ID | Status |
-|-------|-----------------|--------|
-| GLM 4.7 | `kilo/glm-4.7-free` | Replaced by `kilo/glm-4.5-air-free` |
-| Kimi K2.5 | `kilo/kimi-k2.5-free` | Replaced by other Kilo free models |
+| Model        | Former Model ID          | Status                               |
+| ------------ | ------------------------ | ------------------------------------ |
+| GLM 4.7      | `kilo/glm-4.7-free`      | Replaced by `kilo/glm-4.5-air-free`  |
+| Kimi K2.5    | `kilo/kimi-k2.5-free`    | Replaced by other Kilo free models   |
 | MiniMax M2.1 | `kilo/minimax-m2.1-free` | Replaced by `kilo/minimax-m2.5-free` |
 
 > **Note:** See [Kilo Free Models Documentation](https://kilo.ai/docs/advanced-usage/free-and-budget-models) for current availability.
@@ -240,16 +240,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Provider Comparison
 
-| Feature       | OpenCode Zen                    | Kilo Gateway                   |
-| ------------- | ------------------------------- | ------------------------------ |
-| Free Models   | 4 models                        | 6 models                       |
-| Default Model | kimi-k2.5-free                  | glm-5-free (recommended)       |
-| API Format    | OpenAI-compatible               | OpenAI-compatible              |
-| Free API Key  | `public`                        | `public`                       |
-| Total Models  | 50+                             | 500+                           |
-| Flagship Free | Kimi K2.5                       | GLM-5 (limited time)           |
-| BYOK Support  | Yes                             | Yes                            |
-| New Models    | MiniMax M2.5 (upgraded from M2.1) | DeepSeek R1, GLM 4.5 Air     |
+| Feature       | OpenCode Zen                      | Kilo Gateway             |
+| ------------- | --------------------------------- | ------------------------ |
+| Free Models   | 4 models                          | 6 models                 |
+| Default Model | kimi-k2.5-free                    | glm-5-free (recommended) |
+| API Format    | OpenAI-compatible                 | OpenAI-compatible        |
+| Free API Key  | `public`                          | `public`                 |
+| Total Models  | 50+                               | 500+                     |
+| Flagship Free | Kimi K2.5                         | GLM-5 (limited time)     |
+| BYOK Support  | Yes                               | Yes                      |
+| New Models    | MiniMax M2.5 (upgraded from M2.1) | DeepSeek R1, GLM 4.5 Air |
 
 ---
 

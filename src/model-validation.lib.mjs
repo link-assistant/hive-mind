@@ -94,23 +94,31 @@ export const CODEX_MODELS = {
 export const AGENT_MODELS = {
   // Free models (via OpenCode Zen)
   // Issue #1185: Model IDs must use opencode/ prefix for OpenCode Zen models
+  // Issue #1300: Updated free models - minimax-m2.5-free replaces m2.1, glm-4.7-free removed
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'glm-4.7-free': 'opencode/glm-4.7-free',
-  'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1300)
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
   // Free models (via Kilo Gateway)
   // Issue #1282: Kilo provider adds access to 500+ models including free tier
+  // Issue #1300: Updated Kilo free models with new offerings
   // See: https://kilo.ai/docs/advanced-usage/free-and-budget-models
   'kilo/glm-5-free': 'kilo/glm-5-free', // Z.AI flagship model (free limited time)
-  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Z.AI agent-centric model
-  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // MoonshotAI agentic model
-  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // MiniMax general-purpose
+  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Z.AI agent-centric model (Issue #1300)
+  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // MiniMax general-purpose (upgraded from M2.1)
+  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free', // DeepSeek reasoning model (Issue #1300)
   'kilo/giga-potato-free': 'kilo/giga-potato-free', // Evaluation model
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview', // Arcee AI preview
+  // Deprecated free models (kept for backward compatibility)
+  // These models are no longer the recommended options but may still work
+  'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free on OpenCode Zen
+  'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
+  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free
+  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // Deprecated: not recommended
+  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // Deprecated: replaced by m2.5
   // Premium models (requires OpenCode Zen subscription)
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
@@ -120,9 +128,11 @@ export const AGENT_MODELS = {
   'opencode/grok-code': 'opencode/grok-code',
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
-  'opencode/glm-4.7-free': 'opencode/glm-4.7-free',
-  'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free',
+  'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New (Issue #1300)
   'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  // Deprecated OpenCode Zen models (kept for backward compatibility)
+  'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
+  'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
   // Premium models with provider prefix
   'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
   'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',

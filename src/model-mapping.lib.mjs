@@ -26,23 +26,29 @@ export const claudeModels = {
 };
 
 // Agent models (OpenCode API and Kilo Gateway via agent CLI)
+// Issue #1300: Updated free models to match agent PR #191
 export const agentModels = {
-  // OpenCode Zen free models
+  // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'glm-4.7-free': 'opencode/glm-4.7-free',
-  'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1
   'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
-  // Kilo Gateway free models (Issue #1282)
+  // Kilo Gateway free models (Issue #1282, updated in #1300)
   'kilo/glm-5-free': 'kilo/glm-5-free',
-  'kilo/glm-4.7-free': 'kilo/glm-4.7-free',
-  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free',
-  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free',
+  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free', // New: agent-centric model
+  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // New: upgraded from M2.1
+  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free', // New: reasoning model
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
+  // Deprecated free models (kept for backward compatibility)
+  'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
+  'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
+  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free
+  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // Deprecated: not recommended
+  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // Deprecated: replaced by m2.5
   // Premium models
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',

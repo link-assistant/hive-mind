@@ -2,22 +2,27 @@
 
 /**
  * Comprehensive tests for all free models
- * Tests all 11 free models (5 OpenCode Zen + 6 Kilo Gateway) to ensure they work in hive-mind
+ * Tests all 10 free models (4 OpenCode Zen + 6 Kilo Gateway) to ensure they work in hive-mind
+ * Issue #1300: Updated free models - minimax-m2.5-free replaces m2.1, glm-4.7-free removed from OpenCode
  */
 
 import { strict as assert } from 'assert';
 import { validateModelName, AGENT_MODELS } from '../src/model-validation.lib.mjs';
 import { mapModelForTool, isModelCompatibleWithTool, getValidModelsForTool, agentModels } from '../src/model-mapping.lib.mjs';
 
-// OpenCode Zen free models
-const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/glm-4.7-free', 'opencode/minimax-m2.1-free'];
+// OpenCode Zen free models (current - Issue #1300)
+const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free'];
 
-const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'glm-4.7-free', 'minimax-m2.1-free'];
+const OPENCODE_SHORT_ALIASES = ['big-pickle', 'gpt-5-nano', 'kimi-k2.5-free', 'minimax-m2.5-free'];
 
-// Kilo Gateway free models (Issue #1282)
-const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
+// Kilo Gateway free models (Issue #1282, updated in #1300)
+const KILO_FREE_MODELS = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
 
-const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
+const KILO_SHORT_ALIASES = ['kilo/glm-5-free', 'kilo/glm-4.5-air-free', 'kilo/minimax-m2.5-free', 'kilo/deepseek-r1-free', 'kilo/giga-potato-free', 'kilo/trinity-large-preview'];
+
+// Deprecated models (still work for backward compatibility but not recommended)
+const DEPRECATED_OPENCODE_MODELS = ['opencode/glm-4.7-free', 'opencode/minimax-m2.1-free'];
+const DEPRECATED_KILO_MODELS = ['kilo/glm-4.7-free', 'kilo/kimi-k2.5-free', 'kilo/minimax-m2.1-free'];
 
 // Combined lists
 const ALL_FREE_MODELS = [...OPENCODE_FREE_MODELS, ...KILO_FREE_MODELS];
@@ -142,7 +147,7 @@ for (const invalidModel of invalidModels) {
 
 // Test 11: Case insensitive validation for OpenCode Zen
 console.log('\n1️⃣1️⃣ Testing OpenCode Zen case insensitive validation...');
-const opencodeVariants = ['OPENCODE/BIG-PICKLE', 'Opencode/Gpt-5-Nano', 'oPeNcOdE/kImI-k2.5-fReE', 'opencode/GLM-4.7-FREE', 'OPENCODE/minimax-m2.1-free'];
+const opencodeVariants = ['OPENCODE/BIG-PICKLE', 'Opencode/Gpt-5-Nano', 'oPeNcOdE/kImI-k2.5-fReE', 'OPENCODE/minimax-m2.5-free'];
 
 for (const caseVariant of opencodeVariants) {
   const result = validateModelName(caseVariant, 'agent');
@@ -153,13 +158,22 @@ for (const caseVariant of opencodeVariants) {
 
 // Test 12: Case insensitive validation for Kilo Gateway
 console.log('\n1️⃣2️⃣ Testing Kilo Gateway case insensitive validation...');
-const kiloVariants = ['KILO/GLM-5-FREE', 'Kilo/Glm-4.7-Free', 'kIlO/kImI-k2.5-fReE', 'kilo/MINIMAX-M2.1-FREE', 'KILO/trinity-large-preview'];
+const kiloVariants = ['KILO/GLM-5-FREE', 'Kilo/Glm-4.5-Air-Free', 'kIlO/dEePsEeK-r1-fReE', 'kilo/MINIMAX-M2.5-FREE', 'KILO/trinity-large-preview'];
 
 for (const caseVariant of kiloVariants) {
   const result = validateModelName(caseVariant, 'agent');
   assert.ok(result.valid, `Case variant ${caseVariant} should be valid`);
   assert.ok(result.mappedModel, 'Should return mapped model for case variant');
   console.log(`✅ ${caseVariant}: Case insensitive validation works`);
+}
+
+// Test 14: Deprecated models still work for backward compatibility
+console.log('\n1️⃣4️⃣ Testing deprecated models backward compatibility...');
+const allDeprecatedModels = [...DEPRECATED_OPENCODE_MODELS, ...DEPRECATED_KILO_MODELS];
+for (const deprecatedModel of allDeprecatedModels) {
+  const result = validateModelName(deprecatedModel, 'agent');
+  assert.ok(result.valid, `Deprecated model ${deprecatedModel} should still be valid for backward compatibility`);
+  console.log(`✅ ${deprecatedModel}: Deprecated but still works`);
 }
 
 console.log('\n🎯 All free model tests passed!');

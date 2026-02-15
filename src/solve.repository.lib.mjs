@@ -120,6 +120,7 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
   // Issue #1311: Retry configuration for transient network errors
   const maxAttempts = 3;
   const baseDelay = 2000;
+  const networkErr = msg => ({ isValid: false, isFork: false, parent: null, source: null, error: msg, isNetworkError: true });
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -128,34 +129,17 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
       // Check for network errors in non-zero exit code
       if (forkInfoResult.code !== 0) {
         const errorOutput = (forkInfoResult.stderr?.toString() || '') + (forkInfoResult.stdout?.toString() || '');
-
-        // Issue #1311: Check if this is a transient network error
+        // Issue #1311: Retry on transient network errors
         if (lib.isTransientNetworkError({ message: errorOutput })) {
           if (attempt < maxAttempts) {
             const delay = baseDelay * Math.pow(2, attempt - 1);
             await log(`   ⚠️ Network error, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await lib.sleep(delay);
             continue;
           }
-          // All retries exhausted for network error
-          return {
-            isValid: false,
-            isFork: false,
-            parent: null,
-            source: null,
-            error: `Network error after ${maxAttempts} attempts: ${errorOutput.substring(0, 200)}`,
-            isNetworkError: true,
-          };
+          return networkErr(`Network error after ${maxAttempts} attempts: ${errorOutput.substring(0, 200)}`);
         }
-
-        // Non-network error (e.g., 404, permission denied)
-        return {
-          isValid: false,
-          isFork: false,
-          parent: null,
-          source: null,
-          error: `Failed to get fork info for ${forkRepo}`,
-        };
+        return { isValid: false, isFork: false, parent: null, source: null, error: `Failed to get fork info for ${forkRepo}` };
       }
 
       const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
@@ -165,108 +149,43 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
 
       // If not a fork at all, it's invalid for our purposes
       if (!isFork) {
-        return {
-          isValid: false,
-          isFork: false,
-          parent: null,
-          source: null,
-          error: `Repository ${forkRepo} is not a GitHub fork`,
-        };
+        return { isValid: false, isFork: false, parent: null, source: null, error: `Repository ${forkRepo} is not a GitHub fork` };
       }
 
       // The fork's PARENT (immediate upstream) should match expectedUpstream
-      // The SOURCE (ultimate root) is also acceptable as it indicates the fork
-      // is part of the correct hierarchy, just at a different level
+      // The SOURCE (ultimate root) is also acceptable as it indicates the fork is part of the correct hierarchy
       const parentMatches = parent === expectedUpstream;
       const sourceMatches = source === expectedUpstream;
 
-      // Ideal case: parent matches directly (fork was made from expected upstream)
       if (parentMatches) {
-        return {
-          isValid: true,
-          isFork: true,
-          parent,
-          source,
-          error: null,
-        };
+        return { isValid: true, isFork: true, parent, source, error: null };
       }
 
-      // Special case: source matches but parent doesn't
-      // This means the fork was made from an intermediate fork
+      // Special case: source matches but parent doesn't - fork was made from an intermediate fork
       // For issue #967, this is the problematic case we want to catch
       if (sourceMatches && !parentMatches) {
-        return {
-          isValid: false,
-          isFork: true,
-          parent,
-          source,
-          error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. ` + `This can cause pull requests to include unexpected commits from the intermediate fork.`,
-        };
+        return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. This can cause pull requests to include unexpected commits from the intermediate fork.` };
       }
 
       // Neither parent nor source matches - completely different repository tree
-      return {
-        isValid: false,
-        isFork: true,
-        parent,
-        source,
-        error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}`,
-      };
+      return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}` };
     } catch (error) {
-      // Issue #1311: Check if caught exception is a transient network error
+      // Issue #1311: Retry on transient network errors
       if (lib.isTransientNetworkError(error)) {
         if (attempt < maxAttempts) {
           const delay = baseDelay * Math.pow(2, attempt - 1);
           await log(`   ⚠️ Network error, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await lib.sleep(delay);
           continue;
         }
-        // All retries exhausted
-        reportError(error, {
-          context: 'validate_fork_parent',
-          forkRepo,
-          expectedUpstream,
-          operation: 'check_fork_hierarchy',
-          attempt,
-          maxAttempts,
-          isNetworkError: true,
-        });
-        return {
-          isValid: false,
-          isFork: false,
-          parent: null,
-          source: null,
-          error: `Network error after ${maxAttempts} attempts: ${error.message}`,
-          isNetworkError: true,
-        };
+        reportError(error, { context: 'validate_fork_parent', forkRepo, expectedUpstream, operation: 'check_fork_hierarchy', attempt, maxAttempts, isNetworkError: true });
+        return networkErr(`Network error after ${maxAttempts} attempts: ${error.message}`);
       }
-
-      // Non-network error
-      reportError(error, {
-        context: 'validate_fork_parent',
-        forkRepo,
-        expectedUpstream,
-        operation: 'check_fork_hierarchy',
-      });
-      return {
-        isValid: false,
-        isFork: false,
-        parent: null,
-        source: null,
-        error: `Error validating fork parent: ${error.message}`,
-      };
+      reportError(error, { context: 'validate_fork_parent', forkRepo, expectedUpstream, operation: 'check_fork_hierarchy' });
+      return { isValid: false, isFork: false, parent: null, source: null, error: `Error validating fork parent: ${error.message}` };
     }
   }
-
-  // Should not reach here, but return network error if all retries exhausted
-  return {
-    isValid: false,
-    isFork: false,
-    parent: null,
-    source: null,
-    error: `Failed to validate fork after ${maxAttempts} attempts`,
-    isNetworkError: true,
-  };
+  return networkErr(`Failed to validate fork after ${maxAttempts} attempts`);
 };
 
 /**

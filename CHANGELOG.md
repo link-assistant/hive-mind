@@ -1,5 +1,240 @@
 # @link-assistant/hive-mind
 
+## 1.23.4
+
+### Patch Changes
+
+- 22a1940: fix: display skip/fail reasons in merge queue Telegram messages (#1294)
+
+  Previously, when PRs were skipped or failed during merge queue processing, the Telegram message only showed the PR number without explaining why it was skipped. This left users unable to understand what action was required to resolve the issue.
+
+  Now the merge queue displays the reason for each skipped or failed PR in both:
+  - Progress messages (during processing)
+  - Final report messages (after completion)
+
+  Example output:
+
+  ```
+  Results:
+  ⏭️ #1241 (Issue #1240): PR has merge conflicts
+  ⏭️ #1257 (Issue #1256): PR has merge conflicts
+  ```
+
+  This change follows UX best practices for error messages by:
+  - Showing the specific reason for each failure
+  - Using clear, human-readable language
+  - Helping users understand what action is needed
+
+## 1.23.3
+
+### Patch Changes
+
+- a797e56: fix: escape owner/repo names for Telegram MarkdownV2 in /merge command
+
+  Fixed the `/merge` command silently failing when updating Telegram messages for repositories with hyphens in their names (e.g., `link-assistant/hive-mind`). The issue was caused by unescaped special characters in MarkdownV2 format.
+
+## 1.23.2
+
+### Patch Changes
+
+- 241ce36: Fix false error categorization and missing log upload for `--tool agent` auto-restart
+  - Fix `isUsageLimitError()` "resets" pattern causing false positives when scanning code output
+    - Changed from substring match to regex that requires time-like content after "resets"
+    - Prevents ordinary English words like "loads a shell and resets" from triggering usage limit detection
+  - Fix agent fallback pattern matching running after agent successfully recovered from errors
+    - Skip fallback when exitCode=0 and agentCompletedSuccessfully to prevent false error detection
+  - Upload failure logs when auto-restart iteration fails for `--tool agent` with `--attach-logs`
+  - Add comprehensive tests for false positive scenarios (Issue #1290)
+
+## 1.23.1
+
+### Patch Changes
+
+- 5c635fc: Fix agent tool error handling: upload failure logs to PR even when sessionId is not available
+  - Remove overly strict sessionId requirement for failure log upload in solve.mjs
+  - Add FreeUsageLimitError pattern detection for Agent/OpenCode Zen rate limits
+  - Improve rate limit detection by checking multiple sources (lastMessage, errorMatch, fullOutput)
+  - Add comprehensive case study documentation for issue #1287
+  - Add tests for FreeUsageLimitError detection
+
+## 1.23.0
+
+### Minor Changes
+
+- 7a74bc6: Add Kilo Gateway free models support for --tool agent
+
+  This release adds support for 6 free models from Kilo Gateway:
+  - `kilo/glm-5-free` - Z.AI flagship model (free for limited time)
+  - `kilo/glm-4.7-free` - Z.AI agent-centric model
+  - `kilo/kimi-k2.5-free` - MoonshotAI agentic model
+  - `kilo/minimax-m2.1-free` - MiniMax general-purpose model
+  - `kilo/giga-potato-free` - Evaluation model
+  - `kilo/trinity-large-preview` - Arcee AI preview model
+
+  Short aliases are also supported (e.g., `glm-5-free`, `kilo-glm-4.7-free`).
+
+  Usage:
+
+  ```bash
+  solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
+  /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
+  ```
+
+  See docs/FREE_MODELS.md for comprehensive documentation.
+
+  Fixes #1282
+
+## 1.22.6
+
+### Patch Changes
+
+- ed87517: Fix: Add workaround for process stream hanging after completion (Issue #1280)
+
+  After the Claude CLI sends the final result event, the `for await` loop over
+  `command-stream`'s `stream()` can hang indefinitely. Root cause: `command-stream` v0.9.4's
+  `stream()` async iterator waits for both process exit AND stdout/stderr pipe close before
+  ending. If the CLI process keeps stdout open after sending the result, `pumpReadable()` hangs,
+  `finish()` never fires, and the stream iterator never terminates.
+
+  Additionally, `command-stream` v0.9.4 `stream()` does NOT yield `{type:'exit'}` chunks,
+  making the exit code detection via `chunk.type === 'exit'` dead code (exit code is obtained
+  from `execCommand.result.code` after the loop instead).
+
+  Workaround: after receiving the result event, start a configurable timeout (default 30s,
+  `HIVE_MIND_RESULT_STREAM_CLOSE_MS`) to force-kill the process with SIGTERM/SIGKILL.
+
+  Related: https://github.com/link-foundation/command-stream/issues/155
+
+## 1.22.5
+
+### Patch Changes
+
+- fdd8eaa: Fix auto-merge failure in fork mode with permission pre-check (Issue #1226)
+  - Add fork-mode guard in `startAutoRestartUntilMergable()` to detect when `--auto-merge` cannot work
+  - Add `checkMergePermissions()` function to verify write/push/admin/maintain access before merge attempts
+  - Add permission pre-check in `attemptAutoMerge()` to fail fast when user lacks write access
+  - Post "Ready to merge" comment to PR when auto-merge cannot be performed due to permissions
+  - Prevent silent failures and infinite restart loops in fork mode scenarios
+
+## 1.22.4
+
+### Patch Changes
+
+- 2204f18: Fix workflow cancellation blocking by replacing always() with !cancelled() in Docker jobs (Issue #1278)
+  - Replace `always()` with `!cancelled()` in all Docker publish and Helm release job conditions
+  - Allow concurrency cancellation to properly interrupt Docker builds when new commits are pushed
+  - Reduce Docker job timeout from 60 to 30 minutes to minimize blocking time
+  - Fix issue where PR merges to main branch did not trigger releases due to stuck workflow runs
+
+## 1.22.3
+
+### Patch Changes
+
+- 34a6937: Fix false positive error detection when agent recovers from transient errors (Issue #1276)
+  - Trust exit code 0 as authoritative indicator of success even if errors occurred during execution
+  - Clear streaming error detection when agent completes successfully (emits session.idle or "exiting loop")
+  - Fix message extraction to prefer "error" field over "message" field for agent error events
+  - Add tests for agent recovery scenarios and false positive prevention
+
+## 1.22.2
+
+### Patch Changes
+
+- 5b018dc: fix: prevent CI/CD release blocking by enabling cancel-in-progress for main branch (Issue #1274)
+
+  When multiple commits are pushed to main quickly (e.g., multiple PRs merged in succession),
+  the old concurrency configuration would queue newer runs indefinitely until older runs complete.
+  This caused releases to be blocked when Docker ARM64 builds took too long.
+
+  Changes:
+  - Add `cancel-in-progress: true` for main branch to allow newer releases to proceed
+  - PR branches still queue runs to avoid cancelling checks during development
+  - Document the issue and solution in docs/case-studies/issue-1274/
+
+## 1.22.1
+
+### Patch Changes
+
+- fix: add --merge flag to gh pr merge command to prevent "not running interactively" error (Issue #1269)
+
+  The merge queue was stuck because `gh pr merge` requires an explicit merge method flag
+  (`--merge`, `--squash`, or `--rebase`) when running in a non-interactive context.
+  Without a merge method, the command would fail with:
+  "--merge, --rebase, or --squash required when not running interactively"
+
+  This fix:
+  - Adds `--merge` flag by default to the `mergePullRequest()` function
+  - Adds `mergeMethod` option to configure the merge strategy ('merge', 'squash', 'rebase')
+  - Adds `HIVE_MIND_MERGE_QUEUE_MERGE_METHOD` environment variable for configuration
+
+  Fix release notes to show ALL related pull requests when multiple PRs are merged before a release (Issue #1271)
+  - Extract ALL commit hashes from changelog entry (not just the first one)
+  - Look up PRs for each commit hash via GitHub API
+  - Display all unique PR numbers in release notes (e.g., "Related Pull Requests: #1268, #1270")
+  - Use plural "Pull Requests" label when multiple PRs are found
+  - Add comprehensive case study documentation in docs/case-studies/issue-1271/
+
+## 1.22.0
+
+### Minor Changes
+
+- c000f7b: Add `--attach-solution-summary` and `--auto-attach-solution-summary` options
+
+  This feature allows users to automatically attach the AI's result summary as a PR/issue comment:
+  - `--attach-solution-summary`: Always attach the solution summary when available
+  - `--auto-attach-solution-summary`: Only attach the summary if the AI didn't create any comments during the session
+
+  The solution summary is extracted from the JSON output stream of all AI tools (claude, agent, codex, opencode). Each tool captures the last text content from various JSON event types (text, assistant, message, result) to provide a summary of the work done.
+
+  Fixes #1263
+
+## 1.21.4
+
+### Patch Changes
+
+- ea19c72: Fix queue issues: rejection, display, and formatting
+  - Fix disk rejection not blocking queue placement when threshold exceeded
+  - Restore "used" label on progress bars when below threshold
+  - Show per-queue breakdown in /limits command
+  - Group queue items by tool and use human-readable time in /solve_queue
+
+- aa42f3a: fix: improve merge queue error handling and debugging (Issue #1269)
+  - Always log errors (not just in verbose mode) for critical merge queue failures
+  - Always notify users via Telegram when merge queue fails unexpectedly
+  - Add timeout wrapper (60s) for onStatusUpdate callback to prevent infinite blocking
+  - Add error handling for CI check failures in waitForCI loop
+  - Add comprehensive case study documentation in docs/case-studies/issue-1269/
+
+## 1.21.3
+
+### Patch Changes
+
+- 4426112: Fix error detection for `--tool agent` when JSON errors are pretty-printed (Issue #1258)
+  - Add fallback pattern matching for error events when NDJSON parsing fails
+  - Detect `"type": "error"` and `"type": "step_error"` patterns in raw output
+  - Detect critical error patterns like `AI_RetryError` and `UnhandledRejection`
+  - Extract error messages from output for better error reporting
+
+## 1.21.2
+
+### Patch Changes
+
+- 586b84d: Add retry mechanism for GitHub 500 errors during repository clone
+
+  This change adds intelligent retry logic with exponential backoff to handle transient GitHub server errors during repository cloning operations.
+
+## 1.21.1
+
+### Patch Changes
+
+- fbfc0c3: Fix `--tool agent` pricing display for free models (Issue #1250)
+  - Add base model pricing lookup for free model variants (e.g., `kimi-k2.5-free` → `kimi-k2.5`)
+  - Show actual market price as "Public pricing estimate" based on the underlying paid model
+  - Display base model reference in cost output: "(based on Moonshot AI kimi-k2.5 prices)"
+  - Distinguish between truly free models and free access to paid models
+  - Fix token usage showing "0 input, 0 output" by accumulating tokens during streaming
+  - Token accumulation now happens in real-time as step_finish events arrive, avoiding NDJSON concatenation issues
+
 ## 1.21.0
 
 ### Minor Changes

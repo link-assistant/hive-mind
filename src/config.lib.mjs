@@ -49,6 +49,9 @@ export const timeouts = {
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
   retryBackoffDelay: parseIntWithDefault('HIVE_MIND_RETRY_BACKOFF_DELAY_MS', 1000),
+  // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
+  // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
+  resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
 };
 
 // Auto-continue configurations
@@ -396,6 +399,7 @@ export const version = {
 
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
+// See: https://github.com/link-assistant/hive-mind/issues/1269
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -409,6 +413,10 @@ export const mergeQueue = {
   // Wait time after merge before processing next PR
   // Default: 1 minute (60000ms) - allows CI to stabilize
   postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+  // Default merge method: 'merge', 'squash', or 'rebase'
+  // Issue #1269: gh pr merge requires explicit method when running non-interactively
+  // Default: 'merge' - creates a merge commit
+  mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
 };
 
 // Helper function to validate configuration values

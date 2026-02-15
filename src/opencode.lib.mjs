@@ -307,6 +307,7 @@ export const executeOpenCodeCommand = async params => {
       let limitReached = false;
       let limitResetTime = null;
       let lastMessage = '';
+      let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let allOutput = ''; // Collect all output for error detection
 
       for await (const chunk of execCommand.stream()) {
@@ -315,6 +316,41 @@ export const executeOpenCodeCommand = async params => {
           await log(output);
           lastMessage = output;
           allOutput += output;
+
+          // Issue #1263: Try to parse JSON output to extract text content for result summary
+          try {
+            const lines = output.split('\n');
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              const data = JSON.parse(line);
+              // Track text content for result summary
+              // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
+              if (data.type === 'text' && data.text) {
+                lastTextContent = data.text;
+              } else if (data.type === 'assistant' && data.message?.content) {
+                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                for (const item of content) {
+                  if (item.type === 'text' && item.text) {
+                    lastTextContent = item.text;
+                  }
+                }
+              } else if (data.type === 'message' && data.content) {
+                if (typeof data.content === 'string') {
+                  lastTextContent = data.content;
+                } else if (Array.isArray(data.content)) {
+                  for (const item of data.content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                }
+              } else if (data.type === 'result' && data.result) {
+                lastTextContent = data.result;
+              }
+            }
+          } catch {
+            // Not JSON, continue
+          }
         }
 
         if (chunk.type === 'stderr') {
@@ -322,6 +358,39 @@ export const executeOpenCodeCommand = async params => {
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
             allOutput += errorOutput;
+
+            // Issue #1263: Also try to parse stderr for text content
+            try {
+              const lines = errorOutput.split('\n');
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                const data = JSON.parse(line);
+                if (data.type === 'text' && data.text) {
+                  lastTextContent = data.text;
+                } else if (data.type === 'assistant' && data.message?.content) {
+                  const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                  for (const item of content) {
+                    if (item.type === 'text' && item.text) {
+                      lastTextContent = item.text;
+                    }
+                  }
+                } else if (data.type === 'message' && data.content) {
+                  if (typeof data.content === 'string') {
+                    lastTextContent = data.content;
+                  } else if (Array.isArray(data.content)) {
+                    for (const item of data.content) {
+                      if (item.type === 'text' && item.text) {
+                        lastTextContent = item.text;
+                      }
+                    }
+                  }
+                } else if (data.type === 'result' && data.result) {
+                  lastTextContent = data.result;
+                }
+              }
+            } catch {
+              // Not JSON, continue
+            }
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -374,6 +443,7 @@ export const executeOpenCodeCommand = async params => {
           limitReached: false,
           limitResetTime: null,
           permissionPromptDetected: true,
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
@@ -409,16 +479,23 @@ export const executeOpenCodeCommand = async params => {
           sessionId,
           limitReached,
           limitResetTime,
+          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
         };
       }
 
       await log('\n\n✅ OpenCode command completed');
+
+      // Issue #1263: Log if result summary was captured
+      if (lastTextContent) {
+        await log('📝 Captured result summary from OpenCode output', { verbose: true });
+      }
 
       return {
         success: true,
         sessionId,
         limitReached,
         limitResetTime,
+        resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
       };
     } catch (error) {
       // Clean up the opencode.json config file even on error
@@ -441,6 +518,7 @@ export const executeOpenCodeCommand = async params => {
         sessionId: null,
         limitReached: false,
         limitResetTime: null,
+        resultSummary: null, // Issue #1263: No result summary available on error
       };
     }
   };

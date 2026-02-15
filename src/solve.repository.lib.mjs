@@ -884,56 +884,140 @@ Thank you!`;
   return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
 };
 
-// Clone repository and set up remotes
+// Classify git clone errors to determine if they are retryable
+export const classifyCloneError = errorOutput => {
+  const output = errorOutput.toLowerCase();
+
+  // Transient server errors (5xx) - typically retryable
+  if (output.includes('error: 500') || output.includes('internal server error') || output.includes('error: 502') || output.includes('error: 503') || output.includes('error: 504')) {
+    return { type: 'TRANSIENT', retryable: true, description: 'GitHub server error' };
+  }
+
+  // Network-related errors - typically retryable
+  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error')) {
+    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue' };
+  }
+
+  // Authentication/permission errors - not retryable
+  if (output.includes('error: 401') || output.includes('error: 403') || output.includes('authentication failed') || output.includes('permission denied')) {
+    return { type: 'PERMISSION', retryable: false, description: 'Authentication or permission error' };
+  }
+
+  // Repository not found - not retryable
+  if (output.includes('error: 404') || output.includes('not found') || output.includes('repository not found')) {
+    return { type: 'NOT_FOUND', retryable: false, description: 'Repository not found' };
+  }
+
+  // Rate limiting - retryable with backoff
+  if (output.includes('rate limit') || output.includes('too many requests') || output.includes('api rate limit exceeded')) {
+    return { type: 'RATE_LIMIT', retryable: true, description: 'Rate limit exceeded' };
+  }
+
+  // Default to retryable for unknown errors
+  return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
+};
+
+// Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
-  // Clone the repository (or fork) using gh tool with authentication
+  const maxRetries = 3;
+  const baseDelay = 2000; // Start with 2 seconds
+
   await log(`\n${formatAligned('📥', 'Cloning repository:', repoToClone)}`);
 
-  // Use 2>&1 to capture all output and filter "Cloning into" message
-  const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (attempt > 1) {
+      await log(`${formatAligned('⏳', 'Clone attempt:', `${attempt}/${maxRetries} (with retry logic)`)}`);
+    }
 
-  // Verify clone was successful
-  if (cloneResult.code !== 0) {
+    // Use 2>&1 to capture all output and filter "Cloning into" message
+    const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+
+    // Verify clone was successful
+    if (cloneResult.code === 0) {
+      await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
+
+      // Verify and fix remote configuration
+      const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
+      if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
+        await log('   Setting up git remote...', { verbose: true });
+        // Add origin remote manually
+        await $({ cwd: tempDir })`git remote add origin https://github.com/${repoToClone}.git 2>&1`;
+      }
+      return; // Success - exit function
+    }
+
+    // Clone failed - analyze error and determine if retry is appropriate
     const errorOutput = (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
-    await log('');
-    await log(`${formatAligned('❌', 'CLONE FAILED', '')}`, { level: 'error' });
-    await log('');
-    await log('  🔍 What happened:');
-    await log(`     Failed to clone repository ${repoToClone}`);
-    await log('');
-    await log('  📦 Error details:');
-    for (const line of errorOutput.split('\n')) {
-      if (line.trim()) await log(`     ${line}`);
+
+    const errorClassification = classifyCloneError(errorOutput);
+
+    if (!errorClassification.retryable || attempt === maxRetries) {
+      // Non-retryable error or max retries reached - fail with detailed error
+      await log('');
+      await log(`${formatAligned('❌', 'CLONE FAILED', '')}`, { level: 'error' });
+      await log('');
+      await log('  🔍 What happened:');
+      await log(`     Failed to clone repository ${repoToClone}`);
+
+      if (!errorClassification.retryable) {
+        await log(`     Error type: ${errorClassification.description} (not retryable)`);
+      } else {
+        await log(`     Error type: ${errorClassification.description} (max retries exceeded)`);
+      }
+      await log('');
+      await log('  📦 Error details:');
+      for (const line of errorOutput.split('\n')) {
+        if (line.trim()) await log(`     ${line}`);
+      }
+      await log('');
+      await log('  💡 Common causes:');
+      await log("     • Repository doesn't exist or is private");
+      await log('     • No GitHub authentication');
+      await log('     • Network connectivity issues');
+      if (errorClassification.type === 'TRANSIENT') {
+        await log('     • GitHub server issues (temporary)');
+      }
+      if (errorClassification.type === 'RATE_LIMIT') {
+        await log('     • API rate limiting exceeded');
+      }
+      if (argv.fork) {
+        await log('     • Fork not ready yet (try again in a moment)');
+      }
+      await log('');
+      await log('  🔧 How to fix:');
+      await log('     1. Check authentication: gh auth status');
+      await log('     2. Login if needed: gh auth login');
+      await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
+      if (argv.fork) {
+        await log(`     4. Check fork: gh repo view ${repoToClone}`);
+      }
+      if (errorClassification.type === 'TRANSIENT') {
+        await log('     5. Wait a few minutes and retry (GitHub server issue)');
+        await log('     6. Check GitHub status: https://www.githubstatus.com');
+      }
+      if (errorClassification.type === 'RATE_LIMIT') {
+        await log('     5. Wait for rate limit to reset (check your quota)');
+        await log('     6. Use --token flag with different token if available');
+      }
+      await log('');
+      await safeExit(1, 'Repository setup failed');
     }
-    await log('');
-    await log('  💡 Common causes:');
-    await log("     • Repository doesn't exist or is private");
-    await log('     • No GitHub authentication');
-    await log('     • Network connectivity issues');
-    if (argv.fork) {
-      await log('     • Fork not ready yet (try again in a moment)');
+
+    // Retryable error and we have attempts left
+    const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+    await log(`${formatAligned('⚠️', 'Clone failed:', errorClassification.description)}`);
+    await log(`${formatAligned('⏳', 'Retrying:', `Waiting ${delay / 1000}s before attempt ${attempt + 1}/${maxRetries}...`)}`);
+
+    if (errorClassification.type === 'RATE_LIMIT') {
+      await log('     💡 Tip: Rate limiting detected - using longer delay');
     }
-    await log('');
-    await log('  🔧 How to fix:');
-    await log('     1. Check authentication: gh auth status');
-    await log('     2. Login if needed: gh auth login');
-    await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
-    if (argv.fork) {
-      await log(`     4. Check fork: gh repo view ${repoToClone}`);
-    }
-    await log('');
-    await safeExit(1, 'Repository setup failed');
+
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
-  await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
-
-  // Verify and fix remote configuration
-  const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
-  if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
-    await log('   Setting up git remote...', { verbose: true });
-    // Add origin remote manually
-    await $({ cwd: tempDir })`git remote add origin https://github.com/${repoToClone}.git 2>&1`;
-  }
+  // This should never be reached due to the loop logic above
+  await log(`${formatAligned('❌', 'UNEXPECTED ERROR:', 'Clone logic failed')}`);
+  await safeExit(1, 'Repository setup failed');
 };
 
 // Set up upstream remote and sync fork

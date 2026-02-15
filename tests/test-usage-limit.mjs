@@ -428,6 +428,27 @@ runTest('isUsageLimitError: does not match unrelated messages', () => {
   assertFalse(isUsageLimitError('The limit is 100'), 'Should not match partial "limit"');
 });
 
+// === Issue #1290: False positive tests for "resets" in code output ===
+
+runTest('isUsageLimitError: does not match "resets" in code comments (Issue #1290)', () => {
+  // These are real examples from a Godot game codebase that caused false positives
+  assertFalse(isUsageLimitError('loads a shell and resets'), 'Should not match "resets" in code comment');
+  assertFalse(isUsageLimitError('Also resets drag start when firing while RMB is held'), 'Should not match "resets" in code description');
+  assertFalse(isUsageLimitError('it resets _wasMiddleMouseHeldDuringDrag = anyMMBD'), 'Should not match "resets" in variable description');
+  assertFalse(isUsageLimitError('Function resets the state'), 'Should not match "resets" followed by article');
+  assertFalse(isUsageLimitError('The counter resets to zero'), 'Should not match "resets" followed by preposition');
+  assertFalse(isUsageLimitError('Timer resets every cycle'), 'Should not match "resets" followed by "every"');
+});
+
+runTest('isUsageLimitError: still matches valid "resets" usage limit messages (Issue #1290)', () => {
+  assertTrue(isUsageLimitError('resets 5am'), 'Should match "resets 5am"');
+  assertTrue(isUsageLimitError('∙ resets 8pm (Europe/Berlin)'), 'Should match "resets 8pm"');
+  assertTrue(isUsageLimitError('resets Jan 15, 8am'), 'Should match "resets Jan 15, 8am"');
+  assertTrue(isUsageLimitError('resets 10:00 PM'), 'Should match "resets 10:00 PM"');
+  assertTrue(isUsageLimitError('Limit reached ∙ resets 8pm'), 'Should match within limit message');
+  assertTrue(isUsageLimitError('resets at 5pm'), 'Should match "resets at 5pm"');
+});
+
 // === extractTimezone tests (Issue #1122) ===
 
 runTest('extractTimezone: extracts Europe/Berlin timezone', () => {
@@ -525,6 +546,26 @@ runTest('Integration: detectUsageLimit includes timezone (Issue #1122)', () => {
   assertTrue(result.isUsageLimit, 'Should detect usage limit');
   assertEqual(result.resetTime, 'Jan 15, 8:00 AM', 'Should extract reset time');
   assertEqual(result.timezone, 'Europe/Berlin', 'Should extract timezone');
+});
+
+// === Agent/OpenCode Zen FreeUsageLimitError tests (Issue #1287) ===
+
+runTest('isUsageLimitError: detects FreeUsageLimitError from Agent/OpenCode Zen', () => {
+  // JSON error message from agent
+  const errorJson = '{"type":"error","error":{"type":"FreeUsageLimitError","message":"Rate limit exceeded. Please try again later."}}';
+  assertTrue(isUsageLimitError(errorJson), 'Should detect FreeUsageLimitError in JSON');
+
+  // Direct error type
+  assertTrue(isUsageLimitError('FreeUsageLimitError'), 'Should detect FreeUsageLimitError directly');
+
+  // Case insensitive
+  assertTrue(isUsageLimitError('freeusagelimiterror'), 'Should detect lowercase freeusagelimiterror');
+});
+
+runTest('detectUsageLimit: detects agent rate limit error message (Issue #1287)', () => {
+  const errorMessage = 'Failed after 3 attempts. Last error: Rate limit exceeded. Please try again later.';
+  const result = detectUsageLimit(errorMessage);
+  assertTrue(result.isUsageLimit, 'Should detect rate limit in error message');
 });
 
 // === Summary ===

@@ -81,18 +81,27 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const baseWaitMs = calculateWaitTime(resetTime);
 
     // Add buffer time after limit reset to account for server time differences
-    // Default: 5 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
+    // Default: 10 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
     // See: https://github.com/link-assistant/hive-mind/issues/1152
+    // See: https://github.com/link-assistant/hive-mind/issues/1236
     const bufferMs = limitReset.bufferMs;
-    const waitMs = baseWaitMs + bufferMs;
+
+    // Add random jitter to avoid thundering herd problem when multiple instances
+    // wait for the same limit reset time and all resume simultaneously
+    // Default: random 0-5 minutes (configurable via HIVE_MIND_LIMIT_RESET_JITTER_MS)
+    // See: https://github.com/link-assistant/hive-mind/issues/1236
+    const jitterMs = Math.floor(Math.random() * limitReset.jitterMs);
+    const totalBufferMs = bufferMs + jitterMs;
+    const waitMs = baseWaitMs + totalBufferMs;
     const bufferMinutes = Math.round(bufferMs / 60000);
+    const jitterSeconds = Math.round(jitterMs / 1000);
 
     // Format reset time with relative time and UTC for better user understanding
     // See: https://github.com/link-assistant/hive-mind/issues/1152
     const formattedResetTime = formatResetTimeWithRelative(resetTime, timezone);
 
-    await log(`\n⏰ Waiting until ${formattedResetTime} + ${bufferMinutes} min buffer for limit to reset...`);
-    await log(`   Wait time: ${formatWaitTime(waitMs)} (includes ${bufferMinutes} min buffer for server time differences)`);
+    await log(`\n⏰ Waiting until ${formattedResetTime} + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter for limit to reset...`);
+    await log(`   Wait time: ${formatWaitTime(waitMs)} (includes ${bufferMinutes} min buffer + ${jitterSeconds}s random jitter)`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Show countdown every 30 minutes for long waits, every minute for short waits
@@ -111,7 +120,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     clearInterval(countdownTimer);
 
     const actionType = isRestart ? 'Restarting' : 'Resuming';
-    await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer)! ${actionType} session...`);
+    await log(`\n✅ Limit reset time reached (+ ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)! ${actionType} session...`);
     await log(`   Current time: ${new Date().toLocaleTimeString()}`);
 
     // Recursively call the solve script

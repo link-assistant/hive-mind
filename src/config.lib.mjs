@@ -61,10 +61,19 @@ export const autoContinue = {
 
 // Auto-resume on limit reset configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1152
+// See: https://github.com/link-assistant/hive-mind/issues/1236
 export const limitReset = {
   // Buffer time to wait after limit reset (in milliseconds)
-  // Default: 5 minutes - accounts for server time differences
-  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+  // Default: 10 minutes - accounts for server time differences and API propagation delays
+  // Increased from 5 to 10 minutes to reduce risk of hitting limits again immediately
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 10 * 60 * 1000),
+  // Random jitter added to buffer to avoid thundering herd problem (in milliseconds)
+  // When multiple instances wait for the same limit reset, jitter distributes their
+  // resume times to reduce simultaneous API load
+  // Default: 5 minutes (0 to 5 minutes random) - total wait after reset: 10-15 minutes
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  jitterMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_JITTER_MS', 5 * 60 * 1000),
 };
 
 // GitHub API limits

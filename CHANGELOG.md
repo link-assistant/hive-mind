@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.23.8
+
+### Patch Changes
+
+- Fix spelling: rename --auto-restart-until-mergable to --auto-restart-until-mergeable throughout the codebase. This includes CLI options, function names, variable names, documentation, and code comments to use the correct English spelling.
+
+  Increase limit reset buffer from 5 to 10 minutes and add random jitter (0-5 min) to avoid thundering herd problem when multiple instances wait for the same limit reset. Format reset time in PR comments with relative time and UTC timezone for better user understanding.
+
 ## 1.23.7
 
 ### Patch Changes

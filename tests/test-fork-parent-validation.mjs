@@ -188,6 +188,101 @@ runTest('success message on valid fork', () => {
   }
 });
 
+// Test 11: Verify retry logic for transient network errors (Issue #1311)
+runTest('retry logic for network errors (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for retry loop implementation
+  if (!content.includes('for (let attempt = 1; attempt <= maxAttempts; attempt++)')) {
+    throw new Error('Missing retry loop in validateForkParent');
+  }
+
+  // Check for exponential backoff
+  if (!content.includes('baseDelay * Math.pow(2, attempt - 1)')) {
+    throw new Error('Missing exponential backoff in retry logic');
+  }
+
+  // Check for network error detection call
+  if (!content.includes('lib.isTransientNetworkError')) {
+    throw new Error('Missing network error detection using lib.isTransientNetworkError');
+  }
+});
+
+// Test 12: Verify isNetworkError flag in return value (Issue #1311)
+runTest('isNetworkError flag in return value (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for isNetworkError field in return
+  if (!content.includes('isNetworkError: true')) {
+    throw new Error('Missing isNetworkError flag in return value for network errors');
+  }
+
+  // Check that JSDoc mentions the new field
+  if (!content.includes('isNetworkError?:')) {
+    throw new Error('Missing isNetworkError field in JSDoc return type');
+  }
+});
+
+// Test 13: Verify separate error message for network errors (Issue #1311)
+runTest('network error message differentiation (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for network-specific error title
+  if (!content.includes('NETWORK ERROR DURING FORK VALIDATION')) {
+    throw new Error('Missing network-specific error message');
+  }
+
+  // Check for network retry suggestion
+  if (!content.includes('Wait a moment and try again')) {
+    throw new Error('Missing retry suggestion for network errors');
+  }
+
+  // Check for GitHub status link
+  if (!content.includes('githubstatus.com')) {
+    throw new Error('Missing GitHub status link in network error message');
+  }
+});
+
+// Test 14: Verify isTransientNetworkError helper exists in lib.mjs
+runTest('isTransientNetworkError helper exists', () => {
+  const libContent = execSync(`cat ${srcDir}/lib.mjs`, { encoding: 'utf8' });
+
+  // Check for function definition
+  if (!libContent.includes('export const isTransientNetworkError')) {
+    throw new Error('Missing isTransientNetworkError export in lib.mjs');
+  }
+
+  // Check for key network error patterns
+  const patterns = ['i/o timeout', 'dial tcp', 'econnreset', 'etimedout', 'http 503'];
+  for (const pattern of patterns) {
+    if (!libContent.includes(pattern)) {
+      throw new Error(`Missing network error pattern: ${pattern}`);
+    }
+  }
+});
+
+// Test 15: Verify case study reference removed from network error path
+runTest('case study reference not shown for network errors', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // The case study reference should NOT appear in network error handling code path
+  // Verify that network error path has different content than fork mismatch path
+  if (content.includes('NETWORK ERROR DURING FORK VALIDATION') && content.includes('FORK PARENT MISMATCH')) {
+    // Good - both messages exist, now verify they're separate
+    const networkErrorSection = content.split('NETWORK ERROR DURING FORK VALIDATION')[1];
+    if (networkErrorSection) {
+      // The next "FORK PARENT" should come before any case study reference in network section
+      const nextForkMismatch = networkErrorSection.indexOf('FORK PARENT MISMATCH');
+      const caseStudyInNetwork = networkErrorSection.indexOf('Case study: See issue #967');
+
+      // If case study appears before next FORK_PARENT section, it's in wrong place
+      if (caseStudyInNetwork !== -1 && (nextForkMismatch === -1 || caseStudyInNetwork < nextForkMismatch)) {
+        throw new Error('Case study reference should not appear in network error message');
+      }
+    }
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('Test Results for fork parent validation:');

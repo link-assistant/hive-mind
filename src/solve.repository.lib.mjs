@@ -110,93 +110,160 @@ export const checkExistingForkOfRoot = async rootRepo => {
  * This prevents issues where a fork was created from an intermediate fork (fork of a fork)
  * instead of directly from the intended upstream repository.
  *
+ * Implements retry logic for transient network errors (Issue #1311).
+ *
  * @param {string} forkRepo - The fork repository to validate (e.g., "user/repo")
  * @param {string} expectedUpstream - The expected upstream repository (e.g., "owner/repo")
- * @returns {Promise<{isValid: boolean, isFork: boolean, parent: string|null, source: string|null, error: string|null}>}
+ * @returns {Promise<{isValid: boolean, isFork: boolean, parent: string|null, source: string|null, error: string|null, isNetworkError?: boolean}>}
  */
 export const validateForkParent = async (forkRepo, expectedUpstream) => {
-  try {
-    const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+  const maxAttempts = 3;
+  const baseDelay = 2000; // 2 seconds initial delay
+  let lastError = null;
 
-    if (forkInfoResult.code !== 0) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+
+      // Check for network errors in the output even if command "succeeds"
+      const combinedOutput = (forkInfoResult.stdout?.toString() || '') + (forkInfoResult.stderr?.toString() || '');
+
+      if (forkInfoResult.code !== 0) {
+        // Check if this is a transient network error (Issue #1311)
+        if (lib.isTransientNetworkError({ message: combinedOutput, stderr: forkInfoResult.stderr, stdout: forkInfoResult.stdout })) {
+          lastError = new Error(`Network error: ${combinedOutput.substring(0, 200)}`);
+          if (attempt < maxAttempts) {
+            const delay = baseDelay * Math.pow(2, attempt - 1);
+            await log(`   ⚠️ Network error during fork validation, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          // All retries exhausted for network error
+          return {
+            isValid: false,
+            isFork: false,
+            parent: null,
+            source: null,
+            error: `Network error while validating fork (retried ${maxAttempts} times): ${lastError.message}`,
+            isNetworkError: true,
+          };
+        }
+
+        // Non-network error
+        return {
+          isValid: false,
+          isFork: false,
+          parent: null,
+          source: null,
+          error: `Failed to get fork info for ${forkRepo}: ${combinedOutput.substring(0, 200)}`,
+        };
+      }
+
+      const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+      const isFork = forkInfo.fork === true;
+      const parent = forkInfo.parent || null;
+      const source = forkInfo.source || null;
+
+      // If not a fork at all, it's invalid for our purposes
+      if (!isFork) {
+        return {
+          isValid: false,
+          isFork: false,
+          parent: null,
+          source: null,
+          error: `Repository ${forkRepo} is not a GitHub fork`,
+        };
+      }
+
+      // The fork's PARENT (immediate upstream) should match expectedUpstream
+      // The SOURCE (ultimate root) is also acceptable as it indicates the fork
+      // is part of the correct hierarchy, just at a different level
+      const parentMatches = parent === expectedUpstream;
+      const sourceMatches = source === expectedUpstream;
+
+      // Ideal case: parent matches directly (fork was made from expected upstream)
+      if (parentMatches) {
+        return {
+          isValid: true,
+          isFork: true,
+          parent,
+          source,
+          error: null,
+        };
+      }
+
+      // Special case: source matches but parent doesn't
+      // This means the fork was made from an intermediate fork
+      // For issue #967, this is the problematic case we want to catch
+      if (sourceMatches && !parentMatches) {
+        return {
+          isValid: false,
+          isFork: true,
+          parent,
+          source,
+          error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. ` + `This can cause pull requests to include unexpected commits from the intermediate fork.`,
+        };
+      }
+
+      // Neither parent nor source matches - completely different repository tree
+      return {
+        isValid: false,
+        isFork: true,
+        parent,
+        source,
+        error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}`,
+      };
+    } catch (error) {
+      // Check if this is a transient network error
+      if (lib.isTransientNetworkError(error) && attempt < maxAttempts) {
+        lastError = error;
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        await log(`   ⚠️ Network error during fork validation, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      reportError(error, {
+        context: 'validate_fork_parent',
+        forkRepo,
+        expectedUpstream,
+        operation: 'check_fork_hierarchy',
+        attempt,
+        maxAttempts,
+        isNetworkError: lib.isTransientNetworkError(error),
+      });
+
+      // Return appropriate error based on type
+      if (lib.isTransientNetworkError(error)) {
+        return {
+          isValid: false,
+          isFork: false,
+          parent: null,
+          source: null,
+          error: `Network error while validating fork (retried ${maxAttempts} times): ${error.message}`,
+          isNetworkError: true,
+        };
+      }
+
       return {
         isValid: false,
         isFork: false,
         parent: null,
         source: null,
-        error: `Failed to get fork info for ${forkRepo}`,
+        error: `Error validating fork parent: ${error.message}`,
       };
     }
-
-    const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
-    const isFork = forkInfo.fork === true;
-    const parent = forkInfo.parent || null;
-    const source = forkInfo.source || null;
-
-    // If not a fork at all, it's invalid for our purposes
-    if (!isFork) {
-      return {
-        isValid: false,
-        isFork: false,
-        parent: null,
-        source: null,
-        error: `Repository ${forkRepo} is not a GitHub fork`,
-      };
-    }
-
-    // The fork's PARENT (immediate upstream) should match expectedUpstream
-    // The SOURCE (ultimate root) is also acceptable as it indicates the fork
-    // is part of the correct hierarchy, just at a different level
-    const parentMatches = parent === expectedUpstream;
-    const sourceMatches = source === expectedUpstream;
-
-    // Ideal case: parent matches directly (fork was made from expected upstream)
-    if (parentMatches) {
-      return {
-        isValid: true,
-        isFork: true,
-        parent,
-        source,
-        error: null,
-      };
-    }
-
-    // Special case: source matches but parent doesn't
-    // This means the fork was made from an intermediate fork
-    // For issue #967, this is the problematic case we want to catch
-    if (sourceMatches && !parentMatches) {
-      return {
-        isValid: false,
-        isFork: true,
-        parent,
-        source,
-        error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. ` + `This can cause pull requests to include unexpected commits from the intermediate fork.`,
-      };
-    }
-
-    // Neither parent nor source matches - completely different repository tree
-    return {
-      isValid: false,
-      isFork: true,
-      parent,
-      source,
-      error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}`,
-    };
-  } catch (error) {
-    reportError(error, {
-      context: 'validate_fork_parent',
-      forkRepo,
-      expectedUpstream,
-      operation: 'check_fork_hierarchy',
-    });
-    return {
-      isValid: false,
-      isFork: false,
-      parent: null,
-      source: null,
-      error: `Error validating fork parent: ${error.message}`,
-    };
   }
+
+  // Should not reach here, but just in case
+  return {
+    isValid: false,
+    isFork: false,
+    parent: null,
+    source: null,
+    error: `Failed to validate fork parent after ${maxAttempts} attempts`,
+    isNetworkError: true,
+  };
 };
 
 /**
@@ -513,8 +580,36 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       const forkValidation = await validateForkParent(existingForkName, `${owner}/${repo}`);
 
       if (!forkValidation.isValid) {
-        // Fork parent mismatch detected - this prevents issue #967
         await log('');
+
+        // Issue #1311: Different error messages for network errors vs actual fork mismatch
+        if (forkValidation.isNetworkError) {
+          // Network error - show temporary error message with retry suggestions
+          await log(`${formatAligned('❌', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'error' });
+          await log('');
+          await log('  🔍 What happened:');
+          await log(`     Failed to connect to GitHub API while validating fork ${existingForkName}.`);
+          await log(`     Error: ${forkValidation.error}`);
+          await log('');
+          await log('  💡 This is likely a temporary network issue. You can:');
+          await log('');
+          await log('     1. Wait a moment and try again');
+          await log('        The GitHub API may be temporarily unavailable or slow.');
+          await log('');
+          await log('     2. Check your internet connection');
+          await log('        Verify you can reach github.com');
+          await log('');
+          await log('     3. Check GitHub status');
+          await log('        Visit: https://www.githubstatus.com/');
+          await log('');
+          await log('     4. Use --no-fork to work directly on the repository');
+          await log(`        ./solve.mjs "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --no-fork`);
+          await log('');
+
+          await safeExit(1, 'Network error during fork validation - please retry');
+        }
+
+        // Fork parent mismatch detected - this prevents issue #967
         await log(`${formatAligned('❌', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'error' });
         await log('');
         await log('  🔍 What happened:');
@@ -537,11 +632,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log('     any commits that exist in the intermediate fork but not in the target');
         await log('     repository will be included in your pull requests. This can result in');
         await log('     pull requests with hundreds or thousands of unexpected commits.');
-        await log('');
-        await log('  📖 Case study: See issue #967');
-        await log('     A fork created from veb86/zcadvelecAI (which had 1,678 extra commits)');
-        await log('     instead of zamtmn/zcad resulted in a PR with 1,681 commits');
-        await log('     instead of the expected 3 commits.');
         await log('');
         await log('  💡 How to fix:');
         await log('');
@@ -842,29 +932,44 @@ Thank you!`;
       const forkValidation = await validateForkParent(actualForkName, `${owner}/${repo}`);
 
       if (!forkValidation.isValid) {
-        // Fork parent mismatch detected
         await log('');
-        await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH WARNING', '')}`, { level: 'warning' });
-        await log('');
-        await log('  🔍 Issue detected:');
-        if (!forkValidation.isFork) {
-          await log(`     The repository ${actualForkName} is NOT a GitHub fork.`);
+
+        // Issue #1311: Different messages for network errors vs actual fork mismatch
+        if (forkValidation.isNetworkError) {
+          // Network error - show warning but continue since this is someone else's fork
+          await log(`${formatAligned('⚠️', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'warning' });
+          await log('');
+          await log('  🔍 What happened:');
+          await log(`     Failed to validate fork ${actualForkName} due to network error.`);
+          await log(`     Error: ${forkValidation.error}`);
+          await log('');
+          await log('  💡 Continuing anyway since this is an existing PR.');
+          await log('     If you encounter issues, try again when network is stable.');
+          await log('');
         } else {
-          await log(`     The fork ${actualForkName} was created from ${forkValidation.parent},`);
-          await log(`     not directly from the target repository ${owner}/${repo}.`);
+          // Fork parent mismatch detected
+          await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH WARNING', '')}`, { level: 'warning' });
+          await log('');
+          await log('  🔍 Issue detected:');
+          if (!forkValidation.isFork) {
+            await log(`     The repository ${actualForkName} is NOT a GitHub fork.`);
+          } else {
+            await log(`     The fork ${actualForkName} was created from ${forkValidation.parent},`);
+            await log(`     not directly from the target repository ${owner}/${repo}.`);
+          }
+          await log('');
+          await log('  📦 Fork relationship:');
+          await log(`     • Fork: ${actualForkName}`);
+          await log(`     • Fork parent: ${forkValidation.parent || 'N/A'}`);
+          await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
+          await log(`     • Expected parent: ${owner}/${repo}`);
+          await log('');
+          await log('  ⚠️  This may cause pull requests to include unexpected commits.');
+          await log('     Consider using --fork to create your own fork instead.');
+          await log('');
+          // Note: We don't exit here since this is someone else's fork and we're just using it
+          // The user should be aware but can proceed (they didn't create this fork)
         }
-        await log('');
-        await log('  📦 Fork relationship:');
-        await log(`     • Fork: ${actualForkName}`);
-        await log(`     • Fork parent: ${forkValidation.parent || 'N/A'}`);
-        await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
-        await log(`     • Expected parent: ${owner}/${repo}`);
-        await log('');
-        await log('  ⚠️  This may cause pull requests to include unexpected commits.');
-        await log('     Consider using --fork to create your own fork instead.');
-        await log('');
-        // Note: We don't exit here since this is someone else's fork and we're just using it
-        // The user should be aware but can proceed (they didn't create this fork)
       } else {
         await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
       }

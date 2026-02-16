@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRCIStatus, checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -141,16 +141,46 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
 
 /**
  * Get the reasons why PR is not mergeable
- * Issue #1314: Now also checks for billing limit errors
+ * Issue #1314: Comprehensive CI/CD status handling covering all possible states:
+ * - success: All CI passed → no blocker
+ * - failure: Genuine code failures → restart AI
+ * - cancelled: Manually cancelled or workflow cancelled → re-trigger, don't restart AI
+ * - pending/queued: Still running or waiting for runner → wait, don't restart AI
+ * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
+ * - no_checks: No CI checks yet (race condition) → wait
  */
 const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   const blockers = [];
 
-  // Check CI status
-  const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
-  if (ciStatus.status === 'failure') {
-    // Issue #1314: Check if the CI failure is due to billing limits
-    // This is a special case that requires human intervention, not AI restart
+  // Use detailed CI status to distinguish between all possible states
+  const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
+
+  if (ciStatus.status === 'no_checks') {
+    // No CI checks exist yet - race condition after push, treat as pending
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD checks have not started yet (waiting for checks to appear)',
+      details: [],
+    });
+  } else if (ciStatus.status === 'pending') {
+    // CI is still running or queued - wait for completion
+    const pendingNames = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks].map(c => c.name);
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD checks are still running or queued',
+      details: pendingNames,
+    });
+  } else if (ciStatus.status === 'cancelled') {
+    // All non-passed checks are cancelled (no genuine failures)
+    // These need to be re-triggered, NOT treated as AI-fixable failures
+    blockers.push({
+      type: 'ci_cancelled',
+      message: 'CI/CD checks were cancelled',
+      details: ciStatus.cancelledChecks.map(c => c.name),
+      sha: ciStatus.sha,
+    });
+  } else if (ciStatus.status === 'failure') {
+    // Some checks genuinely failed - check if it's billing limits first
     const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
 
     if (billingCheck.isBillingLimitError) {
@@ -162,18 +192,21 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         billingMessage: billingCheck.message,
       });
     } else {
+      // Check if there are also cancelled checks alongside failures
+      if (ciStatus.hasCancelled) {
+        blockers.push({
+          type: 'ci_cancelled',
+          message: 'Some CI/CD checks were cancelled (will be re-triggered)',
+          details: ciStatus.cancelledChecks.map(c => c.name),
+          sha: ciStatus.sha,
+        });
+      }
       blockers.push({
         type: 'ci_failure',
         message: 'CI/CD checks are failing',
-        details: ciStatus.checks.filter(c => c.conclusion === 'failure').map(c => c.name),
+        details: ciStatus.failedChecks.map(c => c.name),
       });
     }
-  } else if (ciStatus.status === 'pending') {
-    blockers.push({
-      type: 'ci_pending',
-      message: 'CI/CD checks are still running',
-      details: ciStatus.checks.filter(c => c.status !== 'completed').map(c => c.name),
-    });
   }
 
   // Check mergeability
@@ -384,7 +417,44 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         }
       }
 
-      // Reason 2: CI failures (only if NOT a billing limit issue)
+      // Issue #1314: Handle cancelled CI/CD checks - re-trigger them instead of restarting AI
+      // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
+      // re-triggered automatically. We should NOT restart the AI for these.
+      const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
+      if (cancelledBlocker && !billingBlocker) {
+        await log('');
+        await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
+        await log(formatAligned('', 'Cancelled checks:', cancelledBlocker.details.join(', '), 2));
+
+        // Attempt to re-trigger the cancelled workflow runs
+        const sha = cancelledBlocker.sha;
+        if (sha) {
+          const runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
+          const cancelledRuns = runs.filter(r => r.conclusion === 'cancelled');
+          let rerunTriggered = false;
+
+          for (const run of cancelledRuns) {
+            await log(formatAligned('', `Re-triggering workflow "${run.name}" (${run.id})...`, '', 2));
+            const rerunResult = await rerunWorkflowRun(owner, repo, run.id, argv.verbose);
+            if (rerunResult.success) {
+              await log(formatAligned('', `✅ Re-triggered: ${run.name}`, '', 2));
+              rerunTriggered = true;
+            } else {
+              await log(formatAligned('', `⚠️  Could not re-trigger ${run.name}: ${rerunResult.error}`, '', 2));
+            }
+          }
+
+          if (rerunTriggered) {
+            await log(formatAligned('⏳', 'Waiting for re-triggered CI to complete...', '', 2));
+            // Don't restart AI - just wait for re-triggered jobs to complete
+            // The next iteration of the loop will check the new status
+          }
+        }
+        // Don't set shouldRestart for cancelled checks - wait for re-triggered jobs instead
+      }
+
+      // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
+      // Only restart AI when we have genuine code failures (real feedback to act on)
       const ciBlocker = blockers.find(b => b.type === 'ci_failure');
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
@@ -549,8 +619,18 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         // Update last check time after restart
         lastCheckTime = new Date();
       } else if (blockers.length > 0) {
-        // There are blockers but none that warrant a restart (e.g., CI pending)
-        await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+        // There are blockers but none that warrant an AI restart
+        // Issue #1314: Distinguish between different waiting reasons
+        const pendingBlocker = blockers.find(b => b.type === 'ci_pending');
+        const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
+
+        if (cancelledOnly && cancelledBlocker) {
+          await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
+        } else if (pendingBlocker) {
+          await log(formatAligned('⏳', 'Waiting for CI:', pendingBlocker.details.length > 0 ? pendingBlocker.details.join(', ') : pendingBlocker.message, 2));
+        } else {
+          await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+        }
       } else {
         await log(formatAligned('', 'No action needed', 'Continuing to monitor...', 2));
       }

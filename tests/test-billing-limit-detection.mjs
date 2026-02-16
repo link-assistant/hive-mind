@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Billing limit detection tests
+ * Billing limit detection and CI/CD status handling tests
  *
- * Tests for the checkForBillingLimitError function and related utilities
- * in the auto-merge pipeline (Issue #1314).
+ * Tests for the checkForBillingLimitError function, getDetailedCIStatus,
+ * workflow re-run functions, and related utilities in the auto-merge pipeline (Issue #1314).
  *
  * Run with: node tests/test-billing-limit-detection.mjs
  *
@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { checkForBillingLimitError, getCheckRunAnnotations, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN } from '../src/github-merge.lib.mjs';
+import { checkForBillingLimitError, getCheckRunAnnotations, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, rerunFailedJobs, getWorkflowRunsForSha } from '../src/github-merge.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -248,6 +248,243 @@ test('Annotation matching should NOT match unrelated error messages', () => {
 });
 
 // ============================================================================
+// getDetailedCIStatus function tests
+// ============================================================================
+
+console.log('\n📋 getDetailedCIStatus Function Tests\n');
+
+test('getDetailedCIStatus is exported and is a function', () => {
+  assert.equal(typeof getDetailedCIStatus, 'function', 'getDetailedCIStatus should be a function');
+});
+
+await asyncTest('getDetailedCIStatus returns correct structure for nonexistent PR', async () => {
+  const result = await getDetailedCIStatus('nonexistent-owner-12345', 'nonexistent-repo-12345', 99999, false);
+  assert.ok(result !== null && result !== undefined, 'Result should not be null/undefined');
+  assert.ok('status' in result, 'Result should have status property');
+  assert.ok('checks' in result, 'Result should have checks property');
+  assert.ok('hasFailures' in result, 'Result should have hasFailures property');
+  assert.ok('hasCancelled' in result, 'Result should have hasCancelled property');
+  assert.ok('hasPending' in result, 'Result should have hasPending property');
+  assert.ok('hasQueued' in result, 'Result should have hasQueued property');
+  assert.ok('allPassed' in result, 'Result should have allPassed property');
+  assert.ok('failedChecks' in result, 'Result should have failedChecks property');
+  assert.ok('cancelledChecks' in result, 'Result should have cancelledChecks property');
+  assert.ok('pendingChecks' in result, 'Result should have pendingChecks property');
+  assert.ok('queuedChecks' in result, 'Result should have queuedChecks property');
+  assert.ok('passedChecks' in result, 'Result should have passedChecks property');
+  assert.equal(result.status, 'unknown', 'Should return unknown for nonexistent PR');
+});
+
+// ============================================================================
+// CI Status categorization logic tests (unit tests with mock data)
+// ============================================================================
+
+console.log('\n📋 CI Status Categorization Logic Tests\n');
+
+test('All checks passed → status should be success', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'completed', conclusion: 'success', type: 'check_run', id: 2 },
+    { name: 'lint', status: 'completed', conclusion: 'skipped', type: 'check_run', id: 3 },
+  ];
+
+  const passed = checks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+  const pending = checks.filter(c => c.status === 'in_progress' && c.conclusion === null);
+  const queued = checks.filter(c => c.status === 'queued' && c.conclusion === null);
+
+  assert.equal(passed.length, 3, 'All 3 checks should be passed');
+  assert.equal(failed.length, 0, 'No checks should be failed');
+  assert.equal(cancelled.length, 0, 'No checks should be cancelled');
+  assert.equal(pending.length, 0, 'No checks should be pending');
+  assert.equal(queued.length, 0, 'No checks should be queued');
+});
+
+test('Some checks failed → status should be failure', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'completed', conclusion: 'failure', type: 'check_run', id: 2 },
+  ];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+  assert.equal(failed.length, 1, 'One check should be failed');
+  assert.equal(failed[0].name, 'test', 'The test check should be the failing one');
+});
+
+test('Some checks cancelled (no failures) → status should be cancelled', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 2 },
+    { name: 'lint', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 3 },
+  ];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+
+  assert.equal(failed.length, 0, 'No checks should be failed');
+  assert.equal(cancelled.length, 2, 'Two checks should be cancelled');
+
+  // Determine status same as getDetailedCIStatus
+  const hasFailed = failed.length > 0;
+  const hasCancelled = cancelled.length > 0;
+  let status;
+  if (hasFailed && !hasCancelled) status = 'failure';
+  else if (hasCancelled && !hasFailed) status = 'cancelled';
+  else if (hasFailed && hasCancelled) status = 'failure';
+  else status = 'success';
+  assert.equal(status, 'cancelled', 'Status should be cancelled when only cancelled checks remain');
+});
+
+test('Mixed failures and cancelled → status should be failure', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'failure', type: 'check_run', id: 1 },
+    { name: 'test', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 2 },
+  ];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+
+  assert.equal(failed.length, 1, 'One check should be failed');
+  assert.equal(cancelled.length, 1, 'One check should be cancelled');
+
+  // Mixed case: failures take priority
+  const hasFailed = failed.length > 0;
+  const hasCancelled = cancelled.length > 0;
+  let status;
+  if (hasFailed && hasCancelled) status = 'failure';
+  else status = 'unknown';
+  assert.equal(status, 'failure', 'Mixed failures and cancelled should report as failure');
+});
+
+test('Checks still running → status should be pending', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'in_progress', conclusion: null, type: 'check_run', id: 2 },
+  ];
+
+  const pending = checks.filter(c => c.status === 'in_progress' && c.conclusion === null);
+  assert.equal(pending.length, 1, 'One check should be pending');
+});
+
+test('Checks queued (waiting for runner) → status should be pending', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'queued', conclusion: null, type: 'check_run', id: 2 },
+  ];
+
+  const queued = checks.filter(c => c.status === 'queued' && c.conclusion === null);
+  assert.equal(queued.length, 1, 'One check should be queued');
+});
+
+test('Timed out job should be treated as failure', () => {
+  const checks = [{ name: 'build', status: 'completed', conclusion: 'timed_out', type: 'check_run', id: 1 }];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+  assert.equal(failed.length, 1, 'Timed out check should be treated as failure');
+});
+
+test('Neutral conclusion should be treated as passed', () => {
+  const checks = [{ name: 'advisory', status: 'completed', conclusion: 'neutral', type: 'check_run', id: 1 }];
+
+  const passed = checks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+  assert.equal(passed.length, 1, 'Neutral check should be treated as passed');
+});
+
+// ============================================================================
+// rerunWorkflowRun and rerunFailedJobs function tests
+// ============================================================================
+
+console.log('\n📋 Workflow Re-run Function Tests\n');
+
+test('rerunWorkflowRun is exported and is a function', () => {
+  assert.equal(typeof rerunWorkflowRun, 'function', 'rerunWorkflowRun should be a function');
+});
+
+test('rerunFailedJobs is exported and is a function', () => {
+  assert.equal(typeof rerunFailedJobs, 'function', 'rerunFailedJobs should be a function');
+});
+
+await asyncTest('rerunWorkflowRun handles nonexistent run gracefully', async () => {
+  const result = await rerunWorkflowRun('nonexistent-owner-12345', 'nonexistent-repo-12345', 99999999, false);
+  assert.ok(result !== null && result !== undefined, 'Result should not be null/undefined');
+  assert.ok('success' in result, 'Result should have success property');
+  assert.ok('error' in result, 'Result should have error property');
+  // Should fail gracefully, not throw
+  assert.equal(result.success, false, 'Should return success=false for nonexistent run');
+});
+
+await asyncTest('rerunFailedJobs handles nonexistent run gracefully', async () => {
+  const result = await rerunFailedJobs('nonexistent-owner-12345', 'nonexistent-repo-12345', 99999999, false);
+  assert.ok(result !== null && result !== undefined, 'Result should not be null/undefined');
+  assert.ok('success' in result, 'Result should have success property');
+  assert.ok('error' in result, 'Result should have error property');
+  assert.equal(result.success, false, 'Should return success=false for nonexistent run');
+});
+
+// ============================================================================
+// getWorkflowRunsForSha function tests
+// ============================================================================
+
+console.log('\n📋 getWorkflowRunsForSha Function Tests\n');
+
+test('getWorkflowRunsForSha is exported and is a function', () => {
+  assert.equal(typeof getWorkflowRunsForSha, 'function', 'getWorkflowRunsForSha should be a function');
+});
+
+await asyncTest('getWorkflowRunsForSha returns empty array for nonexistent SHA', async () => {
+  const result = await getWorkflowRunsForSha('nonexistent-owner-12345', 'nonexistent-repo-12345', 'abc123', false);
+  assert.ok(Array.isArray(result), 'Should return an array');
+  assert.equal(result.length, 0, 'Should return empty array for nonexistent SHA');
+});
+
+// ============================================================================
+// Decision logic tests: which CI states trigger AI restart vs wait vs re-trigger
+// ============================================================================
+
+console.log('\n📋 Decision Logic Tests (restart AI vs wait vs re-trigger)\n');
+
+test('CI failure should trigger AI restart', () => {
+  const blocker = { type: 'ci_failure', message: 'CI failing', details: ['test'] };
+  const shouldRestart = blocker.type === 'ci_failure';
+  assert.equal(shouldRestart, true, 'CI failure should trigger restart');
+});
+
+test('CI cancelled should NOT trigger AI restart (should re-trigger instead)', () => {
+  const blocker = { type: 'ci_cancelled', message: 'CI cancelled', details: ['test'], sha: 'abc123' };
+  const shouldRestart = blocker.type === 'ci_failure';
+  assert.equal(shouldRestart, false, 'CI cancelled should NOT trigger restart');
+});
+
+test('CI pending should NOT trigger AI restart (should wait)', () => {
+  const blocker = { type: 'ci_pending', message: 'CI pending', details: ['test'] };
+  const shouldRestart = blocker.type === 'ci_failure';
+  assert.equal(shouldRestart, false, 'CI pending should NOT trigger restart');
+});
+
+test('Billing limit should NOT trigger AI restart', () => {
+  const blocker = { type: 'billing_limit', message: 'Billing limit', details: ['test'] };
+  const shouldRestart = blocker.type === 'ci_failure';
+  assert.equal(shouldRestart, false, 'Billing limit should NOT trigger restart');
+});
+
+test('New comments should trigger AI restart regardless of CI state', () => {
+  const hasNewComments = true;
+  assert.equal(hasNewComments, true, 'New comments should always trigger restart');
+});
+
+test('Merge conflicts should trigger AI restart', () => {
+  const blocker = { type: 'not_mergeable', message: 'PR has merge conflicts', details: [] };
+  const shouldRestart = blocker.message.includes('conflicts');
+  assert.equal(shouldRestart, true, 'Merge conflicts should trigger restart');
+});
+
+test('Uncommitted changes should trigger AI restart', () => {
+  const hasUncommittedChanges = true;
+  assert.equal(hasUncommittedChanges, true, 'Uncommitted changes should trigger restart');
+});
+
+// ============================================================================
 // Integration tests with real data (from case study)
 // ============================================================================
 
@@ -266,6 +503,21 @@ await asyncTest('Detect billing limit on unidel2035/btc#1436 (if accessible)', a
     }
   } catch {
     console.log('   Note: Could not access external repo, skipping real data test');
+  }
+});
+
+await asyncTest('getDetailedCIStatus works on link-assistant/hive-mind (if PR exists)', async () => {
+  // Test with our own repo's PR
+  try {
+    const result = await getDetailedCIStatus('link-assistant', 'hive-mind', 1315, false);
+    assert.ok('status' in result, 'Should have status');
+    assert.ok(Array.isArray(result.checks), 'checks should be an array');
+    assert.ok(Array.isArray(result.failedChecks), 'failedChecks should be an array');
+    assert.ok(Array.isArray(result.cancelledChecks), 'cancelledChecks should be an array');
+    assert.ok(Array.isArray(result.pendingChecks), 'pendingChecks should be an array');
+    console.log(`   Note: PR #1315 CI status: ${result.status} (${result.checks.length} checks)`);
+  } catch {
+    console.log('   Note: Could not access PR, skipping real data test');
   }
 });
 

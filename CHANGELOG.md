@@ -1,11 +1,5 @@
 # @link-assistant/hive-mind
 
-## 1.23.12
-
-### Patch Changes
-
-- Make `--auto-resume-on-limit-reset` enabled by default for both `solve` and `hive` commands. This improves user experience by automatically resuming sessions when API rate limits reset, calculating the reset time and waiting appropriately. Users who don't want this behavior can still explicitly disable it with `--no-auto-resume-on-limit-reset`. Fixes #1302.
-
 ## 1.23.11
 
 ### Patch Changes

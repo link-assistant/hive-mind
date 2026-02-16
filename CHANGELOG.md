@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.23.10
+
+### Patch Changes
+
+- cc57624: Add retry logic for fork validation network errors (Issue #1311). The validateForkParent function now retries up to 3 times with exponential backoff for transient network errors like TCP timeouts. Network errors now show a distinct error message with helpful retry suggestions instead of incorrectly reporting a fork parent mismatch.
+
 ## 1.23.9
 
 ### Patch Changes

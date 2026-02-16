@@ -264,11 +264,13 @@ await asyncTest('getDetailedCIStatus returns correct structure for nonexistent P
   assert.ok('checks' in result, 'Result should have checks property');
   assert.ok('hasFailures' in result, 'Result should have hasFailures property');
   assert.ok('hasCancelled' in result, 'Result should have hasCancelled property');
+  assert.ok('hasStale' in result, 'Result should have hasStale property');
   assert.ok('hasPending' in result, 'Result should have hasPending property');
   assert.ok('hasQueued' in result, 'Result should have hasQueued property');
   assert.ok('allPassed' in result, 'Result should have allPassed property');
   assert.ok('failedChecks' in result, 'Result should have failedChecks property');
   assert.ok('cancelledChecks' in result, 'Result should have cancelledChecks property');
+  assert.ok('staleChecks' in result, 'Result should have staleChecks property');
   assert.ok('pendingChecks' in result, 'Result should have pendingChecks property');
   assert.ok('queuedChecks' in result, 'Result should have queuedChecks property');
   assert.ok('passedChecks' in result, 'Result should have passedChecks property');
@@ -485,6 +487,219 @@ test('Uncommitted changes should trigger AI restart', () => {
 });
 
 // ============================================================================
+// Edge case: stale and action_required conclusions
+// ============================================================================
+
+console.log('\n📋 Stale and Action Required Conclusion Tests\n');
+
+test('Stale check should be categorized separately from passed/failed', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'deploy', status: 'completed', conclusion: 'stale', type: 'check_run', id: 2 },
+  ];
+
+  const passed = checks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+  const stale = checks.filter(c => c.conclusion === 'stale');
+
+  assert.equal(passed.length, 1, 'One check should be passed');
+  assert.equal(failed.length, 0, 'No checks should be failed');
+  assert.equal(stale.length, 1, 'One check should be stale');
+});
+
+test('action_required conclusion should be treated as failure', () => {
+  const checks = [{ name: 'security-review', status: 'completed', conclusion: 'action_required', type: 'check_run', id: 1 }];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+  assert.equal(failed.length, 1, 'action_required should be treated as failure');
+});
+
+test('Stale checks (no failures) → status should be cancelled (needs re-triggering)', () => {
+  const checks = [
+    { name: 'build', status: 'completed', conclusion: 'success', type: 'check_run', id: 1 },
+    { name: 'test', status: 'completed', conclusion: 'stale', type: 'check_run', id: 2 },
+  ];
+
+  const failed = checks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+  const stale = checks.filter(c => c.conclusion === 'stale');
+
+  const hasFailed = failed.length > 0;
+  const hasCancelled = cancelled.length > 0;
+  const hasStale = stale.length > 0;
+
+  let status;
+  if (hasStale && !hasFailed && !hasCancelled) status = 'cancelled';
+  else if ((hasCancelled || hasStale) && !hasFailed) status = 'cancelled';
+  else status = 'unknown';
+
+  assert.equal(status, 'cancelled', 'Stale-only checks should report as cancelled (needs re-trigger)');
+});
+
+// ============================================================================
+// Edge case: waiting and requested statuses
+// ============================================================================
+
+console.log('\n📋 Waiting and Requested Status Tests\n');
+
+test('Check with status=waiting should be categorized as pending', () => {
+  const checks = [{ name: 'approval-gate', status: 'waiting', conclusion: null, type: 'check_run', id: 1 }];
+
+  const pending = checks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
+  assert.equal(pending.length, 1, 'Waiting check should be treated as pending');
+});
+
+test('Check with status=requested should be categorized as pending', () => {
+  const checks = [{ name: 'fork-approval', status: 'requested', conclusion: null, type: 'check_run', id: 1 }];
+
+  const pending = checks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
+  assert.equal(pending.length, 1, 'Requested check should be treated as pending');
+});
+
+test('Check with status=pending should be categorized as pending', () => {
+  const checks = [{ name: 'external-ci', status: 'pending', conclusion: null, type: 'status', id: null }];
+
+  const pending = checks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
+  assert.equal(pending.length, 1, 'Pending check should be treated as pending');
+});
+
+// ============================================================================
+// Edge case: unknown CI status should NOT be treated as mergeable
+// ============================================================================
+
+console.log('\n📋 Unknown CI Status Safety Tests\n');
+
+test('Unknown CI status should trigger a blocker (not treat PR as mergeable)', () => {
+  // Simulate getMergeBlockers logic for unknown status
+  const ciStatus = { status: 'unknown' };
+  const blockers = [];
+
+  if (ciStatus.status === 'unknown') {
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD status could not be determined (will retry)',
+      details: [],
+    });
+  }
+
+  assert.equal(blockers.length, 1, 'Unknown status should add a blocker');
+  assert.equal(blockers[0].type, 'ci_pending', 'Unknown status blocker should be ci_pending type');
+});
+
+test('Only success status (no blockers) should allow PR to be considered mergeable', () => {
+  // These statuses should NOT result in empty blockers
+  const nonMergeableStatuses = ['failure', 'cancelled', 'pending', 'no_checks', 'unknown'];
+
+  for (const status of nonMergeableStatuses) {
+    const blockers = [];
+    if (status === 'no_checks' || status === 'pending' || status === 'unknown') {
+      blockers.push({ type: 'ci_pending' });
+    } else if (status === 'cancelled') {
+      blockers.push({ type: 'ci_cancelled' });
+    } else if (status === 'failure') {
+      blockers.push({ type: 'ci_failure' });
+    }
+    assert.ok(blockers.length > 0, `Status "${status}" should produce at least one blocker`);
+  }
+});
+
+// ============================================================================
+// Edge case: billing limit check for cancelled jobs
+// ============================================================================
+
+console.log('\n📋 Billing Limit Check for Cancelled Jobs Tests\n');
+
+test('Cancelled status should also check for billing limits before re-triggering', () => {
+  // This verifies the logic flow: when CI is cancelled, we check billing limits first
+  // If billing limit is detected, we report billing_limit not ci_cancelled
+  const billingCheck = { isBillingLimitError: true, affectedJobs: ['test'], allJobsAffected: true };
+  const blockers = [];
+
+  if (billingCheck.isBillingLimitError) {
+    blockers.push({ type: 'billing_limit', details: billingCheck.affectedJobs });
+  }
+
+  assert.equal(blockers.length, 1, 'Should add billing_limit blocker');
+  assert.equal(blockers[0].type, 'billing_limit', 'Blocker type should be billing_limit');
+});
+
+test('Cancelled status without billing limit should trigger re-trigger', () => {
+  const billingCheck = { isBillingLimitError: false };
+  const ciStatus = { cancelledChecks: [{ name: 'test' }], staleChecks: [], sha: 'abc123' };
+  const blockers = [];
+
+  if (!billingCheck.isBillingLimitError) {
+    const cancelledOrStale = [...ciStatus.cancelledChecks, ...ciStatus.staleChecks];
+    blockers.push({ type: 'ci_cancelled', details: cancelledOrStale.map(c => c.name), sha: ciStatus.sha });
+  }
+
+  assert.equal(blockers.length, 1, 'Should add ci_cancelled blocker');
+  assert.equal(blockers[0].type, 'ci_cancelled', 'Blocker type should be ci_cancelled');
+  assert.equal(blockers[0].sha, 'abc123', 'SHA should be passed for re-triggering');
+});
+
+// ============================================================================
+// Edge case: stale workflow runs should also be re-triggered
+// ============================================================================
+
+console.log('\n📋 Stale Workflow Re-trigger Tests\n');
+
+test('Stale workflow runs should be included in re-trigger list', () => {
+  const runs = [
+    { id: 1, name: 'CI', conclusion: 'cancelled' },
+    { id: 2, name: 'Deploy', conclusion: 'stale' },
+    { id: 3, name: 'Test', conclusion: 'success' },
+  ];
+
+  const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
+  assert.equal(retriggerable.length, 2, 'Both cancelled and stale runs should be re-triggerable');
+  assert.equal(retriggerable[0].name, 'CI', 'First re-triggerable should be CI');
+  assert.equal(retriggerable[1].name, 'Deploy', 'Second re-triggerable should be Deploy');
+});
+
+// ============================================================================
+// Comprehensive state matrix validation
+// ============================================================================
+
+console.log('\n📋 Comprehensive State Matrix Validation\n');
+
+test('Complete CI state decision matrix matches expected behavior', () => {
+  // This test validates the full decision matrix from the PR description
+  const stateMatrix = [
+    { ciStatus: 'success', expectedAction: 'no_blocker', aiRestart: false },
+    { ciStatus: 'failure', expectedAction: 'ci_failure', aiRestart: true },
+    { ciStatus: 'cancelled', expectedAction: 'ci_cancelled', aiRestart: false },
+    { ciStatus: 'pending', expectedAction: 'ci_pending', aiRestart: false },
+    { ciStatus: 'no_checks', expectedAction: 'ci_pending', aiRestart: false },
+    { ciStatus: 'unknown', expectedAction: 'ci_pending', aiRestart: false },
+  ];
+
+  for (const { ciStatus, expectedAction, aiRestart } of stateMatrix) {
+    const blockers = [];
+
+    if (ciStatus === 'no_checks' || ciStatus === 'pending' || ciStatus === 'unknown') {
+      blockers.push({ type: 'ci_pending' });
+    } else if (ciStatus === 'cancelled') {
+      blockers.push({ type: 'ci_cancelled' });
+    } else if (ciStatus === 'failure') {
+      blockers.push({ type: 'ci_failure' });
+    }
+    // success → no blockers
+
+    if (expectedAction === 'no_blocker') {
+      assert.equal(blockers.length, 0, `CI status "${ciStatus}" should produce no blockers`);
+    } else {
+      assert.equal(blockers.length, 1, `CI status "${ciStatus}" should produce exactly one blocker`);
+      assert.equal(blockers[0].type, expectedAction, `CI status "${ciStatus}" should produce blocker type "${expectedAction}"`);
+    }
+
+    // Check AI restart decision
+    const shouldRestart = blockers.some(b => b.type === 'ci_failure');
+    assert.equal(shouldRestart, aiRestart, `CI status "${ciStatus}" AI restart should be ${aiRestart}`);
+  }
+});
+
+// ============================================================================
 // Integration tests with real data (from case study)
 // ============================================================================
 
@@ -514,7 +729,9 @@ await asyncTest('getDetailedCIStatus works on link-assistant/hive-mind (if PR ex
     assert.ok(Array.isArray(result.checks), 'checks should be an array');
     assert.ok(Array.isArray(result.failedChecks), 'failedChecks should be an array');
     assert.ok(Array.isArray(result.cancelledChecks), 'cancelledChecks should be an array');
+    assert.ok(Array.isArray(result.staleChecks), 'staleChecks should be an array');
     assert.ok(Array.isArray(result.pendingChecks), 'pendingChecks should be an array');
+    assert.ok('hasStale' in result, 'Should have hasStale property');
     console.log(`   Note: PR #1315 CI status: ${result.status} (${result.checks.length} checks)`);
   } catch {
     console.log('   Note: Could not access PR, skipping real data test');

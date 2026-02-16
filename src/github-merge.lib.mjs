@@ -1010,10 +1010,10 @@ export async function rerunFailedJobs(owner, repo, runId, verbose = false) {
  *
  * Possible returned statuses:
  * - 'success': All checks passed
- * - 'failure': Some checks failed (genuine code failures)
- * - 'cancelled': Some checks were cancelled (e.g., manually or by another workflow)
- * - 'pending': Some checks are still running or queued
- * - 'billing_limit': Failures are due to billing/spending limits
+ * - 'failure': Some checks failed (genuine code failures, timed_out, or action_required)
+ * - 'cancelled': Some checks were cancelled or stale (need re-triggering)
+ * - 'pending': Some checks are still running, queued, waiting, or requested
+ * - 'billing_limit': Failures are due to billing/spending limits (determined by caller)
  * - 'no_checks': No CI checks found yet (race condition after push)
  * - 'unknown': Unable to determine status
  *
@@ -1067,11 +1067,13 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         sha,
         hasFailures: false,
         hasCancelled: false,
+        hasStale: false,
         hasPending: false,
         hasQueued: false,
         allPassed: false,
         failedChecks: [],
         cancelledChecks: [],
+        staleChecks: [],
         pendingChecks: [],
         queuedChecks: [],
         passedChecks: [],
@@ -1079,30 +1081,39 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
     }
 
     // Categorize checks
+    // Note: GitHub check run conclusions include: success, failure, cancelled, timed_out, skipped,
+    // neutral, action_required, stale, null (not yet completed)
+    // GitHub check run statuses include: queued, in_progress, completed, waiting, requested, pending
     const passedChecks = allChecks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out');
+    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
     const cancelledChecks = allChecks.filter(c => c.conclusion === 'cancelled');
-    const pendingChecks = allChecks.filter(c => c.status === 'in_progress' && c.conclusion === null);
+    const staleChecks = allChecks.filter(c => c.conclusion === 'stale');
+    const pendingChecks = allChecks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
     const queuedChecks = allChecks.filter(c => c.status === 'queued' && c.conclusion === null);
 
     const hasFailures = failedChecks.length > 0;
     const hasCancelled = cancelledChecks.length > 0;
+    const hasStale = staleChecks.length > 0;
     const hasPending = pendingChecks.length > 0;
     const hasQueued = queuedChecks.length > 0;
-    const allPassed = !hasFailures && !hasCancelled && !hasPending && !hasQueued && passedChecks.length === allChecks.length;
+    const allPassed = !hasFailures && !hasCancelled && !hasStale && !hasPending && !hasQueued && passedChecks.length === allChecks.length;
 
     // Determine overall status
     let status;
     if (allPassed) {
       status = 'success';
     } else if (hasPending || hasQueued) {
+      // Some checks are still running, queued, or waiting for a runner - wait for completion
       status = 'pending';
-    } else if (hasFailures && !hasCancelled) {
-      status = 'failure';
-    } else if (hasCancelled && !hasFailures) {
+    } else if (hasStale && !hasFailures && !hasCancelled) {
+      // Stale checks need to be re-triggered (similar to cancelled)
       status = 'cancelled';
-    } else if (hasFailures && hasCancelled) {
-      // Mixed: some failed, some cancelled - report as failure (the failures need attention)
+    } else if (hasFailures && !hasCancelled && !hasStale) {
+      status = 'failure';
+    } else if ((hasCancelled || hasStale) && !hasFailures) {
+      status = 'cancelled';
+    } else if (hasFailures && (hasCancelled || hasStale)) {
+      // Mixed: some failed, some cancelled/stale - report as failure (the failures need attention)
       status = 'failure';
     } else {
       status = 'unknown';
@@ -1110,7 +1121,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
 
     if (verbose) {
       console.log(`[VERBOSE] /merge: PR #${prNumber} detailed CI status: ${status}`);
-      console.log(`[VERBOSE] /merge:   Total: ${allChecks.length}, Passed: ${passedChecks.length}, Failed: ${failedChecks.length}, Cancelled: ${cancelledChecks.length}, Pending: ${pendingChecks.length}, Queued: ${queuedChecks.length}`);
+      console.log(`[VERBOSE] /merge:   Total: ${allChecks.length}, Passed: ${passedChecks.length}, Failed: ${failedChecks.length}, Cancelled: ${cancelledChecks.length}, Stale: ${staleChecks.length}, Pending: ${pendingChecks.length}, Queued: ${queuedChecks.length}`);
     }
 
     return {
@@ -1119,11 +1130,13 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
       sha,
       hasFailures,
       hasCancelled,
+      hasStale,
       hasPending,
       hasQueued,
       allPassed,
       failedChecks,
       cancelledChecks,
+      staleChecks,
       pendingChecks,
       queuedChecks,
       passedChecks,
@@ -1138,11 +1151,13 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
       sha: null,
       hasFailures: false,
       hasCancelled: false,
+      hasStale: false,
       hasPending: false,
       hasQueued: false,
       allPassed: false,
       failedChecks: [],
       cancelledChecks: [],
+      staleChecks: [],
       pendingChecks: [],
       queuedChecks: [],
       passedChecks: [],

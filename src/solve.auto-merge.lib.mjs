@@ -171,14 +171,27 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
       details: pendingNames,
     });
   } else if (ciStatus.status === 'cancelled') {
-    // All non-passed checks are cancelled (no genuine failures)
-    // These need to be re-triggered, NOT treated as AI-fixable failures
-    blockers.push({
-      type: 'ci_cancelled',
-      message: 'CI/CD checks were cancelled',
-      details: ciStatus.cancelledChecks.map(c => c.name),
-      sha: ciStatus.sha,
-    });
+    // All non-passed checks are cancelled or stale (no genuine failures)
+    // First check if this is actually a billing limit issue (billing-limited jobs may appear as cancelled)
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      // These need to be re-triggered, NOT treated as AI-fixable failures
+      const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
+      blockers.push({
+        type: 'ci_cancelled',
+        message: 'CI/CD checks were cancelled or became stale',
+        details: cancelledOrStaleChecks.map(c => c.name),
+        sha: ciStatus.sha,
+      });
+    }
   } else if (ciStatus.status === 'failure') {
     // Some checks genuinely failed - check if it's billing limits first
     const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
@@ -192,12 +205,13 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         billingMessage: billingCheck.message,
       });
     } else {
-      // Check if there are also cancelled checks alongside failures
-      if (ciStatus.hasCancelled) {
+      // Check if there are also cancelled/stale checks alongside failures
+      const cancelledOrStaleChecks = [...(ciStatus.hasCancelled ? ciStatus.cancelledChecks : []), ...((ciStatus.hasStale && ciStatus.staleChecks) || [])];
+      if (cancelledOrStaleChecks.length > 0) {
         blockers.push({
           type: 'ci_cancelled',
-          message: 'Some CI/CD checks were cancelled (will be re-triggered)',
-          details: ciStatus.cancelledChecks.map(c => c.name),
+          message: 'Some CI/CD checks were cancelled or became stale (will be re-triggered)',
+          details: cancelledOrStaleChecks.map(c => c.name),
           sha: ciStatus.sha,
         });
       }
@@ -207,6 +221,14 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         details: ciStatus.failedChecks.map(c => c.name),
       });
     }
+  } else if (ciStatus.status === 'unknown') {
+    // Unable to determine CI status - treat as pending to be safe
+    // Do NOT treat as mergeable (which would be incorrect)
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD status could not be determined (will retry)',
+      details: [],
+    });
   }
 
   // Check mergeability
@@ -426,14 +448,14 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
         await log(formatAligned('', 'Cancelled checks:', cancelledBlocker.details.join(', '), 2));
 
-        // Attempt to re-trigger the cancelled workflow runs
+        // Attempt to re-trigger the cancelled/stale workflow runs
         const sha = cancelledBlocker.sha;
         if (sha) {
           const runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
-          const cancelledRuns = runs.filter(r => r.conclusion === 'cancelled');
+          const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
           let rerunTriggered = false;
 
-          for (const run of cancelledRuns) {
+          for (const run of retriggerable) {
             await log(formatAligned('', `Re-triggering workflow "${run.name}" (${run.id})...`, '', 2));
             const rerunResult = await rerunWorkflowRun(owner, repo, run.id, argv.verbose);
             if (rerunResult.success) {

@@ -244,6 +244,22 @@ export const retry = async (fn, options = {}) => {
 };
 
 /**
+ * Check if an error is a transient network error that can be retried.
+ * Used by validateForkParent to detect network timeouts (Issue #1311).
+ * @param {Error|string} error - The error to check
+ * @returns {boolean} True if the error is transient and retryable
+ */
+export const isTransientNetworkError = error => {
+  const msg = (error?.message || error?.toString() || '').toLowerCase();
+  const output = (error?.stderr?.toString() || error?.stdout?.toString() || '').toLowerCase();
+  const combined = msg + ' ' + output;
+
+  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up'];
+
+  return transientPatterns.some(pattern => combined.includes(pattern));
+};
+
+/**
  * Format bytes to human readable string
  * @param {number} bytes - Number of bytes
  * @param {number} [decimals=2] - Number of decimal places

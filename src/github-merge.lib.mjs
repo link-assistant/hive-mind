@@ -790,6 +790,411 @@ export async function getDefaultBranch(owner, repo, verbose = false) {
   }
 }
 
+/**
+ * Get annotations for a check run
+ * Issue #1314: Used to detect billing limit errors
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} checkRunId - Check run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<Object>>} Array of annotation objects
+ */
+export async function getCheckRunAnnotations(owner, repo, checkRunId, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations 2>/dev/null || echo "[]"`);
+    const annotations = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Check run ${checkRunId} has ${annotations.length} annotations`);
+    }
+
+    return annotations;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching annotations for check run ${checkRunId}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Check if repository is private
+ * Issue #1314: Used to determine behavior when billing limits are reached
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isPrivate: boolean, visibility: string|null}>}
+ */
+export async function getRepoVisibility(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '{isPrivate: .private, visibility: .visibility}'`);
+    const info = JSON.parse(stdout.trim());
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Repository ${owner}/${repo} visibility: ${info.visibility}, private: ${info.isPrivate}`);
+    }
+
+    return {
+      isPrivate: info.isPrivate === true,
+      visibility: info.visibility || null,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking repository visibility: ${error.message}`);
+    }
+    // Assume private if we can't determine (safer default)
+    return { isPrivate: true, visibility: null };
+  }
+}
+
+/**
+ * Known billing limit error message pattern
+ * Issue #1314: This is the exact message GitHub uses for billing/spending limit errors
+ */
+export const BILLING_LIMIT_ERROR_PATTERN = 'The job was not started because recent account payments have failed or your spending limit needs to be increased';
+
+/**
+ * Check if CI failure is due to billing/spending limits
+ * Issue #1314: Detects when GitHub Actions jobs fail due to billing issues rather than code problems
+ *
+ * Detection criteria:
+ * 1. Job has conclusion='failure'
+ * 2. Job has empty steps array (no steps were executed)
+ * 3. Job has runner_id=0 or null (no runner was assigned)
+ * 4. Annotation contains the billing limit error message
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isBillingLimitError: boolean, message: string|null, affectedJobs: string[], allJobsAffected: boolean}>}
+ */
+export async function checkForBillingLimitError(owner, repo, prNumber, verbose = false) {
+  try {
+    // Get the PR's head SHA
+    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+    const prData = JSON.parse(prJson.trim());
+    const sha = prData.headRefOid;
+
+    // Get workflow runs for this SHA
+    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=10" --jq '.workflow_runs[].id'`);
+    const runIds = runsJson.trim().split('\n').filter(Boolean);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runIds.length} workflow runs for PR #${prNumber} at SHA ${sha.substring(0, 7)}`);
+    }
+
+    const affectedJobs = [];
+    let totalJobs = 0;
+
+    // Check each workflow run's jobs
+    for (const runId of runIds) {
+      try {
+        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --jq '.jobs'`);
+        const jobs = JSON.parse(jobsJson.trim() || '[]');
+
+        for (const job of jobs) {
+          totalJobs++;
+
+          // Check for billing limit indicators:
+          // 1. Conclusion is failure
+          // 2. Steps array is empty (no steps were executed)
+          // 3. Runner ID is 0 or null (no runner was assigned)
+          const hasNoSteps = !job.steps || job.steps.length === 0;
+          const hasNoRunner = job.runner_id === 0 || job.runner_id === null;
+
+          if (job.conclusion === 'failure' && hasNoSteps && hasNoRunner) {
+            // Fetch annotations to confirm billing limit error
+            const annotations = await getCheckRunAnnotations(owner, repo, job.id, verbose);
+
+            const billingAnnotation = annotations.find(a => a.message?.includes(BILLING_LIMIT_ERROR_PATTERN));
+
+            if (billingAnnotation) {
+              affectedJobs.push(job.name);
+
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: Job "${job.name}" (ID: ${job.id}) failed due to billing limits`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error checking jobs for run ${runId}: ${error.message}`);
+        }
+      }
+    }
+
+    const isBillingLimitError = affectedJobs.length > 0;
+    const allJobsAffected = totalJobs > 0 && affectedJobs.length === totalJobs;
+
+    if (verbose && isBillingLimitError) {
+      console.log(`[VERBOSE] /merge: Billing limit detected - ${affectedJobs.length}/${totalJobs} jobs affected`);
+    }
+
+    return {
+      isBillingLimitError,
+      message: isBillingLimitError ? BILLING_LIMIT_ERROR_PATTERN : null,
+      affectedJobs,
+      allJobsAffected,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking for billing limit: ${error.message}`);
+    }
+    return {
+      isBillingLimitError: false,
+      message: null,
+      affectedJobs: [],
+      allJobsAffected: false,
+    };
+  }
+}
+
+/**
+ * Re-run all jobs in a workflow run
+ * Issue #1314: Used to re-trigger CI jobs that were cancelled or not started
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} runId - Workflow run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function rerunWorkflowRun(owner, repo, runId, verbose = false) {
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun -X POST`);
+    // GitHub returns 201 on success
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Successfully triggered re-run for workflow ${runId}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    // exec throws when command exits non-zero (e.g., 404 Not Found)
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to re-run workflow ${runId}: ${errorMessage}`);
+    }
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Re-run only failed jobs in a workflow run
+ * Issue #1314: More targeted than full re-run, only retries failed jobs
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} runId - Workflow run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function rerunFailedJobs(owner, repo, runId, verbose = false) {
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun-failed-jobs -X POST`);
+    // GitHub returns 201 on success
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Successfully triggered re-run of failed jobs for workflow ${runId}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to re-run failed jobs for workflow ${runId}: ${errorMessage}`);
+    }
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Get detailed CI status for a PR, distinguishing between different non-success states
+ * Issue #1314: Enhanced version that separates cancelled, queued, and billing-limited states
+ *
+ * Possible returned statuses:
+ * - 'success': All checks passed
+ * - 'failure': Some checks failed (genuine code failures, timed_out, or action_required)
+ * - 'cancelled': Some checks were cancelled or stale (need re-triggering)
+ * - 'pending': Some checks are still running, queued, waiting, or requested
+ * - 'billing_limit': Failures are due to billing/spending limits (determined by caller)
+ * - 'no_checks': No CI checks found yet (race condition after push)
+ * - 'unknown': Unable to determine status
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Object>} Detailed CI status object
+ */
+export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false) {
+  try {
+    // Get the PR's head SHA
+    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+    const prData = JSON.parse(prJson.trim());
+    const sha = prData.headRefOid;
+
+    // Get check runs for this SHA
+    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --jq '.check_runs'`);
+    const checkRuns = JSON.parse(checksJson.trim() || '[]');
+
+    // Get commit statuses
+    const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
+    const statuses = JSON.parse(statusJson.trim() || '[]');
+
+    // Build detailed checks list
+    const allChecks = [
+      ...checkRuns.map(check => ({
+        name: check.name,
+        status: check.status, // queued, in_progress, completed
+        conclusion: check.conclusion, // success, failure, cancelled, timed_out, skipped, neutral, action_required, stale, null
+        type: 'check_run',
+        id: check.id,
+      })),
+      ...statuses.map(status => ({
+        name: status.context,
+        status: status.state === 'pending' ? 'in_progress' : 'completed',
+        conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
+        type: 'status',
+        id: null,
+      })),
+    ];
+
+    // No checks yet
+    if (allChecks.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as no_checks`);
+      }
+      return {
+        status: 'no_checks',
+        checks: [],
+        sha,
+        hasFailures: false,
+        hasCancelled: false,
+        hasStale: false,
+        hasPending: false,
+        hasQueued: false,
+        allPassed: false,
+        failedChecks: [],
+        cancelledChecks: [],
+        staleChecks: [],
+        pendingChecks: [],
+        queuedChecks: [],
+        passedChecks: [],
+      };
+    }
+
+    // Categorize checks
+    // Note: GitHub check run conclusions include: success, failure, cancelled, timed_out, skipped,
+    // neutral, action_required, stale, null (not yet completed)
+    // GitHub check run statuses include: queued, in_progress, completed, waiting, requested, pending
+    const passedChecks = allChecks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+    const cancelledChecks = allChecks.filter(c => c.conclusion === 'cancelled');
+    const staleChecks = allChecks.filter(c => c.conclusion === 'stale');
+    const pendingChecks = allChecks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
+    const queuedChecks = allChecks.filter(c => c.status === 'queued' && c.conclusion === null);
+
+    const hasFailures = failedChecks.length > 0;
+    const hasCancelled = cancelledChecks.length > 0;
+    const hasStale = staleChecks.length > 0;
+    const hasPending = pendingChecks.length > 0;
+    const hasQueued = queuedChecks.length > 0;
+    const allPassed = !hasFailures && !hasCancelled && !hasStale && !hasPending && !hasQueued && passedChecks.length === allChecks.length;
+
+    // Determine overall status
+    let status;
+    if (allPassed) {
+      status = 'success';
+    } else if (hasPending || hasQueued) {
+      // Some checks are still running, queued, or waiting for a runner - wait for completion
+      status = 'pending';
+    } else if (hasStale && !hasFailures && !hasCancelled) {
+      // Stale checks need to be re-triggered (similar to cancelled)
+      status = 'cancelled';
+    } else if (hasFailures && !hasCancelled && !hasStale) {
+      status = 'failure';
+    } else if ((hasCancelled || hasStale) && !hasFailures) {
+      status = 'cancelled';
+    } else if (hasFailures && (hasCancelled || hasStale)) {
+      // Mixed: some failed, some cancelled/stale - report as failure (the failures need attention)
+      status = 'failure';
+    } else {
+      status = 'unknown';
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${prNumber} detailed CI status: ${status}`);
+      console.log(`[VERBOSE] /merge:   Total: ${allChecks.length}, Passed: ${passedChecks.length}, Failed: ${failedChecks.length}, Cancelled: ${cancelledChecks.length}, Stale: ${staleChecks.length}, Pending: ${pendingChecks.length}, Queued: ${queuedChecks.length}`);
+    }
+
+    return {
+      status,
+      checks: allChecks,
+      sha,
+      hasFailures,
+      hasCancelled,
+      hasStale,
+      hasPending,
+      hasQueued,
+      allPassed,
+      failedChecks,
+      cancelledChecks,
+      staleChecks,
+      pendingChecks,
+      queuedChecks,
+      passedChecks,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting detailed CI status: ${error.message}`);
+    }
+    return {
+      status: 'unknown',
+      checks: [],
+      sha: null,
+      hasFailures: false,
+      hasCancelled: false,
+      hasStale: false,
+      hasPending: false,
+      hasQueued: false,
+      allPassed: false,
+      failedChecks: [],
+      cancelledChecks: [],
+      staleChecks: [],
+      pendingChecks: [],
+      queuedChecks: [],
+      passedChecks: [],
+    };
+  }
+}
+
+/**
+ * Get workflow run IDs for a specific commit SHA
+ * Issue #1314: Helper to find workflow runs to re-trigger
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} sha - Commit SHA
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string}>>}
+ */
+export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, status: .status, conclusion: .conclusion, name: .name}]'`);
+    const runs = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow runs for SHA ${sha.substring(0, 7)}`);
+      for (const run of runs) {
+        console.log(`[VERBOSE] /merge:   - ${run.name} (${run.id}): status=${run.status}, conclusion=${run.conclusion}`);
+      }
+    }
+
+    return runs;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching workflow runs for SHA ${sha}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -809,4 +1214,14 @@ export default {
   getActiveBranchRuns,
   waitForBranchCI,
   getDefaultBranch,
+  // Issue #1314: Billing limit detection
+  getCheckRunAnnotations,
+  getRepoVisibility,
+  checkForBillingLimitError,
+  BILLING_LIMIT_ERROR_PATTERN,
+  // Issue #1314: Enhanced CI status and re-run capabilities
+  getDetailedCIStatus,
+  rerunWorkflowRun,
+  rerunFailedJobs,
+  getWorkflowRunsForSha,
 };

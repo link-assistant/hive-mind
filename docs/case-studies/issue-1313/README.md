@@ -7,6 +7,7 @@ This issue reported that token usage was showing "0 input, 0 output" in PR comme
 **Example from the issue:**
 
 From the log:
+
 ```json
 "tokens": {
   "input": 406,
@@ -20,19 +21,20 @@ From the log:
 ```
 
 But the PR comment showed:
+
 ```
 Token usage: 0 input, 0 output
 ```
 
 ## Timeline of Events
 
-| Timestamp | Event |
-|-----------|-------|
-| 2026-02-11 | Issue #1250 fixed (commit 82911f58) - implemented streaming token accumulation |
-| 2026-02-13 11:26:11 | Solution draft executed with solve v1.21.4 (before the fix) |
-| 2026-02-13 11:31:38 | PR comment posted showing "0 input, 0 output" |
-| 2026-02-13 | Issue #1313 filed reporting the bug |
-| 2026-02-16 | Current version 1.23.11 (includes the fix) |
+| Timestamp           | Event                                                                          |
+| ------------------- | ------------------------------------------------------------------------------ |
+| 2026-02-11          | Issue #1250 fixed (commit 82911f58) - implemented streaming token accumulation |
+| 2026-02-13 11:26:11 | Solution draft executed with solve v1.21.4 (before the fix)                    |
+| 2026-02-13 11:31:38 | PR comment posted showing "0 input, 0 output"                                  |
+| 2026-02-13          | Issue #1313 filed reporting the bug                                            |
+| 2026-02-16          | Current version 1.23.11 (includes the fix)                                     |
 
 ## Root Cause Analysis
 
@@ -87,6 +89,7 @@ Token usage: X,XXX input, XXX output
 ## Verification
 
 The experiments in `experiments/issue-1313/` confirm:
+
 - `test-token-parsing.mjs` - Validates the NDJSON parsing logic
 - `test-actual-log-event.mjs` - Tests with actual event data from the log
 

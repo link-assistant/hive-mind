@@ -6,27 +6,27 @@
 
 // This is exactly what the actual JSON structure looks like (extracted from the log)
 const actualStepFinishEvent = {
-  "type": "step_finish",
-  "timestamp": 1770982017418,
-  "sessionID": "ses_3a93f1458ffeK5TKD4XfXXW4A3",
-  "part": {
-    "id": "prt_c56c10976001ItHqFbhtFmk8aP",
-    "sessionID": "ses_3a93f1458ffeK5TKD4XfXXW4A3",
-    "messageID": "msg_c56c0ec62001LvHUlMLyTfvFEl",
-    "type": "step-finish",
-    "reason": "tool-calls",
-    "snapshot": "5d6c73c51a020ef88084e93fe72a793b31b7441f",
-    "cost": 0,
-    "tokens": {
-      "input": 13481,
-      "output": 159,
-      "reasoning": 73,
-      "cache": {
-        "read": 2028,
-        "write": 0
-      }
-    }
-  }
+  type: 'step_finish',
+  timestamp: 1770982017418,
+  sessionID: 'ses_3a93f1458ffeK5TKD4XfXXW4A3',
+  part: {
+    id: 'prt_c56c10976001ItHqFbhtFmk8aP',
+    sessionID: 'ses_3a93f1458ffeK5TKD4XfXXW4A3',
+    messageID: 'msg_c56c0ec62001LvHUlMLyTfvFEl',
+    type: 'step-finish',
+    reason: 'tool-calls',
+    snapshot: '5d6c73c51a020ef88084e93fe72a793b31b7441f',
+    cost: 0,
+    tokens: {
+      input: 13481,
+      output: 159,
+      reasoning: 73,
+      cache: {
+        read: 2028,
+        write: 0,
+      },
+    },
+  },
 };
 
 // Simulate streaming token usage

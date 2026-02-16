@@ -148,10 +148,7 @@ const accumulateTokenUsage = data => {
 };
 
 // Simulate streaming output - each chunk is a complete NDJSON line
-const chunks = [
-  '{"type":"step_finish","part":{"tokens":{"input":100,"output":50}}}',
-  '{"type":"step_finish","part":{"tokens":{"input":200,"output":100}}}',
-];
+const chunks = ['{"type":"step_finish","part":{"tokens":{"input":100,"output":50}}}', '{"type":"step_finish","part":{"tokens":{"input":200,"output":100}}}'];
 
 for (const chunk of chunks) {
   // In solve.mjs, each chunk is parsed and pretty-printed separately

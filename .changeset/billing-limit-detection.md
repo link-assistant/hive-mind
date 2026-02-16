@@ -1,5 +1,5 @@
 ---
-'hive-mind': patch
+'@link-assistant/hive-mind': patch
 ---
 
 Add GitHub Actions billing limit detection for --auto-restart-until-mergeable mode

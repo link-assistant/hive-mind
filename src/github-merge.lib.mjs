@@ -790,6 +790,167 @@ export async function getDefaultBranch(owner, repo, verbose = false) {
   }
 }
 
+/**
+ * Get annotations for a check run
+ * Issue #1314: Used to detect billing limit errors
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} checkRunId - Check run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<Object>>} Array of annotation objects
+ */
+export async function getCheckRunAnnotations(owner, repo, checkRunId, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations 2>/dev/null || echo "[]"`);
+    const annotations = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Check run ${checkRunId} has ${annotations.length} annotations`);
+    }
+
+    return annotations;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching annotations for check run ${checkRunId}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Check if repository is private
+ * Issue #1314: Used to determine behavior when billing limits are reached
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isPrivate: boolean, visibility: string|null}>}
+ */
+export async function getRepoVisibility(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '{isPrivate: .private, visibility: .visibility}'`);
+    const info = JSON.parse(stdout.trim());
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Repository ${owner}/${repo} visibility: ${info.visibility}, private: ${info.isPrivate}`);
+    }
+
+    return {
+      isPrivate: info.isPrivate === true,
+      visibility: info.visibility || null,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking repository visibility: ${error.message}`);
+    }
+    // Assume private if we can't determine (safer default)
+    return { isPrivate: true, visibility: null };
+  }
+}
+
+/**
+ * Known billing limit error message pattern
+ * Issue #1314: This is the exact message GitHub uses for billing/spending limit errors
+ */
+export const BILLING_LIMIT_ERROR_PATTERN = 'The job was not started because recent account payments have failed or your spending limit needs to be increased';
+
+/**
+ * Check if CI failure is due to billing/spending limits
+ * Issue #1314: Detects when GitHub Actions jobs fail due to billing issues rather than code problems
+ *
+ * Detection criteria:
+ * 1. Job has conclusion='failure'
+ * 2. Job has empty steps array (no steps were executed)
+ * 3. Job has runner_id=0 or null (no runner was assigned)
+ * 4. Annotation contains the billing limit error message
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isBillingLimitError: boolean, message: string|null, affectedJobs: string[], allJobsAffected: boolean}>}
+ */
+export async function checkForBillingLimitError(owner, repo, prNumber, verbose = false) {
+  try {
+    // Get the PR's head SHA
+    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+    const prData = JSON.parse(prJson.trim());
+    const sha = prData.headRefOid;
+
+    // Get workflow runs for this SHA
+    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=10" --jq '.workflow_runs[].id'`);
+    const runIds = runsJson.trim().split('\n').filter(Boolean);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runIds.length} workflow runs for PR #${prNumber} at SHA ${sha.substring(0, 7)}`);
+    }
+
+    const affectedJobs = [];
+    let totalJobs = 0;
+
+    // Check each workflow run's jobs
+    for (const runId of runIds) {
+      try {
+        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --jq '.jobs'`);
+        const jobs = JSON.parse(jobsJson.trim() || '[]');
+
+        for (const job of jobs) {
+          totalJobs++;
+
+          // Check for billing limit indicators:
+          // 1. Conclusion is failure
+          // 2. Steps array is empty (no steps were executed)
+          // 3. Runner ID is 0 or null (no runner was assigned)
+          const hasNoSteps = !job.steps || job.steps.length === 0;
+          const hasNoRunner = job.runner_id === 0 || job.runner_id === null;
+
+          if (job.conclusion === 'failure' && hasNoSteps && hasNoRunner) {
+            // Fetch annotations to confirm billing limit error
+            const annotations = await getCheckRunAnnotations(owner, repo, job.id, verbose);
+
+            const billingAnnotation = annotations.find(a => a.message?.includes(BILLING_LIMIT_ERROR_PATTERN));
+
+            if (billingAnnotation) {
+              affectedJobs.push(job.name);
+
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: Job "${job.name}" (ID: ${job.id}) failed due to billing limits`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error checking jobs for run ${runId}: ${error.message}`);
+        }
+      }
+    }
+
+    const isBillingLimitError = affectedJobs.length > 0;
+    const allJobsAffected = totalJobs > 0 && affectedJobs.length === totalJobs;
+
+    if (verbose && isBillingLimitError) {
+      console.log(`[VERBOSE] /merge: Billing limit detected - ${affectedJobs.length}/${totalJobs} jobs affected`);
+    }
+
+    return {
+      isBillingLimitError,
+      message: isBillingLimitError ? BILLING_LIMIT_ERROR_PATTERN : null,
+      affectedJobs,
+      allJobsAffected,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking for billing limit: ${error.message}`);
+    }
+    return {
+      isBillingLimitError: false,
+      message: null,
+      affectedJobs: [],
+      allJobsAffected: false,
+    };
+  }
+}
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -809,4 +970,9 @@ export default {
   getActiveBranchRuns,
   waitForBranchCI,
   getDefaultBranch,
+  // Issue #1314: Billing limit detection
+  getCheckRunAnnotations,
+  getRepoVisibility,
+  checkForBillingLimitError,
+  BILLING_LIMIT_ERROR_PATTERN,
 };

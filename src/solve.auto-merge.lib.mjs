@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRCIStatus, checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI } = githubMergeLib;
+const { checkPRCIStatus, checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -141,6 +141,7 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
 
 /**
  * Get the reasons why PR is not mergeable
+ * Issue #1314: Now also checks for billing limit errors
  */
 const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   const blockers = [];
@@ -148,11 +149,25 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   // Check CI status
   const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
   if (ciStatus.status === 'failure') {
-    blockers.push({
-      type: 'ci_failure',
-      message: 'CI/CD checks are failing',
-      details: ciStatus.checks.filter(c => c.conclusion === 'failure').map(c => c.name),
-    });
+    // Issue #1314: Check if the CI failure is due to billing limits
+    // This is a special case that requires human intervention, not AI restart
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      blockers.push({
+        type: 'ci_failure',
+        message: 'CI/CD checks are failing',
+        details: ciStatus.checks.filter(c => c.conclusion === 'failure').map(c => c.name),
+      });
+    }
   } else if (ciStatus.status === 'pending') {
     blockers.push({
       type: 'ci_pending',
@@ -303,9 +318,75 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push('Please review and address the feedback from these comments.');
       }
 
-      // Reason 2: CI failures
+      // Issue #1314: Check for billing limit errors BEFORE regular CI failures
+      // Billing limits require human intervention and should NOT trigger AI restarts
+      const billingBlocker = blockers.find(b => b.type === 'billing_limit');
+      if (billingBlocker) {
+        await log('');
+        await log(formatAligned('💳', 'GITHUB ACTIONS BILLING LIMIT DETECTED', ''));
+        await log(formatAligned('', 'Affected jobs:', billingBlocker.details.join(', '), 2));
+        await log(formatAligned('', 'All jobs affected:', billingBlocker.allJobsAffected ? 'Yes' : 'No', 2));
+        await log('');
+
+        // Check if this is a private repository
+        const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
+
+        if (repoInfo.isPrivate) {
+          // For private repos, human intervention is required - stop and post comment
+          await log(formatAligned('🛑', 'STOPPING', 'Private repository - billing limit requires human intervention'));
+          await log(formatAligned('', 'Action required:', "Check the 'Billing & plans' section in your GitHub settings", 2));
+
+          // Post comment explaining the billing limit issue
+          try {
+            const commentBody = `## 💳 GitHub Actions Billing Limit Reached
+
+The CI/CD jobs could not start due to billing/spending limits.
+
+**Affected jobs:**
+${billingBlocker.details.map(j => `- ${j}`).join('\n')}
+
+**Error message:**
+> ${billingBlocker.billingMessage || BILLING_LIMIT_ERROR_PATTERN}
+
+**Action Required:**
+Please check the 'Billing & plans' section in your GitHub settings and either:
+1. Add or update your payment method
+2. Increase your spending limit
+3. Wait for the free tier limits to reset (if applicable)
+
+Once the billing issue is resolved, you can re-run the CI checks or push a new commit to trigger a new run.
+
+---
+*Detected by hive-mind with --auto-restart-until-mergeable flag. This is NOT a code issue - human intervention is required.*`;
+            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            await log(formatAligned('', '💬 Posted billing limit notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_billing_limit_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr',
+            });
+            await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
+          }
+
+          return { success: false, reason: 'billing_limit', latestSessionId, latestAnthropicCost };
+        } else {
+          // For public repos (unusual case), apply exponential backoff and wait
+          // Public repos typically have unlimited free CI, so this is unexpected
+          await log(formatAligned('⏳', 'Public repository with billing limit (unusual)', 'Applying exponential backoff'));
+          await log(formatAligned('', 'Next check in:', `${currentBackoffSeconds} seconds`, 2));
+
+          // Don't trigger AI restart - just wait and check again
+          // The backoff will be applied at the end of the loop
+          currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 3600); // Max 1 hour
+        }
+      }
+
+      // Reason 2: CI failures (only if NOT a billing limit issue)
       const ciBlocker = blockers.find(b => b.type === 'ci_failure');
-      if (ciBlocker) {
+      if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
         feedbackLines.push('❌ CI/CD checks are failing:');

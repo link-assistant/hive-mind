@@ -1,5 +1,56 @@
 # @link-assistant/hive-mind
 
+## 1.23.12
+
+### Patch Changes
+
+- Make `--auto-resume-on-limit-reset` enabled by default for both `solve` and `hive` commands. This improves user experience by automatically resuming sessions when API rate limits reset, calculating the reset time and waiting appropriately. Users who don't want this behavior can still explicitly disable it with `--no-auto-resume-on-limit-reset`. Fixes #1302.
+
+## 1.23.11
+
+### Patch Changes
+
+- f1ba29d: Comprehensive CI/CD status handling for --auto-restart-until-mergeable mode
+  - Detect when CI failures are caused by billing/spending limits via check run annotations
+  - For private repositories: Post an explanatory comment and stop (requires human intervention)
+  - For public repositories: Apply exponential backoff and wait (unusual case)
+  - Distinguish between CI failure, cancelled, pending, queued, and billing limit states
+  - Automatically re-trigger cancelled CI/CD workflow runs instead of restarting AI
+  - Only restart AI when genuine code failures occur (not for cancelled/pending/billing)
+  - Wait for all CI/CD checks to complete before deciding on AI restart
+  - New functions: getDetailedCIStatus(), rerunWorkflowRun(), rerunFailedJobs(), getWorkflowRunsForSha()
+  - Expanded test coverage: 45 tests covering all CI/CD status scenarios and decision logic
+
+## 1.23.10
+
+### Patch Changes
+
+- cc57624: Add retry logic for fork validation network errors (Issue #1311). The validateForkParent function now retries up to 3 times with exponential backoff for transient network errors like TCP timeouts. Network errors now show a distinct error message with helpful retry suggestions instead of incorrectly reporting a fork parent mismatch.
+
+## 1.23.9
+
+### Patch Changes
+
+- 4456760: Fix merge queue to wait for target branch CI before merging (Issue #1307). The merge queue now checks for active CI runs on the target branch (main) before processing the first PR in the queue. This prevents cancelled workflows, incomplete releases, and failed post-merge checks when multiple PRs are merged in quick succession.
+
+## 1.23.8
+
+### Patch Changes
+
+- Fix spelling: rename --auto-restart-until-mergable to --auto-restart-until-mergeable throughout the codebase. This includes CLI options, function names, variable names, documentation, and code comments to use the correct English spelling.
+
+  Increase limit reset buffer from 5 to 10 minutes and add random jitter (0-5 min) to avoid thundering herd problem when multiple instances wait for the same limit reset. Format reset time in PR comments with relative time and UTC timezone for better user understanding.
+
+## 1.23.7
+
+### Patch Changes
+
+- d951635: Fix --auto-restart-until-mergeable false positive on empty CI checks
+
+  The `--auto-restart-until-mergeable` mode was incorrectly posting "Ready to merge" when CI checks hadn't started yet. This was caused by JavaScript's vacuous truth: `[].every(fn)` returns `true`, so an empty checks array would pass all validation.
+
+  Fix: Return `pending` status when no CI checks exist yet, instead of `success`.
+
 ## 1.23.6
 
 ### Patch Changes
@@ -127,7 +178,7 @@
 ### Patch Changes
 
 - fdd8eaa: Fix auto-merge failure in fork mode with permission pre-check (Issue #1226)
-  - Add fork-mode guard in `startAutoRestartUntilMergable()` to detect when `--auto-merge` cannot work
+  - Add fork-mode guard in `startAutoRestartUntilMergeable()` to detect when `--auto-merge` cannot work
   - Add `checkMergePermissions()` function to verify write/push/admin/maintain access before merge attempts
   - Add permission pre-check in `attemptAutoMerge()` to fail fast when user lacks write access
   - Post "Ready to merge" comment to PR when auto-merge cannot be performed due to permissions
@@ -375,7 +426,7 @@
 
 - 5723a93: fix: prevent early exit when --auto-merge flag is used
 
-  The `verifyResults()` function was calling `safeExit(0)` before the auto-merge logic could run. This caused the `--auto-merge` flag to be silently ignored. Now the exit condition properly checks for `argv.autoMerge` and `argv.autoRestartUntilMergable` flags.
+  The `verifyResults()` function was calling `safeExit(0)` before the auto-merge logic could run. This caused the `--auto-merge` flag to be silently ignored. Now the exit condition properly checks for `argv.autoMerge|autoRestartUntilMergeable` and `argv.autoMerge|autoRestartUntilMergeable` flags.
 
 ## 1.15.1
 
@@ -458,11 +509,11 @@
 
 ### Minor Changes
 
-- 03adcb6: Add --auto-merge and --auto-restart-until-mergable options for autonomous PR management
+- 03adcb6: Add --auto-merge and --auto-restart-until-mergeable options for autonomous PR management
 
   New CLI options:
-  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergable.
-  - `--auto-restart-until-mergable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
+  - `--auto-merge`: Automatically merge the pull request when CI passes and PR is mergeable. Implies --auto-restart-until-mergeable.
+  - `--auto-restart-until-mergeable`: Auto-restart the AI agent until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or uncommitted changes. Does NOT auto-merge.
 
   Features:
   - Non-bot comment detection with configurable bot patterns

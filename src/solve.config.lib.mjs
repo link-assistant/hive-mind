@@ -173,10 +173,10 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-merge': {
     type: 'boolean',
-    description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+    description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergeable.',
     default: false,
   },
-  'auto-restart-until-mergable': {
+  'auto-restart-until-mergeable': {
     type: 'boolean',
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: false,

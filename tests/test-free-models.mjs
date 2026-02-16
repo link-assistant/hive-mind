@@ -226,5 +226,37 @@ for (const [alias, fullModel] of Object.entries(agentModels)) {
   }
 }
 
+// Test 15: agent.lib.mjs mapModelToId consistency (Issue #1300 - PR feedback)
+// The mapModelToId function in agent.lib.mjs is the ACTUAL production mapping used
+// when executing agent CLI commands. It must be consistent with model-mapping.lib.mjs.
+console.log('\n1️⃣5️⃣ Testing agent.lib.mjs mapModelToId consistency...');
+const { mapModelToId } = await import('../src/agent.lib.mjs');
+
+// Verify no moonshot/ prefix is used - only opencode/ and kilo/ for free models
+const freeShortNames = [...OPENCODE_SHORT_ALIASES, ...KILO_EXCLUSIVE_SHORT_ALIASES];
+for (const shortName of freeShortNames) {
+  const mappedByAgentLib = mapModelToId(shortName);
+  const mappedByMappingLib = mapModelForTool('agent', shortName);
+
+  // Critical: agent.lib.mjs should never use moonshot/ prefix
+  assert.ok(!mappedByAgentLib.startsWith('moonshot/'), `mapModelToId(${shortName}) should NOT use moonshot/ prefix, got ${mappedByAgentLib}`);
+
+  // Verify it uses only opencode/ or kilo/ prefix
+  assert.ok(mappedByAgentLib.startsWith('opencode/') || mappedByAgentLib.startsWith('kilo/'), `mapModelToId(${shortName}) should use opencode/ or kilo/ prefix, got ${mappedByAgentLib}`);
+
+  // Verify consistency between agent.lib.mjs and model-mapping.lib.mjs
+  assert.strictEqual(mappedByAgentLib, mappedByMappingLib, `mapModelToId(${shortName})=${mappedByAgentLib} should match mapModelForTool(agent, ${shortName})=${mappedByMappingLib}`);
+
+  console.log(`✅ ${shortName} -> ${mappedByAgentLib}: Consistent (no moonshot/ prefix)`);
+}
+
+// Test 16: Default model kimi-k2.5-free maps correctly through agent.lib.mjs
+console.log('\n1️⃣6️⃣ Testing default model (kimi-k2.5-free) through agent.lib.mjs...');
+const defaultModel = 'kimi-k2.5-free';
+const defaultMapped = mapModelToId(defaultModel);
+assert.strictEqual(defaultMapped, 'opencode/kimi-k2.5-free', `Default model ${defaultModel} should map to opencode/kimi-k2.5-free, got ${defaultMapped}`);
+assert.ok(!defaultMapped.startsWith('moonshot/'), `Default model should NOT use moonshot/ prefix`);
+console.log(`✅ ${defaultModel} -> ${defaultMapped}: Default model maps correctly`);
+
 console.log('\n🎉 All comprehensive free model tests completed successfully!');
 console.log(`📊 Summary: ${OPENCODE_FREE_MODELS.length} OpenCode + ${KILO_FREE_MODELS.length} Kilo = ${ALL_FREE_MODELS.length} total free models tested`);

@@ -400,7 +400,7 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle, gpt-5-nano, glm-4.7-free, minimax-m2.1-free, kimi-k2.5-free)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: kimi-k2.5-free, big-pickle, gpt-5-nano, minimax-m2.5-free, glm-5-free, deepseek-r1-free)',
       alias: 'm',
       default: currentParsedArgs => {
         // Dynamic default based on tool selection

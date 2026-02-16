@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Auto-merge and auto-restart-until-mergable module for solve.mjs
+ * Auto-merge and auto-restart-until-mergeable module for solve.mjs
  * Handles automatic merging of PRs and continuous restart until PR becomes mergeable
  *
  * Uses shared utilities from solve.restart-shared.lib.mjs for common functions.
@@ -25,7 +25,7 @@ const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
-// appropriate for auto-restart-until-mergable mode
+// appropriate for auto-restart-until-mergeable mode
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRCIStatus, checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -141,23 +141,93 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
 
 /**
  * Get the reasons why PR is not mergeable
+ * Issue #1314: Comprehensive CI/CD status handling covering all possible states:
+ * - success: All CI passed → no blocker
+ * - failure: Genuine code failures → restart AI
+ * - cancelled: Manually cancelled or workflow cancelled → re-trigger, don't restart AI
+ * - pending/queued: Still running or waiting for runner → wait, don't restart AI
+ * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
+ * - no_checks: No CI checks yet (race condition) → wait
  */
 const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   const blockers = [];
 
-  // Check CI status
-  const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
-  if (ciStatus.status === 'failure') {
-    blockers.push({
-      type: 'ci_failure',
-      message: 'CI/CD checks are failing',
-      details: ciStatus.checks.filter(c => c.conclusion === 'failure').map(c => c.name),
-    });
-  } else if (ciStatus.status === 'pending') {
+  // Use detailed CI status to distinguish between all possible states
+  const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
+
+  if (ciStatus.status === 'no_checks') {
+    // No CI checks exist yet - race condition after push, treat as pending
     blockers.push({
       type: 'ci_pending',
-      message: 'CI/CD checks are still running',
-      details: ciStatus.checks.filter(c => c.status !== 'completed').map(c => c.name),
+      message: 'CI/CD checks have not started yet (waiting for checks to appear)',
+      details: [],
+    });
+  } else if (ciStatus.status === 'pending') {
+    // CI is still running or queued - wait for completion
+    const pendingNames = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks].map(c => c.name);
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD checks are still running or queued',
+      details: pendingNames,
+    });
+  } else if (ciStatus.status === 'cancelled') {
+    // All non-passed checks are cancelled or stale (no genuine failures)
+    // First check if this is actually a billing limit issue (billing-limited jobs may appear as cancelled)
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      // These need to be re-triggered, NOT treated as AI-fixable failures
+      const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
+      blockers.push({
+        type: 'ci_cancelled',
+        message: 'CI/CD checks were cancelled or became stale',
+        details: cancelledOrStaleChecks.map(c => c.name),
+        sha: ciStatus.sha,
+      });
+    }
+  } else if (ciStatus.status === 'failure') {
+    // Some checks genuinely failed - check if it's billing limits first
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      // Check if there are also cancelled/stale checks alongside failures
+      const cancelledOrStaleChecks = [...(ciStatus.hasCancelled ? ciStatus.cancelledChecks : []), ...((ciStatus.hasStale && ciStatus.staleChecks) || [])];
+      if (cancelledOrStaleChecks.length > 0) {
+        blockers.push({
+          type: 'ci_cancelled',
+          message: 'Some CI/CD checks were cancelled or became stale (will be re-triggered)',
+          details: cancelledOrStaleChecks.map(c => c.name),
+          sha: ciStatus.sha,
+        });
+      }
+      blockers.push({
+        type: 'ci_failure',
+        message: 'CI/CD checks are failing',
+        details: ciStatus.failedChecks.map(c => c.name),
+      });
+    }
+  } else if (ciStatus.status === 'unknown') {
+    // Unable to determine CI status - treat as pending to be safe
+    // Do NOT treat as mergeable (which would be incorrect)
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD status could not be determined (will retry)',
+      details: [],
     });
   }
 
@@ -176,9 +246,9 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
 
 /**
  * Main function: Watch and restart until PR becomes mergeable
- * This implements --auto-restart-until-mergable functionality
+ * This implements --auto-restart-until-mergeable functionality
  */
-export const watchUntilMergable = async params => {
+export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
@@ -194,9 +264,9 @@ export const watchUntilMergable = async params => {
   let currentBackoffSeconds = watchInterval;
 
   await log('');
-  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGABLE MODE ACTIVE', ''));
+  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
-  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergable (will NOT auto-merge)', 2));
+  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds`, 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
@@ -215,7 +285,7 @@ export const watchUntilMergable = async params => {
     const isMerged = await checkPRMerged(owner, repo, prNumber);
     if (isMerged) {
       await log('');
-      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
       await log('');
       return { success: true, reason: 'merged', latestSessionId, latestAnthropicCost };
@@ -225,7 +295,7 @@ export const watchUntilMergable = async params => {
     const isClosed = await checkPRClosed(owner, repo, prNumber);
     if (isClosed) {
       await log('');
-      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been closed without merging`, 2));
       await log('');
       return { success: false, reason: 'closed', latestSessionId, latestAnthropicCost };
@@ -272,11 +342,11 @@ export const watchUntilMergable = async params => {
         } else {
           // Just report that PR is mergeable and exit
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
-          await log(formatAligned('', 'Exiting auto-restart-until-mergable mode', '', 2));
+          await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
           // Post success comment
           try {
-            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergable flag*`;
+            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
             await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           } catch {
             // Don't fail if comment posting fails
@@ -303,9 +373,112 @@ export const watchUntilMergable = async params => {
         feedbackLines.push('Please review and address the feedback from these comments.');
       }
 
-      // Reason 2: CI failures
+      // Issue #1314: Check for billing limit errors BEFORE regular CI failures
+      // Billing limits require human intervention and should NOT trigger AI restarts
+      const billingBlocker = blockers.find(b => b.type === 'billing_limit');
+      if (billingBlocker) {
+        await log('');
+        await log(formatAligned('💳', 'GITHUB ACTIONS BILLING LIMIT DETECTED', ''));
+        await log(formatAligned('', 'Affected jobs:', billingBlocker.details.join(', '), 2));
+        await log(formatAligned('', 'All jobs affected:', billingBlocker.allJobsAffected ? 'Yes' : 'No', 2));
+        await log('');
+
+        // Check if this is a private repository
+        const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
+
+        if (repoInfo.isPrivate) {
+          // For private repos, human intervention is required - stop and post comment
+          await log(formatAligned('🛑', 'STOPPING', 'Private repository - billing limit requires human intervention'));
+          await log(formatAligned('', 'Action required:', "Check the 'Billing & plans' section in your GitHub settings", 2));
+
+          // Post comment explaining the billing limit issue
+          try {
+            const commentBody = `## 💳 GitHub Actions Billing Limit Reached
+
+The CI/CD jobs could not start due to billing/spending limits.
+
+**Affected jobs:**
+${billingBlocker.details.map(j => `- ${j}`).join('\n')}
+
+**Error message:**
+> ${billingBlocker.billingMessage || BILLING_LIMIT_ERROR_PATTERN}
+
+**Action Required:**
+Please check the 'Billing & plans' section in your GitHub settings and either:
+1. Add or update your payment method
+2. Increase your spending limit
+3. Wait for the free tier limits to reset (if applicable)
+
+Once the billing issue is resolved, you can re-run the CI checks or push a new commit to trigger a new run.
+
+---
+*Detected by hive-mind with --auto-restart-until-mergeable flag. This is NOT a code issue - human intervention is required.*`;
+            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            await log(formatAligned('', '💬 Posted billing limit notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_billing_limit_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr',
+            });
+            await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
+          }
+
+          return { success: false, reason: 'billing_limit', latestSessionId, latestAnthropicCost };
+        } else {
+          // For public repos (unusual case), apply exponential backoff and wait
+          // Public repos typically have unlimited free CI, so this is unexpected
+          await log(formatAligned('⏳', 'Public repository with billing limit (unusual)', 'Applying exponential backoff'));
+          await log(formatAligned('', 'Next check in:', `${currentBackoffSeconds} seconds`, 2));
+
+          // Don't trigger AI restart - just wait and check again
+          // The backoff will be applied at the end of the loop
+          currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 3600); // Max 1 hour
+        }
+      }
+
+      // Issue #1314: Handle cancelled CI/CD checks - re-trigger them instead of restarting AI
+      // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
+      // re-triggered automatically. We should NOT restart the AI for these.
+      const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
+      if (cancelledBlocker && !billingBlocker) {
+        await log('');
+        await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
+        await log(formatAligned('', 'Cancelled checks:', cancelledBlocker.details.join(', '), 2));
+
+        // Attempt to re-trigger the cancelled/stale workflow runs
+        const sha = cancelledBlocker.sha;
+        if (sha) {
+          const runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
+          const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
+          let rerunTriggered = false;
+
+          for (const run of retriggerable) {
+            await log(formatAligned('', `Re-triggering workflow "${run.name}" (${run.id})...`, '', 2));
+            const rerunResult = await rerunWorkflowRun(owner, repo, run.id, argv.verbose);
+            if (rerunResult.success) {
+              await log(formatAligned('', `✅ Re-triggered: ${run.name}`, '', 2));
+              rerunTriggered = true;
+            } else {
+              await log(formatAligned('', `⚠️  Could not re-trigger ${run.name}: ${rerunResult.error}`, '', 2));
+            }
+          }
+
+          if (rerunTriggered) {
+            await log(formatAligned('⏳', 'Waiting for re-triggered CI to complete...', '', 2));
+            // Don't restart AI - just wait for re-triggered jobs to complete
+            // The next iteration of the loop will check the new status
+          }
+        }
+        // Don't set shouldRestart for cancelled checks - wait for re-triggered jobs instead
+      }
+
+      // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
+      // Only restart AI when we have genuine code failures (real feedback to act on)
       const ciBlocker = blockers.find(b => b.type === 'ci_failure');
-      if (ciBlocker) {
+      if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
         feedbackLines.push('❌ CI/CD checks are failing:');
@@ -345,7 +518,7 @@ export const watchUntilMergable = async params => {
       }
 
       if (shouldRestart) {
-        // Add standard instructions for auto-restart-until-mergable mode using shared utility
+        // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
@@ -353,7 +526,7 @@ export const watchUntilMergable = async params => {
 
         // Post a comment to PR about the restart
         try {
-          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {
@@ -428,7 +601,7 @@ export const watchUntilMergable = async params => {
             try {
               const logFile = getLogFile();
               if (logFile) {
-                const customTitle = `🔄 Auto-restart-until-mergable Log (iteration ${iteration})`;
+                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${iteration})`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -468,8 +641,18 @@ export const watchUntilMergable = async params => {
         // Update last check time after restart
         lastCheckTime = new Date();
       } else if (blockers.length > 0) {
-        // There are blockers but none that warrant a restart (e.g., CI pending)
-        await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+        // There are blockers but none that warrant an AI restart
+        // Issue #1314: Distinguish between different waiting reasons
+        const pendingBlocker = blockers.find(b => b.type === 'ci_pending');
+        const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
+
+        if (cancelledOnly && cancelledBlocker) {
+          await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
+        } else if (pendingBlocker) {
+          await log(formatAligned('⏳', 'Waiting for CI:', pendingBlocker.details.length > 0 ? pendingBlocker.details.join(', ') : pendingBlocker.message, 2));
+        } else {
+          await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+        }
       } else {
         await log(formatAligned('', 'No action needed', 'Continuing to monitor...', 2));
       }
@@ -478,7 +661,7 @@ export const watchUntilMergable = async params => {
       lastCheckTime = currentTime;
     } catch (error) {
       reportError(error, {
-        context: 'watch_until_mergable',
+        context: 'watch_until_mergeable',
         prNumber,
         owner,
         repo,
@@ -568,22 +751,22 @@ export const attemptAutoMerge = async params => {
 };
 
 /**
- * Start auto-restart-until-mergable mode
+ * Start auto-restart-until-mergeable mode
  */
-export const startAutoRestartUntilMergable = async params => {
+export const startAutoRestartUntilMergeable = async params => {
   const { argv, owner, repo, prNumber } = params;
 
   // Determine the mode
   const isAutoMerge = argv.autoMerge || false;
-  const isAutoRestartUntilMergable = argv.autoRestartUntilMergable || false;
+  const isAutoRestartUntilMergeable = argv.autoRestartUntilMergeable || false;
 
-  if (!isAutoMerge && !isAutoRestartUntilMergable) {
+  if (!isAutoMerge && !isAutoRestartUntilMergeable) {
     return null; // Neither mode enabled
   }
 
   if (!prNumber) {
     await log('');
-    await log(formatAligned('⚠️', 'Auto-restart-until-mergable:', 'Requires a pull request'));
+    await log(formatAligned('⚠️', 'Auto-restart-until-mergeable:', 'Requires a pull request'));
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
   }
@@ -632,18 +815,18 @@ export const startAutoRestartUntilMergable = async params => {
     }
   }
 
-  // If --auto-merge implies --auto-restart-until-mergable
+  // If --auto-merge implies --auto-restart-until-mergeable
   if (isAutoMerge) {
-    argv.autoRestartUntilMergable = true;
+    argv.autoRestartUntilMergeable = true;
   }
 
   // Start the watch loop
-  return await watchUntilMergable(params);
+  return await watchUntilMergeable(params);
 };
 
 export default {
-  watchUntilMergable,
+  watchUntilMergeable,
   attemptAutoMerge,
-  startAutoRestartUntilMergable,
+  startAutoRestartUntilMergeable,
   checkForNonBotComments,
 };

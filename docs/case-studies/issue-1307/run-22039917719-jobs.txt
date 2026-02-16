@@ -1,0 +1,22 @@
+63679029643: detect-changes - success
+63679029710: Instant Release - skipped
+63679029743: Check for Manual Version Changes - skipped
+63679029767: Create Changeset PR - skipped
+63679029826: Docker Publish Instant (${{ matrix.platform }}) - skipped
+63679029902: Helm Release (Instant) - skipped
+63679029931: Docker Publish Instant (Merge) - skipped
+63679036958: lint - success
+63679037030: test-compilation - success
+63679037036: validate-docs - success
+63679037039: check-file-line-limits - success
+63679037050: Check for Changesets - skipped
+63679037156: helm-pr-check - skipped
+63679061889: memory-check-linux - success
+63679061890: test-suites - success
+63679061896: test-execution - success
+63679061961: docker-pr-check - skipped
+63679219933: Release - success
+63679253524: Docker Publish (linux/amd64) - success
+63679253537: Docker Publish (linux/arm64) - cancelled
+63679669833: Docker Publish (Merge) - cancelled
+63679669922: Helm Release - cancelled

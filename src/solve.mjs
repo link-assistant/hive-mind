@@ -74,7 +74,7 @@ const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleM
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
-const { startAutoRestartUntilMergable } = autoMergeLib;
+const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
@@ -1080,7 +1080,10 @@ try {
             // See: https://github.com/link-assistant/hive-mind/issues/1152
             const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
             const continueDescription = limitContinueMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
+            // Format reset time with relative time and UTC for better user understanding
+            // See: https://github.com/link-assistant/hive-mind/issues/1236
+            const waitingResetTimeFormatted = formatResetTimeWithRelative(global.limitResetTime, global.limitTimezone || null) || global.limitResetTime;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1403,11 +1406,11 @@ try {
     }
   }
 
-  // Start auto-restart-until-mergable mode if enabled
+  // Start auto-restart-until-mergeable mode if enabled
   // This runs after the normal watch mode completes (if any)
-  // --auto-merge implies --auto-restart-until-mergable
-  if (argv.autoMerge || argv.autoRestartUntilMergable) {
-    const autoMergeResult = await startAutoRestartUntilMergable({
+  // --auto-merge implies --auto-restart-until-mergeable
+  if (argv.autoMerge || argv.autoRestartUntilMergeable) {
+    const autoMergeResult = await startAutoRestartUntilMergeable({
       issueUrl,
       owner,
       repo,
@@ -1425,7 +1428,7 @@ try {
       anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
       if (argv.verbose) {
         await log('');
-        await log('📊 Updated session data from auto-restart-until-mergable mode:', { verbose: true });
+        await log('📊 Updated session data from auto-restart-until-mergeable mode:', { verbose: true });
         await log(`   Session ID: ${sessionId}`, { verbose: true });
         if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
           await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });

@@ -89,7 +89,7 @@ await asyncTest('checkMergePermissions returns false for repos without write acc
 console.log('\n📋 Fork Mode Guard Logic Tests\n');
 
 test('Fork mode guard should block auto-merge when argv.fork is true', () => {
-  // Simulate the condition from startAutoRestartUntilMergable
+  // Simulate the condition from startAutoRestartUntilMergeable
   const argv = { fork: true, autoMerge: true };
   const isAutoMerge = argv.autoMerge || false;
 
@@ -105,12 +105,12 @@ test('Fork mode guard should not block when argv.fork is false', () => {
   assert.equal(shouldBlockForFork, false, 'Should not block auto-merge when not in fork mode');
 });
 
-test('Fork mode guard should not block auto-restart-until-mergable (only auto-merge)', () => {
-  const argv = { fork: true, autoMerge: false, autoRestartUntilMergable: true };
+test('Fork mode guard should not block auto-restart-until-mergeable (only auto-merge)', () => {
+  const argv = { fork: true, autoMerge: false, autoRestartUntilMergeable: true };
   const isAutoMerge = argv.autoMerge || false;
 
   const shouldBlockForFork = argv.fork && isAutoMerge;
-  assert.equal(shouldBlockForFork, false, 'Should not block auto-restart-until-mergable even in fork mode');
+  assert.equal(shouldBlockForFork, false, 'Should not block auto-restart-until-mergeable even in fork mode');
 });
 
 test('Fork mode guard should handle undefined argv.fork', () => {

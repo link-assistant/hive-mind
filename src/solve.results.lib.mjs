@@ -688,12 +688,12 @@ Fixes ${issueRef}
         await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
         // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
-        // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
+        // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
         const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
         if (shouldAutoRestartForPlaceholder) {
           await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
         }
-        const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergable;
+        const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
         if (shouldWaitForAutoMerge) {
           await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
         }
@@ -764,8 +764,8 @@ Fixes ${issueRef}
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
       // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-      // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
-      const shouldWaitForAutoMergeComment = argv.autoMerge || argv.autoRestartUntilMergable;
+      // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+      const shouldWaitForAutoMergeComment = argv.autoMerge || argv.autoRestartUntilMergeable;
       if (!argv.watch && !shouldRestart && !shouldWaitForAutoMergeComment) {
         await safeExit(0, 'Process completed successfully');
       }
@@ -785,8 +785,8 @@ Fixes ${issueRef}
     const reviewLogPath = path.resolve(getLogFile());
     await log(`   ${reviewLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
-    const shouldWaitForAutoMergeNoAction = argv.autoMerge || argv.autoRestartUntilMergable;
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeNoAction = argv.autoMerge || argv.autoRestartUntilMergeable;
     if (!argv.watch && !shouldWaitForAutoMergeNoAction) {
       await safeExit(0, 'Process completed successfully');
     }
@@ -804,8 +804,8 @@ Fixes ${issueRef}
     const checkLogPath = path.resolve(getLogFile());
     await log(`   ${checkLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergable is enabled
-    const shouldWaitForAutoMergeError = argv.autoMerge || argv.autoRestartUntilMergable;
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeError = argv.autoMerge || argv.autoRestartUntilMergeable;
     if (!argv.watch && !shouldWaitForAutoMergeError) {
       await safeExit(0, 'Process completed successfully');
     }

@@ -61,10 +61,19 @@ export const autoContinue = {
 
 // Auto-resume on limit reset configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1152
+// See: https://github.com/link-assistant/hive-mind/issues/1236
 export const limitReset = {
   // Buffer time to wait after limit reset (in milliseconds)
-  // Default: 5 minutes - accounts for server time differences
-  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+  // Default: 10 minutes - accounts for server time differences and API propagation delays
+  // Increased from 5 to 10 minutes to reduce risk of hitting limits again immediately
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 10 * 60 * 1000),
+  // Random jitter added to buffer to avoid thundering herd problem (in milliseconds)
+  // When multiple instances wait for the same limit reset, jitter distributes their
+  // resume times to reduce simultaneous API load
+  // Default: 5 minutes (0 to 5 minutes random) - total wait after reset: 10-15 minutes
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  jitterMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_JITTER_MS', 5 * 60 * 1000),
 };
 
 // GitHub API limits
@@ -400,6 +409,7 @@ export const version = {
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
 // See: https://github.com/link-assistant/hive-mind/issues/1269
+// See: https://github.com/link-assistant/hive-mind/issues/1307
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -417,6 +427,18 @@ export const mergeQueue = {
   // Issue #1269: gh pr merge requires explicit method when running non-interactively
   // Default: 'merge' - creates a merge commit
   mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
+  // Issue #1307: Wait for main branch CI to complete before processing merge queue
+  // When enabled, the merge queue will wait for any active CI runs on the target branch
+  // (usually main) to complete before merging the first PR.
+  // Default: true - ensures all post-merge CI workflows complete before next merge
+  waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
+  // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
+  // If active runs don't complete within this time, proceed with merge anyway
+  // Default: 45 minutes (2700000ms)
+  targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
+  // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - more frequent than PR CI polling since we're blocking
+  targetBranchCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_POLL_INTERVAL_MS', 30 * 1000),
 };
 
 // Helper function to validate configuration values

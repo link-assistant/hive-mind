@@ -8,7 +8,7 @@
 
 Two pull requests created by hive-mind with the `--auto-merge` flag did not result in automatic merging. Both PRs had to be merged manually by repository maintainers. The root cause is a **fundamental permissions gap**: the `--auto-merge` feature attempts to run `gh pr merge` against upstream repositories where the hive-mind solver only has **read (pull) access** via fork mode. The `gh pr merge` command requires **write (push) access** to the target repository, which fork contributors do not have.
 
-Additionally, the `--auto-restart-until-mergable` loop (which `--auto-merge` implies) was **never entered** in either case because the process was interrupted by log uploads and temporary watch mode before reaching the auto-merge code path.
+Additionally, the `--auto-restart-until-mergeable` loop (which `--auto-merge` implies) was **never entered** in either case because the process was interrupted by log uploads and temporary watch mode before reaching the auto-merge code path.
 
 ## Affected Pull Requests
 
@@ -36,7 +36,7 @@ Additionally, the `--auto-restart-until-mergable` loop (which `--auto-merge` imp
 | ~10:08:30  | CI checks start running (all pass by 10:12:45)                        |
 | 10:19:08   | **PR merged manually by `netkeep80`**                                 |
 
-**Key observation:** The log file (uploaded to gist) captures everything up to the gist upload itself. After that, the process continued to `startAutoRestartUntilMergable()`, but we don't have logs for that phase. However, even if it reached the merge step, `gh pr merge` would have **failed with a permissions error** since the user only has read access.
+**Key observation:** The log file (uploaded to gist) captures everything up to the gist upload itself. After that, the process continued to `startAutoRestartUntilMergeable()`, but we don't have logs for that phase. However, even if it reached the merge step, `gh pr merge` would have **failed with a permissions error** since the user only has read access.
 
 ### PR 233 (ideav/crm) — Sonnet model, $1.60 + $0.57 estimated cost
 
@@ -56,7 +56,7 @@ Additionally, the `--auto-restart-until-mergable` loop (which `--auto-merge` imp
 | 10:15:31   | **Log upload to gist started** ← log file ends here                                                           |
 | 10:20:28   | **PR merged manually by `ideav`**                                                                             |
 
-**Key observation:** The temporary watch mode ran one iteration to commit uncommitted files. After the watch mode completed, the process should have proceeded to `startAutoRestartUntilMergable()` (line 1368 of solve.mjs). However, even if it did, the merge would have failed due to lack of write access. The log was truncated at the gist upload point.
+**Key observation:** The temporary watch mode ran one iteration to commit uncommitted files. After the watch mode completed, the process should have proceeded to `startAutoRestartUntilMergeable()` (line 1368 of solve.mjs). However, even if it did, the merge would have failed due to lack of write access. The log was truncated at the gist upload point.
 
 ## Root Cause Analysis
 
@@ -88,8 +88,8 @@ This command requires **write/push access** to the target repository. Fork contr
 
 The entire auto-merge pipeline (`solve.auto-merge.lib.mjs`) has **no check for fork mode**:
 
-- `startAutoRestartUntilMergable()` does not check `argv.fork` or `forkedRepo`
-- `watchUntilMergable()` does not check permissions before attempting merge
+- `startAutoRestartUntilMergeable()` does not check `argv.fork` or `forkedRepo`
+- `watchUntilMergeable()` does not check permissions before attempting merge
 - `attemptAutoMerge()` does not verify write access before calling `mergePullRequest()`
 - `checkPRMergeable()` in `github-merge.lib.mjs` only checks GitHub's merge state status, not the user's permissions
 
@@ -116,21 +116,21 @@ The solution draft logs uploaded to gists are **point-in-time snapshots** — th
 
 ## Impact Assessment
 
-| Impact              | Description                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually.                                             |
-| **Cost**            | The auto-restart-until-mergable loop could potentially run indefinitely, consuming API credits, if the merge always fails due to permissions. |
-| **Trust**           | The `--auto-merge` flag gives a false sense of automation when used in fork mode.                                                             |
+| Impact              | Description                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **User experience** | Users expected `--auto-merge` to merge the PR automatically. Instead, they had to merge manually.                              |
+| **Cost**            | The auto-restart-until-mergeable loop could run indefinitely, consuming API credits, if merge always fails due to permissions. |
+| **Trust**           | The `--auto-merge` flag gives a false sense of automation when used in fork mode.                                              |
 
 ## Proposed Solutions
 
 ### Solution 1: Early Fork-Mode Detection and Warning (Recommended — Quick Fix)
 
-Add a check at the beginning of `startAutoRestartUntilMergable()` and `attemptAutoMerge()` to detect fork mode and warn the user:
+Add a check at the beginning of `startAutoRestartUntilMergeable()` and `attemptAutoMerge()` to detect fork mode and warn the user:
 
 ```javascript
 // In solve.auto-merge.lib.mjs
-export const startAutoRestartUntilMergable = async params => {
+export const startAutoRestartUntilMergeable = async params => {
   const { argv } = params;
 
   // Check if running in fork mode — auto-merge cannot work without write access

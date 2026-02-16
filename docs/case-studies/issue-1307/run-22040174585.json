@@ -1,0 +1,123 @@
+{
+  "conclusion": "failure",
+  "createdAt": "2026-02-15T17:42:54Z",
+  "displayTitle": "Merge pull request #1237 from link-assistant/issue-1236-e01a0dd9a7c8",
+  "event": "push",
+  "headBranch": "main",
+  "headSha": "7f2ed7624410a4fab97ab9b68a307fd5451fb142",
+  "jobs": [
+    {
+      "completedAt": "2026-02-15T17:43:12Z",
+      "conclusion": "success",
+      "databaseId": 63679670063,
+      "name": "detect-changes",
+      "startedAt": "2026-02-15T17:43:04Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-02-15T17:43:05Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-02-15T17:43:04Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:10Z", "conclusion": "success", "name": "Run actions/checkout@v4", "number": 2, "startedAt": "2026-02-15T17:43:05Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:11Z", "conclusion": "success", "name": "Detect changes", "number": 3, "startedAt": "2026-02-15T17:43:10Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:11Z", "conclusion": "success", "name": "Post Run actions/checkout@v4", "number": 6, "startedAt": "2026-02-15T17:43:11Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:11Z", "conclusion": "success", "name": "Complete job", "number": 7, "startedAt": "2026-02-15T17:43:11Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670063"
+    },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670147, "name": "Check for Manual Version Changes", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670147" },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670161, "name": "Create Changeset PR", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670161" },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670171, "name": "Instant Release", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670171" },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670180, "name": "Docker Publish Instant (${{ matrix.platform }})", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670180" },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670235, "name": "Docker Publish Instant (Merge)", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670235" },
+    { "completedAt": "2026-02-15T17:43:02Z", "conclusion": "skipped", "databaseId": 63679670266, "name": "Helm Release (Instant)", "startedAt": "2026-02-15T17:43:02Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679670266" },
+    {
+      "completedAt": "2026-02-15T17:43:56Z",
+      "conclusion": "success",
+      "databaseId": 63679676230,
+      "name": "lint",
+      "startedAt": "2026-02-15T17:43:14Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-02-15T17:43:16Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-02-15T17:43:15Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:20Z", "conclusion": "success", "name": "Checkout repository", "number": 2, "startedAt": "2026-02-15T17:43:16Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:20Z", "conclusion": "skipped", "name": "Simulate fresh merge with base branch (PR only)", "number": 3, "startedAt": "2026-02-15T17:43:20Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "success", "name": "Setup Node.js", "number": 4, "startedAt": "2026-02-15T17:43:20Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:29Z", "conclusion": "success", "name": "Install dependencies", "number": 5, "startedAt": "2026-02-15T17:43:22Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:46Z", "conclusion": "success", "name": "Run Prettier format check", "number": 6, "startedAt": "2026-02-15T17:43:29Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:50Z", "conclusion": "success", "name": "Run ESLint", "number": 7, "startedAt": "2026-02-15T17:43:46Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:55Z", "conclusion": "success", "name": "Run code duplication check", "number": 8, "startedAt": "2026-02-15T17:43:50Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:55Z", "conclusion": "success", "name": "Post Setup Node.js", "number": 15, "startedAt": "2026-02-15T17:43:55Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:55Z", "conclusion": "success", "name": "Post Checkout repository", "number": 16, "startedAt": "2026-02-15T17:43:55Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:55Z", "conclusion": "success", "name": "Complete job", "number": 17, "startedAt": "2026-02-15T17:43:55Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676230"
+    },
+    {
+      "completedAt": "2026-02-15T17:43:26Z",
+      "conclusion": "success",
+      "databaseId": 63679676296,
+      "name": "validate-docs",
+      "startedAt": "2026-02-15T17:43:14Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-02-15T17:43:16Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-02-15T17:43:15Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:21Z", "conclusion": "success", "name": "Run actions/checkout@v4", "number": 2, "startedAt": "2026-02-15T17:43:16Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "success", "name": "Use Node.js 20.x", "number": 3, "startedAt": "2026-02-15T17:43:21Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:24Z", "conclusion": "success", "name": "Validate documentation files", "number": 4, "startedAt": "2026-02-15T17:43:22Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:24Z", "conclusion": "success", "name": "Post Use Node.js 20.x", "number": 7, "startedAt": "2026-02-15T17:43:24Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:24Z", "conclusion": "success", "name": "Post Run actions/checkout@v4", "number": 8, "startedAt": "2026-02-15T17:43:24Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:25Z", "conclusion": "success", "name": "Complete job", "number": 9, "startedAt": "2026-02-15T17:43:24Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676296"
+    },
+    {
+      "completedAt": "2026-02-15T17:43:24Z",
+      "conclusion": "failure",
+      "databaseId": 63679676300,
+      "name": "check-file-line-limits",
+      "startedAt": "2026-02-15T17:43:15Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-02-15T17:43:16Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-02-15T17:43:16Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:21Z", "conclusion": "success", "name": "Checkout repository", "number": 2, "startedAt": "2026-02-15T17:43:16Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:21Z", "conclusion": "skipped", "name": "Simulate fresh merge with base branch (PR only)", "number": 3, "startedAt": "2026-02-15T17:43:21Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "failure", "name": "Check .mjs file line limits", "number": 4, "startedAt": "2026-02-15T17:43:21Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "success", "name": "Post Checkout repository", "number": 8, "startedAt": "2026-02-15T17:43:22Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "success", "name": "Complete job", "number": 9, "startedAt": "2026-02-15T17:43:22Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676300"
+    },
+    {
+      "completedAt": "2026-02-15T17:43:31Z",
+      "conclusion": "success",
+      "databaseId": 63679676303,
+      "name": "test-compilation",
+      "startedAt": "2026-02-15T17:43:15Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-02-15T17:43:17Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-02-15T17:43:16Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:22Z", "conclusion": "success", "name": "Checkout repository", "number": 2, "startedAt": "2026-02-15T17:43:17Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:25Z", "conclusion": "success", "name": "Setup Node.js", "number": 3, "startedAt": "2026-02-15T17:43:22Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:25Z", "conclusion": "success", "name": "Test solve.mjs compilation", "number": 4, "startedAt": "2026-02-15T17:43:25Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:25Z", "conclusion": "success", "name": "Test hive.mjs compilation", "number": 5, "startedAt": "2026-02-15T17:43:25Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:28Z", "conclusion": "success", "name": "Check Node.js syntax for all .mjs files", "number": 6, "startedAt": "2026-02-15T17:43:25Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:28Z", "conclusion": "success", "name": "Post Setup Node.js", "number": 11, "startedAt": "2026-02-15T17:43:28Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:29Z", "conclusion": "success", "name": "Post Checkout repository", "number": 12, "startedAt": "2026-02-15T17:43:28Z", "status": "completed" },
+        { "completedAt": "2026-02-15T17:43:29Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-02-15T17:43:29Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676303"
+    },
+    { "completedAt": "2026-02-15T17:43:13Z", "conclusion": "skipped", "databaseId": 63679676354, "name": "Check for Changesets", "startedAt": "2026-02-15T17:43:13Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676354" },
+    { "completedAt": "2026-02-15T17:43:13Z", "conclusion": "skipped", "databaseId": 63679676381, "name": "helm-pr-check", "startedAt": "2026-02-15T17:43:13Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679676381" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701540, "name": "test-execution", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701540" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701636, "name": "docker-pr-check", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701636" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701652, "name": "test-suites", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701652" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701653, "name": "memory-check-linux", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701653" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701656, "name": "Release", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701656" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701697, "name": "Docker Publish (Merge)", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701697" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701713, "name": "Docker Publish (${{ matrix.platform }})", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701713" },
+    { "completedAt": "2026-02-15T17:43:57Z", "conclusion": "skipped", "databaseId": 63679701762, "name": "Helm Release", "startedAt": "2026-02-15T17:43:57Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/hive-mind/actions/runs/22040174585/job/63679701762" }
+  ],
+  "name": "Checks and release",
+  "status": "completed",
+  "updatedAt": "2026-02-15T17:43:57Z",
+  "workflowName": "Checks and release"
+}

@@ -49,25 +49,18 @@ The `quiet: true` option only suppresses informational messages, not error-level
 
 ## Solution
 
-Two changes were made to `src/telegram-bot.mjs`:
+Three changes were made:
 
-### 1. Added Early --version Handling
+### 1. Added Early --version Handling (telegram-bot.mjs)
 
 Added early exit for `--version` flag before loading any heavy dependencies:
 
 ```javascript
 // Early exit for --version to avoid loading dotenvx and other heavy dependencies
-const earlyArgs = process.argv.slice(2);
-if (earlyArgs.includes('--version')) {
-  const { getVersion } = await import('./version.lib.mjs');
-  try {
-    const version = await getVersion();
-    console.log(version);
-  } catch {
-    console.error('Error: Unable to determine version');
-    process.exit(1);
-  }
-  process.exit(0);
+if (process.argv.includes('--version')) {
+  const v = await import('./version.lib.mjs').then(m => m.getVersion()).catch(() => 'unknown');
+  console.log(v);
+  process.exit(v === 'unknown' ? 1 : 0);
 }
 ```
 
@@ -77,6 +70,24 @@ Added `ignore: ['MISSING_ENV_FILE']` to make `.env` file optional:
 
 ```javascript
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
+```
+
+### 3. Added Version Caching in RAM (version.lib.mjs)
+
+Added a cache for the version to ensure it remains immutable after first read. This allows accurate tracking of the running version even if package.json is updated while the process is still running:
+
+```javascript
+// Cache for version (immutable after first read)
+// This ensures the version remains consistent even if package.json changes during runtime
+let cachedVersion = null;
+
+export async function getVersion() {
+  // Return cached version if already computed (immutable after first read)
+  if (cachedVersion !== null) {
+    return cachedVersion;
+  }
+  // ... read from package.json and cache the result
+}
 ```
 
 ## Testing
@@ -120,5 +131,6 @@ $ hive-telegram-bot --version
 ## Files Changed
 
 - `src/telegram-bot.mjs` - Added early --version handling and ignore option
+- `src/version.lib.mjs` - Added version caching in RAM (immutable after first read)
 - `tests/test-telegram-bot-version.mjs` - Added tests for version output
 - `docs/case-studies/issue-1318/` - Case study documentation

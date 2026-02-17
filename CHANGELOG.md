@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.23.13
+
+### Patch Changes
+
+- af1f456: fix: suppress dotenvx MISSING_ENV_FILE warnings in hive-telegram-bot --version
+  - Add early --version handling before loading dotenvx to avoid warnings
+  - Add ignore: ['MISSING_ENV_FILE'] option to make .env file optional
+  - Add tests for version output in tests/test-telegram-bot-version.mjs
+
 ## 1.23.12
 
 ### Patch Changes

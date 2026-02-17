@@ -47,7 +47,7 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 
@@ -591,44 +591,9 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   }
 }
 
-/**
- * Extract GitHub issue/PR URL from message text
- * Validates that message contains exactly one GitHub issue/PR link
- *
- * @param {string} text - Message text to search
- * @returns {{ url: string|null, error: string|null, linkCount: number }}
- */
+// Wrapper for extractGitHubUrl - extracted to telegram-message-filters.lib.mjs (issue #1325)
 function extractGitHubUrl(text) {
-  if (!text || typeof text !== 'string') {
-    return { url: null, error: null, linkCount: 0 };
-  }
-
-  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
-  const words = text.split(/\s+/);
-  const foundUrls = [];
-
-  for (const word of words) {
-    // Try to parse as GitHub URL
-    const parsed = parseGitHubUrl(word);
-
-    // Accept issue or PR URLs
-    if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
-      foundUrls.push(parsed.normalized);
-    }
-  }
-
-  // Check if multiple links were found
-  if (foundUrls.length === 0) {
-    return { url: null, error: null, linkCount: 0 };
-  } else if (foundUrls.length === 1) {
-    return { url: foundUrls[0], error: null, linkCount: 1 };
-  } else {
-    return {
-      url: null,
-      error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length,
-    };
-  }
+  return _extractGitHubUrl(text, { parseGitHubUrl, cleanNonPrintableChars });
 }
 
 bot.command('help', async ctx => {

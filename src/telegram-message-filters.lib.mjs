@@ -171,3 +171,48 @@ export function extractCommandFromText(text, botUsername = null) {
 
   return { command, botMention };
 }
+
+/**
+ * Extract GitHub issue/PR URL from message text.
+ * Validates that message contains exactly one GitHub issue/PR link.
+ * Extracted from telegram-bot.mjs to reduce file size (issue #1325).
+ *
+ * @param {string} text - Message text to search
+ * @param {Object} deps - Dependencies for parsing
+ * @param {Function} deps.parseGitHubUrl - Function to parse GitHub URLs
+ * @param {Function} deps.cleanNonPrintableChars - Function to clean non-printable characters
+ * @returns {{ url: string|null, error: string|null, linkCount: number }}
+ * @see https://github.com/link-assistant/hive-mind/issues/1325
+ */
+export function extractGitHubUrl(text, { parseGitHubUrl, cleanNonPrintableChars }) {
+  if (!text || typeof text !== 'string') {
+    return { url: null, error: null, linkCount: 0 };
+  }
+
+  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
+  const words = text.split(/\s+/);
+  const foundUrls = [];
+
+  for (const word of words) {
+    // Try to parse as GitHub URL
+    const parsed = parseGitHubUrl(word);
+
+    // Accept issue or PR URLs
+    if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
+      foundUrls.push(parsed.normalized);
+    }
+  }
+
+  // Check if multiple links were found
+  if (foundUrls.length === 0) {
+    return { url: null, error: null, linkCount: 0 };
+  } else if (foundUrls.length === 1) {
+    return { url: foundUrls[0], error: null, linkCount: 1 };
+  } else {
+    return {
+      url: null,
+      error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
+      linkCount: foundUrls.length,
+    };
+  }
+}

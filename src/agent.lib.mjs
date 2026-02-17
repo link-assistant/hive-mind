@@ -94,6 +94,7 @@ const getOriginalProviderName = providerId => {
     moonshot: 'Moonshot AI',
     google: 'Google',
     opencode: 'OpenCode Zen',
+    kilo: 'Kilo Gateway',
     grok: 'xAI',
   };
 
@@ -210,9 +211,10 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
       const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 
-      // Determine if this is a free model from OpenCode Zen
-      // Models accessed via OpenCode Zen are free, regardless of original provider pricing
-      const isOpencodeFreeModel = providerFromModel === 'opencode' || isFreeVariant || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
+      // Determine if this is a free model from OpenCode Zen or Kilo Gateway
+      // Models accessed via OpenCode Zen or Kilo Gateway are free, regardless of original provider pricing
+      // Issue #1300: Added kilo provider detection for Kilo Gateway free models
+      const isOpencodeFreeModel = providerFromModel === 'opencode' || providerFromModel === 'kilo' || isFreeVariant || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
 
       // Use base model's provider for original provider reference if available
       const effectiveOriginalProvider = baseModelInfo?.provider || originalProvider || effectiveModelInfo?.provider || null;
@@ -282,23 +284,36 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 // Model mapping to translate aliases to full model IDs for Agent
 // Agent uses OpenCode Zen's JSON interface and models
 // Issue #1185: Free models use opencode/ prefix (not openai/)
+// Issue #1300: Updated mappings - use opencode/ and kilo/ prefixes only,
+// short names for Kilo-exclusive models map to kilo/ prefix
 export const mapModelToId = model => {
   const modelMap = {
+    // OpenCode Zen free models
     grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'opencode/gpt-5-nano',
+    'minimax-m2.5-free': 'opencode/minimax-m2.5-free',
+    'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+    // Kilo Gateway free models - short names for Kilo-exclusive models (Issue #1300)
+    'glm-5-free': 'kilo/glm-5-free',
+    'glm-4.5-air-free': 'kilo/glm-4.5-air-free',
+    'deepseek-r1-free': 'kilo/deepseek-r1-free',
+    'giga-potato-free': 'kilo/giga-potato-free',
+    'trinity-large-preview': 'kilo/trinity-large-preview',
+    // Premium models
     sonnet: 'anthropic/claude-3-5-sonnet',
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
-    // Free models mapping for issue #1250
-    'kimi-k2.5-free': 'moonshot/kimi-k2.5-free',
     'gpt-4o-mini': 'openai/gpt-4o-mini',
     'gpt-4o': 'openai/gpt-4o',
     'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
     'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
+    // Deprecated free models (backward compatibility)
+    'glm-4.7-free': 'opencode/glm-4.7-free',
+    'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is

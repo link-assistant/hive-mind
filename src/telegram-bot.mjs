@@ -926,13 +926,19 @@ async function handleSolveCommand(ctx) {
 
   let userArgs = parseCommandArgs(ctx.message.text);
 
-  // Check if this is a reply to a message and user didn't provide URL
+  // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
+  // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
-  if (isReply && userArgs.length === 0) {
+  // Check if the first argument looks like a GitHub URL
+  // If not, we should try to extract the URL from the replied message
+  const firstArgIsUrl = userArgs.length > 0 && (userArgs[0].includes('github.com') || userArgs[0].match(/^https?:\/\//));
+
+  if (isReply && !firstArgIsUrl) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve is a reply without URL, extracting from replied message...');
+      console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
+      console.log('[VERBOSE] User args:', userArgs);
     }
 
     const replyText = message.reply_to_message.text || '';
@@ -949,18 +955,18 @@ async function handleSolveCommand(ctx) {
       });
       return;
     } else if (extraction.url) {
-      // Single link found
+      // Single link found - prepend it to existing user args (issue #1325)
       if (VERBOSE) {
         console.log('[VERBOSE] Extracted URL from reply:', extraction.url);
       }
-      // Add the extracted URL as the first argument
-      userArgs = [extraction.url];
+      // Prepend the extracted URL to user's options (e.g., ['--model', 'opus'] -> ['url', '--model', 'opus'])
+      userArgs = [extraction.url, ...userArgs];
     } else {
       // No link found
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
       return;
     }
   }

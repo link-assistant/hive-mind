@@ -148,8 +148,64 @@ export const installGlobalExitHandlers = () => {
     process.exit(143);
   });
 
+  // Handle SIGPIPE (broken pipe) - occurs when writing to a closed pipe/socket
+  // This typically happens when a child process is killed (e.g., by OOM killer)
+  // while the parent is still trying to communicate with it
+  // See: https://github.com/link-assistant/hive-mind/issues/1317
+  process.on('SIGPIPE', async () => {
+    if (cleanupFunction) {
+      try {
+        await cleanupFunction();
+      } catch {
+        // Ignore cleanup errors on signal
+      }
+    }
+    if (logFunction) {
+      try {
+        await logFunction(`\n⚠️  Received SIGPIPE signal - pipe communication broken`, { level: 'warning' });
+      } catch {
+        // Can't log - pipe is broken
+      }
+    }
+    await showExitMessage('Broken pipe', 141);
+    try {
+      const sentry = await getSentry();
+      if (sentry && sentry.close) {
+        await sentry.close(2000);
+      }
+    } catch {
+      // Ignore Sentry.close() errors
+    }
+    process.exit(141);
+  });
+
   // Handle uncaught exceptions
   process.on('uncaughtException', async error => {
+    // Handle EPIPE errors specially - these occur when writing to a closed pipe
+    // (e.g., when a child process is killed by OOM killer under high memory pressure)
+    // See: https://github.com/link-assistant/hive-mind/issues/1317
+    if (error.code === 'EPIPE') {
+      // EPIPE is a pipe communication error, not a logic error
+      // Log it but treat it as a graceful shutdown rather than a crash
+      if (logFunction) {
+        try {
+          await logFunction(`\n⚠️  Pipe communication error (EPIPE) - possibly due to child process termination`, { level: 'warning' });
+        } catch {
+          // Can't even log - pipe is broken, just exit
+        }
+      }
+      await showExitMessage('Process terminated due to broken pipe', 141);
+      try {
+        const sentry = await getSentry();
+        if (sentry && sentry.close) {
+          await sentry.close(2000);
+        }
+      } catch {
+        // Ignore Sentry.close() errors
+      }
+      process.exit(141); // 128 + 13 (SIGPIPE)
+    }
+
     if (cleanupFunction) {
       try {
         await cleanupFunction();

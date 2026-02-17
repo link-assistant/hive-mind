@@ -21,6 +21,10 @@ const { $ } = await use('command-stream');
 const lib = await import('./lib.mjs');
 const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
+// Import memory check for resource monitoring during auto-restart
+const memoryCheck = await import('./memory-check.mjs');
+const { checkRAM, getResourceSnapshot } = memoryCheck;
+
 // Import feedback detection functions
 const feedbackLib = await import('./solve.feedback.lib.mjs');
 // Import Sentry integration
@@ -176,6 +180,25 @@ export const watchForFeedback = async params => {
           autoRestartIterationsRan = true; // Issue #1290: Mark that auto-restart iterations ran
           lastIterationLogUploaded = false; // Reset log upload tracking for new iteration
           const restartLabel = firstIterationInTemporaryMode ? 'Initial restart' : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
+
+          // Check system resources before starting a new iteration to avoid OOM kills
+          // This was added after investigating issue #1317 where high load caused process kills
+          // See: https://github.com/link-assistant/hive-mind/issues/1317
+          const minMemoryMB = 512; // Require at least 512MB free RAM for auto-restart
+          const ramCheck = await checkRAM(minMemoryMB, { log: async () => {} }); // Silent check
+          if (!ramCheck.success) {
+            await log(formatAligned('⚠️', 'LOW MEMORY:', `Only ${ramCheck.availableMB}MB free (${minMemoryMB}MB required)`, 2));
+            await log(formatAligned('', 'Skipping auto-restart to prevent OOM kill', '', 4));
+            const resourceSnapshot = await getResourceSnapshot();
+            await log(formatAligned('', `System load: ${resourceSnapshot.loadAvg || 'unknown'}`, '', 4));
+            // Decrement counter since we're skipping this restart
+            autoRestartCount--;
+            await log('');
+            // Wait a bit before next check to let system resources recover
+            await new Promise(resolve => setTimeout(resolve, 30000)); // 30 second delay
+            continue; // Skip this iteration and check again later
+          }
+
           await log(formatAligned('🔄', `${restartLabel}:`, `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
 
           // Post a comment to PR about auto-restart

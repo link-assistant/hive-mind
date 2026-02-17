@@ -1,18 +1,9 @@
 #!/usr/bin/env node
-
-// Early exit for --version to avoid loading dotenvx and other heavy dependencies
-// This fixes issue #1318: dotenvx MISSING_ENV_FILE warnings appearing before version
-const earlyArgs = process.argv.slice(2);
-if (earlyArgs.includes('--version')) {
-  const { getVersion } = await import('./version.lib.mjs');
-  try {
-    const version = await getVersion();
-    console.log(version);
-  } catch {
-    console.error('Error: Unable to determine version');
-    process.exit(1);
-  }
-  process.exit(0);
+// Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
+if (process.argv.includes('--version')) {
+  const v = await import('./version.lib.mjs').then(m => m.getVersion()).catch(() => 'unknown');
+  console.log(v);
+  process.exit(v === 'unknown' ? 1 : 0);
 }
 
 import { spawn } from 'child_process';
@@ -47,20 +38,15 @@ loadLenvConfig({ override: true, quiet: true });
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
 const { hideBin } = await use('yargs@17.7.2/helpers');
-
-// Import solve and hive yargs configurations for validation
+// Import yargs configurations, GitHub utilities, and telegram helpers
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-// Import GitHub URL parser for extracting URLs from messages
 const { parseGitHubUrl } = await import('./github.lib.mjs');
-// Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
-// Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-// Import extracted message filter functions for testability (issue #1207)
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');

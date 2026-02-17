@@ -149,11 +149,14 @@ Run the Hive Mind using Docker for safer local installation - no manual setup re
 # Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
+# Start hive-mind container
+docker run -dit --name hive-mind konard/hive-mind:latest
 
-# IMPORTANT: Authenticate AFTER the Docker image is installed
-# This avoids build timeouts and allows the installation to complete successfully
+# Verify container started
+docker ps -a
+
+# Enter additional terminal process to do installation
+docker exec -it hive-mind /bin/bash
 
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
@@ -163,6 +166,15 @@ claude
 
 # Now you can use hive and solve commands
 solve https://github.com/owner/repo/issues/123
+
+# Or you can run telegram bot:
+
+# Run an to main process
+docker attach hive-mind
+
+# Run bot here
+
+# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
 ```
 
 **Benefits of Docker:**

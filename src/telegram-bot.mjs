@@ -1,5 +1,20 @@
 #!/usr/bin/env node
 
+// Early exit for --version to avoid loading dotenvx and other heavy dependencies
+// This fixes issue #1318: dotenvx MISSING_ENV_FILE warnings appearing before version
+const earlyArgs = process.argv.slice(2);
+if (earlyArgs.includes('--version')) {
+  const { getVersion } = await import('./version.lib.mjs');
+  try {
+    const version = await getVersion();
+    console.log(version);
+  } catch {
+    console.error('Error: Unable to determine version');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 import { spawn } from 'child_process';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
@@ -21,7 +36,9 @@ const dotenvx = dotenvxModule.default || dotenvxModule;
 const getenv = await use('getenv');
 
 // Load .env configuration as base
-dotenvx.config({ quiet: true });
+// quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist
+// This makes .env file optional (issue #1318)
+dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 
 // Load .lenv configuration (if exists)
 // .lenv overrides .env

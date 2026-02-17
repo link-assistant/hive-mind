@@ -15,12 +15,12 @@ console.log('Code points:', [...emoji].length); // 1 (single character)
 
 // Simulate truncation that splits the surrogate pair
 const highSurrogate = emoji.charCodeAt(0).toString(16); // d83e
-const lowSurrogate = emoji.charCodeAt(1).toString(16);  // dd16
+const lowSurrogate = emoji.charCodeAt(1).toString(16); // dd16
 console.log('High surrogate:', highSurrogate);
 console.log('Low surrogate:', lowSurrogate);
 
 // Create orphaned high surrogate (what happens after truncation)
-const orphanedHigh = String.fromCharCode(0xD83E);
+const orphanedHigh = String.fromCharCode(0xd83e);
 console.log('Orphaned high surrogate:', orphanedHigh.length, 'chars');
 
 // Try to JSON.stringify it
@@ -40,11 +40,13 @@ console.log('Contains invalid escape:', jsonResult.includes('\\ud83e'));
 ### Method 2: Claude Code Reproduction Steps
 
 1. Create a GitHub comment with emojis:
+
    ```bash
    gh issue comment 123 --body "🤖 Testing emoji truncation 🚀"
    ```
 
 2. Use Claude Code to read a large amount of GitHub content that will trigger truncation:
+
    ```bash
    claude -p "Read all comments from issue #123 and analyze them"
    ```
@@ -71,10 +73,10 @@ Save as `test-surrogate-bug.mjs`:
 
 const testCases = [
   { name: 'Valid emoji', input: '🤖' },
-  { name: 'Orphaned high', input: String.fromCharCode(0xD83E) },
-  { name: 'Orphaned low', input: String.fromCharCode(0xDD16) },
+  { name: 'Orphaned high', input: String.fromCharCode(0xd83e) },
+  { name: 'Orphaned low', input: String.fromCharCode(0xdd16) },
   { name: 'Text with emoji', input: 'Hello 🤖 World' },
-  { name: 'Truncated at surrogate', input: 'Hello ' + String.fromCharCode(0xD83E) },
+  { name: 'Truncated at surrogate', input: 'Hello ' + String.fromCharCode(0xd83e) },
 ];
 
 console.log('Testing JSON serialization of surrogate characters:\n');
@@ -82,7 +84,7 @@ console.log('Testing JSON serialization of surrogate characters:\n');
 for (const { name, input } of testCases) {
   const charCodes = [...input].map(c => {
     const code = c.codePointAt(0);
-    return code > 0xFFFF ? `U+${code.toString(16).toUpperCase()}` : `U+${code.toString(16).padStart(4, '0').toUpperCase()}`;
+    return code > 0xffff ? `U+${code.toString(16).toUpperCase()}` : `U+${code.toString(16).padStart(4, '0').toUpperCase()}`;
   });
 
   console.log(`Test: ${name}`);
@@ -115,13 +117,14 @@ function sanitizeUnicode(text) {
   );
 }
 
-const problematicText = 'Hello ' + String.fromCharCode(0xD83E) + ' World';
+const problematicText = 'Hello ' + String.fromCharCode(0xd83e) + ' World';
 console.log('Before sanitization:', problematicText.length, 'chars');
 console.log('After sanitization:', sanitizeUnicode(problematicText));
 console.log('JSON.stringify after fix:', JSON.stringify({ text: sanitizeUnicode(problematicText) }));
 ```
 
 Run with:
+
 ```bash
 node test-surrogate-bug.mjs
 ```

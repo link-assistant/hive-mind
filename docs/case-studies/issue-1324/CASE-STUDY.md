@@ -30,6 +30,7 @@ UTF-16 encoding uses surrogate pairs to represent characters outside the Basic M
 - **Low surrogate**: U+DC00 to U+DFFF
 
 The emoji `🤖` (U+1F916) is encoded as:
+
 - High surrogate: `\uD83E`
 - Low surrogate: `\uDD16`
 
@@ -38,6 +39,7 @@ When text is truncated at a byte boundary that falls between these two surrogate
 ### Evidence from Log File
 
 Location in log (line ~98553, position 98553-98559):
+
 ```
 All changes have been merged to the main branch.\n\n---\n\ud83e\n...\n</persisted-output>
 ```
@@ -46,16 +48,16 @@ The `\ud83e` is the orphaned high surrogate from what was originally a full emoj
 
 ## Timeline of Events
 
-| Time (UTC) | Event |
-|------------|-------|
-| 20:17:27 | Claude Code starts executing with Opus model |
-| 20:17:27 | Session ID: `d12b2d61-7ab1-48dc-9677-3a1261066898` |
-| 20:17:34-36 | Model issues parallel tool calls to fetch GitHub comments |
-| 20:17:36 | Tool `toolu_01UjJKsUew28fdRqYJBu3PtK` returns issue comments |
-| 20:17:36 | Output truncated (44.8KB → 2KB preview in `<persisted-output>`) |
-| ~20:17:36 | Truncation cuts emoji surrogate pair at character boundary |
-| 20:17:48 | API request with orphaned surrogate fails with error 400 |
-| 20:17:48 | Session terminates with exit code 1 |
+| Time (UTC)  | Event                                                           |
+| ----------- | --------------------------------------------------------------- |
+| 20:17:27    | Claude Code starts executing with Opus model                    |
+| 20:17:27    | Session ID: `d12b2d61-7ab1-48dc-9677-3a1261066898`              |
+| 20:17:34-36 | Model issues parallel tool calls to fetch GitHub comments       |
+| 20:17:36    | Tool `toolu_01UjJKsUew28fdRqYJBu3PtK` returns issue comments    |
+| 20:17:36    | Output truncated (44.8KB → 2KB preview in `<persisted-output>`) |
+| ~20:17:36   | Truncation cuts emoji surrogate pair at character boundary      |
+| 20:17:48    | API request with orphaned surrogate fails with error 400        |
+| 20:17:48    | Session terminates with exit code 1                             |
 
 ## Affected Components
 
@@ -73,13 +75,13 @@ The `\ud83e` is the orphaned high surrogate from what was originally a full emoj
 
 This is a **known, recurring issue** in Claude Code. Multiple GitHub issues have been filed:
 
-| Issue | Title | Status |
-|-------|-------|--------|
-| [#1709](https://github.com/anthropics/claude-code/issues/1709) | Session broken -> API Error: 400 no low surrogate | CLOSED |
-| [#2108](https://github.com/anthropics/claude-code/issues/2108) | The request body is not valid JSON: no low surrogate | CLOSED |
-| [#16294](https://github.com/anthropics/claude-code/issues/16294) | API Error 400 "no low surrogate" when Bash output contains invalid Unicode | OPEN |
-| [#5440](https://github.com/anthropics/claude-code/issues/5440) | JSON Serialization Failure: Unicode Surrogate Pair Error | - |
-| [#4519](https://github.com/anthropics/claude-code/issues/4519) | Invalid JSON Request: Malformed Low Surrogate | - |
+| Issue                                                            | Title                                                                      | Status |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------- | ------ |
+| [#1709](https://github.com/anthropics/claude-code/issues/1709)   | Session broken -> API Error: 400 no low surrogate                          | CLOSED |
+| [#2108](https://github.com/anthropics/claude-code/issues/2108)   | The request body is not valid JSON: no low surrogate                       | CLOSED |
+| [#16294](https://github.com/anthropics/claude-code/issues/16294) | API Error 400 "no low surrogate" when Bash output contains invalid Unicode | OPEN   |
+| [#5440](https://github.com/anthropics/claude-code/issues/5440)   | JSON Serialization Failure: Unicode Surrogate Pair Error                   | -      |
+| [#4519](https://github.com/anthropics/claude-code/issues/4519)   | Invalid JSON Request: Malformed Low Surrogate                              | -      |
 
 ## Possible Solutions
 
@@ -91,14 +93,12 @@ Add sanitization in Claude Code to replace orphaned surrogates with the Unicode 
 function sanitizeUnicode(text) {
   // Replace orphaned high surrogates (not followed by low surrogate)
   // Replace orphaned low surrogates (not preceded by high surrogate)
-  return text.replace(
-    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
-    '\uFFFD'
-  );
+  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
 }
 ```
 
 This should be applied:
+
 - In the `<persisted-output>` truncation logic
 - As a safety net before any JSON.stringify() for API requests
 - In the Bash tool output processing

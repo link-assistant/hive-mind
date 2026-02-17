@@ -5,6 +5,11 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { getGitVersion } from './git.lib.mjs';
 
+// Cache for version (immutable after first read)
+// This ensures the version remains consistent even if package.json changes during runtime
+// See issue #1318: version should be cached in RAM at startup
+let cachedVersion = null;
+
 async function isRunningAsScript() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
@@ -18,6 +23,11 @@ async function isRunningAsScript() {
 }
 
 export async function getVersion() {
+  // Return cached version if already computed (immutable after first read)
+  if (cachedVersion !== null) {
+    return cachedVersion;
+  }
+
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = dirname(__filename);
   const packagePath = join(__dirname, '..', 'package.json');
@@ -28,13 +38,15 @@ export async function getVersion() {
     const currentVersion = packageJson.version;
 
     if (await isRunningAsScript()) {
-      const version = await getGitVersion(undefined, currentVersion);
-      return version;
+      cachedVersion = await getGitVersion(undefined, currentVersion);
+    } else {
+      cachedVersion = currentVersion;
     }
 
-    return currentVersion;
+    return cachedVersion;
   } catch {
-    return 'unknown';
+    cachedVersion = 'unknown';
+    return cachedVersion;
   }
 }
 

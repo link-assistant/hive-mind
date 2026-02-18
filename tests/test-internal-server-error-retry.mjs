@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// Test file for issue #1331: Auto-resume on Internal Server Error with session preservation
-// Tests the retry configuration and detection logic for 500 Internal server error
+// Test file for issue #1331: Unified retry with exponential backoff for all transient API errors
+// All error types (Overloaded, 503, Internal Server Error) use same params with session preservation
 
 import assert from 'assert';
 
 // Import the configuration module
 const { retryLimits } = await import('../src/config.lib.mjs');
 
-console.log('Testing Internal Server Error Retry Logic (Issue #1331)\n');
+console.log('Testing Unified Transient Error Retry Logic (Issue #1331)\n');
 
 let passed = 0;
 let failed = 0;
@@ -25,32 +25,36 @@ const test = (name, fn) => {
 };
 
 // ============================================================
-// Section 1: Configuration Tests
+// Section 1: Unified Configuration Tests
 // ============================================================
-console.log('\n=== 1. Internal Server Error Retry Configuration (Issue #1331) ===');
+console.log('\n=== 1. Unified Transient Error Retry Configuration (Issue #1331) ===');
 
-test('retryLimits has maxInternalServerErrorRetries set to 10', () => {
-  assert.strictEqual(retryLimits.maxInternalServerErrorRetries, 10, `maxInternalServerErrorRetries should be 10, got: ${retryLimits.maxInternalServerErrorRetries}`);
+test('retryLimits has maxTransientErrorRetries set to 10', () => {
+  assert.strictEqual(retryLimits.maxTransientErrorRetries, 10, `maxTransientErrorRetries should be 10, got: ${retryLimits.maxTransientErrorRetries}`);
 });
 
-test('retryLimits has initialInternalServerErrorDelayMs set to 60000 (1 minute)', () => {
-  assert.strictEqual(retryLimits.initialInternalServerErrorDelayMs, 60 * 1000, `initialInternalServerErrorDelayMs should be 60000ms (1 minute), got: ${retryLimits.initialInternalServerErrorDelayMs}`);
+test('retryLimits has initialTransientErrorDelayMs set to 60000 (1 minute)', () => {
+  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 60 * 1000, `initialTransientErrorDelayMs should be 60000ms (1 minute), got: ${retryLimits.initialTransientErrorDelayMs}`);
 });
 
-test('retryLimits has maxInternalServerErrorDelayMs set to 1800000 (30 minutes)', () => {
-  assert.strictEqual(retryLimits.maxInternalServerErrorDelayMs, 30 * 60 * 1000, `maxInternalServerErrorDelayMs should be 1800000ms (30 minutes), got: ${retryLimits.maxInternalServerErrorDelayMs}`);
+test('retryLimits has maxTransientErrorDelayMs set to 1800000 (30 minutes)', () => {
+  assert.strictEqual(retryLimits.maxTransientErrorDelayMs, 30 * 60 * 1000, `maxTransientErrorDelayMs should be 1800000ms (30 minutes), got: ${retryLimits.maxTransientErrorDelayMs}`);
 });
 
-test('retryLimits initialInternalServerErrorDelayMs is 1 minute', () => {
-  assert(retryLimits.initialInternalServerErrorDelayMs === 60000, `Initial delay must be 1 minute (60000ms) as required by issue #1331`);
+test('initialTransientErrorDelayMs is 1 minute', () => {
+  assert(retryLimits.initialTransientErrorDelayMs === 60000, `Initial delay must be 1 minute (60000ms) as required by issue #1331`);
 });
 
-test('retryLimits maxInternalServerErrorDelayMs is 30 minutes', () => {
-  assert(retryLimits.maxInternalServerErrorDelayMs === 30 * 60 * 1000, `Max delay must be 30 minutes (1800000ms) as required by issue #1331`);
+test('maxTransientErrorDelayMs is 30 minutes', () => {
+  assert(retryLimits.maxTransientErrorDelayMs === 30 * 60 * 1000, `Max delay must be 30 minutes (1800000ms) as required by issue #1331`);
 });
 
-test('retryLimits maxInternalServerErrorRetries is at most 10', () => {
-  assert(retryLimits.maxInternalServerErrorRetries <= 10, `Max retries must not exceed 10 as required by issue #1331`);
+test('maxTransientErrorRetries is exactly 10', () => {
+  assert(retryLimits.maxTransientErrorRetries === 10, `Max retries must be 10 as required by issue #1331`);
+});
+
+test('retryBackoffMultiplier is 2 (for exponential backoff)', () => {
+  assert.strictEqual(retryLimits.retryBackoffMultiplier, 2, 'retryBackoffMultiplier should be 2');
 });
 
 // ============================================================
@@ -59,8 +63,8 @@ test('retryLimits maxInternalServerErrorRetries is at most 10', () => {
 console.log('\n=== 2. Exponential Backoff Calculation Tests ===');
 
 const calculateDelay = retryCount => {
-  const rawDelay = retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-  return Math.min(rawDelay, retryLimits.maxInternalServerErrorDelayMs);
+  const rawDelay = retryLimits.initialTransientErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+  return Math.min(rawDelay, retryLimits.maxTransientErrorDelayMs);
 };
 
 test('Retry 0 delay is 1 minute (60s)', () => {
@@ -102,7 +106,7 @@ test('All delays after cap remain at 30 minutes', () => {
 });
 
 test('No delay ever exceeds 30 minutes', () => {
-  for (let i = 0; i < retryLimits.maxInternalServerErrorRetries; i++) {
+  for (let i = 0; i < retryLimits.maxTransientErrorRetries; i++) {
     const delay = calculateDelay(i);
     assert(delay <= 30 * 60 * 1000, `Retry ${i} delay ${delay}ms exceeds 30 minutes (1800000ms)`);
   }
@@ -113,108 +117,95 @@ test('No delay ever exceeds 30 minutes', () => {
 // ============================================================
 console.log('\n=== 3. Error Pattern Detection Tests ===');
 
-// These simulate the detection logic used in claude.lib.mjs (Issue #1331)
-const isInternalServerErrorMessage = message => {
-  return message.includes('API Error: 500') && message.includes('Internal server error') && !message.includes('Overloaded');
-};
-
-const isOverloadedErrorMessage = message => {
-  return (message.includes('API Error: 500') && message.includes('Overloaded')) || (message.includes('api_error') && message.includes('Overloaded'));
+// Simulate the unified detection logic used in claude.lib.mjs (Issue #1331)
+const isTransientError = errorStr => {
+  return (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
 };
 
 test('Detects Internal server error from issue description', () => {
   const errorMessage = 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_011CYFmxpwLMccW87i77dUEL"}';
-  assert(isInternalServerErrorMessage(errorMessage), 'Should detect Internal server error');
-  assert(!isOverloadedErrorMessage(errorMessage), 'Should NOT classify as overload error');
+  assert(isTransientError(errorMessage), 'Should detect Internal server error as transient');
 });
 
-test('Detects Internal server error from error event', () => {
-  const errorMessage = '{"type":"error","error":{"type":"api_error","message":"Internal server error"}}';
-  const fullMessage = `API Error: 500 ${errorMessage}`;
-  assert(isInternalServerErrorMessage(fullMessage), 'Should detect Internal server error in error event');
+test('Detects Overloaded error (500)', () => {
+  const errorMessage = 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Overloaded"}}';
+  assert(isTransientError(errorMessage), 'Should detect Overloaded error as transient');
 });
 
-test('Does NOT detect Overloaded error as Internal server error', () => {
-  const overloadedMessage = 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Overloaded"}}';
-  assert(!isInternalServerErrorMessage(overloadedMessage), 'Overloaded error should NOT be detected as Internal server error');
-  assert(isOverloadedErrorMessage(overloadedMessage), 'Overloaded error should be detected as overload error');
+test('Detects Overloaded error via api_error field', () => {
+  const errorMessage = '{"type":"error","error":{"type":"api_error","message":"Overloaded"}}';
+  assert(isTransientError(errorMessage), 'Should detect Overloaded via api_error field as transient');
 });
 
-test('Does NOT detect 503 error as Internal server error', () => {
+test('Detects 503 upstream connect error', () => {
   const error503Message = 'API Error: 503 upstream connect error or disconnect/reset before headers. retried and the latest reset reason: remote connection failure';
-  assert(!isInternalServerErrorMessage(error503Message), '503 error should NOT be detected as Internal server error');
+  assert(isTransientError(error503Message), '503 upstream connect error should be detected as transient');
+});
+
+test('Detects 503 remote connection failure', () => {
+  const error503Message = 'Error 503: remote connection failure detected';
+  assert(isTransientError(error503Message), '503 remote connection failure should be detected as transient');
 });
 
 test('Does NOT false-positive on success messages mentioning 500', () => {
   const successMessage = 'Successfully handled 500 items in batch';
-  assert(!isInternalServerErrorMessage(successMessage), 'Success message should NOT be detected as Internal server error');
+  assert(!isTransientError(successMessage), 'Success message should NOT be detected as transient error');
 });
 
-test('Does NOT false-positive on "API Error: 500" without "Internal server error"', () => {
-  // Some other 500 error without specific message
+test('Does NOT false-positive on "API Error: 500" without known error type', () => {
   const genericMessage = 'API Error: 500 {"type":"error","error":{"type":"api_error","message":"Something else"}}';
-  assert(!isInternalServerErrorMessage(genericMessage), 'Generic 500 error without "Internal server error" text should NOT be detected');
+  assert(!isTransientError(genericMessage), 'Generic 500 error without known message should NOT be detected');
 });
 
 // ============================================================
 // Section 4: Session Preservation Logic Tests
 // ============================================================
-console.log('\n=== 4. Session Preservation Logic Tests ===');
+console.log('\n=== 4. Session Preservation Logic Tests (all error types) ===');
 
 test('Session ID should be preserved on retry (when available)', () => {
-  // Simulate the session preservation logic
   const sessionId = 'session-abc123';
   const argv = { resume: null };
-
-  // When Internal server error occurs and we have a session ID
-  if (sessionId && !argv.resume) {
-    argv.resume = sessionId;
-  }
-
+  if (sessionId && !argv.resume) argv.resume = sessionId;
   assert.strictEqual(argv.resume, 'session-abc123', 'argv.resume should be set to sessionId');
 });
 
 test('Existing resume session should be preserved (not overwritten)', () => {
-  // When already resuming and Internal server error occurs
   const sessionId = 'new-session-xyz';
   const argv = { resume: 'existing-session-abc' };
-
-  // When Internal server error occurs and we're already resuming
-  if (sessionId && !argv.resume) {
-    argv.resume = sessionId; // This should NOT run since argv.resume is already set
-  }
-
+  if (sessionId && !argv.resume) argv.resume = sessionId;
   assert.strictEqual(argv.resume, 'existing-session-abc', 'Existing resume session should not be overwritten');
 });
 
 test('No session ID should not set resume (graceful degradation)', () => {
-  // When Internal server error occurs but no session ID was captured
   const sessionId = null;
   const argv = { resume: null };
-
-  if (sessionId && !argv.resume) {
-    argv.resume = sessionId;
-  }
-
+  if (sessionId && !argv.resume) argv.resume = sessionId;
   assert.strictEqual(argv.resume, null, 'argv.resume should remain null when no sessionId available');
 });
 
 // ============================================================
-// Section 5: Regression Tests for Existing Error Types
+// Section 5: Unified Config Consistency Tests
 // ============================================================
-console.log('\n=== 5. Regression Tests for Existing Error Types ===');
+console.log('\n=== 5. Unified Config Consistency Tests ===');
 
-test('Existing 503 error config is unchanged', () => {
-  assert.strictEqual(retryLimits.max503Retries, 3, '503 max retries should still be 3');
-  assert.strictEqual(retryLimits.initial503RetryDelayMs, 5 * 60 * 1000, '503 initial delay should still be 5 minutes');
+test('All transient error types use maxTransientErrorRetries (10)', () => {
+  // Overloaded, 503, InternalServerError all use the same limit
+  assert.strictEqual(retryLimits.maxTransientErrorRetries, 10, 'All error types must use 10 retries');
 });
 
-test('Existing retryBackoffMultiplier is unchanged', () => {
-  assert.strictEqual(retryLimits.retryBackoffMultiplier, 2, 'retryBackoffMultiplier should still be 2');
+test('All transient error types use initialTransientErrorDelayMs (1 minute)', () => {
+  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 60 * 1000, 'All error types must use 1 minute initial delay');
 });
 
-test('maxInternalServerErrorRetries is greater than max503Retries', () => {
-  assert(retryLimits.maxInternalServerErrorRetries > retryLimits.max503Retries, `Internal server error retries (${retryLimits.maxInternalServerErrorRetries}) should be more than 503 retries (${retryLimits.max503Retries})`);
+test('All transient error types use maxTransientErrorDelayMs (30 minutes)', () => {
+  assert.strictEqual(retryLimits.maxTransientErrorDelayMs, 30 * 60 * 1000, 'All error types must use 30 minute max delay');
+});
+
+test('No separate 503-only or overload-only retry config exists', () => {
+  assert(retryLimits.max503Retries === undefined, 'max503Retries should not exist in unified config');
+  assert(retryLimits.maxInternalServerErrorRetries === undefined, 'maxInternalServerErrorRetries should not exist in unified config');
+  assert(retryLimits.initial503RetryDelayMs === undefined, 'initial503RetryDelayMs should not exist in unified config');
+  assert(retryLimits.initialInternalServerErrorDelayMs === undefined, 'initialInternalServerErrorDelayMs should not exist in unified config');
 });
 
 // ============================================================

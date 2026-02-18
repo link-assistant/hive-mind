@@ -747,11 +747,10 @@ export const executeClaudeCommand = async params => {
     repo,
     prNumber,
   } = params;
-  // Retry configuration for API overload errors
-  const maxRetries = 3;
-  const baseDelay = timeouts.retryBaseDelay;
+  // Issue #1331: Unified retry configuration for all transient API errors
+  // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
-  // Helper: wait with per-minute countdown for delays >1 minute (Issue #1331, also used for 503)
+  // Helper: wait with per-minute countdown for delays >1 minute (Issue #1331)
   const waitWithCountdown = async (delayMs, log) => {
     if (delayMs <= 60000) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -771,7 +770,7 @@ export const executeClaudeCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
     if (argv.verbose) {
       // Output the actual model being used
@@ -1135,62 +1134,22 @@ export const executeClaudeCommand = async params => {
         }
       }
 
-      if ((commandFailed || isOverloadError) && (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')))) {
-        if (retryCount < maxRetries) {
-          // Calculate exponential backoff delay
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`\n⚠️ API overload error detected. Retrying in ${delay / 1000} seconds...`, { level: 'warning' });
+      // Issue #1331: Unified handler for all transient API errors (Overloaded, 503, Internal Server Error)
+      // All use same params: 10 retries, 1min initial, 30min max, exponential backoff, session preserved
+      const isTransientError = isOverloadError || isInternalServerError || is503Error || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure')));
+      if ((commandFailed || isTransientError) && isTransientError) {
+        if (retryCount < retryLimits.maxTransientErrorRetries) {
+          const delay = Math.min(retryLimits.initialTransientErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxTransientErrorDelayMs);
+          const errorLabel = isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ? 'API overload (500)' : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${retryLimits.maxTransientErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        } else {
-          await log(`\n\n❌ API overload error persisted after ${maxRetries} retries\n   The API appears to be heavily loaded. Please try again later.`, { level: 'error' });
-          return {
-            success: false,
-            sessionId,
-            limitReached: false,
-            limitResetTime: null,
-            limitTimezone: null,
-            messageCount,
-            toolUseCount,
-            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
-            resultSummary, // Issue #1263: Include result summary
-          };
-        }
-      }
-      // Issue #1331: Handle 500 Internal server error with exponential backoff and session preservation
-      if ((commandFailed || isInternalServerError) && (isInternalServerError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')))) {
-        if (retryCount < retryLimits.maxInternalServerErrorRetries) {
-          const delay = Math.min(retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxInternalServerErrorDelayMs);
-          await log(`\n⚠️ API Internal server error (500). Retry ${retryCount + 1}/${retryLimits.maxInternalServerErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ API Internal server error (500) persisted after ${retryLimits.maxInternalServerErrorRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
-          return { success: false, sessionId, limitReached: false, limitResetTime: null, limitTimezone: null, messageCount, toolUseCount, anthropicTotalCostUSD, resultSummary };
-        }
-      }
-      if ((commandFailed || is503Error) && argv.autoResumeOnErrors && (is503Error || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && lastMessage.includes('upstream connect error')) || (lastMessage.includes('503') && lastMessage.includes('remote connection failure')))) {
-        if (retryCount < retryLimits.max503Retries) {
-          // Calculate exponential backoff delay starting from 5 minutes
-          const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ 503 network error detected. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
-          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          await log(`   Retry ${retryCount + 1}/${retryLimits.max503Retries}`, { verbose: true });
-          await waitWithCountdown(delay, log);
-          await log('\n🔄 Retrying now...');
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        } else {
-          await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries\n   The Anthropic API appears to be experiencing network issues.\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          await log(`\n\n❌ Transient API error persisted after ${retryLimits.maxTransientErrorRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
           return {
             success: false,
             sessionId,
@@ -1199,7 +1158,7 @@ export const executeClaudeCommand = async params => {
             limitTimezone: null,
             messageCount,
             toolUseCount,
-            is503Error: true,
+            is503Error, // preserve for callers that check this
             anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
             resultSummary, // Issue #1263: Include result summary
           };
@@ -1361,42 +1320,17 @@ export const executeClaudeCommand = async params => {
         operation: 'run_claude_command',
       });
       const errorStr = error.message || error.toString();
-      if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded'))) {
-        if (retryCount < maxRetries) {
-          // Calculate exponential backoff delay
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`\n⚠️ API overload error in exception. Retrying in ${delay / 1000} seconds...`, {
-            level: 'warning',
-          });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        }
-      }
-      if (argv.autoResumeOnErrors && (errorStr.includes('API Error: 503') || (errorStr.includes('503') && errorStr.includes('upstream connect error')) || (errorStr.includes('503') && errorStr.includes('remote connection failure')))) {
-        if (retryCount < retryLimits.max503Retries) {
-          // Calculate exponential backoff delay starting from 5 minutes
-          const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ 503 network error in exception. Retrying in ${delayMinutes} minutes...`, {
-            level: 'warning',
-          });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        }
-      }
-      // Issue #1331: Handle 500 Internal server error in exception with session preservation
-      if (errorStr.includes('API Error: 500') && errorStr.includes('Internal server error') && !errorStr.includes('Overloaded')) {
-        if (retryCount < retryLimits.maxInternalServerErrorRetries) {
-          const delay = Math.min(retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxInternalServerErrorDelayMs);
-          await log(`\n⚠️ API Internal server error (500) in exception. Retrying in ${Math.round(delay / 60000)} min...`, { level: 'warning' });
+      // Issue #1331: Unified handler for all transient API errors in exception block
+      // (Overloaded, 503, Internal Server Error) - same params, all with session preservation
+      const isTransientException = (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
+      if (isTransientException) {
+        if (retryCount < retryLimits.maxTransientErrorRetries) {
+          const delay = Math.min(retryLimits.initialTransientErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxTransientErrorDelayMs);
+          const errorLabel = errorStr.includes('Overloaded') ? 'API overload (500)' : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${retryLimits.maxTransientErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId;
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await waitWithCountdown(delay, log);
+          await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
         }

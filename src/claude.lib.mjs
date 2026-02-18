@@ -751,6 +751,20 @@ export const executeClaudeCommand = async params => {
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
   let retryCount = 0;
+  // Helper: wait with per-minute countdown for delays >1 minute (Issue #1331, also used for 503)
+  const waitWithCountdown = async (delayMs, log) => {
+    if (delayMs <= 60000) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return;
+    }
+    let remaining = delayMs;
+    const timer = setInterval(async () => {
+      remaining -= 60000;
+      if (remaining > 0) await log(`⏳ ${Math.round(remaining / 60000)} min remaining...`);
+    }, 60000);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    clearInterval(timer);
+  };
   // Function to execute with retry logic
   const executeWithRetry = async () => {
     // Execute claude command from the cloned repository directory
@@ -1153,58 +1167,19 @@ export const executeClaudeCommand = async params => {
           };
         }
       }
-      // Issue #1331: Handle 500 Internal server error with retry and session preservation
+      // Issue #1331: Handle 500 Internal server error with exponential backoff and session preservation
       if ((commandFailed || isInternalServerError) && (isInternalServerError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')))) {
         if (retryCount < retryLimits.maxInternalServerErrorRetries) {
-          // Calculate exponential backoff delay, capped at maxInternalServerErrorDelayMs (30 minutes)
-          const rawDelay = retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delay = Math.min(rawDelay, retryLimits.maxInternalServerErrorDelayMs);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ API Internal server error (500) detected. Retrying in ${delayMinutes} minute(s) with session preservation...`, { level: 'warning' });
-          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          await log(`   Retry ${retryCount + 1}/${retryLimits.maxInternalServerErrorRetries}`, { verbose: true });
-          // Preserve session ID for resume if available (session preservation)
-          if (sessionId && !argv.resume) {
-            argv.resume = sessionId;
-            await log(`   Session preserved: will resume session ${sessionId}`, { verbose: true });
-          } else if (argv.resume) {
-            await log(`   Session preserved: will resume session ${argv.resume}`, { verbose: true });
-          }
-          // Show countdown for long waits
-          if (delay > 60000) {
-            const countdownInterval = 60000; // Every minute
-            let remainingMs = delay;
-            const countdownTimer = setInterval(async () => {
-              remainingMs -= countdownInterval;
-              if (remainingMs > 0) {
-                const remainingMinutes = Math.round(remainingMs / (1000 * 60));
-                await log(`⏳ ${remainingMinutes} minute(s) remaining until retry...`);
-              }
-            }, countdownInterval);
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-            clearInterval(countdownTimer);
-          } else {
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
+          const delay = Math.min(retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxInternalServerErrorDelayMs);
+          await log(`\n⚠️ API Internal server error (500). Retry ${retryCount + 1}/${retryLimits.maxInternalServerErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+          if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
+          await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
-          // Increment retry count and retry
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ API Internal server error (500) persisted after ${retryLimits.maxInternalServerErrorRetries} retries\n   The Anthropic API is experiencing server-side issues.\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
-          return {
-            success: false,
-            sessionId,
-            limitReached: false,
-            limitResetTime: null,
-            limitTimezone: null,
-            messageCount,
-            toolUseCount,
-            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
-            resultSummary, // Issue #1263: Include result summary
-          };
+          await log(`\n\n❌ API Internal server error (500) persisted after ${retryLimits.maxInternalServerErrorRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          return { success: false, sessionId, limitReached: false, limitResetTime: null, limitTimezone: null, messageCount, toolUseCount, anthropicTotalCostUSD, resultSummary };
         }
       }
       if ((commandFailed || is503Error) && argv.autoResumeOnErrors && (is503Error || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && lastMessage.includes('upstream connect error')) || (lastMessage.includes('503') && lastMessage.includes('remote connection failure')))) {
@@ -1215,24 +1190,7 @@ export const executeClaudeCommand = async params => {
           await log(`\n⚠️ 503 network error detected. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
           await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
           await log(`   Retry ${retryCount + 1}/${retryLimits.max503Retries}`, { verbose: true });
-          // Show countdown for long waits
-          if (delay > 60000) {
-            const countdownInterval = 60000; // Every minute
-            let remainingMs = delay;
-            const countdownTimer = setInterval(async () => {
-              remainingMs -= countdownInterval;
-              if (remainingMs > 0) {
-                const remainingMinutes = Math.round(remainingMs / (1000 * 60));
-                await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
-              }
-            }, countdownInterval);
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-            clearInterval(countdownTimer);
-          } else {
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
+          await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           // Increment retry count and retry
           retryCount++;
@@ -1438,19 +1396,12 @@ export const executeClaudeCommand = async params => {
           return await executeWithRetry();
         }
       }
-      // Issue #1331: Handle 500 Internal server error in exception with retry and session preservation
+      // Issue #1331: Handle 500 Internal server error in exception with session preservation
       if (errorStr.includes('API Error: 500') && errorStr.includes('Internal server error') && !errorStr.includes('Overloaded')) {
         if (retryCount < retryLimits.maxInternalServerErrorRetries) {
-          const rawDelay = retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delay = Math.min(rawDelay, retryLimits.maxInternalServerErrorDelayMs);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ API Internal server error (500) in exception. Retrying in ${delayMinutes} minute(s) with session preservation...`, {
-            level: 'warning',
-          });
-          if (sessionId && !argv.resume) {
-            argv.resume = sessionId;
-            await log(`   Session preserved: will resume session ${sessionId}`, { verbose: true });
-          }
+          const delay = Math.min(retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxInternalServerErrorDelayMs);
+          await log(`\n⚠️ API Internal server error (500) in exception. Retrying in ${Math.round(delay / 60000)} min...`, { level: 'warning' });
+          if (sessionId && !argv.resume) argv.resume = sessionId;
           await new Promise(resolve => setTimeout(resolve, delay));
           retryCount++;
           return await executeWithRetry();

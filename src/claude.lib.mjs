@@ -994,10 +994,8 @@ export const executeClaudeCommand = async params => {
                     limitReached = true;
                     await log('⚠️ Detected session limit in result', { verbose: true });
                   }
-                  // Issue #1331: Detect Internal server error in result events
                   if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
                     isInternalServerError = true;
-                    await log('⚠️ Detected API Internal server error (500) in result event', { verbose: true });
                   }
                 }
               }
@@ -1006,10 +1004,8 @@ export const executeClaudeCommand = async params => {
                 lastMessage = data.text;
               } else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
-                // Issue #1331: Detect Internal server error in error events
-                if (lastMessage.includes('Internal server error') || (lastMessage.includes('api_error') && lastMessage.includes('Internal server error'))) {
+                if (lastMessage.includes('Internal server error')) {
                   isInternalServerError = true;
-                  await log('⚠️ Detected API Internal server error (500) in error event', { verbose: true });
                 }
               }
               // Check for API overload error and 503 errors
@@ -1023,11 +1019,9 @@ export const executeClaudeCommand = async params => {
                       lastMessage = item.text;
                       await log('⚠️ Detected API overload error', { verbose: true });
                     }
-                    // Issue #1331: Check for 500 Internal server error (distinct from Overloaded)
                     if (item.text.includes('API Error: 500') && item.text.includes('Internal server error') && !item.text.includes('Overloaded')) {
                       isInternalServerError = true;
                       lastMessage = item.text;
-                      await log('⚠️ Detected API Internal server error (500)', { verbose: true });
                     }
                     // Check for 503 errors
                     if (item.text.includes('API Error: 503') || (item.text.includes('503') && item.text.includes('upstream connect error')) || (item.text.includes('503') && item.text.includes('remote connection failure'))) {

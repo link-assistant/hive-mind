@@ -387,7 +387,7 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
 };
 
 // Handle fork creation and repository setup
-export const setupRepository = async (argv, owner, repo, forkOwner = null, issueUrl = null) => {
+export const setupRepository = async (argv, owner, repo, forkOwner = null, issueUrl = null, forkRepoName = null) => {
   let repoToClone = `${owner}/${repo}`;
   let forkedRepo = null;
   let upstreamRemote = null;
@@ -820,9 +820,12 @@ Thank you!`;
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'DETECTED from PR')}`);
     await log(`${formatAligned('', 'Fork owner:', forkOwner)}`);
 
-    // Determine fork name - try prefixed name first if option is enabled, otherwise try standard name
-    const standardForkName = `${forkOwner}/${repo}`;
-    const prefixedForkName = `${forkOwner}/${owner}-${repo}`;
+    // Determine fork name - use the actual head repo name from PR data if available,
+    // otherwise fall back to guessing from the base repo name
+    // forkRepoName comes from headRepository.name in the PR data (the correct source of truth)
+    const headRepoName = forkRepoName || repo;
+    const standardForkName = `${forkOwner}/${headRepoName}`;
+    const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
     const expectedForkName = argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
     const alternateForkName = argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
 
@@ -897,9 +900,12 @@ Thank you!`;
       upstreamRemote = `${owner}/${repo}`;
     } else {
       await log(`${formatAligned('❌', 'Error:', 'Fork not accessible')}`);
-      await log(`${formatAligned('', 'Fork:', expectedForkName)}`);
-      await log(`${formatAligned('', 'Suggestion:', 'The PR may be from a fork you no longer have access to')}`);
-      await log(`${formatAligned('', 'Hint:', 'Try running with --fork flag to use your own fork instead')}`);
+      await log(`${formatAligned('', 'Fork tried:', expectedForkName)}`);
+      if (!forkRepoName) {
+        await log(`${formatAligned('', 'Note:', `Fork name was guessed from base repo name '${repo}' (headRepository.name was not available)`)}`);
+      }
+      await log(`${formatAligned('', 'Suggestion:', "The fork's repo name may differ from the base repo name")}`);
+      await log(`${formatAligned('', 'Hint:', 'Try running with --fork flag to create your own fork instead')}`);
       await safeExit(1, 'Repository setup failed');
     }
   }

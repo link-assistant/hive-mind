@@ -820,9 +820,7 @@ Thank you!`;
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'DETECTED from PR')}`);
     await log(`${formatAligned('', 'Fork owner:', forkOwner)}`);
 
-    // Determine fork name - use the actual head repo name from PR data if available,
-    // otherwise fall back to guessing from the base repo name
-    // forkRepoName comes from headRepository.name in the PR data (the correct source of truth)
+    // Use actual head repo name from PR data (headRepository.name) if available, otherwise guess from base repo name
     const headRepoName = forkRepoName || repo;
     const standardForkName = `${forkOwner}/${headRepoName}`;
     const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
@@ -901,10 +899,7 @@ Thank you!`;
     } else {
       await log(`${formatAligned('❌', 'Error:', 'Fork not accessible')}`);
       await log(`${formatAligned('', 'Fork tried:', expectedForkName)}`);
-      if (!forkRepoName) {
-        await log(`${formatAligned('', 'Note:', `Fork name was guessed from base repo name '${repo}' (headRepository.name was not available)`)}`);
-      }
-      await log(`${formatAligned('', 'Suggestion:', "The fork's repo name may differ from the base repo name")}`);
+      await log(`${formatAligned('', 'Suggestion:', forkRepoName ? "The fork's repo name may differ from the base repo name" : `Fork name was guessed from base repo name '${repo}' (headRepository.name unavailable)`)}`);
       await log(`${formatAligned('', 'Hint:', 'Try running with --fork flag to create your own fork instead')}`);
       await safeExit(1, 'Repository setup failed');
     }

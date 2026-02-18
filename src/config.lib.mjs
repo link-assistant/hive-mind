@@ -99,6 +99,11 @@ export const retryLimits = {
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   max503Retries: parseIntWithDefault('HIVE_MIND_MAX_503_RETRIES', 3),
   initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  // Issue #1331: Retry config for Internal Server Error (500 api_error)
+  // Starting from 1 minute, capped at 30 minutes, max 10 retries
+  maxInternalServerErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_INTERNAL_SERVER_ERROR_RETRIES', 10),
+  initialInternalServerErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_INTERNAL_SERVER_ERROR_DELAY_MS', 60 * 1000), // 1 minute
+  maxInternalServerErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_INTERNAL_SERVER_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
 };
 
 // Claude Code CLI configurations

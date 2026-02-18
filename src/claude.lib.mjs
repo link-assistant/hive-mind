@@ -789,6 +789,7 @@ export const executeClaudeCommand = async params => {
     let lastMessage = '';
     let isOverloadError = false;
     let is503Error = false;
+    let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
     let stderrErrors = [];
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
@@ -979,6 +980,11 @@ export const executeClaudeCommand = async params => {
                     limitReached = true;
                     await log('⚠️ Detected session limit in result', { verbose: true });
                   }
+                  // Issue #1331: Detect Internal server error in result events
+                  if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
+                    isInternalServerError = true;
+                    await log('⚠️ Detected API Internal server error (500) in result event', { verbose: true });
+                  }
                 }
               }
               // Store last message for error detection
@@ -986,6 +992,11 @@ export const executeClaudeCommand = async params => {
                 lastMessage = data.text;
               } else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
+                // Issue #1331: Detect Internal server error in error events
+                if (lastMessage.includes('Internal server error') || (lastMessage.includes('api_error') && lastMessage.includes('Internal server error'))) {
+                  isInternalServerError = true;
+                  await log('⚠️ Detected API Internal server error (500) in error event', { verbose: true });
+                }
               }
               // Check for API overload error and 503 errors
               if (data.type === 'assistant' && data.message && data.message.content) {
@@ -997,6 +1008,12 @@ export const executeClaudeCommand = async params => {
                       isOverloadError = true;
                       lastMessage = item.text;
                       await log('⚠️ Detected API overload error', { verbose: true });
+                    }
+                    // Issue #1331: Check for 500 Internal server error (distinct from Overloaded)
+                    if (item.text.includes('API Error: 500') && item.text.includes('Internal server error') && !item.text.includes('Overloaded')) {
+                      isInternalServerError = true;
+                      lastMessage = item.text;
+                      await log('⚠️ Detected API Internal server error (500)', { verbose: true });
                     }
                     // Check for 503 errors
                     if (item.text.includes('API Error: 503') || (item.text.includes('503') && item.text.includes('upstream connect error')) || (item.text.includes('503') && item.text.includes('remote connection failure'))) {
@@ -1123,6 +1140,60 @@ export const executeClaudeCommand = async params => {
           return await executeWithRetry();
         } else {
           await log(`\n\n❌ API overload error persisted after ${maxRetries} retries\n   The API appears to be heavily loaded. Please try again later.`, { level: 'error' });
+          return {
+            success: false,
+            sessionId,
+            limitReached: false,
+            limitResetTime: null,
+            limitTimezone: null,
+            messageCount,
+            toolUseCount,
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
+          };
+        }
+      }
+      // Issue #1331: Handle 500 Internal server error with retry and session preservation
+      if ((commandFailed || isInternalServerError) && (isInternalServerError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')))) {
+        if (retryCount < retryLimits.maxInternalServerErrorRetries) {
+          // Calculate exponential backoff delay, capped at maxInternalServerErrorDelayMs (30 minutes)
+          const rawDelay = retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+          const delay = Math.min(rawDelay, retryLimits.maxInternalServerErrorDelayMs);
+          const delayMinutes = Math.round(delay / (1000 * 60));
+          await log(`\n⚠️ API Internal server error (500) detected. Retrying in ${delayMinutes} minute(s) with session preservation...`, { level: 'warning' });
+          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
+          await log(`   Retry ${retryCount + 1}/${retryLimits.maxInternalServerErrorRetries}`, { verbose: true });
+          // Preserve session ID for resume if available (session preservation)
+          if (sessionId && !argv.resume) {
+            argv.resume = sessionId;
+            await log(`   Session preserved: will resume session ${sessionId}`, { verbose: true });
+          } else if (argv.resume) {
+            await log(`   Session preserved: will resume session ${argv.resume}`, { verbose: true });
+          }
+          // Show countdown for long waits
+          if (delay > 60000) {
+            const countdownInterval = 60000; // Every minute
+            let remainingMs = delay;
+            const countdownTimer = setInterval(async () => {
+              remainingMs -= countdownInterval;
+              if (remainingMs > 0) {
+                const remainingMinutes = Math.round(remainingMs / (1000 * 60));
+                await log(`⏳ ${remainingMinutes} minute(s) remaining until retry...`);
+              }
+            }, countdownInterval);
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, delay));
+            clearInterval(countdownTimer);
+          } else {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          await log('\n🔄 Retrying now...');
+          // Increment retry count and retry
+          retryCount++;
+          return await executeWithRetry();
+        } else {
+          await log(`\n\n❌ API Internal server error (500) persisted after ${retryLimits.maxInternalServerErrorRetries} retries\n   The Anthropic API is experiencing server-side issues.\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
           return {
             success: false,
             sessionId,
@@ -1363,6 +1434,24 @@ export const executeClaudeCommand = async params => {
           // Wait before retrying
           await new Promise(resolve => setTimeout(resolve, delay));
           // Increment retry count and retry
+          retryCount++;
+          return await executeWithRetry();
+        }
+      }
+      // Issue #1331: Handle 500 Internal server error in exception with retry and session preservation
+      if (errorStr.includes('API Error: 500') && errorStr.includes('Internal server error') && !errorStr.includes('Overloaded')) {
+        if (retryCount < retryLimits.maxInternalServerErrorRetries) {
+          const rawDelay = retryLimits.initialInternalServerErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
+          const delay = Math.min(rawDelay, retryLimits.maxInternalServerErrorDelayMs);
+          const delayMinutes = Math.round(delay / (1000 * 60));
+          await log(`\n⚠️ API Internal server error (500) in exception. Retrying in ${delayMinutes} minute(s) with session preservation...`, {
+            level: 'warning',
+          });
+          if (sessionId && !argv.resume) {
+            argv.resume = sessionId;
+            await log(`   Session preserved: will resume session ${sessionId}`, { verbose: true });
+          }
+          await new Promise(resolve => setTimeout(resolve, delay));
           retryCount++;
           return await executeWithRetry();
         }

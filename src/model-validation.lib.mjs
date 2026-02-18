@@ -14,21 +14,23 @@ import { log } from './lib.mjs';
 // These are the "known good" model names that we accept
 export const CLAUDE_MODELS = {
   // Short aliases (single word)
-  sonnet: 'claude-sonnet-4-5-20250929',
-  opus: 'claude-opus-4-5-20251101', // Changed to Opus 4.5 (Issue #1238)
+  sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
+  opus: 'claude-opus-4-5-20251101', // Opus 4.5 (Issue #1238)
   haiku: 'claude-haiku-4-5-20251001',
   'haiku-3-5': 'claude-3-5-haiku-20241022',
   'haiku-3': 'claude-3-haiku-20240307',
-  // Shorter version aliases (Issue #1221 - PR comment feedback)
+  // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
+  'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
-  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
+  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
+  // Sonnet version aliases (Issue #1329)
+  'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6
+  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
   // Opus version aliases (Issue #1221)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
-  // Sonnet version aliases
-  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929',
   // Haiku version aliases
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
   // Full model IDs (also valid inputs)
@@ -39,14 +41,16 @@ export const CLAUDE_MODELS = {
   'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
 };
 
-// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238)
+// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
 // See: https://code.claude.com/docs/en/model-config
 export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
+  'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
-  'sonnet',
+  'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
+  'sonnet-4-6', // Short alias (Issue #1329)
   'opus',
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
   'opus-4-5', // Short alias (Issue #1238)

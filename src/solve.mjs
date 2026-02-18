@@ -347,6 +347,7 @@ let prBranch;
 let mergeStateStatus;
 let prState;
 let forkOwner = null;
+let forkRepoName = null;
 let isContinueMode = false;
 // Auto-continue logic: check for existing PRs if --auto-continue is enabled
 const autoContinueResult = await processAutoContinueForIssue(argv, isIssueUrl, urlNumber, owner, repo);
@@ -376,9 +377,9 @@ if (autoContinueResult.isContinueMode) {
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
-          // Get actual fork repository name (may be prefixed)
-          const forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+          // Get actual fork repository name (may be prefixed) and store for use in setupRepository
+          forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
+          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -456,9 +457,9 @@ if (isPrUrl) {
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
-      // Get actual fork repository name (may be prefixed)
-      const forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : repo;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+      // Get actual fork repository name and store for use in setupRepository
+      forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
+      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -529,6 +530,7 @@ try {
     owner,
     repo,
     forkOwner,
+    forkRepoName,
     tempDir,
     isContinueMode,
     issueUrl,

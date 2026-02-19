@@ -61,10 +61,10 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 
 ### 2.1. Auto-Restart Settings
 
-| Environment Variable                                  | Default  | Description                                                                                                                         |
-| ----------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_AUTO_RESTART_NO_CHECKS_TIMEOUT_MS`         | 1800000  | Max wait time (30 min) for CI checks to appear before treating repo as having no CI (Issue #1335). Set to 0 to disable the timeout. |
-| `HIVE_MIND_AUTO_RESTART_MAX_RUNTIME_MS`               | 0        | Max total runtime (ms) for auto-restart-until-mergeable loop. Default 0 = unlimited. Set e.g. to 7200000 for a 2-hour cap.         |
+| Environment Variable                          | Default | Description                                                                                                                         |
+| --------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_AUTO_RESTART_NO_CHECKS_TIMEOUT_MS` | 1800000 | Max wait time (30 min) for CI checks to appear before treating repo as having no CI (Issue #1335). Set to 0 to disable the timeout. |
+| `HIVE_MIND_AUTO_RESTART_MAX_RUNTIME_MS`       | 0       | Max total runtime (ms) for auto-restart-until-mergeable loop. Default 0 = unlimited. Set e.g. to 7200000 for a 2-hour cap.          |
 
 ### 2.2. Limit Reset Settings
 

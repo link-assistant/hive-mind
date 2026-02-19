@@ -710,12 +710,8 @@ The auto-restart-until-mergeable monitor is stopping. The PR may be ready to mer
 
               return { success: true, reason: 'no_ci_checks', latestSessionId, latestAnthropicCost };
             } else {
-              const timeoutRemainingMinutes = noChecksTimeoutMs > 0
-                ? Math.max(0, Math.round((noChecksTimeoutMs - noChecksElapsedMs) / 60000))
-                : null;
-              const timeoutInfo = timeoutRemainingMinutes !== null
-                ? ` (no-checks timeout in ${timeoutRemainingMinutes} min)`
-                : '';
+              const timeoutRemainingMinutes = noChecksTimeoutMs > 0 ? Math.max(0, Math.round((noChecksTimeoutMs - noChecksElapsedMs) / 60000)) : null;
+              const timeoutInfo = timeoutRemainingMinutes !== null ? ` (no-checks timeout in ${timeoutRemainingMinutes} min)` : '';
               await log(formatAligned('⏳', 'Waiting for CI:', `No checks yet, ${noChecksElapsedMinutes} min elapsed${timeoutInfo}`, 2));
             }
           }

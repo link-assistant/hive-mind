@@ -6,14 +6,14 @@ A solve process running with `--auto-restart-until-mergeable` got stuck in an in
 
 ## Timeline of Events
 
-| Time (UTC) | Event |
-|---|---|
-| 2026-02-17 23:13:11 | solve started: `solve https://github.com/MILANA808/milana_site/pull/18 --auto-restart-until-mergeable` |
-| 23:13 – 23:28 | Claude AI session ran (PR #18 on MILANA808/milana_site — a simple HTML site with no CI) |
-| 23:28:25 | Claude session ended, `watchUntilMergeable` loop started |
-| 23:28:28 | **First `no_checks` hit**: "CI/CD checks have not started yet" |
-| 23:28 – 09:27 next day | Loop ran **1,920 iterations**, one per minute, never exiting |
-| 2026-02-19 09:27:18 | Process manually killed with Ctrl+C |
+| Time (UTC)             | Event                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| 2026-02-17 23:13:11    | solve started: `solve https://github.com/MILANA808/milana_site/pull/18 --auto-restart-until-mergeable` |
+| 23:13 – 23:28          | Claude AI session ran (PR #18 on MILANA808/milana_site — a simple HTML site with no CI)                |
+| 23:28:25               | Claude session ended, `watchUntilMergeable` loop started                                               |
+| 23:28:28               | **First `no_checks` hit**: "CI/CD checks have not started yet"                                         |
+| 23:28 – 09:27 next day | Loop ran **1,920 iterations**, one per minute, never exiting                                           |
+| 2026-02-19 09:27:18    | Process manually killed with Ctrl+C                                                                    |
 
 Total hang duration: **~10 hours** (the log captured only a portion; based on check count, the real total was ~32 hours of polling if not interrupted).
 
@@ -38,6 +38,7 @@ if (ciStatus.status === 'no_checks') {
 ```
 
 Later in `watchUntilMergeable`, a `ci_pending` blocker is handled by:
+
 - NOT setting `shouldRestart = true`
 - Logging "Waiting for CI..."
 - Sleeping 60 seconds
@@ -83,6 +84,7 @@ The issue title asks to ensure logic is in sync for both `--tool claude` and `--
 Add a configurable maximum wait time for the `no_checks` / `ci_pending` state. If CI checks have not appeared within N minutes (default: 30 minutes), treat the repo as having no CI and exit the loop with a "mergeable" result.
 
 **Implementation:**
+
 - Add `noChecksTimeoutMs` config to `config.lib.mjs` (default: 30 minutes)
 - In `watchUntilMergeable`, track when `no_checks` was first seen
 - After `noChecksTimeoutMs` of continuous `no_checks`, log a warning and exit as "mergeable (no CI)"

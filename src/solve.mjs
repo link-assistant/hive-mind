@@ -1488,4 +1488,11 @@ try {
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`\n📁 Complete log file: ${absoluteLogPath}`);
   }
+
+  // Issue #1335: Force process exit to prevent indefinite hang after session ends.
+  // Without an explicit process.exit(), Node.js keeps the event loop alive if any
+  // async handles remain open (e.g. Sentry's profiling integration). This caused
+  // processes to run for 28+ hours after work was fully complete.
+  // safeExit flushes Sentry events (up to 2s) then calls process.exit(0).
+  await safeExit(0, 'Process completed');
 }

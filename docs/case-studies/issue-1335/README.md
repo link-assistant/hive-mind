@@ -2,7 +2,11 @@
 
 ## Summary
 
-A solve process running with `--auto-restart-until-mergeable` got stuck in an infinite loop for 20+ hours because the target repository had **no CI/CD checks configured**. The `watchUntilMergeable` loop in `solve.auto-merge.lib.mjs` treats `no_checks` (a status returned when a repo has zero CI workflows) identically to a transient race-condition state and simply waits 60 seconds before re-checking — forever, with no timeout or escape condition.
+Two distinct bugs caused `solve` processes to run for 20–32 hours after their work was logically complete:
+
+1. **Bug A — No `no_checks` timeout:** A solve process running with `--auto-restart-until-mergeable` got stuck in an infinite loop because the target repository had **no CI/CD checks configured**. The `watchUntilMergeable` loop in `solve.auto-merge.lib.mjs` treats `no_checks` identically to a transient race-condition state and waits 60 seconds before re-checking — forever.
+
+2. **Bug B — No `process.exit()` after session ends:** A separate solve process successfully completed all work (PR became mergeable at 2026-02-18T05:33:54Z) but the Node.js process did not exit. It continued running for **~28 hours** until manually killed with Ctrl+C. Root cause: `solve.mjs` never calls `process.exit()` after normal completion, and Sentry's profiling integration (`@sentry/profiling-node`) keeps the event loop alive indefinitely.
 
 ## Timeline of Events
 
@@ -98,6 +102,85 @@ After detecting `no_checks`, verify whether the repository has any workflow file
 
 Add a top-level maximum runtime for the entire solve process (e.g., `--max-runtime-hours`). While useful, this is a blunt instrument and doesn't help with the CI-no-checks specific case.
 
+## Bug B: Process Not Exiting After Session Ends
+
+### Timeline
+
+| Time (UTC)           | Event                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| 2026-02-18T05:33:53Z | `watchUntilMergeable` detected PR IS MERGEABLE                                       |
+| 2026-02-18T05:33:53Z | Loop exited, `watchUntilMergeable` returned `{ success: true, reason: 'mergeable' }` |
+| 2026-02-18T05:33:54Z | `endWorkSession` completed, PR marked "Already ready for review"                     |
+| 2026-02-18T05:33:54Z | `finally` block: temp dir kept (`--no-auto-cleanup`), log path printed               |
+| 2026-02-18T05:33:54Z | **Process should have exited here but did not**                                      |
+| 2026-02-19T09:55:49Z | Manually killed with Ctrl+C (~28 hours later)                                        |
+
+### Root Cause
+
+**File:** `src/solve.mjs`, `finally` block (previously line 1491)
+
+The `finally` block in `solve.mjs` does NOT call `process.exit()` after successful completion:
+
+```js
+} finally {
+  await cleanupTempDirectory(tempDir, argv, limitReached);
+  if (getLogFile()) {
+    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+  }
+  // ← No process.exit() here!
+}
+```
+
+In Node.js, when the main entry-point script finishes executing, the process only exits if the **event loop is empty** — i.e., there are no pending timers, network connections, or other async handles. Sentry's profiling integration (`@sentry/profiling-node`) registers a background sampling interval that keeps the event loop alive indefinitely.
+
+All the error-path `safeExit(1, ...)` calls worked fine because they explicitly call `process.exit(1)`. But the normal success path had no such call.
+
+### Fix
+
+Added a call to `safeExit(0, 'Process completed')` at the end of the `finally` block (Issue #1335):
+
+```js
+} finally {
+  await cleanupTempDirectory(tempDir, argv, limitReached);
+  if (getLogFile()) {
+    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+  }
+  // Issue #1335: Force process exit to prevent indefinite hang.
+  await safeExit(0, 'Process completed');
+}
+```
+
+`safeExit` flushes Sentry events (up to 2 seconds) then calls `process.exit(0)`, guaranteeing the process terminates even if async handles are still open.
+
+### Evidence from Log
+
+```
+[2026-02-18T05:33:53.504Z] [INFO] ✅ PR IS MERGEABLE!
+[2026-02-18T05:33:53.505Z] [INFO]    PR is ready to be merged manually
+[2026-02-18T05:33:53.505Z] [INFO]    Exiting auto-restart-until-mergeable mode
+[2026-02-18T05:33:54.399Z] [INFO]
+[2026-02-18T05:33:54.399Z] [INFO] 📊 Updated session data from auto-restart-until-mergeable mode:
+[2026-02-18T05:33:54.400Z] [INFO]    Session ID: 270d9483-fa03-4b2f-88ee-43b3abb3983e
+[2026-02-18T05:33:54.400Z] [INFO]    Anthropic cost: $1.501226
+[2026-02-18T05:33:54.400Z] [INFO]
+🏁 Ending work session:      2026-02-18T05:33:54.400Z
+[2026-02-18T05:33:54.401Z] [INFO]   ℹ️ Skipping:               End comment (logs already attached)
+[2026-02-18T05:33:54.723Z] [INFO]   ✅ PR status:              Already ready for review
+[2026-02-18T05:33:54.724Z] [INFO]
+📁 Keeping directory (--no-auto-cleanup): /tmp/gh-issue-solver-1771385851893
+[2026-02-18T05:33:54.725Z] [INFO]
+📁 Complete log file: /home/hive/fa80c06c-d8a2-41bc-9dfd-e7fc95f1ae52.log
+                          ← process hung here for ~28 hours ←
+[2026-02-19T09:55:49.194Z] [INFO]
+[2026-02-19T09:55:49.197Z] [ERROR] ❌ Interrupted (CTRL+C)
+```
+
+### Log Reference (Bug B)
+
+- Gist URL: https://gist.githubusercontent.com/konard/64853b4e68d51fdd8bb5239afdc0249b/raw/257528bd56cf97dbc2738923e20df2dc0617a2ab/fa80c06c-d8a2-41bc-9dfd-e7fc95f1ae52.log
+
+---
+
 ## Related Issues
 
 - Issue #1314: Billing limit CI handling (cancelled checks)
@@ -107,13 +190,16 @@ Add a top-level maximum runtime for the entire solve process (e.g., `--max-runti
 
 ## Files Involved
 
-- `src/solve.auto-merge.lib.mjs` — `watchUntilMergeable`, `getMergeBlockers`
+- `src/solve.auto-merge.lib.mjs` — `watchUntilMergeable`, `getMergeBlockers` (Bug A fix)
+- `src/solve.mjs` — `finally` block (Bug B fix)
+- `src/exit-handler.lib.mjs` — `safeExit` function used for forced exit
 - `src/solve.watch.lib.mjs` — `watchForFeedback`
 - `src/github-merge.lib.mjs` — `getDetailedCIStatus`, `waitForCI`
 - `src/config.lib.mjs` — configuration constants
 - `src/solve.restart-shared.lib.mjs` — shared tool dispatch
 
-## Log Reference
+## Log References
 
-- Full log: `./full-log.txt` (18,374 lines)
-- Gist URL: https://gist.githubusercontent.com/konard/26d45c8e8aece11df677043e4c41229e/raw/8b818ebde8874f26774210ea3355f3c9527522dc/2478274b-499c-49bd-90d4-8d5d55a84b12.log
+- Bug A full log: `./full-log.txt` (18,374 lines)
+- Bug A gist: https://gist.githubusercontent.com/konard/26d45c8e8aece11df677043e4c41229e/raw/8b818ebde8874f26774210ea3355f3c9527522dc/2478274b-499c-49bd-90d4-8d5d55a84b12.log
+- Bug B gist: https://gist.githubusercontent.com/konard/64853b4e68d51fdd8bb5239afdc0249b/raw/257528bd56cf97dbc2738923e20df2dc0617a2ab/fa80c06c-d8a2-41bc-9dfd-e7fc95f1ae52.log

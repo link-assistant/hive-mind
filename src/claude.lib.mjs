@@ -847,10 +847,17 @@ export const executeClaudeCommand = async params => {
       // Pass model for model-specific max output tokens (Issue #1221)
       // Pass thinkLevel and maxBudget for Opus 4.6 effort level conversion (Issue #1238)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
+      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode to diagnose slow API requests.
+      // The BashTool pre-flight check suggests "Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
+      // When --verbose is enabled, we propagate ANTHROPIC_LOG=debug so users can see detailed API request info.
+      if (argv.verbose) {
+        claudeEnv.ANTHROPIC_LOG = 'debug';
+      }
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
+      if (argv.verbose) await log(`📊 ANTHROPIC_LOG: debug (verbose mode)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
       if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
       if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
@@ -1067,10 +1074,30 @@ export const executeClaudeCommand = async params => {
             await log(errorOutput, { stream: 'stderr' });
             // Track stderr errors for failure detection
             const trimmed = errorOutput.trim();
-            // Exclude warnings (messages starting with ⚠️) from being treated as errors
+            // Exclude warnings from being treated as errors.
+            // Detection 1: Emoji-prefixed warnings (Issue #477)
             // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
             // Even though this contains the word "failed", it's a warning, not an error
-            const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+            let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+            // Detection 2: JSON-structured log messages (Issue #1337)
+            // Claude Code SDK emits structured JSON warnings to stderr, e.g.:
+            // {"level":"warn","message":"[BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."}
+            // These have "level":"warn" but may contain error keywords like "failed" in the message text.
+            if (!isWarning && trimmed.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                if (parsed && typeof parsed.level === 'string') {
+                  const level = parsed.level.toLowerCase();
+                  // Only "error" and "fatal" levels should be treated as real errors.
+                  // "warn", "warning", "info", "debug", "trace" are non-error levels.
+                  if (level !== 'error' && level !== 'fatal') {
+                    isWarning = true;
+                  }
+                }
+              } catch {
+                // Not valid JSON — fall through to keyword matching
+              }
+            }
             // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
             // These indicate the Claude CLI is not installed or not in PATH
             if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {

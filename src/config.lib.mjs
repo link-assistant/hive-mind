@@ -410,6 +410,19 @@ export const version = {
   default: getenv('HIVE_MIND_VERSION_DEFAULT', '0.14.3'),
 };
 
+// Auto-restart configurations
+// See: https://github.com/link-assistant/hive-mind/issues/1335
+export const autoRestart = {
+  // Maximum time (ms) to wait for CI checks to appear before treating repo as having no CI.
+  // When --auto-restart-until-mergeable is used on a repo with no CI/CD workflows, the status
+  // is permanently 'no_checks'. Without this timeout the loop runs forever.
+  // Default: 30 minutes. Set to 0 to disable the timeout (not recommended).
+  noChecksTimeoutMs: parseIntWithDefault('HIVE_MIND_AUTO_RESTART_NO_CHECKS_TIMEOUT_MS', 30 * 60 * 1000),
+  // Maximum total time (ms) the auto-restart-until-mergeable loop will run before giving up.
+  // Default: 0 (disabled - no maximum). Set to a positive value to cap total runtime.
+  maxRuntimeMs: parseIntWithDefault('HIVE_MIND_AUTO_RESTART_MAX_RUNTIME_MS', 0),
+};
+
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
 // See: https://github.com/link-assistant/hive-mind/issues/1269
@@ -490,6 +503,7 @@ export function getAllConfigurations() {
     externalUrls,
     modelConfig,
     version,
+    autoRestart,
     mergeQueue,
   };
 }

@@ -811,9 +811,21 @@ procinfo 62220
 
 ## Maintenance
 
+### Enter latest screen
+
+```bash
+s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
+```
+
+### Enter oldest screen
+
+```bash
+s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
+```
+
 ### Reboot server.
 
-```
+```bash
 sudo reboot
 ```
 
@@ -821,7 +833,7 @@ That will remove all dangling unused proccesses and screens, which will in turn 
 
 ### Cleanup disk space.
 
-```
+```bash
 df -h
 
 rm -rf /tmp

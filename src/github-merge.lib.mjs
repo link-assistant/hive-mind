@@ -400,6 +400,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
 
 /**
  * Check if PR is mergeable
+ *
+ * Issue #1339: GitHub computes mergeability asynchronously. The first request may return
+ * mergeable: null and mergeStateStatus: 'UNKNOWN' while the computation is in progress.
+ * We retry up to 3 times with a 5-second delay between attempts to handle this case.
+ *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
@@ -407,46 +412,73 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @returns {Promise<{mergeable: boolean, reason: string|null}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
-    const pr = JSON.parse(stdout.trim());
+  // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
+  // 'UNKNOWN', it means GitHub hasn't calculated the merge state yet. Retry a few times.
+  const MAX_UNKNOWN_RETRIES = 3;
+  const UNKNOWN_RETRY_DELAY_MS = 5000;
 
-    const mergeable = pr.mergeable === 'MERGEABLE';
-    let reason = null;
+  for (let attempt = 0; attempt < MAX_UNKNOWN_RETRIES; attempt++) {
+    try {
+      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
+      const pr = JSON.parse(stdout.trim());
 
-    if (!mergeable) {
-      switch (pr.mergeStateStatus) {
-        case 'BLOCKED':
-          reason = 'PR is blocked (possibly by branch protection rules)';
-          break;
-        case 'BEHIND':
-          reason = 'PR branch is behind the base branch';
-          break;
-        case 'DIRTY':
-          reason = 'PR has merge conflicts';
-          break;
-        case 'UNSTABLE':
-          reason = 'PR has failing required status checks';
-          break;
-        case 'DRAFT':
-          reason = 'PR is a draft';
-          break;
-        default:
-          reason = `Merge state: ${pr.mergeStateStatus || 'unknown'}`;
+      // Issue #1339: If mergeStateStatus is 'UNKNOWN', GitHub is still computing.
+      // Wait and retry instead of immediately skipping the PR.
+      if (pr.mergeStateStatus === 'UNKNOWN' || pr.mergeable === null) {
+        if (attempt < MAX_UNKNOWN_RETRIES - 1) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability is UNKNOWN (attempt ${attempt + 1}/${MAX_UNKNOWN_RETRIES}), retrying in ${UNKNOWN_RETRY_DELAY_MS / 1000}s...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, UNKNOWN_RETRY_DELAY_MS));
+          continue;
+        }
+        // All retries exhausted, still UNKNOWN - treat as not mergeable
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability still UNKNOWN after ${MAX_UNKNOWN_RETRIES} attempts`);
+        }
+        return { mergeable: false, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
-    }
 
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
-    }
+      const mergeable = pr.mergeable === 'MERGEABLE';
+      let reason = null;
 
-    return { mergeable, reason };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
+      if (!mergeable) {
+        switch (pr.mergeStateStatus) {
+          case 'BLOCKED':
+            reason = 'PR is blocked (possibly by branch protection rules)';
+            break;
+          case 'BEHIND':
+            reason = 'PR branch is behind the base branch';
+            break;
+          case 'DIRTY':
+            reason = 'PR has merge conflicts';
+            break;
+          case 'UNSTABLE':
+            reason = 'PR has failing required status checks';
+            break;
+          case 'DRAFT':
+            reason = 'PR is a draft';
+            break;
+          default:
+            reason = `Merge state: ${pr.mergeStateStatus || 'unknown'}`;
+        }
+      }
+
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
+      }
+
+      return { mergeable, reason };
+    } catch (error) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
+      }
+      return { mergeable: false, reason: error.message };
     }
-    return { mergeable: false, reason: error.message };
   }
+
+  // Should not reach here, but return safe default
+  return { mergeable: false, reason: 'Merge state: UNKNOWN' };
 }
 
 /**

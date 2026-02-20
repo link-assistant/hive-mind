@@ -520,7 +520,7 @@ export class MergeQueueProcessor {
       const elapsedSec = Math.round(this.targetBranchCIStatus.elapsedMs / 1000);
       const elapsedMin = Math.floor(elapsedSec / 60);
       const elapsedSecRemainder = elapsedSec % 60;
-      message += `⏱️ Waiting for ${this.targetBranchCIStatus.count} CI run\\(s\\) on target branch to complete \\(${elapsedMin}m ${elapsedSecRemainder}s\\)\\.\\.\\.\\n\\n`;
+      message += `⏱️ Waiting for ${this.targetBranchCIStatus.count} CI run\\(s\\) on target branch to complete \\(${elapsedMin}m ${elapsedSecRemainder}s\\)\\.\\.\\.\n\n`;
     } else if (this.waitingForTargetBranchCI) {
       message += `⏱️ Checking for active CI runs on target branch\\.\\.\\.\n\n`;
     }
@@ -528,7 +528,8 @@ export class MergeQueueProcessor {
     // Current item being processed
     if (update.current && !this.waitingForTargetBranchCI) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
-      message += `${statusEmoji} ${update.current}\n\n`;
+      // Issue #1339: escape the current item description for MarkdownV2
+      message += `${statusEmoji} ${this.escapeMarkdown(update.current)}\n\n`;
     }
 
     // Show errors/failures/skips inline so user gets immediate feedback (Issue #1269, #1294)
@@ -538,10 +539,12 @@ export class MergeQueueProcessor {
       message += `⚠️ *Issues:*\n`;
       for (const item of problemItems.slice(0, 5)) {
         const statusEmoji = item.status === MergeItemStatus.FAILED ? '❌' : '⏭️';
-        message += `  ${statusEmoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '...' : ''}\n`;
+        // Issue #1339: escape the ellipsis '...' for MarkdownV2 (periods are reserved)
+        message += `  ${statusEmoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.error.substring(0, 50))}${item.error.length > 50 ? '\\.\\.\\.' : ''}\n`;
       }
       if (problemItems.length > 5) {
-        message += `  _...and ${problemItems.length - 5} more issues_\n`;
+        // Issue #1339: escape the ellipsis '...' for MarkdownV2
+        message += `  _\\.\\.\\.and ${problemItems.length - 5} more issues_\n`;
       }
       message += '\n';
     }
@@ -549,11 +552,13 @@ export class MergeQueueProcessor {
     // PRs list with emojis
     message += `*Queue:*\n`;
     for (const item of update.items.slice(0, 10)) {
-      message += `${item.emoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.title.substring(0, 35))}${item.title.length > 35 ? '...' : ''}\n`;
+      // Issue #1339: escape the ellipsis '...' for MarkdownV2 (periods are reserved)
+      message += `${item.emoji} \\#${item.prNumber}: ${this.escapeMarkdown(item.title.substring(0, 35))}${item.title.length > 35 ? '\\.\\.\\.' : ''}\n`;
     }
 
     if (update.items.length > 10) {
-      message += `_...and ${update.items.length - 10} more_\n`;
+      // Issue #1339: escape the ellipsis '...' for MarkdownV2
+      message += `_\\.\\.\\.and ${update.items.length - 10} more_\n`;
     }
 
     return message;

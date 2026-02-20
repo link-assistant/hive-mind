@@ -201,14 +201,20 @@ console.log('\n=== Testing Async Functions ===\n');
 
 await runTest('validateInteractiveModeConfig disabled', async () => {
   const logs = [];
-  const mockLog = msg => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const result = await validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   if (!result) throw new Error('Expected true when interactive mode is disabled');
 });
 
 await runTest('validateInteractiveModeConfig enabled with claude', async () => {
   const logs = [];
-  const mockLog = msg => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog);
   if (!result) throw new Error('Expected true when interactive mode is enabled with claude');
   if (!logs.some(l => l.includes('Interactive mode: ENABLED'))) throw new Error('Expected ENABLED log message');
@@ -216,7 +222,10 @@ await runTest('validateInteractiveModeConfig enabled with claude', async () => {
 
 await runTest('validateInteractiveModeConfig enabled with opencode', async () => {
   const logs = [];
-  const mockLog = msg => { logs.push(msg); return Promise.resolve(); };
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
   const result = await validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   if (result) throw new Error('Expected false when interactive mode is enabled with unsupported tool');
   if (!logs.some(l => l.includes('only supported for --tool claude'))) throw new Error('Expected warning log message');
@@ -282,8 +291,13 @@ await runTest('processEvent handles tool_use', async () => {
 await runTest('processEvent handles result', async () => {
   const { handler } = makeHandler();
   await handler.processEvent({
-    type: 'result', subtype: 'success', is_error: false,
-    duration_ms: 120000, num_turns: 10, total_cost_usd: 0.5, session_id: 'test-session',
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    duration_ms: 120000,
+    num_turns: 10,
+    total_cost_usd: 0.5,
+    session_id: 'test-session',
   });
   // Just verifies no errors are thrown
 });
@@ -422,9 +436,7 @@ await runTest('truncateMiddle: sanitizes content even when no truncation needed'
 });
 
 await runTest('truncateMiddle: sanitizes content after truncation', () => {
-  const lines = Array.from({ length: 100 }, (_, i) =>
-    i === 19 ? 'Last kept line ending with orphan: \uD83E' : `Line ${i}: some content here`
-  );
+  const lines = Array.from({ length: 100 }, (_, i) => (i === 19 ? 'Last kept line ending with orphan: \uD83E' : `Line ${i}: some content here`));
   const result = utils.truncateMiddle(lines.join('\n'), { maxLines: 50, keepStart: 20, keepEnd: 20 });
   if (result.includes('\uD83E')) throw new Error('Expected orphaned surrogate to be removed after truncation');
 });

@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 1.24.3
+
+### Patch Changes
+
+- 297e07c: Fix incorrect iteration counter and duplicate comments in auto-restart mode
+  - Fixed iteration counter to show actual AI restart count instead of check cycle number
+  - Added deduplication check to prevent duplicate "Ready to merge" status comments
+  - Added case study documentation for issue #1323
+
 ## 1.24.2
 
 ### Patch Changes

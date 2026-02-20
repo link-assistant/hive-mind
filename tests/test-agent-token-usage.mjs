@@ -611,6 +611,258 @@ runTest('Regression: mixed stdout/stderr streaming accumulation', () => {
   assertEqual(usage.outputTokens, 300, 'Should sum output from both streams');
 });
 
+// ==== Token display pipeline tests (Issue #1313 root scenario) ====
+// These tests verify the full pipeline: accumulation -> display
+// The original bug showed "Token usage: 0 input, 0 output" because
+// the post-hoc parsing returned zeros. We verify that accumulated tokens
+// feed correctly into the display format.
+console.log('\n📋 Test Group: Token display pipeline (end-to-end Issue #1313 scenario)\n');
+
+// Inline copy of the token display formatting logic from src/github.lib.mjs
+// to test the full pipeline from accumulation to display
+const buildTokenUsageDisplay = tokenUsage => {
+  if (!tokenUsage) return 'Token usage: 0 input, 0 output';
+  const u = tokenUsage;
+  let tokenInfo = `Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
+  if (u.reasoningTokens > 0) tokenInfo += `, ${u.reasoningTokens.toLocaleString()} reasoning`;
+  if (u.cacheReadTokens > 0 || u.cacheWriteTokens > 0) tokenInfo += `, ${u.cacheReadTokens?.toLocaleString() || 0} cache read, ${u.cacheWriteTokens?.toLocaleString() || 0} cache write`;
+  return tokenInfo;
+};
+
+runTest('Issue #1313 pipeline: accumulated tokens display non-zero', () => {
+  // This test reproduces the exact bug scenario end-to-end:
+  // 1. Streaming accumulator receives step_finish events
+  // 2. The final usage is passed to the display function
+  // 3. Result must NOT be "Token usage: 0 input, 0 output"
+  const { usage, accumulate } = createAccumulator();
+
+  // Exact values from Issue #1313 bug report
+  accumulate({
+    type: 'step_finish',
+    part: { type: 'step-finish', cost: 0, tokens: { input: 406, output: 353, reasoning: 281, cache: { read: 33880, write: 0 } } },
+  });
+
+  const display = buildTokenUsageDisplay(usage);
+  if (display === 'Token usage: 0 input, 0 output') {
+    throw new Error('REGRESSION: Got "Token usage: 0 input, 0 output" - this is the exact Issue #1313 bug!');
+  }
+
+  if (!display.includes('406') || !display.includes('353')) {
+    throw new Error(`Expected display to contain 406 and 353, got: ${display}`);
+  }
+});
+
+runTest('Issue #1313 pipeline: zero accumulated tokens (old bug scenario) display correctly', () => {
+  // This demonstrates what the old code produced - shows why the fix matters
+  const emptyUsage = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  const display = buildTokenUsageDisplay(emptyUsage);
+  // The old bug: tokens WERE present but accumulation was broken, so it showed zeros
+  // This test verifies that if accumulation actually produces zeros, display shows them correctly
+  if (!display.includes('0 input') || !display.includes('0 output')) {
+    throw new Error(`Expected "0 input, 0 output" format, got: ${display}`);
+  }
+});
+
+runTest('Issue #1313 pipeline: multi-step run produces correct non-zero display', () => {
+  const { usage, accumulate } = createAccumulator();
+
+  // Simulate a typical multi-step session like in the Issue #1313 log
+  const steps = [
+    { input: 406, output: 353, reasoning: 281, cache: { read: 33880, write: 0 } },
+    { input: 512, output: 128, reasoning: 0, cache: { read: 50000, write: 0 } },
+    { input: 1024, output: 256, reasoning: 0, cache: { read: 75000, write: 0 } },
+  ];
+
+  for (const step of steps) {
+    accumulate({ type: 'step_finish', part: { cost: 0, tokens: step } });
+  }
+
+  const display = buildTokenUsageDisplay(usage);
+  const expectedInput = 406 + 512 + 1024;
+  const expectedOutput = 353 + 128 + 256;
+
+  if (!display.includes(expectedInput.toLocaleString())) {
+    throw new Error(`Expected input ${expectedInput.toLocaleString()} in display: ${display}`);
+  }
+  if (!display.includes(expectedOutput.toLocaleString())) {
+    throw new Error(`Expected output ${expectedOutput.toLocaleString()} in display: ${display}`);
+  }
+});
+
+// ==== Large number and precision tests ====
+console.log('\n📋 Test Group: Large numbers and precision\n');
+
+runTest('handles very large token counts without overflow', () => {
+  const { usage, accumulate } = createAccumulator();
+
+  // Simulate a very long session with hundreds of steps (large token counts)
+  for (let i = 0; i < 100; i++) {
+    accumulate({
+      type: 'step_finish',
+      part: { cost: 0.01, tokens: { input: 50000, output: 10000, reasoning: 5000, cache: { read: 100000, write: 10000 } } },
+    });
+  }
+
+  assertEqual(usage.stepCount, 100, 'Should count 100 steps');
+  assertEqual(usage.inputTokens, 5000000, 'Should handle 5M total input tokens');
+  assertEqual(usage.outputTokens, 1000000, 'Should handle 1M total output tokens');
+  assertEqual(usage.cacheReadTokens, 10000000, 'Should handle 10M cache read tokens');
+  // Cost: 100 steps × $0.01 = $1.00, floating point sum
+  if (Math.abs(usage.totalCost - 1.0) > 0.0001) {
+    throw new Error(`Expected totalCost ~1.0, got ${usage.totalCost}`);
+  }
+});
+
+runTest('parseAgentTokenUsage handles large token values correctly', () => {
+  const output = `{"type":"step_finish","part":{"cost":0,"tokens":{"input":999999,"output":888888,"reasoning":777777,"cache":{"read":666666,"write":555555}}}}
+`;
+  const result = parseAgentTokenUsage(output);
+
+  assertEqual(result.inputTokens, 999999, 'Should handle large input tokens');
+  assertEqual(result.outputTokens, 888888, 'Should handle large output tokens');
+  assertEqual(result.reasoningTokens, 777777, 'Should handle large reasoning tokens');
+  assertEqual(result.cacheReadTokens, 666666, 'Should handle large cache read tokens');
+  assertEqual(result.cacheWriteTokens, 555555, 'Should handle large cache write tokens');
+});
+
+// ==== NDJSON boundary tests ====
+console.log('\n📋 Test Group: NDJSON format boundary cases\n');
+
+runTest('parseAgentTokenUsage handles output with Windows-style line endings (CRLF)', () => {
+  const output = '{"type":"step_finish","part":{"cost":0,"tokens":{"input":100,"output":50}}}\r\n' + '{"type":"step_finish","part":{"cost":0,"tokens":{"input":200,"output":100}}}\r\n';
+  const result = parseAgentTokenUsage(output);
+
+  // CRLF lines: the \r will be part of trimmedLine, but JSON.parse handles it
+  // (trailing \r in JSON string is ignored by JSON.parse)
+  assertEqual(result.stepCount, 2, 'Should parse CRLF-delimited NDJSON');
+  assertEqual(result.inputTokens, 300, 'Should sum input tokens from CRLF lines');
+});
+
+runTest('parseAgentTokenUsage skips lines that are not JSON objects', () => {
+  const output = `some plain text log line
+{"type":"step_finish","part":{"cost":0,"tokens":{"input":100,"output":50}}}
+another plain log: executing bash command
+[INFO] Starting agent...
+{"type":"step_finish","part":{"cost":0,"tokens":{"input":200,"output":100}}}
+`;
+  const result = parseAgentTokenUsage(output);
+
+  assertEqual(result.stepCount, 2, 'Should parse only JSON lines');
+  assertEqual(result.inputTokens, 300, 'Should sum from JSON lines only');
+});
+
+runTest('parseAgentTokenUsage handles JSON arrays (should skip them)', () => {
+  const output = `[{"type":"step_finish","part":{"tokens":{"input":100,"output":50}}}]
+{"type":"step_finish","part":{"cost":0,"tokens":{"input":200,"output":100}}}
+`;
+  const result = parseAgentTokenUsage(output);
+
+  // Arrays start with '[' not '{', so should be skipped
+  assertEqual(result.stepCount, 1, 'Should skip JSON arrays (lines not starting with {)');
+  assertEqual(result.inputTokens, 200, 'Should only count JSON object lines');
+});
+
+runTest('parseAgentTokenUsage handles deeply nested tokens structure', () => {
+  // Some agents may include extra metadata in the tokens object
+  const output = '{"type":"step_finish","extra":{"meta":"data"},"part":{"type":"step-finish","cost":0.005,"tokens":{"input":500,"output":100,"reasoning":25,"cache":{"read":5000,"write":100}}}}\n';
+  const result = parseAgentTokenUsage(output);
+
+  assertEqual(result.stepCount, 1, 'Should parse step with extra fields');
+  assertEqual(result.inputTokens, 500, 'Should extract input tokens');
+  assertEqual(result.cacheReadTokens, 5000, 'Should extract nested cache read');
+});
+
+// ==== Accumulator state isolation tests ====
+console.log('\n📋 Test Group: Accumulator state isolation\n');
+
+runTest('two separate accumulators are independent', () => {
+  const acc1 = createAccumulator();
+  const acc2 = createAccumulator();
+
+  acc1.accumulate({ type: 'step_finish', part: { cost: 0, tokens: { input: 100, output: 50 } } });
+  acc1.accumulate({ type: 'step_finish', part: { cost: 0, tokens: { input: 200, output: 100 } } });
+  acc2.accumulate({ type: 'step_finish', part: { cost: 0, tokens: { input: 999, output: 888 } } });
+
+  assertEqual(acc1.usage.inputTokens, 300, 'acc1 should have 300 input tokens');
+  assertEqual(acc1.usage.stepCount, 2, 'acc1 should have 2 steps');
+  assertEqual(acc2.usage.inputTokens, 999, 'acc2 should be independent with 999 input tokens');
+  assertEqual(acc2.usage.stepCount, 1, 'acc2 should have 1 step');
+});
+
+runTest('accumulator starts fresh with all zeros', () => {
+  const { usage } = createAccumulator();
+
+  assertEqual(usage.inputTokens, 0, 'Should start at 0 input');
+  assertEqual(usage.outputTokens, 0, 'Should start at 0 output');
+  assertEqual(usage.reasoningTokens, 0, 'Should start at 0 reasoning');
+  assertEqual(usage.cacheReadTokens, 0, 'Should start at 0 cache read');
+  assertEqual(usage.cacheWriteTokens, 0, 'Should start at 0 cache write');
+  assertEqual(usage.totalCost, 0, 'Should start at 0 cost');
+  assertEqual(usage.stepCount, 0, 'Should start at 0 steps');
+});
+
+// ==== Issue #1313 exact reproduction test ====
+console.log('\n📋 Test Group: Issue #1313 exact reproduction\n');
+
+runTest('Issue #1313: the exact gist log data parses non-zero tokens', () => {
+  // This is the exact JSON structure from the gist linked in Issue #1313:
+  // https://gist.githubusercontent.com/konard/baae4b8157c98675224c6e575fef7178/raw/.../solution-draft-log-pr-1770982293538.txt
+  // The log showed tokens: { input: 406, output: 353, reasoning: 281, cache: { read: 33880, write: 0 } }
+  // But the comment showed "Token usage: 0 input, 0 output" - this was the bug.
+  const logLine = '{"type":"step_finish","timestamp":1770982017418,"sessionID":"ses_3a93f1458ffeK5TKD4XfXXW4A3","part":{"id":"prt_c56c10976001ItHqFbhtFmk8aP","sessionID":"ses_3a93f1458ffeK5TKD4XfXXW4A3","messageID":"msg_c56c0ec62001LvHUlMLyTfvFEl","type":"step-finish","reason":"tool-calls","snapshot":"5d6c73c51a020ef88084e93fe72a793b31b7441f","cost":0,"tokens":{"input":406,"output":353,"reasoning":281,"cache":{"read":33880,"write":0}}}}\n';
+
+  // Test with post-hoc parsing (parseAgentTokenUsage)
+  const parsedResult = parseAgentTokenUsage(logLine);
+  assertEqual(parsedResult.inputTokens, 406, 'parseAgentTokenUsage: input should be 406 not 0');
+  assertEqual(parsedResult.outputTokens, 353, 'parseAgentTokenUsage: output should be 353 not 0');
+  assertEqual(parsedResult.reasoningTokens, 281, 'parseAgentTokenUsage: reasoning should be 281');
+
+  // Test with streaming accumulation (the fix)
+  const { usage, accumulate } = createAccumulator();
+  accumulate(JSON.parse(logLine));
+  assertEqual(usage.inputTokens, 406, 'streaming: input should be 406 not 0');
+  assertEqual(usage.outputTokens, 353, 'streaming: output should be 353 not 0');
+  assertEqual(usage.reasoningTokens, 281, 'streaming: reasoning should be 281');
+
+  // Both approaches must return non-zero when the data is present
+  if (parsedResult.inputTokens === 0) throw new Error('BUG REPRODUCED: parseAgentTokenUsage returns 0 for valid data!');
+  if (usage.inputTokens === 0) throw new Error('BUG REPRODUCED: streaming accumulation returns 0 for valid data!');
+});
+
+runTest('Issue #1313: demonstrates old post-hoc bug with concatenated JSON', () => {
+  // Old code tried JSON.parse(fullOutput) where fullOutput had concatenated JSON objects
+  // This is exactly what happened in the v1.21.4 code before the streaming fix
+  const concatenatedNDJSON = '{"type":"step_finish","part":{"tokens":{"input":406,"output":353}}}' + '{"type":"step_finish","part":{"tokens":{"input":512,"output":128}}}';
+
+  // Simulate old post-hoc approach: try to parse the whole concatenated string
+  let oldApproachResult;
+  try {
+    oldApproachResult = JSON.parse(concatenatedNDJSON); // This FAILS with SyntaxError
+    throw new Error('Should have thrown');
+  } catch (e) {
+    if (e.message === 'Should have thrown') throw e;
+    oldApproachResult = null; // Failed to parse - returns no tokens (the bug)
+  }
+
+  assertEqual(oldApproachResult, null, 'Old approach: JSON.parse fails on concatenated JSON');
+
+  // New approach: parseAgentTokenUsage processes line by line
+  // But even this can fail if there are no newlines (the bug was that lines got concatenated)
+  const parseResult = parseAgentTokenUsage(concatenatedNDJSON);
+  assertEqual(parseResult.stepCount, 0, 'parseAgentTokenUsage also fails on concatenated JSON (no newlines)');
+
+  // The REAL fix: streaming accumulation processes each chunk as it arrives
+  // So it never sees concatenated output - it processes events one by one
+  const { usage, accumulate } = createAccumulator();
+  // These events arrive separately during streaming (no concatenation issue)
+  accumulate({ type: 'step_finish', part: { tokens: { input: 406, output: 353 } } });
+  accumulate({ type: 'step_finish', part: { tokens: { input: 512, output: 128 } } });
+
+  assertEqual(usage.stepCount, 2, 'Streaming fix: processes both events correctly');
+  assertEqual(usage.inputTokens, 918, 'Streaming fix: correctly sums 406+512=918');
+  assertEqual(usage.outputTokens, 481, 'Streaming fix: correctly sums 353+128=481');
+});
+
 // Summary
 console.log('\n' + '='.repeat(80));
 console.log(`Test Results for agent token usage (Issue #1250 / Issue #1313):`);

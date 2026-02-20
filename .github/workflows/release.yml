@@ -494,6 +494,11 @@ jobs:
         echo "Running test suite for token sanitization..."
         node tests/test-token-sanitization.mjs
 
+    - name: Run agent token usage test (Issues #1250, #1313)
+      run: |
+        echo "Running test suite for agent token accumulation logic..."
+        node tests/test-agent-token-usage.mjs
+
     - name: Run Telegram special character handling test (Issue #1070)
       run: |
         echo "Running test suite for Telegram special character handling..."

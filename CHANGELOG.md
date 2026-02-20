@@ -1,5 +1,69 @@
 # @link-assistant/hive-mind
 
+## 1.24.3
+
+### Patch Changes
+
+- 297e07c: Fix incorrect iteration counter and duplicate comments in auto-restart mode
+  - Fixed iteration counter to show actual AI restart count instead of check cycle number
+  - Added deduplication check to prevent duplicate "Ready to merge" status comments
+  - Added case study documentation for issue #1323
+
+## 1.24.2
+
+### Patch Changes
+
+- a74e10c: fix: add auto-resume with session preservation on Internal Server Error (Issue #1331)
+
+  When Claude tool returns `API Error: 500 Internal server error`, automatically retry with exponential backoff starting from 1 minute, capped at 30 minutes per retry, up to 10 retries. Session ID is preserved so Claude Code can resume from where it left off using `--resume <sessionId>`.
+
+## 1.24.1
+
+### Patch Changes
+
+- 4b032ca: fix: use headRepository.name from PR data to construct fork name correctly
+
+  Previously, when solving a PR from a fork where the fork's repository name
+  differs from the base repository name, the tool incorrectly built the fork
+  name using the base repo's name instead of the actual head repo name.
+
+  Example failure scenario (Issue #1332):
+  - Base repo: `konard/MILANA808-Milana-backend` (a fork itself)
+  - PR head repo: `MILANA808/Milana-backend`
+  - Tool tried: `MILANA808/MILANA808-Milana-backend` (wrong, 404)
+  - Should try: `MILANA808/Milana-backend` (correct)
+
+  The fix propagates `forkRepoName` (from `headRepository.name` in PR data)
+  through the call chain: `solve.mjs` → `setupRepositoryAndClone` →
+  `setupRepository`, where it's used as the correct source of truth for
+  building fork repo names. Falls back to base repo name if unavailable.
+
+  Also improves the error message when a fork cannot be found, clarifying
+  that the fork name may differ from the base repo name.
+
+## 1.24.0
+
+### Minor Changes
+
+- c93b8cd: Add support for Claude Sonnet 4.6 and set it as the default model for `--tool claude`
+  - Added `claude-sonnet-4-6` as the new default model when using `sonnet` alias
+  - Added `sonnet-4-6` short alias for explicit Sonnet 4.6 selection
+  - Added backward compatibility aliases: `sonnet-4-5` and `claude-sonnet-4-5` for Sonnet 4.5
+  - Added 1M token context window support for Sonnet 4.6 (`sonnet[1m]`, `sonnet-4-6[1m]`)
+  - Maintained full backward compatibility with previous model versions
+
+## 1.23.14
+
+### Patch Changes
+
+- 069d437: Parallelize version gathering with Promise.all for 6-30x performance improvement
+  - Replaced sequential `execSync` calls with parallel `execAsync` using `Promise.all`
+  - Reduced execution time from 30-150s to ~2-5s for version info gathering
+  - Added support for all `--tool` options: agent, codex, opencode, qwen-code, gemini, copilot
+  - Reorganized Telegram output to group tools by programming language instead of generic categories
+  - Consolidated hive-mind version display to show single version with restart warning when process version differs from installed
+  - Added `gatherTimeMs` metric to track performance
+
 ## 1.23.13
 
 ### Patch Changes

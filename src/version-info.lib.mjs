@@ -2,42 +2,152 @@
 
 // Version information library for hive-mind project
 // Provides comprehensive version information for bot, commands, and runtime
+//
+// Performance optimization (issue #1320):
+// Uses Promise.all for parallel command execution instead of sequential execSync.
+// This reduces version gathering time from ~30-150s to ~5s (limited by slowest command).
 
 import { getVersion } from './version.lib.mjs';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
- * Execute a command and return its output, or null if it fails
+ * Execute a command asynchronously and return its output, or null if it fails
  * @param {string} command - Command to execute
- * @param {boolean} verbose - Enable verbose logging
- * @returns {string|null} Command output or null
+ * @param {number} timeout - Timeout in milliseconds (default: 5000ms)
+ * @returns {Promise<string|null>} Command output or null
  */
-function execCommand(command, verbose = false) {
+async function execCommandAsync(command, timeout = 5000) {
   try {
-    const result = execSync(command, { encoding: 'utf8', timeout: 5000, stdio: ['pipe', 'pipe', 'ignore'] });
-    const trimmed = result.trim();
+    const { stdout } = await execAsync(command, { timeout, maxBuffer: 1024 * 1024 });
+    const trimmed = stdout.trim();
     // Return null if the output looks like an error message
     if (trimmed.includes('not found') || trimmed.includes('command not found') || trimmed === '') {
       return null;
     }
     return trimmed;
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] Command failed: ${command}`, error.message);
-    }
+  } catch {
     return null;
   }
 }
 
 /**
- * Get comprehensive version information for all components
+ * Command definitions for version checking
+ * Each entry has: key, command, and optional fallbacks
+ * @type {Array<{key: string, command: string, fallbacks?: string[]}>}
+ */
+const VERSION_COMMANDS = [
+  // AI Agents and Tools (--tool options)
+  { key: 'claudeCode', command: 'claude --version 2>&1' },
+  { key: 'agent', command: 'agent --version 2>&1' },
+  { key: 'codex', command: 'codex --version 2>&1' },
+  { key: 'opencode', command: 'opencode --version 2>&1' },
+  { key: 'qwenCode', command: 'qwen-code --version 2>&1' },
+  { key: 'gemini', command: 'gemini --version 2>&1' },
+  { key: 'copilot', command: 'copilot --version 2>&1' },
+
+  // Browser Automation
+  { key: 'playwright', command: 'playwright --version 2>&1' },
+  { key: 'playwrightMcp', command: "npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'" },
+
+  // JavaScript/Node.js ecosystem
+  { key: 'bun', command: 'bun --version 2>&1' },
+  { key: 'deno', command: 'deno --version 2>&1 | head -n1' },
+  { key: 'npm', command: 'npm --version 2>&1' },
+  { key: 'nvm', command: 'nvm --version 2>&1' },
+
+  // Python ecosystem
+  { key: 'python', command: 'python --version 2>&1' },
+  { key: 'pyenv', command: 'pyenv --version 2>&1' },
+
+  // Rust ecosystem
+  { key: 'rust', command: 'rustc --version 2>&1' },
+  { key: 'cargo', command: 'cargo --version 2>&1' },
+
+  // Java ecosystem
+  { key: 'java', command: 'java -version 2>&1 | head -n1' },
+  { key: 'sdkman', command: "sdk version 2>&1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'" },
+
+  // Go
+  { key: 'go', command: 'go version 2>&1' },
+
+  // PHP
+  { key: 'php', command: 'php --version 2>&1 | head -n1' },
+
+  // .NET
+  { key: 'dotnet', command: 'dotnet --version 2>&1' },
+
+  // Perl ecosystem
+  { key: 'perl', command: "perl -v 2>&1 | grep -oE 'v[0-9]+\\.[0-9]+\\.[0-9]+'" },
+  { key: 'perlbrew', command: 'perlbrew --version 2>&1' },
+
+  // OCaml/Rocq ecosystem
+  { key: 'ocaml', command: 'ocaml --version 2>&1' },
+  { key: 'opam', command: 'opam --version 2>&1' },
+  // Rocq has fallback commands (rocq -> rocqc -> coqc)
+  { key: 'rocq', command: 'rocq -v 2>&1 | head -n1', fallbacks: ['rocqc --version 2>&1 | head -n1', 'coqc --version 2>&1 | head -n1'] },
+
+  // Lean ecosystem
+  { key: 'lean', command: 'lean --version 2>&1' },
+  { key: 'elan', command: 'elan --version 2>&1' },
+  { key: 'lake', command: 'lake --version 2>&1' },
+
+  // C/C++ Development Tools
+  { key: 'gcc', command: 'gcc --version 2>&1 | head -n1' },
+  { key: 'gpp', command: 'g++ --version 2>&1 | head -n1' },
+  { key: 'clang', command: 'clang --version 2>&1 | head -n1' },
+  { key: 'llvm', command: 'llvm-config --version 2>&1' },
+  { key: 'lld', command: 'lld --version 2>&1 | head -n1' },
+  { key: 'make', command: 'make --version 2>&1 | head -n1' },
+  { key: 'cmake', command: 'cmake --version 2>&1 | head -n1' },
+
+  // Development Tools
+  { key: 'git', command: 'git --version 2>&1' },
+  { key: 'gh', command: 'gh --version 2>&1 | head -n1' },
+  { key: 'brew', command: 'brew --version 2>&1 | head -n1' },
+];
+
+/**
+ * Execute a version command with optional fallbacks
+ * @param {{key: string, command: string, fallbacks?: string[]}} cmdDef - Command definition
  * @param {boolean} verbose - Enable verbose logging
+ * @returns {Promise<{key: string, value: string|null}>}
+ */
+async function executeVersionCommand(cmdDef, verbose) {
+  let result = await execCommandAsync(cmdDef.command);
+
+  // Try fallbacks if primary command failed
+  if (!result && cmdDef.fallbacks) {
+    for (const fallback of cmdDef.fallbacks) {
+      result = await execCommandAsync(fallback);
+      if (result) break;
+    }
+  }
+
+  if (verbose && result) {
+    console.log(`[VERBOSE] ${cmdDef.key}: ${result}`);
+  } else if (verbose && !result) {
+    console.log(`[VERBOSE] ${cmdDef.key}: not found`);
+  }
+
+  return { key: cmdDef.key, value: result };
+}
+
+/**
+ * Get comprehensive version information for all components
+ * Uses Promise.all for parallel execution (issue #1320)
+ * @param {boolean} verbose - Enable verbose logging
+ * @param {string} [processVersion] - Optional: version from the running process (for restart warning)
  * @returns {Promise<Object>} Version information object
  */
-export async function getVersionInfo(verbose = false) {
+export async function getVersionInfo(verbose = false, processVersion = null) {
+  const startTime = Date.now();
+
   try {
     if (verbose) {
-      console.log('[VERBOSE] Gathering version information...');
+      console.log('[VERBOSE] Gathering version information (parallel execution)...');
     }
 
     // Get hive-mind package version
@@ -46,297 +156,120 @@ export async function getVersionInfo(verbose = false) {
       console.log(`[VERBOSE] Package version: ${packageVersion}`);
     }
 
-    // === Agents ===
+    // Execute all version commands in parallel
+    const results = await Promise.all(VERSION_COMMANDS.map(cmd => executeVersionCommand(cmd, verbose)));
 
-    // Claude Code
-    const claudeVersion = execCommand('claude --version 2>&1', verbose);
-    if (verbose && claudeVersion) {
-      console.log(`[VERBOSE] Claude Code version: ${claudeVersion}`);
+    // Convert results array to object
+    const versions = {};
+    for (const { key, value } of results) {
+      versions[key] = value;
     }
 
-    // Playwright
-    const playwrightVersion = execCommand('playwright --version 2>&1', verbose);
-    if (verbose && playwrightVersion) {
-      console.log(`[VERBOSE] Playwright version: ${playwrightVersion}`);
-    }
-
-    // Playwright MCP (check if installed via npm)
-    const playwrightMcpVersion = execCommand("npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'", verbose);
-    if (verbose && playwrightMcpVersion) {
-      console.log(`[VERBOSE] Playwright MCP version: ${playwrightMcpVersion}`);
-    }
-
-    // === Language Runtimes ===
-
-    // Node.js (from process, always available)
-    const nodeVersion = process.version;
+    // Add Node.js version (always available from process)
+    versions.node = process.version;
     if (verbose) {
-      console.log(`[VERBOSE] Node.js version: ${nodeVersion}`);
+      console.log(`[VERBOSE] Node.js version: ${versions.node}`);
     }
 
-    // Python
-    const pythonVersion = execCommand('python --version 2>&1', verbose);
-    if (verbose && pythonVersion) {
-      console.log(`[VERBOSE] Python version: ${pythonVersion}`);
-    }
-
-    // Pyenv
-    const pyenvVersion = execCommand('pyenv --version 2>&1', verbose);
-    if (verbose && pyenvVersion) {
-      console.log(`[VERBOSE] Pyenv version: ${pyenvVersion}`);
-    }
-
-    // Rust
-    const rustVersion = execCommand('rustc --version 2>&1', verbose);
-    if (verbose && rustVersion) {
-      console.log(`[VERBOSE] Rust version: ${rustVersion}`);
-    }
-
-    // Cargo
-    const cargoVersion = execCommand('cargo --version 2>&1', verbose);
-    if (verbose && cargoVersion) {
-      console.log(`[VERBOSE] Cargo version: ${cargoVersion}`);
-    }
-
-    // PHP
-    const phpVersion = execCommand('php --version 2>&1 | head -n1', verbose);
-    if (verbose && phpVersion) {
-      console.log(`[VERBOSE] PHP version: ${phpVersion}`);
-    }
-
-    // Bun
-    const bunVersion = execCommand('bun --version 2>&1', verbose);
-    if (verbose && bunVersion) {
-      console.log(`[VERBOSE] Bun version: ${bunVersion}`);
-    }
-
-    // .NET
-    const dotnetVersion = execCommand('dotnet --version 2>&1', verbose);
-    if (verbose && dotnetVersion) {
-      console.log(`[VERBOSE] .NET version: ${dotnetVersion}`);
-    }
-
-    // Deno
-    const denoVersion = execCommand('deno --version 2>&1 | head -n1', verbose);
-    if (verbose && denoVersion) {
-      console.log(`[VERBOSE] Deno version: ${denoVersion}`);
-    }
-
-    // Go (Golang)
-    const goVersion = execCommand('go version 2>&1', verbose);
-    if (verbose && goVersion) {
-      console.log(`[VERBOSE] Go version: ${goVersion}`);
-    }
-
-    // Java
-    const javaVersion = execCommand('java -version 2>&1 | head -n1', verbose);
-    if (verbose && javaVersion) {
-      console.log(`[VERBOSE] Java version: ${javaVersion}`);
-    }
-
-    // Lean (theorem prover)
-    const leanVersion = execCommand('lean --version 2>&1', verbose);
-    if (verbose && leanVersion) {
-      console.log(`[VERBOSE] Lean version: ${leanVersion}`);
-    }
-
-    // Perl
-    const perlVersion = execCommand("perl -v 2>&1 | grep -oE 'v[0-9]+\\.[0-9]+\\.[0-9]+'", verbose);
-    if (verbose && perlVersion) {
-      console.log(`[VERBOSE] Perl version: ${perlVersion}`);
-    }
-
-    // OCaml (via opam)
-    const ocamlVersion = execCommand('ocaml --version 2>&1', verbose);
-    if (verbose && ocamlVersion) {
-      console.log(`[VERBOSE] OCaml version: ${ocamlVersion}`);
-    }
-
-    // Rocq/Coq (theorem prover)
-    // Try rocq first (Rocq 9.0+), then fall back to coqc (legacy)
-    let rocqVersion = execCommand('rocq -v 2>&1 | head -n1', verbose);
-    if (!rocqVersion) {
-      rocqVersion = execCommand('rocqc --version 2>&1 | head -n1', verbose);
-    }
-    if (!rocqVersion) {
-      rocqVersion = execCommand('coqc --version 2>&1 | head -n1', verbose);
-    }
-    if (verbose && rocqVersion) {
-      console.log(`[VERBOSE] Rocq/Coq version: ${rocqVersion}`);
-    }
-
-    // === Development Tools ===
-
-    // Git
-    const gitVersion = execCommand('git --version 2>&1', verbose);
-    if (verbose && gitVersion) {
-      console.log(`[VERBOSE] Git version: ${gitVersion}`);
-    }
-
-    // GitHub CLI
-    const ghVersion = execCommand('gh --version 2>&1 | head -n1', verbose);
-    if (verbose && ghVersion) {
-      console.log(`[VERBOSE] GitHub CLI version: ${ghVersion}`);
-    }
-
-    // NVM
-    const nvmVersion = execCommand('nvm --version 2>&1', verbose);
-    if (verbose && nvmVersion) {
-      console.log(`[VERBOSE] NVM version: ${nvmVersion}`);
-    }
-
-    // Homebrew
-    const brewVersion = execCommand('brew --version 2>&1 | head -n1', verbose);
-    if (verbose && brewVersion) {
-      console.log(`[VERBOSE] Homebrew version: ${brewVersion}`);
-    }
-
-    // NPM
-    const npmVersion = execCommand('npm --version 2>&1', verbose);
-    if (verbose && npmVersion) {
-      console.log(`[VERBOSE] NPM version: ${npmVersion}`);
-    }
-
-    // SDKMAN (Java version manager)
-    const sdkmanVersion = execCommand("sdk version 2>&1 | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+'", verbose);
-    if (verbose && sdkmanVersion) {
-      console.log(`[VERBOSE] SDKMAN version: ${sdkmanVersion}`);
-    }
-
-    // Elan (Lean version manager)
-    const elanVersion = execCommand('elan --version 2>&1', verbose);
-    if (verbose && elanVersion) {
-      console.log(`[VERBOSE] Elan version: ${elanVersion}`);
-    }
-
-    // Lake (Lean package manager)
-    const lakeVersion = execCommand('lake --version 2>&1', verbose);
-    if (verbose && lakeVersion) {
-      console.log(`[VERBOSE] Lake version: ${lakeVersion}`);
-    }
-
-    // Perlbrew (Perl version manager)
-    const perlbrewVersion = execCommand('perlbrew --version 2>&1', verbose);
-    if (verbose && perlbrewVersion) {
-      console.log(`[VERBOSE] Perlbrew version: ${perlbrewVersion}`);
-    }
-
-    // Opam (OCaml package manager)
-    const opamVersion = execCommand('opam --version 2>&1', verbose);
-    if (verbose && opamVersion) {
-      console.log(`[VERBOSE] Opam version: ${opamVersion}`);
-    }
-
-    // === C/C++ Development Tools ===
-
-    // Make
-    const makeVersion = execCommand('make --version 2>&1 | head -n1', verbose);
-    if (verbose && makeVersion) {
-      console.log(`[VERBOSE] Make version: ${makeVersion}`);
-    }
-
-    // CMake
-    const cmakeVersion = execCommand('cmake --version 2>&1 | head -n1', verbose);
-    if (verbose && cmakeVersion) {
-      console.log(`[VERBOSE] CMake version: ${cmakeVersion}`);
-    }
-
-    // GCC
-    const gccVersion = execCommand('gcc --version 2>&1 | head -n1', verbose);
-    if (verbose && gccVersion) {
-      console.log(`[VERBOSE] GCC version: ${gccVersion}`);
-    }
-
-    // G++
-    const gppVersion = execCommand('g++ --version 2>&1 | head -n1', verbose);
-    if (verbose && gppVersion) {
-      console.log(`[VERBOSE] G++ version: ${gppVersion}`);
-    }
-
-    // Clang
-    const clangVersion = execCommand('clang --version 2>&1 | head -n1', verbose);
-    if (verbose && clangVersion) {
-      console.log(`[VERBOSE] Clang version: ${clangVersion}`);
-    }
-
-    // LLVM
-    const llvmVersion = execCommand('llvm-config --version 2>&1', verbose);
-    if (verbose && llvmVersion) {
-      console.log(`[VERBOSE] LLVM version: ${llvmVersion}`);
-    }
-
-    // LLD (LLVM linker)
-    const lldVersion = execCommand('lld --version 2>&1 | head -n1', verbose);
-    if (verbose && lldVersion) {
-      console.log(`[VERBOSE] LLD version: ${lldVersion}`);
-    }
-
-    // === Platform Information ===
+    // Platform information
     const platform = process.platform;
     const arch = process.arch;
+    versions.platform = `${platform} (${arch})`;
     if (verbose) {
-      console.log(`[VERBOSE] Platform: ${platform} (${arch})`);
+      console.log(`[VERBOSE] Platform: ${versions.platform}`);
     }
+
+    // Check if process version differs from installed version (restart warning)
+    const needsRestart = processVersion && processVersion !== packageVersion;
 
     // Build version info object
     const versionInfo = {
       success: true,
       versions: {
-        // Bot components
-        bot: packageVersion,
-        solve: packageVersion,
-        hive: packageVersion,
+        // Hive-mind package (single entry, not duplicated)
+        hiveMind: packageVersion,
+        processVersion: processVersion || packageVersion,
+        needsRestart,
 
-        // Agents
-        claudeCode: claudeVersion,
-        playwright: playwrightVersion,
-        playwrightMcp: playwrightMcpVersion,
+        // AI Agents (--tool options)
+        claudeCode: versions.claudeCode,
+        agent: versions.agent,
+        codex: versions.codex,
+        opencode: versions.opencode,
+        qwenCode: versions.qwenCode,
+        gemini: versions.gemini,
+        copilot: versions.copilot,
 
-        // Language runtimes
-        node: nodeVersion,
-        python: pythonVersion,
-        rust: rustVersion,
-        php: phpVersion,
-        bun: bunVersion,
-        dotnet: dotnetVersion,
-        deno: denoVersion,
-        go: goVersion,
-        java: javaVersion,
-        lean: leanVersion,
-        perl: perlVersion,
-        ocaml: ocamlVersion,
-        rocq: rocqVersion,
+        // Browser Automation
+        playwright: versions.playwright,
+        playwrightMcp: versions.playwrightMcp,
 
-        // Development tools
-        git: gitVersion,
-        gh: ghVersion,
-        npm: npmVersion,
-        nvm: nvmVersion,
-        pyenv: pyenvVersion,
-        cargo: cargoVersion,
-        brew: brewVersion,
-        sdkman: sdkmanVersion,
-        elan: elanVersion,
-        lake: lakeVersion,
-        perlbrew: perlbrewVersion,
-        opam: opamVersion,
+        // JavaScript/Node.js
+        node: versions.node,
+        bun: versions.bun,
+        deno: versions.deno,
+        npm: versions.npm,
+        nvm: versions.nvm,
 
-        // C/C++ Development Tools
-        make: makeVersion,
-        cmake: cmakeVersion,
-        gcc: gccVersion,
-        gpp: gppVersion,
-        clang: clangVersion,
-        llvm: llvmVersion,
-        lld: lldVersion,
+        // Python
+        python: versions.python,
+        pyenv: versions.pyenv,
+
+        // Rust
+        rust: versions.rust,
+        cargo: versions.cargo,
+
+        // Java
+        java: versions.java,
+        sdkman: versions.sdkman,
+
+        // Go
+        go: versions.go,
+
+        // PHP
+        php: versions.php,
+
+        // .NET
+        dotnet: versions.dotnet,
+
+        // Perl
+        perl: versions.perl,
+        perlbrew: versions.perlbrew,
+
+        // OCaml/Rocq
+        ocaml: versions.ocaml,
+        opam: versions.opam,
+        rocq: versions.rocq,
+
+        // Lean
+        lean: versions.lean,
+        elan: versions.elan,
+        lake: versions.lake,
+
+        // C/C++
+        gcc: versions.gcc,
+        gpp: versions.gpp,
+        clang: versions.clang,
+        llvm: versions.llvm,
+        lld: versions.lld,
+        make: versions.make,
+        cmake: versions.cmake,
+
+        // Development Tools
+        git: versions.git,
+        gh: versions.gh,
+        brew: versions.brew,
 
         // Platform
-        platform: `${platform} (${arch})`,
+        platform: versions.platform,
       },
+      // Performance metrics
+      gatherTimeMs: Date.now() - startTime,
     };
 
     if (verbose) {
-      console.log('[VERBOSE] Version info gathered successfully:', JSON.stringify(versionInfo, null, 2));
+      console.log(`[VERBOSE] Version info gathered in ${versionInfo.gatherTimeMs}ms`);
+      console.log('[VERBOSE] Version info:', JSON.stringify(versionInfo, null, 2));
     }
 
     return versionInfo;
@@ -348,169 +281,188 @@ export async function getVersionInfo(verbose = false) {
     return {
       success: false,
       error: error.message || 'Failed to gather version information',
+      gatherTimeMs: Date.now() - startTime,
     };
   }
 }
 
 /**
+ * Helper to add version line if version exists
+ * @param {string[]} lines - Array to push to
+ * @param {string} label - Display label
+ * @param {string|null} version - Version string or null
+ */
+function addVersionLine(lines, label, version) {
+  if (version) {
+    lines.push(`• ${label}: \`${version}\``);
+  }
+}
+
+/**
  * Format version information as a Telegram message
+ * Groups tools by programming language for better readability (issue #1320)
  * @param {Object} versions - Version information object
  * @returns {string} Formatted message
  */
 export function formatVersionMessage(versions) {
   const lines = [];
 
-  // === Bot Components ===
-  lines.push('*🤖 Bot Components*');
-  if (versions.bot) {
-    lines.push(`• Bot: \`${versions.bot}\``);
-  }
-  if (versions.solve) {
-    lines.push(`• solve: \`${versions.solve}\``);
-  }
-  if (versions.hive) {
-    lines.push(`• hive: \`${versions.hive}\``);
+  // === Hive-Mind Package (single entry with restart warning) ===
+  lines.push('*🤖 Hive-Mind*');
+  if (versions.hiveMind) {
+    lines.push(`• Version: \`${versions.hiveMind}\``);
+    if (versions.needsRestart) {
+      lines.push(`⚠️ _Process running: \`${versions.processVersion}\` (restart needed)_`);
+    }
   }
 
-  // === Agents ===
+  // === AI Agents (--tool options) ===
   const agentLines = [];
-  if (versions.claudeCode) {
-    agentLines.push(`• Claude Code: \`${versions.claudeCode}\``);
-  }
-  if (versions.playwright) {
-    agentLines.push(`• Playwright: \`${versions.playwright}\``);
-  }
-  if (versions.playwrightMcp) {
-    agentLines.push(`• Playwright MCP: \`${versions.playwrightMcp}\``);
-  }
+  addVersionLine(agentLines, 'Claude Code', versions.claudeCode);
+  addVersionLine(agentLines, 'Agent CLI', versions.agent);
+  addVersionLine(agentLines, 'OpenAI Codex', versions.codex);
+  addVersionLine(agentLines, 'OpenCode', versions.opencode);
+  addVersionLine(agentLines, 'Qwen Code', versions.qwenCode);
+  addVersionLine(agentLines, 'Gemini CLI', versions.gemini);
+  addVersionLine(agentLines, 'GitHub Copilot', versions.copilot);
 
   if (agentLines.length > 0) {
     lines.push('');
-    lines.push('*🎭 Agents*');
+    lines.push('*🎭 AI Agents*');
     lines.push(...agentLines);
   }
 
-  // === Language Runtimes ===
-  const runtimeLines = [];
-  if (versions.node) {
-    runtimeLines.push(`• Node.js: \`${versions.node}\``);
-  }
-  if (versions.python) {
-    runtimeLines.push(`• Python: \`${versions.python}\``);
-  }
-  if (versions.rust) {
-    runtimeLines.push(`• Rust: \`${versions.rust}\``);
-  }
-  if (versions.php) {
-    runtimeLines.push(`• PHP: \`${versions.php}\``);
-  }
-  if (versions.bun) {
-    runtimeLines.push(`• Bun: \`${versions.bun}\``);
-  }
-  if (versions.dotnet) {
-    runtimeLines.push(`• .NET: \`${versions.dotnet}\``);
-  }
-  if (versions.deno) {
-    runtimeLines.push(`• Deno: \`${versions.deno}\``);
-  }
-  if (versions.go) {
-    runtimeLines.push(`• Go: \`${versions.go}\``);
-  }
-  if (versions.java) {
-    runtimeLines.push(`• Java: \`${versions.java}\``);
-  }
-  if (versions.lean) {
-    runtimeLines.push(`• Lean: \`${versions.lean}\``);
-  }
-  if (versions.perl) {
-    runtimeLines.push(`• Perl: \`${versions.perl}\``);
-  }
-  if (versions.ocaml) {
-    runtimeLines.push(`• OCaml: \`${versions.ocaml}\``);
-  }
-  if (versions.rocq) {
-    runtimeLines.push(`• Rocq/Coq: \`${versions.rocq}\``);
+  // === JavaScript/Node.js ===
+  const jsLines = [];
+  addVersionLine(jsLines, 'Node.js', versions.node);
+  addVersionLine(jsLines, 'Bun', versions.bun);
+  addVersionLine(jsLines, 'Deno', versions.deno);
+  addVersionLine(jsLines, 'NPM', versions.npm);
+  addVersionLine(jsLines, 'NVM', versions.nvm);
+
+  if (jsLines.length > 0) {
+    lines.push('');
+    lines.push('*📦 JavaScript/Node.js*');
+    lines.push(...jsLines);
   }
 
-  if (runtimeLines.length > 0) {
+  // === Python ===
+  const pythonLines = [];
+  addVersionLine(pythonLines, 'Python', versions.python);
+  addVersionLine(pythonLines, 'Pyenv', versions.pyenv);
+
+  if (pythonLines.length > 0) {
     lines.push('');
-    lines.push('*⚙️ Language Runtimes*');
-    lines.push(...runtimeLines);
+    lines.push('*🐍 Python*');
+    lines.push(...pythonLines);
+  }
+
+  // === Rust ===
+  const rustLines = [];
+  addVersionLine(rustLines, 'Rustc', versions.rust);
+  addVersionLine(rustLines, 'Cargo', versions.cargo);
+
+  if (rustLines.length > 0) {
+    lines.push('');
+    lines.push('*🦀 Rust*');
+    lines.push(...rustLines);
+  }
+
+  // === Java ===
+  const javaLines = [];
+  addVersionLine(javaLines, 'Java', versions.java);
+  addVersionLine(javaLines, 'SDKMAN', versions.sdkman);
+
+  if (javaLines.length > 0) {
+    lines.push('');
+    lines.push('*☕ Java*');
+    lines.push(...javaLines);
+  }
+
+  // === Go ===
+  if (versions.go) {
+    lines.push('');
+    lines.push('*🔷 Go*');
+    addVersionLine(lines, 'Go', versions.go);
+  }
+
+  // === PHP ===
+  if (versions.php) {
+    lines.push('');
+    lines.push('*🐘 PHP*');
+    addVersionLine(lines, 'PHP', versions.php);
+  }
+
+  // === .NET ===
+  if (versions.dotnet) {
+    lines.push('');
+    lines.push('*📦 .NET*');
+    addVersionLine(lines, '.NET SDK', versions.dotnet);
+  }
+
+  // === Perl ===
+  const perlLines = [];
+  addVersionLine(perlLines, 'Perl', versions.perl);
+  addVersionLine(perlLines, 'Perlbrew', versions.perlbrew);
+
+  if (perlLines.length > 0) {
+    lines.push('');
+    lines.push('*💎 Perl*');
+    lines.push(...perlLines);
+  }
+
+  // === OCaml/Rocq ===
+  const ocamlLines = [];
+  addVersionLine(ocamlLines, 'OCaml', versions.ocaml);
+  addVersionLine(ocamlLines, 'Opam', versions.opam);
+  addVersionLine(ocamlLines, 'Rocq/Coq', versions.rocq);
+
+  if (ocamlLines.length > 0) {
+    lines.push('');
+    lines.push('*🐫 OCaml/Rocq*');
+    lines.push(...ocamlLines);
+  }
+
+  // === Lean ===
+  const leanLines = [];
+  addVersionLine(leanLines, 'Lean', versions.lean);
+  addVersionLine(leanLines, 'Elan', versions.elan);
+  addVersionLine(leanLines, 'Lake', versions.lake);
+
+  if (leanLines.length > 0) {
+    lines.push('');
+    lines.push('*📐 Lean*');
+    lines.push(...leanLines);
+  }
+
+  // === C/C++ ===
+  const cppLines = [];
+  addVersionLine(cppLines, 'GCC', versions.gcc);
+  addVersionLine(cppLines, 'G++', versions.gpp);
+  addVersionLine(cppLines, 'Clang', versions.clang);
+  addVersionLine(cppLines, 'LLVM', versions.llvm);
+  addVersionLine(cppLines, 'LLD', versions.lld);
+  addVersionLine(cppLines, 'Make', versions.make);
+  addVersionLine(cppLines, 'CMake', versions.cmake);
+
+  if (cppLines.length > 0) {
+    lines.push('');
+    lines.push('*🔨 C/C++*');
+    lines.push(...cppLines);
   }
 
   // === Development Tools ===
   const toolLines = [];
-  if (versions.git) {
-    toolLines.push(`• Git: \`${versions.git}\``);
-  }
-  if (versions.gh) {
-    toolLines.push(`• GitHub CLI: \`${versions.gh}\``);
-  }
-  if (versions.npm) {
-    toolLines.push(`• NPM: \`${versions.npm}\``);
-  }
-  if (versions.nvm) {
-    toolLines.push(`• NVM: \`${versions.nvm}\``);
-  }
-  if (versions.pyenv) {
-    toolLines.push(`• Pyenv: \`${versions.pyenv}\``);
-  }
-  if (versions.cargo) {
-    toolLines.push(`• Cargo: \`${versions.cargo}\``);
-  }
-  if (versions.brew) {
-    toolLines.push(`• Homebrew: \`${versions.brew}\``);
-  }
-  if (versions.sdkman) {
-    toolLines.push(`• SDKMAN: \`${versions.sdkman}\``);
-  }
-  if (versions.elan) {
-    toolLines.push(`• Elan: \`${versions.elan}\``);
-  }
-  if (versions.lake) {
-    toolLines.push(`• Lake: \`${versions.lake}\``);
-  }
-  if (versions.perlbrew) {
-    toolLines.push(`• Perlbrew: \`${versions.perlbrew}\``);
-  }
-  if (versions.opam) {
-    toolLines.push(`• Opam: \`${versions.opam}\``);
-  }
+  addVersionLine(toolLines, 'Git', versions.git);
+  addVersionLine(toolLines, 'GitHub CLI', versions.gh);
+  addVersionLine(toolLines, 'Playwright', versions.playwright);
+  addVersionLine(toolLines, 'Playwright MCP', versions.playwrightMcp);
+  addVersionLine(toolLines, 'Homebrew', versions.brew);
 
   if (toolLines.length > 0) {
     lines.push('');
     lines.push('*🛠 Development Tools*');
     lines.push(...toolLines);
-  }
-
-  // === C/C++ Development Tools ===
-  const cppToolLines = [];
-  if (versions.make) {
-    cppToolLines.push(`• Make: \`${versions.make}\``);
-  }
-  if (versions.cmake) {
-    cppToolLines.push(`• CMake: \`${versions.cmake}\``);
-  }
-  if (versions.gcc) {
-    cppToolLines.push(`• GCC: \`${versions.gcc}\``);
-  }
-  if (versions.gpp) {
-    cppToolLines.push(`• G++: \`${versions.gpp}\``);
-  }
-  if (versions.clang) {
-    cppToolLines.push(`• Clang: \`${versions.clang}\``);
-  }
-  if (versions.llvm) {
-    cppToolLines.push(`• LLVM: \`${versions.llvm}\``);
-  }
-  if (versions.lld) {
-    cppToolLines.push(`• LLD: \`${versions.lld}\``);
-  }
-
-  if (cppToolLines.length > 0) {
-    lines.push('');
-    lines.push('*🔧 C/C++ Development Tools*');
-    lines.push(...cppToolLines);
   }
 
   // === Platform ===

@@ -43,15 +43,52 @@ const CONFIG = {
 };
 
 /**
+ * Sanitize a string by replacing orphaned UTF-16 surrogate characters with the
+ * Unicode replacement character (U+FFFD).
+ *
+ * Background: Characters outside the Basic Multilingual Plane (e.g. emojis like 🤖
+ * U+1F916) are encoded in UTF-16 as surrogate pairs — a high surrogate (U+D800–U+DBFF)
+ * followed by a low surrogate (U+DC00–U+DFFF). When text is truncated at a code-unit
+ * boundary rather than a code-point boundary, one half of the pair can be left without
+ * its partner, producing invalid Unicode. JavaScript's JSON.stringify() will emit an
+ * unpaired surrogate as-is (e.g. "\ud83e"), and strict JSON parsers — including the
+ * Anthropic API — correctly reject such payloads with a 400 error.
+ *
+ * This function removes both kinds of orphaned surrogates:
+ *   - High surrogate NOT followed by a low surrogate
+ *   - Low surrogate NOT preceded by a high surrogate
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1324
+ * @see https://www.rfc-editor.org/rfc/rfc8259#section-7
+ *
+ * @param {string} text - Input string that may contain orphaned surrogates
+ * @returns {string} String with every orphaned surrogate replaced by U+FFFD
+ */
+const sanitizeUnicode = text => {
+  if (!text || typeof text !== 'string') {
+    return text || '';
+  }
+  // Regex explanation:
+  //   [\uD800-\uDBFF](?![\uDC00-\uDFFF])  — high surrogate not followed by low surrogate
+  //   |
+  //   (?<![\uD800-\uDBFF])[\uDC00-\uDFFF] — low surrogate not preceded by high surrogate
+  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
+};
+
+/**
  * Truncate content in the middle, keeping start and end
  * This helps show context while reducing size for large outputs
+ *
+ * The result is always passed through sanitizeUnicode() so that a truncation
+ * point that falls inside a UTF-16 surrogate pair never produces invalid JSON.
+ * See: https://github.com/link-assistant/hive-mind/issues/1324
  *
  * @param {string} content - Content to potentially truncate
  * @param {Object} options - Truncation options
  * @param {number} [options.maxLines=50] - Maximum lines before truncation
  * @param {number} [options.keepStart=20] - Lines to keep at start
  * @param {number} [options.keepEnd=20] - Lines to keep at end
- * @returns {string} Truncated content with ellipsis indicator
+ * @returns {string} Truncated, Unicode-sanitized content with ellipsis indicator
  */
 const truncateMiddle = (content, options = {}) => {
   const { maxLines = CONFIG.MAX_LINES_BEFORE_TRUNCATION, keepStart = CONFIG.LINES_TO_KEEP_START, keepEnd = CONFIG.LINES_TO_KEEP_END } = options;
@@ -62,22 +99,27 @@ const truncateMiddle = (content, options = {}) => {
 
   const lines = content.split('\n');
   if (lines.length <= maxLines) {
-    return content;
+    return sanitizeUnicode(content);
   }
 
   const startLines = lines.slice(0, keepStart);
   const endLines = lines.slice(-keepEnd);
   const removedCount = lines.length - keepStart - keepEnd;
 
-  return [...startLines, '', `... [${removedCount} lines truncated] ...`, '', ...endLines].join('\n');
+  return sanitizeUnicode([...startLines, '', `... [${removedCount} lines truncated] ...`, '', ...endLines].join('\n'));
 };
 
 /**
- * Safely stringify JSON with depth limit and circular reference handling
+ * Safely stringify JSON with depth limit and circular reference handling.
+ * String values are passed through sanitizeUnicode() so that orphaned UTF-16
+ * surrogates (which can appear after persisted-output truncation) never reach
+ * JSON.stringify() and cause a 400 API error.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1324
  *
  * @param {any} obj - Object to stringify
  * @param {number} [indent=2] - Indentation spaces
- * @returns {string} Formatted JSON string
+ * @returns {string} Formatted JSON string with sanitized Unicode
  */
 const safeJsonStringify = (obj, indent = 2) => {
   const seen = new WeakSet();
@@ -89,6 +131,9 @@ const safeJsonStringify = (obj, indent = 2) => {
           return '[Circular]';
         }
         seen.add(value);
+      }
+      if (typeof value === 'string') {
+        return sanitizeUnicode(value);
       }
       return value;
     },
@@ -954,6 +999,7 @@ export const validateInteractiveModeConfig = async (argv, log) => {
 
 // Export utilities for testing
 export const utils = {
+  sanitizeUnicode,
   truncateMiddle,
   safeJsonStringify,
   createCollapsible,

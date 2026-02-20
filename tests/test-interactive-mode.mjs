@@ -649,6 +649,186 @@ runTest('comment ID extraction with Buffer-like objects', () => {
 });
 
 // ============================================
+// UNICODE SANITIZATION TESTS (Issue #1324)
+// ============================================
+//
+// These tests verify that sanitizeUnicode() and the functions that use it
+// (truncateMiddle, safeJsonStringify) correctly handle orphaned UTF-16
+// surrogate characters. The Anthropic API rejects JSON that contains
+// unpaired surrogates (RFC 8259 §7), so this protection is critical.
+//
+// Background: emojis outside the BMP (e.g. 🤖 U+1F916) are encoded in
+// JavaScript strings as UTF-16 surrogate pairs (\uD83E\uDD16). When content
+// is truncated at a code-unit boundary that falls between the two halves,
+// the orphaned high surrogate (\uD83E) causes a 400 API error.
+
+console.log('\n=== Testing Unicode Sanitization (Issue #1324) ===\n');
+
+runTest('sanitizeUnicode: clean string passes through unchanged', () => {
+  const clean = 'Hello, world!\nLine 2\nLine 3';
+  const result = utils.sanitizeUnicode(clean);
+  if (result !== clean) {
+    throw new Error(`Expected clean string to be unchanged, got: ${JSON.stringify(result)}`);
+  }
+});
+
+runTest('sanitizeUnicode: full emoji surrogate pair is preserved', () => {
+  // 🤖 (U+1F916) = \uD83E\uDD16 — a valid surrogate pair, must NOT be replaced
+  const withEmoji = 'Bot \uD83E\uDD16 deployed successfully';
+  const result = utils.sanitizeUnicode(withEmoji);
+  if (result !== withEmoji) {
+    throw new Error(`Expected full surrogate pair to be preserved, got: ${JSON.stringify(result)}`);
+  }
+});
+
+runTest('sanitizeUnicode: orphaned high surrogate is replaced with U+FFFD', () => {
+  // Simulate the exact bug from issue #1324: \uD83E without its low surrogate \uDD16
+  const orphanedHigh = 'text\uD83Emore';
+  const result = utils.sanitizeUnicode(orphanedHigh);
+  if (!result.includes('\uFFFD')) {
+    throw new Error(`Expected U+FFFD replacement character, got: ${JSON.stringify(result)}`);
+  }
+  if (result.includes('\uD83E')) {
+    throw new Error(`Expected orphaned high surrogate to be removed, got: ${JSON.stringify(result)}`);
+  }
+});
+
+runTest('sanitizeUnicode: orphaned low surrogate is replaced with U+FFFD', () => {
+  // Low surrogate without a preceding high surrogate
+  const orphanedLow = 'text\uDD16more';
+  const result = utils.sanitizeUnicode(orphanedLow);
+  if (!result.includes('\uFFFD')) {
+    throw new Error(`Expected U+FFFD replacement character, got: ${JSON.stringify(result)}`);
+  }
+  if (result.includes('\uDD16')) {
+    throw new Error(`Expected orphaned low surrogate to be removed, got: ${JSON.stringify(result)}`);
+  }
+});
+
+runTest('sanitizeUnicode: reproduces and fixes exact bug from issue #1324', () => {
+  // This is the actual content from the log file that caused the 400 API error:
+  // The emoji 🤖 was truncated, leaving only the high surrogate \uD83E
+  const buggyContent = 'All changes have been merged to the main branch.\n\n---\n\uD83E\n...';
+  const sanitized = utils.sanitizeUnicode(buggyContent);
+
+  // After sanitization, JSON.stringify must produce output the Anthropic API accepts
+  // (i.e., no orphaned surrogates)
+  const jsonString = JSON.stringify({ content: sanitized });
+
+  // Verify no orphaned high surrogate (\uD83E not followed by \uDC00-\uDFFF)
+  // In JSON the orphaned surrogate appears as \ud83e
+  if (jsonString.includes('\\ud83e') && !jsonString.includes('\\ud83e\\u')) {
+    throw new Error(`JSON still contains orphaned surrogate: ${jsonString.substring(0, 200)}`);
+  }
+
+  // Verify the fix marker (replacement character or removal)
+  if (sanitized.includes('\uD83E')) {
+    throw new Error('Sanitized content still contains the orphaned high surrogate');
+  }
+});
+
+runTest('sanitizeUnicode: multiple orphaned surrogates in one string', () => {
+  // Two separate orphaned high surrogates in one string
+  const text = 'a\uD83Eb\uD83Fc';
+  const result = utils.sanitizeUnicode(text);
+  if (result.includes('\uD83E') || result.includes('\uD83F')) {
+    throw new Error(`Expected all orphaned surrogates replaced, got: ${JSON.stringify(result)}`);
+  }
+  // Should have two replacement characters
+  const replacements = [...result].filter(c => c === '\uFFFD').length;
+  if (replacements !== 2) {
+    throw new Error(`Expected 2 replacement characters, got ${replacements} in: ${JSON.stringify(result)}`);
+  }
+});
+
+runTest('sanitizeUnicode: null input returns empty string', () => {
+  if (utils.sanitizeUnicode(null) !== '') {
+    throw new Error('Expected empty string for null');
+  }
+});
+
+runTest('sanitizeUnicode: undefined input returns empty string', () => {
+  if (utils.sanitizeUnicode(undefined) !== '') {
+    throw new Error('Expected empty string for undefined');
+  }
+});
+
+runTest('sanitizeUnicode: empty string returns empty string', () => {
+  if (utils.sanitizeUnicode('') !== '') {
+    throw new Error('Expected empty string for empty input');
+  }
+});
+
+runTest('truncateMiddle: sanitizes content even when no truncation needed', () => {
+  // Content below truncation threshold must still be sanitized
+  const contentWithOrphan = 'Line with orphan: \uD83E end';
+  const result = utils.truncateMiddle(contentWithOrphan, { maxLines: 100 });
+  if (result.includes('\uD83E')) {
+    throw new Error('Expected orphaned surrogate to be sanitized even in short content');
+  }
+  if (!result.includes('\uFFFD')) {
+    throw new Error('Expected replacement character in sanitized short content');
+  }
+});
+
+runTest('truncateMiddle: sanitizes content after truncation', () => {
+  // Content that spans truncation boundary and contains surrogate pair
+  // The high surrogate lands in the kept section, low surrogate is in truncated middle
+  const lines = [];
+  for (let i = 0; i < 100; i++) {
+    if (i === 19) {
+      // This line's last character will be an orphaned high surrogate after assembly
+      lines.push('Last kept line ending with orphan: \uD83E');
+    } else {
+      lines.push(`Line ${i}: some content here`);
+    }
+  }
+  const content = lines.join('\n');
+  const result = utils.truncateMiddle(content, { maxLines: 50, keepStart: 20, keepEnd: 20 });
+
+  // Must not contain any orphaned surrogates
+  if (result.includes('\uD83E')) {
+    throw new Error('Expected orphaned surrogate to be removed after truncation');
+  }
+});
+
+runTest('safeJsonStringify: sanitizes string values before serialization', () => {
+  // This is the safety net: even if sanitizeUnicode was not called on input,
+  // safeJsonStringify will sanitize strings in the replacer
+  const obj = {
+    message: 'content with orphan: \uD83E end',
+    nested: { text: 'another \uD83F orphan' },
+  };
+  const json = utils.safeJsonStringify(obj);
+
+  // The resulting JSON string must not contain orphaned surrogates
+  if (json.includes('\\ud83e') || json.includes('\\ud83f')) {
+    throw new Error(`safeJsonStringify JSON still contains orphaned surrogate: ${json}`);
+  }
+  // Must be parseable
+  const parsed = JSON.parse(json);
+  if (!parsed.message.includes('\uFFFD')) {
+    throw new Error('Expected replacement character in parsed message');
+  }
+});
+
+runTest('safeJsonStringify: normal strings are not corrupted', () => {
+  const obj = { name: 'Alice', emoji: '🤖', value: 42 };
+  const json = utils.safeJsonStringify(obj);
+  const parsed = JSON.parse(json);
+  if (parsed.name !== 'Alice') {
+    throw new Error('Expected name to be preserved');
+  }
+  if (parsed.value !== 42) {
+    throw new Error('Expected value to be preserved');
+  }
+  // Full emoji should survive because it is a valid surrogate pair
+  if (parsed.emoji !== '🤖') {
+    throw new Error(`Expected emoji to be preserved, got: ${parsed.emoji}`);
+  }
+});
+
+// ============================================
 // CONFIG CONSTANT TESTS
 // ============================================
 

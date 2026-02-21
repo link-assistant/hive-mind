@@ -504,6 +504,11 @@ jobs:
         echo "Running test suite for usage limit detection and parsing..."
         node tests/test-usage-limit.mjs
 
+    - name: Run stderr warning detection test (Issue #1337)
+      run: |
+        echo "Running test suite for stderr warning detection (isStderrError)..."
+        node tests/test-issue-1337-stderr-warning-detection.mjs
+
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest

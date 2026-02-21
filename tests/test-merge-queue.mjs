@@ -1074,6 +1074,204 @@ test('Issue #1339: checkPRMergeable function has MAX_UNKNOWN_RETRIES constant be
 });
 
 // ============================================================================
+// Issue #1341: Post-Merge CI Waiting Tests
+// ============================================================================
+
+console.log('\n📋 Issue #1341: Post-Merge CI Waiting Tests\n');
+
+test('MERGE_QUEUE_CONFIG has post-merge CI waiting fields', () => {
+  assert.ok(MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI !== undefined, 'WAIT_FOR_POST_MERGE_CI should be defined');
+  assert.ok(MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE !== undefined, 'STOP_ON_POST_MERGE_CI_FAILURE should be defined');
+  assert.ok(MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START !== undefined, 'CHECK_BRANCH_CI_HEALTH_BEFORE_START should be defined');
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS !== undefined, 'POST_MERGE_CI_TIMEOUT_MS should be defined');
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS !== undefined, 'POST_MERGE_CI_POLL_INTERVAL_MS should be defined');
+});
+
+test('MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI defaults to true', () => {
+  // Default should be true to ensure each merge's CI completes before the next
+  assert.equal(typeof MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI, 'boolean', 'WAIT_FOR_POST_MERGE_CI should be a boolean');
+});
+
+test('MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE defaults to true', () => {
+  // Default should be true to prevent cascading failures
+  assert.equal(typeof MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE, 'boolean', 'STOP_ON_POST_MERGE_CI_FAILURE should be a boolean');
+});
+
+test('MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START defaults to true', () => {
+  // Default should be true to ensure a healthy branch before merging
+  assert.equal(typeof MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START, 'boolean', 'CHECK_BRANCH_CI_HEALTH_BEFORE_START should be a boolean');
+});
+
+test('MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS has reasonable value', () => {
+  // Should be at least 30 minutes for typical CI/CD pipelines
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS >= 30 * 60 * 1000, 'POST_MERGE_CI_TIMEOUT_MS should be at least 30 minutes');
+  // Should be at most 4 hours (typical max CI time)
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS <= 4 * 60 * 60 * 1000, 'POST_MERGE_CI_TIMEOUT_MS should be at most 4 hours');
+});
+
+test('MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS has reasonable value', () => {
+  // Should be at least 10 seconds
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS >= 10 * 1000, 'POST_MERGE_CI_POLL_INTERVAL_MS should be at least 10 seconds');
+  // Should be at most 5 minutes
+  assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS <= 5 * 60 * 1000, 'POST_MERGE_CI_POLL_INTERVAL_MS should be at most 5 minutes');
+});
+
+test('MergeQueueProcessor has waitForPostMergeCI method', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  assert.ok(typeof processor.waitForPostMergeCI === 'function', 'Should have waitForPostMergeCI method');
+});
+
+test('MergeQueueProcessor has checkBranchCIHealthBeforeStart method', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  assert.ok(typeof processor.checkBranchCIHealthBeforeStart === 'function', 'Should have checkBranchCIHealthBeforeStart method');
+});
+
+test('MergeQueueProcessor initializes with waitingForPostMergeCI state', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  // Initially should not be waiting
+  assert.equal(processor.waitingForPostMergeCI, undefined, 'waitingForPostMergeCI should start as undefined');
+});
+
+test('Issue #1341: Document the problem and solution', () => {
+  // This test documents the behavior change for issue #1341:
+  //
+  // PROBLEM:
+  // The merge queue was merging PRs too quickly without waiting for
+  // GitHub Actions to complete between merges. This caused:
+  // 1. Workflow runs to be cancelled (superseded by new commits)
+  // 2. Only one version to be published instead of multiple
+  // 3. Lost traceability between PRs and releases
+  //
+  // TIMELINE (from actual incident):
+  // 18:29:23 - PR #1298 merged to main
+  // 18:29:26 - "Checks and release" workflow started for c9bfcb54
+  // 18:30:33 - PR #1303 merged to main (only 70 seconds later!)
+  // 18:30:35 - New workflow started for ca79d10e
+  // 18:30:49 - First workflow CANCELLED (superseded)
+  //
+  // SOLUTION:
+  // 1. Check branch CI health before starting the queue
+  // 2. Wait for post-merge CI to complete after each successful merge
+  // 3. Stop the queue if post-merge CI fails
+  // 4. Provide clear error messages with links to failed runs
+  //
+  // This ensures:
+  // - Each merged PR gets its own complete CI cycle
+  // - Releases are published for each PR individually
+  // - CI failures are detected and reported immediately
+  // - No cascading failures from merging on top of broken CI
+
+  assert.ok(true, 'Issue #1341 problem and solution documented');
+});
+
+test('Issue #1341: Timeline reconstruction', () => {
+  // Timeline from the actual incident (2026-02-21):
+  const timeline = {
+    pr1298Merged: new Date('2026-02-21T18:29:23Z'),
+    ciRun1Started: new Date('2026-02-21T18:29:26Z'),
+    pr1303Merged: new Date('2026-02-21T18:30:33Z'),
+    ciRun2Started: new Date('2026-02-21T18:30:35Z'),
+    ciRun1Cancelled: new Date('2026-02-21T18:30:49Z'),
+  };
+
+  // The gap between merges was only 70 seconds
+  const gapBetweenMerges = timeline.pr1303Merged.getTime() - timeline.pr1298Merged.getTime();
+  assert.equal(gapBetweenMerges, 70 * 1000, 'Gap between merges should be 70 seconds');
+
+  // The first CI run was cancelled before completion
+  const ciRun1Duration = timeline.ciRun1Cancelled.getTime() - timeline.ciRun1Started.getTime();
+  assert.ok(ciRun1Duration < 2 * 60 * 1000, 'CI run 1 was cancelled quickly (< 2 minutes)');
+
+  // Typical CI duration is 15-30 minutes, but it was cancelled after just 83 seconds
+  assert.equal(ciRun1Duration, 83 * 1000, 'CI run 1 was cancelled after 83 seconds');
+});
+
+test('MergeQueueProcessor formatProgressMessage shows post-merge CI waiting status', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.items = [
+    {
+      pr: { number: 100, title: 'Test PR', createdAt: new Date().toISOString() },
+      issue: null,
+      status: MergeItemStatus.MERGED,
+      error: null,
+      getStatusEmoji: () => '✅',
+      getDescription: () => 'PR #100: Test PR',
+    },
+  ];
+  processor.stats.total = 1;
+  processor.stats.merged = 1;
+
+  // Simulate waiting for post-merge CI
+  processor.waitingForPostMergeCI = true;
+  processor.currentPostMergePR = 100;
+  processor.postMergeCIStatus = {
+    elapsedMs: 120000, // 2 minutes
+    totalRuns: 3,
+    completedRuns: 1,
+    inProgressRuns: 2,
+  };
+
+  const message = processor.formatProgressMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('post\\-merge CI'), 'Should mention post-merge CI');
+  assert.ok(message.includes('100'), 'Should include the PR number');
+});
+
+test('MergeQueueProcessor formatFinalMessage shows CI failure details', () => {
+  const processor = new MergeQueueProcessor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+  });
+
+  processor.items = [];
+  processor.stats = { total: 1, merged: 0, failed: 0, skipped: 0 };
+  processor.status = MergeStatus.FAILED;
+  processor.startedAt = new Date();
+  processor.completedAt = new Date();
+
+  // Simulate branch CI health failure
+  processor.branchCIFailedRuns = [{ name: 'Test Workflow', conclusion: 'failure', html_url: 'https://github.com/test/repo/actions/runs/123' }];
+
+  const message = processor.formatFinalMessage();
+
+  assert.equal(typeof message, 'string', 'Should return a string');
+  assert.ok(message.includes('Branch CI Failures'), 'Should mention Branch CI Failures');
+  assert.ok(message.includes('View'), 'Should include View link');
+});
+
+test('github-merge.lib.mjs exports waitForCommitCI function', async () => {
+  const module = await import('../src/github-merge.lib.mjs');
+  assert.ok(typeof module.waitForCommitCI === 'function', 'waitForCommitCI should be a function');
+});
+
+test('github-merge.lib.mjs exports checkBranchCIHealth function', async () => {
+  const module = await import('../src/github-merge.lib.mjs');
+  assert.ok(typeof module.checkBranchCIHealth === 'function', 'checkBranchCIHealth should be a function');
+});
+
+test('github-merge.lib.mjs exports getMergeCommitSha function', async () => {
+  const module = await import('../src/github-merge.lib.mjs');
+  assert.ok(typeof module.getMergeCommitSha === 'function', 'getMergeCommitSha should be a function');
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

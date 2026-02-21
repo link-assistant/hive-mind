@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -79,6 +79,13 @@ export const MERGE_QUEUE_CONFIG = {
   WAIT_FOR_TARGET_BRANCH_CI: mergeQueueConfig.waitForTargetBranchCI,
   TARGET_BRANCH_CI_TIMEOUT_MS: mergeQueueConfig.targetBranchCITimeoutMs,
   TARGET_BRANCH_CI_POLL_INTERVAL_MS: mergeQueueConfig.targetBranchCIPollIntervalMs,
+
+  // Issue #1341: Wait for post-merge CI to complete before merging next PR
+  WAIT_FOR_POST_MERGE_CI: mergeQueueConfig.waitForPostMergeCI,
+  STOP_ON_POST_MERGE_CI_FAILURE: mergeQueueConfig.stopOnPostMergeCIFailure,
+  CHECK_BRANCH_CI_HEALTH_BEFORE_START: mergeQueueConfig.checkBranchCIHealthBeforeStart,
+  POST_MERGE_CI_TIMEOUT_MS: mergeQueueConfig.postMergeCITimeoutMs,
+  POST_MERGE_CI_POLL_INTERVAL_MS: mergeQueueConfig.postMergeCIPollIntervalMs,
 };
 
 /**
@@ -94,6 +101,8 @@ class MergeQueueItem {
     this.ciStatus = null;
     this.startedAt = null;
     this.completedAt = null;
+    // Issue #1341: Track merge commit SHA for post-merge CI waiting
+    this.mergeCommitSha = null;
   }
 
   /**
@@ -234,6 +243,29 @@ export class MergeQueueProcessor {
     this.isCancelled = false;
 
     try {
+      // Issue #1341: Check if the default branch has any failed CI runs before starting
+      // This prevents merging on top of a broken branch
+      if (MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START) {
+        const healthCheckResult = await this.checkBranchCIHealthBeforeStart();
+        if (!healthCheckResult.healthy) {
+          this.status = MergeStatus.FAILED;
+          this.error = healthCheckResult.error;
+          this.completedAt = new Date();
+          // Store the failed runs for the error report
+          this.branchCIFailedRuns = healthCheckResult.failedRuns;
+
+          if (this.onError) {
+            await this.onError(new Error(healthCheckResult.error));
+          }
+
+          return {
+            success: false,
+            stats: this.stats,
+            error: healthCheckResult.error,
+          };
+        }
+      }
+
       // Issue #1307: Wait for any active CI runs on the target branch before processing
       // This prevents merging while post-merge CI from previous merges is still running
       if (MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI) {
@@ -255,10 +287,35 @@ export class MergeQueueProcessor {
           await this.onProgress(this.getProgressUpdate());
         }
 
-        // If merged, wait before processing next PR to allow CI to stabilize
+        // Issue #1341: If merged successfully, wait for post-merge CI to complete
+        // This ensures each PR's CI completes (including releases) before merging the next
         if (item.status === MergeItemStatus.MERGED && this.currentIndex < this.items.length - 1) {
-          this.log(`Waiting ${MERGE_QUEUE_CONFIG.POST_MERGE_WAIT_MS / 1000}s before next PR...`);
-          await this.sleep(MERGE_QUEUE_CONFIG.POST_MERGE_WAIT_MS);
+          if (MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI && item.mergeCommitSha) {
+            const postMergeCIResult = await this.waitForPostMergeCI(item);
+
+            // Issue #1341: Stop the queue if post-merge CI failed
+            if (!postMergeCIResult.success && MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE) {
+              this.status = MergeStatus.FAILED;
+              this.error = postMergeCIResult.error;
+              this.completedAt = new Date();
+              // Store the failed runs for the error report
+              this.postMergeCIFailedRuns = postMergeCIResult.failedRuns;
+
+              if (this.onError) {
+                await this.onError(new Error(postMergeCIResult.error));
+              }
+
+              return {
+                success: false,
+                stats: this.stats,
+                error: postMergeCIResult.error,
+              };
+            }
+          } else {
+            // Fallback: short wait before processing next PR
+            this.log(`Waiting ${MERGE_QUEUE_CONFIG.POST_MERGE_WAIT_MS / 1000}s before next PR...`);
+            await this.sleep(MERGE_QUEUE_CONFIG.POST_MERGE_WAIT_MS);
+          }
         }
       }
 
@@ -372,6 +429,17 @@ export class MergeQueueProcessor {
       item.completedAt = new Date();
       this.stats.merged++;
       this.log(`Successfully merged PR #${item.pr.number}`);
+
+      // Issue #1341: Get the merge commit SHA for post-merge CI tracking
+      // Need a small delay to allow GitHub to update the PR state
+      await this.sleep(5000);
+      const mergeCommitResult = await getMergeCommitSha(this.owner, this.repo, item.pr.number, this.verbose);
+      if (mergeCommitResult.sha) {
+        item.mergeCommitSha = mergeCommitResult.sha;
+        this.log(`PR #${item.pr.number} merge commit: ${mergeCommitResult.sha.substring(0, 7)}`);
+      } else {
+        this.log(`Could not get merge commit SHA for PR #${item.pr.number}: ${mergeCommitResult.error}`);
+      }
     } catch (error) {
       item.status = MergeItemStatus.FAILED;
       item.error = error.message;
@@ -439,6 +507,105 @@ export class MergeQueueProcessor {
     } finally {
       this.waitingForTargetBranchCI = false;
       this.targetBranchCIStatus = null;
+    }
+  }
+
+  /**
+   * Check if the default branch has any failed CI runs before starting the queue
+   * Issue #1341: Prevents merging on top of a broken branch
+   * @returns {Promise<{healthy: boolean, failedRuns: Array, error: string|null}>}
+   */
+  async checkBranchCIHealthBeforeStart() {
+    try {
+      const targetBranch = await getDefaultBranch(this.owner, this.repo, this.verbose);
+      this.log(`Checking CI health on ${targetBranch} branch before starting queue...`);
+
+      const healthResult = await checkBranchCIHealth(this.owner, this.repo, targetBranch, {}, this.verbose);
+
+      if (!healthResult.healthy) {
+        this.log(`Branch ${targetBranch} has ${healthResult.failedRuns.length} failed CI run(s)`);
+        return {
+          healthy: false,
+          failedRuns: healthResult.failedRuns,
+          error: `Cannot start merge queue: ${healthResult.error}. Please fix the CI failures first.`,
+        };
+      }
+
+      this.log(`Branch ${targetBranch} CI is healthy. Ready to proceed.`);
+      return {
+        healthy: true,
+        failedRuns: [],
+        error: null,
+      };
+    } catch (error) {
+      // On error, assume healthy to avoid blocking merges due to API issues
+      console.warn(`[WARN] /merge-queue: Error checking branch CI health: ${error.message}. Proceeding anyway.`);
+      return {
+        healthy: true,
+        failedRuns: [],
+        error: null,
+      };
+    }
+  }
+
+  /**
+   * Wait for post-merge CI to complete for a merged PR
+   * Issue #1341: Ensures each PR's CI completes (including releases) before merging the next
+   * @param {MergeQueueItem} item - The merged PR item
+   * @returns {Promise<{success: boolean, failedRuns: Array, error: string|null}>}
+   */
+  async waitForPostMergeCI(item) {
+    if (!item.mergeCommitSha) {
+      this.log(`No merge commit SHA available for PR #${item.pr.number}, skipping post-merge CI wait`);
+      return { success: true, failedRuns: [], error: null };
+    }
+
+    // Track that we're waiting for post-merge CI (for progress updates)
+    this.waitingForPostMergeCI = true;
+    this.postMergeCIStatus = null;
+    this.currentPostMergePR = item.pr.number;
+
+    try {
+      this.log(`Waiting for post-merge CI on commit ${item.mergeCommitSha.substring(0, 7)} (PR #${item.pr.number})...`);
+
+      const waitResult = await waitForCommitCI(
+        this.owner,
+        this.repo,
+        item.mergeCommitSha,
+        {
+          timeout: MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS,
+          pollInterval: MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS,
+          onStatusUpdate: async status => {
+            this.postMergeCIStatus = status;
+
+            // Report progress while waiting
+            if (this.onProgress) {
+              await this.onProgress(this.getProgressUpdate());
+            }
+          },
+        },
+        this.verbose
+      );
+
+      if (waitResult.success) {
+        if (waitResult.status === 'no_runs') {
+          this.log(`No CI runs found for merge commit ${item.mergeCommitSha.substring(0, 7)}. Proceeding.`);
+        } else {
+          this.log(`Post-merge CI completed successfully for PR #${item.pr.number}`);
+        }
+        return { success: true, failedRuns: [], error: null };
+      } else {
+        this.log(`Post-merge CI failed for PR #${item.pr.number}: ${waitResult.error}`);
+        return {
+          success: false,
+          failedRuns: waitResult.failedRuns || [],
+          error: waitResult.error,
+        };
+      }
+    } finally {
+      this.waitingForPostMergeCI = false;
+      this.postMergeCIStatus = null;
+      this.currentPostMergePR = null;
     }
   }
 
@@ -525,8 +692,21 @@ export class MergeQueueProcessor {
       message += `⏱️ Checking for active CI runs on target branch\\.\\.\\.\n\n`;
     }
 
+    // Issue #1341: Show waiting status for post-merge CI
+    if (this.waitingForPostMergeCI && this.postMergeCIStatus) {
+      const elapsedSec = Math.round(this.postMergeCIStatus.elapsedMs / 1000);
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const elapsedSecRemainder = elapsedSec % 60;
+      const completed = this.postMergeCIStatus.completedRuns || 0;
+      const total = this.postMergeCIStatus.totalRuns || 0;
+      const inProgress = total - completed;
+      message += `⏱️ Waiting for post\\-merge CI \\(PR \\#${this.currentPostMergePR}\\): ${inProgress} in progress, ${completed}/${total} completed \\(${elapsedMin}m ${elapsedSecRemainder}s\\)\\.\\.\\.\n\n`;
+    } else if (this.waitingForPostMergeCI) {
+      message += `⏱️ Waiting for post\\-merge CI \\(PR \\#${this.currentPostMergePR}\\)\\.\\.\\.\n\n`;
+    }
+
     // Current item being processed
-    if (update.current && !this.waitingForTargetBranchCI) {
+    if (update.current && !this.waitingForTargetBranchCI && !this.waitingForPostMergeCI) {
       const statusEmoji = update.currentStatus === MergeItemStatus.WAITING_CI ? '⏱️' : '🔄';
       // Issue #1339: escape the current item description for MarkdownV2
       message += `${statusEmoji} ${this.escapeMarkdown(update.current)}\n\n`;
@@ -608,6 +788,36 @@ export class MergeQueueProcessor {
     message += `❌ Failed: ${report.stats.failed}  `;
     message += `⏭️ Skipped: ${report.stats.skipped}  `;
     message += `📋 Total: ${report.stats.total}\n\n`;
+
+    // Issue #1341: Show branch CI health failure details if applicable
+    if (this.branchCIFailedRuns && this.branchCIFailedRuns.length > 0) {
+      message += `⚠️ *Branch CI Failures \\(blocked queue\\):*\n`;
+      for (const run of this.branchCIFailedRuns.slice(0, 3)) {
+        const runName = this.escapeMarkdown(run.name);
+        // Format the URL for MarkdownV2 - need to escape special characters
+        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        message += `  ❌ ${runName} ${runUrl}\n`;
+      }
+      if (this.branchCIFailedRuns.length > 3) {
+        message += `  _\\.\\.\\.and ${this.branchCIFailedRuns.length - 3} more_\n`;
+      }
+      message += '\n';
+    }
+
+    // Issue #1341: Show post-merge CI failure details if applicable
+    if (this.postMergeCIFailedRuns && this.postMergeCIFailedRuns.length > 0) {
+      message += `⚠️ *Post\\-Merge CI Failures \\(stopped queue\\):*\n`;
+      for (const run of this.postMergeCIFailedRuns.slice(0, 3)) {
+        const runName = this.escapeMarkdown(run.name);
+        // Format the URL for MarkdownV2 - need to escape special characters
+        const runUrl = run.html_url ? `[View](${run.html_url.replace(/[)]/g, '\\)')})` : '';
+        message += `  ❌ ${runName} ${runUrl}\n`;
+      }
+      if (this.postMergeCIFailedRuns.length > 3) {
+        message += `  _\\.\\.\\.and ${this.postMergeCIFailedRuns.length - 3} more_\n`;
+      }
+      message += '\n';
+    }
 
     // Details
     if (report.items.length > 0) {

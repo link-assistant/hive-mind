@@ -1204,11 +1204,11 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
  * @param {string} repo - Repository name
  * @param {string} sha - Commit SHA
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string}>>}
+ * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string, html_url: string}>>}
  */
 export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, status: .status, conclusion: .conclusion, name: .name}]'`);
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, status: .status, conclusion: .conclusion, name: .name, html_url: .html_url}]'`);
     const runs = JSON.parse(stdout.trim() || '[]');
 
     if (verbose) {
@@ -1226,6 +1226,11 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
     return [];
   }
 }
+
+// Issue #1341: Import and re-export post-merge CI functions from separate module
+// to keep this file under the 1500 line limit
+import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
+export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
 export default {
   READY_LABEL,
@@ -1256,4 +1261,8 @@ export default {
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
+  // Issue #1341: Post-merge CI waiting and branch health checking
+  waitForCommitCI,
+  checkBranchCIHealth,
+  getMergeCommitSha,
 };

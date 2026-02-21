@@ -665,6 +665,13 @@ export const executeAgentCommand = async params => {
               if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
                 agentCompletedSuccessfully = true;
               }
+              // Issue #1296: Detect step_finish with reason "stop" as successful completion
+              // This is a clear marker of success - agent finished normally, not due to error or limit
+              // When this event appears, we should ignore any error events that appeared earlier in the stream
+              // (e.g., timeout errors that were recovered from via retry logic)
+              if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+                agentCompletedSuccessfully = true;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -725,6 +732,11 @@ export const executeAgentCommand = async params => {
                 // Issue #1276: Detect successful completion events (stderr)
                 // When agent emits session.idle or log with "exiting loop" message, it completed successfully
                 if (stderrData.type === 'session.idle' || (stderrData.type === 'log' && stderrData.message === 'exiting loop')) {
+                  agentCompletedSuccessfully = true;
+                }
+                // Issue #1296: Detect step_finish with reason "stop" as successful completion (stderr)
+                // This is a clear marker of success - agent finished normally, not due to error or limit
+                if (stderrData.type === 'step_finish' && stderrData.part?.reason === 'stop') {
                   agentCompletedSuccessfully = true;
                 }
               } catch {

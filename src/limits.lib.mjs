@@ -762,11 +762,17 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += '\n';
   }
 
+  // Claude limits section
+  // When there's an error (e.g., auth expired), show it once here instead of repeating in each subsection
+  if (claudeError) {
+    message += `Claude limits\n${claudeError}\n\n`;
+  }
+
   // Claude 5 hour session (five_hour)
   // Threshold: One-at-a-time mode when usage >= 65%
   message += 'Claude 5 hour session\n';
   if (claudeError) {
-    message += `${claudeError}\n`;
+    // Error already shown above; skip subsection content
   } else if (usage && usage.currentSession.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
@@ -800,7 +806,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Threshold: One-at-a-time mode when usage >= 97%
   message += 'Current week (all models)\n';
   if (claudeError) {
-    message += `${claudeError}\n`;
+    // Error already shown above; skip subsection content
   } else if (usage && usage.allModels.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
@@ -834,7 +840,7 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
   message += 'Current week (Sonnet only)\n';
   if (claudeError) {
-    message += `${claudeError}\n`;
+    // Error already shown above; skip subsection content
   } else if (usage && usage.sonnetOnly.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);

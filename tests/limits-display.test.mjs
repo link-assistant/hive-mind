@@ -504,18 +504,23 @@ test('formatUsageMessage shows threshold markers in progress bars', () => {
 
 console.log('\n📋 Claude Error Display Tests (Issue #1343)\n');
 
-test('formatUsageMessage with claudeError shows error in Claude sections', () => {
+test('formatUsageMessage with claudeError shows error once in Claude limits section', () => {
   const errorMessage = 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.';
 
   const message = formatUsageMessage(null, null, null, null, null, errorMessage);
 
-  // Should include all three Claude section headers
+  // Should include "Claude limits" header with the error
+  assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
+
+  // Should include all three subsection headers
   assert.ok(message.includes('Claude 5 hour session'), 'Should include 5 hour session header');
   assert.ok(message.includes('Current week (all models)'), 'Should include all models header');
   assert.ok(message.includes('Current week (Sonnet only)'), 'Should include Sonnet only header');
 
-  // Should show the error message in the Claude sections (backtick-stripped for code block)
+  // Should show the error message exactly once (backtick-stripped for code block)
   assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error message');
+  const errorOccurrences = message.split('Claude authentication expired').length - 1;
+  assert.equal(errorOccurrences, 1, 'Error message should appear exactly once, not repeated in each subsection');
 
   // Should NOT show N/A when error is provided
   assert.ok(!message.includes('N/A'), 'Should NOT show N/A when error is provided');

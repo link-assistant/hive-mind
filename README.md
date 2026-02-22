@@ -187,6 +187,44 @@ docker attach hive-mind
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
+#### Stoping and removing docker container
+
+```
+# Attach to main docker process to stop the container
+docker attach hive-mind
+
+^C # stop the telegram bot
+
+exit # exit/stop the container
+
+docker ps -a # show list of docker containers
+# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
+# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
+
+
+df -h # check disk space
+# Filesystem      Size  Used Avail Use% Mounted on
+# tmpfs           1.2G  1.1M  1.2G   1% /run
+# /dev/sda1        96G   87G  9.8G  90% /
+# tmpfs           5.9G     0  5.9G   0% /dev/shm
+# tmpfs           5.0M     0  5.0M   0% /run/lock
+# /dev/sda16      881M  117M  703M  15% /boot
+# /dev/sda15      105M  6.2M   99M   6% /boot/efi
+# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+
+docker rm hive-mind # remove docker container frees space used by the container, does not delete image
+
+df -h # check disk space (to confirm space is freed)
+# Filesystem      Size  Used Avail Use% Mounted on
+# tmpfs           1.2G  1.1M  1.2G   1% /run
+# /dev/sda1        96G   26G   71G  27% /
+# tmpfs           5.9G     0  5.9G   0% /dev/shm
+# tmpfs           5.0M     0  5.0M   0% /run/lock
+# /dev/sda16      881M  117M  703M  15% /boot
+# /dev/sda15      105M  6.2M   99M   6% /boot/efi
+# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+```
+
 ### Helm Installation (Kubernetes)
 
 Deploy Hive Mind on Kubernetes using Helm:

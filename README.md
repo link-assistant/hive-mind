@@ -164,12 +164,29 @@ gh-setup-git-identity
 # Authenticate with Claude
 claude
 
+# Optionally set configuration like this:
+# Use /config command and set:
+# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
+# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# Model                                     haiku # chepear for connection testing manually
+# Claude in Chrome enabled by default       false # No need for Chrome support on server
+
+# Optionally test Claude connection
+claude -p hi --model haiku
+
+# You might need to update hive-mind and agent to latest versions:
+bun install -g @link-assistant/hive-mind
+bun install -g @link-assistant/agent
+
 # Now you can use hive and solve commands
 solve https://github.com/owner/repo/issues/123
 
 # Or you can run telegram bot:
 
-# Run an to main process
+# Exit from additional bash session
+exit
+
+# Attach to main bash process
 docker attach hive-mind
 
 # Run bot here

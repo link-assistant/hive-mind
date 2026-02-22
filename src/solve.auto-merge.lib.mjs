@@ -44,6 +44,37 @@ const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError } = restartShared;
 
 /**
+ * Issue #1323: Check if a comment with specific content already exists on the PR
+ * This prevents duplicate status comments when multiple processes or restarts occur
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} commentSignature - Unique signature to search for in comment body (e.g., "✅ Ready to merge")
+ * @param {boolean} verbose - Enable verbose logging
+ * @returns {Promise<boolean>} - True if a matching comment already exists
+ */
+const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false) => {
+  try {
+    // Fetch recent PR comments (last 20 to avoid fetching entire history)
+    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '.[].body' 2>/dev/null`;
+    if (result.code === 0 && result.stdout) {
+      const bodies = result.stdout.toString();
+      const hasMatch = bodies.includes(commentSignature);
+      if (verbose && hasMatch) {
+        console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}"`);
+      }
+      return hasMatch;
+    }
+  } catch (error) {
+    // If check fails, allow posting to avoid silent failures
+    if (verbose) {
+      console.log(`[VERBOSE] Failed to check for existing comment: ${error.message}`);
+    }
+  }
+  return false;
+};
+
+/**
  * Check for new comments from non-bot users since last commit
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
@@ -258,6 +289,11 @@ export const watchUntilMergeable = async params => {
   let latestSessionId = null;
   let latestAnthropicCost = null;
 
+  // Issue #1323: Track actual restart count separately from check cycle iteration
+  // `iteration` counts check cycles (how many times we check for blockers)
+  // `restartCount` counts actual AI tool executions (when we actually restart the AI)
+  let restartCount = 0;
+
   // Track consecutive API errors for retry limit
   const MAX_API_ERROR_RETRIES = 3;
   let consecutiveApiErrors = 0;
@@ -350,10 +386,17 @@ export const watchUntilMergeable = async params => {
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
           await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
-          // Post success comment
+          // Issue #1323: Post success comment only if one doesn't already exist
+          // This prevents duplicate comments when multiple processes reach this point
           try {
-            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
-            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            const readyToMergeSignature = '## ✅ Ready to merge';
+            const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
+            if (!hasExistingComment) {
+              const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            } else {
+              await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+            }
           } catch {
             // Don't fail if comment posting fails
           }
@@ -524,10 +567,14 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       }
 
       if (shouldRestart) {
+        // Issue #1323: Increment restart count (actual AI executions, not check cycles)
+        restartCount++;
+
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
+        await log(formatAligned('', 'Restart iteration:', `${restartCount}`, 2));
         await log('');
 
         // Post a comment to PR about the restart
@@ -607,7 +654,8 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             try {
               const logFile = getLogFile();
               if (logFile) {
-                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${iteration})`;
+                // Issue #1323: Use restartCount (actual AI executions) instead of iteration (check cycles)
+                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${restartCount})`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -835,11 +883,17 @@ export const startAutoRestartUntilMergeable = async params => {
     await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
     await log('');
 
-    // Post a comment to the PR notifying the maintainer
+    // Issue #1323: Post a comment to the PR notifying the maintainer (with deduplication)
     try {
-      const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because this PR was created from a fork (no write access to the target repository).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag (fork mode)*`;
-      await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-      await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+      const readyToMergeSignature = '## ✅ Ready to merge';
+      const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
+      if (!hasExistingComment) {
+        const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because this PR was created from a fork (no write access to the target repository).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag (fork mode)*`;
+        await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+        await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+      } else {
+        await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+      }
     } catch {
       // Don't fail if comment posting fails
     }
@@ -858,11 +912,17 @@ export const startAutoRestartUntilMergeable = async params => {
       await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
       await log('');
 
-      // Post a comment to the PR notifying the maintainer
+      // Issue #1323: Post a comment to the PR notifying the maintainer (with deduplication)
       try {
-        const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag*`;
-        await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-        await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+        const readyToMergeSignature = '## ✅ Ready to merge';
+        const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
+        if (!hasExistingComment) {
+          const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag*`;
+          await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+          await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+        } else {
+          await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+        }
       } catch {
         // Don't fail if comment posting fails
       }

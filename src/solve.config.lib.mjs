@@ -132,7 +132,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auto-resume-on-limit-reset': {
     type: 'boolean',
     description: 'Automatically resume when AI tool limit resets (maintains session context with --resume flag)',
-    default: false,
+    default: true,
   },
   'auto-restart-on-limit-reset': {
     type: 'boolean',

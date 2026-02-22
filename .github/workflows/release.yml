@@ -494,6 +494,11 @@ jobs:
         echo "Running test suite for token sanitization..."
         node tests/test-token-sanitization.mjs
 
+    - name: Run agent token usage test (Issues #1250, #1313)
+      run: |
+        echo "Running test suite for agent token accumulation logic..."
+        node tests/test-agent-token-usage.mjs
+
     - name: Run Telegram special character handling test (Issue #1070)
       run: |
         echo "Running test suite for Telegram special character handling..."
@@ -503,6 +508,11 @@ jobs:
       run: |
         echo "Running test suite for usage limit detection and parsing..."
         node tests/test-usage-limit.mjs
+
+    - name: Run stderr warning detection test (Issue #1337)
+      run: |
+        echo "Running test suite for stderr warning detection (isStderrError)..."
+        node tests/test-issue-1337-stderr-warning-detection.mjs
 
   # === EXECUTION TESTS ===
   test-execution:

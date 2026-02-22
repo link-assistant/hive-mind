@@ -443,6 +443,31 @@ export const mergeQueue = {
   // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
   // Default: 30 seconds (30000ms) - more frequent than PR CI polling since we're blocking
   targetBranchCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_POLL_INTERVAL_MS', 30 * 1000),
+  // Issue #1341: Wait for post-merge CI to complete before merging next PR
+  // When enabled, the merge queue will wait for all CI runs triggered by a merge
+  // to complete before processing the next PR. This ensures each merge gets its own
+  // release/publish cycle.
+  // Default: true - ensures post-merge CI (including release workflows) completes
+  waitForPostMergeCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_POST_MERGE_CI', 'true').toLowerCase() === 'true',
+  // Issue #1341: Stop the queue if post-merge CI fails
+  // When enabled, the merge queue will stop processing if any post-merge CI run fails
+  // This prevents cascading failures and allows humans to investigate
+  // Default: true - stop on failure to prevent problems from multiplying
+  stopOnPostMergeCIFailure: getenv('HIVE_MIND_MERGE_QUEUE_STOP_ON_CI_FAILURE', 'true').toLowerCase() === 'true',
+  // Issue #1341: Check for existing CI failures before starting the queue
+  // When enabled, the merge queue will check if there are any failed CI runs on
+  // the default branch before starting to process PRs. If failures exist, it will
+  // report them and stop.
+  // Default: true - ensure a healthy branch before merging
+  checkBranchCIHealthBeforeStart: getenv('HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH', 'true').toLowerCase() === 'true',
+  // Issue #1341: Timeout for waiting on post-merge CI (in milliseconds)
+  // This is per-merge, not total. If a single merge's CI doesn't complete within
+  // this time, the queue will fail with a timeout error.
+  // Default: 60 minutes (3600000ms) - typical CI/CD pipelines take 15-45 minutes
+  postMergeCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_TIMEOUT_MS', 60 * 60 * 1000),
+  // Issue #1341: Polling interval for post-merge CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - balance between responsiveness and API rate limits
+  postMergeCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS', 30 * 1000),
 };
 
 // Helper function to validate configuration values

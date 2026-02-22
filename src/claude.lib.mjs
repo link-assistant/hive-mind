@@ -724,6 +724,48 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     throw new Error(`Failed to read session file: ${readError.message}`);
   }
 };
+/**
+ * Determines whether a stderr message line should be treated as an error.
+ *
+ * Excludes:
+ * - Emoji-prefixed warnings (Issue #477): lines starting with ⚠️ or ⚠
+ * - JSON-structured log messages with non-error level (Issue #1337):
+ *   e.g. {"level":"warn","message":"...failed..."} — the word "failed" is in
+ *   the message text but the level is "warn", so it is NOT an error.
+ *   Only JSON lines with level "error" or "fatal" are treated as real errors.
+ *
+ * @param {string} message - A single trimmed stderr line
+ * @returns {boolean} true if the line should count as an error
+ */
+export const isStderrError = message => {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+
+  // Detection 1: Emoji-prefixed warnings (Issue #477)
+  let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+
+  // Detection 2: JSON-structured log messages (Issue #1337)
+  if (!isWarning && trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed.level === 'string') {
+        const level = parsed.level.toLowerCase();
+        // Only "error" and "fatal" levels are real errors.
+        if (level !== 'error' && level !== 'fatal') {
+          isWarning = true;
+        }
+      }
+    } catch {
+      // Not valid JSON — fall through to keyword matching
+    }
+  }
+
+  if (!isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
+    return true;
+  }
+  return false;
+};
+
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -847,10 +889,17 @@ export const executeClaudeCommand = async params => {
       // Pass model for model-specific max output tokens (Issue #1221)
       // Pass thinkLevel and maxBudget for Opus 4.6 effort level conversion (Issue #1238)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
+      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode to diagnose slow API requests.
+      // The BashTool pre-flight check suggests "Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
+      // When --verbose is enabled, we propagate ANTHROPIC_LOG=debug so users can see detailed API request info.
+      if (argv.verbose) {
+        claudeEnv.ANTHROPIC_LOG = 'debug';
+      }
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
+      if (argv.verbose) await log(`📊 ANTHROPIC_LOG: debug (verbose mode)`, { verbose: true });
       if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
       if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
       if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
@@ -1065,16 +1114,9 @@ export const executeClaudeCommand = async params => {
           // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Track stderr errors for failure detection
-            const trimmed = errorOutput.trim();
-            // Exclude warnings (messages starting with ⚠️) from being treated as errors
-            // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
-            // Even though this contains the word "failed", it's a warning, not an error
-            const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            // Issue #1165: Also detect "command not found" errors (e.g., "/bin/sh: 1: claude: not found")
-            // These indicate the Claude CLI is not installed or not in PATH
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
-              stderrErrors.push(trimmed);
+            // Track stderr errors for failure detection using shared helper (Issue #477, #1165, #1337)
+            if (isStderrError(errorOutput)) {
+              stderrErrors.push(errorOutput.trim());
             }
           }
         } else if (chunk.type === 'exit') {

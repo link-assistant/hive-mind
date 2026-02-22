@@ -1,5 +1,90 @@
 # @link-assistant/hive-mind
 
+## 1.25.1
+
+### Patch Changes
+
+- 2a87d56: tests: expand unit tests for token accumulation logic (Issue #1313)
+
+  Added comprehensive unit tests for the token accumulation fix (Issue #1250)
+  that resolved the "Token usage: 0 input, 0 output" bug reported in Issue #1313.
+
+  New test coverage includes:
+  - End-to-end token display pipeline (accumulation → display format)
+  - Large token count handling (millions of tokens across many steps)
+  - NDJSON boundary cases (CRLF line endings, arrays, extra fields)
+  - Accumulator state isolation (independent accumulators)
+  - Exact reproduction of the Issue #1313 bug scenario
+  - Demonstration of why the streaming fix was necessary (concatenated JSON)
+
+  Total: 44 tests covering both `parseAgentTokenUsage` and streaming accumulation.
+
+## 1.25.0
+
+### Minor Changes
+
+- cbac3dd: feat: wait for post-merge CI to complete before merging next PR (Issue #1341)
+
+  This change ensures that the /merge command waits for GitHub Actions to complete after each merge before processing the next PR in the queue.
+
+  **Problem:**
+  - Merge queue was merging PRs too quickly (70 seconds apart)
+  - Workflow runs were being cancelled (superseded by new commits)
+  - Only one version published instead of multiple
+
+  **Solution:**
+  1. Check branch CI health before starting the queue
+  2. Wait for post-merge CI after each successful merge
+  3. Stop queue on CI failure (configurable)
+
+  **New configuration options:**
+  - `HIVE_MIND_MERGE_QUEUE_WAIT_FOR_POST_MERGE_CI` (default: true)
+  - `HIVE_MIND_MERGE_QUEUE_STOP_ON_CI_FAILURE` (default: true)
+  - `HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH` (default: true)
+  - `HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_TIMEOUT_MS` (default: 60 minutes)
+  - `HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS` (default: 30 seconds)
+
+  **New API functions:**
+  - `waitForCommitCI()` - Wait for workflow runs on a commit
+  - `checkBranchCIHealth()` - Check for failed CI on a branch
+  - `getMergeCommitSha()` - Get merge commit SHA for a PR
+
+## 1.24.6
+
+### Patch Changes
+
+- Make `--auto-resume-on-limit-reset` enabled by default to improve user experience when hitting API rate limits. Previously defaulted to `false`, now defaults to `true` for both `solve` and `hive` commands. Users can explicitly disable with `--no-auto-resume-on-limit-reset` if needed.
+
+  Fix false positive error detection for step_finish with reason stop
+
+  When an agent encounters a timeout error during execution but successfully recovers and completes (indicated by `step_finish` with `reason: "stop"`), the error detection was incorrectly flagging this as a failure due to fallback pattern matching.
+
+  The `agentCompletedSuccessfully` flag was only being set for `session.idle` and `"exiting loop"` log messages (Issue #1276), but not for the more common `step_finish` event with `reason: "stop"`. This meant the fallback pattern matching would still trigger and detect error patterns in the full output, even when the agent had clearly completed successfully.
+
+  Fix: Add `step_finish` with `reason: "stop"` as a success marker in both stdout and stderr processing loops in `src/agent.lib.mjs`.
+
+## 1.24.5
+
+### Patch Changes
+
+- 17317bb: fix: prevent false positive error detection for JSON-structured stderr warnings (Issue #1337)
+
+  Claude Code SDK can emit structured JSON log messages to stderr with format `{"level":"warn","message":"..."}`. When these messages contained error-related keywords like "failed", the detection logic incorrectly flagged them as errors.
+
+  Added JSON parsing for stderr messages starting with `{`. If the parsed JSON has a `level` field that is not `"error"` or `"fatal"`, the message is treated as a warning (non-error), preserving existing emoji-prefix detection as a fallback.
+
+  Also enables `ANTHROPIC_LOG=debug` when running with `--verbose` flag, allowing users to see detailed API request information as suggested by the BashTool pre-flight warning.
+
+## 1.24.4
+
+### Patch Changes
+
+- 40282f3: fix: escape '...' ellipsis in MarkdownV2 and retry on UNKNOWN merge state (Issue #1339)
+
+  Two root causes fixed:
+  1. **MarkdownV2 escaping**: In `formatProgressMessage()`, literal '...' was appended in PR titles, error messages, and overflow lines. Telegram's MarkdownV2 requires '.' to be escaped as '\.' - unescaped periods caused 400 Bad Request errors on every message update during CI wait.
+  2. **UNKNOWN merge state**: GitHub computes PR mergeability asynchronously, so initial queries may return `mergeStateStatus: 'UNKNOWN'`. The old code immediately skipped PRs in this state. Fixed by adding retry logic to `checkPRMergeable()` that retries up to 3 times with 5-second delays before giving up.
+
 ## 1.24.3
 
 ### Patch Changes

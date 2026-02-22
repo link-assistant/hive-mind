@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Test for issue #477: Ensure warnings in stderr are not treated as errors
+// Updated for issue #1337: Also handle JSON-structured log messages
 // This simulates the stderr error detection logic from claude.lib.mjs
 
 const testCases = [
+  // === Emoji-prefixed warnings (Issue #477) ===
   {
     name: 'BashTool warning with "failed" word',
     message: '⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.',
@@ -31,7 +33,7 @@ const testCases = [
   {
     name: 'Warning without emoji but with "failed"',
     message: 'Warning: This failed to connect',
-    shouldBeError: true, // Should be error since no warning emoji
+    shouldBeError: true, // Should be error since no warning emoji or JSON level
   },
   {
     name: 'Empty message',
@@ -43,14 +45,45 @@ const testCases = [
     message: '  ⚠️  Some warning text with failed in it',
     shouldBeError: false,
   },
+  // === JSON-structured log messages (Issue #1337) ===
+  {
+    name: 'JSON warn - BashTool pre-flight with "failed" (Issue #1337)',
+    message: '{"level":"warn","message":"[BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."}',
+    shouldBeError: false,
+  },
+  {
+    name: 'JSON error level - real error',
+    message: '{"level":"error","message":"API Error: 500 Internal Server Error"}',
+    shouldBeError: true,
+  },
+  {
+    name: 'JSON info level - informational (not error)',
+    message: '{"level":"info","message":"Session started successfully"}',
+    shouldBeError: false,
+  },
 ];
 
-// Simulate the detection logic from claude.lib.mjs
+// Simulate the detection logic from claude.lib.mjs (after Issue #1337 fix)
 function shouldBeDetectedAsError(message) {
   const trimmed = message.trim();
 
-  // Exclude warnings (messages starting with ⚠️) from being treated as errors
-  const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+  // Detection 1: Emoji-prefixed warnings (Issue #477)
+  let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+
+  // Detection 2: JSON-structured log messages (Issue #1337)
+  if (!isWarning && trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed.level === 'string') {
+        const level = parsed.level.toLowerCase();
+        if (level !== 'error' && level !== 'fatal') {
+          isWarning = true;
+        }
+      }
+    } catch {
+      // Not valid JSON — fall through to keyword matching
+    }
+  }
 
   if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
     return true;
@@ -59,7 +92,7 @@ function shouldBeDetectedAsError(message) {
   return false;
 }
 
-console.log('Testing stderr warning detection for issue #477...\n');
+console.log('Testing stderr warning detection for issue #477 (updated for #1337)...\n');
 
 let passed = 0;
 let failed = 0;

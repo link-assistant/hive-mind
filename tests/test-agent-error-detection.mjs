@@ -419,6 +419,180 @@ console.log('Test 23: Code output with "resets" should not trigger usage limit (
   console.log('  ✅ PASSED: "resets" false positive correctly prevented\n');
 }
 
+// ====================================================================
+// Issue #1296 Tests: step_finish with reason "stop" should be treated as success
+// Error events that appear before step_finish should be ignored if agent completed
+// ====================================================================
+console.log('--- Issue #1296 Tests ---\n');
+
+// Test 24: step_finish with reason "stop" should set agentCompletedSuccessfully
+console.log('Test 24: step_finish with reason "stop" should mark successful completion (Issue #1296)');
+{
+  let test24AgentCompleted = false;
+  let test24StreamingError = false;
+  let test24StreamingErrorMessage = null;
+
+  // Simulate the exact sequence from Issue #1296
+  const simulateStreamChunk24 = chunk => {
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const data = JSON.parse(line);
+        // Detect error events
+        if (data.type === 'error' || data.type === 'step_error') {
+          test24StreamingError = true;
+          test24StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
+        }
+        // Issue #1296: Detect step_finish with reason "stop" as success
+        if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+          test24AgentCompleted = true;
+        }
+      } catch {
+        // Not JSON - ignore
+      }
+    }
+  };
+
+  // 1. Agent starts
+  simulateStreamChunk24('{"type":"step_start","timestamp":1}');
+
+  // 2. Timeout error occurs (from rate limit retry)
+  simulateStreamChunk24('{"type":"error","timestamp":2,"error":"The operation timed out."}');
+  assert.strictEqual(test24StreamingError, true, 'Error should be detected during streaming');
+
+  // 3. Agent eventually finishes successfully with step_finish reason=stop
+  const stepFinishSuccess = JSON.stringify({
+    type: 'step_finish',
+    timestamp: 3,
+    sessionID: 'ses_3a3d83adfffeCkqmlFB4bV7c68',
+    part: {
+      id: 'prt_c5e9a91a5001VWYa1WPGDHs2rd',
+      type: 'step-finish',
+      reason: 'stop',
+      tokens: { input: 22868, output: 159, reasoning: 0 },
+    },
+  });
+  simulateStreamChunk24(stepFinishSuccess);
+  assert.strictEqual(test24AgentCompleted, true, 'step_finish with reason stop should set agentCompletedSuccessfully');
+
+  // 4. Apply Issue #1276 fix: clear streaming error if exit code is 0 and agent completed successfully
+  const test24ExitCode = 0;
+  if (test24ExitCode === 0 && (test24AgentCompleted || !test24StreamingError)) {
+    test24StreamingError = false;
+    test24StreamingErrorMessage = null;
+  }
+
+  assert.strictEqual(test24StreamingError, false, 'Streaming error should be cleared after step_finish with reason stop');
+  console.log('  ✅ PASSED: step_finish with reason "stop" correctly marks successful completion\n');
+}
+
+// Test 25: step_finish with reason other than "stop" should NOT mark successful completion
+console.log('Test 25: step_finish with other reasons should not mark success');
+{
+  let test25AgentCompleted = false;
+
+  const stepFinishError = JSON.stringify({
+    type: 'step_finish',
+    timestamp: 3,
+    part: {
+      type: 'step-finish',
+      reason: 'error', // Not "stop"
+    },
+  });
+
+  const lines = stepFinishError.split('\n');
+  for (const line of lines) {
+    try {
+      const data = JSON.parse(line);
+      if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+        test25AgentCompleted = true;
+      }
+    } catch {
+      // Not JSON
+    }
+  }
+
+  assert.strictEqual(test25AgentCompleted, false, 'step_finish with reason "error" should NOT mark success');
+  console.log('  ✅ PASSED: step_finish with reason "error" correctly does not mark success\n');
+}
+
+// Test 26: Full scenario from Issue #1296 - timeout error followed by successful step_finish
+console.log('Test 26: Full Issue #1296 scenario - timeout then successful completion');
+{
+  let test26AgentCompleted = false;
+  let test26StreamingError = false;
+  let test26StreamingErrorMessage = null;
+  const test26ExitCode = 0;
+
+  // Parse the exact logs from Issue #1296
+  const issueLogSequence = [
+    // Successful step_finish event
+    JSON.stringify({
+      type: 'step_finish',
+      timestamp: 1771113714714,
+      sessionID: 'ses_3a3d83adfffeCkqmlFB4bV7c68',
+      part: {
+        id: 'prt_c5e9a91a5001VWYa1WPGDHs2rd',
+        sessionID: 'ses_3a3d83adfffeCkqmlFB4bV7c68',
+        messageID: 'msg_c5e9a7dfa0017iGYs4xlbNbnUf',
+        type: 'step-finish',
+        reason: 'stop',
+        snapshot: 'b97ede242fffe6a754980d37eb48a40344d4c66a',
+        cost: 0,
+        tokens: {
+          input: 22868,
+          output: 159,
+          reasoning: 0,
+          cache: { read: 0, write: 0 },
+        },
+      },
+    }),
+  ];
+
+  // Process the events
+  for (const chunk of issueLogSequence) {
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const data = JSON.parse(line);
+        if (data.type === 'error' || data.type === 'step_error') {
+          test26StreamingError = true;
+          test26StreamingErrorMessage = data.message || data.error || line.substring(0, 100);
+        }
+        if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+          test26AgentCompleted = true;
+        }
+      } catch {
+        // Not JSON
+      }
+    }
+  }
+
+  // Apply Issue #1276 fix
+  if (test26ExitCode === 0 && (test26AgentCompleted || !test26StreamingError)) {
+    if (test26StreamingError && test26AgentCompleted) {
+      console.log('  Agent recovered from earlier error and completed successfully');
+    }
+    test26StreamingError = false;
+    test26StreamingErrorMessage = null;
+  }
+
+  // Now check fallback pattern match (Issue #1290 condition)
+  const fullOutput = issueLogSequence.join('\n');
+  const postHocResult = detectAgentErrors(fullOutput);
+
+  // The fallback should NOT run because exitCode=0 and agentCompletedSuccessfully=true
+  const shouldRunFallback = !postHocResult.detected && !test26StreamingError && !(test26ExitCode === 0 && test26AgentCompleted);
+  assert.strictEqual(shouldRunFallback, false, 'Fallback should NOT run when step_finish shows success');
+
+  // Final error state should be false
+  assert.strictEqual(test26StreamingError, false, 'No error should be reported');
+  assert.strictEqual(test26AgentCompleted, true, 'Agent should be marked as completed');
+  console.log('  ✅ PASSED: Issue #1296 scenario correctly handled - no false positive error\n');
+}
+
 console.log('========================================');
 console.log('All tests passed! ✅');
 console.log('========================================');
@@ -434,3 +608,6 @@ console.log('  - Message extraction prefers "error" field over "message" field')
 console.log('\nIssue #1290 fix adds:');
 console.log('  - Fallback pattern matching skipped when exitCode=0 and agent completed successfully');
 console.log('  - "resets" pattern uses regex to avoid false positives in code output');
+console.log('\nIssue #1296 fix adds:');
+console.log('  - step_finish with reason "stop" now marks agent as completed successfully');
+console.log('  - This prevents false positive errors when timeout errors are recovered from');

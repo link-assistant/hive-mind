@@ -9,7 +9,7 @@ The Hive Mind application supports extensive configuration through environment v
 - [Environment Variables](#environment-variables)
   - [Timeout Configurations](#1-timeout-configurations)
   - [Auto-Continue Settings](#2-auto-continue-settings)
-  - [Limit Reset Settings](#21-limit-reset-settings)
+  - [Limit Reset Settings](#22-limit-reset-settings)
   - [GitHub API Limits](#3-github-api-limits)
   - [System Resource Limits](#4-system-resource-limits)
   - [Retry Configurations](#5-retry-configurations)
@@ -58,13 +58,6 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | Environment Variable                | Default | Description                                     |
 | ----------------------------------- | ------- | ----------------------------------------------- |
 | `HIVE_MIND_AUTO_CONTINUE_AGE_HOURS` | 24      | Minimum age of PRs before auto-continue (hours) |
-
-### 2.1. Auto-Restart Settings
-
-| Environment Variable                          | Default | Description                                                                                                                         |
-| --------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_AUTO_RESTART_NO_CHECKS_TIMEOUT_MS` | 1800000 | Max wait time (30 min) for CI checks to appear before treating repo as having no CI (Issue #1335). Set to 0 to disable the timeout. |
-| `HIVE_MIND_AUTO_RESTART_MAX_RUNTIME_MS`       | 0       | Max total runtime (ms) for auto-restart-until-mergeable loop. Default 0 = unlimited. Set e.g. to 7200000 for a 2-hour cap.          |
 
 ### 2.2. Limit Reset Settings
 

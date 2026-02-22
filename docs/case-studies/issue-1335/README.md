@@ -23,7 +23,7 @@ Total hang duration: **~10 hours** (the log captured only a portion; based on ch
 
 ## Root Cause Analysis
 
-### Primary Root Cause: No timeout for `no_checks` state in `watchUntilMergeable`
+### Primary Root Cause (Bug A): No distinction between transient and permanent `no_checks` state
 
 **File:** `src/solve.auto-merge.lib.mjs`, function `watchUntilMergeable`
 
@@ -48,19 +48,17 @@ Later in `watchUntilMergeable`, a `ci_pending` blocker is handled by:
 - Sleeping 60 seconds
 - Looping again
 
-There is **no maximum wait time** for the `ci_pending` / `no_checks` state. The loop is `while (true)` with no break condition for this path.
+There is **no break condition** for the `ci_pending` / `no_checks` state. The loop is `while (true)`.
 
-### Secondary Root Cause: No distinction between transient `no_checks` and permanent `no_checks`
+The code was designed to handle a **transient** race condition (the brief window between a git push and GitHub starting CI runners), but a repo with **no CI at all** also returns `no_checks` — permanently. The code made no distinction.
 
-The comment in the code says `no_checks` is a "race condition after push" — meaning it was designed to handle the brief window between a git push and GitHub starting CI runners. However, a repo with **no CI configuration at all** will also return `no_checks` — permanently. The code makes no distinction.
-
-### Contributing Factor: The target repository genuinely had no CI
+### Contributing Factor (Bug A): The target repository genuinely had no CI
 
 `MILANA808/milana_site` is a simple HTML portfolio site with no `.github/workflows/` directory. It will never have CI checks. Any PR to this repository will always return `no_checks`.
 
 ### Contributing Factor (Agent tool): Same issue applies to `watchForFeedback` in `solve.watch.lib.mjs`
 
-The `watchForFeedback` function (used for `--watch` mode and temporary auto-restart) also has an unbounded loop, but its primary exit conditions (PR merged, max iterations reached, all changes committed) work differently. However, the `--watch` mode version also has no timeout for the case where CI never appears.
+The `watchForFeedback` function (used for `--watch` mode and temporary auto-restart) also has an unbounded loop, but its primary exit conditions (PR merged, max iterations reached, all changes committed) work differently. However, the `--watch` mode version also has no exit condition for the case where CI never appears.
 
 ## Evidence from Log
 
@@ -81,26 +79,20 @@ The `watchForFeedback` function (used for `--watch` mode and temporary auto-rest
 
 The issue title asks to ensure logic is in sync for both `--tool claude` and `--tool agent`. Both tools use the same `watchUntilMergeable` function (from `solve.auto-merge.lib.mjs`) and the same `watchForFeedback` function (from `solve.watch.lib.mjs`). The `executeToolIteration` function in `solve.restart-shared.lib.mjs` dispatches to the correct tool implementation. The stuck CI loop bug affects **both tools identically**.
 
-## Proposed Solutions
+## Solution for Bug A: Workflow Existence Check
 
-### Solution 1 (Implemented): Add `no_checks` timeout to `watchUntilMergeable` (PRIMARY FIX)
+After receiving reviewer feedback that a timeout is the wrong approach, the fix was revised to address the root cause directly:
 
-Add a configurable maximum wait time for the `no_checks` / `ci_pending` state. If CI checks have not appeared within N minutes (default: 30 minutes), treat the repo as having no CI and exit the loop with a "mergeable" result.
+**Check if the repository has any CI workflows configured.** When `no_checks` state is detected, call `hasRepoWorkflows(owner, repo)` via `gh api repos/{owner}/{repo}/actions/workflows --jq '.total_count'`. If the count is zero, the `no_checks` state is **permanent** — there is no CI to wait for. If the count is > 0, the `no_checks` state is a **transient race condition** and we keep waiting.
 
-**Implementation:**
+**Implementation (`src/solve.auto-merge.lib.mjs`):**
 
-- Add `noChecksTimeoutMs` config to `config.lib.mjs` (default: 30 minutes)
-- In `watchUntilMergeable`, track when `no_checks` was first seen
-- After `noChecksTimeoutMs` of continuous `no_checks`, log a warning and exit as "mergeable (no CI)"
-- Apply the same fix to `watchForFeedback` for `--watch` mode
+- Add `hasRepoWorkflows()` function to `github-merge.lib.mjs`
+- In `watchUntilMergeable`, cache the result of `hasRepoWorkflows()` (checked once per `no_checks` detection)
+- If no workflows: log "No CI workflows configured", post a PR comment, exit as "mergeable (no CI)"
+- If workflows exist: keep waiting (this is a race condition)
 
-### Solution 2: Distinguish permanent `no_checks` from transient
-
-After detecting `no_checks`, verify whether the repository has any workflow files in `.github/workflows/`. If it doesn't, immediately treat as "no CI configured" and exit. However, this requires an additional API call and may produce false negatives for repos that trigger CI via external services or via repository_dispatch.
-
-### Solution 3: Add global process timeout
-
-Add a top-level maximum runtime for the entire solve process (e.g., `--max-runtime-hours`). While useful, this is a blunt instrument and doesn't help with the CI-no-checks specific case.
+This is semantically correct: if no CI is configured, there is nothing to wait for.
 
 ## Bug B: Process Not Exiting After Session Ends
 
@@ -190,12 +182,12 @@ Added a call to `safeExit(0, 'Process completed')` at the end of the `finally` b
 
 ## Files Involved
 
-- `src/solve.auto-merge.lib.mjs` — `watchUntilMergeable`, `getMergeBlockers` (Bug A fix)
-- `src/solve.mjs` — `finally` block (Bug B fix)
+- `src/solve.auto-merge.lib.mjs` — `watchUntilMergeable`, `getMergeBlockers` (Bug A fix: workflow existence check)
+- `src/github-merge.lib.mjs` — new `hasRepoWorkflows()` function added for Bug A fix
+- `src/solve.mjs` — `finally` block (Bug B fix: `safeExit` + active handles debug logging)
 - `src/exit-handler.lib.mjs` — `safeExit` function used for forced exit
 - `src/solve.watch.lib.mjs` — `watchForFeedback`
 - `src/github-merge.lib.mjs` — `getDetailedCIStatus`, `waitForCI`
-- `src/config.lib.mjs` — configuration constants
 - `src/solve.restart-shared.lib.mjs` — shared tool dispatch
 
 ## Log References

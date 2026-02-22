@@ -1195,6 +1195,37 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   }
 }
 
+/**
+ * Check whether a repository has any GitHub Actions workflow files configured.
+ * Used to distinguish between a transient 'no_checks' race condition (CI hasn't started
+ * yet after a push) and a permanent 'no_checks' state (repo has no CI at all).
+ *
+ * Issue #1335: Without this check, watchUntilMergeable loops forever on repos with no CI.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{hasWorkflows: boolean, count: number}>}
+ */
+export async function hasRepoWorkflows(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/actions/workflows --jq '.total_count'`);
+    const count = parseInt(stdout.trim(), 10) || 0;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Repo ${owner}/${repo} has ${count} configured workflow(s)`);
+    }
+
+    return { hasWorkflows: count > 0, count };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking repo workflows for ${owner}/${repo}: ${error.message}`);
+    }
+    // On error, assume workflows may exist (safer: keep waiting rather than exiting prematurely)
+    return { hasWorkflows: true, count: -1 };
+  }
+}
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -1224,4 +1255,6 @@ export default {
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
+  // Issue #1335: Check if repo has any CI workflows configured
+  hasRepoWorkflows,
 };

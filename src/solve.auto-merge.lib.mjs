@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, hasRepoWorkflows } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -42,10 +42,6 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError } = restartShared;
-
-// Import auto-restart configuration
-// See: https://github.com/link-assistant/hive-mind/issues/1335
-import { autoRestart as autoRestartConfig } from './config.lib.mjs';
 
 /**
  * Check for new comments from non-bot users since last commit
@@ -281,13 +277,11 @@ export const watchUntilMergeable = async params => {
   let iteration = 0;
   let lastCheckTime = new Date();
 
-  // Issue #1335: Track when 'no_checks' state was first seen so we can timeout.
-  // A repo with no CI workflows will always return 'no_checks' — permanently. Without a
-  // timeout the loop runs forever (observed: 1920+ iterations over 32 hours).
-  let noChecksFirstSeenAt = null;
-  const noChecksTimeoutMs = autoRestartConfig.noChecksTimeoutMs; // default: 30 minutes
-  const maxRuntimeMs = autoRestartConfig.maxRuntimeMs; // default: 0 (disabled)
-  const loopStartTime = Date.now();
+  // Issue #1335: Cache whether the repo has CI workflows to avoid repeated API calls.
+  // When 'no_checks' is seen, we check if the repo actually has workflows configured.
+  // - If no workflows exist → 'no_checks' is permanent; treat PR as CI-passing and exit.
+  // - If workflows exist → 'no_checks' is a transient race condition; keep waiting.
+  let repoHasWorkflows = null; // null = not yet checked; true/false = cached result
 
   while (true) {
     iteration++;
@@ -314,15 +308,6 @@ export const watchUntilMergeable = async params => {
     }
 
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
-
-    // Issue #1335: Enforce max total runtime if configured
-    if (maxRuntimeMs > 0 && Date.now() - loopStartTime > maxRuntimeMs) {
-      const elapsedMinutes = Math.round((Date.now() - loopStartTime) / 60000);
-      await log('');
-      await log(formatAligned('⏰', 'MAX RUNTIME REACHED', `${elapsedMinutes} minutes elapsed`));
-      await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
-      return { success: false, reason: 'max_runtime', latestSessionId, latestAnthropicCost };
-    }
 
     try {
       // Get merge blockers
@@ -668,56 +653,54 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
 
         // Issue #1335: Detect permanent 'no_checks' state (repo has no CI workflows).
-        // The 'ci_pending' blocker is used for both transient race-conditions (CI not started
-        // yet) and permanent states (repo truly has no CI). We distinguish them by tracking
-        // how long we have been stuck in this state. After noChecksTimeoutMs of continuous
-        // 'ci_pending' with message 'CI/CD checks have not started yet', we exit treating
-        // the PR as effectively mergeable from a CI perspective.
+        // The 'ci_pending' blocker with message 'have not started yet' means GitHub returned
+        // zero check-runs and zero commit statuses for this PR's HEAD SHA. This is ambiguous:
+        //   (a) Transient race condition — CI workflows exist but haven't queued yet after push.
+        //   (b) Permanent state — the repository has no CI/CD workflows configured at all.
+        // We resolve the ambiguity by checking if the repo actually has workflow files via the
+        // GitHub API. If it has none, the 'no_checks' state is permanent and the PR should be
+        // treated as CI-passing (no CI = nothing to wait for).
         const isNoCIChecks = pendingBlocker && pendingBlocker.message.includes('have not started yet');
         if (isNoCIChecks) {
-          if (noChecksFirstSeenAt === null) {
-            noChecksFirstSeenAt = Date.now();
-            await log(formatAligned('⏳', 'Waiting for CI:', 'No checks yet - starting no-checks timeout...', 2));
-          } else {
-            const noChecksElapsedMs = Date.now() - noChecksFirstSeenAt;
-            const noChecksElapsedMinutes = Math.round(noChecksElapsedMs / 60000);
-            if (noChecksTimeoutMs > 0 && noChecksElapsedMs > noChecksTimeoutMs) {
-              // Timeout reached — the repository likely has no CI configured.
-              await log('');
-              await log(formatAligned('⚠️', 'NO CI CHECKS TIMEOUT', `${noChecksElapsedMinutes} min elapsed with no checks appearing`));
-              await log(formatAligned('', 'Conclusion:', 'Repository appears to have no CI/CD workflows configured', 2));
-              await log(formatAligned('', 'Action:', 'Treating PR as CI-passing and exiting monitoring loop', 2));
-              await log(formatAligned('', 'Tip:', 'Set HIVE_MIND_AUTO_RESTART_NO_CHECKS_TIMEOUT_MS=0 to disable this timeout', 2));
-              await log('');
+          // Lazy-check whether the repo has workflows (cache result to avoid repeated API calls)
+          if (repoHasWorkflows === null) {
+            const workflowCheck = await hasRepoWorkflows(owner, repo, argv.verbose);
+            repoHasWorkflows = workflowCheck.hasWorkflows;
+            if (argv.verbose) {
+              await log(formatAligned('', 'Repo workflow check:', repoHasWorkflows ? `${workflowCheck.count} workflow(s) found — CI check is a transient race condition` : 'No workflows configured — no CI expected', 2));
+            }
+          }
 
-              // Post a comment explaining the situation
-              try {
-                const timeoutMinutes = Math.round(noChecksTimeoutMs / 60000);
-                const commentBody = `## ⚠️ No CI Checks Detected
+          if (!repoHasWorkflows) {
+            // Root cause confirmed: repo has no CI. The 'no_checks' state is permanent.
+            // Treat the PR as CI-passing and exit the monitoring loop immediately.
+            await log('');
+            await log(formatAligned('ℹ️', 'NO CI WORKFLOWS CONFIGURED', 'Repository has no GitHub Actions workflows'));
+            await log(formatAligned('', 'Conclusion:', 'No CI expected — treating PR as CI-passing', 2));
+            await log(formatAligned('', 'Action:', 'Exiting monitoring loop', 2));
+            await log('');
 
-After waiting ${noChecksElapsedMinutes} minutes (timeout: ${timeoutMinutes} min), no CI/CD checks have appeared for this pull request.
+            // Post a comment explaining the situation
+            try {
+              const commentBody = `## ℹ️ No CI Workflows Detected
 
-This typically means the repository has no CI/CD workflows configured in \`.github/workflows/\`.
+No CI/CD checks are configured for this pull request. The repository has no GitHub Actions workflow files in \`.github/workflows/\`.
 
-The auto-restart-until-mergeable monitor is stopping. The PR may be ready to merge if there are no other issues.
+The auto-restart-until-mergeable monitor is stopping since there is no CI to wait for. The PR may be ready to merge if there are no other issues.
 
 ---
 *Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
-                await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-              } catch {
-                // Don't fail if comment posting fails
-              }
-
-              return { success: true, reason: 'no_ci_checks', latestSessionId, latestAnthropicCost };
-            } else {
-              const timeoutRemainingMinutes = noChecksTimeoutMs > 0 ? Math.max(0, Math.round((noChecksTimeoutMs - noChecksElapsedMs) / 60000)) : null;
-              const timeoutInfo = timeoutRemainingMinutes !== null ? ` (no-checks timeout in ${timeoutRemainingMinutes} min)` : '';
-              await log(formatAligned('⏳', 'Waiting for CI:', `No checks yet, ${noChecksElapsedMinutes} min elapsed${timeoutInfo}`, 2));
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            } catch {
+              // Don't fail if comment posting fails
             }
+
+            return { success: true, reason: 'no_ci_checks', latestSessionId, latestAnthropicCost };
+          } else {
+            // Repo has workflows but CI hasn't started yet — transient race condition, keep waiting
+            await log(formatAligned('⏳', 'Waiting for CI:', 'No checks yet (CI workflows exist, waiting for them to start)', 2));
           }
         } else {
-          // CI checks have appeared (or are pending for another reason) — reset the no-checks timer
-          noChecksFirstSeenAt = null;
           if (cancelledOnly && cancelledBlocker) {
             await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
           } else if (pendingBlocker) {

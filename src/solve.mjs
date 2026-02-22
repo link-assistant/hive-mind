@@ -1489,34 +1489,8 @@ try {
     await log(`\n📁 Complete log file: ${absoluteLogPath}`);
   }
 
-  // Issue #1335: Log any active handles/requests that would prevent natural process exit.
-  // This debug output helps diagnose future occurrences of the "process hangs after completion"
-  // bug (observed: 28+ hours). The root cause was Sentry's profiling integration registering
-  // a background interval that keeps the Node.js event loop alive indefinitely.
-  if (argv.verbose) {
-    try {
-      const activeHandles = process._getActiveHandles ? process._getActiveHandles() : [];
-      const activeRequests = process._getActiveRequests ? process._getActiveRequests() : [];
-      if (activeHandles.length > 0 || activeRequests.length > 0) {
-        await log(`\n[VERBOSE] Active handles at exit: ${activeHandles.length} handle(s), ${activeRequests.length} request(s)`, { verbose: true });
-        for (const h of activeHandles) {
-          const type = h?.constructor?.name || typeof h;
-          await log(`[VERBOSE]   handle: ${type}`, { verbose: true });
-        }
-        for (const r of activeRequests) {
-          const type = r?.constructor?.name || typeof r;
-          await log(`[VERBOSE]   request: ${type}`, { verbose: true });
-        }
-      }
-    } catch {
-      // Ignore errors reading active handles — informational only
-    }
-  }
-
   // Issue #1335: Force process exit to prevent indefinite hang after session ends.
-  // Without an explicit process.exit(), Node.js keeps the event loop alive if any
-  // async handles remain open (e.g. Sentry's profiling integration). This caused
-  // processes to run for 28+ hours after work was fully complete.
-  // safeExit flushes Sentry events (up to 2s) then calls process.exit(0).
+  // Root cause: Sentry's profiling integration keeps the Node.js event loop alive
+  // indefinitely (28h observed). safeExit flushes Sentry (up to 2s) then calls process.exit(0).
   await safeExit(0, 'Process completed');
 }

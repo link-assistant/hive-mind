@@ -780,14 +780,12 @@ bot.command('limits', async ctx => {
   // Get all limits using shared cache (3min for API, 2min for system)
   const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!limits.claude.success) {
-    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
-    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
-    return;
-  }
-
   // Format the message with usage limits and queue status
-  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
+  // If Claude auth failed, pass the error to formatUsageMessage to show it in the Claude sections
+  // while still displaying all other limits sections (disk, GitHub, CPU, memory)
+  // See: https://github.com/link-assistant/hive-mind/issues/1343
+  const claudeError = limits.claude.success ? null : limits.claude.error;
+  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError);
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
   // Insert per-queue status into the code block
   // Shows each queue (claude, agent) with pending/processing counts

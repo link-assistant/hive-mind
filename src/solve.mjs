@@ -1481,11 +1481,13 @@ try {
   // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Show final log file reference (similar to Claude and other agents)
-  // This ensures users always know where to find the complete log file
-  if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
-  }
+  // Issue #1346: Explicitly exit the process to prevent hanging after completion.
+  // Without process.exit(0), Sentry's profiling integration (@sentry/profiling-node)
+  // keeps native handles on the Node.js event loop, causing the process to block
+  // indefinitely even after all user-visible work is done.
+  // safeExit() flushes Sentry (2s timeout), displays the log file path, and calls
+  // process.exit(0). Note: when the catch block calls safeExit(1) via
+  // handleMainExecutionError, process.exit(1) terminates immediately and this
+  // finally block is never reached, so we always exit with code 0 here.
+  await safeExit(0, 'Process completed successfully');
 }

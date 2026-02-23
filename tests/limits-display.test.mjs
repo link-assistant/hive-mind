@@ -499,6 +499,101 @@ test('formatUsageMessage shows threshold markers in progress bars', () => {
 });
 
 // ============================================================================
+// Claude Error Display Tests (Issue #1343)
+// ============================================================================
+
+console.log('\n📋 Claude Error Display Tests (Issue #1343)\n');
+
+test('formatUsageMessage with claudeError shows error once in Claude limits section', () => {
+  const errorMessage = 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.';
+
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage);
+
+  // Should include "Claude limits" header with the error
+  assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
+
+  // Should include all three subsection headers
+  assert.ok(message.includes('Claude 5 hour session'), 'Should include 5 hour session header');
+  assert.ok(message.includes('Current week (all models)'), 'Should include all models header');
+  assert.ok(message.includes('Current week (Sonnet only)'), 'Should include Sonnet only header');
+
+  // Should show the error message exactly once (backtick-stripped for code block)
+  assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error message');
+  const errorOccurrences = message.split('Claude authentication expired').length - 1;
+  assert.equal(errorOccurrences, 1, 'Error message should appear exactly once, not repeated in each subsection');
+
+  // Should NOT show N/A when error is provided
+  assert.ok(!message.includes('N/A'), 'Should NOT show N/A when error is provided');
+});
+
+test('formatUsageMessage with claudeError still shows system resource sections', () => {
+  const errorMessage = 'Claude authentication expired.';
+
+  const diskSpace = {
+    usedPercentage: 60,
+    usedBytes: 60 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+
+  const memory = {
+    usedPercentage: 40,
+    usedBytes: 4 * 1024 * 1024 * 1024,
+    totalBytes: 10 * 1024 * 1024 * 1024,
+  };
+
+  const cpuLoad = {
+    usagePercentage: 25,
+    loadAvg5: 1.0,
+    cpuCount: 4,
+  };
+
+  const githubRateLimit = {
+    usedPercentage: 10,
+    used: 500,
+    limit: 5000,
+    relativeReset: '30m',
+    resetTime: 'Jan 18, 5:00pm UTC',
+  };
+
+  const message = formatUsageMessage(null, diskSpace, githubRateLimit, cpuLoad, memory, errorMessage);
+
+  // System sections should still appear
+  assert.ok(message.includes('CPU'), 'Should include CPU section when cpuLoad provided');
+  assert.ok(message.includes('RAM'), 'Should include RAM section when memory provided');
+  assert.ok(message.includes('Disk space'), 'Should include Disk space section when diskSpace provided');
+  assert.ok(message.includes('GitHub API'), 'Should include GitHub API section when githubRateLimit provided');
+
+  // Claude error should appear
+  assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error');
+});
+
+test('formatUsageMessage with null claudeError shows normal Claude data', () => {
+  const usage = {
+    currentSession: {
+      percentage: 45,
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: {
+      percentage: 30,
+      resetTime: 'Jan 20, 12:00pm UTC',
+      resetsAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+    sonnetOnly: {
+      percentage: 20,
+      resetTime: 'Jan 20, 12:00pm UTC',
+      resetsAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+  };
+
+  const message = formatUsageMessage(usage, null, null, null, null, null);
+
+  // Should show normal usage data, not error
+  assert.ok(message.includes('45%'), 'Should show 45% session usage');
+  assert.ok(!message.includes('Claude authentication expired'), 'Should not show error when null claudeError');
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

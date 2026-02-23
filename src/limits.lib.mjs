@@ -694,15 +694,16 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * Format Claude usage data into a Telegram-friendly message
  * Shows threshold markers in progress bars to indicate where queue behavior changes.
  *
- * @param {Object} usage - The usage object from getClaudeUsageLimits
+ * @param {Object|null} usage - The usage object from getClaudeUsageLimits, or null if unavailable
  * @param {Object} diskSpace - Optional disk space info from getDiskSpaceInfo
  * @param {Object} githubRateLimit - Optional GitHub rate limit info from getGitHubRateLimits
  * @param {Object} cpuLoad - Optional CPU load info from getCpuLoadInfo
  * @param {Object} memory - Optional memory info from getMemoryInfo
+ * @param {string|null} claudeError - Optional error message to show in Claude sections (e.g., auth expired)
  * @returns {string} Formatted message
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null) {
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null) {
   // Use code block for monospace font to align progress bars properly
   let message = '```\n';
 
@@ -761,10 +762,18 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     message += '\n';
   }
 
+  // Claude limits section
+  // When there's an error (e.g., auth expired), show it once here instead of repeating in each subsection
+  if (claudeError) {
+    message += `Claude limits\n${claudeError}\n\n`;
+  }
+
   // Claude 5 hour session (five_hour)
   // Threshold: One-at-a-time mode when usage >= 65%
   message += 'Claude 5 hour session\n';
-  if (usage.currentSession.percentage !== null) {
+  if (claudeError) {
+    // Error already shown above; skip subsection content
+  } else if (usage && usage.currentSession.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
     if (timePassed !== null) {
@@ -796,7 +805,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Current week (all models / seven_day)
   // Threshold: One-at-a-time mode when usage >= 97%
   message += 'Current week (all models)\n';
-  if (usage.allModels.percentage !== null) {
+  if (claudeError) {
+    // Error already shown above; skip subsection content
+  } else if (usage && usage.allModels.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
     if (timePassed !== null) {
@@ -828,7 +839,9 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   // Current week (Sonnet only / seven_day_sonnet)
   // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
   message += 'Current week (Sonnet only)\n';
-  if (usage.sonnetOnly.percentage !== null) {
+  if (claudeError) {
+    // Error already shown above; skip subsection content
+  } else if (usage && usage.sonnetOnly.percentage !== null) {
     // Add time passed progress bar first (no threshold marker for time)
     const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
     if (timePassed !== null) {

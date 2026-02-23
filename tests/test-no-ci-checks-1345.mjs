@@ -140,35 +140,23 @@ console.log('\n📋 Success Comment Content Tests\n');
 
 test('Ready to merge comment should mention CI when CI exists', () => {
   const noCiConfigured = false;
-  const ciLine = noCiConfigured
-    ? '- No CI/CD checks are configured for this repository'
-    : '- All CI checks have passed';
+  const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
 
-  assert(
-    ciLine === '- All CI checks have passed',
-    `CI line should mention CI passed, got: ${ciLine}`
-  );
+  assert(ciLine === '- All CI checks have passed', `CI line should mention CI passed, got: ${ciLine}`);
   assert(!ciLine.includes('No CI/CD'), 'Should not mention no CI when CI exists');
 });
 
 test('Ready to merge comment should say no CI when no CI configured', () => {
   const noCiConfigured = true;
-  const ciLine = noCiConfigured
-    ? '- No CI/CD checks are configured for this repository'
-    : '- All CI checks have passed';
+  const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
 
-  assert(
-    ciLine === '- No CI/CD checks are configured for this repository',
-    `CI line should mention no CI, got: ${ciLine}`
-  );
+  assert(ciLine === '- No CI/CD checks are configured for this repository', `CI line should mention no CI, got: ${ciLine}`);
   assert(!ciLine.includes('All CI checks'), 'Should not say CI passed when no CI configured');
 });
 
 test('Auto-merged comment should mention CI when CI exists', () => {
   const noCiConfigured = false;
-  const ciLine = noCiConfigured
-    ? '- No CI/CD checks are configured for this repository'
-    : '- All CI checks have passed';
+  const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
 
   const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
 
@@ -178,16 +166,11 @@ test('Auto-merged comment should mention CI when CI exists', () => {
 
 test('Auto-merged comment should say no CI when no CI configured', () => {
   const noCiConfigured = true;
-  const ciLine = noCiConfigured
-    ? '- No CI/CD checks are configured for this repository'
-    : '- All CI checks have passed';
+  const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
 
   const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
 
-  assert(
-    commentBody.includes('No CI/CD checks are configured for this repository'),
-    'Comment should mention no CI configured'
-  );
+  assert(commentBody.includes('No CI/CD checks are configured for this repository'), 'Comment should mention no CI configured');
   assert(!commentBody.includes('All CI checks have passed'), 'Comment should not say CI passed');
 });
 

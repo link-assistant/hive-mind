@@ -187,12 +187,32 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
 
   if (ciStatus.status === 'no_checks') {
-    // No CI checks exist yet - race condition after push, treat as pending
-    blockers.push({
-      type: 'ci_pending',
-      message: 'CI/CD checks have not started yet (waiting for checks to appear)',
-      details: [],
-    });
+    // No CI checks exist yet - this could be:
+    // 1. A race condition after push (checks haven't started yet) - wait
+    // 2. A repository with no CI/CD configured at all - should be mergeable immediately
+    //
+    // Issue #1345: Distinguish by checking the PR's mergeability status.
+    // If GitHub says the PR is MERGEABLE (mergeStateStatus === 'CLEAN'),
+    // then no CI is required and we should not block indefinitely.
+    // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
+    const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+    if (earlyMergeStatus.mergeable) {
+      // PR is already mergeable with no CI checks - the repo has no CI/CD configured.
+      // Do NOT add a ci_pending blocker. The mergeability check below will also
+      // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and is already MERGEABLE - no CI/CD configured`);
+      }
+      // Return early with no CI blocker, mergeability already confirmed
+      return { blockers, ciStatus, noCiConfigured: true };
+    } else {
+      // PR is not yet mergeable despite no checks - treat as pending race condition
+      blockers.push({
+        type: 'ci_pending',
+        message: 'CI/CD checks have not started yet (waiting for checks to appear)',
+        details: [],
+      });
+    }
   } else if (ciStatus.status === 'pending') {
     // CI is still running or queued - wait for completion
     const pendingNames = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks].map(c => c.name);
@@ -272,7 +292,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
     });
   }
 
-  return blockers;
+  return { blockers, ciStatus, noCiConfigured: false };
 };
 
 /**
@@ -341,7 +361,7 @@ export const watchUntilMergeable = async params => {
 
     try {
       // Get merge blockers
-      const blockers = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
+      const { blockers, noCiConfigured } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
@@ -364,7 +384,9 @@ export const watchUntilMergeable = async params => {
 
             // Post success comment
             try {
-              const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
+              // Issue #1345: Differentiate message when no CI is configured
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
+              const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
             } catch {
               // Don't fail if comment posting fails
@@ -386,7 +408,9 @@ export const watchUntilMergeable = async params => {
             const readyToMergeSignature = '## ✅ Ready to merge';
             const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
             if (!hasExistingComment) {
-              const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+              // Issue #1345: Differentiate message when no CI is configured
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
+              const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
             } else {
               await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));

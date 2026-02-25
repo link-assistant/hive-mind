@@ -408,7 +408,6 @@ export const executeAgent = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,

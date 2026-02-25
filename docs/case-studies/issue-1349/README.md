@@ -120,6 +120,7 @@ https://github.com/{owner}/{repo}/blob/{branch}/path/to/image.png?raw=true
 ```
 
 This URL:
+
 - Goes through GitHub's authenticated web interface (unlike `raw.githubusercontent.com`)
 - Renders inline in PR descriptions for both public and private repositories
 - Supports branch names and commit SHAs

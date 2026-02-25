@@ -22,7 +22,6 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
 const claudeLib = await import('./claude.lib.mjs');
 const { fetchModelInfo, checkModelVisionCapability } = claudeLib;
-import { getRepoVisibility } from './github-merge.lib.mjs';
 
 /**
  * Parse agent JSON output to extract token usage from step_finish events
@@ -409,13 +408,6 @@ export const executeAgent = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-  // Check repository visibility for screenshot instructions (issue #1349)
-  const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
-  const repoIsPrivate = repoInfo.isPrivate;
-  if (argv.verbose) {
-    await log(`🔒 Repository visibility: ${repoIsPrivate ? 'private' : 'public'}`, { verbose: true });
-  }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -448,7 +440,6 @@ export const executeAgent = async params => {
     forkedRepo,
     argv,
     modelSupportsVision,
-    repoIsPrivate,
   });
 
   // Log prompt details in verbose mode

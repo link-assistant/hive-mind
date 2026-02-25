@@ -111,12 +111,19 @@ However, this requires:
 - Using the GitHub web UI to upload attachments (no CLI/API for PR body image uploads)
 - Or using the GitHub GraphQL mutation `createIssueComment` with image attachment workflow — complex and non-standard
 
-### Practical Fix: Warn AI Agents About Private Repo Limitations
+### Practical Fix: Use Universal `github.com/blob/?raw=true` URL Format
 
-The simplest and most reliable fix is to update the system prompt to inform AI agents:
+A better solution exists that works for **both** public and private repositories without any branching logic:
 
-- For **public repositories**: `raw.githubusercontent.com` links work and should be used
-- For **private repositories**: `raw.githubusercontent.com` links produce broken images; agents should either skip screenshot embedding or use descriptive alt text instead
+```
+https://github.com/{owner}/{repo}/blob/{branch}/path/to/image.png?raw=true
+```
+
+This URL:
+- Goes through GitHub's authenticated web interface (unlike `raw.githubusercontent.com`)
+- Renders inline in PR descriptions for both public and private repositories
+- Supports branch names and commit SHAs
+- Requires no repository visibility check at runtime
 
 ---
 
@@ -124,16 +131,13 @@ The simplest and most reliable fix is to update the system prompt to inform AI a
 
 ### Files Changed
 
-1. **`src/claude.prompts.lib.mjs`** — Updated `buildSystemPrompt` to:
-   - Accept `repoIsPrivate` parameter
-   - When repository is private: instruct agent to NOT embed images via `raw.githubusercontent.com`, and instead describe the visual results in text
-   - When repository is public: keep the existing instructions (raw URLs work fine)
+1. **`src/claude.prompts.lib.mjs`** — Updated `buildSystemPrompt` to use `github.com/blob/?raw=true` URL format (removed `repoIsPrivate` parameter, no longer needed)
 
 2. **`src/agent.prompts.lib.mjs`** — Same changes as `claude.prompts.lib.mjs`
 
-3. **`src/claude.lib.mjs`** — Pass `repoIsPrivate` to `buildSystemPrompt`
+3. **`src/claude.lib.mjs`** — Removed `getRepoVisibility` import and call (no longer needed)
 
-4. **`src/agent.lib.mjs`** — Pass `repoIsPrivate` to `buildSystemPrompt`
+4. **`src/agent.lib.mjs`** — Removed `getRepoVisibility` import and call (no longer needed)
 
 ### Before (broken — same in both claude.prompts.lib.mjs and agent.prompts.lib.mjs)
 
@@ -158,16 +162,10 @@ modelSupportsVision
 
 Visual UI work and screenshots.
    - When you work on visual UI changes (frontend, CSS, HTML, design), include a render or screenshot of the final result in the pull request description.
-   - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).${
-     repoIsPrivate
-       ? `
-   - IMPORTANT: This is a PRIVATE repository. Do NOT embed screenshots using raw.githubusercontent.com URLs in pull request descriptions or comments — these URLs return HTTP 404 to all viewers (including repository owners) because GitHub does not authenticate raw content requests in markdown rendering. Instead, describe what the screenshot shows in text form (e.g., "The homepage shows a navigation bar with 3 items...").
-   - When you save screenshots to the repository, commit them to the branch so they are preserved in git history for future reference, but do not attempt to display them inline in the PR description.`
-       : `
-   - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
-   - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
+   - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
+   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
+   - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
-   }`
   : '';
 ```
 
@@ -196,23 +194,37 @@ Relatively low (requires all 4 conditions above), but confusing for users who ex
 
 ## Solutions Considered
 
-### Solution 1 (Implemented): Conditional prompt based on `repoIsPrivate`
+### Solution 1 (Not Implemented): Conditional prompt based on `repoIsPrivate`
 
 Check repository visibility before building system prompt. If private, replace the `raw.githubusercontent.com` instruction with a warning to describe visual results in text.
 
 **Pros:**
 
-- Minimal code change
 - Uses already-available `getRepoVisibility` function
-- Accurate: no broken images, text descriptions are still informative
 - Can be extended later if GitHub adds API for private image uploads
 
 **Cons:**
 
 - Requires fetching repository metadata before building system prompt
 - Text descriptions are less visually informative than actual screenshots
+- Adds complexity with conditional branching
 
-### Solution 2 (Not Implemented): Upload screenshots via GitHub attachment API
+### Solution 2 (Implemented): Use universal `github.com/blob/?raw=true` URL format
+
+Replace `raw.githubusercontent.com` with `github.com/{owner}/{repo}/blob/{branch}/path?raw=true`. This URL format works for both public and private repositories because it goes through GitHub's web interface.
+
+**Pros:**
+
+- Single unified instruction — no repository visibility check needed
+- Screenshots render inline in PR descriptions for both public and private repos
+- Simpler implementation: no new API calls, no conditional logic
+- Works with both branch names and commit SHAs
+
+**Cons:**
+
+- None known
+
+### Solution 3 (Not Implemented): Upload screenshots via GitHub attachment API
 
 Use GitHub's internal image upload mechanism to host screenshots at `github.com/user-attachments/assets/...`.
 
@@ -222,16 +234,16 @@ Use GitHub's internal image upload mechanism to host screenshots at `github.com/
 - No official CLI or REST API for uploading PR body images (only via web UI)
 - Requires multi-step authentication workflow not suitable for AI agents
 
-### Solution 3 (Not Implemented): Always skip screenshot embedding
+### Solution 4 (Not Implemented): Always skip screenshot embedding
 
 Completely remove the screenshot instruction from the prompt for all repositories.
 
 **Cons:**
 
-- Loses valuable feature for public repositories where raw URLs work correctly
-- Over-correction: public repos benefit from visual screenshots in PR descriptions
+- Loses valuable feature for both public and private repos
+- Over-correction: repos benefit from visual screenshots in PR descriptions
 
-### Solution 4 (Not Implemented): Use GitHub Pages or external image host
+### Solution 5 (Not Implemented): Use GitHub Pages or external image host
 
 Deploy screenshots to a public URL (e.g., GitHub Pages, imgur, or similar).
 
@@ -268,9 +280,10 @@ New test file: `tests/test-private-repo-screenshots-1349.mjs`
 
 Tests cover:
 
-1. Public repo → screenshot instructions include `raw.githubusercontent.com` URL pattern
-2. Private repo → screenshot instructions contain warning about broken raw URLs
-3. Private repo → screenshot instructions do NOT contain `raw.githubusercontent.com` pattern
-4. No vision model → no screenshot section in either case
-5. `repoIsPrivate` defaults to `false` when not provided (backward compatibility for public repos)
-6. Same behavior verified for both `claude.prompts.lib.mjs` and `agent.prompts.lib.mjs`
+1. Vision model → screenshot instructions include `github.com/blob/?raw=true` URL format
+2. Vision model → instructions work universally (no private/public distinction in prompt)
+3. No vision model → no screenshot section
+4. Source code does NOT contain `raw.githubusercontent.com`
+5. Source code does NOT use `repoIsPrivate` parameter
+6. Source code does NOT import `getRepoVisibility` (no longer needed)
+7. Same behavior verified for both `claude.prompts.lib.mjs` and `agent.prompts.lib.mjs`

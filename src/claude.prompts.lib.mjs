@@ -91,7 +91,7 @@ export const buildUserPrompt = params => {
  * @returns {string} The formatted system prompt
  */
 export const buildSystemPrompt = params => {
-  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, repoIsPrivate = false } = params;
+  const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision } = params;
 
   // Note: --think keywords are deprecated for Claude Code >= 2.1.12
   // Thinking is now enabled by default with 31,999 token budget
@@ -318,16 +318,10 @@ Agent Commander usage (unified subagent delegation).
 
 Visual UI work and screenshots.
    - When you work on visual UI changes (frontend, CSS, HTML, design), include a render or screenshot of the final result in the pull request description.
-   - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).${
-     repoIsPrivate
-       ? `
-   - IMPORTANT: This is a PRIVATE repository. Do NOT embed screenshots using raw.githubusercontent.com URLs in pull request descriptions or comments — these URLs return HTTP 404 to all viewers because GitHub does not authenticate raw content requests when rendering markdown. Instead, describe what the screenshot shows in text form (e.g., "The homepage shows a navigation bar with 3 items...").
-   - When you save screenshots to the repository, commit them to the branch so they are preserved in git history for future reference, but do not attempt to display them inline in the PR description.`
-       : `
-   - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
-   - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
+   - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
+   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
+   - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
-   }`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };

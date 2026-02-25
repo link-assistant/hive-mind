@@ -57,6 +57,7 @@ The hive-mind AI solver worked on issue #1 in the private `link-assistant/money-
 5. Created PR #2 with embedded screenshot images using `raw.githubusercontent.com` URLs
 
 The solver followed the system prompt instructions verbatim:
+
 > "When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png)."
 
 ### 2026-02-25T00:01:33Z — Solution draft log posted
@@ -86,7 +87,7 @@ The `buildSystemPrompt` function in `src/claude.prompts.lib.mjs` (and identicall
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
    - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
    - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
-   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
+   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`;
 ```
 
 This instruction has no branching logic for repository visibility. It always tells the AI to use `raw.githubusercontent.com` links regardless of whether the repository is public or private.
@@ -106,12 +107,14 @@ Reference: [GitHub Docs — Viewing raw files](https://docs.github.com/en/reposi
 GitHub supports uploading images directly as attachments to issues/PRs via drag-and-drop or the [Upload a release asset](https://docs.github.com/en/rest/releases/assets?apiVersion=2022-11-28) / content API. When uploaded this way, images are hosted at `github.com/user-attachments/assets/...` which **renders inline** regardless of repository visibility.
 
 However, this requires:
+
 - Using the GitHub web UI to upload attachments (no CLI/API for PR body image uploads)
 - Or using the GitHub GraphQL mutation `createIssueComment` with image attachment workflow — complex and non-standard
 
 ### Practical Fix: Warn AI Agents About Private Repo Limitations
 
 The simplest and most reliable fix is to update the system prompt to inform AI agents:
+
 - For **public repositories**: `raw.githubusercontent.com` links work and should be used
 - For **private repositories**: `raw.githubusercontent.com` links produce broken images; agents should either skip screenshot embedding or use descriptive alt text instead
 
@@ -144,7 +147,7 @@ Visual UI work and screenshots.
    - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
    - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
-  : ''
+  : '';
 ```
 
 ### After (fixed)
@@ -165,7 +168,7 @@ Visual UI work and screenshots.
    - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
    }`
-  : ''
+  : '';
 ```
 
 ---
@@ -175,6 +178,7 @@ Visual UI work and screenshots.
 ### Affected Configurations
 
 Any execution of hive-mind where ALL of the following are true:
+
 1. Repository is **private**
 2. AI model supports **vision** (`modelSupportsVision === true`)
 3. Issue involves **visual UI work** (frontend, HTML, CSS, screenshots)
@@ -197,12 +201,14 @@ Relatively low (requires all 4 conditions above), but confusing for users who ex
 Check repository visibility before building system prompt. If private, replace the `raw.githubusercontent.com` instruction with a warning to describe visual results in text.
 
 **Pros:**
+
 - Minimal code change
 - Uses already-available `getRepoVisibility` function
 - Accurate: no broken images, text descriptions are still informative
 - Can be extended later if GitHub adds API for private image uploads
 
 **Cons:**
+
 - Requires fetching repository metadata before building system prompt
 - Text descriptions are less visually informative than actual screenshots
 
@@ -211,6 +217,7 @@ Check repository visibility before building system prompt. If private, replace t
 Use GitHub's internal image upload mechanism to host screenshots at `github.com/user-attachments/assets/...`.
 
 **Cons:**
+
 - GitHub's image attachment API is internal and undocumented
 - No official CLI or REST API for uploading PR body images (only via web UI)
 - Requires multi-step authentication workflow not suitable for AI agents
@@ -220,6 +227,7 @@ Use GitHub's internal image upload mechanism to host screenshots at `github.com/
 Completely remove the screenshot instruction from the prompt for all repositories.
 
 **Cons:**
+
 - Loses valuable feature for public repositories where raw URLs work correctly
 - Over-correction: public repos benefit from visual screenshots in PR descriptions
 
@@ -228,6 +236,7 @@ Completely remove the screenshot instruction from the prompt for all repositorie
 Deploy screenshots to a public URL (e.g., GitHub Pages, imgur, or similar).
 
 **Cons:**
+
 - Requires additional infrastructure
 - Not feasible within a single AI solver session
 - Privacy concerns for screenshots of private projects

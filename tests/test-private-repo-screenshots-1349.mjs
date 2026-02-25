@@ -93,10 +93,7 @@ test('Public repo + vision model → screenshot section includes raw.githubuserc
   });
 
   assert(prompt.includes('Visual UI work and screenshots'), 'Should include screenshot section header');
-  assert(
-    prompt.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'),
-    'Should include raw.githubusercontent.com URL with correct owner/repo/branch',
-  );
+  assert(prompt.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'), 'Should include raw.githubusercontent.com URL with correct owner/repo/branch');
   assert(!prompt.includes('PRIVATE repository'), 'Should NOT include private repo warning');
   assert(!prompt.includes('HTTP 404'), 'Should NOT include HTTP 404 warning');
 });
@@ -122,10 +119,7 @@ test('Private repo + vision model → screenshot section does NOT include raw UR
 
   // The raw.githubusercontent.com URL should NOT appear as an embedding instruction
   // (It may appear in text explaining why not to use it, but not as a positive instruction)
-  assert(
-    !prompt.includes('use permanent raw file links in the pull request description'),
-    'Should NOT instruct to use permanent raw file links',
-  );
+  assert(!prompt.includes('use permanent raw file links in the pull request description'), 'Should NOT instruct to use permanent raw file links');
   assert(!prompt.includes('commit them to the branch first, then reference them using the raw GitHub URL format'), 'Should NOT instruct to use raw GitHub URL format for embedding');
 });
 
@@ -169,10 +163,7 @@ test('repoIsPrivate defaults to false (public behavior) when not provided', () =
     repoIsPrivate: false,
   });
 
-  assert(
-    promptWithDefault.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'),
-    'Default (no repoIsPrivate) should behave like public repo',
-  );
+  assert(promptWithDefault.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'), 'Default (no repoIsPrivate) should behave like public repo');
   assert(!promptWithDefault.includes('PRIVATE repository'), 'Default should NOT include private repo warning');
   assert(promptWithDefault === promptPublic, 'Default behavior should match explicit repoIsPrivate=false');
 });
@@ -188,10 +179,7 @@ test('[agent] Public repo + vision model → screenshot section includes raw.git
   });
 
   assert(prompt.includes('Visual UI work and screenshots'), 'Should include screenshot section header');
-  assert(
-    prompt.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'),
-    'Should include raw.githubusercontent.com URL with correct owner/repo/branch',
-  );
+  assert(prompt.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'), 'Should include raw.githubusercontent.com URL with correct owner/repo/branch');
   assert(!prompt.includes('PRIVATE repository'), 'Should NOT include private repo warning');
 });
 
@@ -252,10 +240,7 @@ test('[agent] repoIsPrivate defaults to false (public behavior) when not provide
     // repoIsPrivate not provided → defaults to false
   });
 
-  assert(
-    promptWithDefault.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'),
-    'Default (no repoIsPrivate) should behave like public repo',
-  );
+  assert(promptWithDefault.includes('raw.githubusercontent.com/test-owner/test-repo/test-branch'), 'Default (no repoIsPrivate) should behave like public repo');
   assert(!promptWithDefault.includes('PRIVATE repository'), 'Default should NOT include private repo warning');
 });
 

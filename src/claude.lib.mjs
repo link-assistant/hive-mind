@@ -15,6 +15,7 @@ import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
+import { getRepoVisibility } from './github-merge.lib.mjs';
 import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
 // Helper to display resume command at end of session
@@ -297,6 +298,12 @@ export const executeClaude = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
+  // Check repository visibility for screenshot instructions (issue #1349)
+  const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
+  const repoIsPrivate = repoInfo.isPrivate;
+  if (argv.verbose) {
+    await log(`🔒 Repository visibility: ${repoIsPrivate ? 'private' : 'public'}`, { verbose: true });
+  }
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -330,6 +337,7 @@ export const executeClaude = async params => {
     forkedRepo,
     argv,
     modelSupportsVision,
+    repoIsPrivate,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {

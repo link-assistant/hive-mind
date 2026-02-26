@@ -846,6 +846,7 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
     let stderrErrors = [];
+    let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
     let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
@@ -1014,6 +1015,10 @@ export const executeClaudeCommand = async params => {
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
                 }
+                // Issue #1354: Track when result event confirms success (prevents false positive detection)
+                if (data.subtype === 'success') {
+                  resultSuccessReceived = true;
+                }
                 // Issue #1104: Only extract cost from subtype 'success' results
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
@@ -1114,9 +1119,15 @@ export const executeClaudeCommand = async params => {
           // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Track stderr errors for failure detection using shared helper (Issue #477, #1165, #1337)
-            if (isStderrError(errorOutput)) {
-              stderrErrors.push(errorOutput.trim());
+            // Issue #1354: Split multi-line stderr chunks and check each line individually.
+            // A single chunk may contain multiple newline-separated JSON messages (e.g. two
+            // consecutive {"level":"warn",...} lines). Passing the whole chunk to isStderrError()
+            // causes JSON.parse() to fail (multi-object is not valid JSON), falling through to
+            // keyword matching and producing false positives on words like "failed".
+            for (const line of errorOutput.split('\n')) {
+              if (isStderrError(line)) {
+                stderrErrors.push(line.trim());
+              }
             }
           }
         } else if (chunk.type === 'exit') {
@@ -1255,7 +1266,10 @@ export const executeClaudeCommand = async params => {
       // - Prevents EPERM errors and false success reports
       //
       // See: docs/dependencies-research/claude-code-issues/README.md for full details
-      if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+      // Issue #1354: Do not trigger if the result event already confirmed success.
+      // A successful result event is definitive proof the command succeeded, regardless of
+      // messageCount (which may be 0 if "assistant" events were counted instead of "message" type).
+      if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
         const errorsPreview = stderrErrors
           .slice(0, 5)

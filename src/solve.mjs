@@ -77,6 +77,8 @@ const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
 const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const interruptLib = await import('./solve.interrupt.lib.mjs');
+const { createInterruptWrapper } = interruptLib;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
 // Import new modular components
@@ -160,69 +162,14 @@ if (argv.sentry) {
     },
   });
 }
-// Create a cleanup wrapper that will be populated with context later
-let cleanupContext = {
-  tempDir: null,
-  argv: null,
-  limitReached: false,
-  // Interrupt-specific context (populated as solve progresses)
-  branchName: null,
-  prNumber: null,
-  owner: null,
-  repo: null,
-};
+// Create cleanup/interrupt wrappers populated with context as solve progresses
+let cleanupContext = { tempDir: null, argv: null, limitReached: false, branchName: null, prNumber: null, owner: null, repo: null };
 const cleanupWrapper = async () => {
   if (cleanupContext.tempDir && cleanupContext.argv) {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
 };
-// Interrupt wrapper: auto-commit uncommitted changes and upload logs on CTRL+C
-const interruptWrapper = async () => {
-  const ctx = cleanupContext;
-  if (!ctx.tempDir || !ctx.argv) return;
-
-  await log('\n⚠️  Session interrupted by user (CTRL+C)');
-
-  // Always auto-commit uncommitted changes on CTRL+C to preserve work
-  if (ctx.branchName) {
-    try {
-      await checkForUncommittedChanges(
-        ctx.tempDir,
-        ctx.owner,
-        ctx.repo,
-        ctx.branchName,
-        $,
-        log,
-        true, // always autoCommit on CTRL+C to preserve work
-        false // no autoRestart
-      );
-    } catch (commitError) {
-      await log(`⚠️  Could not auto-commit changes on interrupt: ${commitError.message}`, { level: 'warning' });
-    }
-  }
-
-  // Upload logs if --attach-logs is enabled and we have a PR
-  if (shouldAttachLogs && ctx.prNumber && ctx.owner && ctx.repo) {
-    await log('📎 Uploading interrupted session logs to Pull Request...');
-    try {
-      await attachLogToGitHub({
-        logFile: getLogFile(),
-        targetType: 'pr',
-        targetNumber: ctx.prNumber,
-        owner: ctx.owner,
-        repo: ctx.repo,
-        $,
-        log,
-        sanitizeLogContent,
-        verbose: ctx.argv.verbose || false,
-        errorMessage: 'Session interrupted by user (CTRL+C)',
-      });
-    } catch (uploadError) {
-      await log(`⚠️  Could not upload logs on interrupt: ${uploadError.message}`, { level: 'warning' });
-    }
-  }
-};
-// Initialize the exit handler with getAbsoluteLogPath function, cleanup wrapper, and interrupt wrapper
+const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
 
@@ -246,10 +193,9 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers early
+// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
-// Populate interrupt context with owner/repo as soon as they are known
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
@@ -575,15 +521,12 @@ if (isPrUrl) {
 // Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers
+// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
-// prNumber may already be known in continue mode (set earlier)
-if (prNumber) {
-  cleanupContext.prNumber = prNumber;
-}
+if (prNumber) cleanupContext.prNumber = prNumber;
 // Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
@@ -627,7 +570,6 @@ try {
     repo,
     prNumber,
   });
-  // Update interrupt context with branch name so SIGINT handler can auto-commit
   cleanupContext.branchName = branchName;
 
   // Auto-merge default branch to pull request branch if enabled
@@ -706,10 +648,7 @@ try {
       claudeCommitHash = autoPrResult.claudeCommitHash;
     }
   }
-  // Update interrupt context with PR number so SIGINT handler can upload logs
-  if (prNumber) {
-    cleanupContext.prNumber = prNumber;
-  }
+  if (prNumber) cleanupContext.prNumber = prNumber;
 
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created

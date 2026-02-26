@@ -1227,6 +1227,48 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   }
 }
 
+/**
+ * Get the count of active (enabled) GitHub Actions workflows in a repository
+ * Issue #1363: Used to distinguish between "no CI configured" and "CI hasn't started yet"
+ *
+ * When a repo has NO workflows, no_checks means no CI configured.
+ * When a repo HAS workflows, no_checks means CI checks haven't started yet (race condition).
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string}>}>}
+ */
+export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state})'`);
+    const workflows = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${workflows.length} active workflows in ${owner}/${repo}`);
+      for (const wf of workflows) {
+        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}`);
+      }
+    }
+
+    return {
+      count: workflows.length,
+      hasWorkflows: workflows.length > 0,
+      workflows,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching workflows for ${owner}/${repo}: ${error.message}`);
+    }
+    // On error, assume no workflows (safer: avoids false positives in the no-CI case)
+    return {
+      count: 0,
+      hasWorkflows: false,
+      workflows: [],
+    };
+  }
+}
+
 // Issue #1341: Import and re-export post-merge CI functions from separate module
 // to keep this file under the 1500 line limit
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
@@ -1265,4 +1307,6 @@ export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
+  getActiveRepoWorkflows,
 };

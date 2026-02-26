@@ -21,6 +21,7 @@ This is a follow-up to [issue #1345](https://github.com/link-assistant/hive-mind
 **Referenced PR:** https://github.com/link-assistant/calculator/pull/82
 
 **Command that triggered the bug:**
+
 ```
 solve https://github.com/link-assistant/calculator/issues/36 \
   --model opus-4-6 \
@@ -33,6 +34,7 @@ solve https://github.com/link-assistant/calculator/issues/36 \
 ```
 
 **Repository characteristics (link-assistant/calculator):**
+
 - Has 3 active GitHub Actions workflows (including CI/CD Pipeline)
 - Has NO branch protection rules on `main` branch
 - Has NO required status checks configured in branch protection
@@ -68,6 +70,7 @@ Claude finished all implementations. The framework begins post-session cleanup.
 ### 2026-02-26T19:37:47Z — `watchUntilMergeable` first check (FALSE POSITIVE)
 
 The check ran on the NEW HEAD SHA (`e0a064c`):
+
 1. `getDetailedCIStatus(e0a064c)` → `{ status: 'no_checks', checks: [] }` (CI for the new SHA hadn't started yet — ~10-30s delay)
 2. `checkPRMergeable()` → `{ mergeable: true }` (GitHub returns `CLEAN` because there are NO required status checks in branch protection)
 3. **OLD LOGIC**: `no_checks + MERGEABLE = no CI configured` → **FALSE POSITIVE**
@@ -93,17 +96,18 @@ The bug was reported by the user who observed the false positive.
 
 When `getDetailedCIStatus()` returns `no_checks`, there are now THREE possible scenarios:
 
-| Scenario | Repo has workflows? | Required checks? | `mergeStateStatus` | Correct action |
-|----------|--------------------|-----------------|--------------------|---------------|
-| **A** (issue #1345 target) | ❌ No | ❌ No | `CLEAN` | Treat as "no CI" → post "Ready to merge" |
-| **B** (issue #1363 trigger) | ✅ Yes | ❌ No | `CLEAN` | Wait for CI to start → race condition |
-| **C** (issue #1345 race) | ✅ Yes | ✅ Yes | `BLOCKED`/`UNKNOWN` | Wait for CI to start → race condition |
+| Scenario                    | Repo has workflows? | Required checks? | `mergeStateStatus`  | Correct action                           |
+| --------------------------- | ------------------- | ---------------- | ------------------- | ---------------------------------------- |
+| **A** (issue #1345 target)  | ❌ No               | ❌ No            | `CLEAN`             | Treat as "no CI" → post "Ready to merge" |
+| **B** (issue #1363 trigger) | ✅ Yes              | ❌ No            | `CLEAN`             | Wait for CI to start → race condition    |
+| **C** (issue #1345 race)    | ✅ Yes              | ✅ Yes           | `BLOCKED`/`UNKNOWN` | Wait for CI to start → race condition    |
 
 The fix for issue #1345 disambiguates **A** from **C** by checking `mergeStateStatus`. But it **cannot distinguish A from B** — both return `CLEAN` and `MERGEABLE: true`.
 
 ### Why `mergeStateStatus` Is Not Sufficient
 
 GitHub's `mergeStateStatus: CLEAN` means:
+
 - All REQUIRED status checks have passed (or there are none)
 - No merge conflicts
 - PR is not blocked by any required review
@@ -157,6 +161,7 @@ This queries the GitHub Actions workflows API to check whether ANY active workfl
 ### Updated Logic: `getMergeBlockers` (Third Discriminator)
 
 Before (issue #1345 fix — only 2-way check):
+
 ```javascript
 if (ciStatus.status === 'no_checks') {
   const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
@@ -169,6 +174,7 @@ if (ciStatus.status === 'no_checks') {
 ```
 
 After (issue #1363 fix — 3-way check):
+
 ```javascript
 if (ciStatus.status === 'no_checks') {
   const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
@@ -211,11 +217,13 @@ getDetailedCIStatus() returns 'no_checks'
 ### Solution 1 (Implemented): Check Repository Workflows API
 
 **Pros:**
+
 - Accurate: directly queries whether CI is configured
 - Works regardless of branch protection settings
 - Provides useful info (workflow names) in the blocker message
 
 **Cons:**
+
 - One extra API call per `no_checks + MERGEABLE` occurrence
 - Relies on GitHub's workflows API being available
 
@@ -226,6 +234,7 @@ Wait 60 seconds after session end before the first `watchUntilMergeable` check.
 **Pros:** Simple implementation
 
 **Cons:**
+
 - Arbitrary delay (may be too short or too long)
 - Slows down all cases, including ones where CI starts quickly
 - Doesn't fix the root cause — if delay is < ~30s, same race condition possible
@@ -237,6 +246,7 @@ If the previous HEAD SHA had CI checks, assume the new SHA will too.
 **Pros:** Leverages existing CI history
 
 **Cons:**
+
 - Doesn't work for newly created PRs or first commits
 - More complex state tracking
 
@@ -247,6 +257,7 @@ Add N retries with short delay when `no_checks + MERGEABLE` is seen.
 **Pros:** Simple, no extra API calls
 
 **Cons:**
+
 - Arbitrary retry count/delay
 - Only partially fixes the issue — if N is too small, still races
 
@@ -257,6 +268,7 @@ Only skip CI waiting if user passes `--allow-no-ci` or similar flag.
 **Pros:** Conservative, opt-in
 
 **Cons:**
+
 - Breaking change for existing users
 - Doesn't solve the root cause
 
@@ -280,6 +292,7 @@ Only skip CI waiting if user passes `--allow-no-ci` or similar flag.
 ### Known GitHub Behavior
 
 GitHub's `mergeStateStatus` values and their meanings:
+
 - `CLEAN`: Ready to merge (no required checks missing, no conflicts)
 - `BLOCKED`: Blocked by branch protection (required checks failing/pending, or required reviews missing)
 - `BEHIND`: Branch is behind base branch
@@ -296,6 +309,7 @@ For repos with NO branch protection, `mergeStateStatus` is **always `CLEAN`** as
 ### Affected Repositories
 
 Any repository that:
+
 1. Has GitHub Actions workflows configured (CI/CD)
 2. Has NO required status checks in branch protection rules (or no branch protection at all)
 3. Uses hive-mind's `--auto-restart-until-mergeable` flag
@@ -325,6 +339,7 @@ This affects any repository where branch protection doesn't enforce CI checks as
 ### Key Log Evidence
 
 From `full-solution-log.txt` (end of file):
+
 ```
 19:37:34Z  PR is already ready for review
 19:37:47Z  ✅ PR IS MERGEABLE!
@@ -332,6 +347,7 @@ From `full-solution-log.txt` (end of file):
 ```
 
 From GitHub Actions (after session ended):
+
 ```
 19:37:57Z  First CI check started for SHA e0a064c
 19:41:12Z  All CI checks completed (all PASS)

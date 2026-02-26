@@ -398,6 +398,8 @@ export const executeCodexCommand = async params => {
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
+        } else if (exitCode === 130) {
+          await log('\n\n⚠️ Codex command interrupted (CTRL+C)');
         } else {
           await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
         }

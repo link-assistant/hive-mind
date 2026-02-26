@@ -911,6 +911,9 @@ export const executeAgentCommand = async params => {
           // Explicit JSON error message from agent (Issue #1201: includes streaming-detected errors)
           errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
+        } else if (exitCode === 130) {
+          errorInfo.message = 'Agent command interrupted (CTRL+C)';
+          await log('\n\n⚠️ Agent command interrupted (CTRL+C)');
         } else {
           errorInfo.message = `Agent command failed with exit code ${exitCode}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });

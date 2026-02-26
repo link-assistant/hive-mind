@@ -41,7 +41,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError, isUsageLimitReached } = restartShared;
+const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
 
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
@@ -321,9 +321,6 @@ export const watchUntilMergeable = async params => {
   // `restartCount` counts actual AI tool executions (when we actually restart the AI)
   let restartCount = 0;
 
-  // Track consecutive API errors for retry limit
-  const MAX_API_ERROR_RETRIES = 3;
-  let consecutiveApiErrors = 0;
   let currentBackoffSeconds = watchInterval;
 
   await log('');
@@ -642,8 +639,10 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         if (!toolResult.success) {
           // Issue #1356: Check for usage limit errors FIRST (most specific)
           // When usage limit is reached, silently wait for limitResetTime + buffer + jitter,
-          // then continue the loop. No GitHub comment is posted — only log output.
+          // then resume the session using --resume <sessionId> with a "Continue" prompt.
+          // No GitHub comment is posted — only log output.
           if (isUsageLimitReached(toolResult)) {
+            const resumeSessionId = toolResult.sessionId;
             const resetTime = toolResult.limitResetTime;
             const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
             const bufferMs = limitReset.bufferMs;
@@ -657,47 +656,71 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             await log(formatAligned('⏳', 'USAGE LIMIT REACHED', ''));
             await log(formatAligned('', 'Reset time:', resetTime || 'Unknown', 2));
             await log(formatAligned('', 'Waiting:', `${waitMinutes} min (reset + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)`, 2));
-            await log(formatAligned('', 'Action:', 'Silently waiting — no GitHub comment posted', 2));
+            await log(formatAligned('', 'Action:', 'Silently waiting then resuming — no GitHub comment posted', 2));
+            if (resumeSessionId) {
+              await log(formatAligned('', 'Session ID:', resumeSessionId, 2));
+            }
             await log('');
 
             // Wait silently until the limit resets (no GitHub comment)
             await new Promise(resolve => setTimeout(resolve, waitMs));
 
-            await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming auto-restart loop...'));
+            await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming session...'));
             await log('');
 
-            // Continue the loop instead of returning — no GitHub comment posted
+            // Resume the session: execute with --resume <sessionId> and a "Continue" prompt
+            // This preserves context and the system message from the original session
+            if (resumeSessionId) {
+              const resumeArgv = { ...argv, resume: resumeSessionId };
+              const resumeResult = await executeToolIteration({
+                issueUrl,
+                owner,
+                repo,
+                issueNumber,
+                prNumber,
+                branchName: prBranch || branchName,
+                tempDir,
+                mergeStateStatus,
+                feedbackLines: ['Continue'],
+                argv: resumeArgv,
+              });
+
+              if (resumeResult.success) {
+                // Resume succeeded - capture session data
+                currentBackoffSeconds = watchInterval;
+                if (resumeResult.sessionId) {
+                  latestSessionId = resumeResult.sessionId;
+                  latestAnthropicCost = resumeResult.anthropicTotalCostUSD;
+                }
+                await log(formatAligned('✅', `${argv.tool.toUpperCase()} resume completed:`, 'Checking if PR is now mergeable...'));
+              } else if (isUsageLimitReached(resumeResult)) {
+                // Hit the limit again immediately after resume — store for next outer iteration
+                await log(formatAligned('⚠️', 'Usage limit hit again after resume', 'Will retry in next check cycle', 2));
+              } else {
+                // Resume failed for a non-limit reason — stop the loop
+                await log('');
+                await log(formatAligned('❌', `${argv.tool.toUpperCase()} RESUME FAILED`, ''));
+                await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
+                return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
+              }
+            } else {
+              // No session ID available — cannot resume, restart fresh in next iteration
+              await log(formatAligned('⚠️', 'No session ID for resume', 'Will restart fresh in next check cycle', 2));
+            }
+
             lastCheckTime = new Date();
             continue;
           }
 
-          // Check if this is an API error using shared utility
-          if (isApiError(toolResult)) {
-            consecutiveApiErrors++;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
-
-            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
-              await log('');
-              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
-              await log(formatAligned('', 'Error details:', toolResult.result || 'Unknown API error', 2));
-              await log(formatAligned('', 'Action:', 'Exiting to prevent infinite loop', 2));
-              return { success: false, reason: 'api_error', latestSessionId, latestAnthropicCost };
-            }
-
-            // Apply exponential backoff
-            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300);
-            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
-          } else {
-            consecutiveApiErrors = 0;
-            currentBackoffSeconds = watchInterval;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
-          }
+          // Any other failure (not usage limit): stop the auto-restart loop
+          // Per reviewer feedback: non-limit failures should fail and stop attempts
+          await log('');
+          await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
+          await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
+          return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
         } else {
-          // Success - reset error counters
-          consecutiveApiErrors = 0;
+          // Success - capture latest session data
           currentBackoffSeconds = watchInterval;
-
-          // Capture latest session data
           if (toolResult.sessionId) {
             latestSessionId = toolResult.sessionId;
             latestAnthropicCost = toolResult.anthropicTotalCostUSD;
@@ -783,7 +806,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
     }
 
     // Wait for next interval
-    const actualWaitSeconds = consecutiveApiErrors > 0 ? currentBackoffSeconds : watchInterval;
+    const actualWaitSeconds = currentBackoffSeconds;
     await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
     await log('');
     await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));

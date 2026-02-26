@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Unit Tests: Issue #1356 - Auto-restart silently waits on usage limit to prevent comment spam
+ * Unit Tests: Issue #1356 - Auto-restart handles usage limit via session resume
  *
  * Tests verify that:
  * 1. isUsageLimitReached correctly detects usage limit from tool results
- * 2. The auto-restart loop waits silently when a usage limit is reached (no GitHub comment)
- * 3. The loop continues after the wait (does not exit)
+ * 2. The auto-restart loop resumes the session (using --resume <sessionId>) when usage limit is reached
+ * 3. Non-limit tool failures stop the loop (fail and stop, not retry)
+ * 4. The loop never posts a GitHub comment on usage limit events
  */
 
 import { isUsageLimitReached, isApiError } from '../src/solve.restart-shared.lib.mjs';
@@ -38,7 +39,7 @@ const assert = (condition, message) => {
 };
 
 console.log('================================================================================');
-console.log('Unit Tests: Issue #1356 - Auto-restart usage limit detection');
+console.log('Unit Tests: Issue #1356 - Auto-restart usage limit detection and resume');
 console.log('================================================================================\n');
 
 // ===== Test: isUsageLimitReached function =====
@@ -130,37 +131,46 @@ test('generic failure is neither API error nor usage limit', () => {
 // ===== Test: Loop behavior simulation =====
 console.log('\n📋 Auto-restart Loop Behavior Simulation Tests\n');
 
-test('loop should wait and continue (not exit) when usage limit is reached (simulated)', () => {
+test('loop should wait, resume via --resume sessionId (not exit) when usage limit is reached', () => {
   // Simulate the auto-restart loop behavior per Issue #1356 fix
-  let loopContinued = false;
+  let resumeTriggered = false;
+  let resumeSessionId = null;
   let waitTriggered = false;
   let commentPosted = false;
   let exitReason = null;
+  let loopContinued = false;
 
-  // Simulate: tool returns usage limit
+  // Simulate: tool returns usage limit with a session ID
   const toolResult = {
     success: false,
     limitReached: true,
     limitResetTime: '5:00 AM',
+    sessionId: 'session-abc-123',
   };
 
-  // Simulate the fixed logic: wait silently, then continue (no GitHub comment)
+  // Simulate the fixed logic: wait silently, then resume (no GitHub comment)
   if (!toolResult.success) {
     if (isUsageLimitReached(toolResult)) {
       waitTriggered = true;
       // No commentPosted = no GitHub comment posted
-      loopContinued = true; // continue statement resumes the loop
+      resumeSessionId = toolResult.sessionId;
+      if (resumeSessionId) {
+        resumeTriggered = true; // would call executeToolIteration with argv.resume = resumeSessionId
+      }
+      loopContinued = true; // continue statement resumes the outer loop
     }
   }
 
   assert(exitReason === null, 'Loop should NOT exit (no return statement)');
   assert(waitTriggered === true, 'Should trigger a wait');
-  assert(loopContinued === true, 'Loop should continue after wait');
+  assert(resumeTriggered === true, 'Should trigger a resume with --resume sessionId');
+  assert(resumeSessionId === 'session-abc-123', 'Should use the session ID from tool result');
+  assert(loopContinued === true, 'Loop should continue after resume');
   assert(commentPosted === false, 'Should NOT post any GitHub comment');
 });
 
-test('loop should continue on generic failure (NOT usage limit)', () => {
-  let loopContinued = false;
+test('loop should stop (fail) on generic failure (NOT usage limit)', () => {
+  let loopStopped = false;
   let exitReason = null;
 
   const toolResult = {
@@ -170,44 +180,81 @@ test('loop should continue on generic failure (NOT usage limit)', () => {
 
   if (!toolResult.success) {
     if (isUsageLimitReached(toolResult)) {
-      exitReason = 'usage_limit';
+      exitReason = 'usage_limit_resume';
     } else {
+      // Any other failure: stop the loop
+      loopStopped = true;
+      exitReason = 'tool_failure';
+    }
+  }
+
+  assert(exitReason === 'tool_failure', 'Should stop with tool_failure reason');
+  assert(loopStopped === true, 'Loop should stop on generic failure');
+});
+
+test('loop should stop (fail) on API error failure', () => {
+  let exitReason = null;
+
+  const toolResult = {
+    success: false,
+    result: 'API Error: authentication_error',
+    limitReached: false,
+  };
+
+  if (!toolResult.success) {
+    if (isUsageLimitReached(toolResult)) {
+      exitReason = 'usage_limit_resume';
+    } else {
+      // Any other failure (including API errors): stop the loop
+      exitReason = 'tool_failure';
+    }
+  }
+
+  assert(exitReason === 'tool_failure', 'Should stop with tool_failure for API error');
+});
+
+test('resume uses argv.resume = sessionId from toolResult', () => {
+  // Verify the argv modification pattern for --resume
+  const originalArgv = { tool: 'claude', model: 'sonnet' };
+  const toolResult = {
+    success: false,
+    limitReached: true,
+    sessionId: 'session-xyz-456',
+  };
+
+  let resumeArgv = null;
+  if (isUsageLimitReached(toolResult) && toolResult.sessionId) {
+    resumeArgv = { ...originalArgv, resume: toolResult.sessionId };
+  }
+
+  assert(resumeArgv !== null, 'resumeArgv should be created');
+  assert(resumeArgv.resume === 'session-xyz-456', 'resume should be set to the session ID');
+  assert(resumeArgv.tool === 'claude', 'Other argv properties should be preserved');
+  assert(originalArgv.resume === undefined, 'Original argv should not be modified');
+});
+
+test('when no session ID, loop continues without resume (graceful fallback)', () => {
+  let resumeTriggered = false;
+  let loopContinued = false;
+
+  const toolResult = {
+    success: false,
+    limitReached: true,
+    // No sessionId
+  };
+
+  if (isUsageLimitReached(toolResult)) {
+    const resumeSessionId = toolResult.sessionId;
+    if (resumeSessionId) {
+      resumeTriggered = true;
+    } else {
+      // Graceful fallback: continue loop without resume
       loopContinued = true;
     }
   }
 
-  assert(exitReason === null, 'Should not exit with usage_limit reason');
-  assert(loopContinued === true, 'Loop should continue on generic failure');
-});
-
-test('loop should exit on API error after max retries (existing behavior preserved)', () => {
-  const MAX_API_ERROR_RETRIES = 3;
-  let consecutiveApiErrors = 0;
-  let exitReason = null;
-
-  // Simulate 3 consecutive API errors
-  for (let i = 0; i < 3; i++) {
-    const toolResult = {
-      success: false,
-      result: 'API Error: authentication_error',
-    };
-
-    if (!toolResult.success) {
-      if (isUsageLimitReached(toolResult)) {
-        exitReason = 'usage_limit';
-        break;
-      } else if (isApiError(toolResult)) {
-        consecutiveApiErrors++;
-        if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
-          exitReason = 'api_error';
-          break;
-        }
-      }
-    }
-  }
-
-  assert(exitReason === 'api_error', 'Should exit with api_error after max retries');
-  assert(consecutiveApiErrors === 3, `Should have 3 consecutive errors, got ${consecutiveApiErrors}`);
+  assert(resumeTriggered === false, 'Should not attempt resume without session ID');
+  assert(loopContinued === true, 'Should continue loop as fallback');
 });
 
 // ===== Test: Wait time computation logic (inline, no import) =====

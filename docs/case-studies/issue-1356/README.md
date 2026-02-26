@@ -8,33 +8,35 @@ When running `solve` with `--auto-restart-until-mergeable`, the bot posts repeat
 
 ### Codebase Analysis
 
-| File | Lines | Findings |
-|------|-------|----------|
-| `src/solve.auto-merge.lib.mjs` | 587-660 | Main auto-restart loop — posts comment BEFORE tool execution, does NOT check `limitReached` |
-| `src/solve.restart-shared.lib.mjs` | 354-360 | `isApiError()` checks `toolResult.result` which is never set by tool executors |
-| `src/claude.lib.mjs` | 1210-1277 | `executeClaude()` returns `limitReached: true` when usage limit detected |
-| `src/usage-limit.lib.mjs` | 28-71 | `isUsageLimitError()` — comprehensive pattern matching for limit errors |
-| `src/solve.watch.lib.mjs` | 297-298 | Watch mode tracks `toolResult.limitReached` in log uploads but doesn't exit |
+| File                               | Lines     | Findings                                                                                    |
+| ---------------------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `src/solve.auto-merge.lib.mjs`     | 587-660   | Main auto-restart loop — posts comment BEFORE tool execution, does NOT check `limitReached` |
+| `src/solve.restart-shared.lib.mjs` | 354-360   | `isApiError()` checks `toolResult.result` which is never set by tool executors              |
+| `src/claude.lib.mjs`               | 1210-1277 | `executeClaude()` returns `limitReached: true` when usage limit detected                    |
+| `src/usage-limit.lib.mjs`          | 28-71     | `isUsageLimitError()` — comprehensive pattern matching for limit errors                     |
+| `src/solve.watch.lib.mjs`          | 297-298   | Watch mode tracks `toolResult.limitReached` in log uploads but doesn't exit                 |
 
 ### Related Issues and PRs
 
-| Reference | Description |
-|-----------|-------------|
-| Issue #1323 | Fixed duplicate "Ready to merge" comments and iteration counter |
+| Reference   | Description                                                            |
+| ----------- | ---------------------------------------------------------------------- |
+| Issue #1323 | Fixed duplicate "Ready to merge" comments and iteration counter        |
 | Issue #1314 | Comprehensive CI/CD status handling (billing limits, cancelled checks) |
-| Issue #1290 | False usage limit detection prevention |
-| PR #1328 | Fix incorrect iteration counter and duplicate comments |
-| PR #1291 | Fix false usage limit detection and upload failure logs |
+| Issue #1290 | False usage limit detection prevention                                 |
+| PR #1328    | Fix incorrect iteration counter and duplicate comments                 |
+| PR #1291    | Fix false usage limit detection and upload failure logs                |
 
 ### Online Research
 
 Claude Code operates under a dual-layer usage framework:
+
 - **5-hour rolling window** controlling burst activity
 - **7-day weekly ceiling** capping total active compute hours
 
 When limits are reached, Claude Code returns error messages like "hit your usage limit", "session limit reached", or "resets 5am". These are already detectable via `isUsageLimitError()` in `usage-limit.lib.mjs`.
 
 Sources:
+
 - [Claude API Rate Limits Documentation](https://platform.claude.com/docs/en/api/rate-limits)
 - [Claude Code Limits Guide](https://www.truefoundry.com/blog/claude-code-limits-explained)
 - [Claude Code Issue #27336 — Rate limit errors](https://github.com/anthropics/claude-code/issues/27336)
@@ -69,6 +71,7 @@ This is the sequence of events during a typical occurrence of this bug:
 After `executeToolIteration()` returns, the code checks for API errors via `isApiError()` but does **not** check for `toolResult.limitReached`. The `isApiError()` function also has a secondary bug: it checks `toolResult.result` which is **never populated** by any of the tool executors (`executeClaude`, `executeOpenCode`, `executeCodex`, `executeAgent`).
 
 When a usage limit is hit:
+
 - `toolResult.success` = `false`
 - `toolResult.limitReached` = `true`
 - `toolResult.limitResetTime` = `"5:00 AM"` (or similar)
@@ -137,12 +140,12 @@ if (!hasExisting) {
 
 ## Impact Assessment
 
-| Area | Severity | User Impact |
-|------|----------|-------------|
-| PR comment spam | **High** | PRs become noisy, hard to follow; triggers excessive email notifications |
-| Wasted API calls | Medium | Unnecessary GitHub API calls for comment posting and CI checks |
-| Misleading status | Medium | Comments suggest work is being done when it's not |
-| Resource waste | Low | CPU/network spent on failed tool executions |
+| Area              | Severity | User Impact                                                              |
+| ----------------- | -------- | ------------------------------------------------------------------------ |
+| PR comment spam   | **High** | PRs become noisy, hard to follow; triggers excessive email notifications |
+| Wasted API calls  | Medium   | Unnecessary GitHub API calls for comment posting and CI checks           |
+| Misleading status | Medium   | Comments suggest work is being done when it's not                        |
+| Resource waste    | Low      | CPU/network spent on failed tool executions                              |
 
 ## Files Modified
 

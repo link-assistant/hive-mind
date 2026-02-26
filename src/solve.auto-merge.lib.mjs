@@ -41,7 +41,7 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError } = restartShared;
+const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError, isUsageLimitReached } = restartShared;
 
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
@@ -596,8 +596,9 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         await log('');
 
         // Post a comment to PR about the restart
+        // Issue #1356: Include restart count for tracking and add deduplication
         try {
-          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered (attempt ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {
@@ -632,6 +633,35 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         });
 
         if (!toolResult.success) {
+          // Issue #1356: Check for usage limit errors FIRST (most specific)
+          // When usage limit is reached, the AI tool cannot make progress, so we must
+          // exit the loop to prevent posting repeated "Auto-restart triggered" comments.
+          if (isUsageLimitReached(toolResult)) {
+            await log('');
+            await log(formatAligned('⏳', 'USAGE LIMIT REACHED', ''));
+            await log(formatAligned('', 'Reset time:', toolResult.limitResetTime || 'Unknown', 2));
+            await log(formatAligned('', 'Action:', 'Exiting auto-restart-until-mergeable mode to prevent comment spam', 2));
+            await log('');
+
+            // Post a single notification comment about the usage limit
+            try {
+              const usageLimitSignature = '## ⏳ Usage Limit Reached';
+              const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, usageLimitSignature, argv.verbose);
+              if (!hasExistingComment) {
+                const resetInfo = toolResult.limitResetTime ? `\n\n**Reset time:** ${toolResult.limitResetTime}` : '';
+                const commentBody = `## ⏳ Usage Limit Reached\n\nThe AI tool's usage limit has been reached. Auto-restart-until-mergeable mode is pausing to avoid posting repeated comments while no progress can be made.${resetInfo}\n\nThe session will need to be restarted manually after the limit resets, or use \`--auto-resume-on-limit-reset\` to automatically resume.\n\n---\n*Detected by hive-mind with --auto-restart-until-mergeable flag*`;
+                await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+                await log(formatAligned('', '💬 Posted usage limit notification to PR', '', 2));
+              } else {
+                await log(formatAligned('', 'Skipping duplicate usage limit comment', '', 2));
+              }
+            } catch {
+              // Don't fail if comment posting fails
+            }
+
+            return { success: false, reason: 'usage_limit', latestSessionId, latestAnthropicCost };
+          }
+
           // Check if this is an API error using shared utility
           if (isApiError(toolResult)) {
             consecutiveApiErrors++;

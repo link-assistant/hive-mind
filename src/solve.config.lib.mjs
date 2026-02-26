@@ -179,7 +179,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auto-restart-until-mergeable': {
     type: 'boolean',
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
-    default: false,
+    default: true,
   },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',

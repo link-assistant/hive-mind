@@ -1046,8 +1046,7 @@ export const executeClaudeCommand = async params => {
                   if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
                     isInternalServerError = true;
                   }
-                  // Issue #1353: Detect "Request timed out" — Claude CLI synthetic result after network timeout
-                  // Claude CLI exhausts its own retries then emits: {type:"result",is_error:true,result:"Request timed out"}
+                  // Issue #1353: Detect "Request timed out" — Claude CLI emits {type:"result",is_error:true,result:"Request timed out"} after exhausting retries
                   if (lastMessage === 'Request timed out' || lastMessage.includes('Request timed out')) {
                     isRequestTimeout = true;
                     await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });

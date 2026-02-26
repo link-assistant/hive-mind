@@ -43,6 +43,13 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError, isUsageLimitReached } = restartShared;
 
+// Import validation functions for time parsing (used for usage limit wait)
+const validation = await import('./solve.validation.lib.mjs');
+const { calculateWaitTime } = validation;
+
+// Import configuration (used for limit reset buffer and jitter)
+import { limitReset } from './config.lib.mjs';
+
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
  * This prevents duplicate status comments when multiple processes or restarts occur
@@ -634,32 +641,34 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
 
         if (!toolResult.success) {
           // Issue #1356: Check for usage limit errors FIRST (most specific)
-          // When usage limit is reached, the AI tool cannot make progress, so we must
-          // exit the loop to prevent posting repeated "Auto-restart triggered" comments.
+          // When usage limit is reached, silently wait for limitResetTime + buffer + jitter,
+          // then continue the loop. No GitHub comment is posted — only log output.
           if (isUsageLimitReached(toolResult)) {
+            const resetTime = toolResult.limitResetTime;
+            const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
+            const bufferMs = limitReset.bufferMs;
+            const jitterMs = Math.floor(Math.random() * limitReset.jitterMs);
+            const waitMs = baseWaitMs + bufferMs + jitterMs;
+            const bufferMinutes = Math.round(bufferMs / 60000);
+            const jitterSeconds = Math.round(jitterMs / 1000);
+            const waitMinutes = Math.round(waitMs / 60000);
+
             await log('');
             await log(formatAligned('⏳', 'USAGE LIMIT REACHED', ''));
-            await log(formatAligned('', 'Reset time:', toolResult.limitResetTime || 'Unknown', 2));
-            await log(formatAligned('', 'Action:', 'Exiting auto-restart-until-mergeable mode to prevent comment spam', 2));
+            await log(formatAligned('', 'Reset time:', resetTime || 'Unknown', 2));
+            await log(formatAligned('', 'Waiting:', `${waitMinutes} min (reset + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)`, 2));
+            await log(formatAligned('', 'Action:', 'Silently waiting — no GitHub comment posted', 2));
             await log('');
 
-            // Post a single notification comment about the usage limit
-            try {
-              const usageLimitSignature = '## ⏳ Usage Limit Reached';
-              const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, usageLimitSignature, argv.verbose);
-              if (!hasExistingComment) {
-                const resetInfo = toolResult.limitResetTime ? `\n\n**Reset time:** ${toolResult.limitResetTime}` : '';
-                const commentBody = `## ⏳ Usage Limit Reached\n\nThe AI tool's usage limit has been reached. Auto-restart-until-mergeable mode is pausing to avoid posting repeated comments while no progress can be made.${resetInfo}\n\nThe session will need to be restarted manually after the limit resets, or use \`--auto-resume-on-limit-reset\` to automatically resume.\n\n---\n*Detected by hive-mind with --auto-restart-until-mergeable flag*`;
-                await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-                await log(formatAligned('', '💬 Posted usage limit notification to PR', '', 2));
-              } else {
-                await log(formatAligned('', 'Skipping duplicate usage limit comment', '', 2));
-              }
-            } catch {
-              // Don't fail if comment posting fails
-            }
+            // Wait silently until the limit resets (no GitHub comment)
+            await new Promise(resolve => setTimeout(resolve, waitMs));
 
-            return { success: false, reason: 'usage_limit', latestSessionId, latestAnthropicCost };
+            await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming auto-restart loop...'));
+            await log('');
+
+            // Continue the loop instead of returning — no GitHub comment posted
+            lastCheckTime = new Date();
+            continue;
           }
 
           // Check if this is an API error using shared utility

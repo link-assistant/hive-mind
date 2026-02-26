@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Unit Tests: Issue #1356 - Auto-restart stops on usage limit to prevent comment spam
+ * Unit Tests: Issue #1356 - Auto-restart silently waits on usage limit to prevent comment spam
  *
  * Tests verify that:
  * 1. isUsageLimitReached correctly detects usage limit from tool results
- * 2. The auto-restart loop exits when a usage limit is reached
- * 3. A single notification comment is posted (not spam)
- * 4. The usage limit comment uses deduplication
+ * 2. The auto-restart loop waits silently when a usage limit is reached (no GitHub comment)
+ * 3. The loop continues after the wait (does not exit)
  */
 
 import { isUsageLimitReached, isApiError } from '../src/solve.restart-shared.lib.mjs';
@@ -131,11 +130,12 @@ test('generic failure is neither API error nor usage limit', () => {
 // ===== Test: Loop behavior simulation =====
 console.log('\n📋 Auto-restart Loop Behavior Simulation Tests\n');
 
-test('loop should exit when usage limit is reached (simulated)', () => {
-  // Simulate the auto-restart loop behavior
+test('loop should wait and continue (not exit) when usage limit is reached (simulated)', () => {
+  // Simulate the auto-restart loop behavior per Issue #1356 fix
   let loopContinued = false;
-  let exitReason = null;
+  let waitTriggered = false;
   let commentPosted = false;
+  let exitReason = null;
 
   // Simulate: tool returns usage limit
   const toolResult = {
@@ -144,20 +144,19 @@ test('loop should exit when usage limit is reached (simulated)', () => {
     limitResetTime: '5:00 AM',
   };
 
-  // Simulate the fixed logic
+  // Simulate the fixed logic: wait silently, then continue (no GitHub comment)
   if (!toolResult.success) {
     if (isUsageLimitReached(toolResult)) {
-      exitReason = 'usage_limit';
-      commentPosted = true; // Would post a single notification
-      // return (exit loop)
-    } else {
-      loopContinued = true;
+      waitTriggered = true;
+      // No commentPosted = no GitHub comment posted
+      loopContinued = true; // continue statement resumes the loop
     }
   }
 
-  assert(exitReason === 'usage_limit', 'Loop should exit with usage_limit reason');
-  assert(loopContinued === false, 'Loop should NOT continue');
-  assert(commentPosted === true, 'Should post a single usage limit notification');
+  assert(exitReason === null, 'Loop should NOT exit (no return statement)');
+  assert(waitTriggered === true, 'Should trigger a wait');
+  assert(loopContinued === true, 'Loop should continue after wait');
+  assert(commentPosted === false, 'Should NOT post any GitHub comment');
 });
 
 test('loop should continue on generic failure (NOT usage limit)', () => {
@@ -211,46 +210,36 @@ test('loop should exit on API error after max retries (existing behavior preserv
   assert(consecutiveApiErrors === 3, `Should have 3 consecutive errors, got ${consecutiveApiErrors}`);
 });
 
-// ===== Test: Comment deduplication logic =====
-console.log('\n📋 Usage Limit Comment Deduplication Tests\n');
+// ===== Test: Wait time computation logic (inline, no import) =====
+console.log('\n📋 Wait Time Computation Logic Tests\n');
 
-test('usage limit comment signature is consistent', () => {
-  const signature = '## ⏳ Usage Limit Reached';
+test('wait time with buffer and jitter is always greater than base wait', () => {
+  // Simulate calculateWaitTime returning some base ms
+  const baseWaitMs = 60 * 60 * 1000; // 1 hour (simulated)
+  const bufferMs = 10 * 60 * 1000; // 10 minutes
+  const jitterMs = Math.floor(Math.random() * (5 * 60 * 1000)); // 0-5 minutes
+  const totalWaitMs = baseWaitMs + bufferMs + jitterMs;
 
-  // Simulate comment body
-  const commentBody = "## ⏳ Usage Limit Reached\n\nThe AI tool's usage limit has been reached. Auto-restart-until-mergeable mode is pausing to avoid posting repeated comments while no progress can be made.\n\n**Reset time:** 5:00 AM\n\nThe session will need to be restarted manually after the limit resets, or use `--auto-resume-on-limit-reset` to automatically resume.\n\n---\n*Detected by hive-mind with --auto-restart-until-mergeable flag*";
-
-  assert(commentBody.includes(signature), 'Comment body should contain the signature');
+  assert(totalWaitMs > baseWaitMs, 'Total wait should exceed base wait');
+  assert(totalWaitMs >= baseWaitMs + bufferMs, 'Total wait should include at least buffer time');
 });
 
-test('deduplication prevents posting when existing comment found', () => {
-  const existingComments = ['Some other comment', "## ⏳ Usage Limit Reached\n\nThe AI tool's usage limit has been reached...", 'Another comment'];
+test('when limitResetTime is undefined, baseWaitMs defaults to 0', () => {
+  // Matches behavior in solve.auto-merge.lib.mjs:
+  // const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
+  const resetTime = undefined;
+  const baseWaitMs = resetTime ? 9999999 : 0; // simulating the ternary
 
-  const signature = '## ⏳ Usage Limit Reached';
-  const hasExisting = existingComments.some(body => body.includes(signature));
-
-  let commentPosted = false;
-  if (!hasExisting) {
-    commentPosted = true;
-  }
-
-  assert(hasExisting === true, 'Should find existing usage limit comment');
-  assert(commentPosted === false, 'Should NOT post duplicate comment');
+  assert(baseWaitMs === 0, 'Should default to 0 when no reset time is provided');
 });
 
-test('allows posting when no existing usage limit comment', () => {
-  const existingComments = ['Some other comment', '## 🔄 Auto-restart triggered\n\nSome restart comment', 'Another comment'];
+test('wait is at least buffer duration even without a reset time', () => {
+  const bufferMs = 10 * 60 * 1000;
+  const baseWaitMs = 0; // no reset time
+  const totalWaitMs = baseWaitMs + bufferMs;
 
-  const signature = '## ⏳ Usage Limit Reached';
-  const hasExisting = existingComments.some(body => body.includes(signature));
-
-  let commentPosted = false;
-  if (!hasExisting) {
-    commentPosted = true;
-  }
-
-  assert(hasExisting === false, 'Should NOT find existing usage limit comment');
-  assert(commentPosted === true, 'Should post comment');
+  assert(totalWaitMs >= bufferMs, 'Wait should include buffer even without reset time');
+  assert(totalWaitMs === 10 * 60 * 1000, 'Wait should be exactly buffer when no reset time');
 });
 
 // ===== Test: Auto-restart comment includes attempt number =====

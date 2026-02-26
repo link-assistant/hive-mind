@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -197,14 +197,38 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
     // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
     const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
     if (earlyMergeStatus.mergeable) {
-      // PR is already mergeable with no CI checks - the repo has no CI/CD configured.
-      // Do NOT add a ci_pending blocker. The mergeability check below will also
-      // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and is already MERGEABLE - no CI/CD configured`);
+      // Issue #1363: Before concluding "no CI configured", verify the repo actually
+      // has no active GitHub Actions workflows. If workflows exist but no checks have
+      // started yet, this is a race condition (GitHub takes ~10-30s to register checks
+      // after a push), NOT a "no CI configured" situation.
+      //
+      // This fixes a false positive where a repo with CI workflows but WITHOUT branch
+      // protection (required status checks) would be declared "no CI configured" because:
+      // - mergeStateStatus=CLEAN (no required checks to block it)
+      // - check_runs=[] (CI hasn't started yet — race condition)
+      const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
+      if (repoWorkflows.hasWorkflows) {
+        // Repo HAS workflows — this is a race condition, not "no CI configured"
+        // Wait for CI checks to appear
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet, but repo has ${repoWorkflows.count} active workflow(s) - treating as race condition (CI hasn't started)`);
+        }
+        blockers.push({
+          type: 'ci_pending',
+          message: `CI/CD checks have not started yet (${repoWorkflows.count} workflow(s) configured, waiting for checks to appear)`,
+          details: repoWorkflows.workflows.map(wf => wf.name),
+        });
+      } else {
+        // Repo has NO workflows — this is truly "no CI configured"
+        // PR is already mergeable with no CI checks configured.
+        // Do NOT add a ci_pending blocker. The mergeability check below will also
+        // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
+        }
+        // Return early with no CI blocker, mergeability already confirmed
+        return { blockers, ciStatus, noCiConfigured: true };
       }
-      // Return early with no CI blocker, mergeability already confirmed
-      return { blockers, ciStatus, noCiConfigured: true };
     } else {
       // PR is not yet mergeable despite no checks - treat as pending race condition
       blockers.push({

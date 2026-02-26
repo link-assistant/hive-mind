@@ -46,7 +46,7 @@ The signal handling in hive-mind is centralized in `src/exit-handler.lib.mjs`. T
 process.on('SIGINT', async () => {
   if (cleanupFunction) {
     try {
-      await cleanupFunction();   // <-- Only cleanup (temp dir deletion), nothing else
+      await cleanupFunction(); // <-- Only cleanup (temp dir deletion), nothing else
     } catch {
       // Ignore cleanup errors on signal
     }
@@ -104,6 +104,7 @@ The SIGINT handler calls `cleanupWrapper()` which calls `cleanupTempDirectory()`
 The log upload (`attachLogToGitHub`) only runs at several places in the normal exit flow inside `src/solve.mjs` and `src/solve.results.lib.mjs`. These are all unreachable from the SIGINT path.
 
 The SIGINT handler only does:
+
 1. `cleanupFunction()` → temp dir deletion
 2. `showExitMessage()` → shows log path on console
 3. Sentry flush
@@ -120,6 +121,7 @@ await log('\n\n✅ Claude command completed');
 ```
 
 When Claude exits due to SIGINT (exit code 130), this message is still printed because:
+
 - The SIGINT signal arrives at the parent process (hive-mind/solve.mjs)
 - But the `claude` subprocess may have already written "Claude command completed" to the log stream **before** the SIGINT propagates to terminate the subprocess
 - OR the SIGINT was sent to the Claude subprocess directly (if user hits CTRL+C in terminal), causing it to emit a result-type exit chunk that the monitoring code treats as a completed session
@@ -176,17 +178,17 @@ User presses CTRL+C
 
 ## Key Code Locations
 
-| File | Line(s) | Relevance |
-|------|---------|-----------|
-| `src/exit-handler.lib.mjs` | 109-128 | SIGINT handler — where fix must be added |
-| `src/exit-handler.lib.mjs` | 32-38 | `initializeExitHandler()` — where context is passed in |
-| `src/solve.mjs` | 163-172 | `cleanupWrapper` setup and `initializeExitHandler()` call |
-| `src/solve.mjs` | 1183-1186 | Normal-flow auto-commit trigger |
-| `src/claude.lib.mjs` | 1397-1455 | `checkForUncommittedChanges()` with auto-commit logic |
-| `src/github.lib.mjs` | (search: `attachLogToGitHub`) | Log attachment function |
-| `src/log-upload.lib.mjs` | Full file | `uploadLogWithGhUploadLog()` — wraps gh-upload-log CLI |
-| `src/solve.results.lib.mjs` | 464+ | `verifyResults()` — where log upload happens in normal flow |
-| `src/solve.mjs` | 142 | `shouldAttachLogs` derivation from `argv.attachLogs` |
+| File                        | Line(s)                       | Relevance                                                   |
+| --------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| `src/exit-handler.lib.mjs`  | 109-128                       | SIGINT handler — where fix must be added                    |
+| `src/exit-handler.lib.mjs`  | 32-38                         | `initializeExitHandler()` — where context is passed in      |
+| `src/solve.mjs`             | 163-172                       | `cleanupWrapper` setup and `initializeExitHandler()` call   |
+| `src/solve.mjs`             | 1183-1186                     | Normal-flow auto-commit trigger                             |
+| `src/claude.lib.mjs`        | 1397-1455                     | `checkForUncommittedChanges()` with auto-commit logic       |
+| `src/github.lib.mjs`        | (search: `attachLogToGitHub`) | Log attachment function                                     |
+| `src/log-upload.lib.mjs`    | Full file                     | `uploadLogWithGhUploadLog()` — wraps gh-upload-log CLI      |
+| `src/solve.results.lib.mjs` | 464+                          | `verifyResults()` — where log upload happens in normal flow |
+| `src/solve.mjs`             | 142                           | `shouldAttachLogs` derivation from `argv.attachLogs`        |
 
 ## Evidence from Issue Reporter's Terminal
 
@@ -222,22 +224,22 @@ export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt
   getLogPathFunction = getLogPath;
   logFunction = log;
   cleanupFunction = cleanup;
-  interruptFunction = interrupt;  // NEW
+  interruptFunction = interrupt; // NEW
 };
 
 // In SIGINT handler:
 process.on('SIGINT', async () => {
   if (interruptFunction) {
     try {
-      await interruptFunction();  // auto-commit + log upload
+      await interruptFunction(); // auto-commit + log upload
     } catch {
       // Ignore interrupt handler errors
     }
   }
   if (cleanupFunction) {
     try {
-      await cleanupFunction();   // temp dir deletion
-    } catch { }
+      await cleanupFunction(); // temp dir deletion
+    } catch {}
   }
   await showExitMessage('Interrupted (CTRL+C)', 130);
   process.exit(130);
@@ -253,9 +255,14 @@ const interruptWrapper = async () => {
 
   // Auto-commit uncommitted changes (always on CTRL+C to preserve work)
   const hasChanges = await checkForUncommittedChanges(
-    ctx.tempDir, owner, repo, branchName, $, log,
-    true,   // always autoCommit on CTRL+C
-    false   // no autoRestart
+    ctx.tempDir,
+    owner,
+    repo,
+    branchName,
+    $,
+    log,
+    true, // always autoCommit on CTRL+C
+    false // no autoRestart
   );
 
   // Upload logs if --attach-logs is enabled
@@ -264,7 +271,11 @@ const interruptWrapper = async () => {
       logFile: getLogFile(),
       targetType: 'pr',
       targetNumber: global.createdPR.number,
-      owner, repo, $, log, sanitizeLogContent,
+      owner,
+      repo,
+      $,
+      log,
+      sanitizeLogContent,
       verbose: ctx.argv.verbose || false,
       errorMessage: 'Session interrupted by user (CTRL+C)',
     });
@@ -297,6 +308,7 @@ Instead of handling SIGINT at the parent level, detect exit code 130 in the clau
 ### Solution E: Dedicated SIGINT-aware Helper Module
 
 Create `src/solve.interrupt-handler.lib.mjs` with a shared `handleInterrupt()` function that is called from:
+
 - SIGINT handler in exit-handler.lib.mjs
 - Future SIGTERM handler enhancements
 
@@ -357,14 +369,14 @@ Use **Solution A** (enhanced `initializeExitHandler` with `interruptFunction`) c
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `src/exit-handler.lib.mjs` | Add `interruptFunction` parameter; call before `cleanupFunction` on SIGINT/SIGTERM |
-| `src/solve.mjs` | Create `interruptWrapper` with auto-commit + log upload; pass to `initializeExitHandler` |
-| `src/claude.lib.mjs` | Fix "Claude command completed" → "Claude command interrupted" when exitCode=130 |
-| `src/opencode.lib.mjs` | Same message fix |
-| `src/codex.lib.mjs` | Same message fix |
-| `src/agent.lib.mjs` | Same message fix |
+| File                       | Change                                                                                   |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/exit-handler.lib.mjs` | Add `interruptFunction` parameter; call before `cleanupFunction` on SIGINT/SIGTERM       |
+| `src/solve.mjs`            | Create `interruptWrapper` with auto-commit + log upload; pass to `initializeExitHandler` |
+| `src/claude.lib.mjs`       | Fix "Claude command completed" → "Claude command interrupted" when exitCode=130          |
+| `src/opencode.lib.mjs`     | Same message fix                                                                         |
+| `src/codex.lib.mjs`        | Same message fix                                                                         |
+| `src/agent.lib.mjs`        | Same message fix                                                                         |
 
 ## Conclusion
 

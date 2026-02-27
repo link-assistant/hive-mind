@@ -19,6 +19,9 @@ const exec = promisify(execCallback);
 // Import GitHub URL parser
 import { parseGitHubUrl } from './github.lib.mjs';
 
+// Import linking utilities
+import { extractLinkedIssueNumber } from './github-linking.lib.mjs';
+
 // Default label configuration
 export const READY_LABEL = {
   name: 'ready',
@@ -249,6 +252,198 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
     }
     return [];
   }
+}
+
+/**
+ * Add a label to a GitHub issue
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} issueNumber - Issue number
+ * @param {string} labelName - Label name to add
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+async function addLabelToIssue(owner, repo, issueNumber, labelName, verbose = false) {
+  try {
+    await exec(`gh issue edit ${issueNumber} --repo ${owner}/${repo} --add-label "${labelName}"`);
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Added '${labelName}' label to issue #${issueNumber}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to add label to issue #${issueNumber}: ${error.message}`);
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Add a label to a GitHub pull request
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} labelName - Label name to add
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+async function addLabelToPR(owner, repo, prNumber, labelName, verbose = false) {
+  try {
+    await exec(`gh pr edit ${prNumber} --repo ${owner}/${repo} --add-label "${labelName}"`);
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Added '${labelName}' label to PR #${prNumber}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to add label to PR #${prNumber}: ${error.message}`);
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Sync 'ready' tags between linked pull requests and issues
+ *
+ * Issue #1367: Before building the merge queue, ensure that:
+ * 1. If a PR has 'ready' label and is clearly linked to an issue (via standard GitHub
+ *    keywords in the PR body/title), the issue also gets 'ready' label.
+ * 2. If an issue has 'ready' label and has a clearly linked open PR, the PR also gets
+ *    'ready' label.
+ *
+ * This ensures the final list of ready PRs reflects all ready work, regardless of
+ * where the 'ready' label was originally applied.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{synced: number, errors: number, details: Array<Object>}>}
+ */
+export async function syncReadyTags(owner, repo, verbose = false) {
+  const synced = [];
+  const errors = [];
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Syncing 'ready' tags for ${owner}/${repo}...`);
+  }
+
+  try {
+    // Fetch open PRs with 'ready' label (including body for link detection)
+    const { stdout: prsJson } = await exec(`gh pr list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,body,labels --limit 100`);
+    const readyPRs = JSON.parse(prsJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyPRs.length} open PRs with 'ready' label for tag sync`);
+    }
+
+    // Fetch open issues with 'ready' label
+    const { stdout: issuesJson } = await exec(`gh issue list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title --limit 100`);
+    const readyIssues = JSON.parse(issuesJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyIssues.length} open issues with 'ready' label for tag sync`);
+    }
+
+    // Build a set of issue numbers that already have 'ready'
+    const readyIssueNumbers = new Set(readyIssues.map(i => String(i.number)));
+
+    // Step 1: For each PR with 'ready', find linked issue and sync label to it
+    for (const pr of readyPRs) {
+      try {
+        const prBody = pr.body || '';
+        const linkedIssueNumber = extractLinkedIssueNumber(prBody);
+
+        if (!linkedIssueNumber) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: PR #${pr.number} has no linked issue (no closing keyword in body)`);
+          }
+          continue;
+        }
+
+        if (readyIssueNumbers.has(String(linkedIssueNumber))) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${linkedIssueNumber} already has 'ready' label (linked from PR #${pr.number})`);
+          }
+          continue;
+        }
+
+        // Issue doesn't have 'ready' label yet - add it
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${pr.number} has 'ready', adding to linked issue #${linkedIssueNumber}`);
+        }
+
+        const result = await addLabelToIssue(owner, repo, linkedIssueNumber, READY_LABEL.name, verbose);
+        if (result.success) {
+          synced.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber) });
+          // Mark this issue as now having 'ready' so we don't process it again
+          readyIssueNumbers.add(String(linkedIssueNumber));
+        } else {
+          errors.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber), error: result.error });
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from PR #${pr.number}: ${err.message}`);
+        }
+        errors.push({ type: 'pr-to-issue', prNumber: pr.number, error: err.message });
+      }
+    }
+
+    // Build a set of PR numbers that already have 'ready'
+    const readyPRNumbers = new Set(readyPRs.map(p => String(p.number)));
+
+    // Step 2: For each issue with 'ready', find linked PRs and sync label to them
+    for (const issue of readyIssues) {
+      try {
+        // Search for open PRs linked to this issue via closing keywords
+        const { stdout: linkedPRsJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,labels --limit 10`);
+        const linkedPRs = JSON.parse(linkedPRsJson.trim() || '[]');
+
+        for (const linkedPR of linkedPRs) {
+          if (readyPRNumbers.has(String(linkedPR.number))) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${linkedPR.number} already has 'ready' label (linked from issue #${issue.number})`);
+            }
+            continue;
+          }
+
+          // PR doesn't have 'ready' label yet - add it
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${issue.number} has 'ready', adding to linked PR #${linkedPR.number}`);
+          }
+
+          const result = await addLabelToPR(owner, repo, linkedPR.number, READY_LABEL.name, verbose);
+          if (result.success) {
+            synced.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number });
+            // Mark this PR as now having 'ready'
+            readyPRNumbers.add(String(linkedPR.number));
+          } else {
+            errors.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number, error: result.error });
+          }
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from issue #${issue.number}: ${err.message}`);
+        }
+        errors.push({ type: 'issue-to-pr', issueNumber: issue.number, error: err.message });
+      }
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error during tag sync: ${error.message}`);
+    }
+    errors.push({ type: 'fetch', error: error.message });
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Tag sync complete. Synced: ${synced.length}, Errors: ${errors.length}`);
+  }
+
+  return {
+    synced: synced.length,
+    errors: errors.length,
+    details: synced,
+    errorDetails: errors,
+  };
 }
 
 /**
@@ -1283,6 +1478,8 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
+  // Issue #1367: Sync 'ready' tags between linked PRs and issues
+  syncReadyTags,
   checkPRCIStatus,
   checkPRMergeable,
   checkMergePermissions,

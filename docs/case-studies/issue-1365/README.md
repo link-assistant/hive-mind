@@ -23,12 +23,12 @@ Two bugs were reported:
 **Bug 1 + Bug 2 — Multiple interpretations with broken switching and inconsistent style:**
 ![Multiple interpretations screenshot](./screenshot-multiple-interpretations.png)
 
-*Expression: `1 + 2 * 3`. Two interpretations are shown: `(1 + (2 * 3))` and `((1 + 2) * 3)`. The second is highlighted (visually selected) but the RESULT still shows 7, meaning the selected interpretation `((1 + 2) * 3) = 9` was never recalculated.*
+_Expression: `1 + 2 * 3`. Two interpretations are shown: `(1 + (2 * 3))` and `((1 + 2) * 3)`. The second is highlighted (visually selected) but the RESULT still shows 7, meaning the selected interpretation `((1 + 2) * 3) = 9` was never recalculated._
 
 **Reference style — Single interpretation (desired style):**
 ![Single interpretation screenshot](./screenshot-single-interpretation.png)
 
-*Expression: `1 + 2 + 3`. Single interpretation: `((1 + 2) + 3) = 6`. Notice bigger spacing, cleaner layout with proper text color in dark mode.*
+_Expression: `1 + 2 + 3`. Single interpretation: `((1 + 2) + 3) = 6`. Notice bigger spacing, cleaner layout with proper text color in dark mode._
 
 ---
 
@@ -74,16 +74,19 @@ The `calculate()` function sends the expression to the WASM worker which returns
 **File**: `web/src/index.css`
 
 The `.lino-alt-button` element has:
+
 - `background: var(--surface)` — matching the card background
 - Inner `.lino-colored` has `background: transparent`
 - `padding: 0` — the padding is inside `.lino-colored` at `0.75rem`
 
 The `.lino-value` (single interpretation) has:
+
 - `padding: 0.75rem`
 - `color: var(--text)` (white in dark mode via `--text: #f1f5f9`)
 - `background: var(--surface)`
 
 The visual differences arise because:
+
 1. The `.lino-alt-button` wraps content in a `<button>` element which has browser-default styles overriding some properties
 2. The gap between alternative interpretation buttons is `0.5rem` (too small)
 3. The borders of `.lino-alt-button` create a visually cluttered look vs. the clean single `.lino-value` box
@@ -108,6 +111,7 @@ Some Casio calculators (e.g., fx-9750GIII) allow users to switch between precede
 ### React Best Practices for Derived Calculations
 
 Per [React official docs](https://react.dev/learn/you-might-not-need-an-effect):
+
 - Derived state should be computed during render, not via `useEffect`
 - When a selection changes and requires a side effect (like an API/WASM call), the side effect should be triggered directly from the event handler, not via a state change + useEffect chain
 
@@ -132,6 +136,7 @@ This passes the lino notation string (e.g., `((1 + 2) * 3)`) to the calculator w
 ### Fix 2: Unify styling for single and multiple interpretations
 
 Make `.lino-alt-button` visually consistent with `.lino-value`:
+
 - Add proper padding to the button itself
 - Ensure text color is `var(--text)` (white in dark mode) inside buttons
 - Use consistent `gap` between alternatives
@@ -159,7 +164,7 @@ Make `.lino-alt-button` visually consistent with `.lino-value`:
 
 All changes are in the `link-assistant/calculator` repository:
 
-| File | Change |
-|------|--------|
-| `web/src/App.tsx` | Add `calculate(alt)` call in the alternative lino button's `onClick` handler |
-| `web/src/index.css` | Unify styling of `.lino-alt-button` with `.lino-value` |
+| File                | Change                                                                       |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `web/src/App.tsx`   | Add `calculate(alt)` call in the alternative lino button's `onClick` handler |
+| `web/src/index.css` | Unify styling of `.lino-alt-button` with `.lino-value`                       |

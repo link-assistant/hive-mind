@@ -255,49 +255,23 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
 }
 
 /**
- * Add a label to a GitHub issue
+ * Add a label to a GitHub issue or pull request
+ * @param {'issue'|'pr'} type - Whether to add to issue or PR
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
- * @param {number} issueNumber - Issue number
+ * @param {number} number - Issue or PR number
  * @param {string} labelName - Label name to add
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{success: boolean, error: string|null}>}
  */
-async function addLabelToIssue(owner, repo, issueNumber, labelName, verbose = false) {
+async function addLabel(type, owner, repo, number, labelName, verbose = false) {
+  const cmd = type === 'issue' ? 'issue' : 'pr';
   try {
-    await exec(`gh issue edit ${issueNumber} --repo ${owner}/${repo} --add-label "${labelName}"`);
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Added '${labelName}' label to issue #${issueNumber}`);
-    }
+    await exec(`gh ${cmd} edit ${number} --repo ${owner}/${repo} --add-label "${labelName}"`);
+    if (verbose) console.log(`[VERBOSE] /merge: Added '${labelName}' label to ${type} #${number}`);
     return { success: true, error: null };
   } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Failed to add label to issue #${issueNumber}: ${error.message}`);
-    }
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Add a label to a GitHub pull request
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - Pull request number
- * @param {string} labelName - Label name to add
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{success: boolean, error: string|null}>}
- */
-async function addLabelToPR(owner, repo, prNumber, labelName, verbose = false) {
-  try {
-    await exec(`gh pr edit ${prNumber} --repo ${owner}/${repo} --add-label "${labelName}"`);
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Added '${labelName}' label to PR #${prNumber}`);
-    }
-    return { success: true, error: null };
-  } catch (error) {
-    if (verbose) {
-      console.log(`[VERBOSE] /merge: Failed to add label to PR #${prNumber}: ${error.message}`);
-    }
+    if (verbose) console.log(`[VERBOSE] /merge: Failed to add label to ${type} #${number}: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -372,7 +346,7 @@ export async function syncReadyTags(owner, repo, verbose = false) {
           console.log(`[VERBOSE] /merge: PR #${pr.number} has 'ready', adding to linked issue #${linkedIssueNumber}`);
         }
 
-        const result = await addLabelToIssue(owner, repo, linkedIssueNumber, READY_LABEL.name, verbose);
+        const result = await addLabel('issue', owner, repo, linkedIssueNumber, READY_LABEL.name, verbose);
         if (result.success) {
           synced.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber) });
           // Mark this issue as now having 'ready' so we don't process it again
@@ -411,7 +385,7 @@ export async function syncReadyTags(owner, repo, verbose = false) {
             console.log(`[VERBOSE] /merge: Issue #${issue.number} has 'ready', adding to linked PR #${linkedPR.number}`);
           }
 
-          const result = await addLabelToPR(owner, repo, linkedPR.number, READY_LABEL.name, verbose);
+          const result = await addLabel('pr', owner, repo, linkedPR.number, READY_LABEL.name, verbose);
           if (result.success) {
             synced.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number });
             // Mark this PR as now having 'ready'

@@ -1286,6 +1286,68 @@ try {
     }
   }
 
+  // Issue #1383: --auto-ensure-all-requirements-are-met
+  // After the main solve completes, restart the AI tool N times with a requirements-check prompt
+  // --auto-ensure-all-requirements-are-met implies --prompt-ensure-all-requirements-are-met
+  const autoEnsureCount = argv.autoEnsureAllRequirementsAreMet;
+  if (autoEnsureCount && autoEnsureCount > 0 && prNumber) {
+    await log('');
+    await log(`🔍 AUTO-ENSURE: Starting ${autoEnsureCount} requirements-check restart(s)`);
+    await log('   Will restart the AI tool to verify all requirements are met');
+    await log('');
+
+    const { executeToolIteration: executeToolIterationForEnsure } = await import('./solve.restart-shared.lib.mjs');
+
+    // Get PR merge state status for the iterations
+    let currentMergeStateStatus = null;
+    try {
+      const prStateResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.mergeStateStatus'`;
+      if (prStateResult.code === 0) {
+        currentMergeStateStatus = prStateResult.stdout.toString().trim();
+      }
+    } catch {
+      // Ignore errors getting merge state
+    }
+
+    for (let ensureIteration = 1; ensureIteration <= autoEnsureCount; ensureIteration++) {
+      await log(`🔄 AUTO-ENSURE iteration ${ensureIteration}/${autoEnsureCount}: Restarting to verify requirements...`);
+
+      const ensureFeedbackLines = ['', '='.repeat(60), '🔍 AUTO-ENSURE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
+
+      const ensureResult = await executeToolIterationForEnsure({
+        issueUrl,
+        owner,
+        repo,
+        issueNumber,
+        prNumber,
+        branchName,
+        tempDir,
+        mergeStateStatus: currentMergeStateStatus,
+        feedbackLines: ensureFeedbackLines,
+        argv: {
+          ...argv,
+          promptEnsureAllRequirementsAreMet: true,
+          // Prevent recursive auto-ensure
+          autoEnsureAllRequirementsAreMet: 0,
+        },
+      });
+
+      // Update session data from ensure restart
+      if (ensureResult) {
+        if (ensureResult.sessionId) sessionId = ensureResult.sessionId;
+        if (ensureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = ensureResult.anthropicTotalCostUSD;
+        if (ensureResult.publicPricingEstimate) publicPricingEstimate = ensureResult.publicPricingEstimate;
+        if (ensureResult.pricingInfo) pricingInfo = ensureResult.pricingInfo;
+      }
+
+      await log(`✅ AUTO-ENSURE iteration ${ensureIteration}/${autoEnsureCount} complete`);
+      await log('');
+    }
+
+    // Clean up CLAUDE.md/.gitkeep after ensure restarts
+    await cleanupClaudeFile(tempDir, branchName, null, argv);
+  }
+
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');

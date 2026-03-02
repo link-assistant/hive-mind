@@ -369,6 +369,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
     default: false,
   },
+  'prompt-ensure-all-requirements-are-met': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Add a prompt hint to the system prompt for the case when no explicit feedback or requirements are provided: "We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass." Enabled automatically by --auto-ensure-all-requirements-are-met.',
+    default: false,
+  },
+  'auto-ensure-all-requirements-are-met': {
+    type: 'number',
+    description: '[EXPERIMENTAL] After the main solve completes, automatically restart the AI tool with a prompt to ensure all requirements are met. The numeric value specifies how many times to restart (e.g., --auto-ensure-all-requirements-are-met 2 restarts twice). Implies --prompt-ensure-all-requirements-are-met.',
+    default: 0,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication
@@ -527,6 +537,19 @@ export const parseArguments = async (yargs, hideBin) => {
     // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
     if (argv.toolCheck === false) {
       argv.toolConnectionCheck = false;
+    }
+  }
+
+  // --auto-ensure-all-requirements-are-met normalization and implies
+  // Issue #1383: When auto-ensure is enabled (as boolean or number), normalize and enable prompt
+  if (argv && argv.autoEnsureAllRequirementsAreMet) {
+    // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
+    if (argv.autoEnsureAllRequirementsAreMet === true) {
+      argv.autoEnsureAllRequirementsAreMet = 1;
+    }
+    // Implies --prompt-ensure-all-requirements-are-met
+    if (argv.autoEnsureAllRequirementsAreMet > 0) {
+      argv.promptEnsureAllRequirementsAreMet = true;
     }
   }
 

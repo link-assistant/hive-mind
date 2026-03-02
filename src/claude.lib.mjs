@@ -379,12 +379,6 @@ export const executeClaude = async params => {
   });
 };
 /**
- * Calculate total token usage from a session's JSONL file
- * @param {string} sessionId - The session ID
- * @param {string} tempDir - The temporary directory where the session ran
- * @returns {Object} Token usage statistics
- */
-/**
  * Fetches model information from pricing API
  * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
  * @returns {Promise<Object|null>} Model information or null if not found
@@ -1265,28 +1259,9 @@ export const executeClaudeCommand = async params => {
           }
         }
       }
-      // Additional failure detection: if no messages were processed and there were stderr errors,
-      // or if the command produced no output at all, treat it as a failure
-      //
-      // This is critical for detecting "silent failures" where:
-      // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
-      // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
-      // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
-      //
-      // Common cause: sudo commands that timeout
-      // - Timeout triggers process.kill() in Claude CLI
-      // - If child process runs with sudo (root), parent can't kill it → EPERM error
-      // - Error logged to stderr, but command doesn't properly fail
-      //
-      // Workaround (applied in system prompt):
-      // - Instruct Claude to run sudo commands (installations) in background
-      // - Background processes avoid timeout kill mechanism
-      // - Prevents EPERM errors and false success reports
-      //
-      // See: docs/dependencies-research/claude-code-issues/README.md for full details
-      // Issue #1354: Do not trigger if the result event already confirmed success.
-      // A successful result event is definitive proof the command succeeded, regardless of
-      // messageCount (which may be 0 if "assistant" events were counted instead of "message" type).
+      // Additional failure detection: silent failures (no messages + stderr errors).
+      // E.g., sudo timeout causing "kill EPERM" → stderr error but exit code 0.
+      // Issue #1354: Skip if result event confirmed success (definitive proof regardless of messageCount).
       if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
         const errorsPreview = stderrErrors

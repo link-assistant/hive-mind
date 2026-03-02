@@ -1475,15 +1475,5 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
   }
 };
 // Export all functions as default object too
-export default {
-  validateClaudeConnection,
-  handleClaudeRuntimeSwitch,
-  executeClaude,
-  executeClaudeCommand,
-  checkForUncommittedChanges,
-  calculateSessionTokens,
-  getClaudeVersion,
-  setClaudeVersion,
-  resolveThinkingSettings,
-  checkModelVisionCapability,
-};
+// prettier-ignore
+export default { validateClaudeConnection, handleClaudeRuntimeSwitch, executeClaude, executeClaudeCommand, checkForUncommittedChanges, calculateSessionTokens, getClaudeVersion, setClaudeVersion, resolveThinkingSettings, checkModelVisionCapability };

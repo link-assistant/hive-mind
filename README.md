@@ -403,10 +403,10 @@ The oAuth callback server on 1455 port will be started, and the link to oAuth wi
 
 ```bash
 # Solve using maximum power
-solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --auto-fork --think max
+solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --think max
 
-# Solve GitHub issues automatically (auto-fork if no write access)
-solve https://github.com/owner/repo/issues/123 --auto-fork --model sonnet
+# Solve GitHub issues automatically
+solve https://github.com/owner/repo/issues/123 --model sonnet
 
 # Solve issue with PR to custom branch (manual fork mode)
 solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
@@ -420,8 +420,8 @@ solve https://github.com/owner/repo/issues/123 --resume session-id
 # Start hive orchestration (monitor and solve issues automatically)
 hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 
-# Monitor all issues in organization with auto-fork
-hive https://github.com/microsoft --all-issues --max-issues 10 --auto-fork
+# Monitor all issues in organization
+hive https://github.com/microsoft --all-issues --max-issues 10
 
 # Run collaborative review process
 review --repo owner/repo --pr 456
@@ -715,8 +715,8 @@ sequenceDiagram
 ### Automated Issue Resolution
 
 ```bash
-# Auto-fork and solve issue (automatic fork detection for public repos)
-solve https://github.com/owner/repo/issues/123 --auto-fork --model opus
+# Solve issue (automatically forks if no write access)
+solve https://github.com/owner/repo/issues/123 --model opus
 
 # Manual fork and solve issue (works for both public and private repos)
 solve https://github.com/owner/repo/issues/123 --fork --model opus
@@ -737,17 +737,17 @@ solve https://github.com/owner/repo/issues/123 --dry-run
 # Monitor single repository with specific label
 hive https://github.com/owner/repo --monitor-tag "bug" --concurrency 4
 
-# Monitor all issues in an organization with auto-fork
-hive https://github.com/microsoft --all-issues --max-issues 20 --once --auto-fork
+# Monitor all issues in an organization
+hive https://github.com/microsoft --all-issues --max-issues 20 --once
 
 # Monitor user repositories with high concurrency
-hive https://github.com/username --all-issues --concurrency 8 --interval 120 --auto-fork
+hive https://github.com/username --all-issues --concurrency 8 --interval 120
 
 # Skip issues that already have PRs
 hive https://github.com/org/repo --skip-issues-with-prs --verbose
 
-# Auto-cleanup temporary files and auto-fork if needed
-hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
+# Auto-cleanup temporary files
+hive https://github.com/org/repo --auto-cleanup --concurrency 5
 ```
 
 ### Session Management

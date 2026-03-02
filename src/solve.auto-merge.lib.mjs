@@ -345,6 +345,13 @@ export const watchUntilMergeable = async params => {
   // `restartCount` counts actual AI tool executions (when we actually restart the AI)
   let restartCount = 0;
 
+  // Issue #1371: Track whether a "Ready to merge" comment was posted in THIS session.
+  // This replaces the all-time history check (checkForExistingComment) which incorrectly
+  // suppressed new notifications when a previous solve run had already posted one.
+  // In-memory deduplication correctly handles the case where multiple check cycles in
+  // the same run detect mergeability simultaneously, without blocking fresh runs.
+  let readyToMergeCommentPosted = false;
+
   let currentBackoffSeconds = watchInterval;
 
   await log('');
@@ -430,18 +437,19 @@ export const watchUntilMergeable = async params => {
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
           await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
-          // Issue #1323: Post success comment only if one doesn't already exist
-          // This prevents duplicate comments when multiple processes reach this point
+          // Issue #1371: Post success comment only if not already posted in this session.
+          // Use in-memory flag instead of checking all PR comment history (issue #1323),
+          // since the historical check incorrectly suppressed notifications when a
+          // previous solve run had already posted a "Ready to merge" comment.
           try {
-            const readyToMergeSignature = '## ✅ Ready to merge';
-            const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
-            if (!hasExistingComment) {
+            if (!readyToMergeCommentPosted) {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
               const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              readyToMergeCommentPosted = true;
             } else {
-              await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+              await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (already posted this session)', '', 2));
             }
           } catch {
             // Don't fail if comment posting fails

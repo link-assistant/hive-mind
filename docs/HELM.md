@@ -139,7 +139,6 @@ command:
       TELEGRAM_HIVE_OVERRIDES:
         --all-issues
         --once
-        --auto-fork
         --attach-logs
         --verbose
       TELEGRAM_BOT_VERBOSE: true

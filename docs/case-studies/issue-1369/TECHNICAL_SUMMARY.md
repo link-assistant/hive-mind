@@ -3,6 +3,7 @@
 ## The Authentication Problem
 
 GitHub stores issue/PR attachments at URLs like:
+
 ```
 https://github.com/user-attachments/assets/<uuid>
 ```
@@ -77,6 +78,7 @@ The system message instruction needs to be enhanced with:
 ## Verification
 
 The authenticated curl approach was verified against the actual failing image:
+
 - URL: `https://github.com/user-attachments/assets/f3a85d78-f0cd-46a8-89d6-fc0db150e41e`
 - Without auth: 9 bytes, "ASCII text"
 - With auth: 560,814 bytes, JPEG image

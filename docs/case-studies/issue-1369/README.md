@@ -19,11 +19,13 @@ The AI solver crashed with `API Error: 400 - Could not process image` while tryi
 ## Problem Statement
 
 When images are attached to private GitHub issues/PRs, their URLs are of the form:
+
 ```
 https://github.com/user-attachments/assets/<uuid>
 ```
 
 These URLs require GitHub authentication. Fetching them without authentication returns:
+
 - HTTP 200 with body: `Not Found` (9 bytes ASCII)
 - NOT an HTTP 401/404 status code
 
@@ -33,18 +35,18 @@ This is a **silent failure** — the download appears to succeed (HTTP 200, curl
 
 ## Timeline / Sequence of Events
 
-| Time | Event |
-|------|-------|
-| 2026-03-01T23:22:08Z | AI solver started for issue medmancifra/taxi_cab#5 ("No tabs") |
-| 2026-03-01T23:22:18Z | Repository cloned to `/tmp/gh-issue-solver-1772407336374` |
-| 2026-03-01T23:22:19Z | Branch `issue-5-322980a71d48` created |
-| ~23:23:50Z | AI attempts to download the screenshot from issue #5 |
-| ~23:23:50Z | `curl -L -o issue_screenshot.png "https://github.com/user-attachments/assets/f3a85d78-f0cd-46a8-89d6-fc0db150e41e"` downloads 9 bytes |
-| ~23:23:50Z | `file issue_screenshot.png` reports: `ASCII text, with no line terminators` |
-| ~23:23:51Z | AI ignores the warning and calls `Read("/tmp/issue_screenshot.png")` |
-| ~23:23:52Z | The `Read` tool encodes the file as base64 `Tm90IEZvdW5k` with `media_type: "image/png"` |
-| ~23:23:52Z | Anthropic API returns `400 - Could not process image` |
-| ~23:23:53Z | Session crashes with exit code 1 |
+| Time                 | Event                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-03-01T23:22:08Z | AI solver started for issue medmancifra/taxi_cab#5 ("No tabs")                                                                        |
+| 2026-03-01T23:22:18Z | Repository cloned to `/tmp/gh-issue-solver-1772407336374`                                                                             |
+| 2026-03-01T23:22:19Z | Branch `issue-5-322980a71d48` created                                                                                                 |
+| ~23:23:50Z           | AI attempts to download the screenshot from issue #5                                                                                  |
+| ~23:23:50Z           | `curl -L -o issue_screenshot.png "https://github.com/user-attachments/assets/f3a85d78-f0cd-46a8-89d6-fc0db150e41e"` downloads 9 bytes |
+| ~23:23:50Z           | `file issue_screenshot.png` reports: `ASCII text, with no line terminators`                                                           |
+| ~23:23:51Z           | AI ignores the warning and calls `Read("/tmp/issue_screenshot.png")`                                                                  |
+| ~23:23:52Z           | The `Read` tool encodes the file as base64 `Tm90IEZvdW5k` with `media_type: "image/png"`                                              |
+| ~23:23:52Z           | Anthropic API returns `400 - Could not process image`                                                                                 |
+| ~23:23:53Z           | Session crashes with exit code 1                                                                                                      |
 
 ---
 
@@ -53,6 +55,7 @@ This is a **silent failure** — the download appears to succeed (HTTP 200, curl
 ### Primary Root Cause: Unauthenticated Image Download
 
 GitHub user-attachment URLs (`https://github.com/user-attachments/assets/...`) require authentication even for `curl`. Without proper authentication:
+
 - The server silently returns "Not Found" text with HTTP 200
 - This is a silent failure — no error status code
 
@@ -75,6 +78,7 @@ The current system message hints about using `gh` for GitHub Gists but doesn't s
 ### Solution 1 (Implemented): Update System Message
 
 Add a specific instruction that:
+
 1. Identifies `github.com/user-attachments/assets/` URLs as requiring authenticated download
 2. Provides the exact `curl` command with `gh auth token`
 3. Makes it **absolutely mandatory** to skip `Read` if the `file` command shows non-image content
@@ -86,6 +90,7 @@ In `claude.lib.mjs` or the Claude Code Read tool implementation, validate that t
 ### Solution 3 (Future): Handle `file` Output in System Message Check
 
 The system message check should explicitly say:
+
 > If `file` shows anything other than `PNG image`, `JPEG image`, `GIF image`, `WebP`, `SVG` etc., **do NOT call Read on the file**. Instead, use the appropriate authenticated download method.
 
 ---
@@ -103,5 +108,6 @@ The system message check should explicitly say:
 ## Related Issues to Report
 
 The AI (the `file` check worked) should have followed through on the skip instruction. The AI's behavior could be reported as a bug to Anthropic's Claude Code:
+
 - Claude Code's `Read` tool should validate that a file being read as an image is actually a valid image binary before encoding it.
 - However, the best fix is in the system message so the AI has clear instructions.

@@ -143,7 +143,7 @@ sudo docker run hello-world
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:
 
-**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes) section below.
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
 
 ```bash
 # Pull the latest image from Docker Hub
@@ -264,33 +264,13 @@ df -h # check disk space (to confirm space is freed)
 # tmpfs           1.2G   12K  1.2G   1% /run/user/0
 ```
 
-### Helm Installation (Kubernetes)
+### Helm Installation (Kubernetes) (Experimental)
 
-Deploy Hive Mind on Kubernetes using Helm:
-
-```bash
-# Add the Hive Mind Helm repository
-helm repo add link-assistant https://link-assistant.github.io/hive-mind
-helm repo update
-
-# Install Hive Mind
-helm install hive-mind link-assistant/hive-mind
-
-# Or install with custom values
-helm install hive-mind link-assistant/hive-mind -f values.yaml
-```
-
-**Benefits of Helm:**
-
-- ✅ Easy deployment to Kubernetes clusters
-- ✅ Declarative configuration management
-- ✅ Simple upgrades and rollbacks
-- ✅ Production-ready with configurable resources
-- ✅ Supports multiple replicas and scaling
-
-See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
-
-**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
+> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+>
+> For a more reliable installation, we recommend using [Docker](#using-docker) instead.
+>
+> See [docs/HELM.md](./docs/HELM.md) for the full Helm installation instructions and configuration options.
 
 ### Installation on Ubuntu 24.04 server (Deprecated)
 
@@ -300,7 +280,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 > Docker provides better isolation, easier management, and consistent environments.
 >
 > Please use the [Docker installation method](#using-docker) above.
-> For Kubernetes deployments, see the [Helm installation](#helm-installation-kubernetes) section.
+> For Kubernetes deployments, see the [Helm installation](#helm-installation-kubernetes-experimental) section.
 >
 > The legacy bare-metal installation instructions have been moved to [docs/UBUNTU-SERVER.md](./docs/UBUNTU-SERVER.md) for reference.
 

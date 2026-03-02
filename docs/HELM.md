@@ -1,4 +1,8 @@
-# Helm Chart Documentation
+# Helm Chart Documentation (Experimental)
+
+> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+>
+> For a more reliable installation, we recommend using the [Docker installation method](../README.md#using-docker) instead.
 
 This document provides comprehensive guidance for deploying Hive Mind on Kubernetes using Helm.
 

@@ -369,6 +369,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
     default: false,
   },
+  'auto-accept-invite': {
+    type: 'boolean',
+    description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication

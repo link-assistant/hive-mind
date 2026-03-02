@@ -1,5 +1,21 @@
 # @link-assistant/hive-mind
 
+## 1.25.8
+
+### Patch Changes
+
+- fix: update system messages to use authenticated curl for private GitHub issue images
+
+  Images attached to GitHub issues/PRs (github.com/user-attachments/assets/\*) require authentication. Without auth, GitHub returns "Not Found" (9 bytes ASCII) with HTTP 200 — a silent failure. The AI would then call Read on the non-image file, encoding "Not Found" as base64, causing Anthropic API to return "Could not process image" (HTTP 400), crashing the session.
+
+  Updated system messages in all 4 prompt files (claude, agent, codex, opencode) to explicitly identify user-attachments URLs as requiring GitHub authentication and provide the exact authenticated curl command using `gh auth token`.
+
+  fix: auto-restart with --resume on "Request timed out" in --tool claude (Issue #1353)
+
+  When Claude CLI encounters a network timeout, it exhausts its own internal retries and emits a synthetic result event: `{"type":"result","is_error":true,"result":"Request timed out","session_id":"..."}`. Previously hive-mind treated this as a fatal failure and exited, losing all session context (conversation history, cached tokens, partially completed work).
+
+  This fix detects the timeout pattern and automatically retries with `--resume <session-id>` to preserve the session, using exponential backoff starting at 5 minutes (increasing to max 1 hour) — longer than regular API errors since Claude CLI has already exhausted its own retries before reporting the timeout.
+
 ## 1.25.7
 
 ### Patch Changes

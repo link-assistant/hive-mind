@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.26.2
+
+### Patch Changes
+
+- 72c933c: Skip empty Claude subsection headers when auth error occurs in /limits output
+
 ## 1.26.1
 
 ### Patch Changes

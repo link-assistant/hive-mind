@@ -400,7 +400,7 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: kimi-k2.5-free, big-pickle, gpt-5-nano, minimax-m2.5-free, glm-5-free, deepseek-r1-free)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: minimax-m2.5-free, big-pickle, gpt-5-nano, glm-5-free, deepseek-r1-free)',
       alias: 'm',
       default: currentParsedArgs => {
         // Dynamic default based on tool selection
@@ -409,7 +409,7 @@ export const createYargsConfig = yargsInstance => {
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
-          return 'kimi-k2.5-free';
+          return 'minimax-m2.5-free';
         }
         return 'sonnet';
       },
@@ -538,7 +538,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'gpt-5';
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'kimi-k2.5-free';
+    argv.model = 'minimax-m2.5-free';
   }
 
   // Tool-specific defaults for --claude-file and --gitkeep-file

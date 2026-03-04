@@ -36,8 +36,7 @@ export const agentModels = {
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1
-  'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1 (Issue #1391: now default)
   // Kilo Gateway free models (Issue #1282, updated in #1300)
   // Short names for Kilo-exclusive models (Issue #1300)
   'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
@@ -53,6 +52,7 @@ export const agentModels = {
   'kilo/giga-potato-free': 'kilo/giga-potato-free',
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)
+  'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
   'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
   'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free

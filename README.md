@@ -404,9 +404,9 @@ The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote comman
 
 ### 🚀 Test Drive
 
-Want to see the Hive Mind in action? Join our Telegram channel where you can execute the Hive Mind on your own issues and watch AI solve them:
+Want to see the Hive Mind in action? Request a free demo or get faster support by messaging the developer directly on Telegram:
 
-**[Join https://t.me/hive_mind_pull_requests](https://t.me/hive_mind_pull_requests)**
+**[Message @drakonard on Telegram](https://t.me/drakonard)**
 
 ### Setup
 

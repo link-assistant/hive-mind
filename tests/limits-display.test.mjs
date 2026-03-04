@@ -512,10 +512,10 @@ test('formatUsageMessage with claudeError shows error once in Claude limits sect
   // Should include "Claude limits" header with the error
   assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
 
-  // Should include all three subsection headers
-  assert.ok(message.includes('Claude 5 hour session'), 'Should include 5 hour session header');
-  assert.ok(message.includes('Current week (all models)'), 'Should include all models header');
-  assert.ok(message.includes('Current week (Sonnet only)'), 'Should include Sonnet only header');
+  // Should NOT include empty subsection headers when there is a claude error
+  assert.ok(!message.includes('Claude 5 hour session'), 'Should NOT include 5 hour session header when error');
+  assert.ok(!message.includes('Current week (all models)'), 'Should NOT include all models header when error');
+  assert.ok(!message.includes('Current week (Sonnet only)'), 'Should NOT include Sonnet only header when error');
 
   // Should show the error message exactly once (backtick-stripped for code block)
   assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error message');

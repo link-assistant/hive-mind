@@ -763,9 +763,11 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   }
 
   // Claude limits section
-  // When there's an error (e.g., auth expired), show it once here instead of repeating in each subsection
+  // When there's an error (e.g., auth expired), show it once and skip empty subsections
   if (claudeError) {
-    message += `Claude limits\n${claudeError}\n\n`;
+    message += `Claude limits\n${claudeError}\n`;
+    message += '```';
+    return message;
   }
 
   // Claude 5 hour session (five_hour)

@@ -104,8 +104,7 @@ export const AGENT_MODELS = {
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1300)
-  'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1300); default as of Issue #1391
   // Free models (via Kilo Gateway)
   // Issue #1282: Kilo provider adds access to 500+ models including free tier
   // Issue #1300: Updated Kilo free models with new offerings
@@ -125,6 +124,7 @@ export const AGENT_MODELS = {
   'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
   // Deprecated free models (kept for backward compatibility)
   // These models are no longer the recommended options but may still work
+  'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported by OpenCode Zen (Issue #1391)
   'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free on OpenCode Zen
   'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
   'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free
@@ -140,8 +140,8 @@ export const AGENT_MODELS = {
   'opencode/big-pickle': 'opencode/big-pickle',
   'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
   'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New (Issue #1300)
-  'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free',
   // Deprecated OpenCode Zen models (kept for backward compatibility)
+  'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
   'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
   'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
   // Premium models with provider prefix

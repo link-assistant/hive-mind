@@ -57,11 +57,11 @@ Hive-mind supports free models from two providers:
 
 The following models were previously free but are no longer available:
 
-| Model             | Former Model ID              | Status                                             |
-| ----------------- | ---------------------------- | -------------------------------------------------- |
-| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Not supported — returns ModelError (Issue #1391)   |
-| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`           |
-| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                     |
+| Model             | Former Model ID              | Status                                           |
+| ----------------- | ---------------------------- | ------------------------------------------------ |
+| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Not supported — returns ModelError (Issue #1391) |
+| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`         |
+| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                   |
 
 > **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) for the current list of free models.
 
@@ -245,15 +245,15 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Provider Comparison
 
-| Feature       | OpenCode Zen                      | Kilo Gateway             |
-| ------------- | --------------------------------- | ------------------------ |
-| Free Models   | 4 models                          | 6 models                 |
-| Default Model | minimax-m2.5-free                 | glm-5-free (recommended) |
-| API Format    | OpenAI-compatible                 | OpenAI-compatible        |
-| Free API Key  | `public`                          | `public`                 |
-| Total Models  | 50+                               | 500+                     |
-| Flagship Free | MiniMax M2.5                      | GLM-5 (limited time)     |
-| BYOK Support  | Yes                               | Yes                      |
+| Feature       | OpenCode Zen                        | Kilo Gateway             |
+| ------------- | ----------------------------------- | ------------------------ |
+| Free Models   | 4 models                            | 6 models                 |
+| Default Model | minimax-m2.5-free                   | glm-5-free (recommended) |
+| API Format    | OpenAI-compatible                   | OpenAI-compatible        |
+| Free API Key  | `public`                            | `public`                 |
+| Total Models  | 50+                                 | 500+                     |
+| Flagship Free | MiniMax M2.5                        | GLM-5 (limited time)     |
+| BYOK Support  | Yes                                 | Yes                      |
 | New Models    | MiniMax M2.5 (default, Issue #1391) | DeepSeek R1, GLM 4.5 Air |
 
 ---

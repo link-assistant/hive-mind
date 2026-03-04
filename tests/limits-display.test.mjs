@@ -512,10 +512,10 @@ test('formatUsageMessage with claudeError shows error once in Claude limits sect
   // Should include "Claude limits" header with the error
   assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
 
-  // Should include all three subsection headers
-  assert.ok(message.includes('Claude 5 hour session'), 'Should include 5 hour session header');
-  assert.ok(message.includes('Current week (all models)'), 'Should include all models header');
-  assert.ok(message.includes('Current week (Sonnet only)'), 'Should include Sonnet only header');
+  // Should NOT include empty subsection headers when there is a claude error
+  assert.ok(!message.includes('Claude 5 hour session'), 'Should NOT include 5 hour session header when error');
+  assert.ok(!message.includes('Current week (all models)'), 'Should NOT include all models header when error');
+  assert.ok(!message.includes('Current week (Sonnet only)'), 'Should NOT include Sonnet only header when error');
 
   // Should show the error message exactly once (backtick-stripped for code block)
   assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error message');
@@ -591,6 +591,118 @@ test('formatUsageMessage with null claudeError shows normal Claude data', () => 
   // Should show normal usage data, not error
   assert.ok(message.includes('45%'), 'Should show 45% session usage');
   assert.ok(!message.includes('Claude authentication expired'), 'Should not show error when null claudeError');
+});
+
+// ============================================================================
+// Sections Array / Extra Sections Tests (Issue #1387)
+// ============================================================================
+
+console.log('\n📋 Sections Array / Extra Sections Tests (Issue #1387)\n');
+
+test('formatUsageMessage wraps all content in a single code block', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const message = formatUsageMessage(usage);
+
+  // Code block must start at the very beginning and end exactly once at the end
+  assert.ok(message.startsWith('```\n'), 'Message should start with opening code fence');
+  assert.ok(message.endsWith('```'), 'Message should end with closing code fence');
+
+  // There should be exactly one opening and one closing code fence
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences (one opening, one closing)');
+});
+
+test('formatUsageMessage with extraSections includes extra content inside code block', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const queueStatus = 'Queues\nclaude (pending: 3, processing: 1)\nagent (pending: 0, processing: 0)\n';
+  const message = formatUsageMessage(usage, null, null, null, null, null, [queueStatus]);
+
+  // Queue status should appear inside the code block (before closing fence)
+  assert.ok(message.includes('Queues'), 'Should include Queues section from extraSections');
+  assert.ok(message.includes('claude (pending: 3, processing: 1)'), 'Should include claude queue from extraSections');
+  assert.ok(message.includes('agent (pending: 0, processing: 0)'), 'Should include agent queue from extraSections');
+
+  // The closing code fence must come after the queue status
+  const queueIndex = message.indexOf('Queues');
+  const closingFenceIndex = message.lastIndexOf('```');
+  assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence');
+
+  // Still only one code block
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with extraSections');
+});
+
+test('formatUsageMessage with claudeError and extraSections includes extra content inside code block', () => {
+  const errorMessage = 'Claude authentication expired.';
+  const queueStatus = 'Queues\nclaude (pending: 0, processing: 0)\nagent (pending: 0, processing: 0)\n';
+
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage, [queueStatus]);
+
+  // Error should appear
+  assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
+  assert.ok(message.includes('Claude authentication expired'), 'Should include the error message');
+
+  // Queue status should also appear inside the code block
+  assert.ok(message.includes('Queues'), 'Should include Queues section from extraSections even with claudeError');
+  assert.ok(message.includes('claude (pending: 0, processing: 0)'), 'Should include claude queue status with claudeError');
+
+  // The closing code fence must come after the queue status
+  const queueIndex = message.indexOf('Queues');
+  const closingFenceIndex = message.lastIndexOf('```');
+  assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence with claudeError');
+
+  // Still only one code block
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with claudeError and extraSections');
+});
+
+test('formatUsageMessage with empty extraSections works as before', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const messageWithEmpty = formatUsageMessage(usage, null, null, null, null, null, []);
+  const messageWithDefault = formatUsageMessage(usage, null, null, null, null, null);
+
+  // Both forms should produce the same output
+  assert.equal(messageWithEmpty, messageWithDefault, 'Empty extraSections should produce same output as no extraSections');
+});
+
+test('formatUsageMessage sections are separated by blank lines', () => {
+  const diskSpace = {
+    usedPercentage: 60,
+    usedBytes: 60 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const message = formatUsageMessage(usage, diskSpace);
+
+  // Sections should be separated by blank lines (two consecutive newlines)
+  assert.ok(message.includes('\n\n'), 'Sections should be separated by blank lines');
+
+  // Disk space section followed by a blank line before Claude section
+  const diskIndex = message.indexOf('Disk space');
+  const claudeIndex = message.indexOf('Claude 5 hour session');
+  assert.ok(diskIndex < claudeIndex, 'Disk space section should appear before Claude section');
+  const between = message.slice(diskIndex, claudeIndex);
+  assert.ok(between.includes('\n\n'), 'There should be a blank line between Disk space and Claude sections');
 });
 
 // ============================================================================

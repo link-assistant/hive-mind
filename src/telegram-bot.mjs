@@ -785,17 +785,14 @@ bot.command('limits', async ctx => {
   // while still displaying all other limits sections (disk, GitHub, CPU, memory)
   // See: https://github.com/link-assistant/hive-mind/issues/1343
   const claudeError = limits.claude.success ? null : limits.claude.error;
-  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError);
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  // Insert per-queue status into the code block
-  // Shows each queue (claude, agent) with pending/processing counts
-  // Processing counts are actual running system processes (via pgrep)
+  // Fetch queue status and pass it as an extra section to formatUsageMessage so that all
+  // sections are assembled before the code block is formed — no fragile string-searching needed.
+  // Shows each queue (claude, agent) with pending/processing counts.
+  // Processing counts are actual running system processes (via pgrep).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
-  const codeBlockEnd = message.lastIndexOf('```');
-  if (codeBlockEnd !== -1) {
-    const queueStatus = await solveQueue.formatStatus();
-    message = message.slice(0, codeBlockEnd) + `\n${queueStatus}` + message.slice(codeBlockEnd);
-  }
+  const queueStatus = await solveQueue.formatStatus();
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {

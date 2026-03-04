@@ -101,13 +101,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'claude-file': {
     type: 'boolean',
-    description: 'Create CLAUDE.md file for task details (default for --tool claude, mutually exclusive with --gitkeep-file)',
-    default: true,
+    description: 'Create CLAUDE.md file for task details (mutually exclusive with --gitkeep-file)',
+    default: false,
   },
   'gitkeep-file': {
     type: 'boolean',
-    description: 'Create .gitkeep file instead of CLAUDE.md (default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
-    default: false,
+    description: 'Create .gitkeep file instead of CLAUDE.md (default for all --tool values, mutually exclusive with --claude-file)',
+    default: true,
   },
   'auto-gitkeep-file': {
     type: 'boolean',
@@ -541,20 +541,6 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'minimax-m2.5-free';
   }
 
-  // Tool-specific defaults for --claude-file and --gitkeep-file
-  // For non-Claude tools, use .gitkeep by default to avoid polluting CLAUDE.md
-  // (CLAUDE.md has special meaning for Claude Code as a project-level instruction file)
-  // See: https://github.com/link-assistant/hive-mind/issues/1158
-  const claudeFileExplicitlyProvided = rawArgs.includes('--claude-file') || rawArgs.includes('--no-claude-file');
-  const gitkeepFileExplicitlyProvided = rawArgs.includes('--gitkeep-file') || rawArgs.includes('--no-gitkeep-file');
-
-  if (argv.tool !== 'claude' && !claudeFileExplicitlyProvided && !gitkeepFileExplicitlyProvided) {
-    // User did not explicitly provide either option, so use the correct defaults for non-Claude tools
-    // Non-Claude tools (agent, opencode, codex) should use .gitkeep by default
-    argv.claudeFile = false;
-    argv.gitkeepFile = true;
-  }
-
   // Validate mutual exclusivity of --claude-file and --gitkeep-file
   // Check if both are explicitly enabled (user passed both --claude-file and --gitkeep-file)
   if (argv.claudeFile && argv.gitkeepFile) {
@@ -588,7 +574,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.claudeFile = false;
   }
 
-  // If user explicitly set --no-gitkeep-file, enable claude-file (this is the default anyway)
+  // If user explicitly set --no-gitkeep-file, enable claude-file
   if (noGitkeepFile && !argv.claudeFile) {
     argv.claudeFile = true;
     argv.gitkeepFile = false;

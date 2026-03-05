@@ -489,8 +489,8 @@ HIVE_MIND_CLAUDE_TIMEOUT_SECONDS=120 HIVE_MIND_RETRY_BASE_DELAY_MS=10000 hive ht
 # Run with increased limits
 HIVE_MIND_GITHUB_FILE_MAX_SIZE=52428800 HIVE_MIND_MIN_DISK_SPACE_MB=1000 solve https://github.com/owner/repo/issues/123
 
-# Run with custom auto-continue settings
-HIVE_MIND_AUTO_CONTINUE_AGE_HOURS=12 solve --auto-continue https://github.com/owner/repo/issues/456
+# Run with custom auto-continue settings (--auto-continue is enabled by default)
+HIVE_MIND_AUTO_CONTINUE_AGE_HOURS=12 solve https://github.com/owner/repo/issues/456
 ```
 
 ### Configuration File (Optional)

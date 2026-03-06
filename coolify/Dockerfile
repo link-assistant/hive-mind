@@ -30,6 +30,46 @@ RUN usermod -l hive sandbox && \
 RUN find /home/hive -name "*.bashrc" -o -name "*.profile" -o -name "*.bash_profile" 2>/dev/null | \
     xargs -I{} sed -i 's|/home/sandbox|/home/hive|g' {} 2>/dev/null || true
 
+# Fix NVM installation paths (sandbox -> hive)
+RUN if [ -f /home/hive/.nvm/nvm.sh ]; then \
+      sed -i 's|/home/sandbox|/home/hive|g' /home/hive/.nvm/nvm.sh; \
+    fi && \
+    if [ -f /home/hive/.nvm/bash_completion ]; then \
+      sed -i 's|/home/sandbox|/home/hive|g' /home/hive/.nvm/bash_completion; \
+    fi && \
+    find /home/hive -maxdepth 1 -name ".*rc" -o -name ".*profile" 2>/dev/null | \
+      xargs -I{} sed -i 's|NVM_DIR="/home/sandbox|NVM_DIR="/home/hive|g' {} 2>/dev/null || true
+
+# --- Environment variables ---
+# Set environment variables EARLY so they're available in subsequent RUN commands
+ENV HOME=/home/hive
+ENV NVM_DIR="/home/hive/.nvm"
+ENV PYENV_ROOT="/home/hive/.pyenv"
+ENV BUN_INSTALL="/home/hive/.bun"
+ENV DENO_INSTALL="/home/hive/.deno"
+ENV CARGO_HOME="/home/hive/.cargo"
+ENV GOROOT="/home/hive/.go"
+ENV GOPATH="/home/hive/.go/path"
+ENV SDKMAN_DIR="/home/hive/.sdkman"
+ENV PERLBREW_ROOT="/home/hive/.perl5"
+ENV RBENV_ROOT="/home/hive/.rbenv"
+
+ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
+
+# Comprehensive PATH including all tools
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/hive/.pyenv/bin:/home/hive/.pyenv/shims:/home/hive/.rbenv/bin:/home/hive/.rbenv/shims:/home/hive/.swift/usr/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Create stable symlink to Node.js bin directory
+RUN NODE_VERSION_DIR=$(ls -d /home/hive/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /home/hive/.node-bin && \
+      chown -h hive:hive /home/hive/.node-bin; \
+    fi
+
+ENV PATH="/home/hive/.node-bin:${PATH}"
+
 # Switch to hive user for package installations
 USER hive
 WORKDIR /home/hive
@@ -55,12 +95,11 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
     bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
 
 # --- Playwright Browser Automation Setup ---
-RUN . "$HOME/.nvm/nvm.sh" && \
-    npm install -g @playwright/mcp@latest --no-fund --silent
+# Note: npm is available via the .node-bin symlink in PATH
+RUN npm install -g @playwright/mcp@latest --no-fund --silent
 
 # Install Playwright CLI and browsers (architecture-aware)
-RUN . "$HOME/.nvm/nvm.sh" && \
-    npm install -g @playwright/test@latest --no-fund --silent && \
+RUN npm install -g @playwright/test@latest --no-fund --silent && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium chrome firefox webkit msedge chromium-headless-shell; \
@@ -70,8 +109,7 @@ RUN . "$HOME/.nvm/nvm.sh" && \
 
 # Install Playwright OS dependencies (requires root)
 USER root
-RUN . /home/hive/.nvm/nvm.sh && \
-    npx playwright@latest install-deps 2>/dev/null || true
+RUN npx playwright@latest install-deps 2>/dev/null || true
 
 USER hive
 
@@ -98,7 +136,8 @@ RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output && \
     chown -R hive:hive /app /home/hive/.claude /home/hive/.config
 
 # Create bash profile for hive user
-RUN echo 'export PATH="/home/hive/.bun/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/hive/.cargo/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /home/hive/.bashrc && \
+# Note: .node-bin is a symlink to the active Node.js version's bin directory
+RUN echo 'export PATH="/home/hive/.node-bin:/home/hive/.bun/bin:/home/hive/.cargo/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /home/hive/.bashrc && \
     echo 'export BUN_INSTALL="/home/hive/.bun"' >> /home/hive/.bashrc && \
     chown hive:hive /home/hive/.bashrc
 
@@ -114,25 +153,6 @@ RUN echo "[user]" > /home/hive/.gitconfig && \
 
 # Switch back to hive user for runtime
 USER hive
-
-# --- Environment variables ---
-ENV HOME=/home/hive
-ENV NVM_DIR="/home/hive/.nvm"
-ENV PYENV_ROOT="/home/hive/.pyenv"
-ENV BUN_INSTALL="/home/hive/.bun"
-ENV DENO_INSTALL="/home/hive/.deno"
-ENV CARGO_HOME="/home/hive/.cargo"
-ENV GOROOT="/home/hive/.go"
-ENV GOPATH="/home/hive/.go/path"
-ENV SDKMAN_DIR="/home/hive/.sdkman"
-ENV PERLBREW_ROOT="/home/hive/.perl5"
-ENV RBENV_ROOT="/home/hive/.rbenv"
-ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/hive/.pyenv/bin:/home/hive/.pyenv/shims:/home/hive/.rbenv/bin:/home/hive/.rbenv/shims:/home/hive/.swift/usr/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/home/hive/.nvm/versions/node/v20.*/bin:${PATH}"
-
-# Opam environment variables for Rocq/Coq
-ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
-ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
-ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
 
 # Runtime configuration
 ENV NODE_ENV=production

@@ -32,6 +32,18 @@ RUN usermod -l hive sandbox && \
 RUN find /home/hive -name "*.bashrc" -o -name "*.profile" -o -name "*.bash_profile" 2>/dev/null | \
     xargs -I{} sed -i 's|/home/sandbox|/home/hive|g' {} 2>/dev/null || true
 
+# Fix NVM installation paths (sandbox -> hive)
+# NVM stores the installation path in nvm.sh and default-packages
+RUN if [ -f /home/hive/.nvm/nvm.sh ]; then \
+      sed -i 's|/home/sandbox|/home/hive|g' /home/hive/.nvm/nvm.sh; \
+    fi && \
+    if [ -f /home/hive/.nvm/bash_completion ]; then \
+      sed -i 's|/home/sandbox|/home/hive|g' /home/hive/.nvm/bash_completion; \
+    fi && \
+    # Update NVM_DIR in all shell configs
+    find /home/hive -maxdepth 1 -name ".*rc" -o -name ".*profile" 2>/dev/null | \
+      xargs -I{} sed -i 's|NVM_DIR="/home/sandbox|NVM_DIR="/home/hive|g' {} 2>/dev/null || true
+
 # Switch to hive user for package installations
 USER hive
 WORKDIR /home/hive

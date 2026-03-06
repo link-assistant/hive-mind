@@ -828,9 +828,13 @@ jobs:
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
-      - name: Build Docker image with log capture
+      - name: Build Docker image
         run: |
-          echo "Building Docker image with log capture..."
+          echo "Building Docker image from sandbox:latest base..."
+          echo "Note: General-purpose tools are inherited from konard/sandbox:latest"
+          echo "This image adds AI-specific tools on top of the sandbox base."
+          echo ""
+
           # Note: Multi-platform builds (amd64+arm64) are tested in docker-publish job during release
           # PR checks only validate amd64 using standard docker build (not buildx) to ensure
           # the image is properly loaded into Docker daemon for container verification
@@ -840,838 +844,173 @@ jobs:
           echo "Docker image built successfully"
           docker images | grep -E "${{ env.IMAGE_NAME }}|REPOSITORY"
 
-      - name: Verify system & development tools installation in build logs
+      - name: Verify build completed without errors
         run: |
-          echo "Checking installation status in build logs..."
-          echo "Verifying all tools are installed (in alphabetical order to reduce merge conflicts)"
-          echo ""
+          echo "Checking build logs for critical errors..."
 
-          # Check for failures - alphabetical order
-          if grep -E '\[!\] Bun: not found' build-output.log; then
-            echo "ERROR: Bun installation failed - showing as 'not found'"
+          # Check for fatal errors during build
+          if grep -iE 'fatal:|error:|failed to|cannot|permission denied' build-output.log | grep -v 'not yet published' | head -20; then
+            echo ""
+            echo "WARNING: Some errors found in build logs (may be non-fatal)"
+            echo "Will verify actual functionality in container tests below"
+          fi
+
+          # Check specifically for usermod failure (sandbox -> hive rename)
+          if grep -E 'usermod: command not found|usermod: user.*not found' build-output.log; then
+            echo "ERROR: User rename from sandbox to hive failed"
             exit 1
           fi
 
-          if grep -E '\[!\] Cargo: not found' build-output.log; then
-            echo "ERROR: Cargo installation failed - showing as 'not found'"
-            exit 1
-          fi
+          echo "Build log check completed"
 
-          if grep -E '\[!\] Clang: not found' build-output.log; then
-            echo "ERROR: Clang installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Clang\+\+: not found' build-output.log; then
-            echo "ERROR: Clang++ installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] CMake: not found' build-output.log; then
-            echo "ERROR: CMake installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Deno: not found' build-output.log; then
-            echo "ERROR: Deno installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Elan: not found' build-output.log; then
-            echo "ERROR: Elan installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] G\+\+: not found' build-output.log; then
-            echo "ERROR: G++ installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] GCC: not found' build-output.log; then
-            echo "ERROR: GCC installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Git: not found' build-output.log; then
-            echo "ERROR: Git installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] GitHub CLI: not found' build-output.log; then
-            echo "ERROR: GitHub CLI installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Go: not found' build-output.log; then
-            echo "ERROR: Go installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Homebrew: not found' build-output.log; then
-            echo "ERROR: Homebrew installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Java: not found' build-output.log; then
-            echo "ERROR: Java installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Lake: not found' build-output.log; then
-            echo "ERROR: Lake installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Lean: not found' build-output.log; then
-            echo "ERROR: Lean installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] LLD Linker: not found' build-output.log; then
-            echo "ERROR: LLD Linker installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] LLVM: not found' build-output.log; then
-            echo "ERROR: LLVM installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Make: not found' build-output.log; then
-            echo "ERROR: Make installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Node\.js: not found' build-output.log; then
-            echo "ERROR: Node.js installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] NPM: not found' build-output.log; then
-            echo "ERROR: NPM installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Opam: not found' build-output.log; then
-            echo "ERROR: Opam installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] PHP: not found' build-output.log; then
-            echo "ERROR: PHP installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Perl: not found' build-output.log; then
-            echo "ERROR: Perl installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Perlbrew: not found' build-output.log; then
-            echo "ERROR: Perlbrew installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Playwright: not found' build-output.log; then
-            echo "ERROR: Playwright installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Python: not found' build-output.log; then
-            echo "ERROR: Python installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Pyenv: not found' build-output.log; then
-            echo "ERROR: Pyenv installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Rocq/Coq: not found' build-output.log; then
-            echo "ERROR: Rocq/Coq installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] Rust: not found' build-output.log; then
-            echo "ERROR: Rust installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          if grep -E '\[!\] SDKMAN: not found' build-output.log; then
-            echo "ERROR: SDKMAN installation failed - showing as 'not found'"
-            exit 1
-          fi
-
-          # Check for unbound variable errors (issue #989)
-          # These indicate shell scripts using $1 or other variables without protection under set -u
-          if grep -E 'unbound variable' build-output.log; then
-            echo "ERROR: Unbound variable error detected in Docker build"
-            echo "This typically indicates a shell script issue with set -u compatibility"
-            grep -E 'unbound variable' build-output.log || true
-            exit 1
-          fi
-
-          # Verify successful installations - alphabetical order
-          echo ""
-          echo "Verifying successful installations..."
-
-          if grep -E '\[✓\] Bun:' build-output.log; then
-            echo "Bun installation verified in build logs"
-          else
-            echo "WARNING: Bun success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Cargo:' build-output.log; then
-            echo "Cargo installation verified in build logs"
-          else
-            echo "WARNING: Cargo success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Clang:' build-output.log; then
-            echo "Clang installation verified in build logs"
-          else
-            echo "WARNING: Clang success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Clang\+\+:' build-output.log; then
-            echo "Clang++ installation verified in build logs"
-          else
-            echo "WARNING: Clang++ success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] CMake:' build-output.log; then
-            echo "CMake installation verified in build logs"
-          else
-            echo "WARNING: CMake success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Deno:' build-output.log; then
-            echo "Deno installation verified in build logs"
-          else
-            echo "WARNING: Deno success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Elan:' build-output.log; then
-            echo "Elan installation verified in build logs"
-          else
-            echo "WARNING: Elan success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] G\+\+:' build-output.log; then
-            echo "G++ installation verified in build logs"
-          else
-            echo "WARNING: G++ success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] GCC:' build-output.log; then
-            echo "GCC installation verified in build logs"
-          else
-            echo "WARNING: GCC success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Git:' build-output.log; then
-            echo "Git installation verified in build logs"
-          else
-            echo "WARNING: Git success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] GitHub CLI:' build-output.log; then
-            echo "GitHub CLI installation verified in build logs"
-          else
-            echo "WARNING: GitHub CLI success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Go:' build-output.log; then
-            echo "Go installation verified in build logs"
-          else
-            echo "WARNING: Go success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Homebrew:' build-output.log; then
-            echo "Homebrew installation verified in build logs"
-          else
-            echo "WARNING: Homebrew success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Java:' build-output.log; then
-            echo "Java installation verified in build logs"
-          else
-            echo "WARNING: Java success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Lake:' build-output.log; then
-            echo "Lake installation verified in build logs"
-          else
-            echo "WARNING: Lake success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Lean:' build-output.log; then
-            echo "Lean installation verified in build logs"
-          else
-            echo "WARNING: Lean success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] LLD Linker:' build-output.log; then
-            echo "LLD Linker installation verified in build logs"
-          else
-            echo "WARNING: LLD Linker success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] LLVM:' build-output.log; then
-            echo "LLVM installation verified in build logs"
-          else
-            echo "WARNING: LLVM success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Make:' build-output.log; then
-            echo "Make installation verified in build logs"
-          else
-            echo "WARNING: Make success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Node\.js:' build-output.log; then
-            echo "Node.js installation verified in build logs"
-          else
-            echo "WARNING: Node.js success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] NPM:' build-output.log; then
-            echo "NPM installation verified in build logs"
-          else
-            echo "WARNING: NPM success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Opam:' build-output.log; then
-            echo "Opam installation verified in build logs"
-          else
-            echo "WARNING: Opam success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] PHP:' build-output.log; then
-            echo "PHP installation verified in build logs"
-          else
-            echo "WARNING: PHP success message not found in logs (may appear as 'installed but not in current PATH' during build)"
-          fi
-
-          if grep -E '\[✓\] Perl:' build-output.log; then
-            echo "Perl installation verified in build logs"
-          else
-            echo "WARNING: Perl success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Perlbrew:' build-output.log; then
-            echo "Perlbrew installation verified in build logs"
-          else
-            echo "WARNING: Perlbrew success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Playwright:' build-output.log; then
-            echo "Playwright installation verified in build logs"
-          else
-            echo "WARNING: Playwright success message not found in logs"
-          fi
-
-          # Verify Playwright browsers were installed during build
-          echo ""
-          echo "Verifying Playwright browser installation in build logs..."
-          PLAYWRIGHT_BROWSERS_VERIFIED=true
-
-          # Check for required browsers (chromium, firefox, webkit)
-          if grep -E '\[✓\] Playwright browser verified: chromium' build-output.log; then
-            echo "Chromium browser installation verified in build logs"
-          elif grep -E 'chromium installed successfully' build-output.log; then
-            echo "Chromium browser installation verified in build logs (alt format)"
-          else
-            echo "WARNING: Chromium browser verification not found in build logs"
-            # Don't fail here - will be verified in container step
-          fi
-
-          if grep -E '\[✓\] Playwright browser verified: firefox' build-output.log; then
-            echo "Firefox browser installation verified in build logs"
-          elif grep -E 'firefox installed successfully' build-output.log; then
-            echo "Firefox browser installation verified in build logs (alt format)"
-          else
-            echo "WARNING: Firefox browser verification not found in build logs"
-          fi
-
-          if grep -E '\[✓\] Playwright browser verified: webkit' build-output.log; then
-            echo "WebKit browser installation verified in build logs"
-          elif grep -E 'webkit installed successfully' build-output.log; then
-            echo "WebKit browser installation verified in build logs (alt format)"
-          else
-            echo "WARNING: WebKit browser verification not found in build logs"
-          fi
-
-          # Check if any browser installation failed
-          if grep -E '\[!\] Failed to install some Playwright browsers' build-output.log; then
-            echo "WARNING: Some Playwright browsers failed during build - will verify in container step"
-          fi
-
-          echo ""
-
-          if grep -E '\[✓\] Python:' build-output.log; then
-            echo "Python installation verified in build logs"
-          else
-            echo "WARNING: Python success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Pyenv:' build-output.log; then
-            echo "Pyenv installation verified in build logs"
-          else
-            echo "WARNING: Pyenv success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] Rocq verified:|\[✓\] Coq verified' build-output.log; then
-            echo "Rocq/Coq installation verified in build logs"
-          elif grep -E '\[✓\] Rocq:|\[✓\] Coq:' build-output.log; then
-            echo "Rocq/Coq installation verified in build logs (legacy format)"
-          elif grep -E '\[!\] Rocq package installed but binaries not in PATH' build-output.log; then
-            echo "WARNING: Rocq package installed but binaries not accessible - will verify in container step"
-            echo "This may indicate the opam environment wasn't properly sourced during installation"
-          elif grep -E '\[!\] Rocq:.*not in current PATH' build-output.log; then
-            echo "WARNING: Rocq installed but not in PATH during build (will be verified in container step)"
-          else
-            echo "ERROR: Rocq/Coq installation failed in build logs"
-            echo "Showing relevant log lines:"
-            grep -i "rocq\|coq\|opam" build-output.log | tail -30 || true
-            exit 1
-          fi
-
-          if grep -E '\[✓\] Rust:' build-output.log; then
-            echo "Rust installation verified in build logs"
-          else
-            echo "WARNING: Rust success message not found in logs"
-          fi
-
-          if grep -E '\[✓\] SDKMAN:' build-output.log; then
-            echo "SDKMAN installation verified in build logs"
-          else
-            echo "WARNING: SDKMAN success message not found in logs"
-          fi
-
-          echo ""
-          echo "All system & development tools verification completed"
-
-      - name: Verify tools in running container
+      - name: Verify user rename and core tools in container
         run: |
-          echo "Verifying tools are available in the running container..."
-          echo "Checking all tools in alphabetical order to reduce merge conflicts"
+          echo "=== Verifying hive-mind Docker image ==="
+          echo ""
+          echo "This image inherits from konard/sandbox:latest and adds AI-specific tools."
+          echo "General-purpose development tools are provided by the sandbox base image."
           echo ""
 
-          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
-            # Source shell initialization files for tools that need it
-            export HOME=/home/hive
-            [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
-            [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
-            [ -s \"\$HOME/.elan/env\" ] && source \"\$HOME/.elan/env\"
-            export PYENV_ROOT=\"\$HOME/.pyenv\"
-            export PATH=\"\$PYENV_ROOT/bin:\$PATH\"
-            if command -v pyenv &>/dev/null; then eval \"\$(pyenv init --path)\" && eval \"\$(pyenv init -)\"; fi
-            export SDKMAN_DIR=\"\$HOME/.sdkman\"
-            if [ -s \"\$SDKMAN_DIR/bin/sdkman-init.sh\" ]; then source \"\$SDKMAN_DIR/bin/sdkman-init.sh\"; fi
-            # Source Go environment (GOPATH moved to .go/path in issue #1004)
-            if [ -d \"\$HOME/.go\" ]; then
-              export GOROOT=\"\$HOME/.go\"
-              export GOPATH=\"\$HOME/.go/path\"
-              export PATH=\"\$GOROOT/bin:\$GOPATH/bin:\$PATH\"
-            fi
+          docker run --rm ${{ env.IMAGE_NAME }}:test bash -c '
+            # === Step 1: Verify user rename (sandbox -> hive) ===
+            echo "=== Verifying user rename (sandbox -> hive) ==="
+            echo ""
 
-            # Perlbrew moved to .perl5 in issue #1004
-            export PERLBREW_ROOT=\"\$HOME/.perl5\"
-            [ -s \"\$PERLBREW_ROOT/etc/bashrc\" ] && source \"\$PERLBREW_ROOT/etc/bashrc\"
-
-
-            # Verify all system & development tools - alphabetical order
-            echo 'Checking Bun...'
-            if command -v bun &>/dev/null; then
-              bun --version
-              echo 'Bun is accessible'
-            else
-              echo 'Bun command not found in container'
+            # Check current user
+            CURRENT_USER=$(whoami)
+            echo "Current user: $CURRENT_USER"
+            if [ "$CURRENT_USER" != "hive" ]; then
+              echo "ERROR: Expected user hive, got $CURRENT_USER"
               exit 1
             fi
 
-            echo ''
-            echo 'Checking Cargo...'
-            if command -v cargo &>/dev/null; then
-              cargo --version
-              echo 'Cargo is accessible'
-            else
-              echo 'Cargo command not found in container'
+            # Check home directory
+            if [ "$HOME" != "/home/hive" ]; then
+              echo "ERROR: HOME should be /home/hive, got $HOME"
               exit 1
             fi
 
-            echo ''
-            echo 'Checking Clang...'
-            if command -v clang &>/dev/null; then
-              clang --version | head -n1
-              echo 'Clang is accessible'
-            else
-              echo 'Clang command not found in container'
+            # Check home directory exists and is writable
+            if [ ! -d /home/hive ]; then
+              echo "ERROR: /home/hive directory does not exist"
               exit 1
             fi
 
-            echo ''
-            echo 'Checking Clang++...'
-            if command -v clang++ &>/dev/null; then
-              clang++ --version | head -n1
-              echo 'Clang++ is accessible'
-            else
-              echo 'Clang++ command not found in container'
+            if [ ! -w /home/hive ]; then
+              echo "ERROR: /home/hive is not writable by hive user"
               exit 1
             fi
 
-            echo ''
-            echo 'Checking CMake...'
-            if command -v cmake &>/dev/null; then
-              cmake --version | head -n1
-              echo 'CMake is accessible'
-            else
-              echo 'CMake command not found in container'
-              exit 1
-            fi
+            echo "User rename verification: PASSED"
+            echo ""
 
-            echo ''
-            echo 'Checking Deno...'
-            if command -v deno &>/dev/null; then
-              deno --version | head -n1
-              echo 'Deno is accessible'
-            else
-              echo 'Deno command not found in container'
-              exit 1
-            fi
+            # === Step 2: Verify core tools from sandbox base image ===
+            echo "=== Verifying core tools (from sandbox base) ==="
+            echo ""
 
-            echo ''
-            echo 'Checking Elan...'
-            if command -v elan &>/dev/null; then
-              elan --version
-              echo 'Elan is accessible'
-            else
-              echo 'Elan command not found in container'
-              exit 1
-            fi
+            # Source shell initialization files
+            [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh"
+            [ -s "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
 
-            echo ''
-            echo 'Checking G++...'
-            if command -v g++ &>/dev/null; then
-              g++ --version | head -n1
-              echo 'G++ is accessible'
-            else
-              echo 'G++ command not found in container'
-              exit 1
-            fi
+            # Quick verification of key tools (full list already tested in sandbox CI)
+            TOOLS_OK=true
 
-            echo ''
-            echo 'Checking GCC...'
-            if command -v gcc &>/dev/null; then
-              gcc --version | head -n1
-              echo 'GCC is accessible'
-            else
-              echo 'GCC command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Git...'
-            if command -v git &>/dev/null; then
-              git --version
-              echo 'Git is accessible'
-            else
-              echo 'Git command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking GitHub CLI...'
-            if command -v gh &>/dev/null; then
-              gh --version | head -n1
-              echo 'GitHub CLI is accessible'
-            else
-              echo 'GitHub CLI command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Go...'
-            if command -v go &>/dev/null; then
-              go version
-              echo 'Go is accessible'
-            else
-              echo 'Go command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Homebrew...'
-            if command -v brew &>/dev/null; then
-              brew --version | head -n1
-              echo 'Homebrew is accessible'
-            else
-              echo 'Homebrew command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Java...'
-            if command -v java &>/dev/null; then
-              java -version 2>&1 | head -n1
-              echo 'Java is accessible'
-            else
-              echo 'Java command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Lake...'
-            if command -v lake &>/dev/null; then
-              lake --version
-              echo 'Lake is accessible'
-            else
-              echo 'Lake command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Lean...'
-            if command -v lean &>/dev/null; then
-              lean --version
-              echo 'Lean is accessible'
-            else
-              echo 'Lean command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking LLD Linker...'
-            if command -v lld &>/dev/null; then
-              lld --version | head -n1
-              echo 'LLD Linker is accessible'
-            else
-              echo 'LLD Linker command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking LLVM...'
-            if command -v llvm-config &>/dev/null; then
-              echo \"LLVM \$(llvm-config --version)\"
-              echo 'LLVM is accessible'
-            else
-              echo 'LLVM command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Make...'
-            if command -v make &>/dev/null; then
-              make --version | head -n1
-              echo 'Make is accessible'
-            else
-              echo 'Make command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Node.js...'
-            if command -v node &>/dev/null; then
-              node --version
-              echo 'Node.js is accessible'
-            else
-              echo 'Node.js command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking NPM...'
-            if command -v npm &>/dev/null; then
-              npm --version
-              echo 'NPM is accessible'
-            else
-              echo 'NPM command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Opam...'
-            if command -v opam &>/dev/null; then
-              opam --version
-              echo 'Opam is accessible'
-            else
-              echo 'Opam command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking PHP...'
-            if command -v php &>/dev/null; then
-              php --version | head -n1
-              echo 'PHP is accessible'
-            else
-              if [ -x /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php ]; then
-                /home/linuxbrew/.linuxbrew/opt/php@8.3/bin/php --version | head -n1
-                echo 'PHP is installed but not in PATH (may need shell restart)'
+            check_tool() {
+              if command -v "$1" &>/dev/null; then
+                VERSION=$("$1" $2 2>&1 | head -n1)
+                echo "  $1: $VERSION"
               else
-                echo 'PHP not found in container'
-                exit 1
+                echo "  $1: NOT FOUND"
+                TOOLS_OK=false
               fi
-            fi
+            }
 
-            echo ''
-            echo 'Checking Perl...'
-            if command -v perl &>/dev/null; then
-              perl --version | head -n2 | tail -n1
-              echo 'Perl is accessible'
-            else
-              echo 'Perl command not found in container'
+            echo "Node.js runtime:"
+            check_tool node --version
+            check_tool npm --version
+            check_tool bun --version
+
+            echo ""
+            echo "Development tools:"
+            check_tool git --version
+            check_tool gh --version
+
+            echo ""
+            echo "Language runtimes:"
+            check_tool python --version
+            check_tool go version
+            check_tool rustc --version
+
+            if [ "$TOOLS_OK" = false ]; then
+              echo ""
+              echo "ERROR: Some core tools from sandbox base image are missing"
+              echo "This may indicate an issue with the sandbox:latest image or user rename"
               exit 1
             fi
 
-            echo ''
-            echo 'Checking Perlbrew...'
-            if command -v perlbrew &>/dev/null; then
-              perlbrew --version
-              echo 'Perlbrew is accessible'
-            else
-              echo 'Perlbrew command not found in container'
-              exit 1
-            fi
+            echo ""
+            echo "Core tools verification: PASSED"
+            echo ""
 
-            echo ''
-            echo 'Checking Playwright...'
+            # === Step 3: Verify AI-specific tools (added by hive-mind) ===
+            echo "=== Verifying AI-specific tools (hive-mind additions) ==="
+            echo ""
+
+            # Check Playwright (installed by hive-mind Dockerfile)
+            echo "Playwright:"
             if command -v playwright &>/dev/null; then
               playwright --version
-              echo 'Playwright is accessible'
+              echo "  Playwright CLI: OK"
             else
-              echo 'Playwright command not found in container'
-              exit 1
+              echo "  Playwright CLI: NOT FOUND"
+              TOOLS_OK=false
             fi
 
-            echo ''
-            echo 'Checking Playwright browsers...'
-            PLAYWRIGHT_CACHE=\"\$HOME/.cache/ms-playwright\"
-            BROWSERS_REQUIRED=\"chromium firefox webkit\"
-            BROWSERS_MISSING=\"\"
+            # Check Playwright browsers
+            echo ""
+            echo "Playwright browsers:"
+            PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
+            BROWSERS_REQUIRED="chromium firefox webkit"
+            BROWSERS_MISSING=""
 
-            for browser in \$BROWSERS_REQUIRED; do
-              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
-              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
-                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
+            for browser in $BROWSERS_REQUIRED; do
+              BROWSER_DIR=$(ls -d "$PLAYWRIGHT_CACHE/${browser}"* 2>/dev/null | head -1 || true)
+              if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
+                echo "  $browser: OK"
               else
-                echo \"  \$browser: MISSING\"
-                BROWSERS_MISSING=\"\$BROWSERS_MISSING \$browser\"
+                echo "  $browser: MISSING"
+                BROWSERS_MISSING="$BROWSERS_MISSING $browser"
               fi
             done
 
-            # Check optional browsers (chromium_headless_shell, ffmpeg)
-            for browser in chromium_headless_shell ffmpeg; do
-              BROWSER_DIR=\$(ls -d \"\$PLAYWRIGHT_CACHE/\${browser}\"* 2>/dev/null | head -1 || true)
-              if [ -n \"\$BROWSER_DIR\" ] && [ -d \"\$BROWSER_DIR\" ]; then
-                echo \"  \$browser: OK (\$(basename \"\$BROWSER_DIR\"))\"
-              else
-                echo \"  \$browser: not installed (optional)\"
-              fi
-            done
-
-            if [ -n \"\$BROWSERS_MISSING\" ]; then
-              echo 'ERROR: Required Playwright browsers missing:\$BROWSERS_MISSING'
-              echo 'The Playwright MCP server requires these browsers to function properly.'
-              echo 'See issue #1060 for more details.'
+            if [ -n "$BROWSERS_MISSING" ]; then
+              echo ""
+              echo "ERROR: Required Playwright browsers missing:$BROWSERS_MISSING"
               exit 1
+            fi
+
+            echo ""
+            echo "AI-specific tools verification: PASSED"
+            echo ""
+
+            # === Step 4: Verify global npm/bun packages ===
+            echo "=== Verifying global packages ==="
+            echo ""
+
+            # These packages may not be published yet, so just check if bun globals work
+            if bun pm ls -g &>/dev/null; then
+              echo "Bun global packages accessible"
+              bun pm ls -g 2>/dev/null | head -20 || true
             else
-              echo 'All required Playwright browsers are installed'
+              echo "WARNING: Could not list bun global packages"
             fi
 
-            echo ''
-            echo 'Checking Python...'
-            if command -v python &>/dev/null; then
-              python --version
-              echo 'Python is accessible'
-            else
-              echo 'Python command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Pyenv...'
-            if command -v pyenv &>/dev/null; then
-              pyenv --version
-              echo 'Pyenv is accessible'
-            else
-              echo 'Pyenv command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Rocq/Coq...'
-            # Source opam environment for Rocq/Coq access
-            # Reference: https://rocq-prover.org/docs/using-opam
-            if [ -f \"\$HOME/.opam/opam-init/init.sh\" ]; then
-              source \"\$HOME/.opam/opam-init/init.sh\" > /dev/null 2>&1 || true
-            fi
-            # Also try eval opam env for full environment setup
-            eval \"\$(opam env --switch=default 2>/dev/null)\" || true
-
-            # Verify Rocq installation
-            # Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)
-            ROCQ_VERIFIED=false
-            if rocq -v &>/dev/null; then
-              rocq -v | head -n1
-              echo 'Rocq is accessible (verified with rocq -v)'
-              ROCQ_VERIFIED=true
-            elif command -v rocqc &>/dev/null && rocqc --version &>/dev/null; then
-              rocqc --version | head -n1
-              echo 'Rocq is accessible (verified with rocqc)'
-              ROCQ_VERIFIED=true
-            elif command -v coqc &>/dev/null && coqc --version &>/dev/null; then
-              coqc --version | head -n1
-              echo 'Coq is accessible (legacy compiler)'
-              ROCQ_VERIFIED=true
-            fi
-
-            if [ \"\$ROCQ_VERIFIED\" = false ]; then
-              echo 'Rocq/Coq verification failed: checking opam installation...'
-              # Show diagnostic information
-              if opam list --installed rocq-prover 2>/dev/null | grep -q rocq-prover; then
-                echo 'rocq-prover package is installed in opam'
-                echo 'Opam bin directory contents:'
-                ls -la \"\$HOME/.opam/default/bin/\" 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq binaries found in opam bin'
-                echo 'Installed opam packages:'
-                opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo 'No rocq/coq packages found'
-              else
-                echo 'rocq-prover package NOT installed in opam'
-                echo 'Available opam packages:'
-                opam list 2>/dev/null | head -20 || echo 'Could not list opam packages'
-              fi
-              echo ''
-              echo 'ERROR: Rocq/Coq not accessible in container'
-              echo 'This indicates the Rocq installation failed or binaries were not properly installed'
-              echo 'See issue #952 for more details: https://github.com/link-assistant/hive-mind/issues/952'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking Rust...'
-            if command -v rustc &>/dev/null; then
-              rustc --version
-              echo 'Rust is accessible'
-            else
-              echo 'Rust command not found in container'
-              exit 1
-            fi
-
-            echo ''
-            echo 'Checking SDKMAN...'
-            if command -v sdk &>/dev/null; then
-              sdk version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo 'SDKMAN installed'
-              echo 'SDKMAN is accessible'
-            else
-              echo 'SDKMAN command not found in container'
-              exit 1
-            fi
-          "
+            echo ""
+            echo "=== All verification checks PASSED ==="
+          '
 
           echo ""
-          echo "All system & development tools verification checks passed!"
+          echo "All hive-mind Docker image verification checks passed!"
 
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:

@@ -13,17 +13,27 @@
 
 The following instructions describe the legacy bare-metal installation on Ubuntu 24.04 server. This approach is kept for reference only.
 
+> **Note:** As of issue #1394, the `ubuntu-24-server-install.sh` script has been removed from the repository.
+> The Docker image now uses `konard/sandbox:latest` as the base image, which provides all development tools.
+> For historical reference, the last version of the script is available at:
+> https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
+
 ## Steps
 
 1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
 2. Login to `root` user.
-3. Execute main installation script
+3. Install sandbox first (provides all development tools)
 
    ```bash
-   curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
+   # Option 1: Use Docker (recommended)
+   docker pull konard/sandbox:latest
+   docker run -it konard/sandbox:latest
+
+   # Option 2: Use the sandbox install script
+   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/refs/heads/main/ubuntu/24.04/full-sandbox/install.sh | bash
    ```
 
-   **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
+   **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
 4. Login to `hive` user
 

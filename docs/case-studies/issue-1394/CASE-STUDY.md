@@ -46,26 +46,27 @@ hive-mind:latest (konard/hive-mind)
 
 From the sandbox Dockerfile analysis:
 
-| Tool Category | Tools Included |
-|--------------|----------------|
-| **Runtimes** | Node.js 20 (NVM), Bun, Deno, Python (pyenv), Go, Rust, Java 21 (SDKMAN) |
-| **Languages** | PHP 8.3 (Homebrew), Perl (Perlbrew), Lean 4 (elan), Rocq/Coq (opam) |
-| **System** | .NET SDK 8.0, CMake, Clang, LLVM, LLD, GCC, G++, Make |
-| **Dev Tools** | Git, GitHub CLI, GitLab CLI (glab), screen, bubblewrap, expect |
-| **Bonus** | Kotlin, Ruby (rbenv), Swift, R, NASM, FASM (x86_64 only) |
+| Tool Category | Tools Included                                                          |
+| ------------- | ----------------------------------------------------------------------- |
+| **Runtimes**  | Node.js 20 (NVM), Bun, Deno, Python (pyenv), Go, Rust, Java 21 (SDKMAN) |
+| **Languages** | PHP 8.3 (Homebrew), Perl (Perlbrew), Lean 4 (elan), Rocq/Coq (opam)     |
+| **System**    | .NET SDK 8.0, CMake, Clang, LLVM, LLD, GCC, G++, Make                   |
+| **Dev Tools** | Git, GitHub CLI, GitLab CLI (glab), screen, bubblewrap, expect          |
+| **Bonus**     | Kotlin, Ruby (rbenv), Swift, R, NASM, FASM (x86_64 only)                |
 
 ### What hive-mind Needs to Add (AI-Specific)
 
-| Category | Tools |
-|----------|-------|
-| AI Coding CLIs | `@anthropic-ai/claude-code`, `@openai/codex`, `@qwen-code/qwen-code`, `@google/gemini-cli`, `@github/copilot`, `opencode-ai` |
+| Category           | Tools                                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| AI Coding CLIs     | `@anthropic-ai/claude-code`, `@openai/codex`, `@qwen-code/qwen-code`, `@google/gemini-cli`, `@github/copilot`, `opencode-ai`               |
 | Workflow Utilities | `start-command`, `gh-setup-git-identity`, `gh-pull-all`, `gh-load-issue`, `gh-load-pull-request`, `gh-upload-log`, `@link-assistant/agent` |
-| Meta-packages | `@link-assistant/hive-mind`, `@link-assistant/claude-profiles` |
-| Browser Automation | Playwright + all browsers (chromium, chrome, firefox, webkit, msedge) + MCP |
+| Meta-packages      | `@link-assistant/hive-mind`, `@link-assistant/claude-profiles`                                                                             |
+| Browser Automation | Playwright + all browsers (chromium, chrome, firefox, webkit, msedge) + MCP                                                                |
 
 ### User Difference
 
 sandbox uses `sandbox` user, while hive-mind uses `hive` user. This requires:
+
 1. Either renaming the user in our Dockerfile
 2. Or adjusting path references
 
@@ -98,6 +99,7 @@ After migration, the script becomes obsolete. Reference the last commit where it
 ### Step 4: Update CI/CD
 
 Modify `.github/workflows/release.yml`:
+
 - Remove verification for tools that are now inherited from sandbox
 - Add verification that sandbox image is properly inherited
 - Simplify the Docker build verification steps
@@ -111,11 +113,11 @@ Modify `.github/workflows/release.yml`:
 
 ## Risks and Mitigations
 
-| Risk | Mitigation |
-|------|------------|
+| Risk                                | Mitigation                                         |
+| ----------------------------------- | -------------------------------------------------- |
 | sandbox:latest image not up-to-date | Pin to specific version or use `sandbox:1.x.x` tag |
-| User rename breaks existing volumes | Document migration path for existing deployments |
-| Missing tool from sandbox | File issue in sandbox repository |
+| User rename breaks existing volumes | Document migration path for existing deployments   |
+| Missing tool from sandbox           | File issue in sandbox repository                   |
 
 ## Implementation
 

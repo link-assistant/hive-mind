@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": minor
+'@link-assistant/hive-mind': minor
 ---
 
 Optimize Docker build by using sandbox:latest as base image
@@ -11,5 +11,6 @@ Optimize Docker build by using sandbox:latest as base image
 - User renamed from `sandbox` to `hive` for backward compatibility
 
 This change implements the separation of concerns described in link-foundation/sandbox#65:
+
 - sandbox: Universal development environment with all general-purpose tools
 - hive-mind: AI-specific tools (Claude CLI, Playwright MCP, etc.) built on top of sandbox

@@ -44,6 +44,40 @@ RUN if [ -f /home/hive/.nvm/nvm.sh ]; then \
     find /home/hive -maxdepth 1 -name ".*rc" -o -name ".*profile" 2>/dev/null | \
       xargs -I{} sed -i 's|NVM_DIR="/home/sandbox|NVM_DIR="/home/hive|g' {} 2>/dev/null || true
 
+# --- Environment variables ---
+# Set environment variables EARLY so they're available in subsequent RUN commands
+# All paths adjusted from /home/sandbox to /home/hive
+ENV HOME=/home/hive
+ENV NVM_DIR="/home/hive/.nvm"
+ENV PYENV_ROOT="/home/hive/.pyenv"
+ENV BUN_INSTALL="/home/hive/.bun"
+ENV DENO_INSTALL="/home/hive/.deno"
+ENV CARGO_HOME="/home/hive/.cargo"
+ENV GOROOT="/home/hive/.go"
+ENV GOPATH="/home/hive/.go/path"
+ENV SDKMAN_DIR="/home/hive/.sdkman"
+ENV PERLBREW_ROOT="/home/hive/.perl5"
+ENV RBENV_ROOT="/home/hive/.rbenv"
+
+# Opam environment variables for Rocq/Coq theorem prover
+ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
+
+# Comprehensive PATH including all tools
+# Note: Node.js path is added dynamically since NVM version may vary
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/hive/.pyenv/bin:/home/hive/.pyenv/shims:/home/hive/.rbenv/bin:/home/hive/.rbenv/shims:/home/hive/.swift/usr/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Create a stable symlink to the active Node.js version's bin directory
+# This allows us to add it to PATH without knowing the specific version
+RUN NODE_VERSION_DIR=$(ls -d /home/hive/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /home/hive/.node-bin && \
+      chown -h hive:hive /home/hive/.node-bin; \
+    fi
+
+ENV PATH="/home/hive/.node-bin:${PATH}"
+
 # Switch to hive user for package installations
 USER hive
 WORKDIR /home/hive
@@ -72,15 +106,13 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
     bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
 
 # --- Playwright Browser Automation Setup ---
-# Source NVM to ensure Node.js is available for npm commands
 # Install Playwright MCP server for browser automation via Claude CLI
-RUN . "$HOME/.nvm/nvm.sh" && \
-    npm install -g @playwright/mcp@latest --no-fund --silent
+# Note: npm is available via the .node-bin symlink in PATH
+RUN npm install -g @playwright/mcp@latest --no-fund --silent
 
 # Install Playwright CLI and all browsers
 # Architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-RUN . "$HOME/.nvm/nvm.sh" && \
-    npm install -g @playwright/test@latest --no-fund --silent && \
+RUN npm install -g @playwright/test@latest --no-fund --silent && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium chrome firefox webkit msedge chromium-headless-shell; \
@@ -90,8 +122,7 @@ RUN . "$HOME/.nvm/nvm.sh" && \
 
 # Install Playwright OS dependencies (requires root)
 USER root
-RUN . /home/hive/.nvm/nvm.sh && \
-    npx playwright@latest install-deps 2>/dev/null || true
+RUN npx playwright@latest install-deps 2>/dev/null || true
 
 USER hive
 
@@ -99,29 +130,6 @@ USER hive
 RUN if command -v claude &>/dev/null; then \
       claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || true; \
     fi
-
-# --- Environment variables ---
-# Adjust paths from sandbox to hive user
-ENV HOME=/home/hive
-ENV NVM_DIR="/home/hive/.nvm"
-ENV PYENV_ROOT="/home/hive/.pyenv"
-ENV BUN_INSTALL="/home/hive/.bun"
-ENV DENO_INSTALL="/home/hive/.deno"
-ENV CARGO_HOME="/home/hive/.cargo"
-ENV GOROOT="/home/hive/.go"
-ENV GOPATH="/home/hive/.go/path"
-ENV SDKMAN_DIR="/home/hive/.sdkman"
-ENV PERLBREW_ROOT="/home/hive/.perl5"
-ENV RBENV_ROOT="/home/hive/.rbenv"
-
-# Comprehensive PATH including all tools
-# Note: Paths adjusted from /home/sandbox to /home/hive
-ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/hive/.pyenv/bin:/home/hive/.pyenv/shims:/home/hive/.rbenv/bin:/home/hive/.rbenv/shims:/home/hive/.swift/usr/bin:/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.go/bin:/home/hive/.go/path/bin:/home/hive/.nvm/versions/node/v20.*/bin:${PATH}"
-
-# Opam environment variables for Rocq/Coq theorem prover
-ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
-ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
-ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
 
 SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

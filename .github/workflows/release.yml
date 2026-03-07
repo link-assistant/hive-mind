@@ -828,10 +828,17 @@ jobs:
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
 
+      - name: Show sandbox base image version
+        run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Sandbox base image version: konard/sandbox:${SANDBOX_VERSION}"
+          echo "This pinned version ensures stable, reproducible builds."
+
       - name: Build Docker image
         run: |
-          echo "Building Docker image from sandbox:latest base..."
-          echo "Note: General-purpose tools are inherited from konard/sandbox:latest"
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
+          echo "Building Docker image from konard/sandbox:${SANDBOX_VERSION} base..."
+          echo "Note: General-purpose tools are inherited from pinned konard/sandbox:${SANDBOX_VERSION}"
           echo "This image adds AI-specific tools on top of the sandbox base."
           echo ""
 
@@ -865,9 +872,10 @@ jobs:
 
       - name: Verify user rename and core tools in container
         run: |
+          SANDBOX_VERSION=$(grep '^FROM konard/sandbox:' Dockerfile | sed 's/FROM konard\/sandbox://')
           echo "=== Verifying hive-mind Docker image ==="
           echo ""
-          echo "This image inherits from konard/sandbox:latest and adds AI-specific tools."
+          echo "This image inherits from konard/sandbox:${SANDBOX_VERSION} (pinned) and adds AI-specific tools."
           echo "General-purpose development tools are provided by the sandbox base image."
           echo ""
 

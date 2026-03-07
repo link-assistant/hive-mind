@@ -1,16 +1,20 @@
 # Hive Mind Docker image
-# Inherits from sandbox:latest which provides all general-purpose development tools
+# Inherits from konard/sandbox which provides all general-purpose development tools
 # This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)
 #
 # Architecture (see issue #1394 and PR sandbox#65):
-#   sandbox:latest (konard/sandbox)
+#   konard/sandbox (pinned version)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
-#   hive-mind:latest (konard/hive-mind)
+#   hive-mind (konard/hive-mind)
 #     └── Inherits sandbox, adds AI coding assistants and browser automation
+#
+# Sandbox image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in coolify/Dockerfile.
+# Latest sandbox releases: https://hub.docker.com/r/konard/sandbox/tags
 #
 # Build: docker build -t konard/hive-mind .
 
-FROM konard/sandbox:latest
+FROM konard/sandbox:1.3.16
 
 USER root
 

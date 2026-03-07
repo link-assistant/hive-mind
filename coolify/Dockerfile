@@ -1,16 +1,20 @@
 # Hive Mind Coolify Docker image
-# Inherits from sandbox:latest which provides all general-purpose development tools
+# Inherits from konard/sandbox which provides all general-purpose development tools
 # This image adds AI-specific tools and application code for Coolify deployment
 #
 # Architecture (see issue #1394 and PR sandbox#65):
-#   sandbox:latest (konard/sandbox)
+#   konard/sandbox (pinned version)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
-#   hive-mind:latest (this Dockerfile)
+#   hive-mind (this Dockerfile)
 #     └── Inherits sandbox, adds AI coding assistants and app code
+#
+# Sandbox image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in the root Dockerfile.
+# Latest sandbox releases: https://hub.docker.com/r/konard/sandbox/tags
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-FROM konard/sandbox:latest
+FROM konard/sandbox:1.3.16
 
 USER root
 

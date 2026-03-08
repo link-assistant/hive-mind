@@ -21,18 +21,18 @@ Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
 Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range of tasks - not just programming. Almost anything that can be done with files in a repository can be automated.
 
-| Feature                      | What It Means For You                                                                              |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.             |
-| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                        |
-| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                           |
-| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.               |
-| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                   |
+| Feature                      | What It Means For You                                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.                                                                                     |
+| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                                                                                                |
+| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                                                                                                   |
+| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.                                                                                       |
+| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                                                                                           |
 | **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
-| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                              |
-| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                    |
-| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.               |
-| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                   |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                                                                                                      |
+| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                                                                                            |
+| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.                                                                      |
+| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                                                                                           |
 
 > _"Compared to Codex for $200, this solution is fire."_ - User feedback
 

@@ -17,10 +17,15 @@ set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Source shell initialisation files so that user-installed tools are on PATH
+# Third-party init scripts may reference unset variables, so we temporarily
+# disable the unbound-variable check (set -u) while sourcing them.
 # ---------------------------------------------------------------------------
 export HOME=/home/hive
 # Add ~/.local/bin for user-installed binaries (e.g. opam installed by rocq install script)
 export PATH="$HOME/.local/bin:$PATH"
+
+# Disable -u temporarily for all third-party init scripts
+set +u
 
 [ -s "$HOME/.nvm/nvm.sh" ]           && source "$HOME/.nvm/nvm.sh"
 [ -s "$HOME/.cargo/env" ]            && source "$HOME/.cargo/env"
@@ -48,6 +53,9 @@ fi
 # Perlbrew moved to .perl5 in issue #1004
 export PERLBREW_ROOT="$HOME/.perl5"
 [ -s "$PERLBREW_ROOT/etc/bashrc" ] && source "$PERLBREW_ROOT/etc/bashrc"
+
+# Re-enable strict mode for our own code
+set -u
 
 # ---------------------------------------------------------------------------
 # Helper: check a single command
@@ -190,11 +198,13 @@ echo ""
 echo "Checking Rocq/Coq..."
 # Source opam environment for Rocq/Coq access
 # Reference: https://rocq-prover.org/docs/using-opam
+set +u  # opam init scripts may reference unset variables
 if [ -f "$HOME/.opam/opam-init/init.sh" ]; then
   source "$HOME/.opam/opam-init/init.sh" > /dev/null 2>&1 || true
 fi
 # Also try eval opam env for full environment setup
 eval "$(opam env --switch=default 2>/dev/null)" || true
+set -u
 
 # Verify Rocq installation
 # Rocq 9.0+ provides: rocq (CLI tool), rocqc (compiler alias), coqc (legacy compiler)

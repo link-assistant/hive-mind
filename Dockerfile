@@ -32,6 +32,11 @@ RUN usermod -l hive sandbox && \
     # Fix ownership of home directory contents
     chown -R hive:hive /home/hive
 
+# Install opam package manager system-wide (needed for OCaml/Rocq package management)
+# The sandbox image installs the opam binary to ~/.local/bin (user-local) but does not copy it
+# to the final image. Installing via apt makes opam accessible system-wide.
+RUN apt-get update -y && apt-get install -y opam && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Fix any references to old user in config files
 RUN find /home/hive -name "*.bashrc" -o -name "*.profile" -o -name "*.bash_profile" 2>/dev/null | \
     xargs -I{} sed -i 's|/home/sandbox|/home/hive|g' {} 2>/dev/null || true

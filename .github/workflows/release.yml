@@ -883,6 +883,8 @@ jobs:
           docker run --rm ${{ env.IMAGE_NAME }}:test bash -c "
             # Source shell initialization files for tools that need it
             export HOME=/home/hive
+            # Add ~/.local/bin for user-installed binaries (e.g., opam installed by rocq install script)
+            export PATH=\"\$HOME/.local/bin:\$PATH\"
             [ -s \"\$HOME/.nvm/nvm.sh\" ] && source \"\$HOME/.nvm/nvm.sh\"
             [ -s \"\$HOME/.cargo/env\" ] && source \"\$HOME/.cargo/env\"
             [ -s \"\$HOME/.elan/env\" ] && source \"\$HOME/.elan/env\"

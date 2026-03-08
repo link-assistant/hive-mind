@@ -13,19 +13,19 @@ When `solve` ran with `--auto-restart-until-mergeable` on a repository that only
 
 ## Timeline Reconstruction
 
-| Timestamp (UTC) | Event |
-|-----------------|-------|
+| Timestamp (UTC)     | Event                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------- |
 | 2026-03-07 23:53:13 | `solve` starts for `konard/links-visuals` issue #3, with `--auto-restart-until-mergeable` |
-| 2026-03-07 23:53:24 | Branch `issue-3-57a79ede43e6` created; draft PR #5 created |
-| 2026-03-07 23:56:38 | First Claude session completes the SVG z-ordering fix |
-| 2026-03-07 23:56:38 | Uncommitted changes (`docs/`) detected; second Claude session starts |
-| 2026-03-07 23:58:00 | Second session commits screenshot; PR marked ready for review |
-| 2026-03-07 23:58:09 | `AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE` begins polling PR #5 |
-| 2026-03-07 23:58:13 | **Check #1:** `Waiting for CI: pages-build-deployment` |
-| 2026-03-07 23:59:13 | **Check #2:** `Waiting for CI: pages-build-deployment` |
-| 2026-03-08 00:00:17 | **Check #3:** `Waiting for CI: pages-build-deployment` |
-| 2026-03-08 00:01:21 | **Check #4:** `Waiting for CI: pages-build-deployment` |
-| 2026-03-08 00:01:50 | User presses Ctrl+C — `ERROR: Interrupted (CTRL+C)` |
+| 2026-03-07 23:53:24 | Branch `issue-3-57a79ede43e6` created; draft PR #5 created                                |
+| 2026-03-07 23:56:38 | First Claude session completes the SVG z-ordering fix                                     |
+| 2026-03-07 23:56:38 | Uncommitted changes (`docs/`) detected; second Claude session starts                      |
+| 2026-03-07 23:58:00 | Second session commits screenshot; PR marked ready for review                             |
+| 2026-03-07 23:58:09 | `AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE` begins polling PR #5                           |
+| 2026-03-07 23:58:13 | **Check #1:** `Waiting for CI: pages-build-deployment`                                    |
+| 2026-03-07 23:59:13 | **Check #2:** `Waiting for CI: pages-build-deployment`                                    |
+| 2026-03-08 00:00:17 | **Check #3:** `Waiting for CI: pages-build-deployment`                                    |
+| 2026-03-08 00:01:21 | **Check #4:** `Waiting for CI: pages-build-deployment`                                    |
+| 2026-03-08 00:01:50 | User presses Ctrl+C — `ERROR: Interrupted (CTRL+C)`                                       |
 
 The loop never posted a "Ready to merge" comment. It would have continued indefinitely without user intervention.
 
@@ -36,6 +36,7 @@ The loop never posted a "Ready to merge" comment. It would have continued indefi
 ### The Affected Repository
 
 **`konard/links-visuals`** is a small repository with:
+
 - **No user-defined CI workflows** (no `.github/workflows/*.yml` files)
 - **GitHub Pages enabled** — which causes GitHub to auto-create a special workflow named `pages-build-deployment` at path `dynamic/pages/pages-build-deployment`
 - PR #5 had `mergeStateStatus: CLEAN` and `statusCheckRollup: []` (empty)
@@ -78,10 +79,12 @@ Because it never creates check runs on PR branches, any loop waiting for it to a
 ### The Missing Distinction
 
 The code in `getActiveRepoWorkflows` (github-merge.lib.mjs:1411) was designed to distinguish:
+
 - Repos with NO CI → treat as "no CI configured"
 - Repos with CI workflows → treat empty check-runs as a race condition (CI hasn't started)
 
 But it failed to distinguish between:
+
 - User-defined CI workflows in `.github/workflows/` that run on PRs
 - System-generated deployment workflows in `dynamic/pages/` that only run on default branch
 
@@ -98,6 +101,7 @@ Issue #1399 bug: pages-build-deployment counted as "hasWorkflow" but never runs 
 ## Evidence
 
 ### PR #5 API Response
+
 ```json
 {
   "title": "fix: reorder SVG circles so start (green) is above center but below end (red)",
@@ -109,27 +113,33 @@ Issue #1399 bug: pages-build-deployment counted as "hasWorkflow" but never runs 
 ```
 
 ### Check Suites (queued, 0 runs)
+
 Three check suites existed but all had `latest_check_runs_count: 0`:
+
 - GitHub Pages (queued, no conclusion)
 - Vercel (queued, no conclusion)
 - Cursor (queued, no conclusion)
 
 ### Active Workflows
+
 ```json
 {
   "total_count": 1,
-  "workflows": [{
-    "id": 144453964,
-    "name": "pages-build-deployment",
-    "path": "dynamic/pages/pages-build-deployment",
-    "state": "active"
-  }]
+  "workflows": [
+    {
+      "id": 144453964,
+      "name": "pages-build-deployment",
+      "path": "dynamic/pages/pages-build-deployment",
+      "state": "active"
+    }
+  ]
 }
 ```
 
 Note: `path` is `dynamic/pages/pages-build-deployment`, not a `.github/workflows/` path.
 
 ### Log Evidence (lines 18981–18994)
+
 ```
 [2026-03-07T23:58:13.481Z] [INFO]   Waiting for CI: pages-build-deployment
 [2026-03-07T23:59:17.568Z] [INFO]   Waiting for CI: pages-build-deployment

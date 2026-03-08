@@ -104,9 +104,7 @@ console.log('===================================================================
 console.log('📋 GitHub Pages Deployment Workflow Filtering\n');
 
 test('pages-build-deployment workflow (dynamic/pages/ path) is filtered out', () => {
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.count === 0, `Expected 0 workflows after filtering, got ${result.count}`);
@@ -115,9 +113,7 @@ test('pages-build-deployment workflow (dynamic/pages/ path) is filtered out', ()
 });
 
 test('User-defined CI workflow (.github/workflows/ path) is NOT filtered out', () => {
-  const allWorkflows = [
-    { id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.count === 1, `Expected 1 workflow, got ${result.count}`);
@@ -135,14 +131,15 @@ test('Repo with BOTH pages-build-deployment AND user CI workflows: only CI workf
 
   assert(result.count === 2, `Expected 2 workflows after filtering, got ${result.count}`);
   assert(result.hasWorkflows === true, 'hasWorkflows should be true — real CI workflows remain');
-  assert(result.workflows.every(wf => !wf.path.startsWith('dynamic/pages/')), 'No dynamic/pages/ workflows should remain');
+  assert(
+    result.workflows.every(wf => !wf.path.startsWith('dynamic/pages/')),
+    'No dynamic/pages/ workflows should remain'
+  );
 });
 
 test('Repo with ONLY pages-build-deployment: hasWorkflows=false after filtering', () => {
   // This is the exact scenario from issue #1399: konard/links-visuals
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.hasWorkflows === false, 'hasWorkflows must be false for repos with only GitHub Pages deployment');
@@ -159,9 +156,7 @@ test('Repo with no workflows at all: result unchanged', () => {
 
 test('Other dynamic/ paths (not dynamic/pages/) are not filtered', () => {
   // Only dynamic/pages/ should be filtered, not other dynamic paths
-  const allWorkflows = [
-    { id: 1, name: 'some-dynamic-workflow', path: 'dynamic/other/workflow', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 1, name: 'some-dynamic-workflow', path: 'dynamic/other/workflow', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.count === 1, 'Non-pages dynamic workflows should not be filtered');
@@ -177,9 +172,7 @@ test('Issue #1399 scenario: no_checks + MERGEABLE + only pages workflow → noCi
   // - PR is MERGEABLE (mergeStateStatus=CLEAN)
   // - check-runs are empty (pages-build-deployment never runs on PR branches)
 
-  const rawWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const rawWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
   const filteredWorkflows = simulateFilteredWorkflows(rawWorkflows);
 
   const result = simulateNoCiLogic({
@@ -195,9 +188,7 @@ test('Issue #1399 scenario: no_checks + MERGEABLE + only pages workflow → noCi
 
 test('Before fix: pages-build-deployment counted as workflow → infinite loop', () => {
   // Document the OLD broken behavior (before issue #1399 fix)
-  const rawWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const rawWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
 
   // OLD CODE (broken): did not filter dynamic/pages/ workflows
   const brokenFilteredWorkflows = {
@@ -280,9 +271,7 @@ test('#1363 compatibility: repo with real CI + pages → blocker message counts 
 
 test('#1345 race condition preserved: no_checks + NOT MERGEABLE → always ci_pending', () => {
   // When PR is not yet mergeable, always treat as race condition regardless of workflows
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
   const filteredWorkflows = simulateFilteredWorkflows(allWorkflows);
 
   const result = simulateNoCiLogic({
@@ -314,9 +303,7 @@ test('Multiple pages workflows with dynamic/pages/ path are all filtered', () =>
 });
 
 test('Workflow path exactly equal to "dynamic/pages/" prefix is filtered', () => {
-  const allWorkflows = [
-    { id: 1, name: 'custom-pages', path: 'dynamic/pages/custom', state: 'active' },
-  ];
+  const allWorkflows = [{ id: 1, name: 'custom-pages', path: 'dynamic/pages/custom', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.count === 0, 'Workflow with dynamic/pages/ prefix should be filtered');
@@ -328,9 +315,7 @@ test('Real-world scenario: links-visuals repo (issue #1399) is now treated as no
   // - Only workflow: pages-build-deployment at dynamic/pages/pages-build-deployment
   // - PR #5: mergeStateStatus=CLEAN, check-runs=[], check-suites=[queued, no runs]
 
-  const rawApiResponse = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-  ];
+  const rawApiResponse = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
 
   // Apply the fix
   const filteredWorkflows = simulateFilteredWorkflows(rawApiResponse);

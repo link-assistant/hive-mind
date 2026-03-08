@@ -132,14 +132,8 @@ Proceed.
         finalContent = taskInfo;
       }
     } else {
-      // .gitkeep: Use minimal metadata format (explicit --gitkeep-file or auto-gitkeep-file fallback)
-      const creationReason = argv.claudeFile === false ? '# This file was created with --gitkeep-file (default)' : '# This file was created because CLAUDE.md is in .gitignore (--auto-gitkeep-file=true)';
-      const gitkeepContent = `# Auto-generated file for PR creation
-# Issue: ${issueUrl}
-# Branch: ${branchName}
-# Timestamp: ${timestamp}
-${creationReason}
-# It will be removed when the task is complete`;
+      // .gitkeep: Use minimal single-line metadata format (explicit --gitkeep-file or auto-gitkeep-file fallback)
+      const gitkeepContent = `# .gitkeep file auto-generated at ${timestamp} for PR creation at branch ${branchName} for issue ${issueUrl}`;
 
       if (fileExisted && existingContent) {
         await log(`   ${fileName} already exists, appending timestamp...`, { verbose: true });
@@ -197,11 +191,7 @@ ${creationReason}
 
           // Create a .gitkeep file as fallback
           const gitkeepPath = path.join(tempDir, '.gitkeep');
-          const gitkeepContent = `# Auto-generated file for PR creation
-# Issue: ${issueUrl}
-# Branch: ${branchName}
-# This file was created because CLAUDE.md is in .gitignore
-# It will be removed when the task is complete`;
+          const gitkeepContent = `# .gitkeep file auto-generated at ${timestamp} for PR creation at branch ${branchName} for issue ${issueUrl}`;
 
           await fs.writeFile(gitkeepPath, gitkeepContent);
           await log(formatAligned('✅', 'Created:', '.gitkeep file'));

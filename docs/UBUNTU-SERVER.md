@@ -14,7 +14,7 @@
 The following instructions describe the legacy bare-metal installation on Ubuntu 24.04 server. This approach is kept for reference only.
 
 > **Note:** As of issue #1394, the `ubuntu-24-server-install.sh` script has been removed from the repository.
-> The Docker image now uses `konard/sandbox:latest` as the base image, which provides all development tools.
+> The Docker image now uses `konard/sandbox` (pinned to a specific version) as the base image, which provides all development tools.
 > For historical reference, the last version of the script is available at:
 > https://github.com/link-assistant/hive-mind/blob/4f027b32/scripts/ubuntu-24-server-install.sh
 
@@ -26,11 +26,11 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:latest
-   docker run -it konard/sandbox:latest
+   docker pull konard/sandbox:1.3.16
+   docker run -it konard/sandbox:1.3.16
 
-   # Option 2: Use the sandbox install script
-   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/refs/heads/main/ubuntu/24.04/full-sandbox/install.sh | bash
+   # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
+   curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
    ```
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.

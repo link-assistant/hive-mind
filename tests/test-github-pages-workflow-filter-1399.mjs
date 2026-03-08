@@ -96,6 +96,13 @@ function simulateNoCiLogic({ ciStatus, mergeStatus, repoWorkflows }) {
   return { blockers, noCiConfigured, earlyReturn: false };
 }
 
+// Common test fixture: the exact pages-build-deployment workflow from konard/links-visuals
+const pagesWorkflow = { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' };
+// Common CI status for the no_checks scenario
+const noChecksCiStatus = { status: 'no_checks', checks: [] };
+// Mergeable PR status (mergeStateStatus=CLEAN)
+const mergeableStatus = { mergeable: true, reason: null };
+
 console.log('================================================================================');
 console.log('Unit Tests: Issue #1399 — GitHub Pages deployment workflow causes infinite loop');
 console.log('================================================================================\n');
@@ -104,8 +111,7 @@ console.log('===================================================================
 console.log('📋 GitHub Pages Deployment Workflow Filtering\n');
 
 test('pages-build-deployment workflow (dynamic/pages/ path) is filtered out', () => {
-  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-  const result = simulateFilteredWorkflows(allWorkflows);
+  const result = simulateFilteredWorkflows([pagesWorkflow]);
 
   assert(result.count === 0, `Expected 0 workflows after filtering, got ${result.count}`);
   assert(result.hasWorkflows === false, 'hasWorkflows should be false after filtering pages workflow');
@@ -122,11 +128,7 @@ test('User-defined CI workflow (.github/workflows/ path) is NOT filtered out', (
 });
 
 test('Repo with BOTH pages-build-deployment AND user CI workflows: only CI workflows remain', () => {
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-    { id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' },
-    { id: 2, name: 'Deploy', path: '.github/workflows/deploy.yml', state: 'active' },
-  ];
+  const allWorkflows = [pagesWorkflow, { id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' }, { id: 2, name: 'Deploy', path: '.github/workflows/deploy.yml', state: 'active' }];
   const result = simulateFilteredWorkflows(allWorkflows);
 
   assert(result.count === 2, `Expected 2 workflows after filtering, got ${result.count}`);
@@ -139,16 +141,14 @@ test('Repo with BOTH pages-build-deployment AND user CI workflows: only CI workf
 
 test('Repo with ONLY pages-build-deployment: hasWorkflows=false after filtering', () => {
   // This is the exact scenario from issue #1399: konard/links-visuals
-  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-  const result = simulateFilteredWorkflows(allWorkflows);
+  const result = simulateFilteredWorkflows([pagesWorkflow]);
 
   assert(result.hasWorkflows === false, 'hasWorkflows must be false for repos with only GitHub Pages deployment');
   assert(result.count === 0, 'count must be 0 for repos with only GitHub Pages deployment');
 });
 
 test('Repo with no workflows at all: result unchanged', () => {
-  const allWorkflows = [];
-  const result = simulateFilteredWorkflows(allWorkflows);
+  const result = simulateFilteredWorkflows([]);
 
   assert(result.count === 0, 'Expected 0 workflows');
   assert(result.hasWorkflows === false, 'hasWorkflows should be false');
@@ -171,14 +171,10 @@ test('Issue #1399 scenario: no_checks + MERGEABLE + only pages workflow → noCi
   // - konard/links-visuals has ONLY pages-build-deployment
   // - PR is MERGEABLE (mergeStateStatus=CLEAN)
   // - check-runs are empty (pages-build-deployment never runs on PR branches)
-
-  const rawWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-  const filteredWorkflows = simulateFilteredWorkflows(rawWorkflows);
-
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
-    mergeStatus: { mergeable: true, reason: null }, // mergeStateStatus=CLEAN
-    repoWorkflows: filteredWorkflows,
+    ciStatus: noChecksCiStatus,
+    mergeStatus: mergeableStatus,
+    repoWorkflows: simulateFilteredWorkflows([pagesWorkflow]),
   });
 
   assert(result.noCiConfigured === true, 'noCiConfigured must be true — pages-build-deployment is not a PR CI check');
@@ -188,18 +184,16 @@ test('Issue #1399 scenario: no_checks + MERGEABLE + only pages workflow → noCi
 
 test('Before fix: pages-build-deployment counted as workflow → infinite loop', () => {
   // Document the OLD broken behavior (before issue #1399 fix)
-  const rawWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-
   // OLD CODE (broken): did not filter dynamic/pages/ workflows
   const brokenFilteredWorkflows = {
-    count: rawWorkflows.length, // Was 1 — pages-build-deployment included
-    hasWorkflows: rawWorkflows.length > 0, // Was true — causing the bug
-    workflows: rawWorkflows,
+    count: 1, // Was 1 — pages-build-deployment included
+    hasWorkflows: true, // Was true — causing the bug
+    workflows: [pagesWorkflow],
   };
 
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
-    mergeStatus: { mergeable: true, reason: null },
+    ciStatus: noChecksCiStatus,
+    mergeStatus: mergeableStatus,
     repoWorkflows: brokenFilteredWorkflows,
   });
 
@@ -215,12 +209,10 @@ console.log('\n📋 Backward Compatibility with Issues #1345 and #1363\n');
 
 test('#1345 compatibility: repo with no workflows at all → noCiConfigured=true', () => {
   // Repos with absolutely no workflows (not even pages) should still work
-  const filteredWorkflows = simulateFilteredWorkflows([]);
-
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
-    mergeStatus: { mergeable: true, reason: null },
-    repoWorkflows: filteredWorkflows,
+    ciStatus: noChecksCiStatus,
+    mergeStatus: mergeableStatus,
+    repoWorkflows: simulateFilteredWorkflows([]),
   });
 
   assert(result.noCiConfigured === true, 'No workflows at all → noCiConfigured=true');
@@ -230,16 +222,12 @@ test('#1345 compatibility: repo with no workflows at all → noCiConfigured=true
 
 test('#1363 compatibility: repo with real CI workflows + pages workflow → race condition detected', () => {
   // Repos with real CI workflows (+ pages) should still wait for CI to start
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-    { id: 1, name: 'CI/CD Pipeline', path: '.github/workflows/ci.yml', state: 'active' },
-    { id: 2, name: 'Update Screenshots', path: '.github/workflows/screenshots.yml', state: 'active' },
-  ];
+  const allWorkflows = [pagesWorkflow, { id: 1, name: 'CI/CD Pipeline', path: '.github/workflows/ci.yml', state: 'active' }, { id: 2, name: 'Update Screenshots', path: '.github/workflows/screenshots.yml', state: 'active' }];
   const filteredWorkflows = simulateFilteredWorkflows(allWorkflows);
 
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
-    mergeStatus: { mergeable: true, reason: null }, // CLEAN — no required checks
+    ciStatus: noChecksCiStatus,
+    mergeStatus: mergeableStatus, // CLEAN — no required checks
     repoWorkflows: filteredWorkflows,
   });
 
@@ -251,15 +239,12 @@ test('#1363 compatibility: repo with real CI workflows + pages workflow → race
 });
 
 test('#1363 compatibility: repo with real CI + pages → blocker message counts only real CI workflows', () => {
-  const allWorkflows = [
-    { id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' },
-    { id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' },
-  ];
+  const allWorkflows = [pagesWorkflow, { id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' }];
   const filteredWorkflows = simulateFilteredWorkflows(allWorkflows);
 
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
-    mergeStatus: { mergeable: true, reason: null },
+    ciStatus: noChecksCiStatus,
+    mergeStatus: mergeableStatus,
     repoWorkflows: filteredWorkflows,
   });
 
@@ -271,13 +256,10 @@ test('#1363 compatibility: repo with real CI + pages → blocker message counts 
 
 test('#1345 race condition preserved: no_checks + NOT MERGEABLE → always ci_pending', () => {
   // When PR is not yet mergeable, always treat as race condition regardless of workflows
-  const allWorkflows = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-  const filteredWorkflows = simulateFilteredWorkflows(allWorkflows);
-
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] },
+    ciStatus: noChecksCiStatus,
     mergeStatus: { mergeable: false, reason: 'Merge state: UNKNOWN' },
-    repoWorkflows: filteredWorkflows,
+    repoWorkflows: simulateFilteredWorkflows([pagesWorkflow]),
   });
 
   // When PR is not MERGEABLE, we always add ci_pending (race condition)
@@ -314,17 +296,10 @@ test('Real-world scenario: links-visuals repo (issue #1399) is now treated as no
   // Exact reproduction of the konard/links-visuals scenario:
   // - Only workflow: pages-build-deployment at dynamic/pages/pages-build-deployment
   // - PR #5: mergeStateStatus=CLEAN, check-runs=[], check-suites=[queued, no runs]
-
-  const rawApiResponse = [{ id: 144453964, name: 'pages-build-deployment', path: 'dynamic/pages/pages-build-deployment', state: 'active' }];
-
-  // Apply the fix
-  const filteredWorkflows = simulateFilteredWorkflows(rawApiResponse);
-
-  // Simulate getMergeBlockers
   const result = simulateNoCiLogic({
-    ciStatus: { status: 'no_checks', checks: [] }, // check-runs API returned []
-    mergeStatus: { mergeable: true, reason: null }, // mergeStateStatus=CLEAN
-    repoWorkflows: filteredWorkflows,
+    ciStatus: noChecksCiStatus, // check-runs API returned []
+    mergeStatus: mergeableStatus, // mergeStateStatus=CLEAN
+    repoWorkflows: simulateFilteredWorkflows([pagesWorkflow]),
   });
 
   // Expected: PR is treated as immediately mergeable, "Ready to merge" comment posted

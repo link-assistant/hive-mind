@@ -28,10 +28,10 @@ Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range o
 | **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                           |
 | **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.               |
 | **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                   |
-| **Time Freedom**             | What takes humans 2-8 hours, AI completes in 10-25 minutes. "The code is written while you sleep." |
+| **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
 | **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                              |
 | **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                    |
-| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive`. No PC, IDE, or laptop required.               |
+| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.               |
 | **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                   |
 
 > _"Compared to Codex for $200, this solution is fire."_ - User feedback

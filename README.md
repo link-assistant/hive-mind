@@ -847,7 +847,10 @@ Unlicense License - see [LICENSE](./LICENSE)
 
 ## 🏆 Best Practices
 
-Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
+Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
+
+- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
+- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
 
 Key benefits of proper CI/CD:
 

@@ -850,11 +850,13 @@ top -c
 ```bash
 ps -eo pid,ppid,user,args --forest
 ```
+
 or
+
 ```bash
 ps axjf
 ```
-  
+
 ### Kill all commands spawned by specific task
 
 ```bash

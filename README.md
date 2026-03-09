@@ -839,6 +839,28 @@ screen -wipe
 screen -ls
 ```
 
+### Top with full arguments of each command
+
+```bash
+top -c
+```
+
+### See the full tree of processes
+
+```bash
+ps -eo pid,ppid,user,args --forest
+```
+or
+```bash
+ps axjf
+```
+  
+### Kill all commands spawned by specific task
+
+```bash
+pkill -f gh-issue-solver-1773073065743
+```
+
 That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License

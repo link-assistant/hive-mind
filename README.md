@@ -288,7 +288,7 @@ df -h # check disk space (to confirm space is freed)
 
 ```bash
 # Solve using maximum power
-solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --think max
+solve https://github.com/Veronika89-lang/index.html/issues/1 --attach-logs --verbose --model opus --think max
 
 # Solve GitHub issues automatically
 solve https://github.com/owner/repo/issues/123 --model sonnet

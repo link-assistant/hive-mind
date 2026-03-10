@@ -1027,9 +1027,9 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     # Original issue refs: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
     if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
-    # Timeout after 30 minutes to prevent indefinite hangs and reduce concurrency blocking.
-    # ARM64 builds on native runners typically complete in 10-20 minutes.
-    timeout-minutes: 30
+    # Timeout 45 min: sandbox-based image needs ~30 min build+push + GHA cache export time.
+    # See: docs/case-studies/issue-1394/CASE-STUDY.md
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -1088,8 +1088,9 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          # mode=min caches only final layers; ignore-error=true prevents cache export from cancelling successful builds.
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.platform }},ignore-error=true
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
@@ -1271,9 +1272,9 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    # Timeout after 30 minutes to prevent indefinite hangs and reduce concurrency blocking.
-    # ARM64 builds on native runners typically complete in 10-20 minutes.
-    timeout-minutes: 30
+    # Timeout 45 min: sandbox-based image needs ~30 min build+push + GHA cache export time.
+    # See: docs/case-studies/issue-1394/CASE-STUDY.md
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -1328,8 +1329,9 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          # mode=min caches only final layers; ignore-error=true prevents cache export from cancelling successful builds.
           cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=min,scope=${{ matrix.platform }},ignore-error=true
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest

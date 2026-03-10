@@ -245,8 +245,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   sentry: {
     type: 'boolean',
-    description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
-    default: true,
+    description: 'Enable Sentry error tracking and monitoring (disabled by default for privacy; use --sentry to enable)',
+    default: false,
   },
   'auto-cleanup': {
     type: 'boolean',

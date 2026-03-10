@@ -145,15 +145,16 @@ These settings control Claude Code CLI behavior, including output limits and MCP
 
 ### 9. Sentry Error Tracking
 
-| Environment Variable                                | Default    | Description                        |
-| --------------------------------------------------- | ---------- | ---------------------------------- |
-| `HIVE_MIND_SENTRY_DSN`                              | (provided) | Sentry DSN for error tracking      |
-| `HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_DEV`           | 1.0        | Trace sample rate in development   |
-| `HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_PROD`          | 0.1        | Trace sample rate in production    |
-| `HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_DEV`  | 1.0        | Profile sample rate in development |
-| `HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_PROD` | 0.1        | Profile sample rate in production  |
-| `HIVE_MIND_NO_SENTRY`                               | false      | Disable Sentry (set to "true")     |
-| `DISABLE_SENTRY`                                    | false      | Alternative way to disable Sentry  |
+| Environment Variable                                | Default    | Description                                                  |
+| --------------------------------------------------- | ---------- | ------------------------------------------------------------ |
+| `HIVE_MIND_SENTRY_DSN`                              | (provided) | Sentry DSN for error tracking                                |
+| `HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_DEV`           | 1.0        | Trace sample rate in development                             |
+| `HIVE_MIND_SENTRY_TRACES_SAMPLE_RATE_PROD`          | 0.1        | Trace sample rate in production                              |
+| `HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_DEV`  | 1.0        | Profile sample rate in development                           |
+| `HIVE_MIND_SENTRY_PROFILE_SESSION_SAMPLE_RATE_PROD` | 0.1        | Profile sample rate in production                            |
+| `HIVE_MIND_NO_SENTRY`                               | true       | Disable Sentry (set to "true"; Sentry is off by default)     |
+| `DISABLE_SENTRY`                                    | true       | Alternative way to disable Sentry (Sentry is off by default) |
+| `HIVE_MIND_SENTRY`                                  | false      | Enable Sentry (set to "true" to opt in)                      |
 
 ### 10. External URLs
 
@@ -359,7 +360,7 @@ solve <issue-url> [options]
 | `--watch-interval`                                               |       | number  | 60            | Feedback check interval (seconds)                                                                                                |
 | `--min-disk-space`                                               |       | number  | 2048          | Minimum disk space in MB                                                                                                         |
 | `--log-dir`                                                      | `-l`  | string  | (cwd)         | Directory for log files                                                                                                          |
-| `--sentry`                                                       |       | boolean | true          | Enable Sentry (use --no-sentry to disable)                                                                                       |
+| `--sentry`                                                       |       | boolean | false         | Enable Sentry error tracking (disabled by default for privacy; use --sentry to opt in)                                           |
 | `--auto-cleanup`                                                 |       | boolean | (varies)      | Delete temp directory on completion                                                                                              |
 | `--claude-file`                                                  |       | boolean | false         | Create CLAUDE.md for task details (mutually exclusive with --gitkeep-file)                                                       |
 | `--gitkeep-file`                                                 |       | boolean | true          | Create .gitkeep instead of CLAUDE.md (default for all --tool values, mutually exclusive with --claude-file)                      |
@@ -388,53 +389,53 @@ solve <issue-url> [options]
 hive <github-url> [options]
 ```
 
-| Option                                 | Alias | Type    | Default       | Description                                     |
-| -------------------------------------- | ----- | ------- | ------------- | ----------------------------------------------- |
-| `--monitor-tag`                        | `-t`  | string  | "help wanted" | Label to monitor                                |
-| `--all-issues`                         | `-a`  | boolean | false         | Monitor all issues (ignore labels)              |
-| `--skip-issues-with-prs`               | `-s`  | boolean | false         | Skip issues with existing PRs                   |
-| `--concurrency`                        | `-c`  | number  | 2             | Parallel workers                                |
-| `--pull-requests-per-issue`            | `-p`  | number  | 1             | Number of PRs per issue                         |
-| `--model`                              | `-m`  | string  | sonnet        | Model to use                                    |
-| `--tool`                               |       | string  | claude        | AI tool (claude, opencode, agent)               |
-| `--interval`                           | `-i`  | number  | 300           | Poll interval (seconds)                         |
-| `--max-issues`                         |       | number  | 0             | Limit processed issues (0 = unlimited)          |
-| `--once`                               |       | boolean | false         | Single run (don't monitor)                      |
-| `--dry-run`                            |       | boolean | false         | List issues without processing                  |
-| `--skip-tool-connection-check`         |       | boolean | false         | Skip tool connection check                      |
-| `--verbose`                            | `-v`  | boolean | false         | Enable verbose logging                          |
-| `--min-disk-space`                     |       | number  | 2048          | Minimum disk space in MB                        |
-| `--auto-cleanup`                       |       | boolean | false         | Clean temp directories on success               |
-| `--fork`                               | `-f`  | boolean | false         | Fork repos if no write access                   |
-| `--auto-fork`                          |       | boolean | true          | Automatically fork public repos                 |
-| `--attach-logs`                        |       | boolean | false         | Attach logs to PRs (sensitive)                  |
-| `--attach-solution-summary`            |       | boolean | false         | Attach AI solution summary as comment           |
-| `--auto-attach-solution-summary`       |       | boolean | false         | Auto-attach summary if no AI comments           |
-| `--project-number`                     | `-pn` | number  |               | GitHub Project number to monitor                |
-| `--project-owner`                      | `-po` | string  |               | GitHub Project owner                            |
-| `--project-status`                     | `-ps` | string  | "Ready"       | Project status column to monitor                |
-| `--project-mode`                       | `-pm` | boolean | false         | Enable project-based monitoring                 |
-| `--youtrack-mode`                      |       | boolean | false         | Enable YouTrack mode                            |
-| `--youtrack-stage`                     |       | string  |               | Override YouTrack stage                         |
-| `--youtrack-project`                   |       | string  |               | Override YouTrack project code                  |
-| `--target-branch`                      | `-tb` | string  | (default)     | Target branch for PRs                           |
-| `--log-dir`                            | `-l`  | string  | (cwd)         | Directory for log files                         |
-| `--auto-continue`                      |       | boolean | true          | Pass --auto-continue to solve                   |
-| `--auto-resume-on-limit-reset`         |       | boolean | true          | Auto-resume when limit resets (passed to solve) |
-| `--think`                              |       | string  |               | Thinking level (low, medium, high, max)         |
-| `--prompt-plan-sub-agent`              |       | boolean | false         | Use Plan sub-agent                              |
-| `--sentry`                             |       | boolean | true          | Enable Sentry (use --no-sentry to disable)      |
-| `--watch`                              | `-w`  | boolean | false         | Monitor for feedback and auto-restart           |
-| `--issue-order`                        | `-o`  | string  | "asc"         | Order issues by date (asc, desc)                |
-| `--prefix-fork-name-with-owner-name`   |       | boolean | true          | Prefix fork with owner name                     |
-| `--interactive-mode`                   |       | boolean | false         | [EXPERIMENTAL] Post output as PR comments       |
-| `--prompt-explore-sub-agent`           |       | boolean | false         | Use Explore sub-agent                           |
-| `--prompt-general-purpose-sub-agent`   |       | boolean | false         | Use general-purpose sub agents                  |
-| `--tokens-budget-stats`                |       | boolean | false         | [EXPERIMENTAL] Show token budget statistics     |
-| `--prompt-issue-reporting`             |       | boolean | false         | Auto-create issues for spotted bugs             |
-| `--prompt-case-studies`                |       | boolean | false         | Create case study documentation                 |
-| `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP hints (only if installed)        |
-| `--prompt-check-sibling-pull-requests` |       | boolean | true          | Check sibling PRs when studying related work    |
+| Option                                 | Alias | Type    | Default       | Description                                                                            |
+| -------------------------------------- | ----- | ------- | ------------- | -------------------------------------------------------------------------------------- |
+| `--monitor-tag`                        | `-t`  | string  | "help wanted" | Label to monitor                                                                       |
+| `--all-issues`                         | `-a`  | boolean | false         | Monitor all issues (ignore labels)                                                     |
+| `--skip-issues-with-prs`               | `-s`  | boolean | false         | Skip issues with existing PRs                                                          |
+| `--concurrency`                        | `-c`  | number  | 2             | Parallel workers                                                                       |
+| `--pull-requests-per-issue`            | `-p`  | number  | 1             | Number of PRs per issue                                                                |
+| `--model`                              | `-m`  | string  | sonnet        | Model to use                                                                           |
+| `--tool`                               |       | string  | claude        | AI tool (claude, opencode, agent)                                                      |
+| `--interval`                           | `-i`  | number  | 300           | Poll interval (seconds)                                                                |
+| `--max-issues`                         |       | number  | 0             | Limit processed issues (0 = unlimited)                                                 |
+| `--once`                               |       | boolean | false         | Single run (don't monitor)                                                             |
+| `--dry-run`                            |       | boolean | false         | List issues without processing                                                         |
+| `--skip-tool-connection-check`         |       | boolean | false         | Skip tool connection check                                                             |
+| `--verbose`                            | `-v`  | boolean | false         | Enable verbose logging                                                                 |
+| `--min-disk-space`                     |       | number  | 2048          | Minimum disk space in MB                                                               |
+| `--auto-cleanup`                       |       | boolean | false         | Clean temp directories on success                                                      |
+| `--fork`                               | `-f`  | boolean | false         | Fork repos if no write access                                                          |
+| `--auto-fork`                          |       | boolean | true          | Automatically fork public repos                                                        |
+| `--attach-logs`                        |       | boolean | false         | Attach logs to PRs (sensitive)                                                         |
+| `--attach-solution-summary`            |       | boolean | false         | Attach AI solution summary as comment                                                  |
+| `--auto-attach-solution-summary`       |       | boolean | false         | Auto-attach summary if no AI comments                                                  |
+| `--project-number`                     | `-pn` | number  |               | GitHub Project number to monitor                                                       |
+| `--project-owner`                      | `-po` | string  |               | GitHub Project owner                                                                   |
+| `--project-status`                     | `-ps` | string  | "Ready"       | Project status column to monitor                                                       |
+| `--project-mode`                       | `-pm` | boolean | false         | Enable project-based monitoring                                                        |
+| `--youtrack-mode`                      |       | boolean | false         | Enable YouTrack mode                                                                   |
+| `--youtrack-stage`                     |       | string  |               | Override YouTrack stage                                                                |
+| `--youtrack-project`                   |       | string  |               | Override YouTrack project code                                                         |
+| `--target-branch`                      | `-tb` | string  | (default)     | Target branch for PRs                                                                  |
+| `--log-dir`                            | `-l`  | string  | (cwd)         | Directory for log files                                                                |
+| `--auto-continue`                      |       | boolean | true          | Pass --auto-continue to solve                                                          |
+| `--auto-resume-on-limit-reset`         |       | boolean | true          | Auto-resume when limit resets (passed to solve)                                        |
+| `--think`                              |       | string  |               | Thinking level (low, medium, high, max)                                                |
+| `--prompt-plan-sub-agent`              |       | boolean | false         | Use Plan sub-agent                                                                     |
+| `--sentry`                             |       | boolean | false         | Enable Sentry error tracking (disabled by default for privacy; use --sentry to opt in) |
+| `--watch`                              | `-w`  | boolean | false         | Monitor for feedback and auto-restart                                                  |
+| `--issue-order`                        | `-o`  | string  | "asc"         | Order issues by date (asc, desc)                                                       |
+| `--prefix-fork-name-with-owner-name`   |       | boolean | true          | Prefix fork with owner name                                                            |
+| `--interactive-mode`                   |       | boolean | false         | [EXPERIMENTAL] Post output as PR comments                                              |
+| `--prompt-explore-sub-agent`           |       | boolean | false         | Use Explore sub-agent                                                                  |
+| `--prompt-general-purpose-sub-agent`   |       | boolean | false         | Use general-purpose sub agents                                                         |
+| `--tokens-budget-stats`                |       | boolean | false         | [EXPERIMENTAL] Show token budget statistics                                            |
+| `--prompt-issue-reporting`             |       | boolean | false         | Auto-create issues for spotted bugs                                                    |
+| `--prompt-case-studies`                |       | boolean | false         | Create case study documentation                                                        |
+| `--prompt-playwright-mcp`              |       | boolean | true          | Playwright MCP hints (only if installed)                                               |
+| `--prompt-check-sibling-pull-requests` |       | boolean | true          | Check sibling PRs when studying related work                                           |
 
 ### hive-telegram-bot Options
 
@@ -473,8 +474,8 @@ export HIVE_MIND_AUTO_CONTINUE_AGE_HOURS=48
 # Use custom temporary directory
 export HIVE_MIND_TEMP_DIR=/var/tmp/hive-mind
 
-# Disable Sentry in production
-export HIVE_MIND_SENTRY_DSN=""
+# Enable Sentry error tracking (disabled by default)
+export HIVE_MIND_SENTRY=true
 
 # Configure for GitHub Enterprise
 export HIVE_MIND_GITHUB_BASE_URL=https://github.enterprise.com

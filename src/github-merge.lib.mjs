@@ -277,6 +277,64 @@ async function addLabel(type, owner, repo, number, labelName, verbose = false) {
 }
 
 /**
+ * Get open PRs that are genuinely linked to an issue via GitHub's issue timeline.
+ *
+ * Issue #1413: This replaces the previous full-text body search approach which
+ * caused false positives. For example, a search for `fixes #1411` would incorrectly
+ * match PR #843 because its body contained the string `1411→` as a source code line
+ * number in a code snippet — not as an issue closing reference.
+ *
+ * The GitHub issue timeline API returns `cross-referenced` events for PRs that
+ * explicitly close the issue using GitHub's reserved keywords (fixes/closes/resolves).
+ * This is the same data GitHub uses to auto-close issues when PRs are merged, so
+ * it reliably identifies genuine closing references.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} issueNumber - Issue number to find linked PRs for
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<{number: number, title: string}>>} Array of open PRs that close this issue
+ */
+export async function getLinkedPRsFromTimeline(owner, repo, issueNumber, verbose = false) {
+  try {
+    const { stdout: timelineJson } = await exec(`gh api repos/${owner}/${repo}/issues/${issueNumber}/timeline --paginate`);
+    const timeline = JSON.parse(timelineJson.trim() || '[]');
+
+    // Extract cross-referenced events where the source is an open PR
+    // (source.issue.pull_request != null means the source is a PR, not a plain issue)
+    const linkedPRNumbers = new Set();
+    const linkedPRs = [];
+
+    for (const event of timeline) {
+      if (event.event === 'cross-referenced' && event.source?.issue?.pull_request != null && event.source?.issue?.state === 'open') {
+        const prNumber = event.source.issue.number;
+        if (!linkedPRNumbers.has(prNumber)) {
+          linkedPRNumbers.add(prNumber);
+          linkedPRs.push({
+            number: prNumber,
+            title: event.source.issue.title || '',
+          });
+        }
+      }
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Issue #${issueNumber} has ${linkedPRs.length} genuinely linked open PR(s) via timeline`);
+      for (const pr of linkedPRs) {
+        console.log(`[VERBOSE] /merge:   PR #${pr.number}: ${pr.title}`);
+      }
+    }
+
+    return linkedPRs;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching timeline for issue #${issueNumber}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
  * Sync 'ready' tags between linked pull requests and issues
  *
  * Issue #1367: Before building the merge queue, ensure that:
@@ -368,9 +426,12 @@ export async function syncReadyTags(owner, repo, verbose = false) {
     // Step 2: For each issue with 'ready', find linked PRs and sync label to them
     for (const issue of readyIssues) {
       try {
-        // Search for open PRs linked to this issue via closing keywords
-        const { stdout: linkedPRsJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,labels --limit 10`);
-        const linkedPRs = JSON.parse(linkedPRsJson.trim() || '[]');
+        // Issue #1413: Use the GitHub issue timeline API to find PRs that genuinely
+        // close this issue via closing keywords. This avoids false positives from
+        // full-text search, which can match PRs that contain the issue number as a
+        // source code line number (e.g. "1411→  await log(...)") rather than as a
+        // real closing reference.
+        const linkedPRs = await getLinkedPRsFromTimeline(owner, repo, issue.number, verbose);
 
         for (const linkedPR of linkedPRs) {
           if (readyPRNumbers.has(String(linkedPR.number))) {
@@ -1491,4 +1552,6 @@ export default {
   getMergeCommitSha,
   // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
   getActiveRepoWorkflows,
+  // Issue #1413: Use issue timeline to find genuinely linked PRs (avoids false positives from text search)
+  getLinkedPRsFromTimeline,
 };

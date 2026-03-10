@@ -23,29 +23,29 @@ The hive-mind Docker CI/CD pipeline experiences two distinct problems:
 
 From analysis of the raw CI logs (`ci-logs/docker-publish-amd64-job-66453518607-cancelled.log`):
 
-| Time (UTC) | Event |
-|---|---|
-| 12:38:37 | Job starts on Azure westcentralus, Ubuntu 24.04, amd64 runner |
-| 12:40:02 | Docker BuildKit container started |
-| 12:40:06 | Step 1/13: Pull `konard/sandbox:1.3.16` base image (largest layer: 801.51 MB) |
-| 12:41:58 | Base image pulled (~2 min) |
-| 12:41:58 | Step 2/13: `usermod -l hive sandbox` (rename user) |
-| 12:43:17 | Step 3/13: `apt-get install opam` (~1.5 min) |
-| 12:43:35 | Steps 4-6/13: Fix paths, NVM paths, symlink (< 1 min total) |
-| 12:43:35 | Step 8/13: `bun install -g` AI CLIs (claude-code, codex, etc.) |
-| 12:43:47 | Step 9/13: `bun install -g` hive-mind utilities |
-| 12:44:00 | Step 10/13: `npm install -g @playwright/mcp@latest` |
-| 12:44:02 | Step 11/13: Install playwright browsers (Chrome, Firefox, WebKit, msedge, headless-shell) |
-| 12:44:57 | Step 11/13 DONE (56s - downloading 6 browser binaries incl. msedge) |
-| 12:45:26 | Step 12/13: `npx playwright install-deps` DONE |
-| 12:45:27 | Step 13/13: `claude mcp add playwright` DONE (0.8s) |
-| 12:45:27 | **Docker image build complete. Starting push to Docker Hub** |
-| 12:51:24 | **Docker image successfully pushed to Docker Hub** (step #19 DONE, 357.3s) |
-| 12:51:24 | **Step #21: Writing layers to GitHub Actions Cache** |
+| Time (UTC)        | Event                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| 12:38:37          | Job starts on Azure westcentralus, Ubuntu 24.04, amd64 runner                                    |
+| 12:40:02          | Docker BuildKit container started                                                                |
+| 12:40:06          | Step 1/13: Pull `konard/sandbox:1.3.16` base image (largest layer: 801.51 MB)                    |
+| 12:41:58          | Base image pulled (~2 min)                                                                       |
+| 12:41:58          | Step 2/13: `usermod -l hive sandbox` (rename user)                                               |
+| 12:43:17          | Step 3/13: `apt-get install opam` (~1.5 min)                                                     |
+| 12:43:35          | Steps 4-6/13: Fix paths, NVM paths, symlink (< 1 min total)                                      |
+| 12:43:35          | Step 8/13: `bun install -g` AI CLIs (claude-code, codex, etc.)                                   |
+| 12:43:47          | Step 9/13: `bun install -g` hive-mind utilities                                                  |
+| 12:44:00          | Step 10/13: `npm install -g @playwright/mcp@latest`                                              |
+| 12:44:02          | Step 11/13: Install playwright browsers (Chrome, Firefox, WebKit, msedge, headless-shell)        |
+| 12:44:57          | Step 11/13 DONE (56s - downloading 6 browser binaries incl. msedge)                              |
+| 12:45:26          | Step 12/13: `npx playwright install-deps` DONE                                                   |
+| 12:45:27          | Step 13/13: `claude mcp add playwright` DONE (0.8s)                                              |
+| 12:45:27          | **Docker image build complete. Starting push to Docker Hub**                                     |
+| 12:51:24          | **Docker image successfully pushed to Docker Hub** (step #19 DONE, 357.3s)                       |
+| 12:51:24          | **Step #21: Writing layers to GitHub Actions Cache**                                             |
 | 12:51:24–13:02:05 | Sequential cache layer writes: 605.62 MB in 51.5s, 801 MB in 72.1s, another layer in 129.9s, ... |
-| 13:02:05 | Final layer `sha256:f89bc00...` starts writing to GHA cache |
-| **13:08:38** | **`##[error]The operation was canceled.`** - Job cancelled |
-| 13:09:16 | Cleanup complete, job ends |
+| 13:02:05          | Final layer `sha256:f89bc00...` starts writing to GHA cache                                      |
+| **13:08:38**      | **`##[error]The operation was canceled.`** - Job cancelled                                       |
+| 13:09:16          | Cleanup complete, job ends                                                                       |
 
 **Total job time: 30 minutes 38 seconds** (against 30-minute timeout)
 
@@ -57,17 +57,17 @@ The Docker image was **successfully built and pushed to Docker Hub** at 12:51:24
 
 ## Timeline Reconstruction (arm64 Build - Success)
 
-| Time (UTC) | Event |
-|---|---|
-| 12:38:37 | Job starts on Azure southcentralus, arm64 runner (Ubuntu 24.04, by Arm Limited) |
-| 12:39:10 | Pull `konard/sandbox:1.3.16` arm64 layers |
-| 12:41:17 | Base image pulled (~2 min) |
-| 12:41:17–12:46:07 | Build steps 2-10/13 (renaming user, opam, paths, tools) |
-| 12:46:07 | Playwright browser install starts (arm64 skips Chrome+msedge - amd64 only) |
-| 12:46:21 | Playwright DONE (14s - only 4 binaries, no msedge/chrome) |
-| 12:47:26 | Docker image build complete |
-| 12:47:26–13:07:19 | Push to Docker Hub + GHA cache export |
-| 13:07:19 | **Job complete, image pushed successfully** |
+| Time (UTC)        | Event                                                                           |
+| ----------------- | ------------------------------------------------------------------------------- |
+| 12:38:37          | Job starts on Azure southcentralus, arm64 runner (Ubuntu 24.04, by Arm Limited) |
+| 12:39:10          | Pull `konard/sandbox:1.3.16` arm64 layers                                       |
+| 12:41:17          | Base image pulled (~2 min)                                                      |
+| 12:41:17–12:46:07 | Build steps 2-10/13 (renaming user, opam, paths, tools)                         |
+| 12:46:07          | Playwright browser install starts (arm64 skips Chrome+msedge - amd64 only)      |
+| 12:46:21          | Playwright DONE (14s - only 4 binaries, no msedge/chrome)                       |
+| 12:47:26          | Docker image build complete                                                     |
+| 12:47:26–13:07:19 | Push to Docker Hub + GHA cache export                                           |
+| 13:07:19          | **Job complete, image pushed successfully**                                     |
 
 **Total job time: 29 minutes** - completed within the 30-minute timeout, barely.
 
@@ -89,6 +89,7 @@ This is a documented upstream limitation in [moby/buildkit#2804](https://github.
 ### Root Cause 2: amd64 Image is Larger Than arm64 (CONTRIBUTING)
 
 The amd64 image downloads 6 Playwright browser binaries (including Chrome full ~300 MB and msedge), while arm64 only downloads 4 (no msedge, no Chrome full). This makes:
+
 - amd64 Playwright install: 56 seconds (vs 14s on arm64)
 - amd64 total image size: significantly larger than arm64
 - amd64 cache export time: proportionally longer
@@ -108,16 +109,18 @@ The `timeout-minutes: 30` was appropriate for the arm64 build (29 minutes total)
 ## Why Docker Image Building Takes So Long After Switching to sandbox
 
 Before the sandbox migration (issue #1394 PR #1396):
+
 - Built from `ubuntu:24.04` (minimal base, ~30 MB)
 - Ran full install script installing all tools from scratch
 - Build time: 10-15 minutes per platform
 
 After the sandbox migration:
+
 - Pulls `konard/sandbox:1.3.16` (~2-3 GB pre-built image with all dev tools)
 - Only installs AI-specific tools on top (fast: ~5 minutes)
 - **But then exports 2-3 GB worth of layers to GHA cache sequentially**
 
-The trade-off: faster Docker *build* time (no compiling from scratch), but slower CI *cache export* time (more layers to persist). The 30-minute job timeout was not updated to account for this.
+The trade-off: faster Docker _build_ time (no compiling from scratch), but slower CI _cache export_ time (more layers to persist). The 30-minute job timeout was not updated to account for this.
 
 ---
 
@@ -145,6 +148,7 @@ Prevents the cache export from killing the job. If cache export times out, the b
 ### Solution C: Increase `timeout-minutes` from 30 to 45 (RECOMMENDED - safety margin)
 
 Provides headroom for:
+
 - Slow network conditions
 - GHA infrastructure congestion
 - Slightly larger image versions

@@ -94,6 +94,8 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 // Import model validation library
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
+const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
+const { autoAcceptInviteForRepo } = acceptInviteLib;
 
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
@@ -311,6 +313,11 @@ if (argv.autoFork && !argv.fork) {
     await log('⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository');
     argv.fork = true;
   }
+}
+
+// Accept pending GitHub invitation for the specific repo/org before checking write access
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
 }
 
 // Early check: Verify repository write permissions BEFORE doing any work

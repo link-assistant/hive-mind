@@ -1,5 +1,37 @@
 # @link-assistant/hive-mind
 
+## 1.28.0
+
+### Minor Changes
+
+- docs: expand best practices with CI/CD guide, universal prompts, and architecture improvement (Issue #1403)
+
+  Splits the existing `docs/BEST-PRACTICES.md` into two focused documents:
+  - **`docs/CI-CD-BEST-PRACTICES.md`** (renamed from the original) — Updated and expanded CI/CD guide covering all key points from existing workflow templates, including: running checks only on relevant file changes, fast-fail job ordering, fresh merge simulation, concurrency control, changeset exemptions for docs-only PRs, secrets detection, documentation validation, and OIDC trusted publishing.
+  - **`docs/BEST-PRACTICES.md`** (new general guide) — Universal best practices for AI-driven development including: deep analysis bug/feature prompts, universal validation prompt, plan mode prompt, issue writing guidelines with acceptance criteria patterns, an architecture improvement prompt linking to the Code Architecture Principles repository, CI/CD summary with link to the CI/CD guide, and subagent coordination patterns.
+
+  Also updates `README.md` to link to both new documents in the Best Practices section.
+
+  feat: enable --auto-restart-until-mergeable by default (Issue #1360)
+
+  The `--auto-restart-until-mergeable` feature has become stable enough to be enabled by default. Previously, users had to explicitly pass this flag to enable automatic restart until the PR becomes mergeable.
+
+  Now the feature is enabled by default, meaning the solver will automatically restart on new comments from non-bot users, CI failures, merge conflicts, or other issues — without requiring any extra flags. Users who want to disable this behavior can pass `--no-auto-restart-until-mergeable`.
+
+  fix: filter GitHub Pages deployment workflows from PR CI check (Issue #1399)
+
+  `getActiveRepoWorkflows()` included the `pages-build-deployment` workflow (path: `dynamic/pages/pages-build-deployment`) as if it were a PR CI workflow. This workflow is auto-created by GitHub for GitHub Pages and only runs on the default branch after merge — it never creates check-runs on PR branches. As a result, `--auto-restart-until-mergeable` got stuck in an infinite loop waiting for CI checks that would never appear.
+
+  The fix filters out workflows with the `dynamic/pages/` prefix from `getActiveRepoWorkflows()`. These are GitHub Pages internal workflows, not user-defined CI pipelines.
+
+  Affected scenario: repositories with GitHub Pages enabled but no `.github/workflows/` files (e.g., `konard/links-visuals`).
+
+  fix: resolve Prettier formatting issue in README.md (Issue #1401)
+
+  The CI/CD `lint` job was failing on the `main` branch because README.md had Prettier formatting violations after commit `da376061` ("Clarify Time Freedom and Any Device Programming features"). That commit added longer text to two table cells, which made the table column widths inconsistent with Prettier's expected format.
+
+  The fix runs `prettier --write` on README.md to re-align the table column widths, bringing the file back into conformance with the `format:check` CI step.
+
 ## 1.27.0
 
 ### Minor Changes

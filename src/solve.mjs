@@ -1485,7 +1485,6 @@ try {
     $,
   });
 } finally {
-  // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
   // Show final log file reference so users always know where to find the complete log
@@ -1494,17 +1493,8 @@ try {
     await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
 
-  // Issue #1346: Close Sentry and explicitly exit the process to prevent hanging.
-  // When Sentry is enabled (--sentry flag), close it properly to flush pending events
-  // and release profiling handles (@sentry/profiling-node native addon). The profiling
-  // integration uses profileLifecycle: 'trace', so the native profiler only runs during
-  // active spans — but calling closeSentry() ensures clean teardown regardless.
-  // The process.exit(0) call is a required safety net even when Sentry is disabled:
-  // active handles on the Node.js event loop (e.g. open network connections from
-  // command-stream or other libraries) prevent the process from exiting naturally after
-  // the finally block completes. Note: when the catch block calls safeExit(1) via
-  // handleMainExecutionError, process.exit(1) terminates immediately before this
-  // finally block is reached, so this path only executes on successful completion.
+  // Issue #1346: Flush Sentry events and release profiling handles, then explicitly exit
+  // to prevent hanging from active Node.js event loop handles (network connections, etc.).
   await closeSentry();
   process.exit(0);
 }

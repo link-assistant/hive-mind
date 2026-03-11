@@ -71,11 +71,13 @@ After the `finally` block completes, Node.js checks if there are any active hand
 ### Important Clarification: Sentry Is Disabled by Default
 
 The reproduction commands did NOT use `--sentry`:
+
 ```
 solve https://... --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --auto-restart-until-mergeable
 ```
 
 `src/instrument.mjs` disables Sentry by default (line 35):
+
 ```javascript
 if (!process.argv.includes('--sentry') && process.env.HIVE_MIND_SENTRY !== 'true') {
   return true; // disable
@@ -114,12 +116,12 @@ This is correct behavior — the two modes are intentionally sequential. The stu
 
 ## 3. Code Locations
 
-| File                       | Location                          | Issue                                                            |
-| -------------------------- | --------------------------------- | ---------------------------------------------------------------- |
-| `src/solve.mjs`            | Line ~1487-1510 (`finally` block) | Missing `process.exit(0)` after successful completion            |
-| `src/instrument.mjs`       | Lines 22, 35                      | Sentry disabled by default; profiling only loads with `--sentry` |
+| File                       | Location                          | Issue                                                               |
+| -------------------------- | --------------------------------- | ------------------------------------------------------------------- |
+| `src/solve.mjs`            | Line ~1487-1510 (`finally` block) | Missing `process.exit(0)` after successful completion               |
+| `src/instrument.mjs`       | Lines 22, 35                      | Sentry disabled by default; profiling only loads with `--sentry`    |
 | `src/exit-handler.lib.mjs` | `safeExit()` function             | Used for error paths; now also has hard timeout on `sentry.close()` |
-| `src/sentry.lib.mjs`       | `closeSentry()` export            | Proper API for Sentry shutdown; checks `isSentryEnabled()` first |
+| `src/sentry.lib.mjs`       | `closeSentry()` export            | Proper API for Sentry shutdown; checks `isSentryEnabled()` first    |
 
 ---
 
@@ -131,13 +133,13 @@ Reviewer question from PR comment: "Do we have dangling promises or unfreed reso
 
 Specific findings:
 
-| Source | Type | Properly cleaned up? |
-|--------|------|---------------------|
-| `command-stream` child processes | ChildProcess handles | Only when child exits (which it does before finally) |
-| `use-m` HTTP fetch connections | Undici connection pools | Not explicitly destroyed (lingering TCP handles) |
-| `claude.lib.mjs` setInterval (countdown) | Timer | Yes — `clearInterval()` called |
-| `solve.auto-merge.lib.mjs` setTimeout (polling) | Awaited timer | Yes — awaited, not dangling |
-| `@sentry/profiling-node` native addon | libuv native handles | Released via `Sentry.close()` when Sentry is enabled |
+| Source                                          | Type                    | Properly cleaned up?                                 |
+| ----------------------------------------------- | ----------------------- | ---------------------------------------------------- |
+| `command-stream` child processes                | ChildProcess handles    | Only when child exits (which it does before finally) |
+| `use-m` HTTP fetch connections                  | Undici connection pools | Not explicitly destroyed (lingering TCP handles)     |
+| `claude.lib.mjs` setInterval (countdown)        | Timer                   | Yes — `clearInterval()` called                       |
+| `solve.auto-merge.lib.mjs` setTimeout (polling) | Awaited timer           | Yes — awaited, not dangling                          |
+| `@sentry/profiling-node` native addon           | libuv native handles    | Released via `Sentry.close()` when Sentry is enabled |
 
 The pragmatic solution is `process.exit(0)` as a final safety net after cleanup, since exhaustively tracking and unreffing every handle from every library is not feasible in a complex application.
 
@@ -148,6 +150,7 @@ The pragmatic solution is `process.exit(0)` as a final safety net after cleanup,
 Reviewer question: "Do we have ESLint rules in npm for that, or should we write our own rules?"
 
 **Available npm packages**:
+
 - `eslint-plugin-n` (or `eslint-plugin-node`) provides `n/no-process-exit` rule
 - `eslint-plugin-unicorn` provides `unicorn/no-process-exit` rule
 
@@ -233,6 +236,7 @@ The fix was implemented across two files:
 ```
 
 Key improvements over earlier draft:
+
 - **Restores explicit log path display** (`📁 Complete log file: ...`) matching the original behavior
 - **Uses `closeSentry()` from `sentry.lib.mjs`** (checks `isSentryEnabled()` first; no-op when disabled)
 - **Replaces `safeExit()` routing** with direct `closeSentry()` + `process.exit(0)` for clarity

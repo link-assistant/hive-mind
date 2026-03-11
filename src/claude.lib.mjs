@@ -944,7 +944,9 @@ export const executeClaudeCommand = async params => {
           if (execCommand.kill) {
             await log(`   Sending SIGTERM to process...`, { verbose: true });
             execCommand.kill('SIGTERM');
-            setTimeout(() => {
+            // Issue #1346: Capture timer handle so it can be cleared after use to avoid
+            // leaking an active event loop reference when the process exits before 2s
+            const sigkillTimerId = setTimeout(() => {
               try {
                 if (!execCommand.result?.code) {
                   log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
@@ -954,6 +956,7 @@ export const executeClaudeCommand = async params => {
                 /* process may have exited */
               }
             }, 2000);
+            sigkillTimerId.unref();
           }
         } catch (e) {
           await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });

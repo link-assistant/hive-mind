@@ -769,9 +769,15 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
     }
 
     if (onStatusUpdate) {
-      // Issue #1269: Wrap callback with timeout to prevent infinite blocking
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking; #1346: capture and clear timeout handle to prevent dangling timer
       try {
-        await Promise.race([onStatusUpdate(ciStatus), new Promise((_, reject) => setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout))]);
+        let callbackTimeoutId;
+        await Promise.race([
+          onStatusUpdate(ciStatus),
+          new Promise((_, reject) => {
+            callbackTimeoutId = setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout);
+          }),
+        ]).finally(() => clearTimeout(callbackTimeoutId));
       } catch (callbackError) {
         // Issue #1269: Log callback errors but continue processing
         console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);

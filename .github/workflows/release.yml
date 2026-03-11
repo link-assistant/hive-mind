@@ -1027,19 +1027,22 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     # Original issue refs: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
     if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
-    # Timeout 45 min: sandbox-based image needs ~30 min build+push + GHA cache export time.
-    # See: docs/case-studies/issue-1394/CASE-STUDY.md
-    timeout-minutes: 45
+    # Timeout 60 min: arm64 builds can take 26+ min with cache miss due to GHA cache sequential export.
+    # See: docs/case-studies/issue-1394/CASE-STUDY.md and docs/case-studies/issue-1415/README.md
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux/amd64
             runner: ubuntu-latest
+            cache_suffix: amd64
           - platform: linux/arm64
             # Using ubuntu-24.04-arm native runner (no QEMU emulation)
             # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            # and docs/case-studies/issue-1415/README.md for cache export bottleneck analysis.
             runner: ubuntu-24.04-arm
+            cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -1088,9 +1091,11 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          # mode=min caches only final layers; ignore-error=true prevents cache export from cancelling successful builds.
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=min,scope=${{ matrix.platform }},ignore-error=true
+          # Use registry cache instead of GHA cache for faster parallel export.
+          # See: docs/case-studies/issue-1415/README.md for why this change improves arm64 build times.
+          # Architecture-specific cache tags prevent cache overwriting between platforms.
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
@@ -1272,19 +1277,22 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    # Timeout 45 min: sandbox-based image needs ~30 min build+push + GHA cache export time.
-    # See: docs/case-studies/issue-1394/CASE-STUDY.md
-    timeout-minutes: 45
+    # Timeout 60 min: arm64 builds can take 26+ min with cache miss due to GHA cache sequential export.
+    # See: docs/case-studies/issue-1394/CASE-STUDY.md and docs/case-studies/issue-1415/README.md
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux/amd64
             runner: ubuntu-latest
+            cache_suffix: amd64
           - platform: linux/arm64
             # Using ubuntu-24.04-arm native runner (no QEMU emulation)
             # Note: ARM64 builds may be slow due to known issues - see docs/case-studies/issue-998/
+            # and docs/case-studies/issue-1415/README.md for cache export bottleneck analysis.
             runner: ubuntu-24.04-arm
+            cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -1329,9 +1337,11 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          # mode=min caches only final layers; ignore-error=true prevents cache export from cancelling successful builds.
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=min,scope=${{ matrix.platform }},ignore-error=true
+          # Use registry cache instead of GHA cache for faster parallel export.
+          # See: docs/case-studies/issue-1415/README.md for why this change improves arm64 build times.
+          # Architecture-specific cache tags prevent cache overwriting between platforms.
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest

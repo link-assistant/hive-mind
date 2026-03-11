@@ -1,5 +1,5 @@
 ---
-"@link-assistant/hive-mind": patch
+'@link-assistant/hive-mind': patch
 ---
 
 Switch Docker builds to registry cache for faster arm64 builds

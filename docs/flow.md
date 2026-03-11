@@ -353,7 +353,7 @@ stateDiagram-v2
 
 ### Auto-Continue Behavior
 
-- `--auto-continue`: Automatically continue with existing PRs for issues
+- `--auto-continue`: Automatically continue with existing PRs for issues (enabled by default, use `--no-auto-continue` to disable)
 - `--auto-continue-only-on-new-comments`: Only continue if new comments detected
 - `--continue-only-on-feedback`: Only continue if feedback is present
 
@@ -390,9 +390,8 @@ The system provides various command-line options to control human feedback inter
 # Continue Mode - PR with comments
 ./solve.mjs "https://github.com/owner/repo/pull/456"
 
-# Auto-continue with feedback detection
+# Continue only when new comments are detected (--auto-continue is enabled by default)
 ./solve.mjs "https://github.com/owner/repo/issues/123" \
-  --auto-continue \
   --auto-continue-only-on-new-comments
 
 # Continue only when feedback is present

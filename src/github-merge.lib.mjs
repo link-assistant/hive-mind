@@ -19,6 +19,9 @@ const exec = promisify(execCallback);
 // Import GitHub URL parser
 import { parseGitHubUrl } from './github.lib.mjs';
 
+// Import linking utilities
+import { extractLinkedIssueNumber } from './github-linking.lib.mjs';
+
 // Default label configuration
 export const READY_LABEL = {
   name: 'ready',
@@ -249,6 +252,172 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
     }
     return [];
   }
+}
+
+/**
+ * Add a label to a GitHub issue or pull request
+ * @param {'issue'|'pr'} type - Whether to add to issue or PR
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} number - Issue or PR number
+ * @param {string} labelName - Label name to add
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+async function addLabel(type, owner, repo, number, labelName, verbose = false) {
+  const cmd = type === 'issue' ? 'issue' : 'pr';
+  try {
+    await exec(`gh ${cmd} edit ${number} --repo ${owner}/${repo} --add-label "${labelName}"`);
+    if (verbose) console.log(`[VERBOSE] /merge: Added '${labelName}' label to ${type} #${number}`);
+    return { success: true, error: null };
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] /merge: Failed to add label to ${type} #${number}: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Sync 'ready' tags between linked pull requests and issues
+ *
+ * Issue #1367: Before building the merge queue, ensure that:
+ * 1. If a PR has 'ready' label and is clearly linked to an issue (via standard GitHub
+ *    keywords in the PR body/title), the issue also gets 'ready' label.
+ * 2. If an issue has 'ready' label and has a clearly linked open PR, the PR also gets
+ *    'ready' label.
+ *
+ * This ensures the final list of ready PRs reflects all ready work, regardless of
+ * where the 'ready' label was originally applied.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{synced: number, errors: number, details: Array<Object>}>}
+ */
+export async function syncReadyTags(owner, repo, verbose = false) {
+  const synced = [];
+  const errors = [];
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Syncing 'ready' tags for ${owner}/${repo}...`);
+  }
+
+  try {
+    // Fetch open PRs with 'ready' label (including body for link detection)
+    const { stdout: prsJson } = await exec(`gh pr list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,body,labels --limit 100`);
+    const readyPRs = JSON.parse(prsJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyPRs.length} open PRs with 'ready' label for tag sync`);
+    }
+
+    // Fetch open issues with 'ready' label
+    const { stdout: issuesJson } = await exec(`gh issue list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title --limit 100`);
+    const readyIssues = JSON.parse(issuesJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyIssues.length} open issues with 'ready' label for tag sync`);
+    }
+
+    // Build a set of issue numbers that already have 'ready'
+    const readyIssueNumbers = new Set(readyIssues.map(i => String(i.number)));
+
+    // Step 1: For each PR with 'ready', find linked issue and sync label to it
+    for (const pr of readyPRs) {
+      try {
+        const prBody = pr.body || '';
+        const linkedIssueNumber = extractLinkedIssueNumber(prBody);
+
+        if (!linkedIssueNumber) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: PR #${pr.number} has no linked issue (no closing keyword in body)`);
+          }
+          continue;
+        }
+
+        if (readyIssueNumbers.has(String(linkedIssueNumber))) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${linkedIssueNumber} already has 'ready' label (linked from PR #${pr.number})`);
+          }
+          continue;
+        }
+
+        // Issue doesn't have 'ready' label yet - add it
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${pr.number} has 'ready', adding to linked issue #${linkedIssueNumber}`);
+        }
+
+        const result = await addLabel('issue', owner, repo, linkedIssueNumber, READY_LABEL.name, verbose);
+        if (result.success) {
+          synced.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber) });
+          // Mark this issue as now having 'ready' so we don't process it again
+          readyIssueNumbers.add(String(linkedIssueNumber));
+        } else {
+          errors.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber), error: result.error });
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from PR #${pr.number}: ${err.message}`);
+        }
+        errors.push({ type: 'pr-to-issue', prNumber: pr.number, error: err.message });
+      }
+    }
+
+    // Build a set of PR numbers that already have 'ready'
+    const readyPRNumbers = new Set(readyPRs.map(p => String(p.number)));
+
+    // Step 2: For each issue with 'ready', find linked PRs and sync label to them
+    for (const issue of readyIssues) {
+      try {
+        // Search for open PRs linked to this issue via closing keywords
+        const { stdout: linkedPRsJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,labels --limit 10`);
+        const linkedPRs = JSON.parse(linkedPRsJson.trim() || '[]');
+
+        for (const linkedPR of linkedPRs) {
+          if (readyPRNumbers.has(String(linkedPR.number))) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${linkedPR.number} already has 'ready' label (linked from issue #${issue.number})`);
+            }
+            continue;
+          }
+
+          // PR doesn't have 'ready' label yet - add it
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${issue.number} has 'ready', adding to linked PR #${linkedPR.number}`);
+          }
+
+          const result = await addLabel('pr', owner, repo, linkedPR.number, READY_LABEL.name, verbose);
+          if (result.success) {
+            synced.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number });
+            // Mark this PR as now having 'ready'
+            readyPRNumbers.add(String(linkedPR.number));
+          } else {
+            errors.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number, error: result.error });
+          }
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from issue #${issue.number}: ${err.message}`);
+        }
+        errors.push({ type: 'issue-to-pr', issueNumber: issue.number, error: err.message });
+      }
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error during tag sync: ${error.message}`);
+    }
+    errors.push({ type: 'fetch', error: error.message });
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Tag sync complete. Synced: ${synced.length}, Errors: ${errors.length}`);
+  }
+
+  return {
+    synced: synced.length,
+    errors: errors.length,
+    details: synced,
+    errorDetails: errors,
+  };
 }
 
 /**
@@ -1227,6 +1396,59 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
   }
 }
 
+/**
+ * Get the count of active (enabled) GitHub Actions workflows in a repository
+ * Issue #1363: Used to distinguish between "no CI configured" and "CI hasn't started yet"
+ *
+ * When a repo has NO workflows, no_checks means no CI configured.
+ * When a repo HAS workflows, no_checks means CI checks haven't started yet (race condition).
+ *
+ * Issue #1399: GitHub Pages deployment workflows (path: "dynamic/pages/...") are excluded
+ * because they only run on the default branch after merge, never on PR branches. Counting
+ * them as "CI workflows" causes an infinite loop waiting for check-runs that never appear.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string, path: string}>}>}
+ */
+export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state, path: .path})'`);
+    const allWorkflows = JSON.parse(stdout.trim() || '[]');
+
+    // Issue #1399: Filter out GitHub Pages deployment workflows.
+    // These have path "dynamic/pages/pages-build-deployment" and only run on the
+    // default branch after merge — they never produce check-runs on PR branches.
+    // Including them causes an infinite loop when waiting for PR CI checks.
+    const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${allWorkflows.length} active workflows in ${owner}/${repo} (${workflows.length} PR-relevant after filtering out GitHub Pages deployment workflows)`);
+      for (const wf of allWorkflows) {
+        const filtered = wf.path.startsWith('dynamic/pages/');
+        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}, path=${wf.path}${filtered ? ' [excluded: GitHub Pages deployment]' : ''}`);
+      }
+    }
+
+    return {
+      count: workflows.length,
+      hasWorkflows: workflows.length > 0,
+      workflows,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching workflows for ${owner}/${repo}: ${error.message}`);
+    }
+    // On error, assume no workflows (safer: avoids false positives in the no-CI case)
+    return {
+      count: 0,
+      hasWorkflows: false,
+      workflows: [],
+    };
+  }
+}
+
 // Issue #1341: Import and re-export post-merge CI functions from separate module
 // to keep this file under the 1500 line limit
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
@@ -1241,6 +1463,8 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
+  // Issue #1367: Sync 'ready' tags between linked PRs and issues
+  syncReadyTags,
   checkPRCIStatus,
   checkPRMergeable,
   checkMergePermissions,
@@ -1265,4 +1489,6 @@ export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
+  getActiveRepoWorkflows,
 };

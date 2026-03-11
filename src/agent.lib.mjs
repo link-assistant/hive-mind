@@ -295,7 +295,6 @@ export const mapModelToId = model => {
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'opencode/gpt-5-nano',
     'minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-    'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
     // Kilo Gateway free models - short names for Kilo-exclusive models (Issue #1300)
     'glm-5-free': 'kilo/glm-5-free',
     'glm-4.5-air-free': 'kilo/glm-4.5-air-free',
@@ -312,6 +311,7 @@ export const mapModelToId = model => {
     'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
     'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
     // Deprecated free models (backward compatibility)
+    'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported by OpenCode Zen (Issue #1391)
     'glm-4.7-free': 'opencode/glm-4.7-free',
     'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   };
@@ -408,7 +408,6 @@ export const executeAgent = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,

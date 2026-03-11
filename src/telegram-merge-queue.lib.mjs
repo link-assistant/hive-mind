@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, syncReadyTags } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -195,6 +195,16 @@ export class MergeQueueProcessor {
       }
       if (labelResult.created) {
         this.log("Created 'ready' label in repository");
+      }
+
+      // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
+      // This ensures the final list reflects all ready work regardless of where the tag was applied
+      const syncResult = await syncReadyTags(this.owner, this.repo, this.verbose);
+      if (syncResult.synced > 0) {
+        this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
+      }
+      if (syncResult.errors > 0) {
+        this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
       }
 
       // Fetch all ready PRs

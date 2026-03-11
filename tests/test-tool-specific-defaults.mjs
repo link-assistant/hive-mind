@@ -3,6 +3,7 @@
 /**
  * Test suite for tool-specific default values in solve.mjs
  * Issue #1158: --tool agent should default to --gitkeep-file instead of --claude-file
+ * Issue #1385: --gitkeep-file enabled by default for all --tools (including --tool claude)
  */
 
 import { execSync } from 'child_process';
@@ -38,29 +39,28 @@ function execCommand(command) {
 }
 
 // Test 1: Verify --help shows updated descriptions for claude-file
-runTest('--claude-file description mentions tool-specific defaults', () => {
+runTest('--claude-file description does not claim to be the default', () => {
   const output = execCommand(`${solvePath} --help 2>&1`);
-  if (!output.includes('default for --tool claude')) {
-    throw new Error('--claude-file description should mention it is default for --tool claude');
+  if (output.includes('default for --tool claude')) {
+    throw new Error('--claude-file description should not mention it is default for --tool claude anymore');
   }
 });
 
 // Test 2: Verify --help shows updated descriptions for gitkeep-file
-runTest('--gitkeep-file description mentions tool-specific defaults', () => {
+runTest('--gitkeep-file description mentions it is default for all tools', () => {
   const output = execCommand(`${solvePath} --help 2>&1`);
   // The help text may be wrapped across lines, so check for key parts
-  if (!output.includes('agent/opencode/codex')) {
-    throw new Error('--gitkeep-file description should mention it is default for agent/opencode/codex tools');
+  if (!output.includes('default for all')) {
+    throw new Error('--gitkeep-file description should mention it is default for all --tool values');
   }
 });
 
-// Test 3: Verify --tool claude with --dry-run shows CLAUDE.md creation
-runTest('--tool claude defaults to CLAUDE.md', () => {
+// Test 3: Verify --tool claude with --dry-run defaults to .gitkeep (not CLAUDE.md)
+runTest('--tool claude defaults to .gitkeep', () => {
   const output = execCommand(`${solvePath} https://github.com/test/test/issues/1 --tool claude --dry-run --skip-tool-connection-check 2>&1`);
-  // In dry-run mode, should show it's using CLAUDE.md (not .gitkeep)
-  // This is inferred from the default behavior and help text
-  if (output.includes('.gitkeep mode') && !output.includes('CLAUDE.md')) {
-    throw new Error('--tool claude should default to CLAUDE.md, not .gitkeep');
+  // In dry-run mode, should NOT explicitly create CLAUDE.md without the flag
+  if (output.includes('Creating:') && output.includes('CLAUDE.md') && !output.includes('.gitkeep')) {
+    throw new Error('--tool claude should default to .gitkeep, not CLAUDE.md');
   }
 });
 

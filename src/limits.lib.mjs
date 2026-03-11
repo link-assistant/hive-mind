@@ -700,177 +700,184 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * @param {Object} cpuLoad - Optional CPU load info from getCpuLoadInfo
  * @param {Object} memory - Optional memory info from getMemoryInfo
  * @param {string|null} claudeError - Optional error message to show in Claude sections (e.g., auth expired)
- * @returns {string} Formatted message
+ * @param {string[]} extraSections - Optional extra sections to append inside the code block (e.g. queue status)
+ * @returns {string} Formatted message wrapped in a single code block
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null) {
-  // Use code block for monospace font to align progress bars properly
-  let message = '```\n';
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null, extraSections = []) {
+  // Build sections as individual text blocks; they will all be joined and wrapped in a
+  // single code block at the end. This avoids fragile string-searching to inject content.
+
+  const sections = [];
 
   // Show current time
-  message += `Current time: ${formatCurrentTime()}\n\n`;
+  sections.push(`Current time: ${formatCurrentTime()}\n`);
 
   // CPU load section (if provided)
   // Threshold: Blocks new commands when usage >= 65%
   if (cpuLoad) {
-    message += 'CPU\n';
+    let section = 'CPU\n';
     const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
     // Show 'used' label when below threshold, warning emoji when at/above threshold
     // See: https://github.com/link-assistant/hive-mind/issues/1267
     const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ' used';
-    message += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
+    section += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
     // Show cores used based on 5m load average (e.g., "0.04/6 CPU cores used" or "3/6 CPU cores used")
     // Use parseFloat to strip unnecessary trailing zeros (3.00 -> 3, 0.10 -> 0.1, 0.04 -> 0.04)
-    message += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores\n\n`;
+    section += `${parseFloat(cpuLoad.loadAvg5.toFixed(2))}/${cpuLoad.cpuCount} CPU cores\n`;
+    sections.push(section);
   }
 
   // Memory section (if provided)
   // Threshold: Blocks new commands when usage >= 65%
   if (memory) {
-    message += 'RAM\n';
+    let section = 'RAM\n';
     const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
     const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ' used';
-    message += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
-    message += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n\n`;
+    section += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
+    section += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n`;
+    sections.push(section);
   }
 
   // Disk space section (if provided)
   // Threshold: One-at-a-time mode when usage >= 90%
   if (diskSpace) {
-    message += 'Disk space\n';
+    let section = 'Disk space\n';
     // Show used percentage with progress bar and threshold marker
     const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
     const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ' used';
-    message += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
-    message += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n\n`;
+    section += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
+    section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n`;
+    sections.push(section);
   }
 
   // GitHub API rate limits section (if provided)
   // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
-    message += 'GitHub API\n';
+    let section = 'GitHub API\n';
     // Show used percentage with progress bar and threshold marker
     const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
     const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ' used';
-    message += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
-    message += `${githubRateLimit.used}/${githubRateLimit.limit} requests\n`;
+    section += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
+    section += `${githubRateLimit.used}/${githubRateLimit.limit} requests\n`;
     if (githubRateLimit.relativeReset) {
-      message += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
+      section += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
     } else if (githubRateLimit.resetTime) {
-      message += `Resets ${githubRateLimit.resetTime}\n`;
+      section += `Resets ${githubRateLimit.resetTime}\n`;
     }
-    message += '\n';
+    sections.push(section);
   }
 
   // Claude limits section
-  // When there's an error (e.g., auth expired), show it once here instead of repeating in each subsection
+  // When there's an error (e.g., auth expired), show it once and skip empty subsections
   if (claudeError) {
-    message += `Claude limits\n${claudeError}\n\n`;
-  }
-
-  // Claude 5 hour session (five_hour)
-  // Threshold: One-at-a-time mode when usage >= 65%
-  message += 'Claude 5 hour session\n';
-  if (claudeError) {
-    // Error already shown above; skip subsection content
-  } else if (usage && usage.currentSession.percentage !== null) {
-    // Add time passed progress bar first (no threshold marker for time)
-    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
-    if (timePassed !== null) {
-      const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% passed\n`;
-    }
-
-    // Add usage progress bar second with threshold marker
-    // Use Math.floor so 100% only appears when usage is exactly 100%
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
-    const pct = Math.floor(usage.currentSession.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
-    message += `${bar} ${pct}%${suffix}\n`;
-
-    if (usage.currentSession.resetTime) {
-      const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-      if (relativeTime) {
-        message += `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`;
-      } else {
-        message += `Resets ${usage.currentSession.resetTime}\n`;
-      }
-    }
+    sections.push(`Claude limits\n${claudeError}\n`);
   } else {
-    message += 'N/A\n';
-  }
-  message += '\n';
-
-  // Current week (all models / seven_day)
-  // Threshold: One-at-a-time mode when usage >= 97%
-  message += 'Current week (all models)\n';
-  if (claudeError) {
-    // Error already shown above; skip subsection content
-  } else if (usage && usage.allModels.percentage !== null) {
-    // Add time passed progress bar first (no threshold marker for time)
-    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
-    if (timePassed !== null) {
-      const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% passed\n`;
-    }
-
-    // Add usage progress bar second with threshold marker
-    // Use Math.floor so 100% only appears when usage is exactly 100%
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
-    const pct = Math.floor(usage.allModels.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
-    message += `${bar} ${pct}%${suffix}\n`;
-
-    if (usage.allModels.resetTime) {
-      const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-      if (relativeTime) {
-        message += `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`;
-      } else {
-        message += `Resets ${usage.allModels.resetTime}\n`;
+    // Claude 5 hour session (five_hour)
+    // Threshold: One-at-a-time mode when usage >= 65%
+    let sessionSection = 'Claude 5 hour session\n';
+    if (usage && usage.currentSession.percentage !== null) {
+      // Add time passed progress bar first (no threshold marker for time)
+      const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
+      if (timePassed !== null) {
+        const timeBar = getProgressBar(timePassed);
+        sessionSection += `${timeBar} ${timePassed}% passed\n`;
       }
-    }
-  } else {
-    message += 'N/A\n';
-  }
-  message += '\n';
 
-  // Current week (Sonnet only / seven_day_sonnet)
-  // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
-  message += 'Current week (Sonnet only)\n';
-  if (claudeError) {
-    // Error already shown above; skip subsection content
-  } else if (usage && usage.sonnetOnly.percentage !== null) {
-    // Add time passed progress bar first (no threshold marker for time)
-    const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
-    if (timePassed !== null) {
-      const timeBar = getProgressBar(timePassed);
-      message += `${timeBar} ${timePassed}% passed\n`;
-    }
+      // Add usage progress bar second with threshold marker
+      // Use Math.floor so 100% only appears when usage is exactly 100%
+      // See: https://github.com/link-assistant/hive-mind/issues/1133
+      const pct = Math.floor(usage.currentSession.percentage);
+      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
+      sessionSection += `${bar} ${pct}%${suffix}\n`;
 
-    // Add usage progress bar second with threshold marker
-    // Use Math.floor so 100% only appears when usage is exactly 100%
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
-    const pct = Math.floor(usage.sonnetOnly.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
-    message += `${bar} ${pct}%${suffix}\n`;
-
-    if (usage.sonnetOnly.resetTime) {
-      const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
-      if (relativeTime) {
-        message += `Resets in ${relativeTime} (${usage.sonnetOnly.resetTime})\n`;
-      } else {
-        message += `Resets ${usage.sonnetOnly.resetTime}\n`;
+      if (usage.currentSession.resetTime) {
+        const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
+        if (relativeTime) {
+          sessionSection += `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`;
+        } else {
+          sessionSection += `Resets ${usage.currentSession.resetTime}\n`;
+        }
       }
+    } else {
+      sessionSection += 'N/A\n';
     }
-  } else {
-    message += 'N/A\n';
+    sections.push(sessionSection);
+
+    // Current week (all models / seven_day)
+    // Threshold: One-at-a-time mode when usage >= 97%
+    let allModelsSection = 'Current week (all models)\n';
+    if (usage && usage.allModels.percentage !== null) {
+      // Add time passed progress bar first (no threshold marker for time)
+      const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
+      if (timePassed !== null) {
+        const timeBar = getProgressBar(timePassed);
+        allModelsSection += `${timeBar} ${timePassed}% passed\n`;
+      }
+
+      // Add usage progress bar second with threshold marker
+      // Use Math.floor so 100% only appears when usage is exactly 100%
+      // See: https://github.com/link-assistant/hive-mind/issues/1133
+      const pct = Math.floor(usage.allModels.percentage);
+      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+      allModelsSection += `${bar} ${pct}%${suffix}\n`;
+
+      if (usage.allModels.resetTime) {
+        const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
+        if (relativeTime) {
+          allModelsSection += `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`;
+        } else {
+          allModelsSection += `Resets ${usage.allModels.resetTime}\n`;
+        }
+      }
+    } else {
+      allModelsSection += 'N/A\n';
+    }
+    sections.push(allModelsSection);
+
+    // Current week (Sonnet only / seven_day_sonnet)
+    // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
+    let sonnetSection = 'Current week (Sonnet only)\n';
+    if (usage && usage.sonnetOnly.percentage !== null) {
+      // Add time passed progress bar first (no threshold marker for time)
+      const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
+      if (timePassed !== null) {
+        const timeBar = getProgressBar(timePassed);
+        sonnetSection += `${timeBar} ${timePassed}% passed\n`;
+      }
+
+      // Add usage progress bar second with threshold marker
+      // Use Math.floor so 100% only appears when usage is exactly 100%
+      // See: https://github.com/link-assistant/hive-mind/issues/1133
+      const pct = Math.floor(usage.sonnetOnly.percentage);
+      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
+      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
+      sonnetSection += `${bar} ${pct}%${suffix}\n`;
+
+      if (usage.sonnetOnly.resetTime) {
+        const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
+        if (relativeTime) {
+          sonnetSection += `Resets in ${relativeTime} (${usage.sonnetOnly.resetTime})\n`;
+        } else {
+          sonnetSection += `Resets ${usage.sonnetOnly.resetTime}\n`;
+        }
+      }
+    } else {
+      sonnetSection += 'N/A\n';
+    }
+    sections.push(sonnetSection);
   }
 
-  message += '```';
-  return message;
+  // Append any caller-provided extra sections (e.g. queue status) inside the code block
+  for (const extra of extraSections) {
+    sections.push(extra);
+  }
+
+  // Wrap all sections in a single code block for monospace font / aligned progress bars.
+  // Sections are separated by blank lines; the trailing newline on each section provides spacing.
+  return '```\n' + sections.join('\n') + '```';
 }
 
 // ============================================================================

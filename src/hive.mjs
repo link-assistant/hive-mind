@@ -52,7 +52,13 @@ if (isDirectExecution) {
     console.log('   Loading dependencies (this may take a moment)...');
     // Helper function to add timeout to async operations
     const withTimeout = (promise, timeoutMs, operation) => {
-      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs))]);
+      let timeoutId;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
     };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {

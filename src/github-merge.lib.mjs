@@ -769,8 +769,7 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
     }
 
     if (onStatusUpdate) {
-      // Issue #1269: Wrap callback with timeout to prevent infinite blocking
-      // Issue #1346: Capture and clear the timeout handle to prevent dangling timer after race resolves
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking; #1346: capture and clear timeout handle to prevent dangling timer
       try {
         let callbackTimeoutId;
         await Promise.race([

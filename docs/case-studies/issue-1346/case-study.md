@@ -191,7 +191,56 @@ This fix is minimal, safe, and consistent with how error exits are already handl
 
 ---
 
-## 6. Related Issues / References
+## 6. Second Reproduction (v1.27.0 — Confirms Root Cause)
+
+A second hang was reported on 2026-03-11 with **solve v1.27.0** (before this fix was merged into main):
+
+- **Log:** https://gist.githubusercontent.com/konard/b4a6fca1bea1ab18322ba104a13530d2/raw/0009a5f0404faedd75c3cbd20aafc372f1bd2031/d1c62020-ec50-4f58-9453-d589b81456c7.log
+- **Duration:** ~58 hours (2026-03-09T00:14:47Z to 2026-03-11T10:25:04Z)
+- **Terminal output confirming the hang point:**
+  ```
+  ✅ PR IS MERGEABLE!
+     PR is ready to be merged manually
+     Exiting auto-restart-until-mergeable mode
+  📁 Keeping directory (--no-auto-cleanup): /tmp/gh-issue-solver-1773010716484
+  📁 Complete log file: /home/hive/d1c62020-ec50-4f58-9453-d589b81456c7.log
+  ← HANGS HERE (no exit, touch commands from hive-telegram-bot leak in)
+  ^C
+  ```
+
+This second log confirms the identical root cause: `finally` block in v1.27.0's `solve.mjs` ended with `await log(...)` but no `process.exit(0)`, causing the same indefinite hang.
+
+---
+
+## 7. Fix Applied
+
+The fix was implemented in `src/solve.mjs` by replacing the manual `log()` call in the `finally` block with `await safeExit(0, 'Process completed successfully')`:
+
+```javascript
+// Before (BROKEN — hangs indefinitely):
+} finally {
+  await cleanupTempDirectory(tempDir, argv, limitReached);
+  if (getLogFile()) {
+    const path = await use('path');
+    const absoluteLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+  }
+  // ← No process.exit() — Sentry handles keep process alive!
+}
+
+// After (FIXED):
+} finally {
+  await cleanupTempDirectory(tempDir, argv, limitReached);
+  // Issue #1346: safeExit() flushes Sentry (2s timeout) and calls process.exit(0)
+  await safeExit(0, 'Process completed successfully');
+}
+```
+
+`safeExit()` already handles displaying the log file path, flushing Sentry, and calling `process.exit(0)`.
+
+---
+
+## 8. Related Issues / References
 
 - Sentry GitHub issue on profiling blocking process exit: https://github.com/getsentry/sentry-javascript/issues (profiling-node keeps process alive)
 - Node.js documentation on event loop and `process.exit()`: https://nodejs.org/api/process.html#processexitcode

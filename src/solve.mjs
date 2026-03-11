@@ -41,7 +41,7 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -1488,13 +1488,23 @@ try {
   // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Issue #1346: Explicitly exit the process to prevent hanging after completion.
-  // Without process.exit(0), Sentry's profiling integration (@sentry/profiling-node)
-  // keeps native handles on the Node.js event loop, causing the process to block
-  // indefinitely even after all user-visible work is done.
-  // safeExit() flushes Sentry (2s timeout), displays the log file path, and calls
-  // process.exit(0). Note: when the catch block calls safeExit(1) via
-  // handleMainExecutionError, process.exit(1) terminates immediately and this
-  // finally block is never reached, so we always exit with code 0 here.
-  await safeExit(0, 'Process completed successfully');
+  // Show final log file reference so users always know where to find the complete log
+  if (getLogFile()) {
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
+  }
+
+  // Issue #1346: Close Sentry and explicitly exit the process to prevent hanging.
+  // When Sentry is enabled (--sentry flag), close it properly to flush pending events
+  // and release profiling handles (@sentry/profiling-node native addon). The profiling
+  // integration uses profileLifecycle: 'trace', so the native profiler only runs during
+  // active spans — but calling closeSentry() ensures clean teardown regardless.
+  // The process.exit(0) call is a required safety net even when Sentry is disabled:
+  // active handles on the Node.js event loop (e.g. open network connections from
+  // command-stream or other libraries) prevent the process from exiting naturally after
+  // the finally block completes. Note: when the catch block calls safeExit(1) via
+  // handleMainExecutionError, process.exit(1) terminates immediately before this
+  // finally block is reached, so this path only executes on successful completion.
+  await closeSentry();
+  process.exit(0);
 }

@@ -44,7 +44,7 @@ All timestamps from the log file (`b68fb132-ec92-4205-af47-e6aa84c7839a.log`):
 The main entry point `src/solve.mjs` ends with a `try/catch/finally` block. After all async operations complete (including `endWorkSession` and log file display in `finally`), **the script does not call `process.exit(0)`**.
 
 ```javascript
-// src/solve.mjs — last lines
+// src/solve.mjs — original finally block (broken)
 } finally {
   await cleanupTempDirectory(tempDir, argv, limitReached);
   if (getLogFile()) {
@@ -58,50 +58,48 @@ The main entry point `src/solve.mjs` ends with a `try/catch/finally` block. Afte
 
 In Node.js, a script exits when all work is done AND the event loop becomes empty. If anything keeps the event loop active (open handles, pending timers, active network connections), the process blocks indefinitely.
 
-### Secondary Root Cause: Sentry Profiling Integration Keeps Event Loop Alive
+### Why the Process Doesn't Exit Naturally
 
-`src/instrument.mjs` initializes `@sentry/profiling-node`:
+After the `finally` block completes, Node.js checks if there are any active handles on the event loop. Possible sources of lingering handles include:
 
-```javascript
-const profilingModule = await import('@sentry/profiling-node');
-nodeProfilingIntegration = profilingModule.nodeProfilingIntegration;
+1. **`command-stream` child processes**: The `$` function from `command-stream` spawns child processes. Although the claude CLI process exits before the `finally` block runs, internal libuv handles from `command-stream`'s process management (event listeners, pipe handles) may remain active.
 
-Sentry.init({
-  integrations: [nodeProfilingIntegration()],
-  profileLifecycle: 'trace',
-  profileSessionSampleRate: ...,
-  ...
-});
+2. **Network connection pools**: HTTP/HTTPS connections made by `use-m` to download packages from `unpkg.com`/`esm.sh` use Node.js's built-in fetch (undici), which maintains connection pools. These open TCP connections are active handles.
+
+3. **`@sentry/profiling-node` native addon (when `--sentry` is enabled)**: When Sentry is enabled, the `@sentry/profiling-node` package loads a native C++ addon (`sentry_cpu_profiler-linux-x64-glibc-137.node`) that registers libuv handles. **However, Sentry is disabled by default** and was NOT enabled in the reproduction cases (no `--sentry` flag), so this is NOT the root cause for the observed hangs.
+
+### Important Clarification: Sentry Is Disabled by Default
+
+The reproduction commands did NOT use `--sentry`:
+```
+solve https://... --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --auto-restart-until-mergeable
 ```
 
-The `@sentry/profiling-node` package uses native addons (typically V8 CPU profiler or Parca/StackProf) that register handles on the Node.js event loop. These handles do **not** automatically unref themselves, preventing the event loop from naturally draining.
-
-The comment in `instrument.mjs` (line 22) even acknowledges this problem:
-
+`src/instrument.mjs` disables Sentry by default (line 35):
 ```javascript
-// This prevents Sentry's profiling integration from blocking process exit
+if (!process.argv.includes('--sentry') && process.env.HIVE_MIND_SENTRY !== 'true') {
+  return true; // disable
+}
 ```
 
-But the actual fix (calling `Sentry.close()` at successful exit) is only implemented in `safeExit()` within `exit-handler.lib.mjs`. The `safeExit()` function is NOT called on normal (success) completion — it is only used for error exits.
+So `@sentry/profiling-node` was **not loaded** in these reproductions. The hang is caused by other active handles.
+
+### When Sentry IS Enabled: `Sentry.close()` Required
+
+When Sentry IS enabled (`--sentry` flag), the `@sentry/profiling-node` native addon is loaded and keeps the event loop alive. The correct fix is to call `Sentry.close()` (via `closeSentry()` from `sentry.lib.mjs`) before process exit. This properly flushes Sentry's transport queue and tears down the profiling integration.
+
+**Important note on `profileLifecycle: 'trace'`**: The profiler is configured with `profileLifecycle: 'trace'`, meaning the native CPU profiler **only runs while there is at least one active Sentry span**. When the `finally` block runs, there are no active spans — so the profiling timer is already stopped. However, calling `closeSentry()` is still necessary to flush any queued events and properly disable the SDK.
+
+### The `sentry.close()` Hang Risk
+
+`Sentry.close(timeout)` passes the `timeout` value to internal flush/transport logic, but the outer `Promise` returned by `close()` has **no hard deadline**. If the Sentry transport stalls (e.g., network issues), `await sentry.close(2000)` can itself hang indefinitely. The fix wraps it in `Promise.race` with a hard 3-second deadline.
 
 ### Supporting Evidence
 
-1. The log shows `📁 Complete log file: ...` at **01:23:36Z** (all user code finished).
+1. The log shows `📁 Complete log file: ...` at **01:23:36Z** — `finally` block completed.
 2. The process was still alive at **23:12:45Z** (~22 hours later), killed with Ctrl+C.
-3. The `safeExit()` function calls `Sentry.close(2000)` before `process.exit()`:
-   ```javascript
-   export const safeExit = async (code = 0, reason = 'Process completed') => {
-     await showExitMessage(reason, code);
-     try {
-       const sentry = await getSentry();
-       if (sentry && sentry.close) {
-         await sentry.close(2000);
-       }
-     } catch {}
-     process.exit(code);
-   };
-   ```
-4. The normal success path does NOT go through `safeExit()`.
+3. **Second reproduction (v1.27.0, 58 hours)**: Same pattern — see Section 6.
+4. The `exit-handler.lib.mjs` `safeExit()` function calls `sentry.close(2000)` then `process.exit()` — but this was only called for error exits, not normal completion.
 
 ### Additional Contributing Factor: Sequential Ordering of Watch + Auto-Restart Modes
 
@@ -118,17 +116,100 @@ This is correct behavior — the two modes are intentionally sequential. The stu
 
 | File                       | Location                          | Issue                                                            |
 | -------------------------- | --------------------------------- | ---------------------------------------------------------------- |
-| `src/solve.mjs`            | Line ~1480-1491 (`finally` block) | Missing `process.exit(0)` after successful completion            |
-| `src/instrument.mjs`       | Lines 51-73                       | Sentry profiling integration keeps event loop alive              |
-| `src/exit-handler.lib.mjs` | `safeExit()` function             | Correctly closes Sentry and exits, but only used for error paths |
+| `src/solve.mjs`            | Line ~1487-1510 (`finally` block) | Missing `process.exit(0)` after successful completion            |
+| `src/instrument.mjs`       | Lines 22, 35                      | Sentry disabled by default; profiling only loads with `--sentry` |
+| `src/exit-handler.lib.mjs` | `safeExit()` function             | Used for error paths; now also has hard timeout on `sentry.close()` |
+| `src/sentry.lib.mjs`       | `closeSentry()` export            | Proper API for Sentry shutdown; checks `isSentryEnabled()` first |
 
 ---
 
-## 4. Proposed Solutions
+## 4. Dangling Promises and Unfreed Resources
 
-### Solution 1 (Recommended): Add `process.exit(0)` at end of `solve.mjs` `finally` block
+Reviewer question from PR comment: "Do we have dangling promises or unfreed resources? Can we ensure we always free them all?"
+
+**Analysis result**: The hang is NOT caused by dangling Promises. All async work completes normally — the `finally` block only runs after the `try` block resolves. The hang is caused by **active Node.js event loop handles** from native/library code that are not cleaned up.
+
+Specific findings:
+
+| Source | Type | Properly cleaned up? |
+|--------|------|---------------------|
+| `command-stream` child processes | ChildProcess handles | Only when child exits (which it does before finally) |
+| `use-m` HTTP fetch connections | Undici connection pools | Not explicitly destroyed (lingering TCP handles) |
+| `claude.lib.mjs` setInterval (countdown) | Timer | Yes — `clearInterval()` called |
+| `solve.auto-merge.lib.mjs` setTimeout (polling) | Awaited timer | Yes — awaited, not dangling |
+| `@sentry/profiling-node` native addon | libuv native handles | Released via `Sentry.close()` when Sentry is enabled |
+
+The pragmatic solution is `process.exit(0)` as a final safety net after cleanup, since exhaustively tracking and unreffing every handle from every library is not feasible in a complex application.
+
+---
+
+## 5. ESLint Rules for process.exit
+
+Reviewer question: "Do we have ESLint rules in npm for that, or should we write our own rules?"
+
+**Available npm packages**:
+- `eslint-plugin-n` (or `eslint-plugin-node`) provides `n/no-process-exit` rule
+- `eslint-plugin-unicorn` provides `unicorn/no-process-exit` rule
+
+**Assessment for this codebase**: Adding `no-process-exit` as an error would conflict with `safeExit()` (which calls `process.exit()`) and the `finally` block fix. A blanket rule against `process.exit()` is impractical since the application must be able to exit.
+
+A more useful custom rule could detect `process.exit()` calls outside of `safeExit()` / designated exit functions, but this is complex to implement correctly. The practical safeguard is code review.
+
+**Conclusion**: Code review is the appropriate mechanism here. The existing `eslint-rules/` directory contains one custom rule (`require-gh-paginate.mjs`). A `no-bare-process-exit.mjs` rule could be added to warn when `process.exit()` is called outside of `exit-handler.lib.mjs`, but this is not required for the core fix.
+
+---
+
+## 6. Proposed Solutions
+
+### Solution 1 (Recommended and Implemented): Explicit Sentry Close + `process.exit(0)` in `finally`
 
 ```javascript
+} finally {
+  await cleanupTempDirectory(tempDir, argv, limitReached);
+
+  // Show final log file reference so users always know where to find the complete log
+  if (getLogFile()) {
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
+  }
+
+  // Issue #1346: Close Sentry (if enabled) then exit to prevent hanging.
+  // When Sentry is enabled, closeSentry() flushes pending events and releases
+  // native profiling handles. The process.exit(0) call is a required safety net
+  // for active handles from other libraries (network connections, etc.).
+  await closeSentry();
+  process.exit(0);
+}
+```
+
+This restores the original log path display while adding proper Sentry shutdown and forced exit.
+
+### Solution 2: Add Hard Timeout to `sentry.close()` in `exit-handler.lib.mjs`
+
+```javascript
+// Wrap sentry.close() in Promise.race to prevent it from hanging indefinitely
+await Promise.race([
+  sentry.close(2000),
+  new Promise(resolve => setTimeout(resolve, 3000)), // hard 3s deadline
+]);
+```
+
+This prevents `await sentry.close(2000)` from hanging if Sentry's transport stalls.
+
+### Solution 3 (Not Implemented): Custom ESLint Rule
+
+A custom rule to warn when `process.exit()` is called outside designated exit functions. Deferred due to complexity and low practical value.
+
+---
+
+## 7. Fix Applied
+
+The fix was implemented across two files:
+
+### `src/solve.mjs` — `finally` block
+
+```javascript
+// Before (BROKEN — hangs indefinitely):
 } finally {
   await cleanupTempDirectory(tempDir, argv, limitReached);
   if (getLogFile()) {
@@ -136,62 +217,44 @@ This is correct behavior — the two modes are intentionally sequential. The stu
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`\n📁 Complete log file: ${absoluteLogPath}`);
   }
-  // Close Sentry to flush pending events and allow process to exit cleanly
-  try {
-    const Sentry = await import('@sentry/node');
-    await Sentry.close(2000);
-  } catch {}
-  process.exit(0);
+  // ← No process.exit() — active handles keep process alive!
 }
-```
 
-Or better, reuse `safeExit`:
-
-```javascript
+// After (FIXED — proper Sentry close + forced exit):
 } finally {
   await cleanupTempDirectory(tempDir, argv, limitReached);
   if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
-  await safeExit(0, 'Process completed successfully');
+  await closeSentry();  // flush Sentry events and release profiling handles (no-op when disabled)
+  process.exit(0);      // safety net: prevent hang from any remaining active handles
 }
 ```
 
-**Note:** `safeExit` calls `process.exit()` internally, so it exits from the `finally` block.
+Key improvements over earlier draft:
+- **Restores explicit log path display** (`📁 Complete log file: ...`) matching the original behavior
+- **Uses `closeSentry()` from `sentry.lib.mjs`** (checks `isSentryEnabled()` first; no-op when disabled)
+- **Replaces `safeExit()` routing** with direct `closeSentry()` + `process.exit(0)` for clarity
 
-### Solution 2: Unref Sentry Profiling Handles
-
-This is harder since `@sentry/profiling-node` doesn't expose a way to unref its handles publicly. Closing Sentry via `Sentry.close()` is the correct API.
-
-### Solution 3: Add a timeout fallback
+### `src/exit-handler.lib.mjs` — `safeExit()` and signal handlers
 
 ```javascript
-// Force exit after 30 seconds if process hasn't exited naturally
-const forceExitTimer = setTimeout(() => {
-  process.exit(0);
-}, 30000);
-forceExitTimer.unref(); // Don't let this timer keep the event loop alive
+// Before:
+await sentry.close(2000);
+
+// After (hard timeout prevents sentry.close() from hanging):
+await Promise.race([
+  sentry.close(2000),
+  new Promise(resolve => setTimeout(resolve, 3000)), // hard 3s deadline
+]);
 ```
 
-This is a safety net, not a proper fix.
+Applied in `safeExit()` and all signal handlers (SIGINT, SIGTERM, uncaughtException, unhandledRejection).
 
 ---
 
-## 5. Recommended Fix
-
-The cleanest fix is **Solution 1**: add `process.exit(0)` (or route through `safeExit(0, ...)`) at the end of the `finally` block in `src/solve.mjs`. This ensures:
-
-1. All async cleanup is complete before exit.
-2. Sentry is flushed/closed (2 second timeout).
-3. The process always terminates promptly, regardless of what Sentry or other libraries have registered on the event loop.
-
-This fix is minimal, safe, and consistent with how error exits are already handled via `safeExit()`.
-
----
-
-## 6. Second Reproduction (v1.27.0 — Confirms Root Cause)
+## 8. Second Reproduction (v1.27.0 — Confirms Root Cause)
 
 A second hang was reported on 2026-03-11 with **solve v1.27.0** (before this fix was merged into main):
 
@@ -208,42 +271,18 @@ A second hang was reported on 2026-03-11 with **solve v1.27.0** (before this fix
   ^C
   ```
 
+The timestamps for `📁 Keeping directory` and `📁 Complete log file` in the log file appear on lines following their `[TIMESTAMP] [INFO]` prefix — the `\n` prefix in `await log('\n📁 ...')` causes the timestamp to appear on the preceding line. The messages ARE logged with timestamps; they visually appear timestamp-free only in the log file format.
+
 This second log confirms the identical root cause: `finally` block in v1.27.0's `solve.mjs` ended with `await log(...)` but no `process.exit(0)`, causing the same indefinite hang.
 
 ---
 
-## 7. Fix Applied
-
-The fix was implemented in `src/solve.mjs` by replacing the manual `log()` call in the `finally` block with `await safeExit(0, 'Process completed successfully')`:
-
-```javascript
-// Before (BROKEN — hangs indefinitely):
-} finally {
-  await cleanupTempDirectory(tempDir, argv, limitReached);
-  if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
-  }
-  // ← No process.exit() — Sentry handles keep process alive!
-}
-
-// After (FIXED):
-} finally {
-  await cleanupTempDirectory(tempDir, argv, limitReached);
-  // Issue #1346: safeExit() flushes Sentry (2s timeout) and calls process.exit(0)
-  await safeExit(0, 'Process completed successfully');
-}
-```
-
-`safeExit()` already handles displaying the log file path, flushing Sentry, and calling `process.exit(0)`.
-
----
-
-## 8. Related Issues / References
+## 9. Related Issues / References
 
 - Sentry GitHub issue on profiling blocking process exit: https://github.com/getsentry/sentry-javascript/issues (profiling-node keeps process alive)
 - Node.js documentation on event loop and `process.exit()`: https://nodejs.org/api/process.html#processexitcode
 - Issue #1280 (stream close timeout) — referenced in log at line 53895
 - Issue #1290 (auto-restart log upload tracking) — referenced in code comments
 - Issue #1124 (playwright-mcp folder cleanup) — referenced in code comments
+- `@sentry/profiling-node` source: `build/cjs/index.js` — timers ARE `.unref()`'d (lines 815, 1043), but native `CpuProfilerBindings.startProfiling()` keeps libuv handles alive
+- `Sentry.close()` implementation: `@sentry/core/build/cjs/client.js` — does NOT call `stopProfiling()`; `nodeProfilingIntegration` has no `teardown` lifecycle hook

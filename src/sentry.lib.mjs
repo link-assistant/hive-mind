@@ -273,8 +273,16 @@ export const closeSentry = async (timeout = 2000) => {
     return;
   }
 
+  // Issue #1346: Use Promise.race with a hard deadline so a hung sentry.close()
+  // (e.g. from @sentry/profiling-node native thread) cannot block the caller forever.
   try {
-    await sentry.close(timeout);
+    let hardDeadlineId;
+    await Promise.race([
+      sentry.close(timeout),
+      new Promise(resolve => {
+        hardDeadlineId = setTimeout(resolve, timeout + 1000);
+      }),
+    ]).finally(() => clearTimeout(hardDeadlineId));
   } catch (error) {
     // Silently fail if close fails
     if (process.env.DEBUG === 'true') {

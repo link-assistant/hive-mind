@@ -1493,8 +1493,7 @@ try {
     await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
 
-  // Issue #1346: Flush Sentry events and release profiling handles, then explicitly exit
-  // to prevent hanging from active Node.js event loop handles (network connections, etc.).
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
   await closeSentry();
-  process.exit(0);
 }

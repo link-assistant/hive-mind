@@ -46,7 +46,7 @@ The workflow files were using outdated versions of GitHub Actions that were buil
 | docker/login-action             | @v3         | @v4             | Node 24                                 |
 | docker/metadata-action          | @v5         | @v6             | Node 24                                 |
 | docker/setup-buildx-action      | @v3         | @v4             | Node 24                                 |
-| azure/setup-helm                | @v4         | @v4.3           | Node 20 (forced to Node 24 via env var) |
+| azure/setup-helm                | @v4         | @v4 (unchanged) | Node 20 (forced to Node 24 via env var) |
 | softprops/action-gh-release     | @v2         | @v2 (unchanged) | Node 24 (since v2.3.0)                  |
 | peter-evans/create-pull-request | @v7         | @v8             | Node 24                                 |
 

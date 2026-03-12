@@ -883,7 +883,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4.3
+        uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
@@ -1196,7 +1196,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4.3
+        uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
@@ -1436,7 +1436,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4.3
+        uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 

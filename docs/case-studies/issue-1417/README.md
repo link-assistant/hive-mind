@@ -13,41 +13,42 @@ GitHub Actions CI/CD pipeline was generating deprecation warnings indicating tha
 ## Root Cause Analysis
 
 ### Primary Cause
+
 The workflow files were using outdated versions of GitHub Actions that were built to run on Node.js 20. While these actions still function, they generate deprecation warnings and will eventually stop working when GitHub enforces Node.js 24.
 
 ### Affected Actions (Before Fix)
 
-| Action | Old Version | Runtime |
-|--------|-------------|---------|
-| actions/checkout | @v4 | Node 20 |
-| actions/setup-node | @v4 | Node 20 |
-| actions/upload-artifact | @v4 | Node 20 |
-| actions/download-artifact | @v4 | Node 20 |
-| docker/build-push-action | @v5 | Node 20 |
-| docker/login-action | @v3 | Node 20 |
-| docker/metadata-action | @v5 | Node 20 |
-| docker/setup-buildx-action | @v3 | Node 20 |
-| azure/setup-helm | @v4 | Node 20 |
-| softprops/action-gh-release | @v2 | Node 20 (updated to Node 24 in v2.3.0) |
-| peter-evans/create-pull-request | @v7 | Node 20 |
+| Action                          | Old Version | Runtime                                |
+| ------------------------------- | ----------- | -------------------------------------- |
+| actions/checkout                | @v4         | Node 20                                |
+| actions/setup-node              | @v4         | Node 20                                |
+| actions/upload-artifact         | @v4         | Node 20                                |
+| actions/download-artifact       | @v4         | Node 20                                |
+| docker/build-push-action        | @v5         | Node 20                                |
+| docker/login-action             | @v3         | Node 20                                |
+| docker/metadata-action          | @v5         | Node 20                                |
+| docker/setup-buildx-action      | @v3         | Node 20                                |
+| azure/setup-helm                | @v4         | Node 20                                |
+| softprops/action-gh-release     | @v2         | Node 20 (updated to Node 24 in v2.3.0) |
+| peter-evans/create-pull-request | @v7         | Node 20                                |
 
 ## Solution
 
 ### Action Version Updates
 
-| Action | Old Version | New Version | Node.js Runtime |
-|--------|-------------|-------------|-----------------|
-| actions/checkout | @v4 | @v5 | Node 24 |
-| actions/setup-node | @v4 | @v5 | Node 24 |
-| actions/upload-artifact | @v4 | @v7 | Node 24 |
-| actions/download-artifact | @v4 | @v8 | Node 24 |
-| docker/build-push-action | @v5 | @v7 | Node 24 |
-| docker/login-action | @v3 | @v4 | Node 24 |
-| docker/metadata-action | @v5 | @v6 | Node 24 |
-| docker/setup-buildx-action | @v3 | @v4 | Node 24 |
-| azure/setup-helm | @v4 | @v4.3 | Node 20 (forced to Node 24 via env var) |
-| softprops/action-gh-release | @v2 | @v2 (unchanged) | Node 24 (since v2.3.0) |
-| peter-evans/create-pull-request | @v7 | @v8 | Node 24 |
+| Action                          | Old Version | New Version     | Node.js Runtime                         |
+| ------------------------------- | ----------- | --------------- | --------------------------------------- |
+| actions/checkout                | @v4         | @v5             | Node 24                                 |
+| actions/setup-node              | @v4         | @v5             | Node 24                                 |
+| actions/upload-artifact         | @v4         | @v7             | Node 24                                 |
+| actions/download-artifact       | @v4         | @v8             | Node 24                                 |
+| docker/build-push-action        | @v5         | @v7             | Node 24                                 |
+| docker/login-action             | @v3         | @v4             | Node 24                                 |
+| docker/metadata-action          | @v5         | @v6             | Node 24                                 |
+| docker/setup-buildx-action      | @v3         | @v4             | Node 24                                 |
+| azure/setup-helm                | @v4         | @v4.3           | Node 20 (forced to Node 24 via env var) |
+| softprops/action-gh-release     | @v2         | @v2 (unchanged) | Node 24 (since v2.3.0)                  |
+| peter-evans/create-pull-request | @v7         | @v8             | Node 24                                 |
 
 ### Special Case: azure/setup-helm
 
@@ -77,6 +78,7 @@ Most action version upgrades were straightforward, but teams should be aware of 
 ## Verification
 
 After applying the fix, the workflow should:
+
 1. No longer display Node.js 20 deprecation warnings
 2. Continue to function correctly with all CI/CD operations
 3. Be prepared for the June 2026 deadline when Node.js 24 becomes mandatory

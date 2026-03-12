@@ -43,10 +43,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
-# Force Node.js 24 for actions that don't natively support it yet (e.g., azure/setup-helm@v4)
-# Required to eliminate Node.js 20 deprecation warnings before the June 2026 deadline
-# See: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
-env:
+env: # Force Node.js 24 for actions without native support. See issue #1417.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:

@@ -2,12 +2,17 @@
 '@link-assistant/hive-mind': patch
 ---
 
-fix: include Dockerfile changes in code detection to trigger Docker image rebuild (Issue #1423)
+fix: configure release pipeline to react to docker=true so Dockerfile changes trigger Docker image rebuild (Issue #1423)
 
-Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produced `code=false` in `detect-code-changes.mjs` because the `codePattern` regex only matched files with extensions (`.mjs`, `.json`, `.yml`, `.yaml`) or workflow paths. Since `Dockerfile` has no extension, it was not matched as a "code change," causing all test jobs and the `release` job to be skipped — and consequently no Docker image was rebuilt or published.
+Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produced `docker=true` but `code=false`. The `release` job required all test jobs to `succeed` — but those tests were correctly skipped (no JavaScript code changed). Since `skipped != 'success'`, the release job was also skipped, and no Docker image was rebuilt.
 
 This was observed when PR #1420 (fixing `/home/hive/.config` ownership) was merged: both Dockerfiles changed, but CI run `23040959919` showed all Docker publish jobs as skipped.
 
-Now `Dockerfile`, `coolify/Dockerfile`, and `.dockerignore` are included in the `codePattern` regex, ensuring Dockerfile-only commits produce `code=true` and trigger the full test → release → Docker publish pipeline.
+The `release` job condition is now updated to:
+- Also trigger when `docker-changed == 'true'` (not only `code=true`)
+- Accept `skipped` as well as `success` for test/lint jobs (skipped = intentionally not run, not a failure)
+- Block on any actual job `failure`
+
+This directly configures CI/CD to react to `docker=true` — without misclassifying Dockerfiles as "code" files.
 
 Full root cause analysis and timeline in `docs/case-studies/issue-1423/`.

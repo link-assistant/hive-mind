@@ -13,7 +13,7 @@ When PR #1420 was merged to `main` (commit `14fdb8bd`), it changed both `Dockerf
 
 **Root Cause:** The `scripts/detect-code-changes.mjs` script correctly detected `docker=true` but output `code=false` for the same commit. The `codePattern` regex (`/\.(mjs|json|yml|yaml)$|\.github\/workflows\//`) matches only files with specific extensions or workflow paths. `Dockerfile` has no extension, so it was not matched as a "code change." All downstream test jobs and the `release` job require `any-code-changed == 'true'`, so they were all skipped — and since `docker-publish` depends on `release`, no Docker image was published.
 
-**Fix:** Extend the `codePattern` regex in `detect-code-changes.mjs` to also match `Dockerfile`, `coolify/Dockerfile`, and `.dockerignore`. This makes Dockerfile-only commits produce `code=true`, which unblocks the full test → release → Docker publish pipeline.
+**Fix:** Update the `release` job condition in `.github/workflows/release.yml` to also trigger when `docker-changed == 'true'`, accepting `skipped` (not just `success`) for test jobs that were not needed for a Docker-only change. This directly configures CI/CD to react to `docker=true` — without misclassifying Dockerfile as a "code" file.
 
 ---
 
@@ -146,42 +146,67 @@ docker-publish    → skipped (needs release.result == 'success' && published ==
 docker-publish-merge → skipped (needs docker-publish success)
 ```
 
-### Why `docker-changed` Alone Is Not Sufficient
+### Why `docker-changed` Alone Is Not Sufficient (Naively)
 
 The `docker-publish` job intentionally depends on `release` because Docker images are tagged with the npm package version (e.g., `konard/hive-mind:1.30.5`). Publishing a Docker image without a corresponding npm release would result in version mismatches.
 
-Therefore, the correct fix is to ensure that Dockerfile changes are included in `code=true` so that the full test → release → Docker pipeline runs.
+The `release` job requires that test jobs (`test-suites`, `test-execution`, `memory-check-linux`) all succeed. When only Docker files change, these test jobs are rightly skipped (they test JavaScript code, not Docker images). The release job was requiring `success` — but `skipped` is also an acceptable result when there's nothing to test.
+
+Therefore, the correct fix is to update the `release` job condition to:
+1. Accept `skipped` as well as `success` for test/lint jobs (they were skipped because no code changed — that is correct and acceptable).
+2. Also trigger when `docker-changed == 'true'`, not only when `any-code-changed == 'true'`.
 
 ---
 
 ## Fix Applied (PR #1424)
 
-### `scripts/detect-code-changes.mjs`
+### `.github/workflows/release.yml`
 
-The `codePattern` regex was extended to also match Docker-related files:
+The `release` job condition was updated to accept `skipped` for test jobs and also trigger on `docker-changed == 'true'`:
 
 **Before:**
 
-```js
-// Check if any code files changed (.mjs, .json, .yml, .yaml, or workflow files)
-const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
+```yaml
+release:
+  needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
+  if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      needs.lint.result == 'success' &&
+      needs.test-suites.result == 'success' &&
+      needs.test-execution.result == 'success' &&
+      needs.memory-check-linux.result == 'success'
 ```
 
 **After:**
 
-```js
-// Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files, or Docker files)
-const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\/|^(Dockerfile|coolify\/Dockerfile|\.dockerignore)$/;
+```yaml
+release:
+  needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
+  if: |
+    always() &&
+    github.ref == 'refs/heads/main' &&
+    github.event_name == 'push' &&
+    !contains(needs.*.result, 'failure') &&
+    (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+    (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') &&
+    (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') &&
+    (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') &&
+    (needs.detect-changes.outputs.any-code-changed == 'true' ||
+     needs.detect-changes.outputs.docker-changed == 'true' ||
+     needs.detect-changes.outputs.workflow-changed == 'true')
 ```
 
-This ensures that commits touching only Dockerfiles produce `code=true`, triggering the full CI → release → Docker publish pipeline.
+Key changes:
+- **`skipped` is now accepted** for test/lint jobs — correct when those jobs were intentionally skipped.
+- **`docker-changed == 'true'` triggers release** — directly reacting to Docker file changes.
+- **`!contains(needs.*.result, 'failure')`** — ensures that if any job actually ran and failed, release is blocked.
+- **`any-code-changed || docker-changed || workflow-changed`** — prevents release on docs-only pushes.
 
-### Why This Approach
+### Why This Approach Is Better
 
-- **Minimal change**: Only the regex is modified; no workflow logic changes required.
-- **Correct semantics**: Dockerfile changes are real code changes that affect the published artifact. They require tests to run and a new release to be published.
-- **Consistent**: The same docker file patterns from `dockerPattern` are reused in `codePattern`.
-- **No false negatives**: `.dockerignore` and `coolify/Dockerfile` are also covered.
+- **Architecturally correct**: Dockerfiles are Docker artifacts, not JavaScript code. The `docker=true` signal already correctly identifies them. CI/CD should react to that signal directly.
+- **No duplication**: Avoids adding Docker file patterns to `codePattern` (which would create two places to maintain the same list of Docker files).
+- **Explicit intent**: The `release` job now explicitly states that Docker changes are releasable, rather than relying on an indirect hack in change detection.
+- **Safe**: Tests can only be skipped if they were never triggered — i.e., `code=false`. If they were triggered and failed, release is still blocked.
 
 ---
 
@@ -194,22 +219,34 @@ Changed files:
   Dockerfile
 
 docker=true
-code=true   ← now correctly set to true
+code=false   ← still false (Dockerfile is not JS code — correct)
 
-→ test-compilation runs
-→ test-suites runs
-→ release runs (if changesets present)
-→ docker-publish runs
+→ test-compilation SKIPPED (no code changed — correct)
+→ test-suites SKIPPED (no code changed — correct)
+→ release RUNS (docker-changed=true, no failures — fixed!)
+→ docker-publish RUNS
+```
+
+Before the fix:
+```
+release condition: needs.test-suites.result == 'success'  → false (it was skipped)
+→ release SKIPPED ← BUG
+```
+
+After the fix:
+```
+release condition: (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && docker-changed == 'true'
+→ release RUNS ← FIXED
 ```
 
 ---
 
 ## Lessons Learned
 
-1. **Two detection systems for the same files can diverge.** The `dockerPattern` and `codePattern` detect the same Docker files via separate regexes. This duplication created a gap where Docker files were "known" to the docker detector but "invisible" to the code detector.
+1. **React to the right signal.** The `docker=true` signal was already correct. The bug was that `release` only reacted to `code=true`. The fix is to teach `release` to also react to `docker=true`, not to misclassify Docker files as code.
 
-2. **Extensionless files are a regex edge case.** Most file-based CI conditions use extension matching (`*.mjs`, `*.json`). Files without extensions (`Dockerfile`, `Makefile`, `.gitkeep`) require explicit pattern matching.
+2. **`skipped` vs `failure` matters.** GitHub Actions job results are `success`, `failure`, `cancelled`, or `skipped`. A job that was intentionally not triggered (no code to test) returns `skipped` — which is a good outcome. Requiring `== 'success'` for jobs that are legitimately skipped silently blocks the pipeline.
 
 3. **Silent skips are harder to detect than failures.** When jobs are skipped, the CI run still shows `✓ success` overall (if no job explicitly fails). The missing Docker rebuild was only noticed when the container still had the bug after the fix was merged.
 
-4. **Publish pipelines have implicit assumptions about release coupling.** The Docker publish job is correctly coupled to npm release. The fix must ensure the release pipeline is triggered, not bypass the coupling.
+4. **Publish pipelines have implicit assumptions about release coupling.** The Docker publish job is correctly coupled to npm release. The fix ensures the release pipeline is triggered for Docker changes, not that the coupling is bypassed.

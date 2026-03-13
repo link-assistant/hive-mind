@@ -175,11 +175,6 @@ const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncomm
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
 
-// Note: Version and raw command are logged BEFORE parseArguments() (see above)
-// This ensures they appear even if strict validation fails
-// Strict options validation is now handled by yargs .strict() mode in solve.config.lib.mjs
-// This prevents unrecognized options from being silently ignored (issue #453, #482)
-
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
 if (!issueUrl) {

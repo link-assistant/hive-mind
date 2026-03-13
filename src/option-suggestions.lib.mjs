@@ -216,7 +216,8 @@ const KNOWN_OPTION_NAMES = [
   'session-type',
   'working-directory',
   'prompt-ensure-all-requirements-are-met',
-  'auto-ensure-all-requirements-are-met',
+  'finalize',
+  'finalize-model',
 ];
 
 /**

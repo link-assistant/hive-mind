@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Auto-ensure-all-requirements-are-met module for solve.mjs
+ * Finalize module for solve.mjs
  * After the main solve completes, restarts the AI tool N times with a
  * requirements-check prompt to verify all requirements are met.
  *
@@ -29,7 +29,7 @@ const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { executeToolIteration } = restartShared;
 
 /**
- * Runs auto-ensure requirements-check iterations after the main solve.
+ * Runs finalize requirements-check iterations after the main solve.
  *
  * @param {object} params
  * @param {string} params.issueUrl
@@ -44,13 +44,13 @@ const { executeToolIteration } = restartShared;
  * @returns {Promise<{sessionId, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo}|null>}
  */
 export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }) => {
-  const autoEnsureCount = argv.autoEnsureAllRequirementsAreMet;
-  if (!autoEnsureCount || autoEnsureCount <= 0 || !prNumber) {
+  const finalizeCount = argv.finalize;
+  if (!finalizeCount || finalizeCount <= 0 || !prNumber) {
     return null;
   }
 
   await log('');
-  await log(`🔍 AUTO-ENSURE: Starting ${autoEnsureCount} requirements-check restart(s)`);
+  await log(`🔍 FINALIZE: Starting ${finalizeCount} requirements-check restart(s)`);
   await log('   Will restart the AI tool to verify all requirements are met');
   await log('');
 
@@ -70,10 +70,13 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
   let publicPricingEstimate;
   let pricingInfo;
 
-  for (let ensureIteration = 1; ensureIteration <= autoEnsureCount; ensureIteration++) {
-    await log(`🔄 AUTO-ENSURE iteration ${ensureIteration}/${autoEnsureCount}: Restarting to verify requirements...`);
+  // Use --finalize-model if provided, otherwise fall back to --model
+  const finalizeModel = argv.finalizeModel || argv.model;
 
-    const ensureFeedbackLines = ['', '='.repeat(60), '🔍 AUTO-ENSURE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
+  for (let ensureIteration = 1; ensureIteration <= finalizeCount; ensureIteration++) {
+    await log(`🔄 FINALIZE iteration ${ensureIteration}/${finalizeCount}: Restarting to verify requirements...`);
+
+    const ensureFeedbackLines = ['', '='.repeat(60), '🔍 FINALIZE REQUIREMENTS CHECK:', '='.repeat(60), '', 'We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.', ''];
 
     const ensureResult = await executeToolIteration({
       issueUrl,
@@ -87,13 +90,16 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
       feedbackLines: ensureFeedbackLines,
       argv: {
         ...argv,
+        // Override model with finalize-model for this iteration
+        model: finalizeModel,
+        // Enable prompt-ensure only during finalize cycle (not the first regular run)
         promptEnsureAllRequirementsAreMet: true,
-        // Prevent recursive auto-ensure
-        autoEnsureAllRequirementsAreMet: 0,
+        // Prevent recursive finalize
+        finalize: 0,
       },
     });
 
-    // Update session data from ensure restart
+    // Update session data from finalize restart
     if (ensureResult) {
       if (ensureResult.sessionId) sessionId = ensureResult.sessionId;
       if (ensureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = ensureResult.anthropicTotalCostUSD;
@@ -101,7 +107,7 @@ export const runAutoEnsureRequirements = async ({ issueUrl, owner, repo, issueNu
       if (ensureResult.pricingInfo) pricingInfo = ensureResult.pricingInfo;
     }
 
-    await log(`✅ AUTO-ENSURE iteration ${ensureIteration}/${autoEnsureCount} complete`);
+    await log(`✅ FINALIZE iteration ${ensureIteration}/${finalizeCount} complete`);
     await log('');
   }
 

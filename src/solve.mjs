@@ -1293,7 +1293,7 @@ try {
     }
   }
 
-  // Issue #1383: --auto-ensure-all-requirements-are-met
+  // Issue #1383: --finalize
   const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
   if (autoEnsureResult) {
     if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;

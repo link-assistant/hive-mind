@@ -308,10 +308,6 @@ function isOldMessage(ctx) {
   return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
 }
 
-function isGroupChat(ctx) {
-  return _isGroupChat(ctx);
-}
-
 function isForwardedOrReply(ctx) {
   return _isForwardedOrReply(ctx, { verbose: VERBOSE });
 }
@@ -591,11 +587,6 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   }
 }
 
-// Wrapper for extractGitHubUrl - extracted to telegram-message-filters.lib.mjs (issue #1325)
-function extractGitHubUrl(text) {
-  return _extractGitHubUrl(text, { parseGitHubUrl, cleanNonPrintableChars });
-}
-
 bot.command('help', async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /help command received');
@@ -720,7 +711,7 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not a group chat');
     }
@@ -774,7 +765,7 @@ bot.command('version', async ctx => {
     data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
   const chatId = ctx.chat.id;
   if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
@@ -792,7 +783,7 @@ registerAcceptInvitesCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
 });
@@ -803,7 +794,7 @@ registerMergeCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
 });
@@ -814,7 +805,7 @@ const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
   getSolveQueue,
@@ -868,7 +859,7 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: not a group chat');
     }
@@ -907,7 +898,7 @@ async function handleSolveCommand(ctx) {
     }
 
     const replyText = message.reply_to_message.text || '';
-    const extraction = extractGitHubUrl(replyText);
+    const extraction = _extractGitHubUrl(replyText, { parseGitHubUrl, cleanNonPrintableChars });
 
     if (extraction.error) {
       // Multiple links found
@@ -1084,7 +1075,7 @@ async function handleHiveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not a group chat');
     }
@@ -1188,7 +1179,7 @@ registerTopCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
 });
 

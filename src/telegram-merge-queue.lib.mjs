@@ -408,11 +408,22 @@ export class MergeQueueProcessor {
                 await this.onProgress(this.getProgressUpdate());
               }
             },
+            // Issue #1407: Pass cancellation check so CI wait can abort early
+            isCancelled: () => this.isCancelled,
           },
           this.verbose
         );
 
         if (!waitResult.success) {
+          // Issue #1407: If cancelled during CI wait, mark as skipped (not failed)
+          // so the queue can cleanly stop without misleading failure statistics
+          if (waitResult.status === 'cancelled') {
+            item.status = MergeItemStatus.SKIPPED;
+            item.error = 'Cancelled';
+            this.stats.skipped++;
+            this.log(`Skipped PR #${item.pr.number}: cancelled during CI wait`);
+            return;
+          }
           item.status = MergeItemStatus.FAILED;
           item.error = waitResult.error;
           this.stats.failed++;
@@ -685,6 +696,11 @@ export class MergeQueueProcessor {
     message += `${progressBar} ${update.progress.percentage}%\n`;
     message += `${update.progress.processed}/${update.progress.total} PRs processed\n`;
     message += '```\n\n';
+
+    // Issue #1407: Show cancelling indicator when cancellation requested but queue still running
+    if (this.isCancelled) {
+      message += `🛑 *Cancelling\\.\\.\\.*\n\n`;
+    }
 
     // Status summary with emojis
     message += `✅ Merged: ${update.stats.merged}  `;

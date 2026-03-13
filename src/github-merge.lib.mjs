@@ -751,11 +751,15 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
     onStatusUpdate = null,
     // Issue #1269: Add timeout for callback to prevent infinite blocking
     callbackTimeout = 60 * 1000, // 1 minute max for callback
+    isCancelled = null, // Issue #1407: Support early exit when cancellation is requested
   } = options;
 
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // Issue #1407: Check for cancellation before each poll to allow early exit
+    if (isCancelled?.()) return { success: false, status: 'cancelled', error: 'Operation was cancelled' };
+
     let ciStatus;
     try {
       ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);

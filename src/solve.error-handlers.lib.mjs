@@ -156,6 +156,45 @@ export const createUnhandledRejectionHandler = options => {
 };
 
 /**
+ * Handles the case where no PR is available when one is required
+ */
+export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned }) => {
+  await log('');
+  await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
+  await log('');
+  await log('  🔍 What happened:');
+  if (isContinueMode) {
+    await log('     Continue mode is active but no PR number is available.');
+    await log('     This usually means PR creation failed or was skipped incorrectly.');
+  } else {
+    await log('     Auto-PR creation is enabled but no PR was created.');
+    await log('     PR creation may have failed without throwing an error.');
+  }
+  await log('');
+  await log('  💡 Why this is critical:');
+  await log('     The solve command requires a PR for:');
+  await log('     • Tracking work progress');
+  await log('     • Receiving and processing feedback');
+  await log('     • Managing code changes');
+  await log('     • Auto-merging when complete');
+  await log('');
+  await log('  🔧 How to fix:');
+  await log('');
+  await log('  Option 1: Create PR manually and use --continue');
+  await log(`     cd ${tempDir}`);
+  await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
+  await log('     # Then use the PR URL with solve.mjs');
+  await log('');
+  await log('  Option 2: Start fresh without continue mode');
+  await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
+  await log('');
+  await log('  Option 3: Disable auto-PR creation (Claude will create it)');
+  await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
+  await log('');
+  await safeExit(1, 'No PR available');
+};
+
+/**
  * Handles execution errors in the main catch block
  */
 export const handleMainExecutionError = async options => {

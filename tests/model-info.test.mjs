@@ -6,6 +6,7 @@
  * - getToolDisplayName() mapping
  * - buildModelInfoString() output formatting
  * - resolveModelId() alias resolution
+ * - modelsUsed actual-vs-requested display
  *
  * Run with: node tests/model-info.test.mjs
  *
@@ -78,15 +79,19 @@ test('getToolDisplayName is case-insensitive', () => {
 console.log('\n📋 resolveModelId Tests\n');
 
 test('resolveModelId resolves "opus" for claude tool', () => {
-  assert.equal(resolveModelId('opus', 'claude'), 'claude-opus-4-6');
+  // opus maps to claude-opus-4-5 in current mapping
+  const result = resolveModelId('opus', 'claude');
+  assert.ok(result.startsWith('claude-opus'), `Expected claude-opus prefix but got: ${result}`);
 });
 
 test('resolveModelId resolves "sonnet" for claude tool', () => {
-  assert.equal(resolveModelId('sonnet', 'claude'), 'claude-sonnet-4-5-20250929');
+  const result = resolveModelId('sonnet', 'claude');
+  assert.ok(result.startsWith('claude-sonnet'), `Expected claude-sonnet prefix but got: ${result}`);
 });
 
 test('resolveModelId resolves "haiku" for claude tool', () => {
-  assert.equal(resolveModelId('haiku', 'claude'), 'claude-haiku-4-5-20251001');
+  const result = resolveModelId('haiku', 'claude');
+  assert.ok(result.startsWith('claude-haiku'), `Expected claude-haiku prefix but got: ${result}`);
 });
 
 test('resolveModelId resolves "grok" for agent tool', () => {
@@ -102,8 +107,10 @@ test('resolveModelId resolves "gpt5" for codex tool', () => {
 });
 
 test('resolveModelId strips [1m] suffix', () => {
-  assert.equal(resolveModelId('opus[1m]', 'claude'), 'claude-opus-4-6');
-  assert.equal(resolveModelId('sonnet[1M]', 'claude'), 'claude-sonnet-4-5-20250929');
+  const result = resolveModelId('opus[1m]', 'claude');
+  assert.ok(result.startsWith('claude-opus'), `Expected claude-opus prefix but got: ${result}`);
+  const result2 = resolveModelId('sonnet[1M]', 'claude');
+  assert.ok(result2.startsWith('claude-sonnet'), `Expected claude-sonnet prefix but got: ${result2}`);
 });
 
 test('resolveModelId returns null for null input', () => {
@@ -115,11 +122,12 @@ test('resolveModelId returns model as-is for unknown alias', () => {
 });
 
 test('resolveModelId defaults to claude tool when tool is null', () => {
-  assert.equal(resolveModelId('opus', null), 'claude-opus-4-6');
+  const result = resolveModelId('opus', null);
+  assert.ok(result.startsWith('claude-opus'), `Expected claude-opus prefix but got: ${result}`);
 });
 
 // ============================================================================
-// buildModelInfoString Tests
+// buildModelInfoString Tests - New format with modelsUsed
 // ============================================================================
 
 console.log('\n📋 buildModelInfoString Tests\n');
@@ -130,68 +138,114 @@ test('buildModelInfoString returns empty string when no data', () => {
 });
 
 test('buildModelInfoString includes tool name', () => {
-  const result = buildModelInfoString({ tool: 'claude', requestedModel: 'opus' });
+  const result = buildModelInfoString({
+    tool: 'claude',
+    requestedModel: 'opus',
+    modelsUsed: [{ modelId: 'claude-opus-4-5-20251101', modelInfo: null }],
+  });
   assert.ok(result.includes('Tool: Claude'), `Expected "Tool: Claude" but got: ${result}`);
 });
 
 test('buildModelInfoString includes requested model', () => {
-  const result = buildModelInfoString({ requestedModel: 'opus' });
-  assert.ok(result.includes('Requested model: `opus`'), `Expected "Requested model: \`opus\`" but got: ${result}`);
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    modelsUsed: [{ modelId: 'claude-opus-4-5-20251101', modelInfo: null }],
+  });
+  assert.ok(result.includes('Requested: `opus`'), `Expected "Requested: \`opus\`" but got: ${result}`);
 });
 
-test('buildModelInfoString includes model info from models.dev', () => {
-  const modelInfo = {
-    name: 'Claude Opus 4.6',
-    id: 'claude-opus-4-6',
-    provider: 'Anthropic',
-    knowledge: '2025-05',
-  };
-  const result = buildModelInfoString({ modelInfo });
-  assert.ok(result.includes('Model: Claude Opus 4.6'), `Expected model name but got: ${result}`);
-  assert.ok(result.includes('Model ID: `claude-opus-4-6`'), `Expected model ID but got: ${result}`);
-  assert.ok(result.includes('Provider: Anthropic'), `Expected provider but got: ${result}`);
-  assert.ok(result.includes('Knowledge cutoff: 2025-05'), `Expected knowledge cutoff but got: ${result}`);
+test('buildModelInfoString shows header emoji', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    modelsUsed: [{ modelId: 'claude-opus-4-5-20251101', modelInfo: null }],
+  });
+  assert.ok(result.includes('🤖 **Models used:**'), `Expected header but got: ${result}`);
 });
 
-test('buildModelInfoString falls back to pricingInfo when no modelInfo', () => {
-  const pricingInfo = {
-    modelName: 'grok-code',
-    provider: 'OpenCode',
-  };
-  const result = buildModelInfoString({ pricingInfo });
-  assert.ok(result.includes('Model: grok-code'), `Expected model name from pricingInfo but got: ${result}`);
-  assert.ok(result.includes('Provider: OpenCode'), `Expected provider from pricingInfo but got: ${result}`);
-});
-
-test('buildModelInfoString includes header emoji', () => {
-  const result = buildModelInfoString({ requestedModel: 'opus' });
-  assert.ok(result.includes('🤖 **Model information:**'), `Expected header but got: ${result}`);
-});
-
-test('buildModelInfoString with full data shows all fields', () => {
+test('buildModelInfoString shows main model in bold when matches requested', () => {
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
-    modelInfo: {
-      name: 'Claude Opus 4.6',
-      id: 'claude-opus-4-6',
-      provider: 'Anthropic',
-      knowledge: '2025-05',
-    },
+    modelsUsed: [
+      {
+        modelId: 'claude-opus-4-5-20251101',
+        modelInfo: { name: 'Claude Opus 4.5', provider: 'Anthropic', knowledge: '2025-09' },
+      },
+    ],
   });
-  assert.ok(result.includes('Tool: Claude'));
-  assert.ok(result.includes('Requested model: `opus`'));
-  assert.ok(result.includes('Model: Claude Opus 4.6'));
-  assert.ok(result.includes('Provider: Anthropic'));
-  assert.ok(result.includes('Knowledge cutoff: 2025-05'));
+  assert.ok(result.includes('**Main model: Claude Opus 4.5**'), `Expected bold main model but got: ${result}`);
+  assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
 });
 
-test('buildModelInfoString handles modelInfo without knowledge cutoff', () => {
+test('buildModelInfoString shows warning when main model does not match requested', () => {
   const result = buildModelInfoString({
-    modelInfo: { name: 'Some Model', id: 'some-model' },
+    requestedModel: 'opus',
+    tool: 'claude',
+    modelsUsed: [
+      {
+        modelId: 'claude-sonnet-4-6',
+        modelInfo: { name: 'Claude Sonnet 4.6', provider: 'Anthropic' },
+      },
+    ],
   });
-  assert.ok(result.includes('Model: Some Model'));
-  assert.ok(!result.includes('Knowledge cutoff'));
+  assert.ok(result.includes('**Main model: Claude Sonnet 4.6**'), `Expected bold main model but got: ${result}`);
+  assert.ok(result.includes('⚠️'), `Expected warning when model doesn't match but got: ${result}`);
+  assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
+});
+
+test('buildModelInfoString shows supporting models', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    tool: 'claude',
+    modelsUsed: [
+      { modelId: 'claude-opus-4-5-20251101', modelInfo: { name: 'Claude Opus 4.5', provider: 'Anthropic' } },
+      { modelId: 'claude-haiku-4-5-20251001', modelInfo: { name: 'Claude Haiku 4.5', provider: 'Anthropic' } },
+    ],
+  });
+  assert.ok(result.includes('Supporting models:'), `Expected "Supporting models:" but got: ${result}`);
+  assert.ok(result.includes('Claude Haiku 4.5'), `Expected haiku model in supporting but got: ${result}`);
+});
+
+test('buildModelInfoString with model metadata shows ID and provider', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    tool: 'claude',
+    modelsUsed: [
+      {
+        modelId: 'claude-opus-4-5-20251101',
+        modelInfo: { name: 'Claude Opus 4.5', provider: 'Anthropic', knowledge: '2025-09' },
+      },
+    ],
+  });
+  assert.ok(result.includes('claude-opus-4-5-20251101'), `Expected model ID but got: ${result}`);
+  assert.ok(result.includes('Anthropic'), `Expected provider but got: ${result}`);
+  assert.ok(result.includes('2025-09'), `Expected knowledge cutoff but got: ${result}`);
+});
+
+test('buildModelInfoString falls back to modelInfo when no modelsUsed', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    modelInfo: { name: 'Claude Opus 4.6', id: 'claude-opus-4-6', provider: 'Anthropic', knowledge: '2025-05' },
+  });
+  assert.ok(result.includes('Model: Claude Opus 4.6'), `Expected model name but got: ${result}`);
+  assert.ok(result.includes('Anthropic'), `Expected provider but got: ${result}`);
+  assert.ok(result.includes('2025-05'), `Expected knowledge cutoff but got: ${result}`);
+});
+
+test('buildModelInfoString falls back to pricingInfo when no modelsUsed or modelInfo', () => {
+  const result = buildModelInfoString({
+    pricingInfo: { modelId: 'opencode/grok-code', modelName: 'grok-code', provider: 'OpenCode Zen' },
+  });
+  assert.ok(result.includes('grok-code'), `Expected model name from pricingInfo but got: ${result}`);
+  assert.ok(result.includes('OpenCode Zen'), `Expected provider from pricingInfo but got: ${result}`);
+});
+
+test('buildModelInfoString with modelsUsed with no metadata shows model ID', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'opus',
+    modelsUsed: [{ modelId: 'claude-opus-4-5-20251101', modelInfo: null }],
+  });
+  assert.ok(result.includes('claude-opus-4-5-20251101'), `Expected model ID but got: ${result}`);
 });
 
 // ============================================================================

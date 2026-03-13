@@ -126,25 +126,63 @@ export const fetchModelInfoForComment = async modelId => {
 };
 
 /**
+ * Normalize model ID for comparison purposes (strip suffixes, lowercase).
+ * @param {string} modelId - A model ID or alias
+ * @returns {string} Normalized ID
+ */
+const normalizeForComparison = modelId => {
+  if (!modelId) return '';
+  return modelId.toLowerCase().replace(/\[1m\]$/i, '').trim();
+};
+
+/**
+ * Check if a requested model alias matches an actual model ID.
+ * @param {string} requestedModel - The --model flag value (alias or full ID)
+ * @param {string} actualModelId - The actual model ID from CLI output
+ * @param {string|null} tool - The tool being used
+ * @returns {boolean}
+ */
+const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
+  if (!requestedModel || !actualModelId) return false;
+  const resolvedRequested = resolveModelId(requestedModel, tool);
+  const normResolved = normalizeForComparison(resolvedRequested);
+  const normActual = normalizeForComparison(actualModelId);
+  // Direct match
+  if (normResolved === normActual) return true;
+  // Partial match: resolved starts with actual or vice versa (for date-suffixed IDs)
+  if (normActual.startsWith(normResolved) || normResolved.startsWith(normActual)) return true;
+  return false;
+};
+
+/**
  * Build model information string for PR/issue comments.
- * Displays the requested model, actual model metadata from models.dev, and mismatch warnings.
+ * Displays the requested model vs actual models used from CLI JSON output.
+ * The main model is bolded if it matches the requested model.
+ * A warning is shown if the main model doesn't match the requested model.
  *
  * @param {Object} options - Model info options
  * @param {string|null} options.requestedModel - The model requested via --model flag (e.g., "opus")
  * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
- * @param {Object|null} options.pricingInfo - Pricing info from tool result (agent tool provides modelName)
- * @param {Object|null} options.modelInfo - Pre-fetched model metadata from models.dev
+ * @param {Object|null} options.pricingInfo - Pricing info from tool result (agent tool provides modelId)
+ * @param {Object|null} options.modelInfo - Pre-fetched model metadata from models.dev (for first actual model)
+ * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section (empty if no data available)
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null } = {}) => {
-  // Don't show model section when we have no model data at all
+export const buildModelInfoString = ({
+  requestedModel = null,
+  tool = null,
+  pricingInfo = null,
+  modelInfo = null,
+  modelsUsed = null,
+} = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
+  const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
-  const hasPricingModel = pricingInfo?.modelName;
+  const hasPricingModel = pricingInfo?.modelId || pricingInfo?.modelName;
 
-  if (!hasRequested && !hasModelInfo && !hasPricingModel) return '';
+  if (!hasRequested && !hasModelsUsed && !hasModelInfo && !hasPricingModel) return '';
 
-  let info = '\n\n🤖 **Model information:**';
+  let info = '\n\n🤖 **Models used:**';
 
   // Display tool name
   if (tool) {
@@ -153,18 +191,57 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
 
   // Display requested model (--model flag value)
   if (hasRequested) {
-    info += `\n- Requested model: \`${requestedModel}\``;
+    info += `\n- Requested: \`${requestedModel}\``;
   }
 
-  // Display actual model information from models.dev
-  if (hasModelInfo) {
-    if (modelInfo.name) info += `\n- Model: ${modelInfo.name}`;
-    if (modelInfo.id) info += `\n- Model ID: \`${modelInfo.id}\``;
+  if (hasModelsUsed) {
+    // The first model is considered the "main" model
+    const [mainEntry, ...supportingEntries] = modelsUsed;
+    const mainModelId = mainEntry.modelId;
+    const mainModelMeta = mainEntry.modelInfo;
+
+    const mainMatches = hasRequested ? doesRequestedMatchActual(requestedModel, mainModelId, tool) : true;
+
+    // Build main model line
+    const mainModelName = mainModelMeta?.name || mainModelId;
+    const mainModelProvider = mainModelMeta?.provider || null;
+    const mainModelKnowledge = mainModelMeta?.knowledge || null;
+
+    if (mainMatches) {
+      info += `\n- **Main model: ${mainModelName}** (ID: \`${mainModelId}\`${mainModelProvider ? `, ${mainModelProvider}` : ''}${mainModelKnowledge ? `, cutoff: ${mainModelKnowledge}` : ''})`;
+    } else {
+      // Main model doesn't match requested - show warning
+      info += `\n- **Main model: ${mainModelName}** (ID: \`${mainModelId}\`${mainModelProvider ? `, ${mainModelProvider}` : ''}${mainModelKnowledge ? `, cutoff: ${mainModelKnowledge}` : ''})`;
+      if (hasRequested) {
+        info += `\n- ⚠️ **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
+      }
+    }
+
+    // Display supporting models
+    if (supportingEntries.length > 0) {
+      info += '\n- Supporting models:';
+      for (const entry of supportingEntries) {
+        const name = entry.modelInfo?.name || entry.modelId;
+        const provider = entry.modelInfo?.provider || null;
+        info += `\n  - ${name} (\`${entry.modelId}\`${provider ? `, ${provider}` : ''})`;
+      }
+    }
+  } else if (hasModelInfo) {
+    // Fallback: single model info from models.dev (no actual CLI output data)
+    const mainModelName = modelInfo.name || (pricingInfo?.modelId ? pricingInfo.modelId : null) || 'Unknown';
+    info += `\n- Model: ${mainModelName}`;
+    if (modelInfo.id) info += ` (ID: \`${modelInfo.id}\`)`;
     if (modelInfo.provider) info += `\n- Provider: ${modelInfo.provider}`;
     if (modelInfo.knowledge) info += `\n- Knowledge cutoff: ${modelInfo.knowledge}`;
   } else if (hasPricingModel) {
-    // Fallback to pricingInfo if models.dev lookup failed
-    info += `\n- Model: ${pricingInfo.modelName}`;
+    // Fallback to pricingInfo when no models.dev data
+    const modelId = pricingInfo.modelId || null;
+    const modelName = pricingInfo.modelName || modelId || 'Unknown';
+    if (modelId && modelId !== modelName) {
+      info += `\n- Model: ${modelName} (ID: \`${modelId}\`)`;
+    } else {
+      info += `\n- Model: ${modelName}`;
+    }
     if (pricingInfo.provider) info += `\n- Provider: ${pricingInfo.provider}`;
   }
 
@@ -181,15 +258,15 @@ export const resolveModelId = (requestedModel, tool) => {
   if (!requestedModel) return null;
 
   try {
-    // Import dynamically to avoid circular dependency
-    // Use the model maps directly from model-validation.lib.mjs
+    // Use model-mapping.lib.mjs mappings as authoritative source
     const modelMaps = {
       claude: {
-        sonnet: 'claude-sonnet-4-5-20250929',
-        opus: 'claude-opus-4-6',
+        sonnet: 'claude-sonnet-4-6',
+        opus: 'claude-opus-4-5-20251101',
         haiku: 'claude-haiku-4-5-20251001',
         'opus-4-6': 'claude-opus-4-6',
         'opus-4-5': 'claude-opus-4-5-20251101',
+        'sonnet-4-6': 'claude-sonnet-4-6',
         'sonnet-4-5': 'claude-sonnet-4-5-20250929',
         'haiku-4-5': 'claude-haiku-4-5-20251001',
       },
@@ -234,33 +311,53 @@ export const resolveModelId = (requestedModel, tool) => {
 
 /**
  * Fetch model info and build the complete model information string for PR comments.
- * This is the main entry point for adding model info to comments.
+ * Uses actual models from CLI JSON output when available.
  *
  * @param {Object} options
  * @param {string|null} options.requestedModel - The --model flag value
  * @param {string|null} options.tool - The tool used (claude, agent, opencode, codex)
  * @param {Object|null} options.pricingInfo - Pricing info from tool result
+ * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
+ *   For Claude: from tokenUsage.modelUsage keys (model IDs used in session)
+ *   For Agent: from pricingInfo.modelId
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null } = {}) => {
-  // Resolve model ID from alias
-  const resolvedModelId = resolveModelId(requestedModel, tool);
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null } = {}) => {
+  // Determine the list of actual model IDs to display
+  // Priority: explicit actualModelIds > pricingInfo.modelId > resolve from requestedModel
+  let modelIds = [];
 
-  // Try to fetch detailed model info from models.dev
-  let modelInfo = null;
-  if (resolvedModelId) {
+  if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
+    modelIds = actualModelIds;
+  } else if (pricingInfo?.modelId) {
+    // Agent tool provides pricingInfo.modelId as the actual model used
+    modelIds = [pricingInfo.modelId];
+  } else if (requestedModel) {
+    // Fallback: resolve from requested model alias
+    const resolved = resolveModelId(requestedModel, tool);
+    if (resolved) modelIds = [resolved];
+  }
+
+  // Fetch model metadata from models.dev for each model ID
+  const modelsUsed = [];
+  for (const modelId of modelIds) {
+    let meta = null;
     try {
-      modelInfo = await fetchModelInfoForComment(resolvedModelId);
+      meta = await fetchModelInfoForComment(modelId);
     } catch {
-      // Non-critical: continue without models.dev data
       await log('  ⚠️  Could not fetch model info from models.dev', { verbose: true });
     }
+    modelsUsed.push({ modelId, modelInfo: meta });
   }
+
+  // Determine which modelInfo to pass for legacy fallback (first model's metadata)
+  const firstModelInfo = modelsUsed.length > 0 ? modelsUsed[0].modelInfo : null;
 
   return buildModelInfoString({
     requestedModel,
     tool,
     pricingInfo,
-    modelInfo,
+    modelInfo: modelsUsed.length === 0 ? firstModelInfo : null, // only used as fallback when no modelsUsed
+    modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
   });
 };

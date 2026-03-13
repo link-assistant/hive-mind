@@ -15,25 +15,11 @@ import { getToolDisplayName, getModelInfoForComment } from './model-info.lib.mjs
 // Re-export for use by other modules
 export { getToolDisplayName };
 
-/**
- * Build cost estimation string for log comments
- * Issue #1250: Enhanced to show both public pricing estimate and actual provider cost
- *
- * @param {number|null} totalCostUSD - Public pricing estimate
- * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
- * @param {Object|null} pricingInfo - Pricing info from agent tool
- *   - opencodeCost: Actual billed cost from OpenCode Zen (for agent tool)
- *   - isOpencodeFreeModel: Whether OpenCode Zen provides this model for free
- *   - originalProvider: Original provider for pricing reference
- *   - baseModelName: Base model name if pricing was derived from base model (Issue #1250)
- * @returns {string} Formatted cost info string for markdown (empty if no data available)
- */
+/** Build cost estimation string for log comments (Issue #1250) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
-  // Issue #1250: Check for OpenCode Zen actual cost
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
   let costInfo = '\n\n💰 **Cost estimation:**';
@@ -41,15 +27,10 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
-  // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
-    // Only show as completely free if the base model also has no pricing
     if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
       costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
     } else {
-      // Show actual public pricing estimate with original provider reference
-      // Issue #1250: Include base model reference when pricing comes from base model
       let pricingRef = '';
       if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
         pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
@@ -61,7 +42,6 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';
   }
-  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
   if (hasOpencodeCost) {
     if (pricingInfo.isOpencodeFreeModel) {
       costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
@@ -364,26 +344,7 @@ Thank you! 🙏`;
     return false;
   }
 };
-/**
- * Attaches a log file to a GitHub PR or issue as a comment
- * @param {Object} options - Configuration options
- * @param {string} options.logFile - Path to the log file
- * @param {string} options.targetType - 'pr' or 'issue'
- * @param {number} options.targetNumber - PR or issue number
- * @param {string} options.owner - Repository owner
- * @param {string} options.repo - Repository name
- * @param {Function} options.$ - Command execution function
- * @param {Function} options.log - Logging function
- * @param {Function} options.sanitizeLogContent - Function to sanitize log content
- * @param {boolean} [options.verbose=false] - Enable verbose logging
- * @param {string} [options.errorMessage] - Error message to include in comment (for failure logs)
- * @param {string} [options.customTitle] - Custom title for the comment (defaults to "🤖 Solution Draft Log")
- * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
- * @param {string} [options.limitResetTime] - Time when usage limit resets
- * @param {string} [options.toolName] - Name of the tool (claude, codex, opencode)
- * @param {string} [options.resumeCommand] - Command to resume the session
- * @returns {Promise<boolean>} - True if upload succeeded
- */
+/** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 export async function attachLogToGitHub(options) {
   const fs = (await use('fs')).promises;
   const {
@@ -440,6 +401,8 @@ export async function attachLogToGitHub(options) {
     // Calculate token usage if sessionId and tempDir are provided
     // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
     let totalCostUSD = publicPricingEstimate;
+    // Issue #1225: Collect actual model IDs from Claude session JSON output
+    let actualModelIds = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
@@ -451,6 +414,13 @@ export async function attachLogToGitHub(options) {
               await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
             }
           }
+          // Extract actual model IDs from session data (Issue #1225)
+          if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
+            actualModelIds = Object.keys(tokenUsage.modelUsage);
+            if (verbose) {
+              await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
+            }
+          }
         }
       } catch (tokenError) {
         // Don't fail the entire upload if token calculation fails
@@ -459,11 +429,15 @@ export async function attachLogToGitHub(options) {
         }
       }
     }
-    // Issue #1225: Fetch model information for comment
+    // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
+    if (!actualModelIds && pricingInfo?.modelId) {
+      actualModelIds = [pricingInfo.modelId];
+    }
+    // Issue #1225: Fetch model information for comment using actual models from CLI output
     let modelInfoString = '';
-    if (requestedModel || tool) {
+    if (requestedModel || tool || actualModelIds) {
       try {
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo });
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }

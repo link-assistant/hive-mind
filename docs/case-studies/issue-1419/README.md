@@ -168,6 +168,7 @@ Docker's `ENV` instruction sets environment variables that persist across layer 
 In **both** `Dockerfile` and `coolify/Dockerfile`, the playwright install-deps section was updated:
 
 **Before:**
+
 ```dockerfile
 # Install Playwright OS dependencies (requires root)
 USER root
@@ -177,6 +178,7 @@ USER hive
 ```
 
 **After:**
+
 ```dockerfile
 # Install Playwright OS dependencies (requires root)
 # Note: HOME is overridden to /root to prevent root processes from creating

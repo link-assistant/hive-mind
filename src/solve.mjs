@@ -65,6 +65,7 @@ const { formatResetTimeWithRelative } = await import('./usage-limit.lib.mjs');
 const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = await import('./solve.error-handlers.lib.mjs');
 const { startWatchMode } = await import('./solve.watch.lib.mjs');
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
+const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = await import('./exit-handler.lib.mjs');
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
@@ -150,11 +151,6 @@ const cleanupWrapper = async () => {
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
-
-// Note: Version and raw command are logged BEFORE parseArguments() (see above)
-// This ensures they appear even if strict validation fails
-// Strict options validation is now handled by yargs .strict() mode in solve.config.lib.mjs
-// This prevents unrecognized options from being silently ignored (issue #453, #482)
 
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
@@ -472,8 +468,6 @@ if (isPrUrl) {
       }
     }
     await log(`📝 PR branch: ${prBranch}`);
-    // Extract issue number from PR body using GitHub linking detection library
-    // This ensures we only detect actual GitHub-recognized linking keywords
     const prBody = prData.body || '';
     const extractedIssueNumber = extractLinkedIssueNumber(prBody);
     if (extractedIssueNumber) {
@@ -598,9 +592,6 @@ try {
     // prNumber is already set from earlier when we parsed the PR
   }
 
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
-
   // Handle auto PR creation using the new module
   const autoPrResult = await handleAutoPrCreation({
     argv,
@@ -679,9 +670,6 @@ try {
     await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
-
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
 
   // Start work session using the new module
   // Determine session type based on command line flags
@@ -1177,7 +1165,6 @@ try {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
-  // Check for uncommitted changes
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
@@ -1225,11 +1212,6 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  // Pass shouldRestart to prevent early exit when auto-restart is needed
-  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  // Issue #1152: Pass sessionType for differentiated log comments
-  // Issue #1154: Track if logs were already uploaded to prevent duplicates
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
@@ -1282,6 +1264,15 @@ try {
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');
     }
+  }
+
+  // Issue #1383: --finalize
+  const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
+  if (autoEnsureResult) {
+    if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;
+    if (autoEnsureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = autoEnsureResult.anthropicTotalCostUSD;
+    if (autoEnsureResult.publicPricingEstimate) publicPricingEstimate = autoEnsureResult.publicPricingEstimate;
+    if (autoEnsureResult.pricingInfo) pricingInfo = autoEnsureResult.pricingInfo;
   }
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes

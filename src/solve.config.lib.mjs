@@ -374,6 +374,21 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org.',
     default: false,
   },
+  'prompt-ensure-all-requirements-are-met': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Add a prompt hint to the system prompt to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically by --finalize during finalize cycle iterations only.',
+    default: false,
+  },
+  finalize: {
+    type: 'number',
+    description: '[EXPERIMENTAL] After the main solve completes, automatically restart the AI tool N times (default: 1) with a requirements-check prompt to verify all requirements are met. Use --finalize-model to override the model for finalize iterations.',
+    default: 0,
+  },
+  'finalize-model': {
+    type: 'string',
+    description: '[EXPERIMENTAL] Model to use for --finalize iterations. Defaults to the same model as --model.',
+    default: undefined,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication
@@ -532,6 +547,17 @@ export const parseArguments = async (yargs, hideBin) => {
     // Support negated deprecated flag: --no-tool-check becomes --no-tool-connection-check
     if (argv.toolCheck === false) {
       argv.toolConnectionCheck = false;
+    }
+  }
+
+  // --finalize normalization
+  // Issue #1383: When finalize is enabled (as boolean or number), normalize to iteration count
+  // NOTE: promptEnsureAllRequirementsAreMet is NOT set here — it is only enabled during
+  // the finalize cycle iterations themselves (not the first regular worker model run)
+  if (argv && argv.finalize) {
+    // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
+    if (argv.finalize === true) {
+      argv.finalize = 1;
     }
   }
 

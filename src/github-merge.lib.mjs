@@ -751,11 +751,15 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
     onStatusUpdate = null,
     // Issue #1269: Add timeout for callback to prevent infinite blocking
     callbackTimeout = 60 * 1000, // 1 minute max for callback
+    isCancelled = null, // Issue #1407: Support early exit when cancellation is requested
   } = options;
 
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // Issue #1407: Check for cancellation before each poll to allow early exit
+    if (isCancelled?.()) return { success: false, status: 'cancelled', error: 'Operation was cancelled' };
+
     let ciStatus;
     try {
       ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
@@ -769,9 +773,15 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
     }
 
     if (onStatusUpdate) {
-      // Issue #1269: Wrap callback with timeout to prevent infinite blocking
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking; #1346: capture and clear timeout handle to prevent dangling timer
       try {
-        await Promise.race([onStatusUpdate(ciStatus), new Promise((_, reject) => setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout))]);
+        let callbackTimeoutId;
+        await Promise.race([
+          onStatusUpdate(ciStatus),
+          new Promise((_, reject) => {
+            callbackTimeoutId = setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout);
+          }),
+        ]).finally(() => clearTimeout(callbackTimeoutId));
       } catch (callbackError) {
         // Issue #1269: Log callback errors but continue processing
         console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);
@@ -1403,20 +1413,31 @@ export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
  * When a repo has NO workflows, no_checks means no CI configured.
  * When a repo HAS workflows, no_checks means CI checks haven't started yet (race condition).
  *
+ * Issue #1399: GitHub Pages deployment workflows (path: "dynamic/pages/...") are excluded
+ * because they only run on the default branch after merge, never on PR branches. Counting
+ * them as "CI workflows" causes an infinite loop waiting for check-runs that never appear.
+ *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string}>}>}
+ * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string, path: string}>}>}
  */
 export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
   try {
-    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state})'`);
-    const workflows = JSON.parse(stdout.trim() || '[]');
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state, path: .path})'`);
+    const allWorkflows = JSON.parse(stdout.trim() || '[]');
+
+    // Issue #1399: Filter out GitHub Pages deployment workflows.
+    // These have path "dynamic/pages/pages-build-deployment" and only run on the
+    // default branch after merge — they never produce check-runs on PR branches.
+    // Including them causes an infinite loop when waiting for PR CI checks.
+    const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
 
     if (verbose) {
-      console.log(`[VERBOSE] /merge: Found ${workflows.length} active workflows in ${owner}/${repo}`);
-      for (const wf of workflows) {
-        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}`);
+      console.log(`[VERBOSE] /merge: Found ${allWorkflows.length} active workflows in ${owner}/${repo} (${workflows.length} PR-relevant after filtering out GitHub Pages deployment workflows)`);
+      for (const wf of allWorkflows) {
+        const filtered = wf.path.startsWith('dynamic/pages/');
+        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}, path=${wf.path}${filtered ? ' [excluded: GitHub Pages deployment]' : ''}`);
       }
     }
 

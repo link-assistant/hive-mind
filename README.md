@@ -21,18 +21,18 @@ Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
 Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range of tasks - not just programming. Almost anything that can be done with files in a repository can be automated.
 
-| Feature                      | What It Means For You                                                                              |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.             |
-| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                        |
-| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                           |
-| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.               |
-| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                   |
-| **Time Freedom**             | What takes humans 2-8 hours, AI completes in 10-25 minutes. "The code is written while you sleep." |
-| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                              |
-| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                    |
-| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive`. No PC, IDE, or laptop required.               |
-| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                   |
+| Feature                      | What It Means For You                                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.                                                                                     |
+| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                                                                                                |
+| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                                                                                                   |
+| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.                                                                                       |
+| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                                                                                           |
+| **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                                                                                                      |
+| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                                                                                            |
+| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.                                                                      |
+| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                                                                                           |
 
 > _"Compared to Codex for $200, this solution is fire."_ - User feedback
 
@@ -143,7 +143,7 @@ sudo docker run hello-world
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:
 
-**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes) section below.
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
 
 ```bash
 # Pull the latest image from Docker Hub
@@ -264,33 +264,13 @@ df -h # check disk space (to confirm space is freed)
 # tmpfs           1.2G   12K  1.2G   1% /run/user/0
 ```
 
-### Helm Installation (Kubernetes)
+### Helm Installation (Kubernetes) (Experimental)
 
-Deploy Hive Mind on Kubernetes using Helm:
-
-```bash
-# Add the Hive Mind Helm repository
-helm repo add link-assistant https://link-assistant.github.io/hive-mind
-helm repo update
-
-# Install Hive Mind
-helm install hive-mind link-assistant/hive-mind
-
-# Or install with custom values
-helm install hive-mind link-assistant/hive-mind -f values.yaml
-```
-
-**Benefits of Helm:**
-
-- ✅ Easy deployment to Kubernetes clusters
-- ✅ Declarative configuration management
-- ✅ Simple upgrades and rollbacks
-- ✅ Production-ready with configurable resources
-- ✅ Supports multiple replicas and scaling
-
-See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
-
-**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
+> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+>
+> For a more reliable installation, we recommend using [Docker](#using-docker) instead.
+>
+> See [docs/HELM.md](./docs/HELM.md) for the full Helm installation instructions and configuration options.
 
 ### Installation on Ubuntu 24.04 server (Deprecated)
 
@@ -300,7 +280,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 > Docker provides better isolation, easier management, and consistent environments.
 >
 > Please use the [Docker installation method](#using-docker) above.
-> For Kubernetes deployments, see the [Helm installation](#helm-installation-kubernetes) section.
+> For Kubernetes deployments, see the [Helm installation](#helm-installation-kubernetes-experimental) section.
 >
 > The legacy bare-metal installation instructions have been moved to [docs/UBUNTU-SERVER.md](./docs/UBUNTU-SERVER.md) for reference.
 
@@ -308,7 +288,7 @@ See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
 
 ```bash
 # Solve using maximum power
-solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --think max
+solve https://github.com/Veronika89-lang/index.html/issues/1 --attach-logs --verbose --model opus --think max
 
 # Solve GitHub issues automatically
 solve https://github.com/owner/repo/issues/123 --model sonnet
@@ -404,9 +384,9 @@ The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote comman
 
 ### 🚀 Test Drive
 
-Want to see the Hive Mind in action? Join our Telegram channel where you can execute the Hive Mind on your own issues and watch AI solve them:
+Want to see the Hive Mind in action? Request a free demo or get faster support by messaging the developer directly on Telegram:
 
-**[Join https://t.me/hive_mind_pull_requests](https://t.me/hive_mind_pull_requests)**
+**[Message @drakonard on Telegram](https://t.me/drakonard)**
 
 ### Setup
 
@@ -839,6 +819,30 @@ screen -wipe
 screen -ls
 ```
 
+### Top with full arguments of each command
+
+```bash
+top -c
+```
+
+### See the full tree of processes
+
+```bash
+ps -eo pid,ppid,user,args --forest
+```
+
+or
+
+```bash
+ps axjf
+```
+
+### Kill all commands spawned by specific task
+
+```bash
+pkill -f gh-issue-solver-1773073065743
+```
+
 That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License
@@ -847,7 +851,10 @@ Unlicense License - see [LICENSE](./LICENSE)
 
 ## 🏆 Best Practices
 
-Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
+Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
+
+- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
+- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
 
 Key benefits of proper CI/CD:
 

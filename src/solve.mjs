@@ -41,7 +41,7 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -94,6 +94,8 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 // Import model validation library
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
+const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
+const { autoAcceptInviteForRepo } = acceptInviteLib;
 
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
@@ -311,6 +313,11 @@ if (argv.autoFork && !argv.fork) {
     await log('⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository');
     argv.fork = true;
   }
+}
+
+// Accept pending GitHub invitation for the specific repo/org before checking write access
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
 }
 
 // Early check: Verify repository write permissions BEFORE doing any work
@@ -1487,14 +1494,15 @@ try {
     $,
   });
 } finally {
-  // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Show final log file reference (similar to Claude and other agents)
-  // This ensures users always know where to find the complete log file
+  // Show final log file reference so users always know where to find the complete log
   if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
+
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
+  await closeSentry();
 }

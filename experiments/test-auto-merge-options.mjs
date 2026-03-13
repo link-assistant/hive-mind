@@ -2,12 +2,13 @@
 /**
  * Test script for auto-merge and auto-restart-until-mergeable options
  * Tests:
- * 1. --auto-merge (default false)
- * 2. --auto-restart-until-mergeable (default false)
- * 3. --auto-merge implies --auto-restart-until-mergeable
+ * 1. --auto-merge (default false), --auto-restart-until-mergeable (default true since Issue #1360)
+ * 2. --auto-merge (explicit enable)
+ * 3. --auto-restart-until-mergeable (already enabled by default, explicit still works)
  * 4. Options can be used independently
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1190
+ * @see https://github.com/link-assistant/hive-mind/issues/1360
  */
 
 // Use use-m to load modules
@@ -25,7 +26,7 @@ console.log('Testing auto-merge and auto-restart-until-mergeable options configu
 
 let allTestsPassed = true;
 
-// Test 1: Default behavior (both disabled by default)
+// Test 1: Default behavior (auto-merge disabled by default, auto-restart-until-mergeable enabled by default since Issue #1360)
 console.log('Test 1: Default behavior');
 process.argv = ['node', 'test', 'https://github.com/owner/repo/issues/1'];
 try {
@@ -34,10 +35,10 @@ try {
   console.log('  autoRestartUntilMergeable:', argv1.autoRestartUntilMergeable);
 
   const test1a = argv1.autoMerge === false;
-  const test1b = argv1.autoRestartUntilMergeable === false;
+  const test1b = argv1.autoRestartUntilMergeable === true;
 
   console.log('  ✅ Default: auto-merge should be false:', test1a);
-  console.log('  ✅ Default: auto-restart-until-mergeable should be false:', test1b);
+  console.log('  ✅ Default: auto-restart-until-mergeable should be true (enabled by default since Issue #1360):', test1b);
 
   if (!test1a || !test1b) {
     allTestsPassed = false;

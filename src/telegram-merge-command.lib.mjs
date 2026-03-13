@@ -366,7 +366,29 @@ export function registerMergeCommand(bot, options) {
 
     // Cancel the operation
     operation.processor.cancel();
-    await ctx.answerCbQuery('Merge operation cancellation requested. The current PR will finish processing.');
+    // Issue #1407: Acknowledge the cancel with a short toast message
+    await ctx.answerCbQuery('Cancellation requested.');
+
+    // Issue #1407: Immediately hide the cancel button and update the message to show
+    // that the queue is being cancelled. Without this, the button stays visible until
+    // the current PR finishes processing (which can take hours if waiting for CI).
+    try {
+      const cancellingMessage = operation.processor.formatProgressMessage();
+      await ctx.editMessageText(cancellingMessage, {
+        parse_mode: 'MarkdownV2',
+        // No reply_markup = cancel button is removed immediately
+      });
+    } catch (err) {
+      // If the full message edit fails, fall back to just removing the button
+      if (!err.message?.includes('message is not modified')) {
+        VERBOSE && console.log(`[VERBOSE] /merge: Error updating message on cancel: ${err.message}`);
+      }
+      try {
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] });
+      } catch {
+        // Ignore errors - the button will be removed when the operation completes
+      }
+    }
 
     VERBOSE && console.log(`[VERBOSE] /merge: Cancelled operation for ${repoKey}`);
   });

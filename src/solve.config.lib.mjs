@@ -101,13 +101,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'claude-file': {
     type: 'boolean',
-    description: 'Create CLAUDE.md file for task details (default for --tool claude, mutually exclusive with --gitkeep-file)',
-    default: true,
+    description: 'Create CLAUDE.md file for task details (mutually exclusive with --gitkeep-file)',
+    default: false,
   },
   'gitkeep-file': {
     type: 'boolean',
-    description: 'Create .gitkeep file instead of CLAUDE.md (default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
-    default: false,
+    description: 'Create .gitkeep file instead of CLAUDE.md (default for all --tool values, mutually exclusive with --claude-file)',
+    default: true,
   },
   'auto-gitkeep-file': {
     type: 'boolean',
@@ -179,7 +179,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auto-restart-until-mergeable': {
     type: 'boolean',
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
-    default: false,
+    default: true,
   },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',
@@ -245,8 +245,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   sentry: {
     type: 'boolean',
-    description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
-    default: true,
+    description: 'Enable Sentry error tracking and monitoring (disabled by default for privacy; use --sentry to enable)',
+    default: false,
   },
   'auto-cleanup': {
     type: 'boolean',
@@ -369,15 +369,25 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
     default: false,
   },
-  'prompt-ensure-all-requirements-are-met': {
+  'auto-accept-invite': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Add a prompt hint to the system prompt for the case when no explicit feedback or requirements are provided: "We need to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass." Enabled automatically by --auto-ensure-all-requirements-are-met.',
+    description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org.',
     default: false,
   },
-  'auto-ensure-all-requirements-are-met': {
+  'prompt-ensure-all-requirements-are-met': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Add a prompt hint to the system prompt to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically by --finalize during finalize cycle iterations only.',
+    default: false,
+  },
+  finalize: {
     type: 'number',
-    description: '[EXPERIMENTAL] After the main solve completes, automatically restart the AI tool with a prompt to ensure all requirements are met. The numeric value specifies how many times to restart (e.g., --auto-ensure-all-requirements-are-met 2 restarts twice). Implies --prompt-ensure-all-requirements-are-met.',
+    description: '[EXPERIMENTAL] After the main solve completes, automatically restart the AI tool N times (default: 1) with a requirements-check prompt to verify all requirements are met. Use --finalize-model to override the model for finalize iterations.',
     default: 0,
+  },
+  'finalize-model': {
+    type: 'string',
+    description: '[EXPERIMENTAL] Model to use for --finalize iterations. Defaults to the same model as --model.',
+    default: undefined,
   },
 };
 
@@ -410,7 +420,7 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: kimi-k2.5-free, big-pickle, gpt-5-nano, minimax-m2.5-free, glm-5-free, deepseek-r1-free)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: minimax-m2.5-free, big-pickle, gpt-5-nano, glm-5-free, deepseek-r1-free)',
       alias: 'm',
       default: currentParsedArgs => {
         // Dynamic default based on tool selection
@@ -419,7 +429,7 @@ export const createYargsConfig = yargsInstance => {
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
-          return 'kimi-k2.5-free';
+          return 'minimax-m2.5-free';
         }
         return 'sonnet';
       },
@@ -540,16 +550,14 @@ export const parseArguments = async (yargs, hideBin) => {
     }
   }
 
-  // --auto-ensure-all-requirements-are-met normalization and implies
-  // Issue #1383: When auto-ensure is enabled (as boolean or number), normalize and enable prompt
-  if (argv && argv.autoEnsureAllRequirementsAreMet) {
+  // --finalize normalization
+  // Issue #1383: When finalize is enabled (as boolean or number), normalize to iteration count
+  // NOTE: promptEnsureAllRequirementsAreMet is NOT set here — it is only enabled during
+  // the finalize cycle iterations themselves (not the first regular worker model run)
+  if (argv && argv.finalize) {
     // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
-    if (argv.autoEnsureAllRequirementsAreMet === true) {
-      argv.autoEnsureAllRequirementsAreMet = 1;
-    }
-    // Implies --prompt-ensure-all-requirements-are-met
-    if (argv.autoEnsureAllRequirementsAreMet > 0) {
-      argv.promptEnsureAllRequirementsAreMet = true;
+    if (argv.finalize === true) {
+      argv.finalize = 1;
     }
   }
 
@@ -561,21 +569,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'gpt-5';
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'kimi-k2.5-free';
-  }
-
-  // Tool-specific defaults for --claude-file and --gitkeep-file
-  // For non-Claude tools, use .gitkeep by default to avoid polluting CLAUDE.md
-  // (CLAUDE.md has special meaning for Claude Code as a project-level instruction file)
-  // See: https://github.com/link-assistant/hive-mind/issues/1158
-  const claudeFileExplicitlyProvided = rawArgs.includes('--claude-file') || rawArgs.includes('--no-claude-file');
-  const gitkeepFileExplicitlyProvided = rawArgs.includes('--gitkeep-file') || rawArgs.includes('--no-gitkeep-file');
-
-  if (argv.tool !== 'claude' && !claudeFileExplicitlyProvided && !gitkeepFileExplicitlyProvided) {
-    // User did not explicitly provide either option, so use the correct defaults for non-Claude tools
-    // Non-Claude tools (agent, opencode, codex) should use .gitkeep by default
-    argv.claudeFile = false;
-    argv.gitkeepFile = true;
+    argv.model = 'minimax-m2.5-free';
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file
@@ -611,7 +605,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.claudeFile = false;
   }
 
-  // If user explicitly set --no-gitkeep-file, enable claude-file (this is the default anyway)
+  // If user explicitly set --no-gitkeep-file, enable claude-file
   if (noGitkeepFile && !argv.claudeFile) {
     argv.claudeFile = true;
     argv.gitkeepFile = false;

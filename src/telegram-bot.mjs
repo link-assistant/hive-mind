@@ -26,7 +26,7 @@ const dotenvx = dotenvxModule.default || dotenvxModule;
 
 const getenvModule = await use('getenv');
 // Node 24 CJS/ESM interop may return the whole module object instead of the function directly
-const getenv = typeof getenvModule === 'function' ? getenvModule : (getenvModule.default || getenvModule);
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Load .env configuration as base
 // quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist

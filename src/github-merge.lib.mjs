@@ -1473,7 +1473,6 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
-  // Issue #1367: Sync 'ready' tags between linked PRs and issues
   syncReadyTags,
   checkPRCIStatus,
   checkPRMergeable,
@@ -1481,24 +1480,19 @@ export default {
   mergePullRequest,
   waitForCI,
   parseRepositoryUrl,
-  // Issue #1307: New exports for target branch CI waiting
   getActiveBranchRuns,
   waitForBranchCI,
   getDefaultBranch,
-  // Issue #1314: Billing limit detection
   getCheckRunAnnotations,
   getRepoVisibility,
   checkForBillingLimitError,
   BILLING_LIMIT_ERROR_PATTERN,
-  // Issue #1314: Enhanced CI status and re-run capabilities
   getDetailedCIStatus,
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
-  // Issue #1341: Post-merge CI waiting and branch health checking
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
-  // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
   getActiveRepoWorkflows,
 };

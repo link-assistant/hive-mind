@@ -76,8 +76,7 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
-// Initialize log file EARLY to capture all output including version and command
-// Use default directory (cwd) initially, will be set from argv.logDir after parsing
+// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
 // Log version and raw command IMMEDIATELY after log file initialization

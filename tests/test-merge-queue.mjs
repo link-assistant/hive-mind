@@ -12,6 +12,7 @@
 
 import assert from 'node:assert/strict';
 import { parseRepositoryUrl, READY_LABEL, syncReadyTags } from '../src/github-merge.lib.mjs';
+import { extractLinkedIssueNumber } from '../src/github-linking.lib.mjs';
 import { MergeStatus, MergeItemStatus, MERGE_QUEUE_CONFIG, MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
 
 // Test utilities

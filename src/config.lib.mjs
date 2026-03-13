@@ -415,8 +415,6 @@ export const version = {
   default: getenv('HIVE_MIND_VERSION_DEFAULT', '0.14.3'),
 };
 
-// (no additional auto-restart config entries needed for issue #1335 — see solve.auto-merge.lib.mjs)
-
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
 // See: https://github.com/link-assistant/hive-mind/issues/1269

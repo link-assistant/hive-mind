@@ -41,7 +41,7 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -75,6 +75,7 @@ const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
 const { startAutoRestartUntilMergeable } = autoMergeLib;
+const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
 const interruptLib = await import('./solve.interrupt.lib.mjs');
@@ -1270,6 +1271,15 @@ try {
     }
   }
 
+  // Issue #1383: --finalize
+  const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
+  if (autoEnsureResult) {
+    if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;
+    if (autoEnsureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = autoEnsureResult.anthropicTotalCostUSD;
+    if (autoEnsureResult.publicPricingEstimate) publicPricingEstimate = autoEnsureResult.publicPricingEstimate;
+    if (autoEnsureResult.pricingInfo) pricingInfo = autoEnsureResult.pricingInfo;
+  }
+
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');
@@ -1470,8 +1480,18 @@ try {
     await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
 
-  // Issue #1335: Force process exit to prevent indefinite hang after session ends.
-  // Root cause: Sentry's profiling integration keeps the Node.js event loop alive
-  // indefinitely (28h observed). safeExit flushes Sentry (up to 2s) then calls process.exit(0).
-  await safeExit(0, 'Process completed');
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
+  await closeSentry();
+
+  // Issue #1335: Log active handles at exit to diagnose future process hang.
+  if (argv.verbose) {
+    const handles = process._getActiveHandles();
+    const requests = process._getActiveRequests();
+    if (handles.length > 0 || requests.length > 0) {
+      await log(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`, { verbose: true });
+      for (const h of handles) await log(`   Handle: ${h.constructor?.name || typeof h}`, { verbose: true });
+      for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
+    }
+  }
 }

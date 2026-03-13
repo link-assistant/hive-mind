@@ -1,7 +1,7 @@
-# Case Study: Docker Image Permission Denied on `/home/hive/.config`
+# Case Study: Docker Image Permission Denied on `/home/hive/.config` and Version Label Mismatch
 
 **Issue:** [#1419](https://github.com/link-assistant/hive-mind/issues/1419)
-**PR:** [#1420](https://github.com/link-assistant/hive-mind/pull/1420)
+**PRs:** [#1420](https://github.com/link-assistant/hive-mind/pull/1420) (permission fix), [#1427](https://github.com/link-assistant/hive-mind/pull/1427) (version labels + verification)
 **Date:** 2026-03-13
 **Status:** Fix Implemented
 
@@ -245,3 +245,53 @@ When `HOME=/home/hive` is set for a root process, npm writes config to `/home/hi
 3. **Test with `ls -la`** after each `USER root` step during Dockerfile development to catch ownership issues early.
 
 4. **The `coolify/start.sh` runtime fix masked the bug** for Coolify deployments. Standalone containers (used for local testing, CI, and other deployments) were unprotected.
+
+---
+
+## Secondary Issue: Docker Image Version Label Shows "main"
+
+### Problem
+
+From the issue comment, inspecting the published Docker image shows:
+
+```json
+{
+  "org.opencontainers.image.version": "main"
+}
+```
+
+Instead of the actual release version (e.g., `1.31.2`).
+
+### Root Cause
+
+The `docker-publish` and `docker-publish-instant` jobs use `docker/metadata-action@v5` without specifying a `labels` override. The metadata action auto-generates OCI labels from the Git context:
+
+- `org.opencontainers.image.version` defaults to the Git ref name
+- Since the build runs on the `main` branch (after merge), the version label is set to `main`
+
+While the Docker **tags** (`konard/hive-mind:1.31.2`, `konard/hive-mind:latest`) are correctly set in the merge step, the OCI **labels** embedded in the image layers retain the incorrect `main` value.
+
+### Fix (PR #1427)
+
+Added explicit `labels` override to all four `docker/metadata-action` instances in the release workflow:
+
+```yaml
+- name: Extract metadata (tags, labels) for Docker
+  id: meta
+  uses: docker/metadata-action@v5
+  with:
+    images: ${{ env.IMAGE_NAME }}
+    labels: |
+      org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+```
+
+This ensures the `org.opencontainers.image.version` label matches the actual npm/GitHub release version.
+
+### Verification Enhancement (PR #1427)
+
+Added `.config` directory ownership checks to `scripts/verify-docker-image.sh`:
+
+1. Verifies `/home/hive/.config` is owned by `hive` (not root)
+2. Verifies `hive` user can create subdirectories in `.config`
+
+This prevents the permission regression from reoccurring silently.

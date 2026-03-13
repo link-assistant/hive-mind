@@ -1009,23 +1009,13 @@ jobs:
           node scripts/upload-sourcemaps.mjs
 
   # === DOCKER PUBLISH ===
-  # Multi-platform Docker builds using native runners (no QEMU emulation)
-  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
-  # See: docs/case-studies/issue-982/README.md
-  #
-  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
-  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
-  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
-  # - Homebrew ARM64 Linux bottles have limited availability
-  # See: docs/case-studies/issue-998/README.md
+  # Multi-platform builds using native runners (no QEMU). See: docs/case-studies/issue-982/
+  # ARM64 may be slow: actions/runner-images#11790, actions/partner-runner-images#101
+  # See also: docs/case-studies/issue-998/README.md
   docker-publish:
     name: Docker Publish (${{ matrix.platform }})
     needs: [release]
-    # Use !cancelled() instead of always() to allow concurrency cancellation while still
-    # evaluating conditions when dependencies are skipped. This prevents Docker jobs from
-    # blocking subsequent workflow runs when cancel-in-progress is enabled.
-    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    # Original issue refs: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    # !cancelled() allows concurrency cancellation. See: docs/case-studies/issue-1278/
     if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
     # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
     timeout-minutes: 60
@@ -1037,7 +1027,7 @@ jobs:
             runner: ubuntu-latest
             cache_suffix: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm  # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
             cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -1078,6 +1068,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
       - name: Build and push by digest
         id: build
@@ -1147,6 +1140,9 @@ jobs:
           tags: |
             type=raw,value=${{ needs.release.outputs.published_version }}
             type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -1281,7 +1277,7 @@ jobs:
             runner: ubuntu-latest
             cache_suffix: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm  # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
             cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -1318,6 +1314,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
 
       - name: Build and push by digest
         id: build
@@ -1387,6 +1386,9 @@ jobs:
           tags: |
             type=raw,value=${{ needs.instant-release.outputs.published_version }}
             type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests

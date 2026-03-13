@@ -552,6 +552,19 @@ export class MergeQueueProcessor {
         };
       }
 
+      // Issue #1425: If the latest commit's CI is still in progress, wait for it to complete
+      // rather than proceeding immediately. The WAIT_FOR_TARGET_BRANCH_CI step (below) will
+      // also wait, but checking here ensures we don't skip the health check entirely.
+      if (healthResult.pending) {
+        this.log(`Branch ${targetBranch} has ${healthResult.pendingRuns.length} CI run(s) in progress on the latest commit. Will wait for them to complete.`);
+        // Return healthy so the queue proceeds to the waitForTargetBranchCI step which handles waiting
+        return {
+          healthy: true,
+          failedRuns: [],
+          error: null,
+        };
+      }
+
       this.log(`Branch ${targetBranch} CI is healthy. Ready to proceed.`);
       return {
         healthy: true,

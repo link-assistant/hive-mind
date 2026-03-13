@@ -1295,7 +1295,10 @@ export const executeClaudeCommand = async params => {
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
       // log it as "Finished with errors" instead of pure success
-      if (errorDuringExecution) {
+      // Issue #1351: Distinguish interrupted sessions (exit code 130) from normal completion
+      if (exitCode === 130) {
+        await log('\n\n⚠️ Claude command interrupted (CTRL+C)');
+      } else if (errorDuringExecution) {
         await log('\n\n⚠️ Claude command finished with errors');
       } else {
         await log('\n\n✅ Claude command completed');

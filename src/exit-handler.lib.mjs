@@ -25,17 +25,22 @@ let exitMessageShown = false;
 let getLogPathFunction = null;
 let logFunction = null;
 let cleanupFunction = null;
+let interruptFunction = null;
+let interruptHandlerRan = false;
 
 /**
  * Initialize the exit handler with required dependencies
  * @param {Function} getLogPath - Function that returns the current log path
  * @param {Function} log - Logging function
  * @param {Function} cleanup - Optional cleanup function to call on exit
+ * @param {Function} interrupt - Optional interrupt function to call on SIGINT/SIGTERM before cleanup
+ *                               (e.g., auto-commit uncommitted changes, upload logs)
  */
-export const initializeExitHandler = (getLogPath, log, cleanup = null) => {
+export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null) => {
   getLogPathFunction = getLogPath;
   logFunction = log;
   cleanupFunction = cleanup;
+  interruptFunction = interrupt;
 };
 
 /**
@@ -114,6 +119,15 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGINT (CTRL+C)
   process.on('SIGINT', async () => {
+    // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
+    if (interruptFunction && !interruptHandlerRan) {
+      interruptHandlerRan = true;
+      try {
+        await interruptFunction();
+      } catch {
+        // Ignore interrupt handler errors
+      }
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -208,4 +222,5 @@ export const installGlobalExitHandlers = () => {
  */
 export const resetExitHandler = () => {
   exitMessageShown = false;
+  interruptHandlerRan = false;
 };

@@ -69,7 +69,7 @@ const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
@@ -650,39 +650,7 @@ try {
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
-    await log('');
-    await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
-    await log('');
-    await log('  🔍 What happened:');
-    if (isContinueMode) {
-      await log('     Continue mode is active but no PR number is available.');
-      await log('     This usually means PR creation failed or was skipped incorrectly.');
-    } else {
-      await log('     Auto-PR creation is enabled but no PR was created.');
-      await log('     PR creation may have failed without throwing an error.');
-    }
-    await log('');
-    await log('  💡 Why this is critical:');
-    await log('     The solve command requires a PR for:');
-    await log('     • Tracking work progress');
-    await log('     • Receiving and processing feedback');
-    await log('     • Managing code changes');
-    await log('     • Auto-merging when complete');
-    await log('');
-    await log('  🔧 How to fix:');
-    await log('');
-    await log('  Option 1: Create PR manually and use --continue');
-    await log(`     cd ${tempDir}`);
-    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
-    await log('     # Then use the PR URL with solve.mjs');
-    await log('');
-    await log('  Option 2: Start fresh without continue mode');
-    await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
-    await log('');
-    await log('  Option 3: Disable auto-PR creation (Claude will create it)');
-    await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
-    await log('');
-    await safeExit(1, 'No PR available');
+    await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned });
   }
 
   if (isContinueMode) {
@@ -1495,4 +1463,15 @@ try {
   // Issue #1346: Flush Sentry events before exit.
   // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
   await closeSentry();
+
+  // Issue #1335: Log active handles at exit to diagnose future process hang.
+  if (argv.verbose) {
+    const handles = process._getActiveHandles();
+    const requests = process._getActiveRequests();
+    if (handles.length > 0 || requests.length > 0) {
+      await log(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`, { verbose: true });
+      for (const h of handles) await log(`   Handle: ${h.constructor?.name || typeof h}`, { verbose: true });
+      for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
+    }
+  }
 }

@@ -1,5 +1,52 @@
 # @link-assistant/hive-mind
 
+## 1.31.0
+
+### Minor Changes
+
+- feat: add --finalize option (Issue #1383)
+
+  Adds new experimental CLI options to the `solve` command:
+  - `--finalize [N]`: After the main solve completes, automatically restarts the AI tool N times (default: 1 when used as a flag) with a requirements-check prompt to verify all requirements are met. Uses the same model as `--model` by default.
+  - `--finalize-model`: Override the model used during `--finalize` iterations (defaults to `--model`).
+  - `--prompt-ensure-all-requirements-are-met`: Adds a system prompt hint in the "Self review" section instructing the AI to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically during `--finalize` iterations only (not the first regular run).
+
+  This forces the AI tool to double-check itself after the main solve, verifying changes meet all requirements from the issue description and PR comments, and that CI/CD checks pass.
+
+  feat: auto-commit uncommitted changes and upload log on CTRL+C interrupt (Issue #1351)
+
+  Previously, when a user pressed CTRL+C to interrupt a running solve session, uncommitted changes were silently lost (or left uncommitted) and log files were not uploaded to the PR/issue even when `--attach-logs` was enabled. Additionally, the terminal showed "Claude command completed" instead of "Claude command interrupted".
+
+  Now on CTRL+C:
+  1. **Auto-commit**: Any uncommitted changes in the working directory are automatically committed and pushed to the branch before cleanup occurs.
+  2. **Log upload**: If `--attach-logs` is enabled, the log file is automatically uploaded to the GitHub PR/issue as a comment.
+  3. **Accurate message**: The terminal now correctly shows "Claude command interrupted" instead of "Claude command completed" when the process exits with code 130 (SIGINT).
+
+  Changes made:
+  - `src/exit-handler.lib.mjs`: Added optional `interrupt` parameter to `initializeExitHandler()`; SIGINT handler now calls it before cleanup, guarded against double invocation
+  - `src/solve.mjs`: Extended `cleanupContext` with branch/PR/owner/repo fields; new `interruptWrapper` auto-commits and uploads logs on CTRL+C
+  - `src/claude.lib.mjs`, `src/opencode.lib.mjs`, `src/codex.lib.mjs`, `src/agent.lib.mjs`: Detect exit code 130 and print "interrupted" instead of "completed"
+
+  Full case study analysis including timeline reconstruction, root cause analysis, and implementation details in `docs/case-studies/issue-1351/`.
+
+  fix: prevent false positive ready tag sync by using issue timeline API (Issue #1413)
+
+  Previously, `syncReadyTags()` used a GitHub full-text body search to find PRs linked to an issue:
+
+  ```js
+  gh pr list --search "in:body closes #1411 OR fixes #1411 OR resolves #1411"
+  ```
+
+  This caused a false positive: PR #843 matched because `1411` appeared as a source code line reference inside its body, not as a genuine issue-closing keyword.
+
+  Now uses the GitHub issue timeline API (`GET /repos/{owner}/{repo}/issues/{issue_number}/timeline`) to find PRs with genuine `cross-referenced` events, which is the same data GitHub uses to auto-close issues when PRs are merged.
+
+  fix: hide cancel button and show cancelling state on /merge cancel (Issue #1407)
+
+  When user clicked the "🛑 Cancel" button during `/merge` queue processing, the cancel button remained visible in the Telegram message until the current PR finished processing (potentially hours if waiting for CI). The toast message "The current PR will finish processing" was also confusing.
+
+  The fix immediately hides the cancel button by editing the message without `reply_markup`, shows a "🛑 Cancelling..." indicator in the progress message when cancellation is requested, and adds `isCancelled` support to `waitForCI()` for early exit when the operation is cancelled.
+
 ## 1.30.5
 
 ### Patch Changes

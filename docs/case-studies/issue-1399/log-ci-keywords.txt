@@ -1,0 +1,2 @@
+head: invalid option -- 'l'
+Try 'head --help' for more information.

@@ -1,0 +1,62 @@
+{
+  "events": [
+    {
+      "time": "2026-02-13T12:10:43Z",
+      "event": "PR #1264 merged",
+      "commit": "9e53458",
+      "note": "Merge pull request #1264"
+    },
+    {
+      "time": "2026-02-13T12:10:47Z",
+      "event": "Workflow run 21986352082 started",
+      "commit": "9e53458",
+      "note": "Push event for PR #1264 merge"
+    },
+    {
+      "time": "2026-02-13T12:16:25Z",
+      "event": "PR #1273 commit added",
+      "commit": "9371610",
+      "note": "fix: add --merge flag to gh pr merge command"
+    },
+    {
+      "time": "2026-02-13T12:16:45Z",
+      "event": "Release job started",
+      "commit": "9e53458",
+      "note": "Release job in run 21986352082"
+    },
+    {
+      "time": "2026-02-13T12:17:05Z",
+      "event": "v1.22.0 released",
+      "commit": "a203eee",
+      "note": "Version 1.22.0 published to npm"
+    },
+    {
+      "time": "2026-02-13T12:17:30Z",
+      "event": "Docker publish amd64 started",
+      "note": "Completed successfully"
+    },
+    {
+      "time": "2026-02-13T12:17:33Z",
+      "event": "Docker publish arm64 started",
+      "note": "Still in progress - stuck at build step"
+    },
+    {
+      "time": "2026-02-13T12:19:22Z",
+      "event": "PR #1272 merged",
+      "commit": "969f7a9",
+      "note": "fix: show all related PRs in release notes"
+    },
+    {
+      "time": "2026-02-13T12:32:05Z",
+      "event": "PR #1273 merged",
+      "commit": "64d9b79",
+      "note": "fix: add --merge flag to gh pr merge command"
+    },
+    {
+      "time": "2026-02-13T12:32:08Z",
+      "event": "Workflow run 21986955037 queued (BLOCKED)",
+      "commit": "64d9b79",
+      "note": "Blocked due to concurrency with run 21986352082"
+    }
+  ]
+}

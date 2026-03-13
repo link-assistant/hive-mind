@@ -41,7 +41,7 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -74,9 +74,11 @@ const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleM
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
 const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
-const { startAutoRestartUntilMergable } = autoMergeLib;
+const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const interruptLib = await import('./solve.interrupt.lib.mjs');
+const { createInterruptWrapper } = interruptLib;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
 // Import new modular components
@@ -94,6 +96,8 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 // Import model validation library
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
+const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
+const { autoAcceptInviteForRepo } = acceptInviteLib;
 
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
@@ -160,15 +164,15 @@ if (argv.sentry) {
     },
   });
 }
-// Create a cleanup wrapper that will be populated with context later
-let cleanupContext = { tempDir: null, argv: null, limitReached: false };
+// Create cleanup/interrupt wrappers populated with context as solve progresses
+let cleanupContext = { tempDir: null, argv: null, limitReached: false, branchName: null, prNumber: null, owner: null, repo: null };
 const cleanupWrapper = async () => {
   if (cleanupContext.tempDir && cleanupContext.argv) {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
 };
-// Initialize the exit handler with getAbsoluteLogPath function and cleanup wrapper
-initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper);
+const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
+initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
 
 // Note: Version and raw command are logged BEFORE parseArguments() (see above)
@@ -191,9 +195,11 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers early
+// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
 const errorHandlerOptions = {
   log,
@@ -313,6 +319,11 @@ if (argv.autoFork && !argv.fork) {
   }
 }
 
+// Accept pending GitHub invitation for the specific repo/org before checking write access
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+}
+
 // Early check: Verify repository write permissions BEFORE doing any work
 // This prevents wasting AI tokens when user doesn't have access and --fork is not used
 const { checkRepositoryWritePermission } = githubLib;
@@ -347,6 +358,7 @@ let prBranch;
 let mergeStateStatus;
 let prState;
 let forkOwner = null;
+let forkRepoName = null;
 let isContinueMode = false;
 // Auto-continue logic: check for existing PRs if --auto-continue is enabled
 const autoContinueResult = await processAutoContinueForIssue(argv, isIssueUrl, urlNumber, owner, repo);
@@ -376,9 +388,9 @@ if (autoContinueResult.isContinueMode) {
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
-          // Get actual fork repository name (may be prefixed)
-          const forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+          // Get actual fork repository name (may be prefixed) and store for use in setupRepository
+          forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
+          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -456,9 +468,9 @@ if (isPrUrl) {
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
-      // Get actual fork repository name (may be prefixed)
-      const forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : repo;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+      // Get actual fork repository name and store for use in setupRepository
+      forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
+      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -516,9 +528,12 @@ if (isPrUrl) {
 // Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers
+// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
+if (prNumber) cleanupContext.prNumber = prNumber;
 // Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
@@ -529,6 +544,7 @@ try {
     owner,
     repo,
     forkOwner,
+    forkRepoName,
     tempDir,
     isContinueMode,
     issueUrl,
@@ -561,6 +577,7 @@ try {
     repo,
     prNumber,
   });
+  cleanupContext.branchName = branchName;
 
   // Auto-merge default branch to pull request branch if enabled
   let autoMergeFeedbackLines = [];
@@ -638,6 +655,7 @@ try {
       claudeCommitHash = autoPrResult.claudeCommitHash;
     }
   }
+  if (prNumber) cleanupContext.prNumber = prNumber;
 
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
@@ -910,6 +928,7 @@ try {
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
+  let resultSummary = toolResult.resultSummary || null; // Issue #1263: Capture result summary for --attach-solution-summary
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1085,7 +1104,10 @@ try {
             // See: https://github.com/link-assistant/hive-mind/issues/1152
             const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
             const continueDescription = limitContinueMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
+            // Format reset time with relative time and UTC for better user understanding
+            // See: https://github.com/link-assistant/hive-mind/issues/1236
+            const waitingResetTimeFormatted = formatResetTimeWithRelative(global.limitResetTime, global.limitTimezone || null) || global.limitResetTime;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1117,7 +1139,9 @@ try {
     }
 
     // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
-    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+    // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
+    // This aligns with the pattern in handleFailure() in solve.error-handlers.lib.mjs
+    if (shouldAttachLogs && global.createdPR && global.createdPR.number) {
       await log('\n📄 Attaching failure logs to Pull Request...');
       try {
         // Build Claude CLI resume command
@@ -1191,6 +1215,41 @@ try {
 
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+
+  // Issue #1263: Handle solution summary attachment
+  // --attach-solution-summary: Always attach if result summary is available
+  // --auto-attach-solution-summary: Only attach if AI didn't create any comments during session
+  if (success && resultSummary && (argv.attachSolutionSummary || argv.autoAttachSolutionSummary)) {
+    let shouldAttachSummary = false;
+
+    if (argv.attachSolutionSummary) {
+      // Explicit flag - always attach
+      shouldAttachSummary = true;
+      await log('📝 --attach-solution-summary enabled, attaching result summary...');
+    } else if (argv.autoAttachSolutionSummary) {
+      // Auto mode - only attach if AI didn't create comments
+      await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+      const aiCreatedComments = await checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber);
+      if (aiCreatedComments) {
+        await log('ℹ️  AI created comments during session, skipping solution summary attachment');
+      } else {
+        shouldAttachSummary = true;
+        await log('📝 No AI comments detected, attaching solution summary...');
+      }
+    }
+
+    if (shouldAttachSummary) {
+      await attachSolutionSummary({
+        resultSummary,
+        prNumber,
+        issueNumber,
+        owner,
+        repo,
+      });
+    }
+  } else if ((argv.attachSolutionSummary || argv.autoAttachSolutionSummary) && !resultSummary) {
+    await log('ℹ️  No solution summary available from AI tool output', { verbose: true });
+  }
 
   // Search for newly created pull requests and comments
   // Pass shouldRestart to prevent early exit when auto-restart is needed
@@ -1338,7 +1397,10 @@ try {
 
     // Attach updated logs to PR after auto-restart completes
     // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
-    if (shouldAttachLogs && prNumber && !logsAlreadyUploaded) {
+    // Issue #1290: Always upload if auto-restart ran but last iteration's logs weren't uploaded
+    //   This ensures final logs are uploaded even when the last iteration failed
+    const autoRestartRanButNotUploaded = watchResult?.autoRestartIterationsRan && !watchResult?.lastIterationLogUploaded;
+    if (shouldAttachLogs && prNumber && (!logsAlreadyUploaded || autoRestartRanButNotUploaded)) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1368,17 +1430,17 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
-    } else if (logsAlreadyUploaded) {
-      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload', { verbose: true });
+    } else if (logsAlreadyUploaded && !autoRestartRanButNotUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload');
       logsAttached = true;
     }
   }
 
-  // Start auto-restart-until-mergable mode if enabled
+  // Start auto-restart-until-mergeable mode if enabled
   // This runs after the normal watch mode completes (if any)
-  // --auto-merge implies --auto-restart-until-mergable
-  if (argv.autoMerge || argv.autoRestartUntilMergable) {
-    const autoMergeResult = await startAutoRestartUntilMergable({
+  // --auto-merge implies --auto-restart-until-mergeable
+  if (argv.autoMerge || argv.autoRestartUntilMergeable) {
+    const autoMergeResult = await startAutoRestartUntilMergeable({
       issueUrl,
       owner,
       repo,
@@ -1396,7 +1458,7 @@ try {
       anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
       if (argv.verbose) {
         await log('');
-        await log('📊 Updated session data from auto-restart-until-mergable mode:', { verbose: true });
+        await log('📊 Updated session data from auto-restart-until-mergeable mode:', { verbose: true });
         await log(`   Session ID: ${sessionId}`, { verbose: true });
         if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
           await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
@@ -1444,14 +1506,15 @@ try {
     $,
   });
 } finally {
-  // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Show final log file reference (similar to Claude and other agents)
-  // This ensures users always know where to find the complete log file
+  // Show final log file reference so users always know where to find the complete log
   if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
+
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
+  await closeSentry();
 }

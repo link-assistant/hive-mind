@@ -51,6 +51,11 @@ export const watchForFeedback = async params => {
   let latestSessionId = null;
   let latestAnthropicCost = null;
 
+  // Issue #1290: Track whether auto-restart iterations actually ran and whether logs were uploaded
+  // This helps solve.mjs decide whether to upload final logs
+  let autoRestartIterationsRan = false;
+  let lastIterationLogUploaded = false;
+
   // Track consecutive API errors for retry limit
   const MAX_API_ERROR_RETRIES = 3;
   let consecutiveApiErrors = 0;
@@ -168,6 +173,8 @@ export const watchForFeedback = async params => {
 
           // Increment auto-restart counter and log restart number
           autoRestartCount++;
+          autoRestartIterationsRan = true; // Issue #1290: Mark that auto-restart iterations ran
+          lastIterationLogUploaded = false; // Reset log upload tracking for new iteration
           const restartLabel = firstIterationInTemporaryMode ? 'Initial restart' : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
           await log(formatAligned('🔄', `${restartLabel}:`, `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
 
@@ -257,6 +264,60 @@ export const watchForFeedback = async params => {
             currentBackoffSeconds = watchInterval;
             await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
           }
+
+          // Issue #1290: Upload failure logs for auto-restart iterations when --attach-logs is enabled
+          // This ensures that failed auto-restart sessions still report their logs
+          const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
+          if (isTemporaryWatch && prNumber && shouldAttachLogs) {
+            await log('');
+            await log(formatAligned('📎', 'Uploading auto-restart failure log...', ''));
+            try {
+              const logFile = getLogFile();
+              if (logFile) {
+                // Use "Auto-restart X/Y Failure Log" format to distinguish from success logs
+                const customTitle = `⚠️ Auto-restart ${autoRestartCount}/${maxAutoRestartIterations} Failure Log`;
+                const logUploadSuccess = await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  customTitle,
+                  sessionId: toolResult.sessionId || latestSessionId,
+                  tempDir,
+                  // Include error information in the log upload
+                  errorMessage: toolResult.errorInfo?.message || toolResult.result || `${argv.tool.toUpperCase()} execution failed`,
+                  // Include pricing data if available from failed attempt
+                  publicPricingEstimate: toolResult.publicPricingEstimate,
+                  pricingInfo: toolResult.pricingInfo,
+                  // Mark if this was a usage limit failure
+                  isUsageLimit: toolResult.limitReached,
+                  limitResetTime: toolResult.limitResetTime,
+                });
+
+                if (logUploadSuccess) {
+                  await log(formatAligned('', '✅ Auto-restart failure log uploaded to PR', '', 2));
+                  lastIterationLogUploaded = true; // Issue #1290: Mark that logs were uploaded
+                } else {
+                  await log(formatAligned('', '⚠️  Could not upload auto-restart failure log', '', 2));
+                }
+              }
+            } catch (logUploadError) {
+              reportError(logUploadError, {
+                context: 'attach_auto_restart_failure_log',
+                prNumber,
+                owner,
+                repo,
+                autoRestartCount,
+                operation: 'upload_failure_log',
+              });
+              await log(formatAligned('', `⚠️  Log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
         } else {
           // Success - reset error counters
           consecutiveApiErrors = 0;
@@ -309,6 +370,7 @@ export const watchForFeedback = async params => {
 
                 if (logUploadSuccess) {
                   await log(formatAligned('', '✅ Auto-restart session log uploaded to PR', '', 2));
+                  lastIterationLogUploaded = true; // Issue #1290: Mark that logs were uploaded
                 } else {
                   await log(formatAligned('', '⚠️  Could not upload auto-restart session log', '', 2));
                 }
@@ -371,9 +433,12 @@ export const watchForFeedback = async params => {
   }
 
   // Return latest session data for accurate pricing in log uploads
+  // Issue #1290: Include flags to help solve.mjs decide whether to upload final logs
   return {
     latestSessionId,
     latestAnthropicCost,
+    autoRestartIterationsRan, // True if any auto-restart iterations actually ran
+    lastIterationLogUploaded, // True if the last iteration's logs were uploaded
   };
 };
 

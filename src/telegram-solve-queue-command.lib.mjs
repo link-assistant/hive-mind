@@ -24,11 +24,10 @@
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  * @param {Function} options.getSolveQueue - Function to get the solve queue instance
- * @param {Function} options.getRunningClaudeProcesses - Function to get running claude processes
  * @returns {{ handleSolveQueueCommand: Function }} The command handler for use in text fallback
  */
 export function registerSolveQueueCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb, getSolveQueue, getRunningClaudeProcesses } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb, getSolveQueue } = options;
 
   async function handleSolveQueueCommand(ctx) {
     VERBOSE && console.log('[VERBOSE] /solve_queue command received');
@@ -72,13 +71,12 @@ export function registerSolveQueueCommand(bot, options) {
     VERBOSE && console.log('[VERBOSE] /solve_queue passed all checks, generating status...');
 
     const solveQueue = getSolveQueue({ verbose: VERBOSE });
-    const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
 
     // Use the queue's built-in detailed status formatter
-    let message = solveQueue.formatDetailedStatus();
-
-    // Add running Claude processes info
-    message += `\n🖥️ Running Claude processes: ${claudeProcs.count}`;
+    // Shows per-queue breakdown with first 5 items per queue and human-readable times
+    // Processing counts are actual running system processes (via pgrep)
+    // See: https://github.com/link-assistant/hive-mind/issues/1267
+    const message = await solveQueue.formatDetailedStatus();
 
     await ctx.reply(message, {
       parse_mode: 'Markdown',

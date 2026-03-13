@@ -4,16 +4,18 @@
  *
  * Tests for the /limits command display formatting, especially:
  * - Math.floor for percentage display (100% only appears when exactly 100%)
- * - Progress bar generation
+ * - Progress bar generation with threshold markers
  * - Time passed percentage calculation
+ * - Warning emoji display when thresholds are exceeded
  *
  * Run with: node tests/limits-display.test.mjs
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1133
+ * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage } from '../src/limits.lib.mjs';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -72,6 +74,71 @@ test('getProgressBar handles edge values', () => {
 });
 
 // ============================================================================
+// Progress Bar with Threshold Marker Tests (Issue #1242)
+// ============================================================================
+
+console.log('\n📋 Progress Bar Threshold Marker Tests (Issue #1242)\n');
+
+test('getProgressBar with threshold returns correct length', () => {
+  const bar = getProgressBar(50, 65);
+  assert.equal(bar.length, 30, 'Progress bar with threshold should be 30 characters');
+});
+
+test('getProgressBar with threshold includes marker character', () => {
+  const bar = getProgressBar(50, 65);
+  assert.ok(bar.includes('│'), 'Progress bar should include threshold marker │');
+  assert.equal(bar.split('│').length - 1, 1, 'Should have exactly one threshold marker');
+});
+
+test('getProgressBar with threshold at 65% places marker correctly', () => {
+  // 65% of 30 blocks = 19.5, rounds to 20
+  const bar = getProgressBar(50, 65);
+  const markerPos = bar.indexOf('│');
+  // At 65% threshold, marker should be at position 19 or 20 (depending on rounding)
+  assert.ok(markerPos >= 19 && markerPos <= 20, `Marker at position ${markerPos} should be at position 19-20 for 65% threshold`);
+});
+
+test('getProgressBar with threshold at 90% places marker correctly', () => {
+  // 90% of 30 blocks = 27
+  const bar = getProgressBar(50, 90);
+  const markerPos = bar.indexOf('│');
+  assert.equal(markerPos, 27, 'Marker should be at position 27 for 90% threshold');
+});
+
+test('getProgressBar with threshold at 97% places marker correctly', () => {
+  // 97% of 30 blocks = 29.1, rounds to 29
+  const bar = getProgressBar(50, 97);
+  const markerPos = bar.indexOf('│');
+  assert.equal(markerPos, 29, 'Marker should be at position 29 for 97% threshold');
+});
+
+test('getProgressBar with null threshold returns original format', () => {
+  const barWithThreshold = getProgressBar(50, null);
+  const barWithoutThreshold = getProgressBar(50);
+  assert.equal(barWithThreshold, barWithoutThreshold, 'Null threshold should return same as no threshold');
+  assert.ok(!barWithThreshold.includes('│'), 'Null threshold should not include marker');
+});
+
+test('getProgressBar threshold marker replaces one block', () => {
+  const bar = getProgressBar(25, 65);
+  // Count filled + empty + marker should equal 30
+  const filledCount = bar.split('▓').length - 1;
+  const emptyCount = bar.split('░').length - 1;
+  const markerCount = bar.split('│').length - 1;
+  assert.equal(filledCount + emptyCount + markerCount, 30, 'Total blocks + marker should equal 30');
+});
+
+test('DISPLAY_THRESHOLDS constants are defined', () => {
+  assert.ok(DISPLAY_THRESHOLDS !== undefined, 'DISPLAY_THRESHOLDS should be defined');
+  assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK threshold should be 90');
+  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
+  assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
+  assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 75, 'GITHUB_API threshold should be 75');
+});
+
+// ============================================================================
 // Math.floor for Percentage Display Tests (Issue #1133)
 // ============================================================================
 
@@ -100,8 +167,9 @@ test('formatUsageMessage uses Math.floor for session percentage', () => {
   const message = formatUsageMessage(usage);
 
   // 99.5% should be floored to 99%, NOT rounded to 100%
-  assert.ok(message.includes('99% used'), 'Should show 99% (floored from 99.5%), not 100%');
-  assert.ok(!message.includes('100% used'), 'Should NOT show 100% when value is 99.5%');
+  // Note: format changed from "99% used" to "99%" with optional warning emoji
+  assert.ok(message.includes('99%'), 'Should show 99% (floored from 99.5%), not 100%');
+  assert.ok(!message.match(/100%[^%]*Claude/), 'Should NOT show 100% when value is 99.5%');
 });
 
 test('formatUsageMessage shows 100% only when exactly 100', () => {
@@ -125,8 +193,8 @@ test('formatUsageMessage shows 100% only when exactly 100', () => {
 
   const message = formatUsageMessage(usage);
 
-  // Exactly 100 should show 100%
-  assert.ok(message.includes('100% used'), 'Should show 100% when value is exactly 100');
+  // Exactly 100 should show 100% (with warning emoji since it exceeds threshold)
+  assert.ok(message.includes('100%'), 'Should show 100% when value is exactly 100');
 });
 
 test('formatUsageMessage floors various percentages correctly', () => {
@@ -315,7 +383,8 @@ test('formatUsageMessage handles 0% correctly', () => {
   };
 
   const message = formatUsageMessage(usage);
-  assert.ok(message.includes('0% used'), 'Should show 0% used');
+  // Note: format changed from "0% used" to "0%" with optional warning emoji
+  assert.ok(message.includes('0%'), 'Should show 0%');
 });
 
 test('formatUsageMessage handles extreme values', () => {
@@ -334,8 +403,306 @@ test('formatUsageMessage handles extreme values', () => {
     };
 
     const message = formatUsageMessage(usage);
-    assert.ok(message.includes(`${pct}% used`), `Should show ${pct}% used`);
+    // Note: format changed from "X% used" to "X%" with optional warning emoji
+    assert.ok(message.includes(`${pct}%`), `Should show ${pct}%`);
   }
+});
+
+// ============================================================================
+// Warning Emoji Tests (Issue #1242)
+// ============================================================================
+
+console.log('\n📋 Warning Emoji Tests (Issue #1242)\n');
+
+test('formatUsageMessage shows warning emoji when session exceeds threshold', () => {
+  const usage = {
+    currentSession: {
+      percentage: 70, // Above 65% threshold
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const message = formatUsageMessage(usage);
+  // Should show warning emoji for 70% (above 65% threshold)
+  assert.ok(message.includes('70%') && message.includes('⚠️'), 'Should show warning emoji when session exceeds 65% threshold');
+});
+
+test('formatUsageMessage does not show warning emoji when below threshold', () => {
+  const usage = {
+    currentSession: {
+      percentage: 50, // Below 65% threshold
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null }, // Below 97%
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null }, // Below 97%
+  };
+
+  const message = formatUsageMessage(usage);
+  // Should not show warning emoji when all values are below their thresholds
+  assert.ok(!message.includes('⚠️'), 'Should not show warning emoji when below thresholds');
+});
+
+test('formatUsageMessage shows warning for system resources when exceeded', () => {
+  const usage = {
+    currentSession: { percentage: 30, resetTime: null, resetsAt: null },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const cpuLoad = {
+    usagePercentage: 70, // Above 65% threshold
+    loadAvg5: 2.8,
+    cpuCount: 4,
+  };
+
+  const memory = {
+    usedPercentage: 70, // Above 65% threshold
+    usedBytes: 7 * 1024 * 1024 * 1024,
+    totalBytes: 10 * 1024 * 1024 * 1024,
+  };
+
+  const diskSpace = {
+    usedPercentage: 95, // Above 90% threshold
+    usedBytes: 95 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+
+  const message = formatUsageMessage(usage, diskSpace, null, cpuLoad, memory);
+  // Should show warning emoji for each exceeded threshold
+  assert.ok(message.includes('⚠️'), 'Should show warning emoji for exceeded system thresholds');
+});
+
+test('formatUsageMessage shows threshold markers in progress bars', () => {
+  const usage = {
+    currentSession: {
+      percentage: 50,
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: { percentage: 30, resetTime: null, resetsAt: null },
+    sonnetOnly: { percentage: 20, resetTime: null, resetsAt: null },
+  };
+
+  const cpuLoad = {
+    usagePercentage: 30,
+    loadAvg5: 1.2,
+    cpuCount: 4,
+  };
+
+  const message = formatUsageMessage(usage, null, null, cpuLoad, null);
+  // Should include threshold marker character
+  assert.ok(message.includes('│'), 'Should include threshold marker in progress bars');
+});
+
+// ============================================================================
+// Claude Error Display Tests (Issue #1343)
+// ============================================================================
+
+console.log('\n📋 Claude Error Display Tests (Issue #1343)\n');
+
+test('formatUsageMessage with claudeError shows error once in Claude limits section', () => {
+  const errorMessage = 'Claude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.';
+
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage);
+
+  // Should include "Claude limits" header with the error
+  assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
+
+  // Should NOT include empty subsection headers when there is a claude error
+  assert.ok(!message.includes('Claude 5 hour session'), 'Should NOT include 5 hour session header when error');
+  assert.ok(!message.includes('Current week (all models)'), 'Should NOT include all models header when error');
+  assert.ok(!message.includes('Current week (Sonnet only)'), 'Should NOT include Sonnet only header when error');
+
+  // Should show the error message exactly once (backtick-stripped for code block)
+  assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error message');
+  const errorOccurrences = message.split('Claude authentication expired').length - 1;
+  assert.equal(errorOccurrences, 1, 'Error message should appear exactly once, not repeated in each subsection');
+
+  // Should NOT show N/A when error is provided
+  assert.ok(!message.includes('N/A'), 'Should NOT show N/A when error is provided');
+});
+
+test('formatUsageMessage with claudeError still shows system resource sections', () => {
+  const errorMessage = 'Claude authentication expired.';
+
+  const diskSpace = {
+    usedPercentage: 60,
+    usedBytes: 60 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+
+  const memory = {
+    usedPercentage: 40,
+    usedBytes: 4 * 1024 * 1024 * 1024,
+    totalBytes: 10 * 1024 * 1024 * 1024,
+  };
+
+  const cpuLoad = {
+    usagePercentage: 25,
+    loadAvg5: 1.0,
+    cpuCount: 4,
+  };
+
+  const githubRateLimit = {
+    usedPercentage: 10,
+    used: 500,
+    limit: 5000,
+    relativeReset: '30m',
+    resetTime: 'Jan 18, 5:00pm UTC',
+  };
+
+  const message = formatUsageMessage(null, diskSpace, githubRateLimit, cpuLoad, memory, errorMessage);
+
+  // System sections should still appear
+  assert.ok(message.includes('CPU'), 'Should include CPU section when cpuLoad provided');
+  assert.ok(message.includes('RAM'), 'Should include RAM section when memory provided');
+  assert.ok(message.includes('Disk space'), 'Should include Disk space section when diskSpace provided');
+  assert.ok(message.includes('GitHub API'), 'Should include GitHub API section when githubRateLimit provided');
+
+  // Claude error should appear
+  assert.ok(message.includes('Claude authentication expired'), 'Should show Claude auth error');
+});
+
+test('formatUsageMessage with null claudeError shows normal Claude data', () => {
+  const usage = {
+    currentSession: {
+      percentage: 45,
+      resetTime: 'Jan 18, 5:00pm UTC',
+      resetsAt: new Date(Date.now() + 3600000).toISOString(),
+    },
+    allModels: {
+      percentage: 30,
+      resetTime: 'Jan 20, 12:00pm UTC',
+      resetsAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+    sonnetOnly: {
+      percentage: 20,
+      resetTime: 'Jan 20, 12:00pm UTC',
+      resetsAt: new Date(Date.now() + 86400000).toISOString(),
+    },
+  };
+
+  const message = formatUsageMessage(usage, null, null, null, null, null);
+
+  // Should show normal usage data, not error
+  assert.ok(message.includes('45%'), 'Should show 45% session usage');
+  assert.ok(!message.includes('Claude authentication expired'), 'Should not show error when null claudeError');
+});
+
+// ============================================================================
+// Sections Array / Extra Sections Tests (Issue #1387)
+// ============================================================================
+
+console.log('\n📋 Sections Array / Extra Sections Tests (Issue #1387)\n');
+
+test('formatUsageMessage wraps all content in a single code block', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const message = formatUsageMessage(usage);
+
+  // Code block must start at the very beginning and end exactly once at the end
+  assert.ok(message.startsWith('```\n'), 'Message should start with opening code fence');
+  assert.ok(message.endsWith('```'), 'Message should end with closing code fence');
+
+  // There should be exactly one opening and one closing code fence
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences (one opening, one closing)');
+});
+
+test('formatUsageMessage with extraSections includes extra content inside code block', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const queueStatus = 'Queues\nclaude (pending: 3, processing: 1)\nagent (pending: 0, processing: 0)\n';
+  const message = formatUsageMessage(usage, null, null, null, null, null, [queueStatus]);
+
+  // Queue status should appear inside the code block (before closing fence)
+  assert.ok(message.includes('Queues'), 'Should include Queues section from extraSections');
+  assert.ok(message.includes('claude (pending: 3, processing: 1)'), 'Should include claude queue from extraSections');
+  assert.ok(message.includes('agent (pending: 0, processing: 0)'), 'Should include agent queue from extraSections');
+
+  // The closing code fence must come after the queue status
+  const queueIndex = message.indexOf('Queues');
+  const closingFenceIndex = message.lastIndexOf('```');
+  assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence');
+
+  // Still only one code block
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with extraSections');
+});
+
+test('formatUsageMessage with claudeError and extraSections includes extra content inside code block', () => {
+  const errorMessage = 'Claude authentication expired.';
+  const queueStatus = 'Queues\nclaude (pending: 0, processing: 0)\nagent (pending: 0, processing: 0)\n';
+
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage, [queueStatus]);
+
+  // Error should appear
+  assert.ok(message.includes('Claude limits'), 'Should include Claude limits header');
+  assert.ok(message.includes('Claude authentication expired'), 'Should include the error message');
+
+  // Queue status should also appear inside the code block
+  assert.ok(message.includes('Queues'), 'Should include Queues section from extraSections even with claudeError');
+  assert.ok(message.includes('claude (pending: 0, processing: 0)'), 'Should include claude queue status with claudeError');
+
+  // The closing code fence must come after the queue status
+  const queueIndex = message.indexOf('Queues');
+  const closingFenceIndex = message.lastIndexOf('```');
+  assert.ok(queueIndex < closingFenceIndex, 'Queue status should appear before the closing code fence with claudeError');
+
+  // Still only one code block
+  const fenceCount = (message.match(/```/g) || []).length;
+  assert.equal(fenceCount, 2, 'Message should contain exactly 2 code fences even with claudeError and extraSections');
+});
+
+test('formatUsageMessage with empty extraSections works as before', () => {
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const messageWithEmpty = formatUsageMessage(usage, null, null, null, null, null, []);
+  const messageWithDefault = formatUsageMessage(usage, null, null, null, null, null);
+
+  // Both forms should produce the same output
+  assert.equal(messageWithEmpty, messageWithDefault, 'Empty extraSections should produce same output as no extraSections');
+});
+
+test('formatUsageMessage sections are separated by blank lines', () => {
+  const diskSpace = {
+    usedPercentage: 60,
+    usedBytes: 60 * 1024 * 1024 * 1024,
+    totalBytes: 100 * 1024 * 1024 * 1024,
+  };
+  const usage = {
+    currentSession: { percentage: 50, resetTime: 'Jan 18, 5:00pm UTC', resetsAt: new Date(Date.now() + 3600000).toISOString() },
+    allModels: { percentage: 30, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+    sonnetOnly: { percentage: 20, resetTime: 'Jan 20, 12:00pm UTC', resetsAt: new Date(Date.now() + 86400000).toISOString() },
+  };
+
+  const message = formatUsageMessage(usage, diskSpace);
+
+  // Sections should be separated by blank lines (two consecutive newlines)
+  assert.ok(message.includes('\n\n'), 'Sections should be separated by blank lines');
+
+  // Disk space section followed by a blank line before Claude section
+  const diskIndex = message.indexOf('Disk space');
+  const claudeIndex = message.indexOf('Claude 5 hour session');
+  assert.ok(diskIndex < claudeIndex, 'Disk space section should appear before Claude section');
+  const between = message.slice(diskIndex, claudeIndex);
+  assert.ok(between.includes('\n\n'), 'There should be a blank line between Disk space and Claude sections');
 });
 
 // ============================================================================

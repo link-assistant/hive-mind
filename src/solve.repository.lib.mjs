@@ -110,93 +110,82 @@ export const checkExistingForkOfRoot = async rootRepo => {
  * This prevents issues where a fork was created from an intermediate fork (fork of a fork)
  * instead of directly from the intended upstream repository.
  *
+ * Issue #1311: Added retry logic for transient network errors (TCP timeouts, etc.)
+ *
  * @param {string} forkRepo - The fork repository to validate (e.g., "user/repo")
  * @param {string} expectedUpstream - The expected upstream repository (e.g., "owner/repo")
- * @returns {Promise<{isValid: boolean, isFork: boolean, parent: string|null, source: string|null, error: string|null}>}
+ * @returns {Promise<{isValid: boolean, isFork: boolean, parent: string|null, source: string|null, error: string|null, isNetworkError?: boolean}>}
  */
 export const validateForkParent = async (forkRepo, expectedUpstream) => {
-  try {
-    const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+  // Issue #1311: Retry configuration for transient network errors
+  const maxAttempts = 3;
+  const baseDelay = 2000;
+  const networkErr = msg => ({ isValid: false, isFork: false, parent: null, source: null, error: msg, isNetworkError: true });
 
-    if (forkInfoResult.code !== 0) {
-      return {
-        isValid: false,
-        isFork: false,
-        parent: null,
-        source: null,
-        error: `Failed to get fork info for ${forkRepo}`,
-      };
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
+
+      // Check for network errors in non-zero exit code
+      if (forkInfoResult.code !== 0) {
+        const errorOutput = (forkInfoResult.stderr?.toString() || '') + (forkInfoResult.stdout?.toString() || '');
+        // Issue #1311: Retry on transient network errors
+        if (lib.isTransientNetworkError({ message: errorOutput })) {
+          if (attempt < maxAttempts) {
+            const delay = baseDelay * Math.pow(2, attempt - 1);
+            await log(`   ⚠️ Network error, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
+            await lib.sleep(delay);
+            continue;
+          }
+          return networkErr(`Network error after ${maxAttempts} attempts: ${errorOutput.substring(0, 200)}`);
+        }
+        return { isValid: false, isFork: false, parent: null, source: null, error: `Failed to get fork info for ${forkRepo}` };
+      }
+
+      const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
+      const isFork = forkInfo.fork === true;
+      const parent = forkInfo.parent || null;
+      const source = forkInfo.source || null;
+
+      // If not a fork at all, it's invalid for our purposes
+      if (!isFork) {
+        return { isValid: false, isFork: false, parent: null, source: null, error: `Repository ${forkRepo} is not a GitHub fork` };
+      }
+
+      // The fork's PARENT (immediate upstream) should match expectedUpstream
+      // The SOURCE (ultimate root) is also acceptable as it indicates the fork is part of the correct hierarchy
+      const parentMatches = parent === expectedUpstream;
+      const sourceMatches = source === expectedUpstream;
+
+      if (parentMatches) {
+        return { isValid: true, isFork: true, parent, source, error: null };
+      }
+
+      // Special case: source matches but parent doesn't - fork was made from an intermediate fork
+      // For issue #967, this is the problematic case we want to catch
+      if (sourceMatches && !parentMatches) {
+        return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. This can cause pull requests to include unexpected commits from the intermediate fork.` };
+      }
+
+      // Neither parent nor source matches - completely different repository tree
+      return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}` };
+    } catch (error) {
+      // Issue #1311: Retry on transient network errors
+      if (lib.isTransientNetworkError(error)) {
+        if (attempt < maxAttempts) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          await log(`   ⚠️ Network error, retrying in ${delay / 1000}s... (${attempt}/${maxAttempts})`, { level: 'warning' });
+          await lib.sleep(delay);
+          continue;
+        }
+        reportError(error, { context: 'validate_fork_parent', forkRepo, expectedUpstream, operation: 'check_fork_hierarchy', attempt, maxAttempts, isNetworkError: true });
+        return networkErr(`Network error after ${maxAttempts} attempts: ${error.message}`);
+      }
+      reportError(error, { context: 'validate_fork_parent', forkRepo, expectedUpstream, operation: 'check_fork_hierarchy' });
+      return { isValid: false, isFork: false, parent: null, source: null, error: `Error validating fork parent: ${error.message}` };
     }
-
-    const forkInfo = JSON.parse(forkInfoResult.stdout.toString().trim());
-    const isFork = forkInfo.fork === true;
-    const parent = forkInfo.parent || null;
-    const source = forkInfo.source || null;
-
-    // If not a fork at all, it's invalid for our purposes
-    if (!isFork) {
-      return {
-        isValid: false,
-        isFork: false,
-        parent: null,
-        source: null,
-        error: `Repository ${forkRepo} is not a GitHub fork`,
-      };
-    }
-
-    // The fork's PARENT (immediate upstream) should match expectedUpstream
-    // The SOURCE (ultimate root) is also acceptable as it indicates the fork
-    // is part of the correct hierarchy, just at a different level
-    const parentMatches = parent === expectedUpstream;
-    const sourceMatches = source === expectedUpstream;
-
-    // Ideal case: parent matches directly (fork was made from expected upstream)
-    if (parentMatches) {
-      return {
-        isValid: true,
-        isFork: true,
-        parent,
-        source,
-        error: null,
-      };
-    }
-
-    // Special case: source matches but parent doesn't
-    // This means the fork was made from an intermediate fork
-    // For issue #967, this is the problematic case we want to catch
-    if (sourceMatches && !parentMatches) {
-      return {
-        isValid: false,
-        isFork: true,
-        parent,
-        source,
-        error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. ` + `This can cause pull requests to include unexpected commits from the intermediate fork.`,
-      };
-    }
-
-    // Neither parent nor source matches - completely different repository tree
-    return {
-      isValid: false,
-      isFork: true,
-      parent,
-      source,
-      error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}`,
-    };
-  } catch (error) {
-    reportError(error, {
-      context: 'validate_fork_parent',
-      forkRepo,
-      expectedUpstream,
-      operation: 'check_fork_hierarchy',
-    });
-    return {
-      isValid: false,
-      isFork: false,
-      parent: null,
-      source: null,
-      error: `Error validating fork parent: ${error.message}`,
-    };
   }
+  return networkErr(`Failed to validate fork after ${maxAttempts} attempts`);
 };
 
 /**
@@ -398,7 +387,7 @@ const tryInitializeEmptyRepository = async (owner, repo) => {
 };
 
 // Handle fork creation and repository setup
-export const setupRepository = async (argv, owner, repo, forkOwner = null, issueUrl = null) => {
+export const setupRepository = async (argv, owner, repo, forkOwner = null, issueUrl = null, forkRepoName = null) => {
   let repoToClone = `${owner}/${repo}`;
   let forkedRepo = null;
   let upstreamRemote = null;
@@ -513,6 +502,25 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       const forkValidation = await validateForkParent(existingForkName, `${owner}/${repo}`);
 
       if (!forkValidation.isValid) {
+        // Issue #1311: Handle network errors separately from fork mismatch errors
+        if (forkValidation.isNetworkError) {
+          await log('');
+          await log(`${formatAligned('❌', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'error' });
+          await log('');
+          await log('  🔍 What happened:');
+          await log(`     Failed to connect to GitHub API while validating fork.`);
+          await log(`     Error: ${forkValidation.error}`);
+          await log('');
+          await log('  💡 This is likely a temporary network issue. You can:');
+          await log('     1. Wait a moment and try again');
+          await log('     2. Check your internet connection');
+          await log('     3. Check GitHub status: https://www.githubstatus.com/');
+          await log('');
+          await log('     Or use --no-fork to skip fork validation if you have write access.');
+          await log('');
+          await safeExit(1, 'Network error during fork validation - please retry');
+        }
+
         // Fork parent mismatch detected - this prevents issue #967
         await log('');
         await log(`${formatAligned('❌', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'error' });
@@ -812,9 +820,10 @@ Thank you!`;
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'DETECTED from PR')}`);
     await log(`${formatAligned('', 'Fork owner:', forkOwner)}`);
 
-    // Determine fork name - try prefixed name first if option is enabled, otherwise try standard name
-    const standardForkName = `${forkOwner}/${repo}`;
-    const prefixedForkName = `${forkOwner}/${owner}-${repo}`;
+    // Use actual head repo name from PR data (headRepository.name) if available, otherwise guess from base repo name
+    const headRepoName = forkRepoName || repo;
+    const standardForkName = `${forkOwner}/${headRepoName}`;
+    const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
     const expectedForkName = argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
     const alternateForkName = argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
 
@@ -842,29 +851,44 @@ Thank you!`;
       const forkValidation = await validateForkParent(actualForkName, `${owner}/${repo}`);
 
       if (!forkValidation.isValid) {
-        // Fork parent mismatch detected
-        await log('');
-        await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH WARNING', '')}`, { level: 'warning' });
-        await log('');
-        await log('  🔍 Issue detected:');
-        if (!forkValidation.isFork) {
-          await log(`     The repository ${actualForkName} is NOT a GitHub fork.`);
+        // Issue #1311: Handle network errors separately from fork mismatch errors
+        if (forkValidation.isNetworkError) {
+          await log('');
+          await log(`${formatAligned('⚠️', 'NETWORK ERROR DURING FORK VALIDATION', '')}`, { level: 'warning' });
+          await log('');
+          await log('  🔍 What happened:');
+          await log(`     Failed to connect to GitHub API while validating fork.`);
+          await log(`     Error: ${forkValidation.error}`);
+          await log('');
+          await log('  💡 This is likely a temporary network issue.');
+          await log('     Continuing with the fork, but validation was skipped.');
+          await log('');
+          // Note: We continue here since this is someone else's fork and we can't verify it
         } else {
-          await log(`     The fork ${actualForkName} was created from ${forkValidation.parent},`);
-          await log(`     not directly from the target repository ${owner}/${repo}.`);
+          // Fork parent mismatch detected
+          await log('');
+          await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH WARNING', '')}`, { level: 'warning' });
+          await log('');
+          await log('  🔍 Issue detected:');
+          if (!forkValidation.isFork) {
+            await log(`     The repository ${actualForkName} is NOT a GitHub fork.`);
+          } else {
+            await log(`     The fork ${actualForkName} was created from ${forkValidation.parent},`);
+            await log(`     not directly from the target repository ${owner}/${repo}.`);
+          }
+          await log('');
+          await log('  📦 Fork relationship:');
+          await log(`     • Fork: ${actualForkName}`);
+          await log(`     • Fork parent: ${forkValidation.parent || 'N/A'}`);
+          await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
+          await log(`     • Expected parent: ${owner}/${repo}`);
+          await log('');
+          await log('  ⚠️  This may cause pull requests to include unexpected commits.');
+          await log('     Consider using --fork to create your own fork instead.');
+          await log('');
+          // Note: We don't exit here since this is someone else's fork and we're just using it
+          // The user should be aware but can proceed (they didn't create this fork)
         }
-        await log('');
-        await log('  📦 Fork relationship:');
-        await log(`     • Fork: ${actualForkName}`);
-        await log(`     • Fork parent: ${forkValidation.parent || 'N/A'}`);
-        await log(`     • Fork source (root): ${forkValidation.source || 'N/A'}`);
-        await log(`     • Expected parent: ${owner}/${repo}`);
-        await log('');
-        await log('  ⚠️  This may cause pull requests to include unexpected commits.');
-        await log('     Consider using --fork to create your own fork instead.');
-        await log('');
-        // Note: We don't exit here since this is someone else's fork and we're just using it
-        // The user should be aware but can proceed (they didn't create this fork)
       } else {
         await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
       }
@@ -874,9 +898,9 @@ Thank you!`;
       upstreamRemote = `${owner}/${repo}`;
     } else {
       await log(`${formatAligned('❌', 'Error:', 'Fork not accessible')}`);
-      await log(`${formatAligned('', 'Fork:', expectedForkName)}`);
-      await log(`${formatAligned('', 'Suggestion:', 'The PR may be from a fork you no longer have access to')}`);
-      await log(`${formatAligned('', 'Hint:', 'Try running with --fork flag to use your own fork instead')}`);
+      await log(`${formatAligned('', 'Fork tried:', expectedForkName)}`);
+      await log(`${formatAligned('', 'Suggestion:', forkRepoName ? "The fork's repo name may differ from the base repo name" : `Fork name was guessed from base repo name '${repo}' (headRepository.name unavailable)`)}`);
+      await log(`${formatAligned('', 'Hint:', 'Try running with --fork flag to create your own fork instead')}`);
       await safeExit(1, 'Repository setup failed');
     }
   }
@@ -884,56 +908,140 @@ Thank you!`;
   return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
 };
 
-// Clone repository and set up remotes
+// Classify git clone errors to determine if they are retryable
+export const classifyCloneError = errorOutput => {
+  const output = errorOutput.toLowerCase();
+
+  // Transient server errors (5xx) - typically retryable
+  if (output.includes('error: 500') || output.includes('internal server error') || output.includes('error: 502') || output.includes('error: 503') || output.includes('error: 504')) {
+    return { type: 'TRANSIENT', retryable: true, description: 'GitHub server error' };
+  }
+
+  // Network-related errors - typically retryable
+  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error')) {
+    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue' };
+  }
+
+  // Authentication/permission errors - not retryable
+  if (output.includes('error: 401') || output.includes('error: 403') || output.includes('authentication failed') || output.includes('permission denied')) {
+    return { type: 'PERMISSION', retryable: false, description: 'Authentication or permission error' };
+  }
+
+  // Repository not found - not retryable
+  if (output.includes('error: 404') || output.includes('not found') || output.includes('repository not found')) {
+    return { type: 'NOT_FOUND', retryable: false, description: 'Repository not found' };
+  }
+
+  // Rate limiting - retryable with backoff
+  if (output.includes('rate limit') || output.includes('too many requests') || output.includes('api rate limit exceeded')) {
+    return { type: 'RATE_LIMIT', retryable: true, description: 'Rate limit exceeded' };
+  }
+
+  // Default to retryable for unknown errors
+  return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
+};
+
+// Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
-  // Clone the repository (or fork) using gh tool with authentication
+  const maxRetries = 3;
+  const baseDelay = 2000; // Start with 2 seconds
+
   await log(`\n${formatAligned('📥', 'Cloning repository:', repoToClone)}`);
 
-  // Use 2>&1 to capture all output and filter "Cloning into" message
-  const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (attempt > 1) {
+      await log(`${formatAligned('⏳', 'Clone attempt:', `${attempt}/${maxRetries} (with retry logic)`)}`);
+    }
 
-  // Verify clone was successful
-  if (cloneResult.code !== 0) {
+    // Use 2>&1 to capture all output and filter "Cloning into" message
+    const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+
+    // Verify clone was successful
+    if (cloneResult.code === 0) {
+      await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
+
+      // Verify and fix remote configuration
+      const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
+      if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
+        await log('   Setting up git remote...', { verbose: true });
+        // Add origin remote manually
+        await $({ cwd: tempDir })`git remote add origin https://github.com/${repoToClone}.git 2>&1`;
+      }
+      return; // Success - exit function
+    }
+
+    // Clone failed - analyze error and determine if retry is appropriate
     const errorOutput = (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
-    await log('');
-    await log(`${formatAligned('❌', 'CLONE FAILED', '')}`, { level: 'error' });
-    await log('');
-    await log('  🔍 What happened:');
-    await log(`     Failed to clone repository ${repoToClone}`);
-    await log('');
-    await log('  📦 Error details:');
-    for (const line of errorOutput.split('\n')) {
-      if (line.trim()) await log(`     ${line}`);
+
+    const errorClassification = classifyCloneError(errorOutput);
+
+    if (!errorClassification.retryable || attempt === maxRetries) {
+      // Non-retryable error or max retries reached - fail with detailed error
+      await log('');
+      await log(`${formatAligned('❌', 'CLONE FAILED', '')}`, { level: 'error' });
+      await log('');
+      await log('  🔍 What happened:');
+      await log(`     Failed to clone repository ${repoToClone}`);
+
+      if (!errorClassification.retryable) {
+        await log(`     Error type: ${errorClassification.description} (not retryable)`);
+      } else {
+        await log(`     Error type: ${errorClassification.description} (max retries exceeded)`);
+      }
+      await log('');
+      await log('  📦 Error details:');
+      for (const line of errorOutput.split('\n')) {
+        if (line.trim()) await log(`     ${line}`);
+      }
+      await log('');
+      await log('  💡 Common causes:');
+      await log("     • Repository doesn't exist or is private");
+      await log('     • No GitHub authentication');
+      await log('     • Network connectivity issues');
+      if (errorClassification.type === 'TRANSIENT') {
+        await log('     • GitHub server issues (temporary)');
+      }
+      if (errorClassification.type === 'RATE_LIMIT') {
+        await log('     • API rate limiting exceeded');
+      }
+      if (argv.fork) {
+        await log('     • Fork not ready yet (try again in a moment)');
+      }
+      await log('');
+      await log('  🔧 How to fix:');
+      await log('     1. Check authentication: gh auth status');
+      await log('     2. Login if needed: gh auth login');
+      await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
+      if (argv.fork) {
+        await log(`     4. Check fork: gh repo view ${repoToClone}`);
+      }
+      if (errorClassification.type === 'TRANSIENT') {
+        await log('     5. Wait a few minutes and retry (GitHub server issue)');
+        await log('     6. Check GitHub status: https://www.githubstatus.com');
+      }
+      if (errorClassification.type === 'RATE_LIMIT') {
+        await log('     5. Wait for rate limit to reset (check your quota)');
+        await log('     6. Use --token flag with different token if available');
+      }
+      await log('');
+      await safeExit(1, 'Repository setup failed');
     }
-    await log('');
-    await log('  💡 Common causes:');
-    await log("     • Repository doesn't exist or is private");
-    await log('     • No GitHub authentication');
-    await log('     • Network connectivity issues');
-    if (argv.fork) {
-      await log('     • Fork not ready yet (try again in a moment)');
+
+    // Retryable error and we have attempts left
+    const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+    await log(`${formatAligned('⚠️', 'Clone failed:', errorClassification.description)}`);
+    await log(`${formatAligned('⏳', 'Retrying:', `Waiting ${delay / 1000}s before attempt ${attempt + 1}/${maxRetries}...`)}`);
+
+    if (errorClassification.type === 'RATE_LIMIT') {
+      await log('     💡 Tip: Rate limiting detected - using longer delay');
     }
-    await log('');
-    await log('  🔧 How to fix:');
-    await log('     1. Check authentication: gh auth status');
-    await log('     2. Login if needed: gh auth login');
-    await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
-    if (argv.fork) {
-      await log(`     4. Check fork: gh repo view ${repoToClone}`);
-    }
-    await log('');
-    await safeExit(1, 'Repository setup failed');
+
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
-  await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
-
-  // Verify and fix remote configuration
-  const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
-  if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
-    await log('   Setting up git remote...', { verbose: true });
-    // Add origin remote manually
-    await $({ cwd: tempDir })`git remote add origin https://github.com/${repoToClone}.git 2>&1`;
-  }
+  // This should never be reached due to the loop logic above
+  await log(`${formatAligned('❌', 'UNEXPECTED ERROR:', 'Clone logic failed')}`);
+  await safeExit(1, 'Repository setup failed');
 };
 
 // Set up upstream remote and sync fork

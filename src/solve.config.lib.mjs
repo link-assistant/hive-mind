@@ -101,13 +101,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'claude-file': {
     type: 'boolean',
-    description: 'Create CLAUDE.md file for task details (default for --tool claude, mutually exclusive with --gitkeep-file)',
-    default: true,
+    description: 'Create CLAUDE.md file for task details (mutually exclusive with --gitkeep-file)',
+    default: false,
   },
   'gitkeep-file': {
     type: 'boolean',
-    description: 'Create .gitkeep file instead of CLAUDE.md (default for --tool agent/opencode/codex, mutually exclusive with --claude-file)',
-    default: false,
+    description: 'Create .gitkeep file instead of CLAUDE.md (default for all --tool values, mutually exclusive with --claude-file)',
+    default: true,
   },
   'auto-gitkeep-file': {
     type: 'boolean',
@@ -132,7 +132,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'auto-resume-on-limit-reset': {
     type: 'boolean',
     description: 'Automatically resume when AI tool limit resets (maintains session context with --resume flag)',
-    default: false,
+    default: true,
   },
   'auto-restart-on-limit-reset': {
     type: 'boolean',
@@ -173,13 +173,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-merge': {
     type: 'boolean',
-    description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergable.',
+    description: 'Automatically merge the pull request when the working session is finished and all CI/CD statuses pass and PR is mergeable. Implies --auto-restart-until-mergeable.',
     default: false,
   },
-  'auto-restart-until-mergable': {
+  'auto-restart-until-mergeable': {
     type: 'boolean',
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
-    default: false,
+    default: true,
   },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',
@@ -220,7 +220,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget for Claude Code (0-63999). Controls MAX_THINKING_TOKENS. Default: 31999 (Claude default). Set to 0 to disable thinking. For older Claude Code versions, translated back to --think level.',
+    description: 'Thinking token budget for Claude Code (0-31999). Controls MAX_THINKING_TOKENS. Default: 0 (thinking disabled). For older Claude Code versions, translated back to --think level.',
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {
@@ -245,8 +245,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   sentry: {
     type: 'boolean',
-    description: 'Enable Sentry error tracking and monitoring (use --no-sentry to disable)',
-    default: true,
+    description: 'Enable Sentry error tracking and monitoring (disabled by default for privacy; use --sentry to enable)',
+    default: false,
   },
   'auto-cleanup': {
     type: 'boolean',
@@ -359,6 +359,21 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Guide Claude to use agent-commander CLI (start-agent) instead of native Task tool for subagent delegation. Allows using any supported agent type (claude, opencode, codex, agent) with unified API. Only works with --tool claude and requires agent-commander to be installed.',
     default: false,
   },
+  'attach-solution-summary': {
+    type: 'boolean',
+    description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
+    default: false,
+  },
+  'auto-attach-solution-summary': {
+    type: 'boolean',
+    description: 'Automatically attach solution summary only if the AI did not create any comments during the session. This provides visible feedback when the AI completes silently.',
+    default: false,
+  },
+  'auto-accept-invite': {
+    type: 'boolean',
+    description: 'Automatically accept the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access. Unlike /accept_invites which accepts all pending invitations, this only accepts the invite for the target repo/org.',
+    default: false,
+  },
 };
 
 // Function to create yargs configuration - avoids duplication
@@ -390,7 +405,7 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: grok, grok-code, big-pickle)',
+      description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: minimax-m2.5-free, big-pickle, gpt-5-nano, glm-5-free, deepseek-r1-free)',
       alias: 'm',
       default: currentParsedArgs => {
         // Dynamic default based on tool selection
@@ -399,7 +414,7 @@ export const createYargsConfig = yargsInstance => {
         } else if (currentParsedArgs?.tool === 'codex') {
           return 'gpt-5';
         } else if (currentParsedArgs?.tool === 'agent') {
-          return 'grok-code';
+          return 'minimax-m2.5-free';
         }
         return 'sonnet';
       },
@@ -528,21 +543,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.model = 'gpt-5';
   } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
     // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'grok-code';
-  }
-
-  // Tool-specific defaults for --claude-file and --gitkeep-file
-  // For non-Claude tools, use .gitkeep by default to avoid polluting CLAUDE.md
-  // (CLAUDE.md has special meaning for Claude Code as a project-level instruction file)
-  // See: https://github.com/link-assistant/hive-mind/issues/1158
-  const claudeFileExplicitlyProvided = rawArgs.includes('--claude-file') || rawArgs.includes('--no-claude-file');
-  const gitkeepFileExplicitlyProvided = rawArgs.includes('--gitkeep-file') || rawArgs.includes('--no-gitkeep-file');
-
-  if (argv.tool !== 'claude' && !claudeFileExplicitlyProvided && !gitkeepFileExplicitlyProvided) {
-    // User did not explicitly provide either option, so use the correct defaults for non-Claude tools
-    // Non-Claude tools (agent, opencode, codex) should use .gitkeep by default
-    argv.claudeFile = false;
-    argv.gitkeepFile = true;
+    argv.model = 'minimax-m2.5-free';
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file
@@ -578,7 +579,7 @@ export const parseArguments = async (yargs, hideBin) => {
     argv.claudeFile = false;
   }
 
-  // If user explicitly set --no-gitkeep-file, enable claude-file (this is the default anyway)
+  // If user explicitly set --no-gitkeep-file, enable claude-file
   if (noGitkeepFile && !argv.claudeFile) {
     argv.claudeFile = true;
     argv.gitkeepFile = false;

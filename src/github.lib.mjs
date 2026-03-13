@@ -1,24 +1,15 @@
 #!/usr/bin/env node
-// GitHub-related utility functions
-// Check if use is already defined (when imported from solve.mjs)
-// If not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-// Use command-stream for consistent $ behavior
-const { $ } = await use('command-stream');
-// Import log and maskToken from general lib
+// GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
+if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-// Import batch operations from separate module
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-// Import token sanitization from dedicated module (Issue #1037 fix)
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent } from './token-sanitization.lib.mjs';
-// Re-export token sanitization functions for backward compatibility
-export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent };
-// Import log upload function from separate module
+export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './model-info.lib.mjs';
 // Re-export for use by other modules
@@ -26,25 +17,58 @@ export { getToolDisplayName };
 
 /**
  * Build cost estimation string for log comments
+ * Issue #1250: Enhanced to show both public pricing estimate and actual provider cost
+ *
  * @param {number|null} totalCostUSD - Public pricing estimate
  * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
  * @param {Object|null} pricingInfo - Pricing info from agent tool
+ *   - opencodeCost: Actual billed cost from OpenCode Zen (for agent tool)
+ *   - isOpencodeFreeModel: Whether OpenCode Zen provides this model for free
+ *   - originalProvider: Original provider for pricing reference
+ *   - baseModelName: Base model name if pricing was derived from base model (Issue #1250)
  * @returns {string} Formatted cost info string for markdown (empty if no data available)
  */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel);
-  if (!hasPublic && !hasAnthropic && !hasPricing) return '';
+  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
+  // Issue #1250: Check for OpenCode Zen actual cost
+  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
+  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
   let costInfo = '\n\n💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
+  // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-  } else if (hasPricing) costInfo += '\n- Public pricing estimate: unknown';
+    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
+    // Only show as completely free if the base model also has no pricing
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
+      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+    } else {
+      // Show actual public pricing estimate with original provider reference
+      // Issue #1250: Include base model reference when pricing comes from base model
+      let pricingRef = '';
+      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
+      } else if (pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
+      }
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
+    }
+  } else if (hasPricing) {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
+  if (hasOpencodeCost) {
+    if (pricingInfo.isOpencodeFreeModel) {
+      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
+    } else {
+      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+    }
+  }
   if (pricingInfo?.tokenUsage) {
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
@@ -477,7 +501,11 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
       if (limitResetTime) {
-        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+        // Format reset time with relative time and UTC for better user understanding
+        // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+        // See: https://github.com/link-assistant/hive-mind/issues/1236
+        const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+        logComment += `\n- **Reset Time**: ${formattedResetTime}`;
       }
 
       if (sessionId) {
@@ -670,7 +698,11 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
             if (limitResetTime) {
-              logUploadComment += `\n- **Reset Time**: ${limitResetTime}`;
+              // Format reset time with relative time and UTC for better user understanding
+              // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+              // See: https://github.com/link-assistant/hive-mind/issues/1236
+              const formattedUploadResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+              logUploadComment += `\n- **Reset Time**: ${formattedUploadResetTime}`;
             }
 
             if (sessionId) {

@@ -3,9 +3,9 @@
  * Handles repository cloning, forking, and remote setup
  */
 
-export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
+export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Set up repository and handle forking
-  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl);
+  const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName);
 
   // Clone repository and set up remotes (skip if needsClone is false - directory already has repo)
   if (needsClone) {
@@ -32,10 +32,10 @@ export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, te
   return { repoToClone, forkedRepo, upstreamRemote, prForkRemote, prForkOwner };
 }
 
-async function setupRepository(argv, owner, repo, forkOwner, issueUrl) {
+async function setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName) {
   const repository = await import('./solve.repository.lib.mjs');
   const { setupRepository: setupRepoFn } = repository;
-  return await setupRepoFn(argv, owner, repo, forkOwner, issueUrl);
+  return await setupRepoFn(argv, owner, repo, forkOwner, issueUrl, forkRepoName);
 }
 
 async function cloneRepository(repoToClone, tempDir, argv, owner, repo) {

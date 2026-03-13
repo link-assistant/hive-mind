@@ -1,0 +1,161 @@
+{
+  "issue": {
+    "number": 1278,
+    "url": "https://github.com/link-assistant/hive-mind/issues/1278",
+    "title": "No new release triggered or even GitHub Actions CI/CD on merge of PR #1277"
+  },
+  "related_pr": {
+    "number": 1277,
+    "url": "https://github.com/link-assistant/hive-mind/pull/1277",
+    "title": "fix: prevent false positive error detection when agent recovers",
+    "merged_at": "2026-02-13T14:02:47Z",
+    "merge_commit": "c69e9d738df9415ab83f70dc14a427f6a1d7f7b0"
+  },
+  "analysis_date": "2026-02-13T14:11:27Z",
+  "status": "root_cause_identified",
+  "root_cause": "always() job conditions prevent workflow cancellation",
+  "events": [
+    {
+      "timestamp": "2026-02-13T13:25:07Z",
+      "event": "pr_merged",
+      "details": "PR #1275 merged to main",
+      "commit": "a3ff24ba9591b7d4a42dfbe918d5eb5379f0c504"
+    },
+    {
+      "timestamp": "2026-02-13T13:25:11Z",
+      "event": "workflow_started",
+      "details": "Run 21988480453 started for PR #1275",
+      "run_id": 21988480453
+    },
+    {
+      "timestamp": "2026-02-13T13:37:06Z",
+      "event": "pr_opened",
+      "details": "PR #1277 opened for Issue #1276 fix",
+      "pr_number": 1277
+    },
+    {
+      "timestamp": "2026-02-13T13:47:09Z",
+      "event": "jobs_started",
+      "details": "Jobs start in Run 21988480453"
+    },
+    {
+      "timestamp": "2026-02-13T13:52:55Z",
+      "event": "tests_completed",
+      "details": "test-suites job completes successfully"
+    },
+    {
+      "timestamp": "2026-02-13T13:53:21Z",
+      "event": "version_bump",
+      "details": "v1.22.2 version commit",
+      "commit": "4eff52f6b940a286db082e3baa3e6d06cf44f5f6",
+      "version": "1.22.2"
+    },
+    {
+      "timestamp": "2026-02-13T13:53:32Z",
+      "event": "release_published",
+      "details": "v1.22.2 released to npm and GitHub",
+      "version": "1.22.2"
+    },
+    {
+      "timestamp": "2026-02-13T13:53:49Z",
+      "event": "docker_jobs_started",
+      "details": "Docker publish jobs started (amd64 and arm64)"
+    },
+    {
+      "timestamp": "2026-02-13T13:54:43Z",
+      "event": "docker_amd64_completed",
+      "details": "AMD64 Docker build completed in 49 seconds"
+    },
+    {
+      "timestamp": "2026-02-13T14:02:47Z",
+      "event": "pr_merged",
+      "details": "PR #1277 merged to main",
+      "commit": "c69e9d738df9415ab83f70dc14a427f6a1d7f7b0"
+    },
+    {
+      "timestamp": "2026-02-13T14:02:51Z",
+      "event": "workflow_triggered",
+      "details": "Run 21989628495 triggered for PR #1277 merge",
+      "run_id": 21989628495,
+      "expected_action": "Cancel Run 21988480453 due to cancel-in-progress: true"
+    },
+    {
+      "timestamp": "2026-02-13T14:02:52Z",
+      "event": "workflow_stuck",
+      "details": "Run 21989628495 stuck in pending with 0 jobs",
+      "run_id": 21989628495,
+      "actual_behavior": "Could not cancel Run 21988480453 due to always() job conditions"
+    }
+  ],
+  "runs": {
+    "blocking_run": {
+      "id": 21988480453,
+      "status": "in_progress",
+      "head_sha": "a3ff24ba9591b7d4a42dfbe918d5eb5379f0c504",
+      "created_at": "2026-02-13T13:25:11Z",
+      "blocking_job": "Docker Publish (linux/arm64)",
+      "blocking_reason": "Job uses if: always() which prevents cancellation"
+    },
+    "blocked_run": {
+      "id": 21989628495,
+      "status": "pending",
+      "head_sha": "c69e9d738df9415ab83f70dc14a427f6a1d7f7b0",
+      "created_at": "2026-02-13T14:02:51Z",
+      "jobs_count": 0,
+      "blocked_reason": "Cannot start until Run 21988480453 completes"
+    }
+  },
+  "root_causes": [
+    {
+      "cause": "always() job conditions prevent cancellation",
+      "severity": "critical",
+      "location": ".github/workflows/release.yml:1818",
+      "code": "if: always() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+    },
+    {
+      "cause": "Concurrency limit (1 running + 1 pending per group)",
+      "severity": "contributing",
+      "location": "GitHub Actions platform limitation"
+    },
+    {
+      "cause": "Slow ARM64 Docker builds",
+      "severity": "contributing",
+      "location": ".github/workflows/release.yml:1813-1897"
+    }
+  ],
+  "solutions": {
+    "immediate": {
+      "action": "Cancel blocking run manually",
+      "command": "gh run cancel 21988480453 --repo link-assistant/hive-mind",
+      "note": "May fail due to always() conditions"
+    },
+    "short_term": [
+      {
+        "action": "Replace always() with !cancelled()",
+        "file": ".github/workflows/release.yml",
+        "lines": [1818, 1904, 2148]
+      },
+      {
+        "action": "Reduce Docker job timeout to 30 minutes",
+        "file": ".github/workflows/release.yml",
+        "line": 1821
+      }
+    ],
+    "long_term": [
+      {
+        "action": "Move Docker publishing to separate workflow_run triggered workflow",
+        "benefit": "Decouples Docker builds from release concurrency"
+      },
+      {
+        "action": "Add job-level concurrency groups for Docker",
+        "benefit": "Prevents Docker jobs from blocking main workflow"
+      }
+    ]
+  },
+  "impact": {
+    "pr_1277_in_release": false,
+    "release_blocked": true,
+    "ci_checks_for_merge_commit": false,
+    "estimated_resolution": "When Run 21988480453 completes (timeout at 14:53:54Z or manual cancel)"
+  }
+}

@@ -19,6 +19,9 @@ const exec = promisify(execCallback);
 // Import GitHub URL parser
 import { parseGitHubUrl } from './github.lib.mjs';
 
+// Import linking utilities
+import { extractLinkedIssueNumber } from './github-linking.lib.mjs';
+
 // Default label configuration
 export const READY_LABEL = {
   name: 'ready',
@@ -252,6 +255,172 @@ export async function fetchReadyIssuesWithPRs(owner, repo, verbose = false) {
 }
 
 /**
+ * Add a label to a GitHub issue or pull request
+ * @param {'issue'|'pr'} type - Whether to add to issue or PR
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} number - Issue or PR number
+ * @param {string} labelName - Label name to add
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+async function addLabel(type, owner, repo, number, labelName, verbose = false) {
+  const cmd = type === 'issue' ? 'issue' : 'pr';
+  try {
+    await exec(`gh ${cmd} edit ${number} --repo ${owner}/${repo} --add-label "${labelName}"`);
+    if (verbose) console.log(`[VERBOSE] /merge: Added '${labelName}' label to ${type} #${number}`);
+    return { success: true, error: null };
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] /merge: Failed to add label to ${type} #${number}: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Sync 'ready' tags between linked pull requests and issues
+ *
+ * Issue #1367: Before building the merge queue, ensure that:
+ * 1. If a PR has 'ready' label and is clearly linked to an issue (via standard GitHub
+ *    keywords in the PR body/title), the issue also gets 'ready' label.
+ * 2. If an issue has 'ready' label and has a clearly linked open PR, the PR also gets
+ *    'ready' label.
+ *
+ * This ensures the final list of ready PRs reflects all ready work, regardless of
+ * where the 'ready' label was originally applied.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{synced: number, errors: number, details: Array<Object>}>}
+ */
+export async function syncReadyTags(owner, repo, verbose = false) {
+  const synced = [];
+  const errors = [];
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Syncing 'ready' tags for ${owner}/${repo}...`);
+  }
+
+  try {
+    // Fetch open PRs with 'ready' label (including body for link detection)
+    const { stdout: prsJson } = await exec(`gh pr list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title,body,labels --limit 100`);
+    const readyPRs = JSON.parse(prsJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyPRs.length} open PRs with 'ready' label for tag sync`);
+    }
+
+    // Fetch open issues with 'ready' label
+    const { stdout: issuesJson } = await exec(`gh issue list --repo ${owner}/${repo} --label "${READY_LABEL.name}" --state open --json number,title --limit 100`);
+    const readyIssues = JSON.parse(issuesJson.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${readyIssues.length} open issues with 'ready' label for tag sync`);
+    }
+
+    // Build a set of issue numbers that already have 'ready'
+    const readyIssueNumbers = new Set(readyIssues.map(i => String(i.number)));
+
+    // Step 1: For each PR with 'ready', find linked issue and sync label to it
+    for (const pr of readyPRs) {
+      try {
+        const prBody = pr.body || '';
+        const linkedIssueNumber = extractLinkedIssueNumber(prBody);
+
+        if (!linkedIssueNumber) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: PR #${pr.number} has no linked issue (no closing keyword in body)`);
+          }
+          continue;
+        }
+
+        if (readyIssueNumbers.has(String(linkedIssueNumber))) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${linkedIssueNumber} already has 'ready' label (linked from PR #${pr.number})`);
+          }
+          continue;
+        }
+
+        // Issue doesn't have 'ready' label yet - add it
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${pr.number} has 'ready', adding to linked issue #${linkedIssueNumber}`);
+        }
+
+        const result = await addLabel('issue', owner, repo, linkedIssueNumber, READY_LABEL.name, verbose);
+        if (result.success) {
+          synced.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber) });
+          // Mark this issue as now having 'ready' so we don't process it again
+          readyIssueNumbers.add(String(linkedIssueNumber));
+        } else {
+          errors.push({ type: 'pr-to-issue', prNumber: pr.number, issueNumber: Number(linkedIssueNumber), error: result.error });
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from PR #${pr.number}: ${err.message}`);
+        }
+        errors.push({ type: 'pr-to-issue', prNumber: pr.number, error: err.message });
+      }
+    }
+
+    // Build a set of PR numbers that already have 'ready'
+    const readyPRNumbers = new Set(readyPRs.map(p => String(p.number)));
+
+    // Step 2: For each issue with 'ready', find linked PRs and sync label to them
+    for (const issue of readyIssues) {
+      try {
+        // Search for open PRs linked to this issue via closing keywords
+        const { stdout: linkedPRsJson } = await exec(`gh pr list --repo ${owner}/${repo} --search "in:body closes #${issue.number} OR fixes #${issue.number} OR resolves #${issue.number}" --state open --json number,title,labels --limit 10`);
+        const linkedPRs = JSON.parse(linkedPRsJson.trim() || '[]');
+
+        for (const linkedPR of linkedPRs) {
+          if (readyPRNumbers.has(String(linkedPR.number))) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${linkedPR.number} already has 'ready' label (linked from issue #${issue.number})`);
+            }
+            continue;
+          }
+
+          // PR doesn't have 'ready' label yet - add it
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: Issue #${issue.number} has 'ready', adding to linked PR #${linkedPR.number}`);
+          }
+
+          const result = await addLabel('pr', owner, repo, linkedPR.number, READY_LABEL.name, verbose);
+          if (result.success) {
+            synced.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number });
+            // Mark this PR as now having 'ready'
+            readyPRNumbers.add(String(linkedPR.number));
+          } else {
+            errors.push({ type: 'issue-to-pr', issueNumber: issue.number, prNumber: linkedPR.number, error: result.error });
+          }
+        }
+      } catch (err) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error syncing label from issue #${issue.number}: ${err.message}`);
+        }
+        errors.push({ type: 'issue-to-pr', issueNumber: issue.number, error: err.message });
+      }
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error during tag sync: ${error.message}`);
+    }
+    errors.push({ type: 'fetch', error: error.message });
+  }
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Tag sync complete. Synced: ${synced.length}, Errors: ${errors.length}`);
+  }
+
+  return {
+    synced: synced.length,
+    errors: errors.length,
+    details: synced,
+    errorDetails: errors,
+  };
+}
+
+/**
  * Get combined list of ready PRs (from both direct PR labels and issue labels)
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -340,6 +509,22 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       })),
     ];
 
+    // Issue #1304: If no checks exist yet, treat as pending
+    // This handles the race condition where CI hasn't started yet after a commit is pushed.
+    // An empty array would otherwise pass all checks due to JavaScript's vacuous truth
+    // ([].every(fn) returns true for any fn).
+    if (allChecks.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as pending`);
+      }
+      return {
+        status: 'pending',
+        checks: [],
+        allPassed: false,
+        hasPending: true,
+      };
+    }
+
     const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
     const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
     const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
@@ -384,6 +569,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
 
 /**
  * Check if PR is mergeable
+ *
+ * Issue #1339: GitHub computes mergeability asynchronously. The first request may return
+ * mergeable: null and mergeStateStatus: 'UNKNOWN' while the computation is in progress.
+ * We retry up to 3 times with a 5-second delay between attempts to handle this case.
+ *
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
@@ -391,45 +581,103 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @returns {Promise<{mergeable: boolean, reason: string|null}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
-  try {
-    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
-    const pr = JSON.parse(stdout.trim());
+  // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
+  // 'UNKNOWN', it means GitHub hasn't calculated the merge state yet. Retry a few times.
+  const MAX_UNKNOWN_RETRIES = 3;
+  const UNKNOWN_RETRY_DELAY_MS = 5000;
 
-    const mergeable = pr.mergeable === 'MERGEABLE';
-    let reason = null;
+  for (let attempt = 0; attempt < MAX_UNKNOWN_RETRIES; attempt++) {
+    try {
+      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
+      const pr = JSON.parse(stdout.trim());
 
-    if (!mergeable) {
-      switch (pr.mergeStateStatus) {
-        case 'BLOCKED':
-          reason = 'PR is blocked (possibly by branch protection rules)';
-          break;
-        case 'BEHIND':
-          reason = 'PR branch is behind the base branch';
-          break;
-        case 'DIRTY':
-          reason = 'PR has merge conflicts';
-          break;
-        case 'UNSTABLE':
-          reason = 'PR has failing required status checks';
-          break;
-        case 'DRAFT':
-          reason = 'PR is a draft';
-          break;
-        default:
-          reason = `Merge state: ${pr.mergeStateStatus || 'unknown'}`;
+      // Issue #1339: If mergeStateStatus is 'UNKNOWN', GitHub is still computing.
+      // Wait and retry instead of immediately skipping the PR.
+      if (pr.mergeStateStatus === 'UNKNOWN' || pr.mergeable === null) {
+        if (attempt < MAX_UNKNOWN_RETRIES - 1) {
+          if (verbose) {
+            console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability is UNKNOWN (attempt ${attempt + 1}/${MAX_UNKNOWN_RETRIES}), retrying in ${UNKNOWN_RETRY_DELAY_MS / 1000}s...`);
+          }
+          await new Promise(resolve => setTimeout(resolve, UNKNOWN_RETRY_DELAY_MS));
+          continue;
+        }
+        // All retries exhausted, still UNKNOWN - treat as not mergeable
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability still UNKNOWN after ${MAX_UNKNOWN_RETRIES} attempts`);
+        }
+        return { mergeable: false, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
+
+      const mergeable = pr.mergeable === 'MERGEABLE';
+      let reason = null;
+
+      if (!mergeable) {
+        switch (pr.mergeStateStatus) {
+          case 'BLOCKED':
+            reason = 'PR is blocked (possibly by branch protection rules)';
+            break;
+          case 'BEHIND':
+            reason = 'PR branch is behind the base branch';
+            break;
+          case 'DIRTY':
+            reason = 'PR has merge conflicts';
+            break;
+          case 'UNSTABLE':
+            reason = 'PR has failing required status checks';
+            break;
+          case 'DRAFT':
+            reason = 'PR is a draft';
+            break;
+          default:
+            reason = `Merge state: ${pr.mergeStateStatus || 'unknown'}`;
+        }
+      }
+
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
+      }
+
+      return { mergeable, reason };
+    } catch (error) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
+      }
+      return { mergeable: false, reason: error.message };
     }
+  }
+
+  // Should not reach here, but return safe default
+  return { mergeable: false, reason: 'Merge state: UNKNOWN' };
+}
+
+/**
+ * Check if the authenticated user has write/merge permissions on the repository
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{canMerge: boolean, permission: string|null}>}
+ */
+export async function checkMergePermissions(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.permissions'`);
+    const permissions = JSON.parse(stdout.trim());
+
+    const canMerge = permissions.admin === true || permissions.maintain === true || permissions.push === true;
 
     if (verbose) {
-      console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
+      console.log(`[VERBOSE] /merge: Merge permissions for ${owner}/${repo}: push=${permissions.push}, admin=${permissions.admin}, maintain=${permissions.maintain}`);
+      console.log(`[VERBOSE] /merge: Can merge: ${canMerge}`);
     }
 
-    return { mergeable, reason };
+    return {
+      canMerge,
+      permission: permissions.admin ? 'admin' : permissions.maintain ? 'maintain' : permissions.push ? 'push' : 'read',
+    };
   } catch (error) {
     if (verbose) {
-      console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
+      console.log(`[VERBOSE] /merge: Error checking merge permissions: ${error.message}`);
     }
-    return { mergeable: false, reason: error.message };
+    return { canMerge: false, permission: null };
   }
 }
 
@@ -439,19 +687,31 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {Object} options - Merge options
- * @param {boolean} options.squash - Whether to squash merge (default: false, uses default merge method)
+ * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge')
+ *                                       Note: Must specify one method when running non-interactively.
+ *                                       See Issue #1269 for details.
+ * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{success: boolean, error: string|null}>}
  */
 export async function mergePullRequest(owner, repo, prNumber, options = {}, verbose = false) {
-  const { squash = false, deleteAfter = false } = options;
+  const { mergeMethod = 'merge', squash = false, deleteAfter = false } = options;
 
   try {
     let mergeArgs = `--repo ${owner}/${repo}`;
-    if (squash) {
+
+    // Issue #1269: gh pr merge requires --merge, --squash, or --rebase when running non-interactively
+    // We must always specify a merge method to prevent the command from hanging or failing
+    if (squash || mergeMethod === 'squash') {
       mergeArgs += ' --squash';
+    } else if (mergeMethod === 'rebase') {
+      mergeArgs += ' --rebase';
+    } else {
+      // Default to --merge for standard merge commits
+      mergeArgs += ' --merge';
     }
+
     if (deleteAfter) {
       mergeArgs += ' --delete-branch';
     }
@@ -485,15 +745,49 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
  * @returns {Promise<{success: boolean, status: string, error: string|null}>}
  */
 export async function waitForCI(owner, repo, prNumber, options = {}, verbose = false) {
-  const { timeout = 30 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+  const {
+    timeout = 30 * 60 * 1000,
+    pollInterval = 30 * 1000,
+    onStatusUpdate = null,
+    // Issue #1269: Add timeout for callback to prevent infinite blocking
+    callbackTimeout = 60 * 1000, // 1 minute max for callback
+    isCancelled = null, // Issue #1407: Support early exit when cancellation is requested
+  } = options;
 
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
-    const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    // Issue #1407: Check for cancellation before each poll to allow early exit
+    if (isCancelled?.()) return { success: false, status: 'cancelled', error: 'Operation was cancelled' };
+
+    let ciStatus;
+    try {
+      ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
+    } catch (error) {
+      // Issue #1269: Log and continue on CI check errors instead of crashing
+      console.error(`[ERROR] /merge: Error checking CI status for PR #${prNumber}: ${error.message}`);
+      verbose && console.error(`[VERBOSE] /merge: CI check error details:`, error);
+      // Wait and retry
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
 
     if (onStatusUpdate) {
-      await onStatusUpdate(ciStatus);
+      // Issue #1269: Wrap callback with timeout to prevent infinite blocking; #1346: capture and clear timeout handle to prevent dangling timer
+      try {
+        let callbackTimeoutId;
+        await Promise.race([
+          onStatusUpdate(ciStatus),
+          new Promise((_, reject) => {
+            callbackTimeoutId = setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout);
+          }),
+        ]).finally(() => clearTimeout(callbackTimeoutId));
+      } catch (callbackError) {
+        // Issue #1269: Log callback errors but continue processing
+        console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);
+        verbose && console.error(`[VERBOSE] /merge: Callback error details:`, callbackError);
+        // Continue processing even if callback fails - don't let UI issues block merging
+      }
     }
 
     if (ciStatus.status === 'success') {
@@ -553,6 +847,623 @@ export function parseRepositoryUrl(url) {
   };
 }
 
+/**
+ * Get active workflow runs on a specific branch
+ * Issue #1307: Used to check if there are any in-progress or queued runs on the target branch
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} branch - Branch name (default: main)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{runs: Array<Object>, hasActiveRuns: boolean, count: number}>}
+ */
+export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose = false) {
+  try {
+    // Query for in_progress and queued runs on the specified branch
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?branch=${branch}&per_page=10" --jq '[.workflow_runs[] | select(.status=="in_progress" or .status=="queued")] | map({id: .id, name: .name, status: .status, created_at: .created_at, html_url: .html_url})'`);
+
+    const runs = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runs.length} active runs on ${owner}/${repo} branch ${branch}`);
+      for (const run of runs) {
+        console.log(`[VERBOSE] /merge:   - Run #${run.id}: ${run.name} (${run.status})`);
+      }
+    }
+
+    return {
+      runs,
+      hasActiveRuns: runs.length > 0,
+      count: runs.length,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking active runs on ${branch}: ${error.message}`);
+    }
+    return {
+      runs: [],
+      hasActiveRuns: false,
+      count: 0,
+    };
+  }
+}
+
+/**
+ * Wait for all active workflow runs on a branch to complete
+ * Issue #1307: Ensures all CI runs on target branch are complete before merging
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} branch - Branch name (default: main)
+ * @param {Object} options - Wait options
+ * @param {number} options.timeout - Maximum wait time in ms (default: 45 minutes)
+ * @param {number} options.pollInterval - Polling interval in ms (default: 30 seconds)
+ * @param {Function} options.onStatusUpdate - Callback for status updates
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
+ */
+export async function waitForBranchCI(owner, repo, branch = 'main', options = {}, verbose = false) {
+  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null } = options;
+
+  const startTime = Date.now();
+  let totalWaitedRuns = 0;
+
+  if (verbose) {
+    console.log(`[VERBOSE] /merge: Checking for active CI runs on ${owner}/${repo} branch ${branch}...`);
+  }
+
+  while (Date.now() - startTime < timeout) {
+    let activeRuns;
+    try {
+      activeRuns = await getActiveBranchRuns(owner, repo, branch, verbose);
+    } catch (error) {
+      // Log and continue on errors
+      console.error(`[ERROR] /merge: Error checking branch CI: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      continue;
+    }
+
+    if (onStatusUpdate) {
+      try {
+        await onStatusUpdate({
+          hasActiveRuns: activeRuns.hasActiveRuns,
+          count: activeRuns.count,
+          runs: activeRuns.runs,
+          elapsedMs: Date.now() - startTime,
+        });
+      } catch (callbackError) {
+        // Log callback errors but continue
+        console.error(`[ERROR] /merge: Status update callback failed: ${callbackError.message}`);
+      }
+    }
+
+    if (!activeRuns.hasActiveRuns) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: No active CI runs on ${branch} branch. Ready to proceed.`);
+      }
+      return {
+        success: true,
+        waitedForRuns: totalWaitedRuns > 0,
+        completedRuns: totalWaitedRuns,
+        error: null,
+      };
+    }
+
+    totalWaitedRuns = Math.max(totalWaitedRuns, activeRuns.count);
+
+    if (verbose) {
+      const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+      console.log(`[VERBOSE] /merge: Waiting for ${activeRuns.count} active runs on ${branch}... (${elapsedSec}s elapsed)`);
+    }
+
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+
+  // Timeout reached
+  const finalCheck = await getActiveBranchRuns(owner, repo, branch, verbose);
+  if (finalCheck.hasActiveRuns) {
+    return {
+      success: false,
+      waitedForRuns: true,
+      completedRuns: totalWaitedRuns - finalCheck.count,
+      error: `Timeout waiting for ${finalCheck.count} CI runs on ${branch} branch`,
+    };
+  }
+
+  return {
+    success: true,
+    waitedForRuns: totalWaitedRuns > 0,
+    completedRuns: totalWaitedRuns,
+    error: null,
+  };
+}
+
+/**
+ * Get the default branch for a repository
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<string>} Default branch name (e.g., 'main' or 'master')
+ */
+export async function getDefaultBranch(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '.default_branch'`);
+    const branch = stdout.trim();
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Default branch for ${owner}/${repo}: ${branch}`);
+    }
+
+    return branch || 'main';
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting default branch, falling back to 'main': ${error.message}`);
+    }
+    return 'main';
+  }
+}
+
+/**
+ * Get annotations for a check run
+ * Issue #1314: Used to detect billing limit errors
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} checkRunId - Check run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<Object>>} Array of annotation objects
+ */
+export async function getCheckRunAnnotations(owner, repo, checkRunId, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/check-runs/${checkRunId}/annotations 2>/dev/null || echo "[]"`);
+    const annotations = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Check run ${checkRunId} has ${annotations.length} annotations`);
+    }
+
+    return annotations;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching annotations for check run ${checkRunId}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Check if repository is private
+ * Issue #1314: Used to determine behavior when billing limits are reached
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isPrivate: boolean, visibility: string|null}>}
+ */
+export async function getRepoVisibility(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo} --jq '{isPrivate: .private, visibility: .visibility}'`);
+    const info = JSON.parse(stdout.trim());
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Repository ${owner}/${repo} visibility: ${info.visibility}, private: ${info.isPrivate}`);
+    }
+
+    return {
+      isPrivate: info.isPrivate === true,
+      visibility: info.visibility || null,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking repository visibility: ${error.message}`);
+    }
+    // Assume private if we can't determine (safer default)
+    return { isPrivate: true, visibility: null };
+  }
+}
+
+/**
+ * Known billing limit error message pattern
+ * Issue #1314: This is the exact message GitHub uses for billing/spending limit errors
+ */
+export const BILLING_LIMIT_ERROR_PATTERN = 'The job was not started because recent account payments have failed or your spending limit needs to be increased';
+
+/**
+ * Check if CI failure is due to billing/spending limits
+ * Issue #1314: Detects when GitHub Actions jobs fail due to billing issues rather than code problems
+ *
+ * Detection criteria:
+ * 1. Job has conclusion='failure'
+ * 2. Job has empty steps array (no steps were executed)
+ * 3. Job has runner_id=0 or null (no runner was assigned)
+ * 4. Annotation contains the billing limit error message
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{isBillingLimitError: boolean, message: string|null, affectedJobs: string[], allJobsAffected: boolean}>}
+ */
+export async function checkForBillingLimitError(owner, repo, prNumber, verbose = false) {
+  try {
+    // Get the PR's head SHA
+    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+    const prData = JSON.parse(prJson.trim());
+    const sha = prData.headRefOid;
+
+    // Get workflow runs for this SHA
+    const { stdout: runsJson } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=10" --jq '.workflow_runs[].id'`);
+    const runIds = runsJson.trim().split('\n').filter(Boolean);
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runIds.length} workflow runs for PR #${prNumber} at SHA ${sha.substring(0, 7)}`);
+    }
+
+    const affectedJobs = [];
+    let totalJobs = 0;
+
+    // Check each workflow run's jobs
+    for (const runId of runIds) {
+      try {
+        const { stdout: jobsJson } = await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/jobs --jq '.jobs'`);
+        const jobs = JSON.parse(jobsJson.trim() || '[]');
+
+        for (const job of jobs) {
+          totalJobs++;
+
+          // Check for billing limit indicators:
+          // 1. Conclusion is failure
+          // 2. Steps array is empty (no steps were executed)
+          // 3. Runner ID is 0 or null (no runner was assigned)
+          const hasNoSteps = !job.steps || job.steps.length === 0;
+          const hasNoRunner = job.runner_id === 0 || job.runner_id === null;
+
+          if (job.conclusion === 'failure' && hasNoSteps && hasNoRunner) {
+            // Fetch annotations to confirm billing limit error
+            const annotations = await getCheckRunAnnotations(owner, repo, job.id, verbose);
+
+            const billingAnnotation = annotations.find(a => a.message?.includes(BILLING_LIMIT_ERROR_PATTERN));
+
+            if (billingAnnotation) {
+              affectedJobs.push(job.name);
+
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: Job "${job.name}" (ID: ${job.id}) failed due to billing limits`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error checking jobs for run ${runId}: ${error.message}`);
+        }
+      }
+    }
+
+    const isBillingLimitError = affectedJobs.length > 0;
+    const allJobsAffected = totalJobs > 0 && affectedJobs.length === totalJobs;
+
+    if (verbose && isBillingLimitError) {
+      console.log(`[VERBOSE] /merge: Billing limit detected - ${affectedJobs.length}/${totalJobs} jobs affected`);
+    }
+
+    return {
+      isBillingLimitError,
+      message: isBillingLimitError ? BILLING_LIMIT_ERROR_PATTERN : null,
+      affectedJobs,
+      allJobsAffected,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking for billing limit: ${error.message}`);
+    }
+    return {
+      isBillingLimitError: false,
+      message: null,
+      affectedJobs: [],
+      allJobsAffected: false,
+    };
+  }
+}
+
+/**
+ * Re-run all jobs in a workflow run
+ * Issue #1314: Used to re-trigger CI jobs that were cancelled or not started
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} runId - Workflow run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function rerunWorkflowRun(owner, repo, runId, verbose = false) {
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun -X POST`);
+    // GitHub returns 201 on success
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Successfully triggered re-run for workflow ${runId}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    // exec throws when command exits non-zero (e.g., 404 Not Found)
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to re-run workflow ${runId}: ${errorMessage}`);
+    }
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Re-run only failed jobs in a workflow run
+ * Issue #1314: More targeted than full re-run, only retries failed jobs
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} runId - Workflow run ID
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{success: boolean, error: string|null}>}
+ */
+export async function rerunFailedJobs(owner, repo, runId, verbose = false) {
+  try {
+    await exec(`gh api repos/${owner}/${repo}/actions/runs/${runId}/rerun-failed-jobs -X POST`);
+    // GitHub returns 201 on success
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Successfully triggered re-run of failed jobs for workflow ${runId}`);
+    }
+    return { success: true, error: null };
+  } catch (error) {
+    const errorMessage = error.stderr?.trim() || error.stdout?.trim() || error.message;
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Failed to re-run failed jobs for workflow ${runId}: ${errorMessage}`);
+    }
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Get detailed CI status for a PR, distinguishing between different non-success states
+ * Issue #1314: Enhanced version that separates cancelled, queued, and billing-limited states
+ *
+ * Possible returned statuses:
+ * - 'success': All checks passed
+ * - 'failure': Some checks failed (genuine code failures, timed_out, or action_required)
+ * - 'cancelled': Some checks were cancelled or stale (need re-triggering)
+ * - 'pending': Some checks are still running, queued, waiting, or requested
+ * - 'billing_limit': Failures are due to billing/spending limits (determined by caller)
+ * - 'no_checks': No CI checks found yet (race condition after push)
+ * - 'unknown': Unable to determine status
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Object>} Detailed CI status object
+ */
+export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false) {
+  try {
+    // Get the PR's head SHA
+    const { stdout: prJson } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid`);
+    const prData = JSON.parse(prJson.trim());
+    const sha = prData.headRefOid;
+
+    // Get check runs for this SHA
+    const { stdout: checksJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/check-runs --paginate --jq '.check_runs'`);
+    const checkRuns = JSON.parse(checksJson.trim() || '[]');
+
+    // Get commit statuses
+    const { stdout: statusJson } = await exec(`gh api repos/${owner}/${repo}/commits/${sha}/status --jq '.statuses'`);
+    const statuses = JSON.parse(statusJson.trim() || '[]');
+
+    // Build detailed checks list
+    const allChecks = [
+      ...checkRuns.map(check => ({
+        name: check.name,
+        status: check.status, // queued, in_progress, completed
+        conclusion: check.conclusion, // success, failure, cancelled, timed_out, skipped, neutral, action_required, stale, null
+        type: 'check_run',
+        id: check.id,
+      })),
+      ...statuses.map(status => ({
+        name: status.context,
+        status: status.state === 'pending' ? 'in_progress' : 'completed',
+        conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
+        type: 'status',
+        id: null,
+      })),
+    ];
+
+    // No checks yet
+    if (allChecks.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet - treating as no_checks`);
+      }
+      return {
+        status: 'no_checks',
+        checks: [],
+        sha,
+        hasFailures: false,
+        hasCancelled: false,
+        hasStale: false,
+        hasPending: false,
+        hasQueued: false,
+        allPassed: false,
+        failedChecks: [],
+        cancelledChecks: [],
+        staleChecks: [],
+        pendingChecks: [],
+        queuedChecks: [],
+        passedChecks: [],
+      };
+    }
+
+    // Categorize checks
+    // Note: GitHub check run conclusions include: success, failure, cancelled, timed_out, skipped,
+    // neutral, action_required, stale, null (not yet completed)
+    // GitHub check run statuses include: queued, in_progress, completed, waiting, requested, pending
+    const passedChecks = allChecks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
+    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+    const cancelledChecks = allChecks.filter(c => c.conclusion === 'cancelled');
+    const staleChecks = allChecks.filter(c => c.conclusion === 'stale');
+    const pendingChecks = allChecks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
+    const queuedChecks = allChecks.filter(c => c.status === 'queued' && c.conclusion === null);
+
+    const hasFailures = failedChecks.length > 0;
+    const hasCancelled = cancelledChecks.length > 0;
+    const hasStale = staleChecks.length > 0;
+    const hasPending = pendingChecks.length > 0;
+    const hasQueued = queuedChecks.length > 0;
+    const allPassed = !hasFailures && !hasCancelled && !hasStale && !hasPending && !hasQueued && passedChecks.length === allChecks.length;
+
+    // Determine overall status
+    let status;
+    if (allPassed) {
+      status = 'success';
+    } else if (hasPending || hasQueued) {
+      // Some checks are still running, queued, or waiting for a runner - wait for completion
+      status = 'pending';
+    } else if (hasStale && !hasFailures && !hasCancelled) {
+      // Stale checks need to be re-triggered (similar to cancelled)
+      status = 'cancelled';
+    } else if (hasFailures && !hasCancelled && !hasStale) {
+      status = 'failure';
+    } else if ((hasCancelled || hasStale) && !hasFailures) {
+      status = 'cancelled';
+    } else if (hasFailures && (hasCancelled || hasStale)) {
+      // Mixed: some failed, some cancelled/stale - report as failure (the failures need attention)
+      status = 'failure';
+    } else {
+      status = 'unknown';
+    }
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${prNumber} detailed CI status: ${status}`);
+      console.log(`[VERBOSE] /merge:   Total: ${allChecks.length}, Passed: ${passedChecks.length}, Failed: ${failedChecks.length}, Cancelled: ${cancelledChecks.length}, Stale: ${staleChecks.length}, Pending: ${pendingChecks.length}, Queued: ${queuedChecks.length}`);
+    }
+
+    return {
+      status,
+      checks: allChecks,
+      sha,
+      hasFailures,
+      hasCancelled,
+      hasStale,
+      hasPending,
+      hasQueued,
+      allPassed,
+      failedChecks,
+      cancelledChecks,
+      staleChecks,
+      pendingChecks,
+      queuedChecks,
+      passedChecks,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting detailed CI status: ${error.message}`);
+    }
+    return {
+      status: 'unknown',
+      checks: [],
+      sha: null,
+      hasFailures: false,
+      hasCancelled: false,
+      hasStale: false,
+      hasPending: false,
+      hasQueued: false,
+      allPassed: false,
+      failedChecks: [],
+      cancelledChecks: [],
+      staleChecks: [],
+      pendingChecks: [],
+      queuedChecks: [],
+      passedChecks: [],
+    };
+  }
+}
+
+/**
+ * Get workflow run IDs for a specific commit SHA
+ * Issue #1314: Helper to find workflow runs to re-trigger
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} sha - Commit SHA
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array<{id: number, status: string, conclusion: string|null, name: string, html_url: string}>>}
+ */
+export async function getWorkflowRunsForSha(owner, repo, sha, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=20" --jq '[.workflow_runs[] | {id: .id, status: .status, conclusion: .conclusion, name: .name, html_url: .html_url}]'`);
+    const runs = JSON.parse(stdout.trim() || '[]');
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${runs.length} workflow runs for SHA ${sha.substring(0, 7)}`);
+      for (const run of runs) {
+        console.log(`[VERBOSE] /merge:   - ${run.name} (${run.id}): status=${run.status}, conclusion=${run.conclusion}`);
+      }
+    }
+
+    return runs;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching workflow runs for SHA ${sha}: ${error.message}`);
+    }
+    return [];
+  }
+}
+
+/**
+ * Get the count of active (enabled) GitHub Actions workflows in a repository
+ * Issue #1363: Used to distinguish between "no CI configured" and "CI hasn't started yet"
+ *
+ * When a repo has NO workflows, no_checks means no CI configured.
+ * When a repo HAS workflows, no_checks means CI checks haven't started yet (race condition).
+ *
+ * Issue #1399: GitHub Pages deployment workflows (path: "dynamic/pages/...") are excluded
+ * because they only run on the default branch after merge, never on PR branches. Counting
+ * them as "CI workflows" causes an infinite loop waiting for check-runs that never appear.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, hasWorkflows: boolean, workflows: Array<{id: number, name: string, state: string, path: string}>}>}
+ */
+export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/workflows" --jq '[.workflows[] | select(.state == "active")] | map({id: .id, name: .name, state: .state, path: .path})'`);
+    const allWorkflows = JSON.parse(stdout.trim() || '[]');
+
+    // Issue #1399: Filter out GitHub Pages deployment workflows.
+    // These have path "dynamic/pages/pages-build-deployment" and only run on the
+    // default branch after merge — they never produce check-runs on PR branches.
+    // Including them causes an infinite loop when waiting for PR CI checks.
+    const workflows = allWorkflows.filter(wf => !wf.path.startsWith('dynamic/pages/'));
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Found ${allWorkflows.length} active workflows in ${owner}/${repo} (${workflows.length} PR-relevant after filtering out GitHub Pages deployment workflows)`);
+      for (const wf of allWorkflows) {
+        const filtered = wf.path.startsWith('dynamic/pages/');
+        console.log(`[VERBOSE] /merge:   - ${wf.name} (${wf.id}): ${wf.state}, path=${wf.path}${filtered ? ' [excluded: GitHub Pages deployment]' : ''}`);
+      }
+    }
+
+    return {
+      count: workflows.length,
+      hasWorkflows: workflows.length > 0,
+      workflows,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching workflows for ${owner}/${repo}: ${error.message}`);
+    }
+    // On error, assume no workflows (safer: avoids false positives in the no-CI case)
+    return {
+      count: 0,
+      hasWorkflows: false,
+      workflows: [],
+    };
+  }
+}
+
+// Issue #1341: Import and re-export post-merge CI functions from separate module
+// to keep this file under the 1500 line limit
+import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
+export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -562,9 +1473,32 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
+  // Issue #1367: Sync 'ready' tags between linked PRs and issues
+  syncReadyTags,
   checkPRCIStatus,
   checkPRMergeable,
+  checkMergePermissions,
   mergePullRequest,
   waitForCI,
   parseRepositoryUrl,
+  // Issue #1307: New exports for target branch CI waiting
+  getActiveBranchRuns,
+  waitForBranchCI,
+  getDefaultBranch,
+  // Issue #1314: Billing limit detection
+  getCheckRunAnnotations,
+  getRepoVisibility,
+  checkForBillingLimitError,
+  BILLING_LIMIT_ERROR_PATTERN,
+  // Issue #1314: Enhanced CI status and re-run capabilities
+  getDetailedCIStatus,
+  rerunWorkflowRun,
+  rerunFailedJobs,
+  getWorkflowRunsForSha,
+  // Issue #1341: Post-merge CI waiting and branch health checking
+  waitForCommitCI,
+  checkBranchCIHealth,
+  getMergeCommitSha,
+  // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
+  getActiveRepoWorkflows,
 };

@@ -9,6 +9,7 @@ Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produ
 This was observed when PR #1420 (fixing `/home/hive/.config` ownership) was merged: both Dockerfiles changed, but CI run `23040959919` showed all Docker publish jobs as skipped.
 
 The `release` job condition is now updated to:
+
 - Also trigger when `docker-changed == 'true'` (not only `code=true`)
 - Accept `skipped` as well as `success` for test/lint jobs (skipped = intentionally not run, not a failure)
 - Block on any actual job `failure`

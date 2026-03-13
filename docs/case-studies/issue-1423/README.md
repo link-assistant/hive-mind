@@ -153,6 +153,7 @@ The `docker-publish` job intentionally depends on `release` because Docker image
 The `release` job requires that test jobs (`test-suites`, `test-execution`, `memory-check-linux`) all succeed. When only Docker files change, these test jobs are rightly skipped (they test JavaScript code, not Docker images). The release job was requiring `success` — but `skipped` is also an acceptable result when there's nothing to test.
 
 Therefore, the correct fix is to update the `release` job condition to:
+
 1. Accept `skipped` as well as `success` for test/lint jobs (they were skipped because no code changed — that is correct and acceptable).
 2. Also trigger when `docker-changed == 'true'`, not only when `any-code-changed == 'true'`.
 
@@ -170,10 +171,10 @@ The `release` job condition was updated to accept `skipped` for test jobs and al
 release:
   needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
   if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' &&
-      needs.lint.result == 'success' &&
-      needs.test-suites.result == 'success' &&
-      needs.test-execution.result == 'success' &&
-      needs.memory-check-linux.result == 'success'
+    needs.lint.result == 'success' &&
+    needs.test-suites.result == 'success' &&
+    needs.test-execution.result == 'success' &&
+    needs.memory-check-linux.result == 'success'
 ```
 
 **After:**
@@ -196,6 +197,7 @@ release:
 ```
 
 Key changes:
+
 - **`skipped` is now accepted** for test/lint jobs — correct when those jobs were intentionally skipped.
 - **`docker-changed == 'true'` triggers release** — directly reacting to Docker file changes.
 - **`!contains(needs.*.result, 'failure')`** — ensures that if any job actually ran and failed, release is blocked.
@@ -228,12 +230,14 @@ code=false   ← still false (Dockerfile is not JS code — correct)
 ```
 
 Before the fix:
+
 ```
 release condition: needs.test-suites.result == 'success'  → false (it was skipped)
 → release SKIPPED ← BUG
 ```
 
 After the fix:
+
 ```
 release condition: (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && docker-changed == 'true'
 → release RUNS ← FIXED

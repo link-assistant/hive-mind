@@ -1459,8 +1459,7 @@ export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
   }
 }
 
-// Issue #1341: Import and re-export post-merge CI functions from separate module
-// to keep this file under the 1500 line limit
+// Issue #1341: Re-export post-merge CI functions from separate module
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
@@ -1473,32 +1472,28 @@ export default {
   fetchReadyPullRequests,
   fetchReadyIssuesWithPRs,
   getAllReadyPRs,
-  // Issue #1367: Sync 'ready' tags between linked PRs and issues
-  syncReadyTags,
+  syncReadyTags, // Issue #1367: Sync 'ready' tags between linked PRs and issues
   checkPRCIStatus,
   checkPRMergeable,
   checkMergePermissions,
   mergePullRequest,
   waitForCI,
   parseRepositoryUrl,
-  // Issue #1307: New exports for target branch CI waiting
-  getActiveBranchRuns,
+  getActiveBranchRuns, // Issue #1307: New exports for target branch CI waiting
   waitForBranchCI,
   getDefaultBranch,
-  // Issue #1314: Billing limit detection
+  // Issue #1314: Billing limit detection and enhanced CI status and re-run capabilities
   getCheckRunAnnotations,
   getRepoVisibility,
   checkForBillingLimitError,
   BILLING_LIMIT_ERROR_PATTERN,
-  // Issue #1314: Enhanced CI status and re-run capabilities
   getDetailedCIStatus,
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
-  // Issue #1341: Post-merge CI waiting and branch health checking
+  // Issue #1341: Post-merge CI waiting; Issue #1363: Detect active workflows
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
-  // Issue #1363: Detect active workflows to distinguish "no CI" from race condition
   getActiveRepoWorkflows,
 };

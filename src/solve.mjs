@@ -492,8 +492,6 @@ if (isPrUrl) {
       }
     }
     await log(`📝 PR branch: ${prBranch}`);
-    // Extract issue number from PR body using GitHub linking detection library
-    // This ensures we only detect actual GitHub-recognized linking keywords
     const prBody = prData.body || '';
     const extractedIssueNumber = extractLinkedIssueNumber(prBody);
     if (extractedIssueNumber) {
@@ -614,9 +612,6 @@ try {
     // prNumber is already set from earlier when we parsed the PR
   }
 
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
-
   // Handle auto PR creation using the new module
   const autoPrResult = await handleAutoPrCreation({
     argv,
@@ -694,9 +689,6 @@ try {
     await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
-
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
 
   // Start work session using the new module
   // Determine session type based on command line flags
@@ -1186,7 +1178,6 @@ try {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
-  // Check for uncommitted changes
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
@@ -1234,11 +1225,6 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  // Pass shouldRestart to prevent early exit when auto-restart is needed
-  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  // Issue #1152: Pass sessionType for differentiated log comments
-  // Issue #1154: Track if logs were already uploaded to prevent duplicates
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 

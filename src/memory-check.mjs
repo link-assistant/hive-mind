@@ -19,7 +19,10 @@ const $silent = $({ mirror: false, capture: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
+const helpersModule = await use('yargs@17.7.2/helpers');
+// Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
+const _helpers = helpersModule.default || helpersModule;
+const hideBin = _helpers.hideBin || (argv => argv.slice(2));
 const fs = (await use('fs')).promises;
 
 // Import log function from lib.mjs

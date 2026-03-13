@@ -20,8 +20,10 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     globalThis.use = use;
     const yargsModule = await use('yargs@17.7.2');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await use('yargs@17.7.2/helpers');
-    const rawArgs = hideBin(process.argv);
+    const helpersModuleHelp = await use('yargs@17.7.2/helpers');
+    const _helpersHelp = helpersModuleHelp.default || helpersModuleHelp;
+    const hideBinHelp = _helpersHelp.hideBin || (argv => argv.slice(2));
+    const rawArgs = hideBinHelp(process.argv);
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -86,7 +88,9 @@ if (isDirectExecution) {
     );
     const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const helpersModuleMain = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const _helpersMain = helpersModuleMain.default || helpersModuleMain;
+    const hideBin = _helpersMain.hideBin || (argv => argv.slice(2));
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions

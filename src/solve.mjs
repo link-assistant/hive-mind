@@ -77,8 +77,7 @@ const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
 const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
-const interruptLib = await import('./solve.interrupt.lib.mjs');
-const { createInterruptWrapper } = interruptLib;
+const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
 // Import new modular components
@@ -125,9 +124,7 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// If user specified a custom log directory, we would need to move the log file
-// However, this adds complexity, so we accept that early logs go to cwd
-// The trade-off is: early logs in cwd vs missing version/command in error cases
+// Early logs go to cwd; custom log dir takes effect after argv is parsed
 
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
@@ -195,7 +192,6 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
 cleanupContext.owner = owner;
@@ -524,17 +520,13 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Create or find temporary directory for cloning the repository
-// Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
-// Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
   // Set up repository and clone using the new module

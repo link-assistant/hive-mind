@@ -3,6 +3,7 @@ import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
 import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
+import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -18,6 +19,13 @@ const noUnderscoreWrapperPlugin = {
   },
 };
 
+// Create custom plugin to prevent leaked timer handles (issue #1346)
+const timerPlugin = {
+  rules: {
+    'no-leaked-timers': noLeakedTimers,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -26,6 +34,7 @@ export default [
       prettier,
       'gh-paginate': ghPaginatePlugin,
       'no-underscore-wrapper': noUnderscoreWrapperPlugin,
+      timers: timerPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -86,6 +95,9 @@ export default [
       // Disallow thin wrapper functions that only pass arguments through to an underscore-prefixed import
       // These wrappers add no value — call the underscore function directly at the call site
       'no-underscore-wrapper/no-underscore-passthrough-wrapper': 'error',
+      // Require capturing setTimeout/setInterval return values so timers can be cleared.
+      // Floating timers keep the Node.js event loop alive and cause hangs (issue #1346).
+      'timers/no-leaked-timers': 'error',
       // Enforce max 1500 lines per file to match CI workflow check
       // This ensures ESLint and check-file-line-limits job are synchronized
       // See: docs/case-studies/issue-1141 for context

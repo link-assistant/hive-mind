@@ -295,7 +295,6 @@ export const mapModelToId = model => {
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'opencode/gpt-5-nano',
     'minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-    'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
     // Kilo Gateway free models - short names for Kilo-exclusive models (Issue #1300)
     'glm-5-free': 'kilo/glm-5-free',
     'glm-4.5-air-free': 'kilo/glm-4.5-air-free',
@@ -312,6 +311,7 @@ export const mapModelToId = model => {
     'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
     'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
     // Deprecated free models (backward compatibility)
+    'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported by OpenCode Zen (Issue #1391)
     'glm-4.7-free': 'opencode/glm-4.7-free',
     'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   };
@@ -408,7 +408,6 @@ export const executeAgent = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -665,6 +664,13 @@ export const executeAgentCommand = async params => {
               if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
                 agentCompletedSuccessfully = true;
               }
+              // Issue #1296: Detect step_finish with reason "stop" as successful completion
+              // This is a clear marker of success - agent finished normally, not due to error or limit
+              // When this event appears, we should ignore any error events that appeared earlier in the stream
+              // (e.g., timeout errors that were recovered from via retry logic)
+              if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+                agentCompletedSuccessfully = true;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -725,6 +731,11 @@ export const executeAgentCommand = async params => {
                 // Issue #1276: Detect successful completion events (stderr)
                 // When agent emits session.idle or log with "exiting loop" message, it completed successfully
                 if (stderrData.type === 'session.idle' || (stderrData.type === 'log' && stderrData.message === 'exiting loop')) {
+                  agentCompletedSuccessfully = true;
+                }
+                // Issue #1296: Detect step_finish with reason "stop" as successful completion (stderr)
+                // This is a clear marker of success - agent finished normally, not due to error or limit
+                if (stderrData.type === 'step_finish' && stderrData.part?.reason === 'stop') {
                   agentCompletedSuccessfully = true;
                 }
               } catch {
@@ -900,6 +911,9 @@ export const executeAgentCommand = async params => {
           // Explicit JSON error message from agent (Issue #1201: includes streaming-detected errors)
           errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
+        } else if (exitCode === 130) {
+          errorInfo.message = 'Agent command interrupted (CTRL+C)';
+          await log('\n\n⚠️ Agent command interrupted (CTRL+C)');
         } else {
           errorInfo.message = `Agent command failed with exit code ${exitCode}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });

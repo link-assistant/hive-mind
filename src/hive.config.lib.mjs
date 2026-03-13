@@ -36,7 +36,7 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
   'auto-resume-on-limit-reset': {
     type: 'boolean',
     description: 'Automatically resume when AI tool limit resets (calculates reset time and waits). Passed to solve command.',
-    default: false,
+    default: true,
   },
   'auto-cleanup': {
     type: 'boolean',

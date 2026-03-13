@@ -59,9 +59,8 @@ async function runTest() {
 
     // Test 3: Create and add .gitkeep as fallback
     console.log('\n🔍 Test 3: Creating and adding .gitkeep as fallback...');
-    const gitkeepContent = `# Auto-generated file for PR creation
-# This file was created because CLAUDE.md is in .gitignore
-# It will be removed when the task is complete`;
+    const timestamp = new Date().toISOString();
+    const gitkeepContent = `# .gitkeep file auto-generated at ${timestamp} for PR creation at branch test-branch for issue https://example.com/issues/1`;
     await fs.writeFile(path.join(testDir, '.gitkeep'), gitkeepContent);
 
     execSync('git add .gitkeep', { cwd: testDir, stdio: 'pipe' });

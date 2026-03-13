@@ -41,7 +41,7 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -77,6 +77,8 @@ const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
 const { startAutoRestartUntilMergeable } = autoMergeLib;
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const interruptLib = await import('./solve.interrupt.lib.mjs');
+const { createInterruptWrapper } = interruptLib;
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
 // Import new modular components
@@ -94,6 +96,8 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions 
 // Import model validation library
 const modelValidation = await import('./model-validation.lib.mjs');
 const { validateAndExitOnInvalidModel } = modelValidation;
+const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
+const { autoAcceptInviteForRepo } = acceptInviteLib;
 
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
@@ -160,15 +164,15 @@ if (argv.sentry) {
     },
   });
 }
-// Create a cleanup wrapper that will be populated with context later
-let cleanupContext = { tempDir: null, argv: null, limitReached: false };
+// Create cleanup/interrupt wrappers populated with context as solve progresses
+let cleanupContext = { tempDir: null, argv: null, limitReached: false, branchName: null, prNumber: null, owner: null, repo: null };
 const cleanupWrapper = async () => {
   if (cleanupContext.tempDir && cleanupContext.argv) {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
 };
-// Initialize the exit handler with getAbsoluteLogPath function and cleanup wrapper
-initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper);
+const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
+initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
 
 // Note: Version and raw command are logged BEFORE parseArguments() (see above)
@@ -191,9 +195,11 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers early
+// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
 const errorHandlerOptions = {
   log,
@@ -313,6 +319,11 @@ if (argv.autoFork && !argv.fork) {
   }
 }
 
+// Accept pending GitHub invitation for the specific repo/org before checking write access
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+}
+
 // Early check: Verify repository write permissions BEFORE doing any work
 // This prevents wasting AI tokens when user doesn't have access and --fork is not used
 const { checkRepositoryWritePermission } = githubLib;
@@ -347,6 +358,7 @@ let prBranch;
 let mergeStateStatus;
 let prState;
 let forkOwner = null;
+let forkRepoName = null;
 let isContinueMode = false;
 // Auto-continue logic: check for existing PRs if --auto-continue is enabled
 const autoContinueResult = await processAutoContinueForIssue(argv, isIssueUrl, urlNumber, owner, repo);
@@ -376,9 +388,9 @@ if (autoContinueResult.isContinueMode) {
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
-          // Get actual fork repository name (may be prefixed)
-          const forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+          // Get actual fork repository name (may be prefixed) and store for use in setupRepository
+          forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
+          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -456,9 +468,9 @@ if (isPrUrl) {
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
-      // Get actual fork repository name (may be prefixed)
-      const forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : repo;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+      // Get actual fork repository name and store for use in setupRepository
+      forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
+      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -516,9 +528,12 @@ if (isPrUrl) {
 // Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers
+// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
+if (prNumber) cleanupContext.prNumber = prNumber;
 // Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
@@ -529,6 +544,7 @@ try {
     owner,
     repo,
     forkOwner,
+    forkRepoName,
     tempDir,
     isContinueMode,
     issueUrl,
@@ -561,6 +577,7 @@ try {
     repo,
     prNumber,
   });
+  cleanupContext.branchName = branchName;
 
   // Auto-merge default branch to pull request branch if enabled
   let autoMergeFeedbackLines = [];
@@ -638,6 +655,7 @@ try {
       claudeCommitHash = autoPrResult.claudeCommitHash;
     }
   }
+  if (prNumber) cleanupContext.prNumber = prNumber;
 
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
@@ -1476,14 +1494,15 @@ try {
     $,
   });
 } finally {
-  // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Show final log file reference (similar to Claude and other agents)
-  // This ensures users always know where to find the complete log file
+  // Show final log file reference so users always know where to find the complete log
   if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
+
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
+  await closeSentry();
 }

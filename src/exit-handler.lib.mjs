@@ -25,17 +25,22 @@ let exitMessageShown = false;
 let getLogPathFunction = null;
 let logFunction = null;
 let cleanupFunction = null;
+let interruptFunction = null;
+let interruptHandlerRan = false;
 
 /**
  * Initialize the exit handler with required dependencies
  * @param {Function} getLogPath - Function that returns the current log path
  * @param {Function} log - Logging function
  * @param {Function} cleanup - Optional cleanup function to call on exit
+ * @param {Function} interrupt - Optional interrupt function to call on SIGINT/SIGTERM before cleanup
+ *                               (e.g., auto-commit uncommitted changes, upload logs)
  */
-export const initializeExitHandler = (getLogPath, log, cleanup = null) => {
+export const initializeExitHandler = (getLogPath, log, cleanup = null, interrupt = null) => {
   getLogPathFunction = getLogPath;
   logFunction = log;
   cleanupFunction = cleanup;
+  interruptFunction = interrupt;
 };
 
 /**
@@ -67,11 +72,17 @@ const showExitMessage = async (reason = 'Process exiting', code = 0) => {
 export const safeExit = async (code = 0, reason = 'Process completed') => {
   await showExitMessage(reason, code);
 
-  // Close Sentry to flush any pending events and allow the process to exit cleanly
+  // Close Sentry to flush any pending events and allow the process to exit cleanly.
+  // Use Promise.race with a hard timeout to guarantee sentry.close() never hangs
+  // indefinitely — the 2000ms hint passed to sentry.close() is forwarded to internal
+  // flush logic, but the outer Promise itself has no built-in deadline, so we enforce one.
   try {
     const sentry = await getSentry();
     if (sentry && sentry.close) {
-      await sentry.close(2000); // Wait up to 2 seconds for pending events to be sent
+      await Promise.race([
+        sentry.close(2000),
+        new Promise(resolve => setTimeout(resolve, 3000)), // hard 3s deadline
+      ]);
     }
   } catch {
     // Ignore Sentry.close() errors - exit anyway
@@ -108,6 +119,15 @@ export const installGlobalExitHandlers = () => {
 
   // Handle SIGINT (CTRL+C)
   process.on('SIGINT', async () => {
+    // Run interrupt handler first (auto-commit, log upload, etc.) — guard against double invocation
+    if (interruptFunction && !interruptHandlerRan) {
+      interruptHandlerRan = true;
+      try {
+        await interruptFunction();
+      } catch {
+        // Ignore interrupt handler errors
+      }
+    }
     if (cleanupFunction) {
       try {
         await cleanupFunction();
@@ -119,7 +139,7 @@ export const installGlobalExitHandlers = () => {
     try {
       const sentry = await getSentry();
       if (sentry && sentry.close) {
-        await sentry.close(2000);
+        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
       }
     } catch {
       // Ignore Sentry.close() errors
@@ -140,7 +160,7 @@ export const installGlobalExitHandlers = () => {
     try {
       const sentry = await getSentry();
       if (sentry && sentry.close) {
-        await sentry.close(2000);
+        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
       }
     } catch {
       // Ignore Sentry.close() errors
@@ -164,7 +184,7 @@ export const installGlobalExitHandlers = () => {
     try {
       const sentry = await getSentry();
       if (sentry && sentry.close) {
-        await sentry.close(2000);
+        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
       }
     } catch {
       // Ignore Sentry.close() errors
@@ -188,7 +208,7 @@ export const installGlobalExitHandlers = () => {
     try {
       const sentry = await getSentry();
       if (sentry && sentry.close) {
-        await sentry.close(2000);
+        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
       }
     } catch {
       // Ignore Sentry.close() errors
@@ -202,4 +222,5 @@ export const installGlobalExitHandlers = () => {
  */
 export const resetExitHandler = () => {
   exitMessageShown = false;
+  interruptHandlerRan = false;
 };

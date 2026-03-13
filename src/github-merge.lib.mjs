@@ -687,9 +687,7 @@ export async function checkMergePermissions(owner, repo, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {Object} options - Merge options
- * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge')
- *                                       Note: Must specify one method when running non-interactively.
- *                                       See Issue #1269 for details.
+ * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge'). Must specify one method non-interactively (Issue #1269).
  * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
  * @param {boolean} verbose - Whether to log verbose output
@@ -1458,9 +1456,7 @@ export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
     };
   }
 }
-
-// Issue #1341: Import and re-export post-merge CI functions from separate module
-// to keep this file under the 1500 line limit
+// Issue #1341: Import and re-export post-merge CI functions to stay under 1500 line limit
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 

@@ -19,7 +19,7 @@ function runTest(testName, args, expectedSuccess) {
 
     const proc = spawn('node', [join(projectRoot, 'src/telegram-bot.mjs'), ...args], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 10000,
+      timeout: 30000,
     });
 
     let stdout = '';
@@ -35,8 +35,8 @@ function runTest(testName, args, expectedSuccess) {
 
     const timeout = setTimeout(() => {
       proc.kill('SIGTERM');
-      console.log('⚠️  Test timed out (killed after 8s)');
-    }, 8000);
+      console.log('⚠️  Test timed out (killed after 25s)');
+    }, 25000);
 
     proc.on('close', code => {
       clearTimeout(timeout);

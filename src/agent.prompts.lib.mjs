@@ -144,7 +144,7 @@ ${getExperimentsExamplesSubPrompt(argv)}
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. If the file command shows "HTML", "text", or "ASCII text", the download FAILED — do NOT call Read on this file. For images from GitHub issues/PRs (URLs containing "github.com/user-attachments"), these require authentication — use: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>"
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${
@@ -230,8 +230,8 @@ GitHub CLI command patterns.
 Visual UI work and screenshots.
    - When you work on visual UI changes (frontend, CSS, HTML, design), include a render or screenshot of the final result in the pull request description.
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
-   - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
-   - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
+   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
+   - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;

@@ -27,8 +27,8 @@ TELEGRAM_ALLOWED_CHATS: (
 
 # Optional: Override options for /solve command in lino notation
 # These options will be locked and override any user-provided values
+# Note: --auto-continue is enabled by default, no need to specify it
 TELEGRAM_SOLVE_OVERRIDES: (
-  --auto-continue
   --attach-logs
   --verbose
   --tool

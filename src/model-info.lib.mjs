@@ -132,7 +132,10 @@ export const fetchModelInfoForComment = async modelId => {
  */
 const normalizeForComparison = modelId => {
   if (!modelId) return '';
-  return modelId.toLowerCase().replace(/\[1m\]$/i, '').trim();
+  return modelId
+    .toLowerCase()
+    .replace(/\[1m\]$/i, '')
+    .trim();
 };
 
 /**
@@ -168,13 +171,7 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section (empty if no data available)
  */
-export const buildModelInfoString = ({
-  requestedModel = null,
-  tool = null,
-  pricingInfo = null,
-  modelInfo = null,
-  modelsUsed = null,
-} = {}) => {
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;

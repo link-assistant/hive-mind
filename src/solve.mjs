@@ -59,45 +59,22 @@ const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
 const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
-const claudeLib = await import('./claude.lib.mjs');
-const { executeClaude } = claudeLib;
-
-const githubLinking = await import('./github-linking.lib.mjs');
-const { extractLinkedIssueNumber } = githubLinking;
-
-const usageLimitLib = await import('./usage-limit.lib.mjs');
-const { formatResetTimeWithRelative } = usageLimitLib;
-
-const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = errorHandlers;
-
-const watchLib = await import('./solve.watch.lib.mjs');
-const { startWatchMode } = watchLib;
-const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
-const { startAutoRestartUntilMergeable } = autoMergeLib;
-const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
-const interruptLib = await import('./solve.interrupt.lib.mjs');
-const { createInterruptWrapper } = interruptLib;
+const { executeClaude } = await import('./claude.lib.mjs');
+const { extractLinkedIssueNumber } = await import('./github-linking.lib.mjs');
+const { formatResetTimeWithRelative } = await import('./usage-limit.lib.mjs');
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = await import('./solve.error-handlers.lib.mjs');
+const { startWatchMode } = await import('./solve.watch.lib.mjs');
+const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
+const { initializeExitHandler, installGlobalExitHandlers, safeExit } = await import('./exit-handler.lib.mjs');
+const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
-
-// Import new modular components
-const autoPrLib = await import('./solve.auto-pr.lib.mjs');
-const { handleAutoPrCreation } = autoPrLib;
-const repoSetupLib = await import('./solve.repo-setup.lib.mjs');
-const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = repoSetupLib;
-const branchLib = await import('./solve.branch.lib.mjs');
-const { createOrCheckoutBranch } = branchLib;
-const sessionLib = await import('./solve.session.lib.mjs');
-const { startWorkSession, endWorkSession, SESSION_TYPES } = sessionLib;
-const preparationLib = await import('./solve.preparation.lib.mjs');
-const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
-
-// Import model validation library
-const modelValidation = await import('./model-validation.lib.mjs');
-const { validateAndExitOnInvalidModel } = modelValidation;
-const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
-const { autoAcceptInviteForRepo } = acceptInviteLib;
+const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
+const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
+const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
 // Initialize log file EARLY to capture all output including version and command
 // Use default directory (cwd) initially, will be set from argv.logDir after parsing
@@ -1001,7 +978,6 @@ try {
             toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
-            // Issue #1225: Pass model and tool info for PR comments
             requestedModel: argv.model,
             tool: argv.tool || 'claude',
           });
@@ -1068,7 +1044,6 @@ try {
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
-              // Issue #1225: Pass model and tool info for PR comments
               requestedModel: argv.model,
               tool: argv.tool || 'claude',
             });
@@ -1165,7 +1140,6 @@ try {
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
-          // Issue #1225: Pass model and tool info for PR comments
           requestedModel: argv.model,
           tool: argv.tool || 'claude',
         });
@@ -1416,7 +1390,6 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
-          // Issue #1225: Pass model and tool info for PR comments
           requestedModel: argv.model,
           tool: argv.tool || 'claude',
         });

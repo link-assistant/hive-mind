@@ -190,8 +190,9 @@ function detectChanges() {
   }
   console.log('');
 
-  // Check if any code files changed (.mjs, .json, .yml, .yaml, or workflow files)
-  const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
+  // Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files, or Docker files)
+  // Note: Dockerfile has no extension so it must be matched explicitly (see issue #1423)
+  const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\/|^(Dockerfile|coolify\/Dockerfile|\.dockerignore)$/;
   const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
   setOutput('code', codeChanged ? 'true' : 'false');
 

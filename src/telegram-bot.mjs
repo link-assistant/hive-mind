@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
+if (process.argv.includes('--version')) {
+  const v = await import('./version.lib.mjs').then(m => m.getVersion()).catch(() => 'unknown');
+  console.log(v);
+  process.exit(v === 'unknown' ? 1 : 0);
+}
 
 import { spawn } from 'child_process';
 import { promisify } from 'util';
@@ -18,10 +24,14 @@ const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Load .env configuration as base
-dotenvx.config({ quiet: true });
+// quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist
+// This makes .env file optional (issue #1318)
+dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 
 // Load .lenv configuration (if exists)
 // .lenv overrides .env
@@ -29,22 +39,22 @@ loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
-
-// Import solve and hive yargs configurations for validation
+const helpersModuleBot = await use('yargs@17.7.2/helpers');
+// Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
+const _helpersBot = helpersModuleBot.default || helpersModuleBot;
+const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
+// Import yargs configurations, GitHub utilities, and telegram helpers
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-// Import GitHub URL parser for extracting URLs from messages
 const { parseGitHubUrl } = await import('./github.lib.mjs');
-// Import model validation for early validation with helpful error messages
 const { validateModelName } = await import('./model-validation.lib.mjs');
-// Import libraries for /limits, /version, and markdown escaping
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { getSolveQueue, getRunningClaudeProcesses, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-// Import extracted message filter functions for testability (issue #1207)
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
+const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
+// Import bot launcher with exponential backoff retry (issue #1240)
+const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 
 const config = yargs(hideBin(process.argv))
   .usage('Usage: hive-telegram-bot [options]')
@@ -301,10 +311,6 @@ function isChatAuthorized(chatId) {
 
 function isOldMessage(ctx) {
   return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
-}
-
-function isGroupChat(ctx) {
-  return _isGroupChat(ctx);
 }
 
 function isForwardedOrReply(ctx) {
@@ -586,46 +592,6 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   }
 }
 
-/**
- * Extract GitHub issue/PR URL from message text
- * Validates that message contains exactly one GitHub issue/PR link
- *
- * @param {string} text - Message text to search
- * @returns {{ url: string|null, error: string|null, linkCount: number }}
- */
-function extractGitHubUrl(text) {
-  if (!text || typeof text !== 'string') {
-    return { url: null, error: null, linkCount: 0 };
-  }
-
-  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
-  const words = text.split(/\s+/);
-  const foundUrls = [];
-
-  for (const word of words) {
-    // Try to parse as GitHub URL
-    const parsed = parseGitHubUrl(word);
-
-    // Accept issue or PR URLs
-    if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
-      foundUrls.push(parsed.normalized);
-    }
-  }
-
-  // Check if multiple links were found
-  if (foundUrls.length === 0) {
-    return { url: null, error: null, linkCount: 0 };
-  } else if (foundUrls.length === 1) {
-    return { url: foundUrls[0], error: null, linkCount: 1 };
-  } else {
-    return {
-      url: null,
-      error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length,
-    };
-  }
-}
-
 bot.command('help', async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /help command received');
@@ -683,14 +649,15 @@ bot.command('help', async ctx => {
     message += '*/hive* - ❌ Disabled\n\n';
   }
 
+  message += '`/solve_queue` - Show solve queue status\n';
   message += '*/limits* - Show usage limits\n';
   message += '*/version* - Show bot and runtime versions\n';
-  message += '*/accept\\_invites* - Accept all pending GitHub invitations\n';
+  message += '`/accept_invites` - Accept all pending GitHub invitations\n';
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";
   message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -749,7 +716,7 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not a group chat');
     }
@@ -774,26 +741,19 @@ bot.command('limits', async ctx => {
   // Get all limits using shared cache (3min for API, 2min for system)
   const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!limits.claude.success) {
-    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
-    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
-    return;
-  }
-
   // Format the message with usage limits and queue status
-  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
+  // If Claude auth failed, pass the error to formatUsageMessage to show it in the Claude sections
+  // while still displaying all other limits sections (disk, GitHub, CPU, memory)
+  // See: https://github.com/link-assistant/hive-mind/issues/1343
+  const claudeError = limits.claude.success ? null : limits.claude.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  const queueStats = solveQueue.getStats();
-  const claudeProcs = await getRunningClaudeProcesses(VERBOSE);
-  // Calculate total processing: queue-internal + external claude processes
-  // This provides a uniform view of all processing happening
-  // See: https://github.com/link-assistant/hive-mind/issues/1133
-  const totalProcessing = queueStats.processing + claudeProcs.count;
-  const codeBlockEnd = message.lastIndexOf('```');
-  if (codeBlockEnd !== -1) {
-    const queueStatus = queueStats.queued > 0 || totalProcessing > 0 ? `Pending: ${queueStats.queued}, Processing: ${totalProcessing}` : 'Empty (no pending commands)';
-    message = message.slice(0, codeBlockEnd) + `\nSolve Queue\n${queueStatus}\nClaude processes: ${claudeProcs.count}\n` + message.slice(codeBlockEnd);
-  }
+  // Fetch queue status and pass it as an extra section to formatUsageMessage so that all
+  // sections are assembled before the code block is formed — no fragile string-searching needed.
+  // Shows each queue (claude, agent) with pending/processing counts.
+  // Processing counts are actual running system processes (via pgrep).
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  const queueStatus = await solveQueue.formatStatus();
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {
@@ -805,7 +765,7 @@ bot.command('version', async ctx => {
     data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
   const chatId = ctx.chat.id;
   if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
@@ -823,7 +783,7 @@ registerAcceptInvitesCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
 });
@@ -834,9 +794,21 @@ registerMergeCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
+});
+
+// Register /solve_queue command from separate module (issue #1232)
+const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
+const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
+  VERBOSE,
+  isOldMessage,
+  isForwardedOrReply,
+  isGroupChat: _isGroupChat,
+  isChatAuthorized,
+  addBreadcrumb,
+  getSolveQueue,
 });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
@@ -887,7 +859,7 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: not a group chat');
     }
@@ -910,17 +882,23 @@ async function handleSolveCommand(ctx) {
 
   let userArgs = parseCommandArgs(ctx.message.text);
 
-  // Check if this is a reply to a message and user didn't provide URL
+  // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
+  // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
-  if (isReply && userArgs.length === 0) {
+  // Check if the first argument looks like a GitHub URL
+  // If not, we should try to extract the URL from the replied message
+  const firstArgIsUrl = userArgs.length > 0 && (userArgs[0].includes('github.com') || userArgs[0].match(/^https?:\/\//));
+
+  if (isReply && !firstArgIsUrl) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve is a reply without URL, extracting from replied message...');
+      console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
+      console.log('[VERBOSE] User args:', userArgs);
     }
 
     const replyText = message.reply_to_message.text || '';
-    const extraction = extractGitHubUrl(replyText);
+    const extraction = _extractGitHubUrl(replyText, { parseGitHubUrl, cleanNonPrintableChars });
 
     if (extraction.error) {
       // Multiple links found
@@ -933,18 +911,18 @@ async function handleSolveCommand(ctx) {
       });
       return;
     } else if (extraction.url) {
-      // Single link found
+      // Single link found - prepend it to existing user args (issue #1325)
       if (VERBOSE) {
         console.log('[VERBOSE] Extracted URL from reply:', extraction.url);
       }
-      // Add the extracted URL as the first argument
-      userArgs = [extraction.url];
+      // Prepend the extracted URL to user's options (e.g., ['--model', 'opus'] -> ['url', '--model', 'opus'])
+      userArgs = [extraction.url, ...userArgs];
     } else {
       // No link found
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -1023,12 +1001,22 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve-queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   const check = await solveQueue.canStartCommand({ tool: solveTool }); // Skip Claude limits for agent (#1159)
   const queueStats = solveQueue.getStats();
+
+  // Handle rejection: when a threshold strategy is 'reject', the command should fail immediately
+  // without being placed in the queue. This ensures users get clear feedback about why
+  // their command cannot be processed (e.g., disk full, server maintenance pending).
+  // See: https://github.com/link-assistant/hive-mind/issues/1267
+  if (check.rejected) {
+    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+
   if (check.canStart && queueStats.queued === 0) {
     const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
@@ -1087,7 +1075,7 @@ async function handleHiveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not a group chat');
     }
@@ -1191,7 +1179,7 @@ registerTopCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
 });
 
@@ -1261,6 +1249,8 @@ bot.on('message', async (ctx, next) => {
   const handlers = {
     solve: handleSolveCommand,
     hive: handleHiveCommand,
+    solve_queue: handleSolveQueueCommand,
+    solvequeue: handleSolveQueueCommand,
   };
 
   const handler = handlers[extracted.command];
@@ -1372,26 +1362,22 @@ if (VERBOSE) {
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
 
-// Delete existing webhook (critical: webhooks prevent polling from working)
-if (VERBOSE) console.log('[VERBOSE] Deleting webhook...');
-bot.telegram
-  .deleteWebhook({ drop_pending_updates: true })
-  .then(result => {
-    if (VERBOSE) {
-      console.log('[VERBOSE] Webhook deletion result:', result);
-    }
-    console.log('🔄 Webhook deleted (if existed), starting polling mode...');
-    if (VERBOSE) {
-      console.log('[VERBOSE] Launching bot with config:', {
-        allowedUpdates: ['message'],
-        dropPendingUpdates: true,
-      });
-    }
-    return bot.launch({
-      allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
-      dropPendingUpdates: true, // Drop pending updates sent before bot started
-    });
-  })
+// Launch bot with retry logic (issue #1240: handle 409 Conflict with exponential backoff)
+// The launcher handles deleteWebhook + bot.launch() with retry on transient errors.
+// Non-retryable errors (401 Unauthorized) cause immediate exit.
+const launchAbortController = new AbortController();
+
+launchBotWithRetry(
+  bot,
+  {
+    allowedUpdates: ['message', 'callback_query'], // Receive messages and callback queries
+    dropPendingUpdates: true, // Drop pending updates sent before bot started
+  },
+  {
+    verbose: VERBOSE,
+    signal: launchAbortController.signal,
+  }
+)
   .then(async () => {
     if (isShuttingDown) return; // Skip success messages if shutting down
 
@@ -1460,6 +1446,7 @@ process.once('SIGINT', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGINT, PID: ${process.pid}, PPID: ${process.ppid}`);
+  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
   stopSolveQueue();
   bot.stop('SIGINT');
 });
@@ -1468,6 +1455,7 @@ process.once('SIGTERM', () => {
   isShuttingDown = true;
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   if (VERBOSE) console.log(`[VERBOSE] Signal: SIGTERM, PID: ${process.pid}, PPID: ${process.ppid}`);
+  launchAbortController.abort(); // Cancel retry loop if still retrying (issue #1240)
   stopSolveQueue();
   bot.stop('SIGTERM');
 });

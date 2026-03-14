@@ -158,26 +158,7 @@ jobs:
           echo "hive.mjs compiles successfully"
 
       - name: Check Node.js syntax for all .mjs files
-        run: |
-          echo "Checking syntax for all .mjs files..."
-          for file in *.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              timeout 10s node --check "$file"
-            fi
-          done
-          for file in src/*.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              timeout 10s node --check "$file"
-            fi
-          done
-          for file in tests/*.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              node --check "$file"
-            fi
-          done
+        run: bash scripts/check-mjs-syntax.sh
 
   # === ESLINT CODE QUALITY CHECK ===
   # Lint runs independently of changeset-check - it's a fast check that should always run
@@ -200,50 +181,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          echo "=== Synchronizing PR with latest $BASE_REF ==="
-          echo "This prevents stale merge preview issues (see issue #1141)"
-          echo ""
-
-          # Configure git for merge
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-          # Fetch the latest base branch
-          echo "Fetching latest $BASE_REF..."
-          git fetch origin "$BASE_REF"
-
-          # Get current and base branch info
-          CURRENT_SHA=$(git rev-parse HEAD)
-          BASE_SHA=$(git rev-parse "origin/$BASE_REF")
-
-          echo "Current checkout (merge preview): $CURRENT_SHA"
-          echo "Latest base branch ($BASE_REF): $BASE_SHA"
-          echo ""
-
-          # Check if base branch has new commits not in the merge preview
-          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
-
-          if [ "$BEHIND_COUNT" -eq 0 ]; then
-            echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
-          else
-            echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
-            echo "Simulating fresh merge to validate actual merge result..."
-            echo ""
-
-            # Attempt to merge the latest base branch
-            if git merge origin/$BASE_REF --no-edit; then
-              echo ""
-              echo "Fresh merge simulation successful!"
-              echo "Checks will now run against the up-to-date merged state."
-            else
-              echo ""
-              echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
-              echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
-              exit 1
-            fi
-          fi
-          echo ""
+        run: bash scripts/simulate-fresh-merge.sh
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -291,50 +229,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          echo "=== Synchronizing PR with latest $BASE_REF ==="
-          echo "This prevents stale merge preview issues (see issue #1141)"
-          echo ""
-
-          # Configure git for merge
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-          # Fetch the latest base branch
-          echo "Fetching latest $BASE_REF..."
-          git fetch origin "$BASE_REF"
-
-          # Get current and base branch info
-          CURRENT_SHA=$(git rev-parse HEAD)
-          BASE_SHA=$(git rev-parse "origin/$BASE_REF")
-
-          echo "Current checkout (merge preview): $CURRENT_SHA"
-          echo "Latest base branch ($BASE_REF): $BASE_SHA"
-          echo ""
-
-          # Check if base branch has new commits not in the merge preview
-          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
-
-          if [ "$BEHIND_COUNT" -eq 0 ]; then
-            echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
-          else
-            echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
-            echo "Simulating fresh merge to validate actual merge result..."
-            echo ""
-
-            # Attempt to merge the latest base branch
-            if git merge origin/$BASE_REF --no-edit; then
-              echo ""
-              echo "Fresh merge simulation successful!"
-              echo "Checks will now run against the up-to-date merged state."
-            else
-              echo ""
-              echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
-              echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
-              exit 1
-            fi
-          fi
-          echo ""
+        run: bash scripts/simulate-fresh-merge.sh
 
       - name: Check file line limits (.mjs files and release.yml)
         run: bash scripts/check-file-line-limits.sh
@@ -524,50 +419,7 @@ jobs:
           timeout 10s ./src/solve.mjs --version || true
 
       - name: Verify log files contain version and command (Issue #517)
-        run: |
-          echo "Testing that log files contain version and command at the start..."
-          timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt || true
-
-          LOG_FILE=$(grep -o "solve-[0-9T-]*Z\.log" test-log-output.txt | head -1)
-
-          if [ -z "$LOG_FILE" ]; then
-            echo "Could not find log file path in output"
-            cat test-log-output.txt
-            exit 1
-          fi
-
-          echo "Log file: $LOG_FILE"
-
-          if [ ! -f "$LOG_FILE" ]; then
-            echo "Log file not found: $LOG_FILE"
-            ls -la solve-*.log || echo "No solve log files found"
-            exit 1
-          fi
-
-          echo ""
-          echo "Checking log file contents..."
-          head -30 "$LOG_FILE"
-
-          echo ""
-          echo "Verifying version appears in log..."
-          if grep -q "solve v" "$LOG_FILE"; then
-            echo "Version found in log file"
-          else
-            echo "Version NOT found in log file"
-            exit 1
-          fi
-
-          echo ""
-          echo "Verifying command appears in log..."
-          if grep -q "Raw command executed:" "$LOG_FILE"; then
-            echo "Command found in log file"
-          else
-            echo "Command NOT found in log file"
-            exit 1
-          fi
-
-          echo ""
-          echo "Log file verification passed - version and command are present"
+        run: bash scripts/verify-log-file-contents.sh
 
       - name: Test hive.mjs execution
         run: |
@@ -598,41 +450,7 @@ jobs:
           ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
 
       - name: Test global command installation
-        run: |
-          echo "Testing npm global command installation from local folder..."
-          npm link
-          echo "npm link completed successfully"
-
-          echo ""
-          echo "Testing 'hive' global command..."
-          timeout 10s hive --version || true
-          timeout 10s hive --help || echo "Help command completed"
-          echo "'hive' global command works"
-
-          echo ""
-          echo "Testing 'solve' global command..."
-          timeout 10s solve --version || true
-          timeout 10s solve --help || echo "Help command completed"
-          echo "'solve' global command works"
-
-          echo ""
-          echo "Testing 'hive-telegram-bot' global command..."
-          timeout 10s hive-telegram-bot --help || echo "Help command completed"
-          echo "'hive-telegram-bot' global command works"
-
-          echo ""
-          echo "Testing hive-telegram-bot --dry-run (issue #487)..."
-          timeout 30s hive-telegram-bot \
-            --token "test_token" \
-            --allowed-chats "(-1 -2)" \
-            --no-hive \
-            --solve-overrides "(--auto-continue --verbose)" \
-            --dry-run
-          echo "'hive-telegram-bot --dry-run' works"
-
-          echo ""
-          echo "Cleaning up global link..."
-          npm unlink || true
+        run: bash scripts/test-global-commands.sh
 
       - name: Test hive dry-run with solve integration
         run: |
@@ -651,38 +469,7 @@ jobs:
           echo "solve.mjs accepts --dry-run and --skip-claude-check flags"
 
       - name: Test --auto-fork option
-        run: |
-          echo "Testing --auto-fork option with dry-run mode..."
-
-          echo ""
-          echo "Testing solve.mjs with --auto-fork and --dry-run..."
-          timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --auto-fork --dry-run --skip-tool-check 2>&1 | tee solve_auto_fork.log || true
-          if grep -qE "(auto-fork|Auto-fork)" solve_auto_fork.log; then
-            echo "solve.mjs recognizes --auto-fork flag"
-          else
-            echo "Could not verify --auto-fork flag in solve output"
-          fi
-
-          echo ""
-          echo "Testing hive.mjs with --auto-fork and --dry-run..."
-          timeout 30s ./src/hive.mjs https://github.com/test/repo --auto-fork --dry-run --skip-tool-check --once --max-issues 1 2>&1 | tee hive_auto_fork.log || true
-          if grep -qE "(auto-fork|Auto-fork)" hive_auto_fork.log; then
-            echo "hive.mjs recognizes --auto-fork flag"
-          else
-            echo "Could not verify --auto-fork flag in hive output"
-          fi
-
-          echo ""
-          echo "Testing start-screen.mjs passes --auto-fork to solve..."
-          timeout 5s ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork 2>&1 | tee start_screen_auto_fork.log || true
-          if grep -qE "(auto-fork|GNU Screen|screen.*not.*installed)" start_screen_auto_fork.log; then
-            echo "start-screen.mjs accepts --auto-fork flag"
-          else
-            echo "Could not verify start-screen flag acceptance"
-          fi
-
-          echo ""
-          echo "All --auto-fork option tests completed"
+        run: bash scripts/test-auto-fork-option.sh
 
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
@@ -898,29 +685,7 @@ jobs:
           echo "Helm chart validation passed"
 
       - name: Verify Chart.yaml structure
-        run: |
-          echo "Verifying Chart.yaml structure..."
-          if [ ! -f "helm/hive-mind/Chart.yaml" ]; then
-            echo "Chart.yaml not found"
-            exit 1
-          fi
-
-          if ! grep -q "^name:" helm/hive-mind/Chart.yaml; then
-            echo "Chart name not found"
-            exit 1
-          fi
-
-          if ! grep -q "^version:" helm/hive-mind/Chart.yaml; then
-            echo "Chart version not found"
-            exit 1
-          fi
-
-          if ! grep -q "^appVersion:" helm/hive-mind/Chart.yaml; then
-            echo "Chart appVersion not found"
-            exit 1
-          fi
-
-          echo "Chart.yaml structure is valid"
+        run: bash scripts/verify-chart-yaml.sh
 
   # === RELEASE - only runs on main after tests pass ===
   release:

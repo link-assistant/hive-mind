@@ -926,8 +926,7 @@ jobs:
   release:
     name: Release
     needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
-    # Use always() to ensure this job runs even if changeset-check was skipped
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-suites.result == 'success' && needs.test-execution.result == 'success' && needs.memory-check-linux.result == 'success'
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.publish.outputs.published }}

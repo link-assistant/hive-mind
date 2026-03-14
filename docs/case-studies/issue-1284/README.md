@@ -352,11 +352,11 @@ Claude Code introduced a **plugin system** (v1.0.33+) that packages skills, agen
 
 There are now **three** distinct approaches for using Playwright with Claude Code:
 
-| # | Approach | Installation | How It Works |
-|---|----------|-------------|-------------|
-| 1 | **Playwright MCP** (manual) | `claude mcp add playwright npx @playwright/mcp@latest` | Registers Microsoft's MCP server directly in `~/.claude.json` |
-| 2 | **Playwright Plugin** (official marketplace) | `/plugin install playwright@claude-plugins-official` | Installs the same MCP server, but packaged as a plugin |
-| 3 | **Playwright Skill** (community) | `/plugin marketplace add lackeyjb/playwright-skill` then `/plugin install playwright-skill@playwright-skill` | Claude writes and executes Playwright code directly (no MCP server) |
+| #   | Approach                                     | Installation                                                                                                 | How It Works                                                        |
+| --- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| 1   | **Playwright MCP** (manual)                  | `claude mcp add playwright npx @playwright/mcp@latest`                                                       | Registers Microsoft's MCP server directly in `~/.claude.json`       |
+| 2   | **Playwright Plugin** (official marketplace) | `/plugin install playwright@claude-plugins-official`                                                         | Installs the same MCP server, but packaged as a plugin              |
+| 3   | **Playwright Skill** (community)             | `/plugin marketplace add lackeyjb/playwright-skill` then `/plugin install playwright-skill@playwright-skill` | Claude writes and executes Playwright code directly (no MCP server) |
 
 ### Approach 2: Official Playwright Plugin (Details)
 
@@ -410,9 +410,9 @@ The `frontend-design` plugin (by Anthropic, 324,000+ installs) is a **design aes
 
 The commands mentioned in the PR comment are **not correct**. Here are the correct commands:
 
-| Incorrect Command | Correct Alternative |
-|---|---|
-| `claude plugin install @anthropic/frontend-design` | `/plugin install frontend-design@claude-plugins-official` |
+| Incorrect Command                                        | Correct Alternative                                       |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| `claude plugin install @anthropic/frontend-design`       | `/plugin install frontend-design@claude-plugins-official` |
 | `/plugin install frontend-design@anthropics-claude-code` | `/plugin install frontend-design@claude-plugins-official` |
 
 **Correct syntax**: `/plugin install {plugin-name}@{marketplace-name}`
@@ -423,14 +423,15 @@ The official Anthropic marketplace is `claude-plugins-official` (pre-configured,
 
 **Yes, but they shouldn't be used simultaneously.** Since the official Playwright plugin wraps the same MCP server, running both would create a duplicate `playwright` MCP registration. Choose one:
 
-| Scenario | Recommended Approach |
-|---|---|
-| Simple setup, want managed updates | `/plugin install playwright@claude-plugins-official` |
+| Scenario                                           | Recommended Approach                                                 |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| Simple setup, want managed updates                 | `/plugin install playwright@claude-plugins-official`                 |
 | Custom MCP arguments (headless, viewport, browser) | `claude mcp add playwright npx @playwright/mcp@latest -- --headless` |
-| Token-efficient scriptable testing | `/plugin install playwright-skill@playwright-skill` (community) |
-| Maximum flexibility | MCP (manual) + Playwright Skill plugin (these are complementary) |
+| Token-efficient scriptable testing                 | `/plugin install playwright-skill@playwright-skill` (community)      |
+| Maximum flexibility                                | MCP (manual) + Playwright Skill plugin (these are complementary)     |
 
 **The MCP-based approaches (1 and 2) and the Skill approach (3) CAN coexist** because they use different mechanisms:
+
 - MCP: Provides browser automation tools that Claude calls
 - Skill: Provides instructions that Claude uses to write and execute Playwright scripts directly
 

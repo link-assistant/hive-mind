@@ -143,6 +143,63 @@ This document contains all sources consulted during the investigation of Playwri
 - **URL**: https://madewithlove.com/blog/claude-as-tester-using-playwright-and-github-mcp/
 - **Description**: Using Claude as a tester with Playwright and GitHub MCP
 
+## Claude Code Plugins Ecosystem (Added 2026-03-14)
+
+### Claude Code Plugins Documentation
+
+- **URL**: https://code.claude.com/docs/en/plugins
+- **Key Information**:
+  - Plugin system introduced in Claude Code v1.0.33+
+  - Packages skills, agents, hooks, MCP servers into installable bundles
+  - Distributed via Git-based marketplaces
+  - Syntax: `/plugin install {name}@{marketplace}`
+
+### Claude Code Plugin Discovery
+
+- **URL**: https://code.claude.com/docs/en/discover-plugins
+- **Key Information**:
+  - Official marketplace `claude-plugins-official` is pre-configured
+  - Demo marketplace at `anthropics/claude-code` must be added manually
+  - Plugins can be scoped: user, project, or local
+  - Auto-update available for marketplace plugins
+
+### Official Playwright Plugin (claude-plugins-official)
+
+- **URL**: https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/playwright
+- **Key Information**:
+  - Wraps the same `@playwright/mcp@latest` MCP server
+  - By Microsoft, 102,750+ installs
+  - Functionally identical to manual `claude mcp add playwright` approach
+  - `.mcp.json` contains: `{"playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]}}`
+
+### Playwright Plugin Page (Anthropic)
+
+- **URL**: https://claude.com/plugins/playwright
+- **Key Information**:
+  - Official listing on Claude plugin directory
+  - Features: browser navigation, form filling, screenshots, PDF generation, test assertions
+  - Uses accessibility tree (not vision/screenshots)
+
+### Frontend Design Plugin
+
+- **URL**: https://claude.com/plugins/frontend-design
+- **GitHub**: https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design
+- **Key Information**:
+  - By Anthropic, 324,000+ installs
+  - Design aesthetics skill (NOT related to Playwright)
+  - Auto-activates for frontend development tasks
+  - Guides bold typography, color palettes, animations, layouts
+
+### Playwright Skill (Community) HN Discussion
+
+- **URL**: https://news.ycombinator.com/item?id=45642911
+- **Key Information**:
+  - 314 lines of instructions vs persistent MCP server
+  - Claude writes and executes Playwright code directly
+  - Returns screenshots and console output
+  - Best for "scriptable manual testing" during development
+  - Not designed for CI/CD test suites
+
 ---
 
 ## Search Queries Used
@@ -153,10 +210,16 @@ This document contains all sources consulted during the investigation of Playwri
 4. "@playwright/cli install --skills documentation 2026"
 5. "MCP Model Context Protocol vs CLI Skills agent workflow comparison 2026"
 
+6. "Claude Code plugins system plugin install frontend-design 2026"
+7. "Claude Code plugin vs MCP playwright 2026"
+8. "Claude Code /plugin install exact command syntax marketplace 2026"
+9. "claude-plugins-official playwright external_plugins"
+
 ---
 
 ## Data Collection Date
 
-- **Date**: 2026-02-13
-- **Research Duration**: ~45 minutes
-- **Sources Consulted**: 15+ articles, 5+ repositories, 3+ comparative analyses
+- **Initial Date**: 2026-02-13
+- **Updated**: 2026-03-14 (added Claude Code plugin ecosystem research)
+- **Research Duration**: ~45 minutes (initial) + ~30 minutes (update)
+- **Sources Consulted**: 20+ articles, 8+ repositories, 3+ comparative analyses

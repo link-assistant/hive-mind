@@ -9,12 +9,14 @@
 
 ## Executive Summary
 
-This case study investigates the best practices for using Playwright with Claude Code CLI, comparing two primary approaches:
+This case study investigates the best practices for using Playwright with Claude Code CLI, comparing available approaches:
 
 1. **MCP (Model Context Protocol)**: `claude mcp add playwright npx @playwright/mcp@latest`
 2. **CLI + Skills**: `playwright-cli install --skills`
+3. **Official Playwright Plugin** (2026-03): `/plugin install playwright@claude-plugins-official`
+4. **Community Playwright Skill Plugin**: `lackeyjb/playwright-skill`
 
-Our research concludes that **both approaches have valid use cases**, and the optimal choice depends on the specific workflow requirements. For most Claude Code CLI users, the **MCP approach is currently the recommended default**, while the CLI + Skills approach offers advantages for high-throughput, token-efficient scenarios.
+Our research concludes that **multiple approaches have valid use cases**, and the optimal choice depends on the specific workflow requirements. For most Claude Code CLI users, the **official Playwright plugin is now the simplest recommended default** (wraps the same MCP server). The community Playwright Skill plugin offers a complementary, more token-efficient approach for scriptable manual testing. The `frontend-design` plugin is unrelated to Playwright — it's a design aesthetics skill.
 
 ---
 
@@ -340,6 +342,159 @@ claude mcp add playwright npx @playwright/mcp@latest
 
 ---
 
+## Update (2026-03-14): Claude Code Plugins Ecosystem
+
+### Background
+
+Claude Code introduced a **plugin system** (v1.0.33+) that packages skills, agents, hooks, and MCP servers into installable, shareable bundles distributed via Git-based marketplaces. This section addresses the follow-up questions about how Claude Code plugins relate to Playwright MCP.
+
+### Three Approaches to Playwright in Claude Code (2026)
+
+There are now **three** distinct approaches for using Playwright with Claude Code:
+
+| # | Approach | Installation | How It Works |
+|---|----------|-------------|-------------|
+| 1 | **Playwright MCP** (manual) | `claude mcp add playwright npx @playwright/mcp@latest` | Registers Microsoft's MCP server directly in `~/.claude.json` |
+| 2 | **Playwright Plugin** (official marketplace) | `/plugin install playwright@claude-plugins-official` | Installs the same MCP server, but packaged as a plugin |
+| 3 | **Playwright Skill** (community) | `/plugin marketplace add lackeyjb/playwright-skill` then `/plugin install playwright-skill@playwright-skill` | Claude writes and executes Playwright code directly (no MCP server) |
+
+### Approach 2: Official Playwright Plugin (Details)
+
+The **official Playwright plugin** in `claude-plugins-official` (102,750+ installs, by Microsoft) is a thin wrapper around the same `@playwright/mcp@latest` MCP server. Its `plugin.json`:
+
+```json
+{
+  "name": "playwright",
+  "description": "Browser automation and end-to-end testing MCP server by Microsoft. Enables Claude to interact with web pages, take screenshots, fill forms, click elements, and perform automated browser testing workflows.",
+  "author": { "name": "Microsoft" }
+}
+```
+
+Its `.mcp.json`:
+
+```json
+{
+  "playwright": {
+    "command": "npx",
+    "args": ["@playwright/mcp@latest"]
+  }
+}
+```
+
+**Key insight**: Approaches 1 and 2 are functionally identical — the plugin simply provides a managed installation experience via the plugin system. The underlying MCP server is the same.
+
+### Approach 3: Playwright Skill Plugin (Details)
+
+The **community Playwright Skill** by [lackeyjb](https://github.com/lackeyjb/playwright-skill) takes a fundamentally different approach:
+
+- **Instead of MCP tools**: Claude writes custom Playwright code and executes it
+- **Returns**: Screenshots and console output (not accessibility tree snapshots)
+- **Token usage**: ~314 lines of skill instructions vs. a persistent MCP server
+- **Best for**: "Scriptable manual testing" during local development — quick validation like "does my new feature work?"
+- **Not designed for**: Comprehensive CI/CD test suites
+
+Installation:
+
+```bash
+/plugin marketplace add lackeyjb/playwright-skill
+/plugin install playwright-skill@playwright-skill
+cd ~/.claude/plugins/marketplaces/playwright-skill/skills/playwright-skill
+npm run setup
+```
+
+### Frontend-Design Plugin: NOT Related to Playwright
+
+The `frontend-design` plugin (by Anthropic, 324,000+ installs) is a **design aesthetics skill** that helps Claude create visually distinctive UI code. It has **no Playwright dependency** and **no browser automation capability**. It auto-activates when Claude detects frontend development tasks and guides bold design choices (typography, color, animation, layout).
+
+### Correct Plugin Install Commands
+
+The commands mentioned in the PR comment are **not correct**. Here are the correct commands:
+
+| Incorrect Command | Correct Alternative |
+|---|---|
+| `claude plugin install @anthropic/frontend-design` | `/plugin install frontend-design@claude-plugins-official` |
+| `/plugin install frontend-design@anthropics-claude-code` | `/plugin install frontend-design@claude-plugins-official` |
+
+**Correct syntax**: `/plugin install {plugin-name}@{marketplace-name}`
+
+The official Anthropic marketplace is `claude-plugins-official` (pre-configured, no need to add it). The demo marketplace at `anthropics/claude-code` must be added first with `/plugin marketplace add anthropics/claude-code`.
+
+### Can Playwright MCP and Playwright Plugin Coexist?
+
+**Yes, but they shouldn't be used simultaneously.** Since the official Playwright plugin wraps the same MCP server, running both would create a duplicate `playwright` MCP registration. Choose one:
+
+| Scenario | Recommended Approach |
+|---|---|
+| Simple setup, want managed updates | `/plugin install playwright@claude-plugins-official` |
+| Custom MCP arguments (headless, viewport, browser) | `claude mcp add playwright npx @playwright/mcp@latest -- --headless` |
+| Token-efficient scriptable testing | `/plugin install playwright-skill@playwright-skill` (community) |
+| Maximum flexibility | MCP (manual) + Playwright Skill plugin (these are complementary) |
+
+**The MCP-based approaches (1 and 2) and the Skill approach (3) CAN coexist** because they use different mechanisms:
+- MCP: Provides browser automation tools that Claude calls
+- Skill: Provides instructions that Claude uses to write and execute Playwright scripts directly
+
+### Plugin Management Commands
+
+```bash
+# List installed plugins
+/plugin list
+
+# Browse available plugins interactively
+/plugin
+
+# Install from official marketplace (pre-configured)
+/plugin install playwright@claude-plugins-official
+/plugin install frontend-design@claude-plugins-official
+
+# Add a third-party marketplace
+/plugin marketplace add lackeyjb/playwright-skill
+
+# Install from third-party marketplace
+/plugin install playwright-skill@playwright-skill
+
+# Disable/enable/remove plugins
+/plugin disable playwright@claude-plugins-official
+/plugin enable playwright@claude-plugins-official
+/plugin uninstall playwright@claude-plugins-official
+
+# Reload after changes
+/reload-plugins
+```
+
+### Updated Recommendations (2026-03)
+
+For most users, the simplest path is now:
+
+```bash
+# Install official Playwright plugin (wraps MCP server)
+/plugin install playwright@claude-plugins-official
+
+# Pre-install browsers
+npx playwright install
+```
+
+For advanced users wanting both MCP tools AND efficient scripted testing:
+
+```bash
+# Option A: Official plugin for MCP tools
+/plugin install playwright@claude-plugins-official
+
+# Option B: Community skill for script-based testing
+/plugin marketplace add lackeyjb/playwright-skill
+/plugin install playwright-skill@playwright-skill
+cd ~/.claude/plugins/marketplaces/playwright-skill/skills/playwright-skill
+npm run setup
+```
+
+For frontend design quality (unrelated to Playwright):
+
+```bash
+/plugin install frontend-design@claude-plugins-official
+```
+
+---
+
 ## References
 
 ### Official Documentation
@@ -360,7 +515,17 @@ claude mcp add playwright npx @playwright/mcp@latest
 - [IntuitionLabs: Claude Skills vs MCP](https://intuitionlabs.ai/articles/claude-skills-vs-mcp)
 - [CLI-Agent vs MCP Practical Comparison](https://medium.com/@girmish/cli-agent-vs-mcp-a-practical-comparison-for-students-startups-and-developers-2026-b9fe30a96559)
 
+### Claude Code Plugins Documentation
+
+- [Create plugins - Claude Code Docs](https://code.claude.com/docs/en/plugins)
+- [Discover and install plugins - Claude Code Docs](https://code.claude.com/docs/en/discover-plugins)
+- [Frontend Design Plugin (GitHub)](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design)
+- [Frontend Design Plugin (Official)](https://claude.com/plugins/frontend-design)
+- [Playwright Plugin (Official)](https://claude.com/plugins/playwright)
+- [Playwright Plugin Source (claude-plugins-official)](https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/playwright)
+
 ### Alternative Implementations
 
 - [ExecuteAutomation MCP-Playwright](https://github.com/executeautomation/mcp-playwright)
 - [lackeyjb/playwright-skill](https://github.com/lackeyjb/playwright-skill)
+- [Playwright Skill HN Discussion](https://news.ycombinator.com/item?id=45642911)

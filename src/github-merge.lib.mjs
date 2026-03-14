@@ -516,9 +516,7 @@ export async function checkMergePermissions(owner, repo, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {Object} options - Merge options
- * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge')
- *                                       Note: Must specify one method when running non-interactively.
- *                                       See Issue #1269 for details.
+ * @param {string} options.mergeMethod - Merge method: 'merge', 'squash', or 'rebase' (default: 'merge'). Must specify one method non-interactively (Issue #1269).
  * @param {boolean} options.squash - DEPRECATED: Use mergeMethod: 'squash' instead
  * @param {boolean} options.deleteAfter - Whether to delete branch after merge (default: false)
  * @param {boolean} verbose - Whether to log verbose output

@@ -17,6 +17,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for Codex
 export const mapModelToId = model => {
@@ -303,7 +304,7 @@ export const executeCodexCommand = async params => {
             const lines = output.split('\n');
             for (const line of lines) {
               if (!line.trim()) continue;
-              const data = JSON.parse(line);
+              const data = sanitizeObjectStrings(JSON.parse(line));
               // Check for both thread_id (codex) and session_id (legacy)
               if ((data.thread_id || data.session_id) && !sessionId) {
                 sessionId = data.thread_id || data.session_id;

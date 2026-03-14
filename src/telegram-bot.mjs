@@ -24,7 +24,9 @@ const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Load .env configuration as base
 // quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist
@@ -37,7 +39,10 @@ loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
+const helpersModuleBot = await use('yargs@17.7.2/helpers');
+// Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
+const _helpersBot = helpersModuleBot.default || helpersModuleBot;
+const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 // Import yargs configurations, GitHub utilities, and telegram helpers
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
@@ -47,7 +52,7 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
-const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText } = await import('./telegram-message-filters.lib.mjs');
+const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 
@@ -306,10 +311,6 @@ function isChatAuthorized(chatId) {
 
 function isOldMessage(ctx) {
   return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
-}
-
-function isGroupChat(ctx) {
-  return _isGroupChat(ctx);
 }
 
 function isForwardedOrReply(ctx) {
@@ -591,46 +592,6 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
   }
 }
 
-/**
- * Extract GitHub issue/PR URL from message text
- * Validates that message contains exactly one GitHub issue/PR link
- *
- * @param {string} text - Message text to search
- * @returns {{ url: string|null, error: string|null, linkCount: number }}
- */
-function extractGitHubUrl(text) {
-  if (!text || typeof text !== 'string') {
-    return { url: null, error: null, linkCount: 0 };
-  }
-
-  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
-  const words = text.split(/\s+/);
-  const foundUrls = [];
-
-  for (const word of words) {
-    // Try to parse as GitHub URL
-    const parsed = parseGitHubUrl(word);
-
-    // Accept issue or PR URLs
-    if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
-      foundUrls.push(parsed.normalized);
-    }
-  }
-
-  // Check if multiple links were found
-  if (foundUrls.length === 0) {
-    return { url: null, error: null, linkCount: 0 };
-  } else if (foundUrls.length === 1) {
-    return { url: foundUrls[0], error: null, linkCount: 1 };
-  } else {
-    return {
-      url: null,
-      error: `Found ${foundUrls.length} GitHub links in the message. Please reply to a message with only one GitHub issue or PR link.`,
-      linkCount: foundUrls.length,
-    };
-  }
-}
-
 bot.command('help', async ctx => {
   if (VERBOSE) {
     console.log('[VERBOSE] /help command received');
@@ -755,7 +716,7 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not a group chat');
     }
@@ -804,7 +765,7 @@ bot.command('version', async ctx => {
     data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
-  if (!isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
+  if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
   const chatId = ctx.chat.id;
   if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
@@ -822,7 +783,7 @@ registerAcceptInvitesCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
 });
@@ -833,7 +794,7 @@ registerMergeCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
 });
@@ -844,7 +805,7 @@ const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
   addBreadcrumb,
   getSolveQueue,
@@ -898,7 +859,7 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve ignored: not a group chat');
     }
@@ -921,17 +882,23 @@ async function handleSolveCommand(ctx) {
 
   let userArgs = parseCommandArgs(ctx.message.text);
 
-  // Check if this is a reply to a message and user didn't provide URL
+  // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
+  // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
   const isReply = message.reply_to_message && message.reply_to_message.message_id && !message.reply_to_message.forum_topic_created;
 
-  if (isReply && userArgs.length === 0) {
+  // Check if the first argument looks like a GitHub URL
+  // If not, we should try to extract the URL from the replied message
+  const firstArgIsUrl = userArgs.length > 0 && (userArgs[0].includes('github.com') || userArgs[0].match(/^https?:\/\//));
+
+  if (isReply && !firstArgIsUrl) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve is a reply without URL, extracting from replied message...');
+      console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
+      console.log('[VERBOSE] User args:', userArgs);
     }
 
     const replyText = message.reply_to_message.text || '';
-    const extraction = extractGitHubUrl(replyText);
+    const extraction = _extractGitHubUrl(replyText, { parseGitHubUrl, cleanNonPrintableChars });
 
     if (extraction.error) {
       // Multiple links found
@@ -944,18 +911,18 @@ async function handleSolveCommand(ctx) {
       });
       return;
     } else if (extraction.url) {
-      // Single link found
+      // Single link found - prepend it to existing user args (issue #1325)
       if (VERBOSE) {
         console.log('[VERBOSE] Extracted URL from reply:', extraction.url);
       }
-      // Add the extracted URL as the first argument
-      userArgs = [extraction.url];
+      // Prepend the extracted URL to user's options (e.g., ['--model', 'opus'] -> ['url', '--model', 'opus'])
+      userArgs = [extraction.url, ...userArgs];
     } else {
       // No link found
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -1024,8 +991,9 @@ async function handleSolveCommand(ctx) {
   const normalizedUrl = validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
-  const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\nOptions: ${optionsText}`;
+  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
+  const userOptionsText = userArgs.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\n\n🛠 Options: ${userOptionsText}`;
   if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
@@ -1108,7 +1076,7 @@ async function handleHiveCommand(ctx) {
     return;
   }
 
-  if (!isGroupChat(ctx)) {
+  if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not a group chat');
     }
@@ -1193,8 +1161,9 @@ async function handleHiveCommand(ctx) {
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const escapedUrl = escapeMarkdown(args[0]);
-  const optionsText = args.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\nOptions: ${optionsText}`;
+  // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
+  const userOptionsText = normalizedArgs.slice(1).join(' ') || 'none';
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\n\n🛠 Options: ${userOptionsText}`;
   if (hiveOverrides.length > 0) {
     infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
   }
@@ -1212,7 +1181,7 @@ registerTopCommand(bot, {
   VERBOSE,
   isOldMessage,
   isForwardedOrReply,
-  isGroupChat,
+  isGroupChat: _isGroupChat,
   isChatAuthorized,
 });
 

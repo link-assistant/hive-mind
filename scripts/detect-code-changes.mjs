@@ -190,7 +190,9 @@ function detectChanges() {
   }
   console.log('');
 
-  // Check if any code files changed (.mjs, .json, .yml, .yaml, or workflow files)
+  // Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files)
+  // Note: Docker files (Dockerfile etc.) are NOT included here — they are detected separately via
+  // docker=true. The release job is configured to also trigger on docker-changed=true. (see issue #1423)
   const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
   const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
   setOutput('code', codeChanged ? 'true' : 'false');

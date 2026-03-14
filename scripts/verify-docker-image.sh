@@ -104,6 +104,32 @@ if [ ! -w /home/hive ]; then
   exit 1
 fi
 
+# Verify .config directory ownership (see issue #1419)
+# Root-owned .config prevents tools from creating config subdirectories at runtime
+if [ -d /home/hive/.config ]; then
+  CONFIG_OWNER=$(stat -c '%U' /home/hive/.config 2>/dev/null || stat -f '%Su' /home/hive/.config 2>/dev/null)
+  echo ".config directory owner: $CONFIG_OWNER"
+  if [ "$CONFIG_OWNER" != "hive" ]; then
+    echo "ERROR: /home/hive/.config is owned by $CONFIG_OWNER, expected hive"
+    echo "This causes EACCES errors when tools try to create config subdirectories"
+    echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
+    exit 1
+  fi
+  echo ".config directory ownership: OK"
+else
+  echo ".config directory does not exist yet (will be created at runtime): OK"
+fi
+
+# Verify hive user can create directories in .config (see issue #1419)
+if mkdir -p /home/hive/.config/.verify-test 2>/dev/null; then
+  rmdir /home/hive/.config/.verify-test 2>/dev/null
+  echo ".config directory write access: OK"
+else
+  echo "ERROR: hive user cannot create directories in /home/hive/.config"
+  echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
+  exit 1
+fi
+
 echo "User rename verification: PASSED"
 echo ""
 

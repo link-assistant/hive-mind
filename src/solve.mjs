@@ -89,8 +89,7 @@ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs'
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
-// Log version and raw command IMMEDIATELY after log file initialization
-// This ensures they appear in both console and log file, even if argument parsing fails
+// Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
 const versionInfo = await getVersionInfo();
 await log('');
 await log(`🚀 solve v${versionInfo}`);
@@ -111,9 +110,7 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// If user specified a custom log directory, we would need to move the log file
-// However, this adds complexity, so we accept that early logs go to cwd
-// The trade-off is: early logs in cwd vs missing version/command in error cases
+// Early logs go to cwd; custom log dir takes effect after argv is parsed
 
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
@@ -176,7 +173,6 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
 cleanupContext.owner = owner;
@@ -211,9 +207,7 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
-// Perform all system checks using validation module
-// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
-// Note: This does NOT skip model validation which is performed above
+// Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
@@ -226,9 +220,7 @@ if (argv.verbose) {
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
-// Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
-// The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
-// and the validation result already provides these values correctly parsed
+// Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above (parseUrlComponents() removed due to hash fragment bug)
 
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
@@ -503,17 +495,13 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Create or find temporary directory for cloning the repository
-// Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
-// Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
   // Set up repository and clone using the new module

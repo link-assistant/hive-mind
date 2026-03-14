@@ -1,5 +1,104 @@
 # @link-assistant/hive-mind
 
+## 1.32.1
+
+### Patch Changes
+
+- 2f710dd: fix: sanitize orphaned UTF-16 surrogates across all CLI output parsing paths (Issue #1324)
+
+  Extract `sanitizeUnicode()` and `sanitizeObjectStrings()` into a shared `unicode-sanitization.lib.mjs` module and apply sanitization in all CLI output parsing paths — `claude.lib.mjs`, `agent.lib.mjs`, `codex.lib.mjs`, `opencode.lib.mjs`, and `interactive-mode.lib.mjs`. This ensures orphaned UTF-16 surrogates (from Claude CLI's `<persisted-output>` truncation) are replaced with U+FFFD before any JSON re-serialization, logging, or API calls. Add 62 unit tests covering surrogate edge cases, real-world Claude NDJSON events, and JSON round-trip safety.
+
+## 1.32.0
+
+### Minor Changes
+
+- b2c94db: Support all options via /solve command when replying to a message containing a GitHub link (issue #1325)
+
+  Previously, `/solve` as a reply only worked when used without any arguments. Now users can reply to a message containing a GitHub issue/PR link with `/solve --model opus` or any other options, and the bot will:
+  1. Extract the GitHub URL from the replied message
+  2. Use the provided options
+  3. Execute the solve command with both the extracted URL and the user-provided options
+
+## 1.31.4
+
+### Patch Changes
+
+- Extract large inline script blocks from release.yml into ./scripts/ to fix CI line-limit violation (issue #1428)
+
+  fix: configure release pipeline to react to docker=true so Dockerfile changes trigger Docker image rebuild (Issue #1423)
+
+  Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produced `docker=true` but `code=false`. The `release` job required all test jobs to `succeed` — but those tests were correctly skipped (no JavaScript code changed). Since `skipped != 'success'`, the release job was also skipped, and no Docker image was rebuilt.
+
+  This was observed when PR #1420 (fixing `/home/hive/.config` ownership) was merged: both Dockerfiles changed, but CI run `23040959919` showed all Docker publish jobs as skipped.
+
+  The `release` job condition is now updated to:
+  - Also trigger when `docker-changed == 'true'` (not only `code=true`)
+  - Accept `skipped` as well as `success` for test/lint jobs (skipped = intentionally not run, not a failure)
+  - Block on any actual job `failure`
+
+  This directly configures CI/CD to react to `docker=true` — without misclassifying Dockerfiles as "code" files.
+
+  Full root cause analysis and timeline in `docs/case-studies/issue-1423/`.
+
+  Migrate GitHub Actions to Node.js 24 compatible versions to eliminate deprecation warnings before the June 2026 deadline
+
+## 1.31.3
+
+### Patch Changes
+
+- b77704d: fix: set Docker image version labels to actual release version (Issue #1419)
+
+  The `docker/metadata-action@v5` defaulted the `org.opencontainers.image.version`
+  OCI label to the Git ref name `"main"` instead of the actual release version.
+  Added explicit `labels` override to all four Docker metadata steps in both regular
+  and instant release pipelines.
+
+  Also added `.config` directory ownership and write-access verification to the Docker
+  image verification script to prevent the permission regression from recurring.
+
+## 1.31.2
+
+### Patch Changes
+
+- efe3506: fix: /merge command no longer falsely fails when latest CI is in progress (Issue #1425)
+
+  The `checkBranchCIHealth` function previously queried only `status=completed` runs
+  to determine if the default branch CI was healthy. When a new commit had an in-progress
+  CI run, the function returned the previous (now superseded) commit's failure as the
+  "latest" CI status, causing the merge queue to be blocked with a false positive error.
+
+  The fix resolves the actual HEAD SHA of the branch first, then queries CI runs
+  specifically for that SHA (without a status filter). If the latest commit's runs are
+  in progress, the function returns `pending: true` (healthy) instead of reporting a
+  failure from an older commit. The merge queue then proceeds to the existing
+  `waitForTargetBranchCI` step which correctly waits for those runs to complete.
+
+## 1.31.1
+
+### Patch Changes
+
+- 5108367: fix: fix root causes of 20-32h process hang after session ends (Issue #1335)
+
+  Two separate bugs caused `solve` processes to run for 20–32 hours after work was complete:
+
+  **Bug A — Infinite loop for repos without CI:** When `--auto-restart-until-mergeable` is used
+  on a repository with no CI/CD workflows, the `watchUntilMergeable` loop was permanently stuck
+  on "CI/CD checks have not started yet" with no exit condition. The root cause was that the code
+  treated `no_checks` identically for both transient race conditions (CI hasn't started yet after
+  a push) and permanent states (repo has no CI at all). Fixed by checking whether the repository
+  actually has GitHub Actions workflows configured (`hasRepoWorkflows()`). If none exist, the
+  `no_checks` state is permanent and the monitor exits immediately, treating the PR as CI-passing.
+  If workflows exist, the state is a transient race condition and the loop keeps waiting.
+
+  **Bug B — No process exit after session ends:** After a successful run (PR became mergeable,
+  work session ended), `solve.mjs` never called `process.exit()`. Sentry's profiling integration
+  (`@sentry/profiling-node`) kept the Node.js event loop alive indefinitely. Fixed by calling
+  `safeExit(0)` at the end of the `finally` block in `solve.mjs`, which flushes Sentry events
+  (up to 2 seconds) and then calls `process.exit(0)`.
+
+  Also adds `--verbose` debug logging of active Node.js handles at exit to aid diagnosis of
+  future occurrences.
+
 ## 1.31.0
 
 ### Minor Changes

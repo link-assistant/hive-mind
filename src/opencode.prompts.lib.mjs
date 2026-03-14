@@ -213,7 +213,12 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.
+   - When you finalize, confirm code, tests, and description are consistent.${
+     argv && argv.promptEnsureAllRequirementsAreMet
+       ? `
+   - When no explicit feedback or requirements is provided, ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.`
+       : ''
+   }
 
 GitHub CLI command patterns.
    - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).

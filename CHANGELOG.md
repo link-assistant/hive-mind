@@ -1,5 +1,132 @@
 # @link-assistant/hive-mind
 
+## 1.31.4
+
+### Patch Changes
+
+- Extract large inline script blocks from release.yml into ./scripts/ to fix CI line-limit violation (issue #1428)
+
+  fix: configure release pipeline to react to docker=true so Dockerfile changes trigger Docker image rebuild (Issue #1423)
+
+  Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produced `docker=true` but `code=false`. The `release` job required all test jobs to `succeed` — but those tests were correctly skipped (no JavaScript code changed). Since `skipped != 'success'`, the release job was also skipped, and no Docker image was rebuilt.
+
+  This was observed when PR #1420 (fixing `/home/hive/.config` ownership) was merged: both Dockerfiles changed, but CI run `23040959919` showed all Docker publish jobs as skipped.
+
+  The `release` job condition is now updated to:
+  - Also trigger when `docker-changed == 'true'` (not only `code=true`)
+  - Accept `skipped` as well as `success` for test/lint jobs (skipped = intentionally not run, not a failure)
+  - Block on any actual job `failure`
+
+  This directly configures CI/CD to react to `docker=true` — without misclassifying Dockerfiles as "code" files.
+
+  Full root cause analysis and timeline in `docs/case-studies/issue-1423/`.
+
+  Migrate GitHub Actions to Node.js 24 compatible versions to eliminate deprecation warnings before the June 2026 deadline
+
+## 1.31.3
+
+### Patch Changes
+
+- b77704d: fix: set Docker image version labels to actual release version (Issue #1419)
+
+  The `docker/metadata-action@v5` defaulted the `org.opencontainers.image.version`
+  OCI label to the Git ref name `"main"` instead of the actual release version.
+  Added explicit `labels` override to all four Docker metadata steps in both regular
+  and instant release pipelines.
+
+  Also added `.config` directory ownership and write-access verification to the Docker
+  image verification script to prevent the permission regression from recurring.
+
+## 1.31.2
+
+### Patch Changes
+
+- efe3506: fix: /merge command no longer falsely fails when latest CI is in progress (Issue #1425)
+
+  The `checkBranchCIHealth` function previously queried only `status=completed` runs
+  to determine if the default branch CI was healthy. When a new commit had an in-progress
+  CI run, the function returned the previous (now superseded) commit's failure as the
+  "latest" CI status, causing the merge queue to be blocked with a false positive error.
+
+  The fix resolves the actual HEAD SHA of the branch first, then queries CI runs
+  specifically for that SHA (without a status filter). If the latest commit's runs are
+  in progress, the function returns `pending: true` (healthy) instead of reporting a
+  failure from an older commit. The merge queue then proceeds to the existing
+  `waitForTargetBranchCI` step which correctly waits for those runs to complete.
+
+## 1.31.1
+
+### Patch Changes
+
+- 5108367: fix: fix root causes of 20-32h process hang after session ends (Issue #1335)
+
+  Two separate bugs caused `solve` processes to run for 20–32 hours after work was complete:
+
+  **Bug A — Infinite loop for repos without CI:** When `--auto-restart-until-mergeable` is used
+  on a repository with no CI/CD workflows, the `watchUntilMergeable` loop was permanently stuck
+  on "CI/CD checks have not started yet" with no exit condition. The root cause was that the code
+  treated `no_checks` identically for both transient race conditions (CI hasn't started yet after
+  a push) and permanent states (repo has no CI at all). Fixed by checking whether the repository
+  actually has GitHub Actions workflows configured (`hasRepoWorkflows()`). If none exist, the
+  `no_checks` state is permanent and the monitor exits immediately, treating the PR as CI-passing.
+  If workflows exist, the state is a transient race condition and the loop keeps waiting.
+
+  **Bug B — No process exit after session ends:** After a successful run (PR became mergeable,
+  work session ended), `solve.mjs` never called `process.exit()`. Sentry's profiling integration
+  (`@sentry/profiling-node`) kept the Node.js event loop alive indefinitely. Fixed by calling
+  `safeExit(0)` at the end of the `finally` block in `solve.mjs`, which flushes Sentry events
+  (up to 2 seconds) and then calls `process.exit(0)`.
+
+  Also adds `--verbose` debug logging of active Node.js handles at exit to aid diagnosis of
+  future occurrences.
+
+## 1.31.0
+
+### Minor Changes
+
+- feat: add --finalize option (Issue #1383)
+
+  Adds new experimental CLI options to the `solve` command:
+  - `--finalize [N]`: After the main solve completes, automatically restarts the AI tool N times (default: 1 when used as a flag) with a requirements-check prompt to verify all requirements are met. Uses the same model as `--model` by default.
+  - `--finalize-model`: Override the model used during `--finalize` iterations (defaults to `--model`).
+  - `--prompt-ensure-all-requirements-are-met`: Adds a system prompt hint in the "Self review" section instructing the AI to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically during `--finalize` iterations only (not the first regular run).
+
+  This forces the AI tool to double-check itself after the main solve, verifying changes meet all requirements from the issue description and PR comments, and that CI/CD checks pass.
+
+  feat: auto-commit uncommitted changes and upload log on CTRL+C interrupt (Issue #1351)
+
+  Previously, when a user pressed CTRL+C to interrupt a running solve session, uncommitted changes were silently lost (or left uncommitted) and log files were not uploaded to the PR/issue even when `--attach-logs` was enabled. Additionally, the terminal showed "Claude command completed" instead of "Claude command interrupted".
+
+  Now on CTRL+C:
+  1. **Auto-commit**: Any uncommitted changes in the working directory are automatically committed and pushed to the branch before cleanup occurs.
+  2. **Log upload**: If `--attach-logs` is enabled, the log file is automatically uploaded to the GitHub PR/issue as a comment.
+  3. **Accurate message**: The terminal now correctly shows "Claude command interrupted" instead of "Claude command completed" when the process exits with code 130 (SIGINT).
+
+  Changes made:
+  - `src/exit-handler.lib.mjs`: Added optional `interrupt` parameter to `initializeExitHandler()`; SIGINT handler now calls it before cleanup, guarded against double invocation
+  - `src/solve.mjs`: Extended `cleanupContext` with branch/PR/owner/repo fields; new `interruptWrapper` auto-commits and uploads logs on CTRL+C
+  - `src/claude.lib.mjs`, `src/opencode.lib.mjs`, `src/codex.lib.mjs`, `src/agent.lib.mjs`: Detect exit code 130 and print "interrupted" instead of "completed"
+
+  Full case study analysis including timeline reconstruction, root cause analysis, and implementation details in `docs/case-studies/issue-1351/`.
+
+  fix: prevent false positive ready tag sync by using issue timeline API (Issue #1413)
+
+  Previously, `syncReadyTags()` used a GitHub full-text body search to find PRs linked to an issue:
+
+  ```js
+  gh pr list --search "in:body closes #1411 OR fixes #1411 OR resolves #1411"
+  ```
+
+  This caused a false positive: PR #843 matched because `1411` appeared as a source code line reference inside its body, not as a genuine issue-closing keyword.
+
+  Now uses the GitHub issue timeline API (`GET /repos/{owner}/{repo}/issues/{issue_number}/timeline`) to find PRs with genuine `cross-referenced` events, which is the same data GitHub uses to auto-close issues when PRs are merged.
+
+  fix: hide cancel button and show cancelling state on /merge cancel (Issue #1407)
+
+  When user clicked the "🛑 Cancel" button during `/merge` queue processing, the cancel button remained visible in the Telegram message until the current PR finished processing (potentially hours if waiting for CI). The toast message "The current PR will finish processing" was also confusing.
+
+  The fix immediately hides the cancel button by editing the message without `reply_markup`, shows a "🛑 Cancelling..." indicator in the progress message when cancellation is requested, and adds `isCancelled` support to `waitForCI()` for early exit when the operation is cancelled.
+
 ## 1.30.5
 
 ### Patch Changes

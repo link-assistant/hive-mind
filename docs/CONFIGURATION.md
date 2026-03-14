@@ -9,7 +9,7 @@ The Hive Mind application supports extensive configuration through environment v
 - [Environment Variables](#environment-variables)
   - [Timeout Configurations](#1-timeout-configurations)
   - [Auto-Continue Settings](#2-auto-continue-settings)
-  - [Limit Reset Settings](#21-limit-reset-settings)
+  - [Limit Reset Settings](#22-limit-reset-settings)
   - [GitHub API Limits](#3-github-api-limits)
   - [System Resource Limits](#4-system-resource-limits)
   - [Retry Configurations](#5-retry-configurations)
@@ -59,7 +59,7 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | ----------------------------------- | ------- | ----------------------------------------------- |
 | `HIVE_MIND_AUTO_CONTINUE_AGE_HOURS` | 24      | Minimum age of PRs before auto-continue (hours) |
 
-### 2.1. Limit Reset Settings
+### 2.2. Limit Reset Settings
 
 | Environment Variable              | Default | Description                                        |
 | --------------------------------- | ------- | -------------------------------------------------- |

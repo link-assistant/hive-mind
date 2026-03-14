@@ -43,6 +43,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 
+env: # Force Node.js 24 for actions without native support. See issue #1417.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # === DETECT CHANGES ===
   detect-changes:
@@ -56,7 +59,7 @@ jobs:
       any-code-changed: ${{ steps.changes.outputs.code }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -75,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -93,14 +96,14 @@ jobs:
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'
 
       - name: Install dependencies
         run: npm install
@@ -135,12 +138,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Test solve.mjs compilation
         run: |
@@ -155,26 +158,7 @@ jobs:
           echo "hive.mjs compiles successfully"
 
       - name: Check Node.js syntax for all .mjs files
-        run: |
-          echo "Checking syntax for all .mjs files..."
-          for file in *.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              timeout 10s node --check "$file"
-            fi
-          done
-          for file in src/*.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              timeout 10s node --check "$file"
-            fi
-          done
-          for file in tests/*.mjs; do
-            if [ -f "$file" ]; then
-              echo "Checking $file..."
-              node --check "$file"
-            fi
-          done
+        run: bash scripts/check-mjs-syntax.sh
 
   # === ESLINT CODE QUALITY CHECK ===
   # Lint runs independently of changeset-check - it's a fast check that should always run
@@ -188,7 +172,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
@@ -197,55 +181,12 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          echo "=== Synchronizing PR with latest $BASE_REF ==="
-          echo "This prevents stale merge preview issues (see issue #1141)"
-          echo ""
-
-          # Configure git for merge
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-          # Fetch the latest base branch
-          echo "Fetching latest $BASE_REF..."
-          git fetch origin "$BASE_REF"
-
-          # Get current and base branch info
-          CURRENT_SHA=$(git rev-parse HEAD)
-          BASE_SHA=$(git rev-parse "origin/$BASE_REF")
-
-          echo "Current checkout (merge preview): $CURRENT_SHA"
-          echo "Latest base branch ($BASE_REF): $BASE_SHA"
-          echo ""
-
-          # Check if base branch has new commits not in the merge preview
-          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
-
-          if [ "$BEHIND_COUNT" -eq 0 ]; then
-            echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
-          else
-            echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
-            echo "Simulating fresh merge to validate actual merge result..."
-            echo ""
-
-            # Attempt to merge the latest base branch
-            if git merge origin/$BASE_REF --no-edit; then
-              echo ""
-              echo "Fresh merge simulation successful!"
-              echo "Checks will now run against the up-to-date merged state."
-            else
-              echo ""
-              echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
-              echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
-              exit 1
-            fi
-          fi
-          echo ""
+        run: bash scripts/simulate-fresh-merge.sh
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: npm ci
@@ -279,7 +220,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
@@ -288,50 +229,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: |
-          echo "=== Synchronizing PR with latest $BASE_REF ==="
-          echo "This prevents stale merge preview issues (see issue #1141)"
-          echo ""
-
-          # Configure git for merge
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-
-          # Fetch the latest base branch
-          echo "Fetching latest $BASE_REF..."
-          git fetch origin "$BASE_REF"
-
-          # Get current and base branch info
-          CURRENT_SHA=$(git rev-parse HEAD)
-          BASE_SHA=$(git rev-parse "origin/$BASE_REF")
-
-          echo "Current checkout (merge preview): $CURRENT_SHA"
-          echo "Latest base branch ($BASE_REF): $BASE_SHA"
-          echo ""
-
-          # Check if base branch has new commits not in the merge preview
-          BEHIND_COUNT=$(git rev-list --count HEAD..origin/$BASE_REF)
-
-          if [ "$BEHIND_COUNT" -eq 0 ]; then
-            echo "Merge preview is up-to-date with $BASE_REF. No simulation needed."
-          else
-            echo "Base branch has $BEHIND_COUNT new commit(s) since PR was opened/synced."
-            echo "Simulating fresh merge to validate actual merge result..."
-            echo ""
-
-            # Attempt to merge the latest base branch
-            if git merge origin/$BASE_REF --no-edit; then
-              echo ""
-              echo "Fresh merge simulation successful!"
-              echo "Checks will now run against the up-to-date merged state."
-            else
-              echo ""
-              echo "::error::Merge conflict detected! PR needs to be rebased/updated before it can be merged."
-              echo "The PR branch is out of sync with $BASE_REF and cannot be automatically merged."
-              exit 1
-            fi
-          fi
-          echo ""
+        run: bash scripts/simulate-fresh-merge.sh
 
       - name: Check file line limits (.mjs files and release.yml)
         run: bash scripts/check-file-line-limits.sh
@@ -354,12 +252,12 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: npm install
@@ -503,12 +401,12 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Install dependencies
         run: npm install
@@ -521,50 +419,7 @@ jobs:
           timeout 10s ./src/solve.mjs --version || true
 
       - name: Verify log files contain version and command (Issue #517)
-        run: |
-          echo "Testing that log files contain version and command at the start..."
-          timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt || true
-
-          LOG_FILE=$(grep -o "solve-[0-9T-]*Z\.log" test-log-output.txt | head -1)
-
-          if [ -z "$LOG_FILE" ]; then
-            echo "Could not find log file path in output"
-            cat test-log-output.txt
-            exit 1
-          fi
-
-          echo "Log file: $LOG_FILE"
-
-          if [ ! -f "$LOG_FILE" ]; then
-            echo "Log file not found: $LOG_FILE"
-            ls -la solve-*.log || echo "No solve log files found"
-            exit 1
-          fi
-
-          echo ""
-          echo "Checking log file contents..."
-          head -30 "$LOG_FILE"
-
-          echo ""
-          echo "Verifying version appears in log..."
-          if grep -q "solve v" "$LOG_FILE"; then
-            echo "Version found in log file"
-          else
-            echo "Version NOT found in log file"
-            exit 1
-          fi
-
-          echo ""
-          echo "Verifying command appears in log..."
-          if grep -q "Raw command executed:" "$LOG_FILE"; then
-            echo "Command found in log file"
-          else
-            echo "Command NOT found in log file"
-            exit 1
-          fi
-
-          echo ""
-          echo "Log file verification passed - version and command are present"
+        run: bash scripts/verify-log-file-contents.sh
 
       - name: Test hive.mjs execution
         run: |
@@ -595,41 +450,7 @@ jobs:
           ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
 
       - name: Test global command installation
-        run: |
-          echo "Testing npm global command installation from local folder..."
-          npm link
-          echo "npm link completed successfully"
-
-          echo ""
-          echo "Testing 'hive' global command..."
-          timeout 10s hive --version || true
-          timeout 10s hive --help || echo "Help command completed"
-          echo "'hive' global command works"
-
-          echo ""
-          echo "Testing 'solve' global command..."
-          timeout 10s solve --version || true
-          timeout 10s solve --help || echo "Help command completed"
-          echo "'solve' global command works"
-
-          echo ""
-          echo "Testing 'hive-telegram-bot' global command..."
-          timeout 10s hive-telegram-bot --help || echo "Help command completed"
-          echo "'hive-telegram-bot' global command works"
-
-          echo ""
-          echo "Testing hive-telegram-bot --dry-run (issue #487)..."
-          timeout 30s hive-telegram-bot \
-            --token "test_token" \
-            --allowed-chats "(-1 -2)" \
-            --no-hive \
-            --solve-overrides "(--auto-continue --verbose)" \
-            --dry-run
-          echo "'hive-telegram-bot --dry-run' works"
-
-          echo ""
-          echo "Cleaning up global link..."
-          npm unlink || true
+        run: bash scripts/test-global-commands.sh
 
       - name: Test hive dry-run with solve integration
         run: |
@@ -648,38 +469,7 @@ jobs:
           echo "solve.mjs accepts --dry-run and --skip-claude-check flags"
 
       - name: Test --auto-fork option
-        run: |
-          echo "Testing --auto-fork option with dry-run mode..."
-
-          echo ""
-          echo "Testing solve.mjs with --auto-fork and --dry-run..."
-          timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --auto-fork --dry-run --skip-tool-check 2>&1 | tee solve_auto_fork.log || true
-          if grep -qE "(auto-fork|Auto-fork)" solve_auto_fork.log; then
-            echo "solve.mjs recognizes --auto-fork flag"
-          else
-            echo "Could not verify --auto-fork flag in solve output"
-          fi
-
-          echo ""
-          echo "Testing hive.mjs with --auto-fork and --dry-run..."
-          timeout 30s ./src/hive.mjs https://github.com/test/repo --auto-fork --dry-run --skip-tool-check --once --max-issues 1 2>&1 | tee hive_auto_fork.log || true
-          if grep -qE "(auto-fork|Auto-fork)" hive_auto_fork.log; then
-            echo "hive.mjs recognizes --auto-fork flag"
-          else
-            echo "Could not verify --auto-fork flag in hive output"
-          fi
-
-          echo ""
-          echo "Testing start-screen.mjs passes --auto-fork to solve..."
-          timeout 5s ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork 2>&1 | tee start_screen_auto_fork.log || true
-          if grep -qE "(auto-fork|GNU Screen|screen.*not.*installed)" start_screen_auto_fork.log; then
-            echo "start-screen.mjs accepts --auto-fork flag"
-          else
-            echo "Could not verify start-screen flag acceptance"
-          fi
-
-          echo ""
-          echo "All --auto-fork option tests completed"
+        run: bash scripts/test-auto-fork-option.sh
 
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
@@ -696,12 +486,12 @@ jobs:
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: System info
         run: |
@@ -762,12 +552,12 @@ jobs:
     if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Use Node.js 20.x
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20.x
+          node-version: 24.x
 
       - name: Validate documentation files
         run: |
@@ -797,7 +587,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
@@ -872,7 +662,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -895,36 +685,13 @@ jobs:
           echo "Helm chart validation passed"
 
       - name: Verify Chart.yaml structure
-        run: |
-          echo "Verifying Chart.yaml structure..."
-          if [ ! -f "helm/hive-mind/Chart.yaml" ]; then
-            echo "Chart.yaml not found"
-            exit 1
-          fi
-
-          if ! grep -q "^name:" helm/hive-mind/Chart.yaml; then
-            echo "Chart name not found"
-            exit 1
-          fi
-
-          if ! grep -q "^version:" helm/hive-mind/Chart.yaml; then
-            echo "Chart version not found"
-            exit 1
-          fi
-
-          if ! grep -q "^appVersion:" helm/hive-mind/Chart.yaml; then
-            echo "Chart appVersion not found"
-            exit 1
-          fi
-
-          echo "Chart.yaml structure is valid"
+        run: bash scripts/verify-chart-yaml.sh
 
   # === RELEASE - only runs on main after tests pass ===
   release:
     name: Release
     needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
-    # Use always() to ensure this job runs even if changeset-check was skipped
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-suites.result == 'success' && needs.test-execution.result == 'success' && needs.memory-check-linux.result == 'success'
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.publish.outputs.published }}
@@ -935,14 +702,14 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -1009,23 +776,13 @@ jobs:
           node scripts/upload-sourcemaps.mjs
 
   # === DOCKER PUBLISH ===
-  # Multi-platform Docker builds using native runners (no QEMU emulation)
-  # This eliminates the 10-100x slowdown from QEMU ARM64 emulation
-  # See: docs/case-studies/issue-982/README.md
-  #
-  # Note: ARM64 builds may be slow due to known issues with GitHub ARM runners:
-  # - Ubuntu 24.04 ARM has network/download performance issues (actions/runner-images#11790)
-  # - Docker commands are slower on ARM runners (actions/partner-runner-images#101)
-  # - Homebrew ARM64 Linux bottles have limited availability
-  # See: docs/case-studies/issue-998/README.md
+  # Multi-platform builds using native runners (no QEMU). See: docs/case-studies/issue-982/
+  # ARM64 may be slow: actions/runner-images#11790, actions/partner-runner-images#101
+  # See also: docs/case-studies/issue-998/README.md
   docker-publish:
     name: Docker Publish (${{ matrix.platform }})
     needs: [release]
-    # Use !cancelled() instead of always() to allow concurrency cancellation while still
-    # evaluating conditions when dependencies are skipped. This prevents Docker jobs from
-    # blocking subsequent workflow runs when cancel-in-progress is enabled.
-    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
-    # Original issue refs: https://github.com/actions/runner/issues/491 and https://github.com/orgs/community/discussions/26945
+    # !cancelled() allows concurrency cancellation. See: docs/case-studies/issue-1278/
     if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
     # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
     timeout-minutes: 60
@@ -1037,7 +794,7 @@ jobs:
             runner: ubuntu-latest
             cache_suffix: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm  # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
             cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -1054,7 +811,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
@@ -1065,23 +822,26 @@ jobs:
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -1100,7 +860,7 @@ jobs:
           echo "Digest for ${{ matrix.platform }}: $digest"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
@@ -1124,29 +884,32 @@ jobs:
 
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.release.outputs.published_version }}
             type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -1185,7 +948,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -1216,14 +979,14 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -1281,7 +1044,7 @@ jobs:
             runner: ubuntu-latest
             cache_suffix: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm  # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
+            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
             cache_suffix: arm64
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -1294,7 +1057,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
@@ -1305,23 +1068,26 @@ jobs:
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
 
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -1340,7 +1106,7 @@ jobs:
           echo "Digest for ${{ matrix.platform }}: $digest"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
@@ -1364,29 +1130,32 @@ jobs:
 
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: digests-instant-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.instant-release.outputs.published_version }}
             type=raw,value=latest
+          # Set version label to actual release version, not Git ref "main" (issue #1419)
+          labels: |
+            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -1425,7 +1194,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -1452,14 +1221,14 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20.x'
+          node-version: '24.x'
 
       - name: Install dependencies
         run: npm install
@@ -1473,7 +1242,7 @@ jobs:
           echo "Formatted changeset files"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'

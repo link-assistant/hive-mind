@@ -215,6 +215,9 @@ const KNOWN_OPTION_NAMES = [
   'prompt-examples-folder',
   'session-type',
   'working-directory',
+  'prompt-ensure-all-requirements-are-met',
+  'finalize',
+  'finalize-model',
 ];
 
 /**

@@ -69,16 +69,15 @@ const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
-const autoMergeLib = await import('./solve.auto-merge.lib.mjs');
-const { startAutoRestartUntilMergeable } = autoMergeLib;
+const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
+const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
-const interruptLib = await import('./solve.interrupt.lib.mjs');
-const { createInterruptWrapper } = interruptLib;
+const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
 // Import new modular components
@@ -123,7 +122,7 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// Early logs go to cwd (accepted trade-off vs complexity of moving log file)
+// Early logs go to cwd; custom log dir takes effect after argv is parsed
 
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
@@ -171,9 +170,6 @@ const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncomm
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
 
-// Note: Version and raw command are logged BEFORE parseArguments() (see above) to appear even if strict validation fails
-// Strict options validation is handled by yargs .strict() mode in solve.config.lib.mjs (issue #453, #482)
-
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
 if (!issueUrl) {
@@ -189,7 +185,6 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers and interrupt context
 global.owner = owner;
 global.repo = repo;
 cleanupContext.owner = owner;
@@ -486,8 +481,6 @@ if (isPrUrl) {
       }
     }
     await log(`📝 PR branch: ${prBranch}`);
-    // Extract issue number from PR body using GitHub linking detection library
-    // This ensures we only detect actual GitHub-recognized linking keywords
     const prBody = prData.body || '';
     const extractedIssueNumber = extractLinkedIssueNumber(prBody);
     if (extractedIssueNumber) {
@@ -514,17 +507,13 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Create or find temporary directory for cloning the repository
-// Pass workspace info for --enable-workspaces mode (works with all tools)
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers (owner/repo updated again here for redundancy)
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
 cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
-// Initialize limitReached variable outside try block for finally clause
 let limitReached = false;
 try {
   // Set up repository and clone using the new module
@@ -612,9 +601,6 @@ try {
     // prNumber is already set from earlier when we parsed the PR
   }
 
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
-
   // Handle auto PR creation using the new module
   const autoPrResult = await handleAutoPrCreation({
     argv,
@@ -650,39 +636,7 @@ try {
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
-    await log('');
-    await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
-    await log('');
-    await log('  🔍 What happened:');
-    if (isContinueMode) {
-      await log('     Continue mode is active but no PR number is available.');
-      await log('     This usually means PR creation failed or was skipped incorrectly.');
-    } else {
-      await log('     Auto-PR creation is enabled but no PR was created.');
-      await log('     PR creation may have failed without throwing an error.');
-    }
-    await log('');
-    await log('  💡 Why this is critical:');
-    await log('     The solve command requires a PR for:');
-    await log('     • Tracking work progress');
-    await log('     • Receiving and processing feedback');
-    await log('     • Managing code changes');
-    await log('     • Auto-merging when complete');
-    await log('');
-    await log('  🔧 How to fix:');
-    await log('');
-    await log('  Option 1: Create PR manually and use --continue');
-    await log(`     cd ${tempDir}`);
-    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
-    await log('     # Then use the PR URL with solve.mjs');
-    await log('');
-    await log('  Option 2: Start fresh without continue mode');
-    await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
-    await log('');
-    await log('  Option 3: Disable auto-PR creation (Claude will create it)');
-    await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
-    await log('');
-    await safeExit(1, 'No PR available');
+    await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned });
   }
 
   if (isContinueMode) {
@@ -693,9 +647,6 @@ try {
     await log(`\n${formatAligned('⏭️', 'Auto PR creation:', 'DISABLED')}`);
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
-
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
 
   // Start work session using the new module
   // Determine session type based on command line flags
@@ -1185,7 +1136,6 @@ try {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
-  // Check for uncommitted changes
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
@@ -1233,11 +1183,6 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  // Pass shouldRestart to prevent early exit when auto-restart is needed
-  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  // Issue #1152: Pass sessionType for differentiated log comments
-  // Issue #1154: Track if logs were already uploaded to prevent duplicates
   const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
@@ -1290,6 +1235,15 @@ try {
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');
     }
+  }
+
+  // Issue #1383: --finalize
+  const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
+  if (autoEnsureResult) {
+    if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;
+    if (autoEnsureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = autoEnsureResult.anthropicTotalCostUSD;
+    if (autoEnsureResult.publicPricingEstimate) publicPricingEstimate = autoEnsureResult.publicPricingEstimate;
+    if (autoEnsureResult.pricingInfo) pricingInfo = autoEnsureResult.pricingInfo;
   }
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
@@ -1495,4 +1449,15 @@ try {
   // Issue #1346: Flush Sentry events before exit.
   // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
   await closeSentry();
+
+  // Issue #1335: Log active handles at exit to diagnose future process hang.
+  if (argv.verbose) {
+    const handles = process._getActiveHandles();
+    const requests = process._getActiveRequests();
+    if (handles.length > 0 || requests.length > 0) {
+      await log(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`, { verbose: true });
+      for (const h of handles) await log(`   Handle: ${h.constructor?.name || typeof h}`, { verbose: true });
+      for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
+    }
+  }
 }

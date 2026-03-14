@@ -131,8 +131,12 @@ RUN npm install -g @playwright/test@latest --no-fund --silent && \
     fi
 
 # Install Playwright OS dependencies (requires root)
+# Note: HOME is overridden to /root to prevent root processes from creating
+# files under /home/hive/.config with root ownership (see issue #1419)
 USER root
-RUN npx playwright@latest install-deps 2>/dev/null || true
+RUN HOME=/root npx playwright@latest install-deps 2>/dev/null || true
+# Restore hive ownership in case any root step touched /home/hive
+RUN chown -R hive:hive /home/hive
 
 USER hive
 

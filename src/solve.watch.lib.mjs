@@ -297,6 +297,9 @@ export const watchForFeedback = async params => {
                   // Mark if this was a usage limit failure
                   isUsageLimit: toolResult.limitReached,
                   limitResetTime: toolResult.limitResetTime,
+                  // Issue #1225: Pass model and tool info for PR comments
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
                 });
 
                 if (logUploadSuccess) {

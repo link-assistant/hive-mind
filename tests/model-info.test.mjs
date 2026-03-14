@@ -249,6 +249,238 @@ test('buildModelInfoString with modelsUsed with no metadata shows model ID', () 
 });
 
 // ============================================================================
+// resolveModelId - Per-tool coverage for all supported tools
+// ============================================================================
+
+console.log('\n📋 resolveModelId - All Tools Coverage\n');
+
+test('resolveModelId resolves "opus" for opencode tool', () => {
+  const result = resolveModelId('opus', 'opencode');
+  assert.ok(result.includes('claude') || result.includes('opus'), `Expected opus-related ID but got: ${result}`);
+});
+
+test('resolveModelId resolves "gpt4" for opencode tool', () => {
+  const result = resolveModelId('gpt4', 'opencode');
+  assert.equal(result, 'openai/gpt-4');
+});
+
+test('resolveModelId resolves "gpt4o" for opencode tool', () => {
+  const result = resolveModelId('gpt4o', 'opencode');
+  assert.equal(result, 'openai/gpt-4o');
+});
+
+test('resolveModelId resolves "grok" for opencode tool', () => {
+  const result = resolveModelId('grok', 'opencode');
+  assert.equal(result, 'opencode/grok-code');
+});
+
+test('resolveModelId resolves "o3" for codex tool', () => {
+  const result = resolveModelId('o3', 'codex');
+  assert.equal(result, 'o3');
+});
+
+test('resolveModelId resolves "gpt4o" for codex tool', () => {
+  const result = resolveModelId('gpt4o', 'codex');
+  assert.equal(result, 'gpt-4o');
+});
+
+test('resolveModelId resolves "opus" for codex tool', () => {
+  const result = resolveModelId('opus', 'codex');
+  assert.ok(result.includes('claude') || result.includes('opus'), `Expected opus-related ID but got: ${result}`);
+});
+
+test('resolveModelId resolves "opus" for agent tool', () => {
+  const result = resolveModelId('opus', 'agent');
+  assert.ok(result.includes('claude') || result.includes('opus'), `Expected opus-related ID but got: ${result}`);
+});
+
+test('resolveModelId resolves "haiku" for agent tool', () => {
+  const result = resolveModelId('haiku', 'agent');
+  assert.ok(result.includes('haiku'), `Expected haiku ID but got: ${result}`);
+});
+
+test('resolveModelId returns model as-is when not in map for agent tool', () => {
+  const result = resolveModelId('custom-model-123', 'agent');
+  assert.equal(result, 'custom-model-123');
+});
+
+// ============================================================================
+// buildModelInfoString - Per-tool coverage for all supported tools
+// ============================================================================
+
+console.log('\n📋 buildModelInfoString - All Tools Coverage\n');
+
+test('buildModelInfoString shows "Codex" tool name for codex', () => {
+  const result = buildModelInfoString({
+    tool: 'codex',
+    requestedModel: 'gpt5',
+    modelsUsed: [{ modelId: 'gpt-5', modelInfo: { name: 'GPT-5', provider: 'OpenAI' } }],
+  });
+  assert.ok(result.includes('Tool: Codex'), `Expected "Tool: Codex" but got: ${result}`);
+  assert.ok(result.includes('GPT-5'), `Expected model name but got: ${result}`);
+  assert.ok(result.includes('OpenAI'), `Expected provider but got: ${result}`);
+});
+
+test('buildModelInfoString shows "OpenCode" tool name for opencode', () => {
+  const result = buildModelInfoString({
+    tool: 'opencode',
+    requestedModel: 'grok',
+    modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'xAI' } }],
+  });
+  assert.ok(result.includes('Tool: OpenCode'), `Expected "Tool: OpenCode" but got: ${result}`);
+  assert.ok(result.includes('Grok Code'), `Expected model name but got: ${result}`);
+});
+
+test('buildModelInfoString shows "Agent" tool name for agent', () => {
+  const result = buildModelInfoString({
+    tool: 'agent',
+    requestedModel: 'grok',
+    modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'OpenCode Zen' } }],
+  });
+  assert.ok(result.includes('Tool: Agent'), `Expected "Tool: Agent" but got: ${result}`);
+});
+
+test('buildModelInfoString shows warning for codex when actual model does not match requested', () => {
+  const result = buildModelInfoString({
+    tool: 'codex',
+    requestedModel: 'gpt5',
+    modelsUsed: [{ modelId: 'gpt-4o', modelInfo: { name: 'GPT-4o', provider: 'OpenAI' } }],
+  });
+  assert.ok(result.includes('⚠️'), `Expected warning when model doesn't match but got: ${result}`);
+  assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
+});
+
+test('buildModelInfoString shows warning for agent when actual model does not match requested', () => {
+  const result = buildModelInfoString({
+    tool: 'agent',
+    requestedModel: 'opus',
+    modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'OpenCode Zen' } }],
+  });
+  assert.ok(result.includes('⚠️'), `Expected warning for agent mismatch but got: ${result}`);
+});
+
+test('buildModelInfoString no warning for agent when actual model matches requested', () => {
+  const result = buildModelInfoString({
+    tool: 'agent',
+    requestedModel: 'grok',
+    modelsUsed: [{ modelId: 'opencode/grok-code', modelInfo: { name: 'Grok Code', provider: 'OpenCode Zen' } }],
+  });
+  assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
+});
+
+test('buildModelInfoString uses pricingInfo for agent tool when no modelsUsed', () => {
+  const result = buildModelInfoString({
+    tool: 'agent',
+    pricingInfo: { modelId: 'opencode/grok-code', modelName: 'grok-code', provider: 'OpenCode Zen' },
+  });
+  assert.ok(result.includes('grok-code'), `Expected grok-code from pricingInfo but got: ${result}`);
+  assert.ok(result.includes('OpenCode Zen'), `Expected provider from pricingInfo but got: ${result}`);
+});
+
+test('buildModelInfoString uses pricingInfo for codex tool when no modelsUsed', () => {
+  const result = buildModelInfoString({
+    tool: 'codex',
+    pricingInfo: { modelId: 'gpt-5', modelName: 'GPT-5', provider: 'OpenAI' },
+  });
+  assert.ok(result.includes('GPT-5'), `Expected GPT-5 from pricingInfo but got: ${result}`);
+  assert.ok(result.includes('OpenAI'), `Expected OpenAI provider from pricingInfo but got: ${result}`);
+});
+
+// ============================================================================
+// getModelInfoForComment - Async tests with mocked metadata
+// ============================================================================
+
+console.log('\n📋 getModelInfoForComment - Async Tests\n');
+
+async function asyncTest(name, fn) {
+  try {
+    await fn();
+    console.log(`✅ ${name}`);
+    testsPassed++;
+  } catch (error) {
+    console.log(`❌ ${name}`);
+    console.log(`   Error: ${error.message}`);
+    testsFailed++;
+  }
+}
+
+// Import getModelInfoForComment for async tests
+const { getModelInfoForComment } = await import('../src/model-info.lib.mjs');
+
+await asyncTest('getModelInfoForComment returns string (no crash)', async () => {
+  const result = await getModelInfoForComment({ requestedModel: 'sonnet', tool: 'claude' });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+});
+
+await asyncTest('getModelInfoForComment with null inputs returns string', async () => {
+  const result = await getModelInfoForComment({});
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.equal(result, '', 'Expected empty string for no inputs');
+});
+
+await asyncTest('getModelInfoForComment with agent tool and pricingInfo', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'grok',
+    tool: 'agent',
+    pricingInfo: { modelId: 'opencode/grok-code', modelName: 'grok-code' },
+    actualModelIds: ['opencode/grok-code'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('grok-code') || result.includes('opencode/grok-code'), `Expected grok model in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with codex tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'gpt5',
+    tool: 'codex',
+    actualModelIds: ['gpt-5'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('gpt-5') || result.includes('Codex'), `Expected codex/gpt model in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with opencode tool and actual model IDs', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'grok',
+    tool: 'opencode',
+    actualModelIds: ['opencode/grok-code'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('OpenCode') || result.includes('grok'), `Expected opencode/grok in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment with multiple actual models (main + supporting)', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'opus',
+    tool: 'claude',
+    actualModelIds: ['claude-opus-4-5-20251101', 'claude-haiku-4-5-20251001'],
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  assert.ok(result.includes('claude-opus'), `Expected opus model in output but got: ${result}`);
+  assert.ok(result.includes('claude-haiku') || result.includes('Supporting'), `Expected supporting model in output but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment pricingInfo model used when no actualModelIds', async () => {
+  const result = await getModelInfoForComment({
+    tool: 'agent',
+    pricingInfo: { modelId: 'opencode/grok-code', modelName: 'grok-code', provider: 'OpenCode Zen' },
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  // pricingInfo.modelId should be used when no actualModelIds
+  assert.ok(result.includes('grok'), `Expected grok model from pricingInfo but got: ${result}`);
+});
+
+await asyncTest('getModelInfoForComment falls back to resolved model when nothing else provided', async () => {
+  const result = await getModelInfoForComment({
+    requestedModel: 'sonnet',
+    tool: 'claude',
+  });
+  assert.equal(typeof result, 'string', `Expected string but got: ${typeof result}`);
+  // Should at minimum show the requested model
+  assert.ok(result.includes('sonnet') || result.includes('claude-sonnet'), `Expected sonnet model in output but got: ${result}`);
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

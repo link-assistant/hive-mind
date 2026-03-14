@@ -460,6 +460,378 @@ await runTest('safeJsonStringify: normal strings are not corrupted', () => {
 });
 
 // ============================================
+// REAL-WORLD UNICODE & LOG DATA TESTS (Issue #1324)
+// ============================================
+//
+// These tests use real-world patterns extracted from actual Claude execution
+// logs found in merged pull requests. They ensure the sanitization functions
+// correctly handle the same kind of content that hive-mind processes in
+// production without breaking anything that previously worked.
+
+console.log('\n=== Testing Real-World Log Data Patterns (Issue #1324) ===\n');
+
+// --- sanitizeUnicode: real-world patterns ---
+
+await runTest('sanitizeUnicode: preserves emoji-rich GitHub PR comment (real log pattern)', () => {
+  // This is the exact pattern found in PR comments posted by hive-mind
+  const realContent = '## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $3.003222\n- Calculated by Anthropic: $2.339325 USD\n📎 **Log file uploaded as Gist** (647KB)\n🔗 [View complete solution draft log](https://example.com)';
+  const result = utils.sanitizeUnicode(realContent);
+  if (result !== realContent) throw new Error('Expected emoji-rich content to pass through unchanged');
+});
+
+await runTest('sanitizeUnicode: preserves real hive-mind status messages with emojis', () => {
+  const statusMessages = ['🔧 Raw command executed: claude --version', '💾 Disk space check: 66991MB available (2048MB required) ✅', '🧠 Memory check: 11394MB available ✅', '📋 URL validation: https://github.com/owner/repo/issues/1', '✅ Auto-fork: No write access detected, enabling fork mode', '📝 Issue mode: Working with issue #23', '🔗 Setting upstream: owner/repo', '✅ Branch checked out: issue-23-abc123', '## ✅ Ready to merge\n\nThis pull request is now ready:\n- All CI checks passed\n- No merge conflicts'];
+  for (const msg of statusMessages) {
+    const result = utils.sanitizeUnicode(msg);
+    if (result !== msg) throw new Error(`Status message was modified: ${JSON.stringify(msg).substring(0, 80)}`);
+  }
+});
+
+await runTest('sanitizeUnicode: preserves Cyrillic and mixed scripts (real log pattern)', () => {
+  // The original issue logs contained Cyrillic text from a Russian-language issue
+  const cyrillic = '✅ Полная реализация AKSI Backend\n\n### 📋 Issue Reference\n- ✅ AKSI Bot proof file';
+  const result = utils.sanitizeUnicode(cyrillic);
+  if (result !== cyrillic) throw new Error('Cyrillic+emoji content was modified');
+});
+
+await runTest('sanitizeUnicode: fixes the exact persisted-output truncation from issue #1324', () => {
+  // This is the actual persisted-output content that caused the API 400 error.
+  // The emoji 🤖 (U+1F916 = \uD83E\uDD16) was split by truncation, leaving only \uD83E.
+  const persistedOutput = '<persisted-output>\nOutput too large (44.8KB). Full output saved to: /home/hive/.claude/projects/tool-results/toolu_abc.txt\n\nPreview (first 2KB):\n[{"url":"https://api.github.com/repos/owner/repo/issues/comments/123"}]\n...\nAll changes have been merged to the main branch.\n\n---\n\uD83E\n...\n</persisted-output>';
+  const sanitized = utils.sanitizeUnicode(persistedOutput);
+
+  // The orphaned \uD83E must be replaced with \uFFFD
+  if (sanitized.includes('\uD83E')) throw new Error('Orphaned high surrogate not removed');
+  if (!sanitized.includes('\uFFFD')) throw new Error('Expected U+FFFD replacement');
+
+  // Everything else must be preserved
+  if (!sanitized.includes('<persisted-output>')) throw new Error('persisted-output tag lost');
+  if (!sanitized.includes('Output too large')) throw new Error('Output message lost');
+  if (!sanitized.includes('</persisted-output>')) throw new Error('closing tag lost');
+
+  // Must be safe for JSON serialization
+  const json = JSON.stringify({ content: sanitized });
+  JSON.parse(json); // Must not throw
+});
+
+await runTest('sanitizeUnicode: handles multiple emoji at end of truncation boundary', () => {
+  // Simulate truncation that cuts through a sequence of emojis
+  const text = 'End: \uD83D\uDE00\uD83D\uDE01\uD83D'; // 😀😁 then orphaned high
+  const result = utils.sanitizeUnicode(text);
+  if (result !== 'End: \uD83D\uDE00\uD83D\uDE01\uFFFD') throw new Error('Wrong sanitization of trailing orphan after valid pairs');
+});
+
+await runTest('sanitizeUnicode: handles orphaned low surrogate at start of string', () => {
+  const text = '\uDC00Hello world';
+  const result = utils.sanitizeUnicode(text);
+  if (result !== '\uFFFDHello world') throw new Error('Orphaned low at start not replaced');
+});
+
+await runTest('sanitizeUnicode: handles orphaned high surrogate at end of string', () => {
+  const text = 'Hello world\uD800';
+  const result = utils.sanitizeUnicode(text);
+  if (result !== 'Hello world\uFFFD') throw new Error('Orphaned high at end not replaced');
+});
+
+await runTest('sanitizeUnicode: preserves all BMP characters including CJK and Arabic', () => {
+  const text = '中文测试 عربي テスト한국어 emoji: 🎉 ñ é ü ß';
+  const result = utils.sanitizeUnicode(text);
+  if (result !== text) throw new Error('BMP characters were modified');
+});
+
+await runTest('sanitizeUnicode: preserves multiple valid surrogate pairs in sequence', () => {
+  // 🤖🎉🔧💻📖 = five valid surrogate pairs in a row
+  const emoji5 = '🤖🎉🔧💻📖';
+  const result = utils.sanitizeUnicode(emoji5);
+  if (result !== emoji5) throw new Error('Sequential valid surrogate pairs were modified');
+});
+
+await runTest('sanitizeUnicode: handles reversed surrogate pair (low before high)', () => {
+  // \uDC00\uD800 — low then high is BOTH orphaned (not a valid pair)
+  const reversed = 'x\uDC00\uD800y';
+  const result = utils.sanitizeUnicode(reversed);
+  if (result !== 'x\uFFFD\uFFFDy') throw new Error('Reversed pair not correctly handled');
+});
+
+await runTest('sanitizeUnicode: stress test with 1000 emojis', () => {
+  const emoji = '🤖';
+  const bigString = emoji.repeat(1000);
+  const result = utils.sanitizeUnicode(bigString);
+  if (result !== bigString) throw new Error('Large string of valid emojis was modified');
+  if (result.length !== bigString.length) throw new Error('Length changed');
+});
+
+// --- truncateMiddle: real-world patterns ---
+
+await runTest('truncateMiddle: preserves short emoji-rich content (real log format)', () => {
+  const content = '🔧 Raw command: ls -la\n✅ Passed\n📋 Results:\n- Item 1\n- Item 2';
+  const result = utils.truncateMiddle(content, { maxLines: 100 });
+  if (result !== content) throw new Error('Short emoji content was modified');
+});
+
+await runTest('truncateMiddle: truncates large output with emoji safely', () => {
+  // Simulate a large tool result that contains emojis and gets truncated
+  const lines = [];
+  for (let i = 0; i < 100; i++) {
+    if (i === 0) lines.push('## 🤖 Output Start');
+    else if (i === 99) lines.push('## ✅ Output End');
+    else lines.push(`Line ${i}: {"url":"https://api.github.com/repos/owner/repo/issues/${i}"}`);
+  }
+  const result = utils.truncateMiddle(lines.join('\n'), { maxLines: 50, keepStart: 20, keepEnd: 20 });
+  if (!result.includes('🤖 Output Start')) throw new Error('Start emoji lost');
+  if (!result.includes('✅ Output End')) throw new Error('End emoji lost');
+  if (!result.includes('[60 lines truncated]')) throw new Error('Truncation indicator missing');
+  // Must be safe for JSON
+  JSON.parse(JSON.stringify({ content: result }));
+});
+
+await runTest('truncateMiddle: handles truncation point exactly at emoji boundary', () => {
+  // Create content where line 20 (keepStart boundary) ends with an emoji
+  const lines = Array.from({ length: 60 }, (_, i) => {
+    if (i === 19) return 'Last kept: 🤖🎉🔧';
+    return `Line ${i}`;
+  });
+  const result = utils.truncateMiddle(lines.join('\n'), { maxLines: 50, keepStart: 20, keepEnd: 20 });
+  if (!result.includes('🤖🎉🔧')) throw new Error('Emojis at boundary lost');
+  JSON.parse(JSON.stringify({ content: result })); // Must not throw
+});
+
+// --- safeJsonStringify: real-world patterns ---
+
+await runTest('safeJsonStringify: handles real Claude assistant event with emojis', () => {
+  const event = {
+    type: 'assistant',
+    message: {
+      model: 'claude-opus-4-5-20251101',
+      content: [{ type: 'text', text: '## 🤖 Analysis Complete\n\n✅ All tests passed\n💰 Cost: $1.50\n📎 Attached files: 3' }],
+      usage: { input_tokens: 1000, output_tokens: 500 },
+    },
+    session_id: 'test-session-123',
+  };
+  const json = utils.safeJsonStringify(event);
+  const parsed = JSON.parse(json);
+  if (!parsed.message.content[0].text.includes('🤖')) throw new Error('Emoji lost in serialization');
+  if (!parsed.message.content[0].text.includes('✅')) throw new Error('Check emoji lost');
+});
+
+await runTest('safeJsonStringify: handles real tool_result event with persisted-output', () => {
+  const event = {
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        {
+          tool_use_id: 'toolu_01UjJKsUew28fdRqYJBu3PtK',
+          type: 'tool_result',
+          content: '<persisted-output>\nOutput too large (44.8KB).\nPreview:\n[{"url":"https://api.github.com"}]\n---\n\uD83E\n</persisted-output>',
+          is_error: false,
+        },
+      ],
+    },
+  };
+  const json = utils.safeJsonStringify(event);
+  // Must not throw when parsing
+  const parsed = JSON.parse(json);
+  // The orphaned surrogate must be replaced
+  if (parsed.message.content[0].content.includes('\uD83E')) throw new Error('Orphaned surrogate survived serialization');
+  if (!parsed.message.content[0].content.includes('\uFFFD')) throw new Error('Expected replacement char');
+});
+
+await runTest('safeJsonStringify: handles real result event structure', () => {
+  const event = {
+    type: 'result',
+    subtype: 'success',
+    is_error: true,
+    duration_ms: 18602,
+    num_turns: 6,
+    result: 'API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"The request body is not valid JSON: no low surrogate in string"}}',
+    session_id: 'd12b2d61-7ab1-48dc-9677-3a1261066898',
+    total_cost_usd: 0.11730099999999997,
+    usage: { input_tokens: 2, output_tokens: 510 },
+  };
+  const json = utils.safeJsonStringify(event);
+  const parsed = JSON.parse(json);
+  if (!parsed.result.includes('no low surrogate')) throw new Error('Error message content lost');
+});
+
+await runTest('safeJsonStringify: handles deeply nested objects with emojis', () => {
+  const deep = { a: { b: { c: { d: { e: { f: { text: '🤖 deep emoji' } } } } } } };
+  const json = utils.safeJsonStringify(deep);
+  const parsed = JSON.parse(json);
+  if (!parsed.a.b.c.d.e.f.text.includes('🤖')) throw new Error('Deep emoji lost');
+});
+
+await runTest('safeJsonStringify: handles arrays with mixed content types', () => {
+  const data = {
+    items: ['text with emoji 🎉', 42, null, true, { nested: 'value with orphan \uD800' }, 'another \uDBFF orphan'],
+  };
+  const json = utils.safeJsonStringify(data);
+  const parsed = JSON.parse(json);
+  if (parsed.items[0] !== 'text with emoji 🎉') throw new Error('Valid emoji in array lost');
+  if (parsed.items[1] !== 42) throw new Error('Number in array changed');
+  if (parsed.items[2] !== null) throw new Error('Null in array changed');
+  if (parsed.items[4].nested.includes('\uD800')) throw new Error('Orphan in nested object survived');
+  if (parsed.items[5].includes('\uDBFF')) throw new Error('Orphan in array string survived');
+});
+
+// --- Handler pipeline tests with real event structures ---
+
+console.log('\n=== Testing Handler Pipeline with Real Events (Issue #1324) ===\n');
+
+await runTest('handler processes assistant text with emojis without error', async () => {
+  const { handler, comments } = makeHandler();
+  await new Promise(r => setTimeout(r, 100));
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-opus-4-5-20251101',
+      content: [{ type: 'text', text: '## 🤖 Starting analysis\n\n✅ Repository cloned\n📋 Issues found: 3\n💰 Estimated cost: $2.50\n🔗 PR: https://github.com/owner/repo/pull/1' }],
+      usage: { input_tokens: 500, output_tokens: 200 },
+    },
+    session_id: 'test-pipeline-1',
+  });
+  // Handler should not throw and should produce a comment
+  if (comments.length === 0) throw new Error('Expected at least one comment from emoji-rich text');
+  // Verify the comment can be safely JSON-serialized (as GitHub API would)
+  JSON.parse(JSON.stringify({ body: comments[0] }));
+});
+
+await runTest('handler processes tool_use with emoji-containing command', async () => {
+  const { handler } = makeHandler();
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-sonnet-4-5-20250929',
+      content: [{ type: 'tool_use', id: 'toolu_emoji_1', name: 'Bash', input: { command: 'echo "🤖 Hello"' } }],
+    },
+    session_id: 'test-pipeline-2',
+  });
+  // Should not throw
+});
+
+await runTest('handler processes tool_result with orphaned surrogate (exact issue #1324 scenario)', async () => {
+  const { handler, comments } = makeHandler();
+  // First send a tool_use so there's context for the result
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      model: 'claude-opus-4-5-20251101',
+      content: [{ type: 'tool_use', id: 'toolu_surrogate_test', name: 'Bash', input: { command: 'gh api repos/owner/repo/issues/23/comments' } }],
+    },
+    session_id: 'test-pipeline-3',
+  });
+  // Now send a tool_result containing the orphaned surrogate (the exact bug)
+  await handler.processEvent({
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        {
+          tool_use_id: 'toolu_surrogate_test',
+          type: 'tool_result',
+          content: '## ✅ Implementation Complete\n\nAll changes merged.\n\n---\n\uD83E\n...',
+          is_error: false,
+        },
+      ],
+    },
+    session_id: 'test-pipeline-3',
+  });
+  // All comments produced must be valid for JSON serialization
+  for (const comment of comments) {
+    const json = JSON.stringify({ body: comment });
+    JSON.parse(json); // Must not throw
+    if (json.includes('\\ud83e') && !json.includes('\\ud83e\\u')) {
+      throw new Error('Comment contains orphaned surrogate that would cause API 400');
+    }
+  }
+});
+
+await runTest('handler processes result event with error message', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'result',
+    subtype: 'success',
+    is_error: true,
+    duration_ms: 18602,
+    num_turns: 6,
+    result: 'API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"no low surrogate in string"}}',
+    total_cost_usd: 0.117,
+    session_id: 'test-result-1',
+  });
+  // Verify comment was produced and is JSON-safe
+  for (const comment of comments) {
+    JSON.parse(JSON.stringify({ body: comment }));
+  }
+});
+
+await runTest('handler processes system.init with real structure', async () => {
+  const { handler } = makeHandler({ verbose: true });
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'init',
+    session_id: 'real-session-abc',
+    cwd: '/tmp/gh-issue-solver-1771359431013',
+    tools: ['Task', 'Bash', 'Glob', 'Grep', 'Read', 'Edit', 'Write', 'WebFetch', 'TodoWrite'],
+    model: 'claude-opus-4-5-20251101',
+    permissionMode: 'bypassPermissions',
+    claude_code_version: '2.1.41',
+  });
+  const state = handler.getState();
+  if (state.sessionId !== 'real-session-abc') throw new Error('Session ID not set');
+});
+
+// --- Edge case: end-to-end JSON round-trip safety ---
+
+console.log('\n=== Testing JSON Round-Trip Safety ===\n');
+
+await runTest('JSON round-trip: all surrogate ranges are handled', () => {
+  // Test every high surrogate range boundary
+  const boundaries = ['\uD800', '\uD801', '\uDBFE', '\uDBFF', '\uDC00', '\uDC01', '\uDFFE', '\uDFFF'];
+  for (const ch of boundaries) {
+    const input = `test${ch}end`;
+    const sanitized = utils.sanitizeUnicode(input);
+    const json = JSON.stringify({ v: sanitized });
+    JSON.parse(json); // Must not throw
+    if (sanitized.includes(ch)) throw new Error(`Surrogate ${ch.charCodeAt(0).toString(16)} not replaced`);
+  }
+});
+
+await runTest('JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse is idempotent for clean strings', () => {
+  const clean = 'Normal ASCII text with numbers 12345 and symbols !@#$%^&*()';
+  const result = JSON.parse(JSON.stringify({ v: utils.sanitizeUnicode(clean) })).v;
+  if (result !== clean) throw new Error('Clean string modified by round-trip');
+});
+
+await runTest('JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse preserves all valid emoji', () => {
+  // Comprehensive emoji test — emojis from different Unicode blocks
+  const emojis = '😀😃😄😁😆🤖🎉✅❌💰📎🔗📋💻📖📝🔧⚙️🚀🎯🔒🔑💡🔍📦🗂️';
+  const result = JSON.parse(JSON.stringify({ v: utils.sanitizeUnicode(emojis) })).v;
+  if (result !== emojis) throw new Error(`Emojis modified: expected length ${emojis.length}, got ${result.length}`);
+});
+
+await runTest('JSON round-trip: safeJsonStringify output is always parseable', () => {
+  // Test with pathological inputs that contain surrogates mixed with normal content
+  const cases = [
+    { text: 'clean' },
+    { text: '\uD83E\uDD16' }, // valid pair (🤖)
+    { text: '\uD83E' }, // orphaned high
+    { text: '\uDD16' }, // orphaned low
+    { text: '\uD83E\uD83E\uDD16' }, // orphaned high + valid pair
+    { text: '\uD83E\uDD16\uDD16' }, // valid pair + orphaned low
+    { text: 'a\uD800b\uDC00c\uD800\uDC00d' }, // mixed: orphan, orphan, valid pair
+    { text: '\uD800\uD800\uDC00' }, // orphan + valid pair
+  ];
+  for (const testCase of cases) {
+    const json = utils.safeJsonStringify(testCase);
+    try {
+      JSON.parse(json);
+    } catch (e) {
+      throw new Error(`safeJsonStringify produced unparseable JSON for input: ${JSON.stringify(testCase)}: ${e.message}`);
+    }
+  }
+});
+
+// ============================================
 // CONFIG CONSTANT TESTS
 // ============================================
 

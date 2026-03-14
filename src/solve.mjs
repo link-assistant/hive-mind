@@ -1460,4 +1460,12 @@ try {
       for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
     }
   }
+
+  // Issue #1431: Force process exit after all cleanup completes.
+  // Active handles from command-stream (ChildProcess), undici connection pools (Socket),
+  // process.stdin (ReadStream), and log file streams (WriteStream) keep the event loop
+  // alive indefinitely after all work is done. This was previously fixed in Issue #1335
+  // but regressed in commit 187adb82 which incorrectly removed safeExit(0).
+  // CLI tools should exit deterministically — process.exit(0) is the correct pattern.
+  await safeExit(0, 'Process completed');
 }

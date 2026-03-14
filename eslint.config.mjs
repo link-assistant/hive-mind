@@ -2,12 +2,20 @@ import js from '@eslint/js';
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
+import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
   rules: {
     'require-gh-paginate': requireGhPaginate,
+  },
+};
+
+// Create custom plugin for underscore passthrough wrapper rule
+const noUnderscoreWrapperPlugin = {
+  rules: {
+    'no-underscore-passthrough-wrapper': noUnderscorePassthroughWrapper,
   },
 };
 
@@ -25,6 +33,7 @@ export default [
     plugins: {
       prettier,
       'gh-paginate': ghPaginatePlugin,
+      'no-underscore-wrapper': noUnderscoreWrapperPlugin,
       timers: timerPlugin,
     },
     languageOptions: {
@@ -83,6 +92,9 @@ export default [
       // Require --paginate on gh api calls that return lists
       // This prevents missing data when GitHub API returns more than 30 results
       'gh-paginate/require-gh-paginate': 'warn',
+      // Disallow thin wrapper functions that only pass arguments through to an underscore-prefixed import
+      // These wrappers add no value — call the underscore function directly at the call site
+      'no-underscore-wrapper/no-underscore-passthrough-wrapper': 'error',
       // Require capturing setTimeout/setInterval return values so timers can be cleared.
       // Floating timers keep the Node.js event loop alive and cause hangs (issue #1346).
       'timers/no-leaked-timers': 'error',

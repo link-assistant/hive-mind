@@ -98,12 +98,10 @@ const { validateAndExitOnInvalidModel } = modelValidation;
 const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
 const { autoAcceptInviteForRepo } = acceptInviteLib;
 
-// Initialize log file EARLY to capture all output including version and command
-// Use default directory (cwd) initially, will be set from argv.logDir after parsing
+// Initialize log file EARLY (use cwd initially, will be updated after argv parsing)
 const logFile = await initializeLogFile(null);
 
-// Log version and raw command IMMEDIATELY after log file initialization
-// This ensures they appear in both console and log file, even if argument parsing fails
+// Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
 const versionInfo = await getVersionInfo();
 await log('');
 await log(`🚀 solve v${versionInfo}`);
@@ -221,9 +219,7 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
-// Perform all system checks using validation module
-// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
-// Note: This does NOT skip model validation which is performed above
+// Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
@@ -236,9 +232,7 @@ if (argv.verbose) {
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
-// Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
-// The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
-// and the validation result already provides these values correctly parsed
+// Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above (parseUrlComponents() removed due to hash fragment bug)
 
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {

@@ -8,14 +8,14 @@ The fix was to extract the largest inline shell script blocks from `run: |` step
 
 ## Timeline of Events (2026-03-14)
 
-| Time (UTC)  | Event                                                                  |
-| ----------- | ---------------------------------------------------------------------- |
-| ~12:18:56   | CI run #23087809650 triggered on `main` (commit `1a56d426`)           |
-| ~12:18:56   | `check-file-line-limits` job runs `scripts/check-file-line-limits.sh` |
-| ~12:18:56   | Script counts 1,501 lines in `.github/workflows/release.yml`          |
-| ~12:18:56   | Run fails with `::error` annotation on `release.yml`                  |
-| 2026-03-14  | Issue #1428 filed: extract inline logic to `./scripts/` folder        |
-| 2026-03-14  | PR #1429 opened with the fix                                           |
+| Time (UTC) | Event                                                                 |
+| ---------- | --------------------------------------------------------------------- |
+| ~12:18:56  | CI run #23087809650 triggered on `main` (commit `1a56d426`)           |
+| ~12:18:56  | `check-file-line-limits` job runs `scripts/check-file-line-limits.sh` |
+| ~12:18:56  | Script counts 1,501 lines in `.github/workflows/release.yml`          |
+| ~12:18:56  | Run fails with `::error` annotation on `release.yml`                  |
+| 2026-03-14 | Issue #1428 filed: extract inline logic to `./scripts/` folder        |
+| 2026-03-14 | PR #1429 opened with the fix                                          |
 
 ## Root Cause Analysis
 
@@ -51,14 +51,14 @@ The question in issue #1428 was whether the "merge preview logic" (simulating a 
 
 Six new script files were created under `./scripts/` to replace the largest inline script blocks:
 
-| Script | Lines Removed from release.yml | Purpose |
-|---|---|---|
-| `scripts/simulate-fresh-merge.sh` | ~88 (2 copies × 44 lines) | Merges latest base branch into PR checkout; shared between `lint` and `check-file-line-limits` jobs |
-| `scripts/verify-log-file-contents.sh` | ~44 | Runs `solve.mjs --dry-run` and verifies log file contains version and command (issue #517) |
-| `scripts/test-global-commands.sh` | ~35 | Tests that `hive`, `solve`, and `hive-telegram-bot` global CLI commands work after `npm link` |
-| `scripts/test-auto-fork-option.sh` | ~33 | Tests that `--auto-fork` flag is accepted by `solve.mjs`, `hive.mjs`, and `start-screen.mjs` |
-| `scripts/verify-chart-yaml.sh` | ~23 | Verifies `helm/hive-mind/Chart.yaml` contains required `name`, `version`, and `appVersion` fields |
-| `scripts/check-mjs-syntax.sh` | ~20 | Runs `node --check` on all `.mjs` files in root, `src/`, and `tests/` |
+| Script                                | Lines Removed from release.yml | Purpose                                                                                             |
+| ------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `scripts/simulate-fresh-merge.sh`     | ~88 (2 copies × 44 lines)      | Merges latest base branch into PR checkout; shared between `lint` and `check-file-line-limits` jobs |
+| `scripts/verify-log-file-contents.sh` | ~44                            | Runs `solve.mjs --dry-run` and verifies log file contains version and command (issue #517)          |
+| `scripts/test-global-commands.sh`     | ~35                            | Tests that `hive`, `solve`, and `hive-telegram-bot` global CLI commands work after `npm link`       |
+| `scripts/test-auto-fork-option.sh`    | ~33                            | Tests that `--auto-fork` flag is accepted by `solve.mjs`, `hive.mjs`, and `start-screen.mjs`        |
+| `scripts/verify-chart-yaml.sh`        | ~23                            | Verifies `helm/hive-mind/Chart.yaml` contains required `name`, `version`, and `appVersion` fields   |
+| `scripts/check-mjs-syntax.sh`         | ~20                            | Runs `node --check` on all `.mjs` files in root, `src/`, and `tests/`                               |
 
 **Total lines removed from release.yml: ~243 lines.**
 

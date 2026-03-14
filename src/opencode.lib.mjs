@@ -465,6 +465,8 @@ export const executeOpenCodeCommand = async params => {
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
+        } else if (exitCode === 130) {
+          await log('\n\n⚠️ OpenCode command interrupted (CTRL+C)');
         } else {
           await log(`\n\n❌ OpenCode command failed with exit code ${exitCode}`, { level: 'error' });
         }

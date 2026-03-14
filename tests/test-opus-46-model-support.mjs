@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Test file for issue #1221: Claude Opus 4.6 model support
 // Tests model aliases, [1m] suffix support, and backward compatibility
+// Updated for Issue #1329: Sonnet 4.6 support (sonnet alias now maps to Sonnet 4.6)
 
 import assert from 'assert';
 
@@ -88,10 +89,10 @@ test('claude-opus-4-5-20251101 (full ID) still works', () => {
   assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'Should map to itself');
 });
 
-test('sonnet alias still works (regression test)', () => {
+test('sonnet alias still works (now maps to Sonnet 4.6, Issue #1329)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-5-20250929', 'sonnet should map correctly');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
 });
 
 test('haiku alias still works (regression test)', () => {
@@ -173,10 +174,10 @@ test('validateModelName accepts claude-opus-4-6[1m]', () => {
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
-test('validateModelName accepts sonnet[1m]', () => {
+test('validateModelName accepts sonnet[1m] (now maps to Sonnet 4.6, Issue #1329)', () => {
   const result = validateModelName('sonnet[1m]', 'claude');
   assert(result.valid, `sonnet[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-5-20250929[1m]', 'Should map to claude-sonnet-4-5-20250929[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6[1m]', 'Should map to claude-sonnet-4-6[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -201,9 +202,9 @@ test('mapModelToId handles claude-opus-4-6[1m]', () => {
   assert.strictEqual(result, 'claude-opus-4-6[1m]', 'mapModelToId should handle claude-opus-4-6[1m]');
 });
 
-test('mapModelToId handles sonnet[1m]', () => {
+test('mapModelToId handles sonnet[1m] (now maps to Sonnet 4.6, Issue #1329)', () => {
   const result = mapModelToId('sonnet[1m]');
-  assert.strictEqual(result, 'claude-sonnet-4-5-20250929[1m]', 'mapModelToId should handle sonnet[1m]');
+  assert.strictEqual(result, 'claude-sonnet-4-6[1m]', 'mapModelToId should handle sonnet[1m]');
 });
 
 // ============================================================

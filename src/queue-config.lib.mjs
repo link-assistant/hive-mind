@@ -36,7 +36,9 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 const linoModule = await use('links-notation');
 const LinoParser = linoModule.Parser || linoModule.default?.Parser;
 

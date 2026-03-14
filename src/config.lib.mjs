@@ -18,7 +18,9 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
@@ -61,10 +63,19 @@ export const autoContinue = {
 
 // Auto-resume on limit reset configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1152
+// See: https://github.com/link-assistant/hive-mind/issues/1236
 export const limitReset = {
   // Buffer time to wait after limit reset (in milliseconds)
-  // Default: 5 minutes - accounts for server time differences
-  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+  // Default: 10 minutes - accounts for server time differences and API propagation delays
+  // Increased from 5 to 10 minutes to reduce risk of hitting limits again immediately
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 10 * 60 * 1000),
+  // Random jitter added to buffer to avoid thundering herd problem (in milliseconds)
+  // When multiple instances wait for the same limit reset, jitter distributes their
+  // resume times to reduce simultaneous API load
+  // Default: 5 minutes (0 to 5 minutes random) - total wait after reset: 10-15 minutes
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  jitterMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_JITTER_MS', 5 * 60 * 1000),
 };
 
 // GitHub API limits
@@ -83,13 +94,22 @@ export const systemLimits = {
 };
 
 // Retry configurations
+// Issue #1331: All API error types use unified retry parameters:
+// 10 max retries, 1 minute initial delay, 30 minute max delay (exponential backoff), session preserved
 export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
   maxApiRetries: parseIntWithDefault('HIVE_MIND_MAX_API_RETRIES', 3),
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
-  max503Retries: parseIntWithDefault('HIVE_MIND_MAX_503_RETRIES', 3),
-  initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
+  maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
+  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 60 * 1000), // 1 minute
+  maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
+  // Request timeout retry configuration (Issue #1353)
+  // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
+  maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
+  initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
 };
 
 // Claude Code CLI configurations
@@ -400,6 +420,7 @@ export const version = {
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
 // See: https://github.com/link-assistant/hive-mind/issues/1269
+// See: https://github.com/link-assistant/hive-mind/issues/1307
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -417,6 +438,43 @@ export const mergeQueue = {
   // Issue #1269: gh pr merge requires explicit method when running non-interactively
   // Default: 'merge' - creates a merge commit
   mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
+  // Issue #1307: Wait for main branch CI to complete before processing merge queue
+  // When enabled, the merge queue will wait for any active CI runs on the target branch
+  // (usually main) to complete before merging the first PR.
+  // Default: true - ensures all post-merge CI workflows complete before next merge
+  waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
+  // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
+  // If active runs don't complete within this time, proceed with merge anyway
+  // Default: 45 minutes (2700000ms)
+  targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
+  // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - more frequent than PR CI polling since we're blocking
+  targetBranchCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_POLL_INTERVAL_MS', 30 * 1000),
+  // Issue #1341: Wait for post-merge CI to complete before merging next PR
+  // When enabled, the merge queue will wait for all CI runs triggered by a merge
+  // to complete before processing the next PR. This ensures each merge gets its own
+  // release/publish cycle.
+  // Default: true - ensures post-merge CI (including release workflows) completes
+  waitForPostMergeCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_POST_MERGE_CI', 'true').toLowerCase() === 'true',
+  // Issue #1341: Stop the queue if post-merge CI fails
+  // When enabled, the merge queue will stop processing if any post-merge CI run fails
+  // This prevents cascading failures and allows humans to investigate
+  // Default: true - stop on failure to prevent problems from multiplying
+  stopOnPostMergeCIFailure: getenv('HIVE_MIND_MERGE_QUEUE_STOP_ON_CI_FAILURE', 'true').toLowerCase() === 'true',
+  // Issue #1341: Check for existing CI failures before starting the queue
+  // When enabled, the merge queue will check if there are any failed CI runs on
+  // the default branch before starting to process PRs. If failures exist, it will
+  // report them and stop.
+  // Default: true - ensure a healthy branch before merging
+  checkBranchCIHealthBeforeStart: getenv('HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH', 'true').toLowerCase() === 'true',
+  // Issue #1341: Timeout for waiting on post-merge CI (in milliseconds)
+  // This is per-merge, not total. If a single merge's CI doesn't complete within
+  // this time, the queue will fail with a timeout error.
+  // Default: 60 minutes (3600000ms) - typical CI/CD pipelines take 15-45 minutes
+  postMergeCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_TIMEOUT_MS', 60 * 60 * 1000),
+  // Issue #1341: Polling interval for post-merge CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - balance between responsiveness and API rate limits
+  postMergeCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS', 30 * 1000),
 };
 
 // Helper function to validate configuration values

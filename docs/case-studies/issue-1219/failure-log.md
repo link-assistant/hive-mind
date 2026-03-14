@@ -74,10 +74,10 @@ The log should have continued with auto-merge logic output like:
 🎉 PR MERGED SUCCESSFULLY!
 ```
 
-Or if auto-restart-until-mergable mode:
+Or if auto-restart-until-mergeable mode:
 
 ```
-🔄 AUTO-RESTART-UNTIL-MERGABLE MODE ACTIVE
+🔄 AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE
    Monitoring PR: #1218
    Mode: Auto-merge (will merge when ready)
    ...

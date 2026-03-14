@@ -205,7 +205,7 @@ const KNOWN_OPTION_NAMES = [
   'auto-continue-only-on-new-comments',
   'auto-restart-on-limit-reset',
   'auto-restart-on-non-updated-pull-request-description',
-  'auto-restart-until-mergable',
+  'auto-restart-until-mergeable',
   'auto-merge',
   'auto-gitkeep-file',
   'playwright-mcp-auto-cleanup',
@@ -215,6 +215,9 @@ const KNOWN_OPTION_NAMES = [
   'prompt-examples-folder',
   'session-type',
   'working-directory',
+  'prompt-ensure-all-requirements-are-met',
+  'finalize',
+  'finalize-model',
 ];
 
 /**

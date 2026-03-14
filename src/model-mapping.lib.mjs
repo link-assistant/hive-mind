@@ -6,35 +6,59 @@
  */
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6 support (Issue #1221, Issue #1238)
+// Updated for Opus 4.5/4.6 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329)
 export const claudeModels = {
-  sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  opus: 'claude-opus-4-5-20251101', // Opus 4.5 (default, Issue #1238)
+  sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
+  opus: 'claude-opus-4-5-20251101', // Opus 4.5 (Issue #1238)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
-  // Shorter version aliases (Issue #1221 - PR comment feedback)
+  // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
+  'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
-  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias
+  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221)
+  // Version aliases for backward compatibility (Issue #1221, Issue #1329)
+  'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
-  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5
+  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
   'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
 };
 
-// Agent models (OpenCode API via agent CLI)
+// Agent models (OpenCode API and Kilo Gateway via agent CLI)
+// Issue #1300: Updated free models to match agent PR #191
 export const agentModels = {
+  // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
   'grok-code-fast-1': 'opencode/grok-code',
   'big-pickle': 'opencode/big-pickle',
   'gpt-5-nano': 'opencode/gpt-5-nano',
-  'glm-4.7-free': 'opencode/glm-4.7-free',
-  'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
-  'kimi-k2.5-free': 'opencode/kimi-k2.5-free',
+  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // New: upgraded from M2.1 (Issue #1391: now default)
+  // Kilo Gateway free models (Issue #1282, updated in #1300)
+  // Short names for Kilo-exclusive models (Issue #1300)
+  'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
+  'glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Kilo-exclusive: agent-centric model
+  'deepseek-r1-free': 'kilo/deepseek-r1-free', // Kilo-exclusive: reasoning model
+  'giga-potato-free': 'kilo/giga-potato-free', // Kilo-exclusive
+  'trinity-large-preview': 'kilo/trinity-large-preview', // Kilo-exclusive
+  // Full names with kilo/ prefix
+  'kilo/glm-5-free': 'kilo/glm-5-free',
+  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free',
+  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // Also on OpenCode Zen
+  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
+  'kilo/giga-potato-free': 'kilo/giga-potato-free',
+  'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
+  // Deprecated free models (kept for backward compatibility)
+  'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
+  'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
+  'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
+  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free
+  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // Deprecated: not recommended
+  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // Deprecated: replaced by m2.5
+  // Premium models
   sonnet: 'anthropic/claude-3-5-sonnet',
   haiku: 'anthropic/claude-3-5-haiku',
   opus: 'anthropic/claude-3-opus',

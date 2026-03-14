@@ -94,6 +94,7 @@ const getOriginalProviderName = providerId => {
     moonshot: 'Moonshot AI',
     google: 'Google',
     opencode: 'OpenCode Zen',
+    kilo: 'Kilo Gateway',
     grok: 'xAI',
   };
 
@@ -210,9 +211,10 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 
       const totalCost = inputCost + outputCost + cacheReadCost + cacheWriteCost + reasoningCost;
 
-      // Determine if this is a free model from OpenCode Zen
-      // Models accessed via OpenCode Zen are free, regardless of original provider pricing
-      const isOpencodeFreeModel = providerFromModel === 'opencode' || isFreeVariant || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
+      // Determine if this is a free model from OpenCode Zen or Kilo Gateway
+      // Models accessed via OpenCode Zen or Kilo Gateway are free, regardless of original provider pricing
+      // Issue #1300: Added kilo provider detection for Kilo Gateway free models
+      const isOpencodeFreeModel = providerFromModel === 'opencode' || providerFromModel === 'kilo' || isFreeVariant || modelName.toLowerCase().includes('free') || modelName.toLowerCase().includes('grok') || providerFromModel === 'moonshot' || providerFromModel === 'openai' || providerFromModel === 'anthropic';
 
       // Use base model's provider for original provider reference if available
       const effectiveOriginalProvider = baseModelInfo?.provider || originalProvider || effectiveModelInfo?.provider || null;
@@ -282,23 +284,36 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 // Model mapping to translate aliases to full model IDs for Agent
 // Agent uses OpenCode Zen's JSON interface and models
 // Issue #1185: Free models use opencode/ prefix (not openai/)
+// Issue #1300: Updated mappings - use opencode/ and kilo/ prefixes only,
+// short names for Kilo-exclusive models map to kilo/ prefix
 export const mapModelToId = model => {
   const modelMap = {
+    // OpenCode Zen free models
     grok: 'opencode/grok-code',
     'grok-code': 'opencode/grok-code',
     'grok-code-fast-1': 'opencode/grok-code',
     'big-pickle': 'opencode/big-pickle',
     'gpt-5-nano': 'opencode/gpt-5-nano',
+    'minimax-m2.5-free': 'opencode/minimax-m2.5-free',
+    // Kilo Gateway free models - short names for Kilo-exclusive models (Issue #1300)
+    'glm-5-free': 'kilo/glm-5-free',
+    'glm-4.5-air-free': 'kilo/glm-4.5-air-free',
+    'deepseek-r1-free': 'kilo/deepseek-r1-free',
+    'giga-potato-free': 'kilo/giga-potato-free',
+    'trinity-large-preview': 'kilo/trinity-large-preview',
+    // Premium models
     sonnet: 'anthropic/claude-3-5-sonnet',
     haiku: 'anthropic/claude-3-5-haiku',
     opus: 'anthropic/claude-3-opus',
     'gemini-3-pro': 'google/gemini-3-pro',
-    // Free models mapping for issue #1250
-    'kimi-k2.5-free': 'moonshot/kimi-k2.5-free',
     'gpt-4o-mini': 'openai/gpt-4o-mini',
     'gpt-4o': 'openai/gpt-4o',
     'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
     'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
+    // Deprecated free models (backward compatibility)
+    'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported by OpenCode Zen (Issue #1391)
+    'glm-4.7-free': 'opencode/glm-4.7-free',
+    'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
   };
 
   // Return mapped model ID if it's an alias, otherwise return as-is
@@ -393,7 +408,6 @@ export const executeAgent = async params => {
   if (argv.verbose) {
     await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
   }
-
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -650,6 +664,13 @@ export const executeAgentCommand = async params => {
               if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
                 agentCompletedSuccessfully = true;
               }
+              // Issue #1296: Detect step_finish with reason "stop" as successful completion
+              // This is a clear marker of success - agent finished normally, not due to error or limit
+              // When this event appears, we should ignore any error events that appeared earlier in the stream
+              // (e.g., timeout errors that were recovered from via retry logic)
+              if (data.type === 'step_finish' && data.part?.reason === 'stop') {
+                agentCompletedSuccessfully = true;
+              }
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -710,6 +731,11 @@ export const executeAgentCommand = async params => {
                 // Issue #1276: Detect successful completion events (stderr)
                 // When agent emits session.idle or log with "exiting loop" message, it completed successfully
                 if (stderrData.type === 'session.idle' || (stderrData.type === 'log' && stderrData.message === 'exiting loop')) {
+                  agentCompletedSuccessfully = true;
+                }
+                // Issue #1296: Detect step_finish with reason "stop" as successful completion (stderr)
+                // This is a clear marker of success - agent finished normally, not due to error or limit
+                if (stderrData.type === 'step_finish' && stderrData.part?.reason === 'stop') {
                   agentCompletedSuccessfully = true;
                 }
               } catch {
@@ -784,7 +810,10 @@ export const executeAgentCommand = async params => {
       // Issue #1258: Fallback pattern match for error detection
       // When JSON parsing fails (e.g., multi-line pretty-printed JSON in logs),
       // we need to detect error patterns in the raw output string
-      if (!outputError.detected && !streamingErrorDetected) {
+      // Issue #1290: Skip fallback when agent completed successfully with exit code 0
+      // The fallback can cause false positives when error events (like AI_JSONParseError)
+      // appear in the output but the agent recovered and completed successfully
+      if (!outputError.detected && !streamingErrorDetected && !(exitCode === 0 && agentCompletedSuccessfully)) {
         // Check for error type patterns in raw output (handles pretty-printed JSON)
         const errorTypePatterns = [
           { pattern: '"type": "error"', type: 'AgentError' },
@@ -848,7 +877,18 @@ export const executeAgentCommand = async params => {
         };
 
         // Check for usage limit errors first (more specific)
-        const limitInfo = detectUsageLimit(lastMessage);
+        // Issue #1287: Check multiple sources for usage limit detection:
+        // 1. lastMessage (the last chunk of output)
+        // 2. errorMatch (the extracted error message from JSON output)
+        // 3. fullOutput (complete output - fallback)
+        let limitInfo = detectUsageLimit(lastMessage);
+        if (!limitInfo.isUsageLimit && outputError.match) {
+          limitInfo = detectUsageLimit(outputError.match);
+        }
+        if (!limitInfo.isUsageLimit) {
+          // Fallback: scan fullOutput for usage limit patterns
+          limitInfo = detectUsageLimit(fullOutput);
+        }
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
@@ -871,6 +911,9 @@ export const executeAgentCommand = async params => {
           // Explicit JSON error message from agent (Issue #1201: includes streaming-detected errors)
           errorInfo.message = `Agent reported error: ${outputError.match}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });
+        } else if (exitCode === 130) {
+          errorInfo.message = 'Agent command interrupted (CTRL+C)';
+          await log('\n\n⚠️ Agent command interrupted (CTRL+C)');
         } else {
           errorInfo.message = `Agent command failed with exit code ${exitCode}`;
           await log(`\n\n❌ ${errorInfo.message}`, { level: 'error' });

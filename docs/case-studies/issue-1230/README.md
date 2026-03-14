@@ -67,14 +67,14 @@ Added a new CLI option `--auto-init-repository` that:
 
 ## Files Changed
 
-| File                              | Change                                                                       |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| `src/solve.config.lib.mjs`        | Added `--auto-init-repository` option definition                             |
-| `src/option-suggestions.lib.mjs`  | Added to `KNOWN_OPTION_NAMES` for typo detection                             |
-| `src/solve.repository.lib.mjs`    | Exported `tryInitializeEmptyRepository` for reuse                            |
+| File                              | Change                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `src/solve.config.lib.mjs`        | Added `--auto-init-repository` option definition                                             |
+| `src/option-suggestions.lib.mjs`  | Added to `KNOWN_OPTION_NAMES` for typo detection                                             |
+| `src/solve.repository.lib.mjs`    | Exported `tryInitializeEmptyRepository` for reuse                                            |
 | `src/solve.repo-setup.lib.mjs`    | Added empty repo detection, auto-init, and issue comment in `verifyDefaultBranchAndStatus()` |
-| `src/solve.mjs`                   | Pass `argv`, `owner`, `repo`, `issueUrl` to `verifyDefaultBranchAndStatus()`             |
-| `src/solve.branch-errors.lib.mjs` | Improved error message for empty repo branch creation failures               |
+| `src/solve.mjs`                   | Pass `argv`, `owner`, `repo`, `issueUrl` to `verifyDefaultBranchAndStatus()`                 |
+| `src/solve.branch-errors.lib.mjs` | Improved error message for empty repo branch creation failures                               |
 
 ## Artifacts
 

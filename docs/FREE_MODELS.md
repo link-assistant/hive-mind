@@ -2,8 +2,8 @@
 
 This document provides comprehensive information about the free models supported by hive-mind when using the `--tool agent` option.
 
-> **Last Updated:** February 2026
-> **Related:** [Agent PR #191](https://github.com/link-assistant/agent/pull/191) - Upstream free model updates
+> **Last Updated:** March 2026
+> **Related:** [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free as default)
 
 ## Available Free Models
 
@@ -16,25 +16,11 @@ Hive-mind supports free models from two providers:
 
 ## OpenCode Zen Free Models
 
-### 1. opencode/kimi-k2.5-free **Default Model**
-
-- **Short Alias**: `kimi-k2.5-free`
-- **Provider**: OpenCode Zen
-- **Status**: Fully Supported (Default for `--tool agent`)
-- **Features**: Reasoning, tool calling, temperature control
-- **Context Window**: 262,144 tokens
-- **Output Limit**: 262,144 tokens
-- **Cost**: Free (no input/output charges)
-- **Knowledge Cutoff**: August 2024
-- **Release Date**: January 27, 2026
-- **Open Weights**: Yes
-- **Special Features**: Visual agentic intelligence, multimodal capabilities, agent swarm architecture
-
-### 2. opencode/minimax-m2.5-free
+### 1. opencode/minimax-m2.5-free **Default Model**
 
 - **Short Alias**: `minimax-m2.5-free`
 - **Provider**: OpenCode Zen
-- **Status**: Fully Supported (upgraded from M2.1)
+- **Status**: Fully Supported (Default for `--tool agent` as of Issue #1391)
 - **Features**: Reasoning, tool calling, temperature control
 - **Context Window**: 204,800 tokens
 - **Output Limit**: 131,072 tokens
@@ -43,7 +29,7 @@ Hive-mind supports free models from two providers:
 - **Release Date**: February 2026
 - **Open Weights**: Yes
 
-### 3. opencode/gpt-5-nano
+### 2. opencode/gpt-5-nano
 
 - **Short Alias**: `gpt-5-nano`
 - **Provider**: OpenCode Zen
@@ -54,7 +40,7 @@ Hive-mind supports free models from two providers:
 - **Cost**: Free (no input/output charges)
 - **Knowledge Cutoff**: January 2025
 
-### 4. opencode/big-pickle
+### 3. opencode/big-pickle
 
 - **Short Alias**: `big-pickle`
 - **Provider**: OpenCode Zen
@@ -71,10 +57,11 @@ Hive-mind supports free models from two providers:
 
 The following models were previously free but are no longer available:
 
-| Model             | Former Model ID              | Status                                   |
-| ----------------- | ---------------------------- | ---------------------------------------- |
-| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free` |
-| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen           |
+| Model             | Former Model ID              | Status                                           |
+| ----------------- | ---------------------------- | ------------------------------------------------ |
+| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Not supported — returns ModelError (Issue #1391) |
+| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`         |
+| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                   |
 
 > **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) for the current list of free models.
 
@@ -177,12 +164,12 @@ The following Kilo models were previously the recommended free models but have b
 
 ```bash
 # OpenCode Zen models (short aliases without prefix)
-solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
-hive https://github.com/owner/repo --tool agent --model minimax-m2.5-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
+hive https://github.com/owner/repo --tool agent --model gpt-5-nano
 
 # OpenCode Zen models (full model IDs)
-solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/kimi-k2.5-free
-hive https://github.com/owner/repo --tool agent --model opencode/minimax-m2.5-free
+solve https://github.com/owner/repo/issues/123 --tool agent --model opencode/minimax-m2.5-free
+hive https://github.com/owner/repo --tool agent --model opencode/big-pickle
 
 # Kilo Gateway models (full model IDs)
 solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
@@ -197,8 +184,8 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 ```bash
 # OpenCode Zen models (short aliases)
-/solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
 
 # Kilo Gateway models (full model IDs)
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
@@ -208,7 +195,7 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model glm-5-free
 /hive https://github.com/owner/repo --tool agent --model glm-4.5-air-free
 
-# Default model (kimi-k2.5-free via OpenCode Zen):
+# Default model (minimax-m2.5-free via OpenCode Zen):
 /solve https://github.com/owner/repo/issues/123 --tool agent
 ```
 
@@ -216,8 +203,8 @@ hive https://github.com/owner/repo --tool agent --model deepseek-r1-free
 
 ```bash
 # OpenCode Zen models
-echo "Your prompt here" | agent --model opencode/kimi-k2.5-free
 echo "Your prompt here" | agent --model opencode/minimax-m2.5-free
+echo "Your prompt here" | agent --model opencode/gpt-5-nano
 
 # Kilo Gateway models
 echo "Your prompt here" | agent --model kilo/glm-5-free
@@ -233,7 +220,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 **Flagship Free Models**:
 
 - `kilo/glm-5-free` - Z.AI flagship, matches Opus 4.5 on many tasks (Kilo)
-- `opencode/kimi-k2.5-free` - Cutting-edge multimodal agentic model (OpenCode)
+- `opencode/minimax-m2.5-free` - Strong general-purpose performance (OpenCode, default)
 
 **General Purpose & Reasoning**:
 
@@ -244,7 +231,6 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 **For Large Context Tasks**:
 
-- `opencode/kimi-k2.5-free` - Largest context (262,144 tokens)
 - `kilo/giga-potato-free` - Very large context (256,000 tokens)
 - `opencode/minimax-m2.5-free` - Large context (204,800 tokens)
 - `kilo/glm-5-free` - Large context (202,752 tokens)
@@ -259,16 +245,16 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 ## Provider Comparison
 
-| Feature       | OpenCode Zen                      | Kilo Gateway             |
-| ------------- | --------------------------------- | ------------------------ |
-| Free Models   | 4 models                          | 6 models                 |
-| Default Model | kimi-k2.5-free                    | glm-5-free (recommended) |
-| API Format    | OpenAI-compatible                 | OpenAI-compatible        |
-| Free API Key  | `public`                          | `public`                 |
-| Total Models  | 50+                               | 500+                     |
-| Flagship Free | Kimi K2.5                         | GLM-5 (limited time)     |
-| BYOK Support  | Yes                               | Yes                      |
-| New Models    | MiniMax M2.5 (upgraded from M2.1) | DeepSeek R1, GLM 4.5 Air |
+| Feature       | OpenCode Zen                        | Kilo Gateway             |
+| ------------- | ----------------------------------- | ------------------------ |
+| Free Models   | 4 models                            | 6 models                 |
+| Default Model | minimax-m2.5-free                   | glm-5-free (recommended) |
+| API Format    | OpenAI-compatible                   | OpenAI-compatible        |
+| Free API Key  | `public`                            | `public`                 |
+| Total Models  | 50+                                 | 500+                     |
+| Flagship Free | MiniMax M2.5                        | GLM-5 (limited time)     |
+| BYOK Support  | Yes                                 | Yes                      |
+| New Models    | MiniMax M2.5 (default, Issue #1391) | DeepSeek R1, GLM 4.5 Air |
 
 ---
 
@@ -303,11 +289,12 @@ If you encounter issues with any of these models:
 - [Agent Kilo Documentation](https://github.com/link-assistant/agent/blob/main/docs/kilo.md) - Kilo Gateway details
 - [Case Study: Issue #1282](./case-studies/issue-1282/README.md) - Kilo models integration analysis
 - [Case Study: Issue #1300](./case-studies/issue-1300/README.md) - Free models update (MiniMax M2.5, DeepSeek R1)
+- [Case Study: Issue #1391](./case-studies/issue-1391/README.md) - Free models update (minimax-m2.5-free as default, kimi-k2.5-free deprecated)
 - [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider details
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider details
 
 ---
 
-**Last Updated**: February 15, 2026
-**Hive-Mind Version**: 1.23.7
-**Agent CLI Version**: Latest (with free model updates from PR #191)
+**Last Updated**: March 4, 2026
+**Hive-Mind Version**: 1.26.3
+**Agent CLI Version**: Latest (with free model updates from PR #209)

@@ -146,7 +146,7 @@ ${workspaceInstructions}
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's "Not Found" pages saved as .png) can cause "Could not process image" errors and will crash the AI solver process. If the file command shows "HTML", "text", or "ASCII text", the download FAILED — do NOT call Read on this file. Instead: (1) For images from GitHub issues/PRs (URLs containing "github.com/user-attachments"), these require authentication — retry with: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>" (2) If retry still fails, skip the image and note it was unavailable.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${
@@ -213,7 +213,12 @@ Workflow and collaboration.
 Self review.
    - When you check your solution draft, run all tests locally.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.
+   - When you finalize, confirm code, tests, and description are consistent.${
+     argv && argv.promptEnsureAllRequirementsAreMet
+       ? `
+   - When no explicit feedback or requirements is provided, ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.`
+       : ''
+   }
 
 GitHub CLI command patterns.
    - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).

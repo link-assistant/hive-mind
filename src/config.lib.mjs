@@ -18,7 +18,9 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
@@ -103,6 +105,11 @@ export const retryLimits = {
   maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
   initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 60 * 1000), // 1 minute
   maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
+  // Request timeout retry configuration (Issue #1353)
+  // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
+  maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
+  initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
 };
 
 // Claude Code CLI configurations

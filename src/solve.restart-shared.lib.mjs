@@ -359,6 +359,18 @@ export const isApiError = toolResult => {
   return errorPatterns.some(pattern => toolResult.result.includes(pattern));
 };
 
+/**
+ * Issue #1356: Check if a tool result indicates a usage limit was reached
+ * This is separate from isApiError because usage limits return different fields
+ * (limitReached, limitResetTime) and require different handling (exit loop, not retry).
+ * @param {Object} toolResult - Tool execution result
+ * @returns {boolean}
+ */
+export const isUsageLimitReached = toolResult => {
+  if (!toolResult) return false;
+  return toolResult.limitReached === true;
+};
+
 export default {
   checkPRMerged,
   checkPRClosed,
@@ -369,4 +381,5 @@ export default {
   buildAutoRestartInstructions,
   buildUncommittedChangesFeedback,
   isApiError,
+  isUsageLimitReached,
 };

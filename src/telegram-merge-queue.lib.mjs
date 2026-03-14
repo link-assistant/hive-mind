@@ -16,7 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge.lib.mjs';
+import { getAllReadyPRs, checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI, ensureReadyLabel, waitForBranchCI, getDefaultBranch, waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, syncReadyTags } from './github-merge.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
 
@@ -195,6 +195,16 @@ export class MergeQueueProcessor {
       }
       if (labelResult.created) {
         this.log("Created 'ready' label in repository");
+      }
+
+      // Issue #1367: Sync 'ready' tags between linked PRs and issues before collecting the queue
+      // This ensures the final list reflects all ready work regardless of where the tag was applied
+      const syncResult = await syncReadyTags(this.owner, this.repo, this.verbose);
+      if (syncResult.synced > 0) {
+        this.log(`Synced 'ready' tag: ${syncResult.synced} item(s) updated`);
+      }
+      if (syncResult.errors > 0) {
+        this.log(`Tag sync had ${syncResult.errors} error(s) (non-fatal, proceeding)`);
       }
 
       // Fetch all ready PRs
@@ -398,11 +408,22 @@ export class MergeQueueProcessor {
                 await this.onProgress(this.getProgressUpdate());
               }
             },
+            // Issue #1407: Pass cancellation check so CI wait can abort early
+            isCancelled: () => this.isCancelled,
           },
           this.verbose
         );
 
         if (!waitResult.success) {
+          // Issue #1407: If cancelled during CI wait, mark as skipped (not failed)
+          // so the queue can cleanly stop without misleading failure statistics
+          if (waitResult.status === 'cancelled') {
+            item.status = MergeItemStatus.SKIPPED;
+            item.error = 'Cancelled';
+            this.stats.skipped++;
+            this.log(`Skipped PR #${item.pr.number}: cancelled during CI wait`);
+            return;
+          }
           item.status = MergeItemStatus.FAILED;
           item.error = waitResult.error;
           this.stats.failed++;
@@ -528,6 +549,19 @@ export class MergeQueueProcessor {
           healthy: false,
           failedRuns: healthResult.failedRuns,
           error: `Cannot start merge queue: ${healthResult.error}. Please fix the CI failures first.`,
+        };
+      }
+
+      // Issue #1425: If the latest commit's CI is still in progress, wait for it to complete
+      // rather than proceeding immediately. The WAIT_FOR_TARGET_BRANCH_CI step (below) will
+      // also wait, but checking here ensures we don't skip the health check entirely.
+      if (healthResult.pending) {
+        this.log(`Branch ${targetBranch} has ${healthResult.pendingRuns.length} CI run(s) in progress on the latest commit. Will wait for them to complete.`);
+        // Return healthy so the queue proceeds to the waitForTargetBranchCI step which handles waiting
+        return {
+          healthy: true,
+          failedRuns: [],
+          error: null,
         };
       }
 
@@ -675,6 +709,11 @@ export class MergeQueueProcessor {
     message += `${progressBar} ${update.progress.percentage}%\n`;
     message += `${update.progress.processed}/${update.progress.total} PRs processed\n`;
     message += '```\n\n';
+
+    // Issue #1407: Show cancelling indicator when cancellation requested but queue still running
+    if (this.isCancelled) {
+      message += `🛑 *Cancelling\\.\\.\\.*\n\n`;
+    }
 
     // Status summary with emojis
     message += `✅ Merged: ${update.stats.merged}  `;

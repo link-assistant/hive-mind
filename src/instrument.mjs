@@ -3,12 +3,12 @@
 
 // Check if Sentry should be disabled
 const shouldDisableSentry = () => {
-  // Check for --no-sentry flag
+  // Check for --no-sentry flag (explicit opt-out)
   if (process.argv.includes('--no-sentry')) {
     return true;
   }
 
-  // Check for environment variable
+  // Check for environment variable disable flags
   if (process.env.HIVE_MIND_NO_SENTRY === 'true' || process.env.DISABLE_SENTRY === 'true') {
     return true;
   }
@@ -27,6 +27,12 @@ const shouldDisableSentry = () => {
   // Disable Sentry for dry-run mode to avoid unnecessary network calls that might fail
   // This prevents config.lib.mjs from loading use-m from CDN in testing scenarios
   if (process.argv.includes('--dry-run')) {
+    return true;
+  }
+
+  // Sentry is disabled by default for user privacy.
+  // It must be explicitly enabled with the --sentry flag or HIVE_MIND_SENTRY=true env var.
+  if (!process.argv.includes('--sentry') && process.env.HIVE_MIND_SENTRY !== 'true') {
     return true;
   }
 

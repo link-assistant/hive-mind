@@ -1,5 +1,414 @@
 # @link-assistant/hive-mind
 
+## 1.31.4
+
+### Patch Changes
+
+- Extract large inline script blocks from release.yml into ./scripts/ to fix CI line-limit violation (issue #1428)
+
+  fix: configure release pipeline to react to docker=true so Dockerfile changes trigger Docker image rebuild (Issue #1423)
+
+  Previously, commits that changed only `Dockerfile` or `coolify/Dockerfile` produced `docker=true` but `code=false`. The `release` job required all test jobs to `succeed` — but those tests were correctly skipped (no JavaScript code changed). Since `skipped != 'success'`, the release job was also skipped, and no Docker image was rebuilt.
+
+  This was observed when PR #1420 (fixing `/home/hive/.config` ownership) was merged: both Dockerfiles changed, but CI run `23040959919` showed all Docker publish jobs as skipped.
+
+  The `release` job condition is now updated to:
+  - Also trigger when `docker-changed == 'true'` (not only `code=true`)
+  - Accept `skipped` as well as `success` for test/lint jobs (skipped = intentionally not run, not a failure)
+  - Block on any actual job `failure`
+
+  This directly configures CI/CD to react to `docker=true` — without misclassifying Dockerfiles as "code" files.
+
+  Full root cause analysis and timeline in `docs/case-studies/issue-1423/`.
+
+  Migrate GitHub Actions to Node.js 24 compatible versions to eliminate deprecation warnings before the June 2026 deadline
+
+## 1.31.3
+
+### Patch Changes
+
+- b77704d: fix: set Docker image version labels to actual release version (Issue #1419)
+
+  The `docker/metadata-action@v5` defaulted the `org.opencontainers.image.version`
+  OCI label to the Git ref name `"main"` instead of the actual release version.
+  Added explicit `labels` override to all four Docker metadata steps in both regular
+  and instant release pipelines.
+
+  Also added `.config` directory ownership and write-access verification to the Docker
+  image verification script to prevent the permission regression from recurring.
+
+## 1.31.2
+
+### Patch Changes
+
+- efe3506: fix: /merge command no longer falsely fails when latest CI is in progress (Issue #1425)
+
+  The `checkBranchCIHealth` function previously queried only `status=completed` runs
+  to determine if the default branch CI was healthy. When a new commit had an in-progress
+  CI run, the function returned the previous (now superseded) commit's failure as the
+  "latest" CI status, causing the merge queue to be blocked with a false positive error.
+
+  The fix resolves the actual HEAD SHA of the branch first, then queries CI runs
+  specifically for that SHA (without a status filter). If the latest commit's runs are
+  in progress, the function returns `pending: true` (healthy) instead of reporting a
+  failure from an older commit. The merge queue then proceeds to the existing
+  `waitForTargetBranchCI` step which correctly waits for those runs to complete.
+
+## 1.31.1
+
+### Patch Changes
+
+- 5108367: fix: fix root causes of 20-32h process hang after session ends (Issue #1335)
+
+  Two separate bugs caused `solve` processes to run for 20–32 hours after work was complete:
+
+  **Bug A — Infinite loop for repos without CI:** When `--auto-restart-until-mergeable` is used
+  on a repository with no CI/CD workflows, the `watchUntilMergeable` loop was permanently stuck
+  on "CI/CD checks have not started yet" with no exit condition. The root cause was that the code
+  treated `no_checks` identically for both transient race conditions (CI hasn't started yet after
+  a push) and permanent states (repo has no CI at all). Fixed by checking whether the repository
+  actually has GitHub Actions workflows configured (`hasRepoWorkflows()`). If none exist, the
+  `no_checks` state is permanent and the monitor exits immediately, treating the PR as CI-passing.
+  If workflows exist, the state is a transient race condition and the loop keeps waiting.
+
+  **Bug B — No process exit after session ends:** After a successful run (PR became mergeable,
+  work session ended), `solve.mjs` never called `process.exit()`. Sentry's profiling integration
+  (`@sentry/profiling-node`) kept the Node.js event loop alive indefinitely. Fixed by calling
+  `safeExit(0)` at the end of the `finally` block in `solve.mjs`, which flushes Sentry events
+  (up to 2 seconds) and then calls `process.exit(0)`.
+
+  Also adds `--verbose` debug logging of active Node.js handles at exit to aid diagnosis of
+  future occurrences.
+
+## 1.31.0
+
+### Minor Changes
+
+- feat: add --finalize option (Issue #1383)
+
+  Adds new experimental CLI options to the `solve` command:
+  - `--finalize [N]`: After the main solve completes, automatically restarts the AI tool N times (default: 1 when used as a flag) with a requirements-check prompt to verify all requirements are met. Uses the same model as `--model` by default.
+  - `--finalize-model`: Override the model used during `--finalize` iterations (defaults to `--model`).
+  - `--prompt-ensure-all-requirements-are-met`: Adds a system prompt hint in the "Self review" section instructing the AI to ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements. Enabled automatically during `--finalize` iterations only (not the first regular run).
+
+  This forces the AI tool to double-check itself after the main solve, verifying changes meet all requirements from the issue description and PR comments, and that CI/CD checks pass.
+
+  feat: auto-commit uncommitted changes and upload log on CTRL+C interrupt (Issue #1351)
+
+  Previously, when a user pressed CTRL+C to interrupt a running solve session, uncommitted changes were silently lost (or left uncommitted) and log files were not uploaded to the PR/issue even when `--attach-logs` was enabled. Additionally, the terminal showed "Claude command completed" instead of "Claude command interrupted".
+
+  Now on CTRL+C:
+  1. **Auto-commit**: Any uncommitted changes in the working directory are automatically committed and pushed to the branch before cleanup occurs.
+  2. **Log upload**: If `--attach-logs` is enabled, the log file is automatically uploaded to the GitHub PR/issue as a comment.
+  3. **Accurate message**: The terminal now correctly shows "Claude command interrupted" instead of "Claude command completed" when the process exits with code 130 (SIGINT).
+
+  Changes made:
+  - `src/exit-handler.lib.mjs`: Added optional `interrupt` parameter to `initializeExitHandler()`; SIGINT handler now calls it before cleanup, guarded against double invocation
+  - `src/solve.mjs`: Extended `cleanupContext` with branch/PR/owner/repo fields; new `interruptWrapper` auto-commits and uploads logs on CTRL+C
+  - `src/claude.lib.mjs`, `src/opencode.lib.mjs`, `src/codex.lib.mjs`, `src/agent.lib.mjs`: Detect exit code 130 and print "interrupted" instead of "completed"
+
+  Full case study analysis including timeline reconstruction, root cause analysis, and implementation details in `docs/case-studies/issue-1351/`.
+
+  fix: prevent false positive ready tag sync by using issue timeline API (Issue #1413)
+
+  Previously, `syncReadyTags()` used a GitHub full-text body search to find PRs linked to an issue:
+
+  ```js
+  gh pr list --search "in:body closes #1411 OR fixes #1411 OR resolves #1411"
+  ```
+
+  This caused a false positive: PR #843 matched because `1411` appeared as a source code line reference inside its body, not as a genuine issue-closing keyword.
+
+  Now uses the GitHub issue timeline API (`GET /repos/{owner}/{repo}/issues/{issue_number}/timeline`) to find PRs with genuine `cross-referenced` events, which is the same data GitHub uses to auto-close issues when PRs are merged.
+
+  fix: hide cancel button and show cancelling state on /merge cancel (Issue #1407)
+
+  When user clicked the "🛑 Cancel" button during `/merge` queue processing, the cancel button remained visible in the Telegram message until the current PR finished processing (potentially hours if waiting for CI). The toast message "The current PR will finish processing" was also confusing.
+
+  The fix immediately hides the cancel button by editing the message without `reply_markup`, shows a "🛑 Cancelling..." indicator in the progress message when cancellation is requested, and adds `isCancelled` support to `waitForCI()` for early exit when the operation is cancelled.
+
+## 1.30.5
+
+### Patch Changes
+
+- a9a58ab: Switch Docker builds to registry cache for faster arm64 builds
+  - Changed from GitHub Actions cache to Docker Hub registry cache backend
+  - Use architecture-specific cache tags (buildcache-amd64, buildcache-arm64) to prevent cross-platform cache overwriting
+  - Increased Docker job timeout from 45 to 60 minutes for safety margin
+  - Added comprehensive case study documentation for issue #1415
+
+## 1.30.4
+
+### Patch Changes
+
+- 65eefd9: fix: prevent solve command from hanging after PR is merged (Issue #1346)
+
+  Previously, after the solve command detected a merged PR and printed "PR MERGED! Stopping auto-restart-until-mergeable mode", the process would hang indefinitely instead of exiting.
+
+  Root cause: The `finally` block in `src/solve.mjs` completed all async work but never called `process.exit(0)`. Active handles on the Node.js event loop (from libraries like `command-stream` and network connections) prevent natural process exit. When Sentry is enabled (`--sentry`), `@sentry/profiling-node` native handles also contribute.
+
+  The fix:
+  1. Restores explicit `📁 Complete log file:` display in the `finally` block (matching original behavior)
+  2. Calls `closeSentry()` from `sentry.lib.mjs` to properly flush Sentry events and release profiling handles when Sentry is enabled (no-op when disabled)
+  3. Calls `process.exit(0)` as a required safety net to prevent hanging from any remaining active handles
+  4. Adds a hard `Promise.race` timeout (3s) around `sentry.close()` in `exit-handler.lib.mjs` to prevent it from hanging if Sentry's transport stalls
+
+## 1.30.3
+
+### Patch Changes
+
+- 1fc6a15: Disable Sentry error tracking by default for maximum user privacy. Users must now explicitly opt in with `--sentry` flag or `HIVE_MIND_SENTRY=true` env var. This guarantees 100% privacy by default — no usage data is sent to Sentry unless the user chooses to enable it.
+
+## 1.30.2
+
+### Patch Changes
+
+- e0bf56a: feat: make --gitkeep-file content shorter with single-line format (Issue #1397)
+
+  Previously, the `.gitkeep` file generated by `--gitkeep-file` contained multiple verbose lines:
+
+  ```
+  # Auto-generated file for PR creation
+  # Issue: https://github.com/...
+  # Branch: issue-3-57a79ede43e6
+  # Timestamp: 2026-03-07T23:53:23.107Z
+  # This file was created with --gitkeep-file (default)
+  # It will be removed when the task is complete
+  ```
+
+  Now it uses a concise single-line format:
+
+  ```
+  # .gitkeep file auto-generated at 2026-03-07T23:53:23.107Z for PR creation at branch issue-3-57a79ede43e6 for issue https://github.com/...
+  ```
+
+## 1.30.1
+
+### Patch Changes
+
+- 27b4f09: Fix Docker CI/CD amd64 build cancellation due to GHA cache export timeout
+  - Increase `timeout-minutes` from 30 to 45 in `docker-publish` and `docker-publish-instant` jobs
+  - Switch GHA cache mode from `mode=max` to `mode=min` to reduce sequential cache export payload
+  - Add `ignore-error=true` to `cache-to` so cache export failure does not cancel a successful image push
+  - Add comprehensive case study in `docs/case-studies/issue-1394/CASE-STUDY.md` with root cause analysis and CI log data
+
+  Root cause: The sandbox-based hive-mind image (~2-3 GB) takes ~30 min to build and push to Docker Hub.
+  After the push, BuildKit exports all image layers sequentially to GHA cache (`mode=max`). This sequential
+  write of ~800 MB per layer exhausted the 30-minute job timeout mid-export, cancelling an already-successful
+  build. The Docker image itself was published correctly; only the cache export step was interrupted.
+
+## 1.30.0
+
+### Minor Changes
+
+- ee6233a: Optimize Docker build by using pinned konard/sandbox version as base image
+  - Docker image now inherits from `konard/sandbox:1.3.16` (pinned) instead of building from scratch
+  - Significantly faster build times (2-3 min vs 10-15+ min) as general-purpose tools are pre-installed
+  - Reduced timeout risk since heavy installations (Homebrew, PHP, etc.) are handled by base image
+  - Removed `scripts/ubuntu-24-server-install.sh` (functionality now provided by sandbox)
+  - User renamed from `sandbox` to `hive` for backward compatibility
+  - Sandbox version is pinned to `1.3.16` for stable, reproducible builds (instead of `latest`)
+  - Docker image is versioned to match the published npm package version
+  - Docker builds are triggered only after npm package availability is confirmed
+
+  This change implements the separation of concerns described in link-foundation/sandbox#65:
+  - sandbox: Universal development environment with all general-purpose tools
+  - hive-mind: AI-specific tools (Claude CLI, Playwright MCP, etc.) built on top of sandbox
+
+## 1.29.0
+
+### Minor Changes
+
+- 161b595: feat: add --auto-accept-invite option to solve command
+
+  Adds a new `--auto-accept-invite` boolean option to the `solve` command that automatically accepts the pending GitHub repository or organization invitation for the specific repository/organization being solved, before checking write access.
+
+  Unlike the `/accept_invites` Telegram command (which accepts ALL pending invitations), this option is scoped to the target repo/org only, making it safer and more targeted. Useful when you've just been invited to a repository and want to run `solve` without manually accepting the invitation first.
+
+## 1.28.0
+
+### Minor Changes
+
+- docs: expand best practices with CI/CD guide, universal prompts, and architecture improvement (Issue #1403)
+
+  Splits the existing `docs/BEST-PRACTICES.md` into two focused documents:
+  - **`docs/CI-CD-BEST-PRACTICES.md`** (renamed from the original) — Updated and expanded CI/CD guide covering all key points from existing workflow templates, including: running checks only on relevant file changes, fast-fail job ordering, fresh merge simulation, concurrency control, changeset exemptions for docs-only PRs, secrets detection, documentation validation, and OIDC trusted publishing.
+  - **`docs/BEST-PRACTICES.md`** (new general guide) — Universal best practices for AI-driven development including: deep analysis bug/feature prompts, universal validation prompt, plan mode prompt, issue writing guidelines with acceptance criteria patterns, an architecture improvement prompt linking to the Code Architecture Principles repository, CI/CD summary with link to the CI/CD guide, and subagent coordination patterns.
+
+  Also updates `README.md` to link to both new documents in the Best Practices section.
+
+  feat: enable --auto-restart-until-mergeable by default (Issue #1360)
+
+  The `--auto-restart-until-mergeable` feature has become stable enough to be enabled by default. Previously, users had to explicitly pass this flag to enable automatic restart until the PR becomes mergeable.
+
+  Now the feature is enabled by default, meaning the solver will automatically restart on new comments from non-bot users, CI failures, merge conflicts, or other issues — without requiring any extra flags. Users who want to disable this behavior can pass `--no-auto-restart-until-mergeable`.
+
+  fix: filter GitHub Pages deployment workflows from PR CI check (Issue #1399)
+
+  `getActiveRepoWorkflows()` included the `pages-build-deployment` workflow (path: `dynamic/pages/pages-build-deployment`) as if it were a PR CI workflow. This workflow is auto-created by GitHub for GitHub Pages and only runs on the default branch after merge — it never creates check-runs on PR branches. As a result, `--auto-restart-until-mergeable` got stuck in an infinite loop waiting for CI checks that would never appear.
+
+  The fix filters out workflows with the `dynamic/pages/` prefix from `getActiveRepoWorkflows()`. These are GitHub Pages internal workflows, not user-defined CI pipelines.
+
+  Affected scenario: repositories with GitHub Pages enabled but no `.github/workflows/` files (e.g., `konard/links-visuals`).
+
+  fix: resolve Prettier formatting issue in README.md (Issue #1401)
+
+  The CI/CD `lint` job was failing on the `main` branch because README.md had Prettier formatting violations after commit `da376061` ("Clarify Time Freedom and Any Device Programming features"). That commit added longer text to two table cells, which made the table column widths inconsistent with Prettier's expected format.
+
+  The fix runs `prettier --write` on README.md to re-align the table column widths, bringing the file back into conformance with the `format:check` CI step.
+
+## 1.27.0
+
+### Minor Changes
+
+- f6e909e: feat: make --gitkeep-file enabled by default for all --tools (Issue #1385)
+
+  Previously, `--claude-file` was the default for `--tool claude`, while `--gitkeep-file` was the default for other tools. Now `--gitkeep-file` is the universal default for all `--tool` values, including `--tool claude`.
+
+  As explained in the referenced video, CLAUDE.md and AGENT.md files generally do not help AI tools and should be avoided. Users who need CLAUDE.md-based task passing can still explicitly opt in with `--claude-file`.
+
+## 1.26.4
+
+### Patch Changes
+
+- ff46719: fix: update default agent model to minimax-m2.5-free (Issue #1391)
+
+  `kimi-k2.5-free` is no longer supported by OpenCode Zen and returns a `ModelError` (HTTP 401). The new default for `--tool agent` is now `minimax-m2.5-free`, matching the upstream fix in [agent PR #209](https://github.com/link-assistant/agent/pull/209).
+  - `minimax-m2.5-free` is now the default model for `--tool agent`
+  - `kimi-k2.5-free` is moved to the deprecated backward-compatibility section across all model maps
+  - Updated `docs/FREE_MODELS.md` to reflect the new default and document `kimi-k2.5-free` as discontinued
+
+## 1.26.3
+
+### Patch Changes
+
+- 864023d: Add case study and regression test for issue #1389: no `ready to merge` comment when `--auto-restart-until-mergeable` is enabled
+
+  Documents root cause (checkForExistingComment searching all-time PR history in v1.25.7),
+  timeline reconstruction from log b623ee9f, and confirms the fix from issue #1371 (in-memory
+  readyToMergeCommentPosted flag) resolves the cross-session notification suppression.
+  Adds test-ready-to-merge-cross-session-1389.mjs to prevent regression to the old approach.
+
+## 1.26.2
+
+### Patch Changes
+
+- 72c933c: Skip empty Claude subsection headers when auth error occurs in /limits output
+
+## 1.26.1
+
+### Patch Changes
+
+- 278415a: fix: post "Ready to merge" comment after auto-restart sequence with --auto-restart-until-mergeable (Issue #1371)
+
+  When `--auto-restart-until-mergeable` was used after a regular auto-restart sequence (triggered by uncommitted changes), the "Ready to merge" comment was silently suppressed because `checkForExistingComment` found a matching comment from a previous `solve` run.
+
+  The deduplication logic in `watchUntilMergeable` now uses an in-memory flag (`readyToMergeCommentPosted`) scoped to the current session, rather than searching all PR comment history. This correctly prevents duplicate comments within a single run while allowing new notifications when a fresh `solve` invocation starts.
+
+## 1.26.0
+
+### Minor Changes
+
+- d96ae3b: feat: /merge command syncs ready tags between linked PRs and issues (Issue #1367)
+
+  The `/merge` Telegram bot command now syncs the `ready` label between PRs and their linked issues before building the merge queue.
+  - If a PR has the `ready` label and its body links to an issue via standard GitHub closing keywords (fixes/closes/resolves #N), the linked issue also gets the `ready` label
+  - If an issue has the `ready` label and has a clearly linked open PR (found via body search), the PR also gets the `ready` label
+  - Sync happens during `MergeQueueProcessor.initialize()`, before the final list of ready PRs is collected
+
+## 1.25.8
+
+### Patch Changes
+
+- fix: update system messages to use authenticated curl for private GitHub issue images
+
+  Images attached to GitHub issues/PRs (github.com/user-attachments/assets/\*) require authentication. Without auth, GitHub returns "Not Found" (9 bytes ASCII) with HTTP 200 — a silent failure. The AI would then call Read on the non-image file, encoding "Not Found" as base64, causing Anthropic API to return "Could not process image" (HTTP 400), crashing the session.
+
+  Updated system messages in all 4 prompt files (claude, agent, codex, opencode) to explicitly identify user-attachments URLs as requiring GitHub authentication and provide the exact authenticated curl command using `gh auth token`.
+
+  fix: auto-restart with --resume on "Request timed out" in --tool claude (Issue #1353)
+
+  When Claude CLI encounters a network timeout, it exhausts its own internal retries and emits a synthetic result event: `{"type":"result","is_error":true,"result":"Request timed out","session_id":"..."}`. Previously hive-mind treated this as a fatal failure and exited, losing all session context (conversation history, cached tokens, partially completed work).
+
+  This fix detects the timeout pattern and automatically retries with `--resume <session-id>` to preserve the session, using exponential backoff starting at 5 minutes (increasing to max 1 hour) — longer than regular API errors since Claude CLI has already exhausted its own retries before reporting the timeout.
+
+## 1.25.7
+
+### Patch Changes
+
+- ad57ea6: fix: prevent false positive error detection when multi-line stderr chunks contain JSON warnings (Issue #1354)
+
+  Previously, when Claude CLI emitted multiple JSON log lines in a single stderr chunk (newline-separated), the entire multi-line string was passed to `isStderrError()` as one unit. Since `JSON.parse()` would fail on two concatenated JSON objects, it fell through to keyword matching — finding words like `"failed"` inside warning messages — and incorrectly flagged a successful run as an error.
+
+  Additionally, `messageCount === 0 && toolUseCount === 0` could fire even after a 60-turn successful session, because the counter only checked for `data.type === 'message'` but Claude CLI emits outer events as `"assistant"` type.
+
+  Now the fix applies two targeted changes to `src/claude.lib.mjs`:
+  1. **Split multi-line stderr chunks by newline** and check each line individually with `isStderrError()`, so valid JSON warning lines are correctly parsed and not conflated with error patterns.
+  2. **Track `resultSuccessReceived`** when `data.type === 'result' && data.subtype === 'success'` is received, and add a `!resultSuccessReceived` guard to the false positive detection condition — ensuring a confirmed successful result prevents spurious error reporting.
+
+  Full case study analysis including timeline reconstruction, root cause analysis, and evidence in `docs/case-studies/issue-1354/`.
+
+## 1.25.6
+
+### Patch Changes
+
+- 5200c2a: Fix auto-restart spamming PR with comments when usage limit is reached (#1356)
+
+  When the AI tool's usage limit is reached during --auto-restart-until-mergeable mode, the loop now:
+  1. Detects the `limitReached` flag from the tool result
+  2. Silently waits for the limit reset time plus a 10-minute buffer (no GitHub comment posted)
+  3. Resumes the session using `--resume <sessionId>` with a "Continue" prompt, preserving context
+
+  For non-limit tool failures, the loop now stops immediately instead of retrying, preventing infinite loops on unrecoverable errors.
+
+## 1.25.5
+
+### Patch Changes
+
+- e0d68a4: fix: prevent false positive 'Ready to merge' for repos with CI but no required branch protection (Issue #1363)
+
+  Previously, the auto-merge logic would incorrectly declare a PR "Ready to merge — no CI/CD configured" when a repository had GitHub Actions workflows but no required status checks in branch protection rules. This happened because:
+  - `mergeStateStatus=CLEAN` (no required checks to block merging)
+  - `check_runs=[]` (CI hadn't started yet — race condition, GitHub takes ~10-30s to register checks)
+
+  The fix adds a workflow detection step (`getActiveRepoWorkflows`) that queries the GitHub Actions API to check if the repository has any active workflows. When workflows exist but no checks have started, the system now correctly identifies this as a race condition (CI hasn't started yet) rather than "no CI configured", and waits for the checks to appear before proceeding.
+
+  Full case study analysis in `docs/case-studies/issue-1363/`.
+
+## 1.25.4
+
+### Patch Changes
+
+- 2a670b0: fix: use universal GitHub blob URL format for screenshots to fix broken images in private repositories (Issue #1349)
+
+  Previously, the system prompt instructed AI agents to embed screenshots using `raw.githubusercontent.com` URLs. These URLs always return HTTP 404 for private repositories because GitHub does not authenticate raw content requests when rendering PR description markdown.
+
+  Now agents are instructed to use the `https://github.com/{owner}/{repo}/blob/{branch}/path?raw=true` URL format instead, which works for both public and private repositories. This simplifies the implementation by removing the need to check repository visibility at all.
+
+## 1.25.3
+
+### Patch Changes
+
+- 0ed3ccb: fix: prevent --auto-restart-until-mergeable infinite loop when no CI/CD is configured (Issue #1345)
+
+  Previously, when a repository had no GitHub Actions workflows configured, `--auto-restart-until-mergeable` would loop indefinitely because `getDetailedCIStatus()` returned `{ status: 'no_checks' }` and the code always treated this as a transient race condition (checks haven't started yet).
+
+  Now the fix correctly handles the `no_checks` case by also checking `checkPRMergeable()`. If GitHub reports the PR as `MERGEABLE` (`mergeStateStatus: CLEAN`), the repository has no required CI checks and the process exits immediately with an appropriate message ("No CI/CD checks are configured for this repository — PR is mergeable"). If the PR is not yet mergeable, the existing wait behavior is preserved.
+
+  Full case study analysis including timeline reconstruction from logs in `docs/case-studies/issue-1345/`.
+
+## 1.25.2
+
+### Patch Changes
+
+- 0453550: feat: show all limits even when Claude authentication is expired (Issue #1343)
+
+  Previously, when Claude authentication expired, the `/limits` command would fail completely and show no information at all.
+
+  Now the command gracefully handles Claude auth failures:
+  - The error message (e.g., "Claude authentication expired. Please use /solve or /hive commands to trigger re-authentication of Claude.") is shown inline in the Claude limits sections
+  - All other limits sections (CPU, RAM, Disk space, GitHub API) continue to display normally
+
 ## 1.25.1
 
 ### Patch Changes

@@ -24,7 +24,9 @@ const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Load .env configuration as base
 // quiet: true suppresses info messages, ignore: ['MISSING_ENV_FILE'] suppresses error when .env doesn't exist
@@ -37,7 +39,10 @@ loadLenvConfig({ override: true, quiet: true });
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
-const { hideBin } = await use('yargs@17.7.2/helpers');
+const helpersModuleBot = await use('yargs@17.7.2/helpers');
+// Node 24 CJS/ESM interop may return the whole module object instead of named exports directly
+const _helpersBot = helpersModuleBot.default || helpersModuleBot;
+const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 // Import yargs configurations, GitHub utilities, and telegram helpers
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
@@ -780,24 +785,19 @@ bot.command('limits', async ctx => {
   // Get all limits using shared cache (3min for API, 2min for system)
   const limits = await getAllCachedLimits(VERBOSE);
 
-  if (!limits.claude.success) {
-    const escapedError = escapeMarkdownV2(limits.claude.error, { preserveCodeBlocks: true });
-    await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ ${escapedError}`, { parse_mode: 'MarkdownV2' });
-    return;
-  }
-
   // Format the message with usage limits and queue status
-  let message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.usage, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null);
+  // If Claude auth failed, pass the error to formatUsageMessage to show it in the Claude sections
+  // while still displaying all other limits sections (disk, GitHub, CPU, memory)
+  // See: https://github.com/link-assistant/hive-mind/issues/1343
+  const claudeError = limits.claude.success ? null : limits.claude.error;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-  // Insert per-queue status into the code block
-  // Shows each queue (claude, agent) with pending/processing counts
-  // Processing counts are actual running system processes (via pgrep)
+  // Fetch queue status and pass it as an extra section to formatUsageMessage so that all
+  // sections are assembled before the code block is formed — no fragile string-searching needed.
+  // Shows each queue (claude, agent) with pending/processing counts.
+  // Processing counts are actual running system processes (via pgrep).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
-  const codeBlockEnd = message.lastIndexOf('```');
-  if (codeBlockEnd !== -1) {
-    const queueStatus = await solveQueue.formatStatus();
-    message = message.slice(0, codeBlockEnd) + `\n${queueStatus}` + message.slice(codeBlockEnd);
-  }
+  const queueStatus = await solveQueue.formatStatus();
+  const message = '📊 *Usage Limits*\n\n' + formatUsageMessage(limits.claude.success ? limits.claude.usage : null, limits.disk.success ? limits.disk.diskSpace : null, limits.github.success ? limits.github.githubRateLimit : null, limits.cpu.success ? limits.cpu.cpuLoad : null, limits.memory.success ? limits.memory.memory : null, claudeError, [queueStatus]);
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'Markdown' });
 });
 bot.command('version', async ctx => {

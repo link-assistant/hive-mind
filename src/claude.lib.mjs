@@ -379,12 +379,6 @@ export const executeClaude = async params => {
   });
 };
 /**
- * Calculate total token usage from a session's JSONL file
- * @param {string} sessionId - The session ID
- * @param {string} tempDir - The temporary directory where the session ran
- * @returns {Object} Token usage statistics
- */
-/**
  * Fetches model information from pricing API
  * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
  * @returns {Promise<Object|null>} Model information or null if not found
@@ -845,7 +839,9 @@ export const executeClaudeCommand = async params => {
     let isOverloadError = false;
     let is503Error = false;
     let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
+    let isRequestTimeout = false; // Issue #1353: Track "Request timed out" from Claude CLI
     let stderrErrors = [];
+    let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
     let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
@@ -948,7 +944,9 @@ export const executeClaudeCommand = async params => {
           if (execCommand.kill) {
             await log(`   Sending SIGTERM to process...`, { verbose: true });
             execCommand.kill('SIGTERM');
-            setTimeout(() => {
+            // Issue #1346: Capture timer handle so it can be cleared after use to avoid
+            // leaking an active event loop reference when the process exits before 2s
+            const sigkillTimerId = setTimeout(() => {
               try {
                 if (!execCommand.result?.code) {
                   log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
@@ -958,6 +956,7 @@ export const executeClaudeCommand = async params => {
                 /* process may have exited */
               }
             }, 2000);
+            sigkillTimerId.unref();
           }
         } catch (e) {
           await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
@@ -1014,6 +1013,10 @@ export const executeClaudeCommand = async params => {
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
                 }
+                // Issue #1354: Track when result event confirms success (prevents false positive detection)
+                if (data.subtype === 'success') {
+                  resultSuccessReceived = true;
+                }
                 // Issue #1104: Only extract cost from subtype 'success' results
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
@@ -1044,6 +1047,11 @@ export const executeClaudeCommand = async params => {
                   }
                   if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
                     isInternalServerError = true;
+                  }
+                  // Issue #1353: Detect "Request timed out" — Claude CLI emits {type:"result",is_error:true,result:"Request timed out"} after exhausting retries
+                  if (lastMessage === 'Request timed out' || lastMessage.includes('Request timed out')) {
+                    isRequestTimeout = true;
+                    await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
                   }
                 }
               }
@@ -1076,6 +1084,12 @@ export const executeClaudeCommand = async params => {
                       is503Error = true;
                       lastMessage = item.text;
                       await log('⚠️ Detected 503 network error', { verbose: true });
+                    }
+                    // Issue #1353: Detect "Request timed out" in assistant text content
+                    if (item.text === 'Request timed out' || item.text.includes('Request timed out')) {
+                      isRequestTimeout = true;
+                      lastMessage = item.text;
+                      await log('⏱️ Detected request timeout in assistant message (will retry with --resume)', { verbose: true });
                     }
                   }
                 }
@@ -1114,9 +1128,15 @@ export const executeClaudeCommand = async params => {
           // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Track stderr errors for failure detection using shared helper (Issue #477, #1165, #1337)
-            if (isStderrError(errorOutput)) {
-              stderrErrors.push(errorOutput.trim());
+            // Issue #1354: Split multi-line stderr chunks and check each line individually.
+            // A single chunk may contain multiple newline-separated JSON messages (e.g. two
+            // consecutive {"level":"warn",...} lines). Passing the whole chunk to isStderrError()
+            // causes JSON.parse() to fail (multi-object is not valid JSON), falling through to
+            // keyword matching and producing false positives on words like "failed".
+            for (const line of errorOutput.split('\n')) {
+              if (isStderrError(line)) {
+                stderrErrors.push(line.trim());
+              }
             }
           }
         } else if (chunk.type === 'exit') {
@@ -1177,13 +1197,19 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #1331: Unified handler for all transient API errors (Overloaded, 503, Internal Server Error)
-      // All use same params: 10 retries, 1min initial, 30min max, exponential backoff, session preserved
-      const isTransientError = isOverloadError || isInternalServerError || is503Error || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure')));
+      // Issue #1353: Also handle "Request timed out" — Claude CLI times out after exhausting its own retries
+      // All use exponential backoff with session preservation via --resume
+      const isTransientError = isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
-        if (retryCount < retryLimits.maxTransientErrorRetries) {
-          const delay = Math.min(retryLimits.initialTransientErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxTransientErrorDelayMs);
-          const errorLabel = isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ? 'API overload (500)' : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${retryLimits.maxTransientErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+        // Issue #1353: Use timeout-specific backoff params (5min–1hr) vs general transient params (1min–30min)
+        // Timeouts indicate network instability — Claude CLI already exhausted its own retries, so we need longer waits
+        const maxRetries = isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        if (retryCount < maxRetries) {
+          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          const errorLabel = isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ? 'API overload (500)' : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
           if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
           await waitWithCountdown(delay, log);
@@ -1191,7 +1217,7 @@ export const executeClaudeCommand = async params => {
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ Transient API error persisted after ${retryLimits.maxTransientErrorRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          await log(`\n\n❌ Transient API error persisted after ${maxRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
           return {
             success: false,
             sessionId,
@@ -1236,26 +1262,10 @@ export const executeClaudeCommand = async params => {
           }
         }
       }
-      // Additional failure detection: if no messages were processed and there were stderr errors,
-      // or if the command produced no output at all, treat it as a failure
-      //
-      // This is critical for detecting "silent failures" where:
-      // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
-      // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
-      // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
-      //
-      // Common cause: sudo commands that timeout
-      // - Timeout triggers process.kill() in Claude CLI
-      // - If child process runs with sudo (root), parent can't kill it → EPERM error
-      // - Error logged to stderr, but command doesn't properly fail
-      //
-      // Workaround (applied in system prompt):
-      // - Instruct Claude to run sudo commands (installations) in background
-      // - Background processes avoid timeout kill mechanism
-      // - Prevents EPERM errors and false success reports
-      //
-      // See: docs/dependencies-research/claude-code-issues/README.md for full details
-      if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+      // Additional failure detection: silent failures (no messages + stderr errors).
+      // E.g., sudo timeout causing "kill EPERM" → stderr error but exit code 0.
+      // Issue #1354: Skip if result event confirmed success (definitive proof regardless of messageCount).
+      if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
         const errorsPreview = stderrErrors
           .slice(0, 5)
@@ -1285,7 +1295,10 @@ export const executeClaudeCommand = async params => {
       }
       // Issue #1088: If error_during_execution occurred but command didn't fail,
       // log it as "Finished with errors" instead of pure success
-      if (errorDuringExecution) {
+      // Issue #1351: Distinguish interrupted sessions (exit code 130) from normal completion
+      if (exitCode === 130) {
+        await log('\n\n⚠️ Claude command interrupted (CTRL+C)');
+      } else if (errorDuringExecution) {
         await log('\n\n⚠️ Claude command finished with errors');
       } else {
         await log('\n\n✅ Claude command completed');
@@ -1363,13 +1376,19 @@ export const executeClaudeCommand = async params => {
       });
       const errorStr = error.message || error.toString();
       // Issue #1331: Unified handler for all transient API errors in exception block
-      // (Overloaded, 503, Internal Server Error) - same params, all with session preservation
-      const isTransientException = (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
+      // Issue #1353: Also handle "Request timed out" in exception block
+      // (Overloaded, 503, Internal Server Error, Request timed out) - all with session preservation
+      const isTimeoutException = errorStr === 'Request timed out' || errorStr.includes('Request timed out');
+      const isTransientException = isTimeoutException || (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
       if (isTransientException) {
-        if (retryCount < retryLimits.maxTransientErrorRetries) {
-          const delay = Math.min(retryLimits.initialTransientErrorDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), retryLimits.maxTransientErrorDelayMs);
-          const errorLabel = errorStr.includes('Overloaded') ? 'API overload (500)' : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
-          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${retryLimits.maxTransientErrorRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+        // Issue #1353: Use timeout-specific backoff for request timeouts
+        const maxRetries = isTimeoutException ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isTimeoutException ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        if (retryCount < maxRetries) {
+          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          const errorLabel = isTimeoutException ? 'Request timeout' : errorStr.includes('Overloaded') ? 'API overload (500)' : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId;
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
@@ -1462,15 +1481,5 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
   }
 };
 // Export all functions as default object too
-export default {
-  validateClaudeConnection,
-  handleClaudeRuntimeSwitch,
-  executeClaude,
-  executeClaudeCommand,
-  checkForUncommittedChanges,
-  calculateSessionTokens,
-  getClaudeVersion,
-  setClaudeVersion,
-  resolveThinkingSettings,
-  checkModelVisionCapability,
-};
+// prettier-ignore
+export default { validateClaudeConnection, handleClaudeRuntimeSwitch, executeClaude, executeClaudeCommand, checkForUncommittedChanges, calculateSessionTokens, getClaudeVersion, setClaudeVersion, resolveThinkingSettings, checkModelVisionCapability };

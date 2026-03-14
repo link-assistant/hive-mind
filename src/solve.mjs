@@ -76,7 +76,7 @@ const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 
@@ -1450,22 +1450,14 @@ try {
   // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
   await closeSentry();
 
-  // Issue #1335: Log active handles at exit to diagnose future process hang.
-  if (argv.verbose) {
-    const handles = process._getActiveHandles();
-    const requests = process._getActiveRequests();
-    if (handles.length > 0 || requests.length > 0) {
-      await log(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`, { verbose: true });
-      for (const h of handles) await log(`   Handle: ${h.constructor?.name || typeof h}`, { verbose: true });
-      for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
-    }
-  }
+  // Issue #1431: Log active handles before draining.
+  // Always logged to file and console so future hangs are immediately visible in logs.
+  // drainHandles() inside safeExit() will unref/close these before process.exit().
+  await logActiveHandles(msg => log(msg));
 
-  // Issue #1431: Force process exit after all cleanup completes.
-  // Active handles from command-stream (ChildProcess), undici connection pools (Socket),
-  // process.stdin (ReadStream), and log file streams (WriteStream) keep the event loop
-  // alive indefinitely after all work is done. This was previously fixed in Issue #1335
-  // but regressed in commit 187adb82 which incorrectly removed safeExit(0).
-  // CLI tools should exit deterministically — process.exit(0) is the correct pattern.
+  // Issue #1431: safeExit() calls drainHandles() to unref/close known handle types
+  // (process.stdin ReadStream, undici Socket pool, command-stream ChildProcess,
+  // process.stdout/stderr WriteStreams) so the event loop exits naturally, then
+  // calls process.exit(0) as a deterministic safety net.
   await safeExit(0, 'Process completed');
 }

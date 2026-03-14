@@ -112,8 +112,8 @@ test('getMaxOutputTokensForModel returns 128000 for opusplan', () => {
   assert.strictEqual(getMaxOutputTokensForModel('opusplan'), 128000, 'opusplan should have 128K max output tokens (Opus-level)');
 });
 
-test('getDefaultMaxThinkingBudgetForModel returns 64000 for opusplan', () => {
-  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opusplan'), 64000, 'opusplan should have 64K thinking budget (Opus-level)');
+test('getDefaultMaxThinkingBudgetForModel returns 31999 for opusplan', () => {
+  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opusplan'), 31999, 'opusplan should have 31999 thinking budget (aligned with standard, Issue #1238)');
 });
 
 // ============================================================
@@ -201,13 +201,13 @@ console.log('\n=== 8. Backward Compatibility Tests ===');
 test('opus alias still works after adding opusplan', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus should still map to claude-opus-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'opus should still map to claude-opus-4-5-20251101 (Issue #1238)');
 });
 
 test('sonnet alias still works after adding opusplan', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-5-20250929', 'sonnet should still map correctly');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 (Issue #1329)');
 });
 
 test('haiku alias still works after adding opusplan', () => {
@@ -219,7 +219,7 @@ test('haiku alias still works after adding opusplan', () => {
 test('opus[1m] still works after adding opusplan', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-6[1m]', 'opus[1m] should still map correctly');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101[1m]', 'opus[1m] should still map correctly');
 });
 
 // ============================================================
@@ -243,6 +243,74 @@ test('opuspan (typo) suggests opusplan', () => {
   assert.strictEqual(result.valid, false, 'opuspan should be invalid');
   assert(result.suggestions && result.suggestions.length > 0, 'Should provide suggestions');
   assert(result.suggestions.includes('opusplan') || result.suggestions.includes('opus'), `Suggestions should include opusplan or opus: ${result.suggestions.join(', ')}`);
+});
+
+// ============================================================
+// Section 11: --worker-model Alias Tests
+// ============================================================
+console.log('\n=== 11. --worker-model Alias Tests ===');
+
+test('SOLVE_OPTION_DEFINITIONS includes worker-model option', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  assert('worker-model' in SOLVE_OPTION_DEFINITIONS, 'SOLVE_OPTION_DEFINITIONS should include worker-model');
+  assert.strictEqual(SOLVE_OPTION_DEFINITIONS['worker-model'].type, 'string', 'worker-model should be a string option');
+});
+
+test('SOLVE_OPTION_DEFINITIONS includes plan-model option', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  assert('plan-model' in SOLVE_OPTION_DEFINITIONS, 'SOLVE_OPTION_DEFINITIONS should include plan-model');
+  assert.strictEqual(SOLVE_OPTION_DEFINITIONS['plan-model'].type, 'string', 'plan-model should be a string option');
+});
+
+// ============================================================
+// Section 12: Plan/Worker Model Combination Tests
+// ============================================================
+console.log('\n=== 12. Plan/Worker Model Combination Tests ===');
+
+test('getClaudeEnv configures --plan-model opus --model sonnet (default opusplan usage)', () => {
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-opus-4-5-20251101',
+    executionModel: 'claude-sonnet-4-6',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4-5-20251101', 'Plan model should be opus 4.5');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-sonnet-4-6', 'Execution model should be sonnet 4.6');
+});
+
+test('getClaudeEnv configures --plan-model sonnet --model haiku (cost-optimized)', () => {
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-sonnet-4-6',
+    executionModel: 'claude-haiku-4-5-20251001',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-sonnet-4-6', 'Plan model should be sonnet');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-haiku-4-5-20251001', 'Execution model should be haiku');
+});
+
+test('getClaudeEnv configures --plan-model haiku --model haiku (cheapest)', () => {
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-haiku-4-5-20251001',
+    executionModel: 'claude-haiku-4-5-20251001',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-haiku-4-5-20251001', 'Plan model should be haiku');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-haiku-4-5-20251001', 'Execution model should be haiku');
+});
+
+test('Any valid Claude model can be used as plan model', () => {
+  // Test with all major model families
+  for (const model of ['claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']) {
+    const env = getClaudeEnv({ model: 'opusplan', planModel: model });
+    assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, model, `Should accept ${model} as plan model`);
+  }
+});
+
+test('Any valid Claude model can be used as execution/worker model', () => {
+  // Test with all major model families
+  for (const model of ['claude-opus-4-6', 'claude-opus-4-5-20251101', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']) {
+    const env = getClaudeEnv({ model: 'opusplan', executionModel: model });
+    assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, model, `Should accept ${model} as execution model`);
+  }
 });
 
 // ============================================================

@@ -12,6 +12,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
@@ -974,7 +975,7 @@ export const executeClaudeCommand = async params => {
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
-              const data = JSON.parse(line);
+              const data = sanitizeObjectStrings(JSON.parse(line));
               // Process event in interactive mode
               if (interactiveHandler) {
                 try {
@@ -1153,7 +1154,7 @@ export const executeClaudeCommand = async params => {
       // Issue #1183: Process remaining buffer content - extract cost from result type if present
       if (stdoutLineBuffer.trim()) {
         try {
-          const data = JSON.parse(stdoutLineBuffer);
+          const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
           await log(JSON.stringify(data, null, 2));
           if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;

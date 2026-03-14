@@ -346,6 +346,11 @@ jobs:
           echo "Running test suite for Telegram URL validation..."
           node tests/test-telegram-validate-url.mjs
 
+      - name: Run Unicode sanitization test (Issue #1324)
+        run: |
+          echo "Running test suite for Unicode sanitization..."
+          node tests/test-unicode-sanitization.mjs
+
       - name: Run interactive mode test (Issue #800)
         run: |
           echo "Running test suite for interactive mode..."

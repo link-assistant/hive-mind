@@ -42,38 +42,11 @@ const CONFIG = {
   MAX_JSON_DEPTH: 10,
 };
 
-/**
- * Sanitize a string by replacing orphaned UTF-16 surrogate characters with the
- * Unicode replacement character (U+FFFD).
- *
- * Background: Characters outside the Basic Multilingual Plane (e.g. emojis like 🤖
- * U+1F916) are encoded in UTF-16 as surrogate pairs — a high surrogate (U+D800–U+DBFF)
- * followed by a low surrogate (U+DC00–U+DFFF). When text is truncated at a code-unit
- * boundary rather than a code-point boundary, one half of the pair can be left without
- * its partner, producing invalid Unicode. JavaScript's JSON.stringify() will emit an
- * unpaired surrogate as-is (e.g. "\ud83e"), and strict JSON parsers — including the
- * Anthropic API — correctly reject such payloads with a 400 error.
- *
- * This function removes both kinds of orphaned surrogates:
- *   - High surrogate NOT followed by a low surrogate
- *   - Low surrogate NOT preceded by a high surrogate
- *
- * @see https://github.com/link-assistant/hive-mind/issues/1324
- * @see https://www.rfc-editor.org/rfc/rfc8259#section-7
- *
- * @param {string} text - Input string that may contain orphaned surrogates
- * @returns {string} String with every orphaned surrogate replaced by U+FFFD
- */
-const sanitizeUnicode = text => {
-  if (!text || typeof text !== 'string') {
-    return text || '';
-  }
-  // Regex explanation:
-  //   [\uD800-\uDBFF](?![\uDC00-\uDFFF])  — high surrogate not followed by low surrogate
-  //   |
-  //   (?<![\uD800-\uDBFF])[\uDC00-\uDFFF] — low surrogate not preceded by high surrogate
-  return text.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '\uFFFD');
-};
+// Import sanitizeUnicode from the shared module so that the same logic is used
+// everywhere: in the interactive-mode PR-comment path and in the regular
+// Claude output parsing path (claude.lib.mjs).
+// See: https://github.com/link-assistant/hive-mind/issues/1324
+import { sanitizeUnicode } from './unicode-sanitization.lib.mjs';
 
 /**
  * Truncate content in the middle, keeping start and end

@@ -17,6 +17,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
 export const mapModelToId = model => {
@@ -322,7 +323,7 @@ export const executeOpenCodeCommand = async params => {
             const lines = output.split('\n');
             for (const line of lines) {
               if (!line.trim()) continue;
-              const data = JSON.parse(line);
+              const data = sanitizeObjectStrings(JSON.parse(line));
               // Track text content for result summary
               // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
               if (data.type === 'text' && data.text) {
@@ -364,7 +365,7 @@ export const executeOpenCodeCommand = async params => {
               const lines = errorOutput.split('\n');
               for (const line of lines) {
                 if (!line.trim()) continue;
-                const data = JSON.parse(line);
+                const data = sanitizeObjectStrings(JSON.parse(line));
                 if (data.type === 'text' && data.text) {
                   lastTextContent = data.text;
                 } else if (data.type === 'assistant' && data.message?.content) {

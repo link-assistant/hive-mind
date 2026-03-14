@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Shared utilities for watch mode and auto-restart-until-mergable mode
+ * Shared utilities for watch mode and auto-restart-until-mergeable mode
  *
  * This module contains common functions used by both:
  * - solve.watch.lib.mjs (--watch mode and temporary auto-restart)
- * - solve.auto-merge.lib.mjs (--auto-merge and --auto-restart-until-mergable)
+ * - solve.auto-merge.lib.mjs (--auto-merge and --auto-restart-until-mergeable)
  *
  * Functions extracted to reduce duplication and ensure consistent behavior.
  *
@@ -167,7 +167,7 @@ export const getUncommittedChangesDetails = async tempDir => {
 
 /**
  * Execute the AI tool (Claude, OpenCode, Codex, Agent) for a restart iteration
- * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergable mode
+ * This is the shared tool execution logic used by both watch mode and auto-restart-until-mergeable mode
  * @param {Object} params - Execution parameters
  * @returns {Promise<Object>} - Tool execution result
  */
@@ -359,6 +359,18 @@ export const isApiError = toolResult => {
   return errorPatterns.some(pattern => toolResult.result.includes(pattern));
 };
 
+/**
+ * Issue #1356: Check if a tool result indicates a usage limit was reached
+ * This is separate from isApiError because usage limits return different fields
+ * (limitReached, limitResetTime) and require different handling (exit loop, not retry).
+ * @param {Object} toolResult - Tool execution result
+ * @returns {boolean}
+ */
+export const isUsageLimitReached = toolResult => {
+  if (!toolResult) return false;
+  return toolResult.limitReached === true;
+};
+
 export default {
   checkPRMerged,
   checkPRClosed,
@@ -369,4 +381,5 @@ export default {
   buildAutoRestartInstructions,
   buildUncommittedChangesFeedback,
   isApiError,
+  isUsageLimitReached,
 };

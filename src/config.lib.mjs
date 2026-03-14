@@ -18,7 +18,9 @@ if (typeof globalThis.use === 'undefined') {
   }
 }
 
-const getenv = await use('getenv');
+const getenvModule = await use('getenv');
+// Node 24 CJS/ESM interop may return the whole module object instead of the function directly
+const getenv = typeof getenvModule === 'function' ? getenvModule : getenvModule.default || getenvModule;
 
 // Use semver package for version comparison (see issue #1146)
 import semver from 'semver';
@@ -49,6 +51,9 @@ export const timeouts = {
   githubRepoDelay: parseIntWithDefault('HIVE_MIND_GITHUB_REPO_DELAY_MS', 2000),
   retryBaseDelay: parseIntWithDefault('HIVE_MIND_RETRY_BASE_DELAY_MS', 5000),
   retryBackoffDelay: parseIntWithDefault('HIVE_MIND_RETRY_BACKOFF_DELAY_MS', 1000),
+  // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
+  // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
+  resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
 };
 
 // Auto-continue configurations
@@ -58,10 +63,19 @@ export const autoContinue = {
 
 // Auto-resume on limit reset configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1152
+// See: https://github.com/link-assistant/hive-mind/issues/1236
 export const limitReset = {
   // Buffer time to wait after limit reset (in milliseconds)
-  // Default: 5 minutes - accounts for server time differences
-  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 5 * 60 * 1000),
+  // Default: 10 minutes - accounts for server time differences and API propagation delays
+  // Increased from 5 to 10 minutes to reduce risk of hitting limits again immediately
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  bufferMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_BUFFER_MS', 10 * 60 * 1000),
+  // Random jitter added to buffer to avoid thundering herd problem (in milliseconds)
+  // When multiple instances wait for the same limit reset, jitter distributes their
+  // resume times to reduce simultaneous API load
+  // Default: 5 minutes (0 to 5 minutes random) - total wait after reset: 10-15 minutes
+  // See: https://github.com/link-assistant/hive-mind/issues/1236
+  jitterMs: parseIntWithDefault('HIVE_MIND_LIMIT_RESET_JITTER_MS', 5 * 60 * 1000),
 };
 
 // GitHub API limits
@@ -80,13 +94,22 @@ export const systemLimits = {
 };
 
 // Retry configurations
+// Issue #1331: All API error types use unified retry parameters:
+// 10 max retries, 1 minute initial delay, 30 minute max delay (exponential backoff), session preserved
 export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
   maxApiRetries: parseIntWithDefault('HIVE_MIND_MAX_API_RETRIES', 3),
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
-  max503Retries: parseIntWithDefault('HIVE_MIND_MAX_503_RETRIES', 3),
-  initial503RetryDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_503_RETRY_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
+  maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
+  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 60 * 1000), // 1 minute
+  maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
+  // Request timeout retry configuration (Issue #1353)
+  // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
+  maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
+  initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
+  maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
 };
 
 // Claude Code CLI configurations
@@ -119,22 +142,25 @@ export const claudeCode = {
 // Can be overridden via --max-thinking-budget option
 export const DEFAULT_MAX_THINKING_BUDGET = 31999;
 
-// Default max thinking budget for Opus 4.6 (Issue #1221)
-// Opus 4.6 supports higher thinking budgets due to 128K max output tokens
+// Default max thinking budget for Opus 4.6 (Issue #1221, updated in Issue #1238)
+// Aligned with standard models (31999) for consistency.
+// Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth instead of MAX_THINKING_TOKENS
+// (MAX_THINKING_TOKENS is ignored for Opus 4.6 unless set to 0 to disable thinking).
 // Can be overridden via --max-thinking-budget option or HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46
-export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 64000);
+export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46', 31999);
 
 /**
- * Check if a model is Opus 4.6 or later (Issue #1221)
+ * Check if a model is Opus 4.6 or later (Issue #1221, updated in Issue #1238)
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Opus 4.6 or later
  */
 export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // Check for opus alias (which maps to 4.6), explicit opus-4-6, or opusplan (Issue #1223)
-  // opusplan uses Opus 4.6 for planning, so it should get Opus-level settings
-  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
+  // Note: The 'opus' alias now maps to Opus 4.5 (Issue #1238), so we only check explicit version identifiers
+  // opusplan uses Opus for planning, so it should get Opus-level settings
+  return normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**
@@ -203,6 +229,59 @@ export const getTokensToThinkingLevel = (maxBudget = DEFAULT_MAX_THINKING_BUDGET
 // Default tokens to thinking level function (using default max budget)
 export const tokensToThinkingLevel = getTokensToThinkingLevel(DEFAULT_MAX_THINKING_BUDGET);
 
+/**
+ * Valid effort levels for Opus 4.6 (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL for thinking depth control
+ * @type {string[]}
+ */
+export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high'];
+
+/**
+ * Convert thinking level to Opus 4.6 effort level (Issue #1238)
+ * Opus 4.6 uses CLAUDE_CODE_EFFORT_LEVEL (low/medium/high) instead of MAX_THINKING_TOKENS
+ * @param {string|undefined} thinkLevel - The thinking level (off/low/medium/high/max)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkLevelToEffortLevel = thinkLevel => {
+  if (!thinkLevel || thinkLevel === 'off') {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Map hive-mind thinking levels to Opus 4.6 effort levels
+  // Note: Opus 4.6 only supports low/medium/high, not 'max'
+  // We map 'max' to 'high' as it's the highest available level
+  switch (thinkLevel) {
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'high':
+    case 'max':
+      return 'high';
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * Convert thinking budget (tokens) to Opus 4.6 effort level (Issue #1238)
+ * Uses token thresholds to determine the appropriate effort level
+ * @param {number|undefined} thinkingBudget - The thinking budget in tokens
+ * @param {number} maxBudget - Maximum thinking budget (default: 31999)
+ * @returns {string|undefined} The effort level (low/medium/high) or undefined if thinking is off
+ */
+export const thinkingBudgetToEffortLevel = (thinkingBudget, maxBudget = DEFAULT_MAX_THINKING_BUDGET) => {
+  if (thinkingBudget === undefined || thinkingBudget === 0) {
+    // No effort level when thinking is disabled
+    return undefined;
+  }
+
+  // Convert tokens to thinking level, then to effort level
+  const thinkLevel = getTokensToThinkingLevel(maxBudget)(thinkingBudget);
+  return thinkLevelToEffortLevel(thinkLevel);
+};
+
 // Check if a version supports thinking budget (>= minimum version)
 // Uses semver npm package for reliable version comparison (see issue #1146)
 export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
@@ -222,6 +301,7 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Optionally sets MAX_THINKING_TOKENS when thinkingBudget is provided (see issue #1146)
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
+// Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
 // Supports planModel/executionModel for opusplan mode (Issue #1223)
 // See: https://code.claude.com/docs/en/model-config
 //   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
@@ -238,11 +318,27 @@ export const getClaudeEnv = (options = {}) => {
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
-  // Set MAX_THINKING_TOKENS if thinkingBudget is provided
-  // This controls Claude Code's extended thinking feature (Claude Code >= 2.1.12)
-  // Default is 31999 (or 64000 for Opus 4.6), set to 0 to disable thinking
-  if (options.thinkingBudget !== undefined) {
-    env.MAX_THINKING_TOKENS = String(options.thinkingBudget);
+
+  // Set MAX_THINKING_TOKENS to control Claude Code's extended thinking feature (Claude Code >= 2.1.12)
+  // Default is 0 (thinking disabled) per Issue #1238. Set to 0 to disable thinking.
+  // Users can explicitly enable thinking via --think or --thinking-budget options.
+  env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
+
+  // For Opus 4.6+, also set CLAUDE_CODE_EFFORT_LEVEL to control thinking depth (Issue #1238)
+  // Opus 4.6 uses effort level (low/medium/high) instead of MAX_THINKING_TOKENS for thinking depth.
+  // MAX_THINKING_TOKENS is only used to disable thinking (when set to 0).
+  if (options.model && isOpus46OrLater(options.model)) {
+    // Convert thinkLevel or thinkingBudget to effort level
+    let effortLevel;
+    if (options.thinkLevel) {
+      effortLevel = thinkLevelToEffortLevel(options.thinkLevel);
+    } else if (options.thinkingBudget !== undefined && options.thinkingBudget > 0) {
+      effortLevel = thinkingBudgetToEffortLevel(options.thinkingBudget, options.maxBudget);
+    }
+
+    if (effortLevel) {
+      env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
+    }
   }
   // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
   // This tells Claude Code which model to use during plan mode in opusplan
@@ -255,6 +351,7 @@ export const getClaudeEnv = (options = {}) => {
   if (options.executionModel) {
     env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
   }
+
   return env;
 };
 
@@ -337,6 +434,8 @@ export const version = {
 
 // Merge queue configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1143
+// See: https://github.com/link-assistant/hive-mind/issues/1269
+// See: https://github.com/link-assistant/hive-mind/issues/1307
 export const mergeQueue = {
   // Maximum PRs to process in one merge session
   // Default: 10 PRs per session
@@ -350,6 +449,47 @@ export const mergeQueue = {
   // Wait time after merge before processing next PR
   // Default: 1 minute (60000ms) - allows CI to stabilize
   postMergeWaitMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_WAIT_MS', 60 * 1000),
+  // Default merge method: 'merge', 'squash', or 'rebase'
+  // Issue #1269: gh pr merge requires explicit method when running non-interactively
+  // Default: 'merge' - creates a merge commit
+  mergeMethod: getenv('HIVE_MIND_MERGE_QUEUE_MERGE_METHOD', 'merge'),
+  // Issue #1307: Wait for main branch CI to complete before processing merge queue
+  // When enabled, the merge queue will wait for any active CI runs on the target branch
+  // (usually main) to complete before merging the first PR.
+  // Default: true - ensures all post-merge CI workflows complete before next merge
+  waitForTargetBranchCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_TARGET_CI', 'true').toLowerCase() === 'true',
+  // Issue #1307: Timeout for waiting on target branch CI (in milliseconds)
+  // If active runs don't complete within this time, proceed with merge anyway
+  // Default: 45 minutes (2700000ms)
+  targetBranchCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_TIMEOUT_MS', 45 * 60 * 1000),
+  // Issue #1307: Polling interval for checking target branch CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - more frequent than PR CI polling since we're blocking
+  targetBranchCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_TARGET_CI_POLL_INTERVAL_MS', 30 * 1000),
+  // Issue #1341: Wait for post-merge CI to complete before merging next PR
+  // When enabled, the merge queue will wait for all CI runs triggered by a merge
+  // to complete before processing the next PR. This ensures each merge gets its own
+  // release/publish cycle.
+  // Default: true - ensures post-merge CI (including release workflows) completes
+  waitForPostMergeCI: getenv('HIVE_MIND_MERGE_QUEUE_WAIT_FOR_POST_MERGE_CI', 'true').toLowerCase() === 'true',
+  // Issue #1341: Stop the queue if post-merge CI fails
+  // When enabled, the merge queue will stop processing if any post-merge CI run fails
+  // This prevents cascading failures and allows humans to investigate
+  // Default: true - stop on failure to prevent problems from multiplying
+  stopOnPostMergeCIFailure: getenv('HIVE_MIND_MERGE_QUEUE_STOP_ON_CI_FAILURE', 'true').toLowerCase() === 'true',
+  // Issue #1341: Check for existing CI failures before starting the queue
+  // When enabled, the merge queue will check if there are any failed CI runs on
+  // the default branch before starting to process PRs. If failures exist, it will
+  // report them and stop.
+  // Default: true - ensure a healthy branch before merging
+  checkBranchCIHealthBeforeStart: getenv('HIVE_MIND_MERGE_QUEUE_CHECK_BRANCH_HEALTH', 'true').toLowerCase() === 'true',
+  // Issue #1341: Timeout for waiting on post-merge CI (in milliseconds)
+  // This is per-merge, not total. If a single merge's CI doesn't complete within
+  // this time, the queue will fail with a timeout error.
+  // Default: 60 minutes (3600000ms) - typical CI/CD pipelines take 15-45 minutes
+  postMergeCITimeoutMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_TIMEOUT_MS', 60 * 60 * 1000),
+  // Issue #1341: Polling interval for post-merge CI status (in milliseconds)
+  // Default: 30 seconds (30000ms) - balance between responsiveness and API rate limits
+  postMergeCIPollIntervalMs: parseIntWithDefault('HIVE_MIND_MERGE_QUEUE_POST_MERGE_CI_POLL_INTERVAL_MS', 30 * 1000),
 };
 
 // Helper function to validate configuration values

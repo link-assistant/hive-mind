@@ -21,18 +21,18 @@ Inspired by [konard/problem-solving](https://github.com/konard/problem-solving)
 
 Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range of tasks - not just programming. Almost anything that can be done with files in a repository can be automated.
 
-| Feature                      | What It Means For You                                                                              |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.             |
-| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                        |
-| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                           |
-| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.               |
-| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                   |
-| **Time Freedom**             | What takes humans 2-8 hours, AI completes in 10-25 minutes. "The code is written while you sleep." |
-| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                              |
-| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                    |
-| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive`. No PC, IDE, or laptop required.               |
-| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                   |
+| Feature                      | What It Means For You                                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No Babysitting**           | Full autonomous mode with sudo access. AI has creative freedom like a real programmer.                                                                                     |
+| **Cloud Isolation**          | Runs on dedicated VMs or Docker. Easy to restore if broken.                                                                                                                |
+| **Full Internet + Sudo**     | AI can install packages, fetch docs, and configure the system as needed.                                                                                                   |
+| **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.                                                                                       |
+| **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                                                                                           |
+| **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                                                                                                      |
+| **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                                                                                            |
+| **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.                                                                      |
+| **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                                                                                           |
 
 > _"Compared to Codex for $200, this solution is fire."_ - User feedback
 
@@ -46,7 +46,7 @@ For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md
 
 It is UNSAFE to run this software on your developer machine.
 
-It is recommended to use SEPARATE Ubuntu 24.04 installation (installation script is prepared for you).
+It is recommended to use Docker for installation (both locally and on servers). See the [Docker installation](#using-docker) section below.
 
 This software uses full autonomous mode of Claude Code, that means it is free to execute any commands it sees fit.
 
@@ -143,17 +143,20 @@ sudo docker run hello-world
 
 Run the Hive Mind using Docker for safer local installation - no manual setup required:
 
-**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes) section below.
+**Note:** Docker is much safer for local installation and can be used to install multiple isolated instances on a server or Kubernetes cluster. For Kubernetes deployments, see the [Helm chart installation](#helm-installation-kubernetes-experimental) section below.
 
 ```bash
 # Pull the latest image from Docker Hub
 docker pull konard/hive-mind:latest
 
-# Run an interactive session
-docker run -it konard/hive-mind:latest
+# Start hive-mind container
+docker run -dit --name hive-mind konard/hive-mind:latest
 
-# IMPORTANT: Authenticate AFTER the Docker image is installed
-# This avoids build timeouts and allows the installation to complete successfully
+# Verify container started
+docker ps -a
+
+# Enter additional terminal process to do installation
+docker exec -it hive-mind /bin/bash
 
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
@@ -161,8 +164,56 @@ gh-setup-git-identity
 # Authenticate with Claude
 claude
 
+# Optionally set configuration like this:
+# Use /config command and set:
+# Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
+# Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# Model                                     haiku # chepear for connection testing manually
+# Claude in Chrome enabled by default       false # No need for Chrome support on server
+
+# Optionally test Claude connection
+claude -p hi --model haiku
+
+# You might need to update hive-mind and agent to latest versions:
+bun install -g @link-assistant/hive-mind
+bun install -g @link-assistant/agent
+
 # Now you can use hive and solve commands
 solve https://github.com/owner/repo/issues/123
+
+# Or you can run telegram bot:
+
+# Exit from additional bash session
+exit
+
+# Attach to main bash process
+docker attach hive-mind
+
+# Run bot here
+
+# Press Ctrl + P, Ctrl + Q to detach without destroying the container (no stopping of main bash process)
+
+# --- Persisting auth data across restarts ---
+
+# Extract auth data from a running (or stopped) container to the host:
+mkdir -p ~/.hive-mind
+docker cp hive-mind:/home/hive/.claude ~/.hive-mind/claude
+docker cp hive-mind:/home/hive/.claude.json ~/.hive-mind/claude.json
+docker cp hive-mind:/home/hive/.config/gh ~/.hive-mind/gh
+
+# Fix ownership to match the hive user inside the container:
+HIVE_UID=$(docker exec hive-mind id -u hive)
+chown -R $HIVE_UID:$HIVE_UID ~/.hive-mind/claude ~/.hive-mind/gh
+chown $HIVE_UID:$HIVE_UID ~/.hive-mind/claude.json
+
+# On subsequent runs, mount the auth data to keep it between restarts:
+docker run -dit \
+  --name hive-mind \
+  --restart unless-stopped \
+  -v /root/.hive-mind/claude:/home/hive/.claude \
+  -v /root/.hive-mind/claude.json:/home/hive/.claude.json \
+  -v /root/.hive-mind/gh:/home/hive/.config/gh \
+  konard/hive-mind:latest
 ```
 
 **Benefits of Docker:**
@@ -175,153 +226,72 @@ solve https://github.com/owner/repo/issues/123
 
 See [docs/DOCKER.md](./docs/DOCKER.md) for advanced Docker usage.
 
-### Helm Installation (Kubernetes)
+#### Stoping and removing docker container
 
-Deploy Hive Mind on Kubernetes using Helm:
+```
+# Attach to main docker process to stop the container
+docker attach hive-mind
 
-```bash
-# Add the Hive Mind Helm repository
-helm repo add link-assistant https://link-assistant.github.io/hive-mind
-helm repo update
+^C # stop the telegram bot
 
-# Install Hive Mind
-helm install hive-mind link-assistant/hive-mind
+exit # exit/stop the container
 
-# Or install with custom values
-helm install hive-mind link-assistant/hive-mind -f values.yaml
+docker ps -a # show list of docker containers
+# CONTAINER ID   IMAGE                     COMMAND       CREATED      STATUS                        PORTS     NAMES
+# fd0fd4470ec3   konard/hive-mind:latest   "/bin/bash"   5 days ago   Exited (130) 16 seconds ago             hive-mind
+
+
+df -h # check disk space
+# Filesystem      Size  Used Avail Use% Mounted on
+# tmpfs           1.2G  1.1M  1.2G   1% /run
+# /dev/sda1        96G   87G  9.8G  90% /
+# tmpfs           5.9G     0  5.9G   0% /dev/shm
+# tmpfs           5.0M     0  5.0M   0% /run/lock
+# /dev/sda16      881M  117M  703M  15% /boot
+# /dev/sda15      105M  6.2M   99M   6% /boot/efi
+# tmpfs           1.2G   12K  1.2G   1% /run/user/0
+
+docker rm hive-mind # remove docker container frees space used by the container, does not delete image
+
+df -h # check disk space (to confirm space is freed)
+# Filesystem      Size  Used Avail Use% Mounted on
+# tmpfs           1.2G  1.1M  1.2G   1% /run
+# /dev/sda1        96G   26G   71G  27% /
+# tmpfs           5.9G     0  5.9G   0% /dev/shm
+# tmpfs           5.0M     0  5.0M   0% /run/lock
+# /dev/sda16      881M  117M  703M  15% /boot
+# /dev/sda15      105M  6.2M   99M   6% /boot/efi
+# tmpfs           1.2G   12K  1.2G   1% /run/user/0
 ```
 
-**Benefits of Helm:**
+### Helm Installation (Kubernetes) (Experimental)
 
-- ✅ Easy deployment to Kubernetes clusters
-- ✅ Declarative configuration management
-- ✅ Simple upgrades and rollbacks
-- ✅ Production-ready with configurable resources
-- ✅ Supports multiple replicas and scaling
+> ⚠️ **EXPERIMENTAL:** The Helm/Kubernetes installation method is experimental and may not be fully stable.
+>
+> For a more reliable installation, we recommend using [Docker](#using-docker) instead.
+>
+> See [docs/HELM.md](./docs/HELM.md) for the full Helm installation instructions and configuration options.
 
-See [docs/HELM.md](./docs/HELM.md) for detailed Helm configuration options.
+### Installation on Ubuntu 24.04 server (Deprecated)
 
-**Note:** The Helm chart is published to [ArtifactHub](https://artifacthub.io/packages/helm/link-assistant/hive-mind) for easy discovery.
-
-### Installation on Ubuntu 24.04 server
-
-1. Reset/install VPS/VDS server with fresh Ubuntu 24.04
-2. Login to `root` user.
-3. Execute main installation script
-
-   ```bash
-   curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
-   ```
-
-   **Note:** The installation script will NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
-
-4. Login to `hive` user
-
-   ```bash
-   su - hive
-   ```
-
-5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete
-
-   ```bash
-   gh-setup-git-identity
-   ```
-
-   Note: Follow the prompts to authenticate with your GitHub account. This is required for the gh tool to work, and the system will perform all actions using this GitHub account. This step must be done AFTER the installation script completes to avoid build timeouts in Docker environments.
-
-6. Claude Code CLI, OpenCode AI CLI, and @link-assistant/agent are preinstalled with the previous script. Now you need to make sure claude is authorized. Execute claude command, and follow all steps to authorize the local claude
-
-   ```bash
-   claude
-   ```
-
-   Note: Both opencode and agent come with free Grok Code Fast 1 model by default - so no authorization is required for these tools.
-
-7. Launch the Hive Mind telegram bot:
-
-   **Using Links Notation (recommended):**
-
-   ```
-   screen -R bot # Enter new screen for bot
-
-   hive-telegram-bot --configuration "
-     TELEGRAM_BOT_TOKEN: '849...355:AAG...rgk_YZk...aPU'
-     TELEGRAM_ALLOWED_CHATS:
-       -1002975819706
-       -1002861722681
-     TELEGRAM_HIVE_OVERRIDES:
-       --all-issues
-       --once
-       --skip-issues-with-prs
-       --attach-logs
-       --verbose
-       --no-tool-check
-       --auto-resume-on-limit-reset
-     TELEGRAM_SOLVE_OVERRIDES:
-       --attach-logs
-       --verbose
-       --no-tool-check
-       --auto-resume-on-limit-reset
-     TELEGRAM_BOT_VERBOSE: true
-   "
-
-   # Press CTRL + A + D for detach from screen
-   ```
-
-   **Using individual command-line options:**
-
-   ```
-   screen -R bot # Enter new screen for bot
-
-   hive-telegram-bot --token 849...355:AAG...rgk_YZk...aPU --allowed-chats "(
-     -1002975819706
-     -1002861722681
-   )" --hive-overrides "(
-     --all-issues
-     --once
-     --skip-issues-with-prs
-     --attach-logs
-     --verbose
-     --no-tool-check
-     --auto-resume-on-limit-reset
-   )" --solve-overrides "(
-     --attach-logs
-     --verbose
-     --no-tool-check
-     --auto-resume-on-limit-reset
-   )" --verbose
-
-   # Press CTRL + A + D for detach from screen
-   ```
-
-   Note: You may need to register you own bot with https://t.me/BotFather to get the bot token.
-
-#### Codex sign-in
-
-1. Connect to your instance of VPS with Hive Mind installed, using SSH with tunnel opened
-
-```bash
-ssh -L 1455:localhost:1455 root@123.123.123.123
-```
-
-2. Start codex login oAuth server:
-
-```bash
-codex login
-```
-
-The oAuth callback server on 1455 port will be started, and the link to oAuth will be printed, copy the link.
-
-3. Use your browser on machine where you started the tunnel from, paste there the link from `codex login` command, and go there using your browser. Once redirected to localhost:1455 you will see successful login page, and in `codex login` you will see `Successfully logged in`. After that `codex login` command will complete, and you can use `codex` command as usual to verify. It should also be working with `--tool codex` in `solve` and `hive` commands.
+> ⚠️ **DEPRECATED:** This installation method is no longer recommended.
+>
+> **We now recommend using Docker for all installations**, both on developer machines and servers.
+> Docker provides better isolation, easier management, and consistent environments.
+>
+> Please use the [Docker installation method](#using-docker) above.
+> For Kubernetes deployments, see the [Helm installation](#helm-installation-kubernetes-experimental) section.
+>
+> The legacy bare-metal installation instructions have been moved to [docs/UBUNTU-SERVER.md](./docs/UBUNTU-SERVER.md) for reference.
 
 ### Core Operations
 
 ```bash
 # Solve using maximum power
-solve https://github.com/Veronika89-lang/index.html/issues/1 --auto-continue --attach-logs --verbose --model opus --auto-fork --think max
+solve https://github.com/Veronika89-lang/index.html/issues/1 --attach-logs --verbose --model opus --think max
 
-# Solve GitHub issues automatically (auto-fork if no write access)
-solve https://github.com/owner/repo/issues/123 --auto-fork --model sonnet
+# Solve GitHub issues automatically
+solve https://github.com/owner/repo/issues/123 --model sonnet
 
 # Solve issue with PR to custom branch (manual fork mode)
 solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
@@ -335,8 +305,8 @@ solve https://github.com/owner/repo/issues/123 --resume session-id
 # Start hive orchestration (monitor and solve issues automatically)
 hive https://github.com/owner/repo --monitor-tag "help wanted" --concurrency 3
 
-# Monitor all issues in organization with auto-fork
-hive https://github.com/microsoft --all-issues --max-issues 10 --auto-fork
+# Monitor all issues in organization
+hive https://github.com/microsoft --all-issues --max-issues 10
 
 # Run collaborative review process
 review --repo owner/repo --pr 456
@@ -354,8 +324,6 @@ review --repo owner/repo --pr 456
 | `review.mjs` (alpha)                        | Code review automation        | Collaborative AI reviews, automated feedback                             |
 | `reviewers-hive.mjs` (alpha / experimental) | Review team management        | Multi-agent consensus, reviewer assignment                               |
 | `telegram-bot.mjs` (stable)                 | Telegram bot interface        | Remote command execution, group chat support, diagnostic tools           |
-
-> **Note**: For a comprehensive analysis of the "Could not process image" error in AI issue solvers, see the [Case Study: Issue #597](docs/case-studies/issue-597/README.md). The case study includes root cause analysis, timeline reconstruction, and evidence of GitHub's time-limited S3 URLs causing image processing failures. Separate tools for downloading GitHub issues and PRs with embedded images are being developed at [gh-download-issue](https://github.com/link-foundation/gh-download-issue) and [gh-download-pull-request](https://github.com/link-foundation/gh-download-pull-request).
 
 ## 🔧 solve Options
 
@@ -416,9 +384,9 @@ The Hive Mind includes a Telegram bot interface (SwarmMindBot) for remote comman
 
 ### 🚀 Test Drive
 
-Want to see the Hive Mind in action? Join our Telegram channel where you can execute the Hive Mind on your own issues and watch AI solve them:
+Want to see the Hive Mind in action? Request a free demo or get faster support by messaging the developer directly on Telegram:
 
-**[Join https://t.me/hive_mind_pull_requests](https://t.me/hive_mind_pull_requests)**
+**[Message @drakonard on Telegram](https://t.me/drakonard)**
 
 ### Setup
 
@@ -474,7 +442,20 @@ All commands work in **group chats only** (not in private messages with the bot)
 Examples:
 /solve https://github.com/owner/repo/issues/123 --model sonnet
 /solve https://github.com/owner/repo/issues/123 --model opus --think max
+
+Free Models (with --tool agent):
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kimi-k2.5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model minimax-m2.5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model gpt-5-nano
+/solve https://github.com/owner/repo/issues/123 --tool agent --model big-pickle
+
+Free Models via Kilo Gateway (with --tool agent):
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-4.5-air-free
+/solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/deepseek-r1-free
 ```
+
+> **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
 #### `/hive` - Run Hive Orchestration
 
@@ -617,8 +598,8 @@ sequenceDiagram
 ### Automated Issue Resolution
 
 ```bash
-# Auto-fork and solve issue (automatic fork detection for public repos)
-solve https://github.com/owner/repo/issues/123 --auto-fork --model opus
+# Solve issue (automatically forks if no write access)
+solve https://github.com/owner/repo/issues/123 --model opus
 
 # Manual fork and solve issue (works for both public and private repos)
 solve https://github.com/owner/repo/issues/123 --fork --model opus
@@ -639,17 +620,17 @@ solve https://github.com/owner/repo/issues/123 --dry-run
 # Monitor single repository with specific label
 hive https://github.com/owner/repo --monitor-tag "bug" --concurrency 4
 
-# Monitor all issues in an organization with auto-fork
-hive https://github.com/microsoft --all-issues --max-issues 20 --once --auto-fork
+# Monitor all issues in an organization
+hive https://github.com/microsoft --all-issues --max-issues 20 --once
 
 # Monitor user repositories with high concurrency
-hive https://github.com/username --all-issues --concurrency 8 --interval 120 --auto-fork
+hive https://github.com/username --all-issues --concurrency 8 --interval 120
 
 # Skip issues that already have PRs
 hive https://github.com/org/repo --skip-issues-with-prs --verbose
 
-# Auto-cleanup temporary files and auto-fork if needed
-hive https://github.com/org/repo --auto-cleanup --auto-fork --concurrency 5
+# Auto-cleanup temporary files
+hive https://github.com/org/repo --auto-cleanup --concurrency 5
 ```
 
 ### Session Management
@@ -786,9 +767,21 @@ procinfo 62220
 
 ## Maintenance
 
+### Enter latest screen
+
+```bash
+s=$(screen -ls | awk '/Detached/ {print $1; exit}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
+```
+
+### Enter oldest screen
+
+```bash
+s=$(screen -ls | awk '/Detached/ {last=$1} END{print last}'); echo "Entering $s"; screen -r "$s"; echo "Left $s";
+```
+
 ### Reboot server.
 
-```
+```bash
 sudo reboot
 ```
 
@@ -796,7 +789,7 @@ That will remove all dangling unused proccesses and screens, which will in turn 
 
 ### Cleanup disk space.
 
-```
+```bash
 df -h
 
 rm -rf /tmp
@@ -826,6 +819,30 @@ screen -wipe
 screen -ls
 ```
 
+### Top with full arguments of each command
+
+```bash
+top -c
+```
+
+### See the full tree of processes
+
+```bash
+ps -eo pid,ppid,user,args --forest
+```
+
+or
+
+```bash
+ps axjf
+```
+
+### Kill all commands spawned by specific task
+
+```bash
+pkill -f gh-issue-solver-1773073065743
+```
+
 That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License
@@ -834,7 +851,10 @@ Unlicense License - see [LICENSE](./LICENSE)
 
 ## 🏆 Best Practices
 
-Hive Mind works even better when repositories have strong CI/CD pipelines. See [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) for recommended configurations that maximize AI solver quality.
+Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
+
+- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
+- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
 
 Key benefits of proper CI/CD:
 

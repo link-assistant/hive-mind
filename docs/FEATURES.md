@@ -184,6 +184,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 - Session resumption after rate limits
 - Auto-continue when limits reset
 - Detailed logging with `--attach-logs`
+- Solution summary attachment with `--attach-solution-summary` or `--auto-attach-solution-summary`
 - Sentry integration for error tracking
 - Memory and resource monitoring
 

@@ -20,8 +20,10 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     globalThis.use = use;
     const yargsModule = await use('yargs@17.7.2');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await use('yargs@17.7.2/helpers');
-    const rawArgs = hideBin(process.argv);
+    const helpersModuleHelp = await use('yargs@17.7.2/helpers');
+    const _helpersHelp = helpersModuleHelp.default || helpersModuleHelp;
+    const hideBinHelp = _helpersHelp.hideBin || (argv => argv.slice(2));
+    const rawArgs = hideBinHelp(process.argv);
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -52,7 +54,13 @@ if (isDirectExecution) {
     console.log('   Loading dependencies (this may take a moment)...');
     // Helper function to add timeout to async operations
     const withTimeout = (promise, timeoutMs, operation) => {
-      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs))]);
+      let timeoutId;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
     };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
@@ -80,7 +88,9 @@ if (isDirectExecution) {
     );
     const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const helpersModuleMain = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const _helpersMain = helpersModuleMain.default || helpersModuleMain;
+    const hideBin = _helpersMain.hideBin || (argv => argv.slice(2));
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
@@ -754,37 +764,41 @@ if (isDirectExecution) {
             const startTime = Date.now();
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-            // Build arguments array to avoid shell parsing issues
+            // Auto-forward all solve-passthrough options from hive argv to solve.
+            // New options added to SOLVE_OPTION_DEFINITIONS are automatically forwarded.
+            // See: https://github.com/link-assistant/hive-mind/issues/1209
+            const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
+            const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
+            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) args.push('--tool', argv.tool);
-            if (argv.fork) args.push('--fork');
-            if (argv.autoFork) args.push('--auto-fork');
-            if (argv.verbose) args.push('--verbose');
-            if (argv.attachLogs) args.push('--attach-logs');
-            if (argv.targetBranch) args.push('--target-branch', argv.targetBranch);
-            if (argv.logDir) args.push('--log-dir', argv.logDir);
-            if (argv.dryRun) args.push('--dry-run');
+            // Special handling for options with different semantics in hive vs solve
+            if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
+            else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
-            args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
-            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
-            if (argv.think) args.push('--think', argv.think);
-            if (argv.thinkingBudget !== undefined) args.push('--thinking-budget', argv.thinkingBudget);
-            if (argv.maxThinkingBudget !== undefined && argv.maxThinkingBudget !== 31999) args.push('--max-thinking-budget', argv.maxThinkingBudget);
-            if (argv.planModel) args.push('--plan-model', argv.planModel);
-            if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) args.push('--no-sentry');
-            if (argv.watch) args.push('--watch');
-            if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
-            if (argv.interactiveMode) args.push('--interactive-mode');
-            if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
-            if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
-            if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
-            if (argv.promptExperimentsFolder !== undefined) args.push('--prompt-experiments-folder', argv.promptExperimentsFolder);
-            if (argv.promptExamplesFolder !== undefined) args.push('--prompt-examples-folder', argv.promptExamplesFolder);
-            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
-            if (argv.autoMerge) args.push('--auto-merge');
-            if (argv.autoRestartUntilMergable) args.push('--auto-restart-until-mergable');
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default
+
+            // Options already handled above or deprecated aliases (skip in generic loop)
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+
+            for (const optionName of getSolvePassthroughOptionNames()) {
+              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
+              const camelName = kebabToCamel(optionName);
+              const value = argv[camelName];
+              const def = SOLVE_OPTION_DEFINITIONS[optionName];
+              if (!def) continue;
+              if (def.type === 'boolean') {
+                if (value === undefined) continue;
+                // For booleans with default true or undefined, forward both --flag and --no-flag
+                if (def.default === true || def.default === undefined) {
+                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
+                } else if (value) {
+                  args.push(`--${optionName}`); // Default false: only forward when truthy
+                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+                args.push(`--${optionName}`, String(value));
+              }
+            }
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 

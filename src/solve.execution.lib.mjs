@@ -194,6 +194,9 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           sanitizeLogContent,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {

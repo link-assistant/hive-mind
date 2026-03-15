@@ -50,7 +50,7 @@ const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
 const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo } = lib;
 const githubLib = await import('./github.lib.mjs');
-const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
 const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks } = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -79,26 +79,15 @@ const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
+const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
+const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
+const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
-// Import new modular components
-const autoPrLib = await import('./solve.auto-pr.lib.mjs');
-const { handleAutoPrCreation } = autoPrLib;
-const repoSetupLib = await import('./solve.repo-setup.lib.mjs');
-const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = repoSetupLib;
-const branchLib = await import('./solve.branch.lib.mjs');
-const { createOrCheckoutBranch } = branchLib;
-const sessionLib = await import('./solve.session.lib.mjs');
-const { startWorkSession, endWorkSession, SESSION_TYPES } = sessionLib;
-const preparationLib = await import('./solve.preparation.lib.mjs');
-const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
-
-// Import model validation library
-const modelValidation = await import('./model-validation.lib.mjs');
-const { validateAndExitOnInvalidModel } = modelValidation;
-const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
-const { autoAcceptInviteForRepo } = acceptInviteLib;
-
-// Initialize log file EARLY (use cwd initially, will be updated after argv parsing)
+// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
 // Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
@@ -944,9 +933,11 @@ try {
             // Mark this as a usage limit case for proper formatting
             isUsageLimit: true,
             limitResetTime: global.limitResetTime,
-            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
+            requestedModel: argv.model,
+            tool: argv.tool || 'claude',
           });
 
           if (logUploadSuccess) {
@@ -1004,13 +995,15 @@ try {
               // Mark this as a usage limit case for proper formatting
               isUsageLimit: true,
               limitResetTime: global.limitResetTime,
-              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              toolName: getToolDisplayName(argv.tool),
               resumeCommand,
               sessionId,
               // Tell attachLogToGitHub that auto-resume is enabled to suppress CLI commands in the comment
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
+              requestedModel: argv.model,
+              tool: argv.tool || 'claude',
             });
 
             if (logUploadSuccess) {
@@ -1099,12 +1092,14 @@ try {
           // For usage limit, use a dedicated comment format to make it clear and actionable
           isUsageLimit: !!limitReached,
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
-          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+          toolName: getToolDisplayName(argv.tool),
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -1356,6 +1351,8 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {

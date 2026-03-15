@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Auto-merge and auto-restart-until-mergable module for solve.mjs
+ * Auto-merge and auto-restart-until-mergeable module for solve.mjs
  * Handles automatic merging of PRs and continuous restart until PR becomes mergeable
  *
  * Uses shared utilities from solve.restart-shared.lib.mjs for common functions.
@@ -25,7 +25,7 @@ const { log, cleanErrorMessage, formatAligned, getLogFile } = lib;
 
 // Note: We don't use detectAndCountFeedback from solve.feedback.lib.mjs
 // because we have our own non-bot comment detection logic that's more
-// appropriate for auto-restart-until-mergable mode
+// appropriate for auto-restart-until-mergeable mode
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRCIStatus, checkPRMergeable, mergePullRequest, waitForCI } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -41,7 +41,45 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isApiError } = restartShared;
+const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+
+// Import validation functions for time parsing (used for usage limit wait)
+const validation = await import('./solve.validation.lib.mjs');
+const { calculateWaitTime } = validation;
+
+// Import configuration (used for limit reset buffer and jitter)
+import { limitReset } from './config.lib.mjs';
+
+/**
+ * Issue #1323: Check if a comment with specific content already exists on the PR
+ * This prevents duplicate status comments when multiple processes or restarts occur
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} commentSignature - Unique signature to search for in comment body (e.g., "✅ Ready to merge")
+ * @param {boolean} verbose - Enable verbose logging
+ * @returns {Promise<boolean>} - True if a matching comment already exists
+ */
+const checkForExistingComment = async (owner, repo, prNumber, commentSignature, verbose = false) => {
+  try {
+    // Fetch recent PR comments (last 20 to avoid fetching entire history)
+    const result = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --jq '.[].body' 2>/dev/null`;
+    if (result.code === 0 && result.stdout) {
+      const bodies = result.stdout.toString();
+      const hasMatch = bodies.includes(commentSignature);
+      if (verbose && hasMatch) {
+        console.log(`[VERBOSE] Found existing comment with signature: "${commentSignature}"`);
+      }
+      return hasMatch;
+    }
+  } catch (error) {
+    // If check fails, allow posting to avoid silent failures
+    if (verbose) {
+      console.log(`[VERBOSE] Failed to check for existing comment: ${error.message}`);
+    }
+  }
+  return false;
+};
 
 /**
  * Check for new comments from non-bot users since last commit
@@ -141,23 +179,137 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
 
 /**
  * Get the reasons why PR is not mergeable
+ * Issue #1314: Comprehensive CI/CD status handling covering all possible states:
+ * - success: All CI passed → no blocker
+ * - failure: Genuine code failures → restart AI
+ * - cancelled: Manually cancelled or workflow cancelled → re-trigger, don't restart AI
+ * - pending/queued: Still running or waiting for runner → wait, don't restart AI
+ * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
+ * - no_checks: No CI checks yet (race condition) → wait
  */
 const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
   const blockers = [];
 
-  // Check CI status
-  const ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
-  if (ciStatus.status === 'failure') {
-    blockers.push({
-      type: 'ci_failure',
-      message: 'CI/CD checks are failing',
-      details: ciStatus.checks.filter(c => c.conclusion === 'failure').map(c => c.name),
-    });
+  // Use detailed CI status to distinguish between all possible states
+  const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
+
+  if (ciStatus.status === 'no_checks') {
+    // No CI checks exist yet - this could be:
+    // 1. A race condition after push (checks haven't started yet) - wait
+    // 2. A repository with no CI/CD configured at all - should be mergeable immediately
+    //
+    // Issue #1345: Distinguish by checking the PR's mergeability status.
+    // If GitHub says the PR is MERGEABLE (mergeStateStatus === 'CLEAN'),
+    // then no CI is required and we should not block indefinitely.
+    // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
+    const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+    if (earlyMergeStatus.mergeable) {
+      // Issue #1363: Before concluding "no CI configured", verify the repo actually
+      // has no active GitHub Actions workflows. If workflows exist but no checks have
+      // started yet, this is a race condition (GitHub takes ~10-30s to register checks
+      // after a push), NOT a "no CI configured" situation.
+      //
+      // This fixes a false positive where a repo with CI workflows but WITHOUT branch
+      // protection (required status checks) would be declared "no CI configured" because:
+      // - mergeStateStatus=CLEAN (no required checks to block it)
+      // - check_runs=[] (CI hasn't started yet — race condition)
+      const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
+      if (repoWorkflows.hasWorkflows) {
+        // Repo HAS workflows — this is a race condition, not "no CI configured"
+        // Wait for CI checks to appear
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks yet, but repo has ${repoWorkflows.count} active workflow(s) - treating as race condition (CI hasn't started)`);
+        }
+        blockers.push({
+          type: 'ci_pending',
+          message: `CI/CD checks have not started yet (${repoWorkflows.count} workflow(s) configured, waiting for checks to appear)`,
+          details: repoWorkflows.workflows.map(wf => wf.name),
+        });
+      } else {
+        // Repo has NO workflows — this is truly "no CI configured"
+        // PR is already mergeable with no CI checks configured.
+        // Do NOT add a ci_pending blocker. The mergeability check below will also
+        // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
+        }
+        // Return early with no CI blocker, mergeability already confirmed
+        return { blockers, ciStatus, noCiConfigured: true };
+      }
+    } else {
+      // PR is not yet mergeable despite no checks - treat as pending race condition
+      blockers.push({
+        type: 'ci_pending',
+        message: 'CI/CD checks have not started yet (waiting for checks to appear)',
+        details: [],
+      });
+    }
   } else if (ciStatus.status === 'pending') {
+    // CI is still running or queued - wait for completion
+    const pendingNames = [...ciStatus.pendingChecks, ...ciStatus.queuedChecks].map(c => c.name);
     blockers.push({
       type: 'ci_pending',
-      message: 'CI/CD checks are still running',
-      details: ciStatus.checks.filter(c => c.status !== 'completed').map(c => c.name),
+      message: 'CI/CD checks are still running or queued',
+      details: pendingNames,
+    });
+  } else if (ciStatus.status === 'cancelled') {
+    // All non-passed checks are cancelled or stale (no genuine failures)
+    // First check if this is actually a billing limit issue (billing-limited jobs may appear as cancelled)
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      // These need to be re-triggered, NOT treated as AI-fixable failures
+      const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
+      blockers.push({
+        type: 'ci_cancelled',
+        message: 'CI/CD checks were cancelled or became stale',
+        details: cancelledOrStaleChecks.map(c => c.name),
+        sha: ciStatus.sha,
+      });
+    }
+  } else if (ciStatus.status === 'failure') {
+    // Some checks genuinely failed - check if it's billing limits first
+    const billingCheck = await checkForBillingLimitError(owner, repo, prNumber, verbose);
+
+    if (billingCheck.isBillingLimitError) {
+      blockers.push({
+        type: 'billing_limit',
+        message: 'GitHub Actions billing/spending limit reached',
+        details: billingCheck.affectedJobs,
+        allJobsAffected: billingCheck.allJobsAffected,
+        billingMessage: billingCheck.message,
+      });
+    } else {
+      // Check if there are also cancelled/stale checks alongside failures
+      const cancelledOrStaleChecks = [...(ciStatus.hasCancelled ? ciStatus.cancelledChecks : []), ...((ciStatus.hasStale && ciStatus.staleChecks) || [])];
+      if (cancelledOrStaleChecks.length > 0) {
+        blockers.push({
+          type: 'ci_cancelled',
+          message: 'Some CI/CD checks were cancelled or became stale (will be re-triggered)',
+          details: cancelledOrStaleChecks.map(c => c.name),
+          sha: ciStatus.sha,
+        });
+      }
+      blockers.push({
+        type: 'ci_failure',
+        message: 'CI/CD checks are failing',
+        details: ciStatus.failedChecks.map(c => c.name),
+      });
+    }
+  } else if (ciStatus.status === 'unknown') {
+    // Unable to determine CI status - treat as pending to be safe
+    // Do NOT treat as mergeable (which would be incorrect)
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD status could not be determined (will retry)',
+      details: [],
     });
   }
 
@@ -171,14 +323,14 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
     });
   }
 
-  return blockers;
+  return { blockers, ciStatus, noCiConfigured: false };
 };
 
 /**
  * Main function: Watch and restart until PR becomes mergeable
- * This implements --auto-restart-until-mergable functionality
+ * This implements --auto-restart-until-mergeable functionality
  */
-export const watchUntilMergable = async params => {
+export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
   const watchInterval = argv.watchInterval || 60; // seconds
@@ -188,15 +340,24 @@ export const watchUntilMergable = async params => {
   let latestSessionId = null;
   let latestAnthropicCost = null;
 
-  // Track consecutive API errors for retry limit
-  const MAX_API_ERROR_RETRIES = 3;
-  let consecutiveApiErrors = 0;
+  // Issue #1323: Track actual restart count separately from check cycle iteration
+  // `iteration` counts check cycles (how many times we check for blockers)
+  // `restartCount` counts actual AI tool executions (when we actually restart the AI)
+  let restartCount = 0;
+
+  // Issue #1371: Track whether a "Ready to merge" comment was posted in THIS session.
+  // This replaces the all-time history check (checkForExistingComment) which incorrectly
+  // suppressed new notifications when a previous solve run had already posted one.
+  // In-memory deduplication correctly handles the case where multiple check cycles in
+  // the same run detect mergeability simultaneously, without blocking fresh runs.
+  let readyToMergeCommentPosted = false;
+
   let currentBackoffSeconds = watchInterval;
 
   await log('');
-  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGABLE MODE ACTIVE', ''));
+  await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
-  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergable (will NOT auto-merge)', 2));
+  await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds`, 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
@@ -207,6 +368,12 @@ export const watchUntilMergable = async params => {
   let iteration = 0;
   let lastCheckTime = new Date();
 
+  // Issue #1335: Cache whether the repo has CI workflows to avoid repeated API calls.
+  // When 'no_checks' is seen, we check if the repo actually has workflows configured.
+  // - If no workflows exist → 'no_checks' is permanent; treat PR as CI-passing and exit.
+  // - If workflows exist → 'no_checks' is a transient race condition; keep waiting.
+  let repoHasWorkflows = null; // null = not yet checked; true/false = cached result
+
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -215,7 +382,7 @@ export const watchUntilMergable = async params => {
     const isMerged = await checkPRMerged(owner, repo, prNumber);
     if (isMerged) {
       await log('');
-      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
       await log('');
       return { success: true, reason: 'merged', latestSessionId, latestAnthropicCost };
@@ -225,7 +392,7 @@ export const watchUntilMergable = async params => {
     const isClosed = await checkPRClosed(owner, repo, prNumber);
     if (isClosed) {
       await log('');
-      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergable mode'));
+      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been closed without merging`, 2));
       await log('');
       return { success: false, reason: 'closed', latestSessionId, latestAnthropicCost };
@@ -235,7 +402,7 @@ export const watchUntilMergable = async params => {
 
     try {
       // Get merge blockers
-      const blockers = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
+      const { blockers, noCiConfigured } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
@@ -258,7 +425,9 @@ export const watchUntilMergable = async params => {
 
             // Post success comment
             try {
-              const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
+              // Issue #1345: Differentiate message when no CI is configured
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
+              const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
             } catch {
               // Don't fail if comment posting fails
@@ -272,12 +441,22 @@ export const watchUntilMergable = async params => {
         } else {
           // Just report that PR is mergeable and exit
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
-          await log(formatAligned('', 'Exiting auto-restart-until-mergable mode', '', 2));
+          await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
-          // Post success comment
+          // Issue #1371: Post success comment only if not already posted in this session.
+          // Use in-memory flag instead of checking all PR comment history (issue #1323),
+          // since the historical check incorrectly suppressed notifications when a
+          // previous solve run had already posted a "Ready to merge" comment.
           try {
-            const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergable flag*`;
-            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            if (!readyToMergeCommentPosted) {
+              // Issue #1345: Differentiate message when no CI is configured
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : '- All CI checks have passed';
+              const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              readyToMergeCommentPosted = true;
+            } else {
+              await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (already posted this session)', '', 2));
+            }
           } catch {
             // Don't fail if comment posting fails
           }
@@ -303,9 +482,112 @@ export const watchUntilMergable = async params => {
         feedbackLines.push('Please review and address the feedback from these comments.');
       }
 
-      // Reason 2: CI failures
+      // Issue #1314: Check for billing limit errors BEFORE regular CI failures
+      // Billing limits require human intervention and should NOT trigger AI restarts
+      const billingBlocker = blockers.find(b => b.type === 'billing_limit');
+      if (billingBlocker) {
+        await log('');
+        await log(formatAligned('💳', 'GITHUB ACTIONS BILLING LIMIT DETECTED', ''));
+        await log(formatAligned('', 'Affected jobs:', billingBlocker.details.join(', '), 2));
+        await log(formatAligned('', 'All jobs affected:', billingBlocker.allJobsAffected ? 'Yes' : 'No', 2));
+        await log('');
+
+        // Check if this is a private repository
+        const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
+
+        if (repoInfo.isPrivate) {
+          // For private repos, human intervention is required - stop and post comment
+          await log(formatAligned('🛑', 'STOPPING', 'Private repository - billing limit requires human intervention'));
+          await log(formatAligned('', 'Action required:', "Check the 'Billing & plans' section in your GitHub settings", 2));
+
+          // Post comment explaining the billing limit issue
+          try {
+            const commentBody = `## 💳 GitHub Actions Billing Limit Reached
+
+The CI/CD jobs could not start due to billing/spending limits.
+
+**Affected jobs:**
+${billingBlocker.details.map(j => `- ${j}`).join('\n')}
+
+**Error message:**
+> ${billingBlocker.billingMessage || BILLING_LIMIT_ERROR_PATTERN}
+
+**Action Required:**
+Please check the 'Billing & plans' section in your GitHub settings and either:
+1. Add or update your payment method
+2. Increase your spending limit
+3. Wait for the free tier limits to reset (if applicable)
+
+Once the billing issue is resolved, you can re-run the CI checks or push a new commit to trigger a new run.
+
+---
+*Detected by hive-mind with --auto-restart-until-mergeable flag. This is NOT a code issue - human intervention is required.*`;
+            await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            await log(formatAligned('', '💬 Posted billing limit notification to PR', '', 2));
+          } catch (commentError) {
+            reportError(commentError, {
+              context: 'post_billing_limit_comment',
+              owner,
+              repo,
+              prNumber,
+              operation: 'comment_on_pr',
+            });
+            await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
+          }
+
+          return { success: false, reason: 'billing_limit', latestSessionId, latestAnthropicCost };
+        } else {
+          // For public repos (unusual case), apply exponential backoff and wait
+          // Public repos typically have unlimited free CI, so this is unexpected
+          await log(formatAligned('⏳', 'Public repository with billing limit (unusual)', 'Applying exponential backoff'));
+          await log(formatAligned('', 'Next check in:', `${currentBackoffSeconds} seconds`, 2));
+
+          // Don't trigger AI restart - just wait and check again
+          // The backoff will be applied at the end of the loop
+          currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 3600); // Max 1 hour
+        }
+      }
+
+      // Issue #1314: Handle cancelled CI/CD checks - re-trigger them instead of restarting AI
+      // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
+      // re-triggered automatically. We should NOT restart the AI for these.
+      const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
+      if (cancelledBlocker && !billingBlocker) {
+        await log('');
+        await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
+        await log(formatAligned('', 'Cancelled checks:', cancelledBlocker.details.join(', '), 2));
+
+        // Attempt to re-trigger the cancelled/stale workflow runs
+        const sha = cancelledBlocker.sha;
+        if (sha) {
+          const runs = await getWorkflowRunsForSha(owner, repo, sha, argv.verbose);
+          const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
+          let rerunTriggered = false;
+
+          for (const run of retriggerable) {
+            await log(formatAligned('', `Re-triggering workflow "${run.name}" (${run.id})...`, '', 2));
+            const rerunResult = await rerunWorkflowRun(owner, repo, run.id, argv.verbose);
+            if (rerunResult.success) {
+              await log(formatAligned('', `✅ Re-triggered: ${run.name}`, '', 2));
+              rerunTriggered = true;
+            } else {
+              await log(formatAligned('', `⚠️  Could not re-trigger ${run.name}: ${rerunResult.error}`, '', 2));
+            }
+          }
+
+          if (rerunTriggered) {
+            await log(formatAligned('⏳', 'Waiting for re-triggered CI to complete...', '', 2));
+            // Don't restart AI - just wait for re-triggered jobs to complete
+            // The next iteration of the loop will check the new status
+          }
+        }
+        // Don't set shouldRestart for cancelled checks - wait for re-triggered jobs instead
+      }
+
+      // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
+      // Only restart AI when we have genuine code failures (real feedback to act on)
       const ciBlocker = blockers.find(b => b.type === 'ci_failure');
-      if (ciBlocker) {
+      if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
         feedbackLines.push('❌ CI/CD checks are failing:');
@@ -345,15 +627,20 @@ export const watchUntilMergable = async params => {
       }
 
       if (shouldRestart) {
-        // Add standard instructions for auto-restart-until-mergable mode using shared utility
+        // Issue #1323: Increment restart count (actual AI executions, not check cycles)
+        restartCount++;
+
+        // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
+        await log(formatAligned('', 'Restart iteration:', `${restartCount}`, 2));
         await log('');
 
         // Post a comment to PR about the restart
+        // Issue #1356: Include restart count for tracking and add deduplication
         try {
-          const commentBody = `## 🔄 Auto-restart triggered\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered (attempt ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {
@@ -388,33 +675,90 @@ export const watchUntilMergable = async params => {
         });
 
         if (!toolResult.success) {
-          // Check if this is an API error using shared utility
-          if (isApiError(toolResult)) {
-            consecutiveApiErrors++;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, `API error detected (${consecutiveApiErrors}/${MAX_API_ERROR_RETRIES})`, 2));
+          // Issue #1356: Check for usage limit errors FIRST (most specific)
+          // When usage limit is reached, silently wait for limitResetTime + buffer + jitter,
+          // then resume the session using --resume <sessionId> with a "Continue" prompt.
+          // No GitHub comment is posted — only log output.
+          if (isUsageLimitReached(toolResult)) {
+            const resumeSessionId = toolResult.sessionId;
+            const resetTime = toolResult.limitResetTime;
+            const baseWaitMs = resetTime ? calculateWaitTime(resetTime) : 0;
+            const bufferMs = limitReset.bufferMs;
+            const jitterMs = Math.floor(Math.random() * limitReset.jitterMs);
+            const waitMs = baseWaitMs + bufferMs + jitterMs;
+            const bufferMinutes = Math.round(bufferMs / 60000);
+            const jitterSeconds = Math.round(jitterMs / 1000);
+            const waitMinutes = Math.round(waitMs / 60000);
 
-            if (consecutiveApiErrors >= MAX_API_ERROR_RETRIES) {
-              await log('');
-              await log(formatAligned('❌', 'MAXIMUM API ERROR RETRIES REACHED', ''));
-              await log(formatAligned('', 'Error details:', toolResult.result || 'Unknown API error', 2));
-              await log(formatAligned('', 'Action:', 'Exiting to prevent infinite loop', 2));
-              return { success: false, reason: 'api_error', latestSessionId, latestAnthropicCost };
+            await log('');
+            await log(formatAligned('⏳', 'USAGE LIMIT REACHED', ''));
+            await log(formatAligned('', 'Reset time:', resetTime || 'Unknown', 2));
+            await log(formatAligned('', 'Waiting:', `${waitMinutes} min (reset + ${bufferMinutes} min buffer + ${jitterSeconds}s jitter)`, 2));
+            await log(formatAligned('', 'Action:', 'Silently waiting then resuming — no GitHub comment posted', 2));
+            if (resumeSessionId) {
+              await log(formatAligned('', 'Session ID:', resumeSessionId, 2));
+            }
+            await log('');
+
+            // Wait silently until the limit resets (no GitHub comment)
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+
+            await log(formatAligned('✅', 'Usage limit wait complete', 'Resuming session...'));
+            await log('');
+
+            // Resume the session: execute with --resume <sessionId> and a "Continue" prompt
+            // This preserves context and the system message from the original session
+            if (resumeSessionId) {
+              const resumeArgv = { ...argv, resume: resumeSessionId };
+              const resumeResult = await executeToolIteration({
+                issueUrl,
+                owner,
+                repo,
+                issueNumber,
+                prNumber,
+                branchName: prBranch || branchName,
+                tempDir,
+                mergeStateStatus,
+                feedbackLines: ['Continue'],
+                argv: resumeArgv,
+              });
+
+              if (resumeResult.success) {
+                // Resume succeeded - capture session data
+                currentBackoffSeconds = watchInterval;
+                if (resumeResult.sessionId) {
+                  latestSessionId = resumeResult.sessionId;
+                  latestAnthropicCost = resumeResult.anthropicTotalCostUSD;
+                }
+                await log(formatAligned('✅', `${argv.tool.toUpperCase()} resume completed:`, 'Checking if PR is now mergeable...'));
+              } else if (isUsageLimitReached(resumeResult)) {
+                // Hit the limit again immediately after resume — store for next outer iteration
+                await log(formatAligned('⚠️', 'Usage limit hit again after resume', 'Will retry in next check cycle', 2));
+              } else {
+                // Resume failed for a non-limit reason — stop the loop
+                await log('');
+                await log(formatAligned('❌', `${argv.tool.toUpperCase()} RESUME FAILED`, ''));
+                await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
+                return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
+              }
+            } else {
+              // No session ID available — cannot resume, restart fresh in next iteration
+              await log(formatAligned('⚠️', 'No session ID for resume', 'Will restart fresh in next check cycle', 2));
             }
 
-            // Apply exponential backoff
-            currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 300);
-            await log(formatAligned('', 'Backing off:', `Will retry after ${currentBackoffSeconds} seconds`, 2));
-          } else {
-            consecutiveApiErrors = 0;
-            currentBackoffSeconds = watchInterval;
-            await log(formatAligned('⚠️', `${argv.tool.toUpperCase()} execution failed`, 'Will retry in next check', 2));
+            lastCheckTime = new Date();
+            continue;
           }
-        } else {
-          // Success - reset error counters
-          consecutiveApiErrors = 0;
-          currentBackoffSeconds = watchInterval;
 
-          // Capture latest session data
+          // Any other failure (not usage limit): stop the auto-restart loop
+          // Per reviewer feedback: non-limit failures should fail and stop attempts
+          await log('');
+          await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
+          await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
+          return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
+        } else {
+          // Success - capture latest session data
+          currentBackoffSeconds = watchInterval;
           if (toolResult.sessionId) {
             latestSessionId = toolResult.sessionId;
             latestAnthropicCost = toolResult.anthropicTotalCostUSD;
@@ -428,7 +772,8 @@ export const watchUntilMergable = async params => {
             try {
               const logFile = getLogFile();
               if (logFile) {
-                const customTitle = `🔄 Auto-restart-until-mergable Log (iteration ${iteration})`;
+                // Issue #1323: Use restartCount (actual AI executions) instead of iteration (check cycles)
+                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${restartCount})`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',
@@ -468,8 +813,68 @@ export const watchUntilMergable = async params => {
         // Update last check time after restart
         lastCheckTime = new Date();
       } else if (blockers.length > 0) {
-        // There are blockers but none that warrant a restart (e.g., CI pending)
-        await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+        // There are blockers but none that warrant an AI restart
+        // Issue #1314: Distinguish between different waiting reasons
+        const pendingBlocker = blockers.find(b => b.type === 'ci_pending');
+        const cancelledOnly = blockers.every(b => b.type === 'ci_cancelled' || b.type === 'ci_pending');
+
+        // Issue #1335: Detect permanent 'no_checks' state (repo has no CI workflows).
+        // The 'ci_pending' blocker with message 'have not started yet' means GitHub returned
+        // zero check-runs and zero commit statuses for this PR's HEAD SHA. This is ambiguous:
+        //   (a) Transient race condition — CI workflows exist but haven't queued yet after push.
+        //   (b) Permanent state — the repository has no CI/CD workflows configured at all.
+        // We resolve the ambiguity by checking if the repo actually has workflow files via the
+        // GitHub API. If it has none, the 'no_checks' state is permanent and the PR should be
+        // treated as CI-passing (no CI = nothing to wait for).
+        const isNoCIChecks = pendingBlocker && pendingBlocker.message.includes('have not started yet');
+        if (isNoCIChecks) {
+          // Lazy-check whether the repo has workflows (cache result to avoid repeated API calls)
+          if (repoHasWorkflows === null) {
+            const workflowCheck = await getActiveRepoWorkflows(owner, repo, argv.verbose);
+            repoHasWorkflows = workflowCheck.hasWorkflows;
+            if (argv.verbose) {
+              await log(formatAligned('', 'Repo workflow check:', repoHasWorkflows ? `${workflowCheck.count} workflow(s) found — CI check is a transient race condition` : 'No workflows configured — no CI expected', 2));
+            }
+          }
+
+          if (!repoHasWorkflows) {
+            // Root cause confirmed: repo has no CI. The 'no_checks' state is permanent.
+            // Treat the PR as CI-passing and exit the monitoring loop immediately.
+            await log('');
+            await log(formatAligned('ℹ️', 'NO CI WORKFLOWS CONFIGURED', 'Repository has no GitHub Actions workflows'));
+            await log(formatAligned('', 'Conclusion:', 'No CI expected — treating PR as CI-passing', 2));
+            await log(formatAligned('', 'Action:', 'Exiting monitoring loop', 2));
+            await log('');
+
+            // Post a comment explaining the situation
+            try {
+              const commentBody = `## ℹ️ No CI Workflows Detected
+
+No CI/CD checks are configured for this pull request. The repository has no GitHub Actions workflow files in \`.github/workflows/\`.
+
+The auto-restart-until-mergeable monitor is stopping since there is no CI to wait for. The PR may be ready to merge if there are no other issues.
+
+---
+*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+            } catch {
+              // Don't fail if comment posting fails
+            }
+
+            return { success: true, reason: 'no_ci_checks', latestSessionId, latestAnthropicCost };
+          } else {
+            // Repo has workflows but CI hasn't started yet — transient race condition, keep waiting
+            await log(formatAligned('⏳', 'Waiting for CI:', 'No checks yet (CI workflows exist, waiting for them to start)', 2));
+          }
+        } else {
+          if (cancelledOnly && cancelledBlocker) {
+            await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
+          } else if (pendingBlocker) {
+            await log(formatAligned('⏳', 'Waiting for CI:', pendingBlocker.details.length > 0 ? pendingBlocker.details.join(', ') : pendingBlocker.message, 2));
+          } else {
+            await log(formatAligned('⏳', 'Waiting for:', blockers.map(b => b.message).join(', '), 2));
+          }
+        }
       } else {
         await log(formatAligned('', 'No action needed', 'Continuing to monitor...', 2));
       }
@@ -478,7 +883,7 @@ export const watchUntilMergable = async params => {
       lastCheckTime = currentTime;
     } catch (error) {
       reportError(error, {
-        context: 'watch_until_mergable',
+        context: 'watch_until_mergeable',
         prNumber,
         owner,
         repo,
@@ -489,7 +894,7 @@ export const watchUntilMergable = async params => {
     }
 
     // Wait for next interval
-    const actualWaitSeconds = consecutiveApiErrors > 0 ? currentBackoffSeconds : watchInterval;
+    const actualWaitSeconds = currentBackoffSeconds;
     await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
     await log('');
     await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
@@ -505,6 +910,13 @@ export const attemptAutoMerge = async params => {
 
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
+
+  // Issue #1226: Check merge permissions before attempting
+  const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
+  if (!canMerge) {
+    await log(formatAligned('⚠️', 'Cannot merge:', `Insufficient permissions (${permission || 'unknown'})`, 2));
+    return { success: false, reason: 'insufficient_permissions', error: `User has ${permission || 'unknown'} access, needs push/maintain/admin` };
+  }
 
   // Wait for CI to complete (with timeout)
   const ciWaitResult = await waitForCI(
@@ -561,38 +973,94 @@ export const attemptAutoMerge = async params => {
 };
 
 /**
- * Start auto-restart-until-mergable mode
+ * Start auto-restart-until-mergeable mode
  */
-export const startAutoRestartUntilMergable = async params => {
-  const { argv } = params;
+export const startAutoRestartUntilMergeable = async params => {
+  const { argv, owner, repo, prNumber } = params;
 
   // Determine the mode
   const isAutoMerge = argv.autoMerge || false;
-  const isAutoRestartUntilMergable = argv.autoRestartUntilMergable || false;
+  const isAutoRestartUntilMergeable = argv.autoRestartUntilMergeable || false;
 
-  if (!isAutoMerge && !isAutoRestartUntilMergable) {
+  if (!isAutoMerge && !isAutoRestartUntilMergeable) {
     return null; // Neither mode enabled
   }
 
-  if (!params.prNumber) {
+  if (!prNumber) {
     await log('');
-    await log(formatAligned('⚠️', 'Auto-restart-until-mergable:', 'Requires a pull request'));
+    await log(formatAligned('⚠️', 'Auto-restart-until-mergeable:', 'Requires a pull request'));
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
   }
 
-  // If --auto-merge implies --auto-restart-until-mergable
+  // Issue #1226: Check if running in fork mode — auto-merge cannot work without write access
+  if (argv.fork && isAutoMerge) {
+    await log('');
+    await log(formatAligned('⚠️', 'Auto-merge:', 'Cannot auto-merge fork PRs'));
+    await log(formatAligned('', 'Reason:', 'Fork contributors do not have write access to merge PRs to upstream repositories', 2));
+    await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+    await log('');
+
+    // Issue #1323: Post a comment to the PR notifying the maintainer (with deduplication)
+    try {
+      const readyToMergeSignature = '## ✅ Ready to merge';
+      const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
+      if (!hasExistingComment) {
+        const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because this PR was created from a fork (no write access to the target repository).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag (fork mode)*`;
+        await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+        await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+      } else {
+        await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+      }
+    } catch {
+      // Don't fail if comment posting fails
+    }
+
+    return { success: false, reason: 'fork_no_write_access' };
+  }
+
+  // Issue #1226: Verify merge permissions before entering the auto-merge/restart loop
+  if (isAutoMerge && owner && repo) {
+    const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
+    if (!canMerge) {
+      await log('');
+      await log(formatAligned('⚠️', 'Auto-merge:', 'Insufficient permissions to merge'));
+      await log(formatAligned('', 'Permission level:', permission || 'unknown', 2));
+      await log(formatAligned('', 'Required:', 'push, maintain, or admin access', 2));
+      await log(formatAligned('', 'Action:', 'PR is ready for manual merge by a repository maintainer', 2));
+      await log('');
+
+      // Issue #1323: Post a comment to the PR notifying the maintainer (with deduplication)
+      try {
+        const readyToMergeSignature = '## ✅ Ready to merge';
+        const hasExistingComment = await checkForExistingComment(owner, repo, prNumber, readyToMergeSignature, argv.verbose);
+        if (!hasExistingComment) {
+          const commentBody = `## ✅ Ready to merge\n\nThis pull request is ready to be merged. Auto-merge was requested (\`--auto-merge\`) but cannot be performed because the authenticated user lacks write access to \`${owner}/${repo}\` (current permission: \`${permission || 'unknown'}\`).\n\nPlease merge manually.\n\n---\n*hive-mind with --auto-merge flag*`;
+          await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+          await log(formatAligned('', '💬 Posted merge readiness notification to PR', '', 2));
+        } else {
+          await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment', '', 2));
+        }
+      } catch {
+        // Don't fail if comment posting fails
+      }
+
+      return { success: false, reason: 'insufficient_permissions' };
+    }
+  }
+
+  // If --auto-merge implies --auto-restart-until-mergeable
   if (isAutoMerge) {
-    argv.autoRestartUntilMergable = true;
+    argv.autoRestartUntilMergeable = true;
   }
 
   // Start the watch loop
-  return await watchUntilMergable(params);
+  return await watchUntilMergeable(params);
 };
 
 export default {
-  watchUntilMergable,
+  watchUntilMergeable,
   attemptAutoMerge,
-  startAutoRestartUntilMergable,
+  startAutoRestartUntilMergeable,
   checkForNonBotComments,
 };

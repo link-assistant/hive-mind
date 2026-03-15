@@ -72,10 +72,10 @@ This code exits the process **before** the auto-merge logic in `solve.mjs` (line
 
 ### Missing Check
 
-The exit condition does not check for `argv.autoMerge` or `argv.autoRestartUntilMergable`. It should be:
+The exit condition does not check for `argv.autoMerge` or `argv.autoRestartUntilMergeable`. It should be:
 
 ```javascript
-if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !argv.autoMerge && !argv.autoRestartUntilMergable) {
+if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !argv.autoMerge && !argv.autoRestartUntilMergeable) {
   await safeExit(0, 'Process completed successfully');
 }
 ```
@@ -94,9 +94,9 @@ The solution draft log (Gist ID: `9b0f9a7aca0d8a69906af3b4c8e19b9d`) ends with:
 There is NO subsequent output showing:
 
 - `🔀 AUTO-MERGE:` (from `attemptAutoMerge`)
-- `🔄 AUTO-RESTART-UNTIL-MERGABLE MODE ACTIVE` (from `watchUntilMergable`)
+- `🔄 AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE` (from `watchUntilMergeable`)
 
-These would appear if `startAutoRestartUntilMergable()` was ever called.
+These would appear if `startAutoRestartUntilMergeable()` was ever called.
 
 ### PR State Evidence
 
@@ -126,7 +126,7 @@ if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder) {
 }
 
 // AFTER (fixed):
-const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergable;
+const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
 if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
   await safeExit(0, 'Process completed successfully');
 }
@@ -150,7 +150,7 @@ if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !should
 
 - `src/solve.results.lib.mjs` - Contains the buggy exit condition (line 695)
 - `src/solve.mjs` - Contains the auto-merge logic that never gets executed (lines 1368-1379)
-- `src/solve.auto-merge.lib.mjs` - Contains `startAutoRestartUntilMergable()` and `watchUntilMergable()` functions
+- `src/solve.auto-merge.lib.mjs` - Contains `startAutoRestartUntilMergeable()` and `watchUntilMergeable()` functions
 - `src/github-merge.lib.mjs` - Contains `checkPRCIStatus()`, `checkPRMergeable()`, `mergePullRequest()` functions
 
 ## Lessons Learned

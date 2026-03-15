@@ -4,7 +4,8 @@
  * Test suite for owner fork detection (Issue #1206)
  *
  * Tests that the setupRepository function correctly detects when the
- * current user is the owner of the repository and skips fork creation.
+ * current user is the owner of the repository and fails with a helpful
+ * error message when --fork is used, suggesting --auto-fork instead.
  * GitHub returns HTTP 403 when users attempt to fork their own repositories.
  */
 
@@ -67,74 +68,58 @@ runTest('owner detection occurs before fork conflict detection', () => {
   }
 });
 
-// Test 4: Check that owner detection skips fork creation (returns early)
-runTest('owner detection returns early without forking', () => {
+// Test 4: Check that owner detection fails with safeExit (not silently skipping)
+runTest('owner detection fails with error when --fork is used', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // Find the owner check block
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
   if (ownerCheckStart === -1) {
     throw new Error('Owner detection check not found');
   }
 
-  // Check that it contains a return statement (early return to skip fork creation)
-  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 500);
-  if (!ownerBlock.includes('return {')) {
-    throw new Error('Owner detection should return early to skip fork creation');
+  // Check that it calls safeExit(1, ...) to fail explicitly
+  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
+  if (!ownerBlock.includes('safeExit(1')) {
+    throw new Error('Owner detection should call safeExit(1) to fail when --fork is used');
   }
 });
 
-// Test 5: Check that early return includes all required properties
-runTest('early return includes all required properties', () => {
+// Test 5: Check that owner detection error message explains the problem
+runTest('owner detection error explains cannot fork own repository', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
-  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 500);
+  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
 
-  // setupRepository must return { repoToClone, forkedRepo, upstreamRemote, prForkOwner }
-  if (!ownerBlock.includes('repoToClone')) {
-    throw new Error('Early return must include repoToClone');
-  }
-  if (!ownerBlock.includes('forkedRepo')) {
-    throw new Error('Early return must include forkedRepo');
-  }
-  if (!ownerBlock.includes('upstreamRemote')) {
-    throw new Error('Early return must include upstreamRemote');
-  }
-  if (!ownerBlock.includes('prForkOwner')) {
-    throw new Error('Early return must include prForkOwner');
+  if (!ownerBlock.includes('CANNOT FORK OWN REPOSITORY')) {
+    throw new Error('Error message should clearly state cannot fork own repository');
   }
 });
 
-// Test 6: Check that forkedRepo is null when owner is detected (no fork created)
-runTest('forkedRepo is null when owner detected', () => {
+// Test 6: Check that owner detection suggests --auto-fork as alternative
+runTest('owner detection suggests --auto-fork alternative', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
-  // repoToClone should remain as owner/repo (line 402: let repoToClone = `${owner}/${repo}`)
-  // forkedRepo should remain null (line 403: let forkedRepo = null)
-  // These are the initial values, and early return preserves them
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
-  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 500);
+  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
 
-  // The return should use the original repoToClone (owner/repo) and null forkedRepo
-  if (!ownerBlock.includes('return { repoToClone, forkedRepo, upstreamRemote')) {
-    throw new Error('Early return should use the original variable values (forkedRepo = null)');
+  if (!ownerBlock.includes('--auto-fork')) {
+    throw new Error('Error message should suggest --auto-fork as an alternative');
   }
 });
 
-// Test 7: Check that owner detection provides informative log message
-runTest('owner detection logs informative message', () => {
+// Test 7: Check that owner detection provides multiple solution options
+runTest('owner detection provides multiple solution options', () => {
   const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
-  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 500);
+  const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
 
-  if (!ownerBlock.includes('Owner detected')) {
-    throw new Error('Should log that owner was detected');
+  if (!ownerBlock.includes('Option 1')) {
+    throw new Error('Should provide Option 1 for --auto-fork');
   }
-
-  if (!ownerBlock.includes('fork is not needed') && !ownerBlock.includes('fork not needed')) {
-    throw new Error('Should explain that fork is not needed');
+  if (!ownerBlock.includes('Option 2')) {
+    throw new Error('Should provide Option 2 for working without fork');
   }
 });
 

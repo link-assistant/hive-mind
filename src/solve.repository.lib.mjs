@@ -409,11 +409,26 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
 
     // Check if user owns the repository (Issue #1206)
     // GitHub doesn't allow forking your own repositories and returns HTTP 403
-    // If the user is the owner, skip fork creation and work directly with the repo
+    // When --fork is explicitly used, fail with a clear error and suggest --auto-fork
     if (currentUser === owner) {
-      await log(`${formatAligned('✅', 'Owner detected:', 'You own this repository, fork is not needed')}`);
-      await log(`${formatAligned('', 'Working directly:', `Using ${owner}/${repo} without fork`)}`);
-      return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
+      await log('');
+      await log(`${formatAligned('❌', 'CANNOT FORK OWN REPOSITORY', '')}`, { level: 'error' });
+      await log('');
+      await log('  🔍 What happened:');
+      await log(`     You are the owner of ${owner}/${repo}`);
+      await log('     GitHub does not allow forking your own repositories (returns HTTP 403)');
+      await log('');
+      await log('  💡 Solutions:');
+      await log('');
+      await log('     Option 1: Use --auto-fork instead of --fork');
+      await log('        --auto-fork automatically detects ownership and works directly');
+      await log('        on the repository when you have write access, without forking.');
+      await log(`        Example: solve "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --auto-fork`);
+      await log('');
+      await log('     Option 2: Work directly on the repository without forking');
+      await log(`        Example: solve "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}"`);
+      await log('');
+      await safeExit(1, 'Cannot fork own repository - use --auto-fork or remove --fork flag');
     }
 
     // Check for fork conflicts (Issue #344)

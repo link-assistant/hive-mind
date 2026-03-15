@@ -60,26 +60,28 @@ The existing code at line 660 only checked for case 2 (empty repositories), miss
 
 ## Solution
 
-Added an owner detection check immediately after retrieving the current user (before any fork-related operations). When `currentUser === owner`, the function returns early with the original repository (no fork), skipping all fork creation logic.
+Added an owner detection check immediately after retrieving the current user (before any fork-related operations). When `currentUser === owner` and `--fork` is explicitly used, the function fails with a clear error message explaining that GitHub does not allow forking your own repositories, and suggests `--auto-fork` as the correct alternative.
 
-**Code location:** `src/solve.repository.lib.mjs:420-427`
+**Key design principle**: `--fork` means the user explicitly wants a fork. If a fork cannot be created, the tool should **fail with a helpful error** rather than silently doing something different. `--auto-fork` is the correct option for automatic fallback behavior.
+
+**Code location:** `src/solve.repository.lib.mjs`
 
 ```javascript
 // Check if user owns the repository (Issue #1206)
 // GitHub doesn't allow forking your own repositories and returns HTTP 403
-// If the user is the owner, skip fork creation and work directly with the repo
+// When --fork is explicitly used, fail with a clear error and suggest --auto-fork
 if (currentUser === owner) {
-  await log(`${formatAligned('✅', 'Owner detected:', 'You own this repository, fork is not needed')}`);
-  await log(`${formatAligned('', 'Working directly:', `Using ${owner}/${repo} without fork`)}`);
-  return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
+  await log(`${formatAligned('❌', 'CANNOT FORK OWN REPOSITORY', '')}`, { level: 'error' });
+  // ... detailed error message with solutions ...
+  await safeExit(1, 'Cannot fork own repository - use --auto-fork or remove --fork flag');
 }
 ```
 
 ### Design decisions
 
-1. **Early return pattern**: The fix returns immediately when the owner is detected, avoiding unnecessary API calls (fork conflict detection, fork existence checks, fork creation)
-2. **Preserves initial values**: `repoToClone` remains `${owner}/${repo}`, `forkedRepo` remains `null`, and `upstreamRemote` remains `null` — identical to the no-fork case
-3. **Organization edge case**: When the `owner` is an organization, `currentUser !== owner`, so the fork logic proceeds normally. Organization members with push/admin access should use `--auto-fork` (which correctly checks permissions) rather than `--fork`
+1. **Fail explicitly, don't silently skip**: When `--fork` is used, the user's intent is clear — they want a fork. Silently working without a fork violates that intent. Instead, fail with a helpful error that guides the user to the right solution.
+2. **Suggest `--auto-fork`**: The `--auto-fork` option already handles ownership correctly by checking permissions first and only forking when needed. This is the correct alternative for users who want automatic behavior.
+3. **Organization edge case**: When the `owner` is an organization, `currentUser !== owner`, so the fork logic proceeds normally. Organization members with push/admin access should use `--auto-fork` (which correctly checks permissions) rather than `--fork`.
 
 ## Files Changed
 

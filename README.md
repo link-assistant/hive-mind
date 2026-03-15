@@ -341,12 +341,13 @@ solve <issue-url> [options]
 
 **Other useful options:**
 
-| Option          | Alias | Description                                      | Default |
-| --------------- | ----- | ------------------------------------------------ | ------- |
-| `--tool`        |       | AI tool (claude, opencode, codex, agent)         | claude  |
-| `--verbose`     | `-v`  | Enable verbose logging                           | false   |
-| `--attach-logs` |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
-| `--help`        | `-h`  | Show all available options                       | -       |
+| Option                   | Alias | Description                                      | Default |
+| ------------------------ | ----- | ------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent)         | claude  |
+| `--verbose`              | `-v`  | Enable verbose logging                           | false   |
+| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
+| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)  | false   |
+| `--help`                 | `-h`  | Show all available options                       | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 

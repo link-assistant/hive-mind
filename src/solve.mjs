@@ -1182,8 +1182,8 @@ try {
     await log('');
     await log('🔄 AUTO-RESTART: Uncommitted changes detected');
     await log('   Starting temporary monitoring cycle (NOT --watch mode)');
-    await log('   The tool will run once more to commit the changes');
-    await log('   Will exit automatically after changes are committed');
+    await log('   The tool will run once more to commit or discard the changes');
+    await log('   Will exit automatically after changes are committed or discarded');
     await log('');
   }
 

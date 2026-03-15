@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 1.34.1
+
+### Patch Changes
+
+- 0f02dc5: Better wording for auto-restart comment
+
+  Updated the auto-restart comment to say "Starting new session to review and commit or discard them" instead of "Starting new session to review and commit them". This makes the wording consistent with the system prompts that already instruct the AI to either COMMIT or REVERT (discard) uncommitted changes.
+
 ## 1.34.0
 
 ### Minor Changes

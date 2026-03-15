@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.33.0
+
+### Minor Changes
+
+- f7a2fdd: Add --auto-init-repository option to automatically initialize empty repositories by creating a simple README.md file, enabling branch creation and pull request workflows on repositories with no commits
+
 ## 1.32.3
 
 ### Patch Changes

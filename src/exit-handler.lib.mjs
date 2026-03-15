@@ -67,10 +67,125 @@ const showExitMessage = async (reason = 'Process exiting', code = 0) => {
 };
 
 /**
+ * Drain and unref active Node.js handles so the event loop can exit naturally.
+ *
+ * Issue #1431: After all work completes, several handle types keep the event loop
+ * alive and prevent the process from exiting on its own:
+ *
+ *   - ReadStream  — process.stdin is never unreferenced. Node keeps it open so the
+ *                   process can receive user input, but a CLI tool is done with input
+ *                   at this point.  Calling .unref() signals that this handle should
+ *                   not prevent exit.
+ *
+ *   - Socket (×2) — Node 18+ built-in fetch() uses undici internally. Each HTTP
+ *                   request leaves a keep-alive socket in undici's global connection
+ *                   pool. Calling getGlobalDispatcher().close() drains and destroys
+ *                   all pooled connections.
+ *
+ *   - ChildProcess — command-stream spawns child processes. The handle stays alive
+ *                    until the OS reclaims the process entry. Calling .unref() on
+ *                    each surviving child lets Node exit without waiting for them.
+ *
+ *   - WriteStream (×2) — process.stdout and process.stderr are always-open writable
+ *                        streams. On non-TTY file descriptors (e.g. pipes, redirects)
+ *                        they can keep the event loop alive. Calling .unref() is safe
+ *                        because we have already finished all output at this point.
+ *
+ * All of these are "unref" fixes — the handles are not forcibly destroyed, just
+ * marked as non-blocking so the event loop considers the process idle once all real
+ * async work is done. This is the idiomatic Node.js pattern for CLI tools.
+ */
+const drainHandles = async () => {
+  // 1. Unref process.stdin so a dangling ReadStream cannot block exit.
+  try {
+    if (process.stdin && !process.stdin.destroyed) {
+      process.stdin.unref();
+    }
+  } catch {
+    // Ignore — stdin may already be closed
+  }
+
+  // 2. Close undici's global dispatcher to drain keep-alive HTTP sockets (Socket handles).
+  //    Node 18+ built-in fetch uses undici; each fetch() call may leave a socket in the
+  //    pool. getGlobalDispatcher().close() is the documented way to drain them.
+  try {
+    const { getGlobalDispatcher } = await import('undici');
+    const dispatcher = getGlobalDispatcher();
+    if (dispatcher && typeof dispatcher.close === 'function') {
+      await Promise.race([
+        dispatcher.close(),
+        new Promise(resolve => setTimeout(resolve, 1000)), // hard 1s deadline
+      ]);
+    }
+  } catch {
+    // undici may not be available in all Node versions — safe to ignore
+  }
+
+  // 3. Unref surviving child processes from command-stream.
+  //    These are typically already-exited but their OS handle entry lingers.
+  try {
+    for (const handle of process._getActiveHandles()) {
+      if (handle?.constructor?.name === 'ChildProcess' && typeof handle.unref === 'function') {
+        handle.unref();
+      }
+    }
+  } catch {
+    // _getActiveHandles is a private V8 API — safe to ignore
+  }
+
+  // 4. Unref stdout/stderr on non-TTY descriptors.
+  //    On a TTY these are already non-blocking; on pipes/redirects they keep the loop alive.
+  try {
+    if (process.stdout && !process.stdout.isTTY && typeof process.stdout.unref === 'function') {
+      process.stdout.unref();
+    }
+    if (process.stderr && !process.stderr.isTTY && typeof process.stderr.unref === 'function') {
+      process.stderr.unref();
+    }
+  } catch {
+    // Ignore
+  }
+};
+
+/**
+ * Log active handles and requests for diagnostics.
+ * Always logs if there are unexpected handles (not just in verbose mode),
+ * treating lingering handles as a warning-level signal.
+ *
+ * @param {Function|null} log - Optional logging function; falls back to console.warn
+ */
+export const logActiveHandles = async (log = null) => {
+  try {
+    const handles = process._getActiveHandles();
+    const requests = process._getActiveRequests();
+    if (handles.length === 0 && requests.length === 0) return;
+
+    const emit = log || (msg => console.warn(msg));
+    await emit(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`);
+    for (const h of handles) {
+      const name = h.constructor?.name || typeof h;
+      // Extra detail for streams: show fd and path/remoteAddress if available
+      const detail = [h.fd != null ? `fd=${h.fd}` : null, h.path ? `path=${h.path}` : null, h.remoteAddress ? `remote=${h.remoteAddress}:${h.remotePort}` : null, h.pid != null ? `pid=${h.pid}` : null, h.spawnfile ? `file=${h.spawnfile}` : null].filter(Boolean).join(', ');
+      await emit(`   Handle: ${name}${detail ? ` (${detail})` : ''}`);
+    }
+    for (const r of requests) {
+      await emit(`   Request: ${r.constructor?.name || typeof r}`);
+    }
+  } catch {
+    // _getActiveHandles is a private V8 API — safe to ignore if unavailable
+  }
+};
+
+/**
  * Safe exit function that ensures log path is shown
  */
 export const safeExit = async (code = 0, reason = 'Process completed') => {
   await showExitMessage(reason, code);
+
+  // Issue #1431: Drain/unref active handles so the event loop exits naturally.
+  // This resolves the root causes of dangling ReadStream (stdin), Socket (undici),
+  // ChildProcess (command-stream), and WriteStream (stdout/stderr) handles.
+  await drainHandles();
 
   // Close Sentry to flush any pending events and allow the process to exit cleanly.
   // Use Promise.race with a hard timeout to guarantee sentry.close() never hangs

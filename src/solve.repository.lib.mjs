@@ -33,38 +33,16 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { checkRepositoryWritePermission } = githubLib;
 
-// Get the root repository of any repository
-// Returns the source (root) repository if the repo is a fork, otherwise returns the repo itself
-// Returns null if repository is not accessible (404 or other errors)
+// Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
   try {
     const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
-
-    if (result.code !== 0) {
-      // Check if it's a 404 error - repository doesn't exist or no permissions
-      const errorOutput = (result.stderr || result.stdout || '').toString();
-      if (errorOutput.includes('HTTP 404') || errorOutput.includes('Not Found')) {
-        // Repository not accessible - this will be handled by fork creation logic
-        // Return null to indicate we couldn't determine root repo
-        return null;
-      }
-      return null;
-    }
+    if (result.code !== 0) return null;
 
     const repoInfo = JSON.parse(result.stdout.toString().trim());
-
-    if (repoInfo.fork && repoInfo.source) {
-      return repoInfo.source;
-    } else {
-      return `${owner}/${repo}`;
-    }
+    return repoInfo.fork && repoInfo.source ? repoInfo.source : `${owner}/${repo}`;
   } catch (error) {
-    reportError(error, {
-      context: 'get_root_repository',
-      owner,
-      repo,
-      operation: 'determine_fork_root',
-    });
+    reportError(error, { context: 'get_root_repository', owner, repo, operation: 'determine_fork_root' });
     return null;
   }
 };
@@ -73,34 +51,16 @@ export const getRootRepository = async (owner, repo) => {
 export const checkExistingForkOfRoot = async rootRepo => {
   try {
     const userResult = await $`gh api user --jq .login`;
-    if (userResult.code !== 0) {
-      return null;
-    }
+    if (userResult.code !== 0) return null;
     const currentUser = userResult.stdout.toString().trim();
 
     const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
+    if (forksResult.code !== 0) return null;
 
-    if (forksResult.code !== 0) {
-      return null;
-    }
-
-    const forks = forksResult.stdout
-      .toString()
-      .trim()
-      .split('\n')
-      .filter(f => f);
-
-    if (forks.length > 0) {
-      return forks[0];
-    } else {
-      return null;
-    }
+    const forks = forksResult.stdout.toString().trim().split('\n').filter(f => f);
+    return forks.length > 0 ? forks[0] : null;
   } catch (error) {
-    reportError(error, {
-      context: 'check_existing_fork_of_root',
-      rootRepo,
-      operation: 'search_user_forks',
-    });
+    reportError(error, { context: 'check_existing_fork_of_root', rootRepo, operation: 'search_user_forks' });
     return null;
   }
 };

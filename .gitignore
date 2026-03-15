@@ -138,6 +138,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# jscpd reports
+reports/
+
+# Test artifacts (temporary files created by tests)
+tests/.test-*
+
 # macOS
 .DS_Store
 

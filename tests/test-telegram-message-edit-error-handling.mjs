@@ -76,7 +76,7 @@ await runTestAsync('executeItem catches editMessageText errors (issue #1062)', a
   const originalConsoleError = console.error;
   console.error = (...args) => {
     const message = args.join(' ');
-    if (message.includes('Failed to update message') && message.includes('[solve-queue]')) {
+    if (message.includes('Failed to update message') && message.includes('[solve_queue]')) {
       errorLogged = true;
     }
     // Still call original for visibility
@@ -145,7 +145,7 @@ await runTestAsync('executeItem logs errors for failed items (issue #1062)', asy
   const originalConsoleError = console.error;
   console.error = (...args) => {
     const message = args.join(' ');
-    if (message.includes('Failed to update error message') && message.includes('[solve-queue]')) {
+    if (message.includes('Failed to update error message') && message.includes('[solve_queue]')) {
       errorLogged = true;
     }
     originalConsoleError.apply(console, args);

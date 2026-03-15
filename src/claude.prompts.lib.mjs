@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -163,16 +164,14 @@ ${workspaceInstructions}General guidelines.
       Note: If user says "failing" but tools show "passing", this might indicate stale data - consider downloading fresh logs and checking timestamps to resolve the discrepancy.
    - When a code or log file has more than 1500 lines, read it in chunks of 1500 lines.
    - When facing a complex problem, do as much tracing as possible and turn on all verbose modes.
-   - When you create debug, test, or example/experiment scripts for fixing, always keep them in an examples and/or experiments folders so you can reuse them later.
-   - When testing your assumptions, use the experiment scripts, and add it to experiments folder.
-   - When your experiments can show real world use case of the software, add it to examples folder.
+${getExperimentsExamplesSubPrompt(argv)}
    - When you face something extremely hard, use divide and conquer — it always helps.
 
 Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) List recent CI runs with timestamps, (2) Download logs from failed runs to ci-logs/ directory, (3) Analyze error messages and identify root cause, (4) Implement fix, (5) Verify fix resolves the specific errors found in logs.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, use WebFetch tool (or fetch tool) to download the image first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's HTML 404 pages saved as .png) can cause "Could not process image" errors and may crash the AI solver process. If the file command shows "HTML" or "text", the download failed and you should retry or skip the image.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's "Not Found" pages saved as .png) can cause "Could not process image" errors and will crash the AI solver process. If the file command shows "HTML", "text", or "ASCII text", the download FAILED — do NOT call Read on this file. Instead: (1) For images from GitHub issues/PRs (URLs containing "github.com/user-attachments"), these require authentication — retry with: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>" (2) If retry still fails, skip the image and note it was unavailable.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${
@@ -255,7 +254,12 @@ Self review.
    - When you check your solution draft, run all tests locally.
    - When you check your solution draft, verify git status shows a clean working tree with no uncommitted changes.
    - When you compare with repo style, use gh pr diff [number].
-   - When you finalize, confirm code, tests, and description are consistent.
+   - When you finalize, confirm code, tests, and description are consistent.${
+     argv && argv.promptEnsureAllRequirementsAreMet
+       ? `
+   - When no explicit feedback or requirements is provided, ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.`
+       : ''
+   }
 
 GitHub CLI command patterns.
    - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
@@ -320,8 +324,8 @@ Agent Commander usage (unified subagent delegation).
 Visual UI work and screenshots.
    - When you work on visual UI changes (frontend, CSS, HTML, design), include a render or screenshot of the final result in the pull request description.
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
-   - When you save screenshots to the repository, use permanent raw file links in the pull request description markdown (e.g., https://raw.githubusercontent.com/${owner}/${repo}/${branchName}/docs/screenshots/result.png).
-   - When uploading images, commit them to the branch first, then reference them using the raw GitHub URL format.
+   - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
+   - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
    - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;

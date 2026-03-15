@@ -1,46 +1,70 @@
 #!/usr/bin/env node
-// GitHub-related utility functions
-// Check if use is already defined (when imported from solve.mjs)
-// If not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-// Use command-stream for consistent $ behavior
-const { $ } = await use('command-stream');
-// Import log and maskToken from general lib
+// GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
+if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-// Import batch operations from separate module
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-// Import token sanitization from dedicated module (Issue #1037 fix)
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent } from './token-sanitization.lib.mjs';
-// Re-export token sanitization functions for backward compatibility
-export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent };
-// Import log upload function from separate module
+export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 
 /**
  * Build cost estimation string for log comments
+ * Issue #1250: Enhanced to show both public pricing estimate and actual provider cost
+ *
  * @param {number|null} totalCostUSD - Public pricing estimate
  * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
  * @param {Object|null} pricingInfo - Pricing info from agent tool
+ *   - opencodeCost: Actual billed cost from OpenCode Zen (for agent tool)
+ *   - isOpencodeFreeModel: Whether OpenCode Zen provides this model for free
+ *   - originalProvider: Original provider for pricing reference
+ *   - baseModelName: Base model name if pricing was derived from base model (Issue #1250)
  * @returns {string} Formatted cost info string for markdown (empty if no data available)
  */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
   // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel);
-  if (!hasPublic && !hasAnthropic && !hasPricing) return '';
+  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
+  // Issue #1250: Check for OpenCode Zen actual cost
+  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
+  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
   let costInfo = '\n\n💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
+  // Issue #1250: Show public pricing estimate based on original provider prices
   if (hasPublic) {
-    costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-  } else if (hasPricing) costInfo += '\n- Public pricing estimate: unknown';
+    // Issue #1250: For free models accessed via OpenCode Zen, show pricing based on base model
+    // Only show as completely free if the base model also has no pricing
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
+      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+    } else {
+      // Show actual public pricing estimate with original provider reference
+      // Issue #1250: Include base model reference when pricing comes from base model
+      let pricingRef = '';
+      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
+      } else if (pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
+      }
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
+    }
+  } else if (hasPricing) {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  // Issue #1250: Show actual cost from OpenCode Zen for agent tool
+  if (hasOpencodeCost) {
+    if (pricingInfo.isOpencodeFreeModel) {
+      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
+    } else {
+      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+    }
+  }
   if (pricingInfo?.tokenUsage) {
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
@@ -377,6 +401,13 @@ export async function attachLogToGitHub(options) {
     limitResetTime = null,
     toolName = 'AI tool',
     resumeCommand = null,
+    // Whether auto-resume/auto-restart is enabled (determines if CLI commands should be shown)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    isAutoResumeEnabled = false,
+    autoResumeMode = 'resume', // 'resume' or 'restart'
+    // Session type for differentiating solution draft log comments
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
+    sessionType = 'new', // 'new', 'resume', 'auto-resume', 'auto-restart'
     // New parameters for agent tool pricing support
     publicPricingEstimate = null,
     pricingInfo = null,
@@ -448,7 +479,11 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
       if (limitResetTime) {
-        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+        // Format reset time with relative time and UTC for better user understanding
+        // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+        // See: https://github.com/link-assistant/hive-mind/issues/1236
+        const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+        logComment += `\n- **Reset Time**: ${formattedResetTime}`;
       }
 
       if (sessionId) {
@@ -457,21 +492,35 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 
       logComment += '\n\n### 🔄 How to Continue\n';
 
-      if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
-      } else {
-        logComment += 'Once the limit resets, ';
-      }
+      // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      if (isAutoResumeEnabled) {
+        const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+        const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
+        if (limitResetTime) {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        } else {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        }
+      } else {
+        // Manual resume mode - show CLI commands
+        if (limitResetTime) {
+          logComment += `Once the limit resets at **${limitResetTime}**, `;
+        } else {
+          logComment += 'Once the limit resets, ';
+        }
+
+        if (resumeCommand) {
+          logComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
+        } else if (sessionId) {
+          logComment += `you can resume this session using session ID: \`${sessionId}\``;
+        } else {
+          logComment += 'you can retry the operation.';
+        }
       }
 
       logComment += `
@@ -528,8 +577,22 @@ ${logContent}
     } else {
       // Success log format - use helper function for cost info
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      logComment = `## ${customTitle}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+      // Determine title based on session type
+      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      let title = customTitle;
+      let sessionNote = '';
+      if (sessionType === 'auto-resume') {
+        title = '🔄 Draft log of auto resume (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
+      } else if (sessionType === 'auto-restart') {
+        title = '🔄 Draft log of auto restart (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
+      } else if (sessionType === 'resume') {
+        title = '🔄 Solution Draft Log (Resumed)';
+        sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
+      }
+      logComment = `## ${title}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${sessionNote}
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -613,7 +676,11 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
             if (limitResetTime) {
-              logUploadComment += `\n- **Reset Time**: ${limitResetTime}`;
+              // Format reset time with relative time and UTC for better user understanding
+              // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+              // See: https://github.com/link-assistant/hive-mind/issues/1236
+              const formattedUploadResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+              logUploadComment += `\n- **Reset Time**: ${formattedUploadResetTime}`;
             }
 
             if (sessionId) {
@@ -622,21 +689,31 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 
             logUploadComment += '\n\n### 🔄 How to Continue\n';
 
-            if (limitResetTime) {
-              logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
-            } else {
-              logUploadComment += 'Once the limit resets, ';
-            }
+            // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            if (isAutoResumeEnabled) {
+              const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+              const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-            if (resumeCommand) {
-              logUploadComment += `you can resume this session by running:
+              logUploadComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+            } else {
+              // Manual resume mode - show CLI commands
+              if (limitResetTime) {
+                logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
+              } else {
+                logUploadComment += 'Once the limit resets, ';
+              }
+
+              if (resumeCommand) {
+                logUploadComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-            } else if (sessionId) {
-              logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
-            } else {
-              logUploadComment += 'you can retry the operation.';
+              } else if (sessionId) {
+                logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
+              } else {
+                logUploadComment += 'you can retry the operation.';
+              }
             }
 
             logUploadComment += `
@@ -672,9 +749,23 @@ This log file contains the complete execution trace of the AI ${targetType === '
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            logUploadComment = `## ${customTitle}
+            // Determine title based on session type
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            let title = customTitle;
+            let sessionNote = '';
+            if (sessionType === 'auto-resume') {
+              title = '🔄 Draft log of auto resume (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.\n';
+            } else if (sessionType === 'auto-restart') {
+              title = '🔄 Draft log of auto restart (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).\n';
+            } else if (sessionType === 'resume') {
+              title = '🔄 Solution Draft Log (Resumed)';
+              sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
+            }
+            logUploadComment = `## ${title}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
-📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 🔗 [View complete solution draft log](${logUrl})
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;

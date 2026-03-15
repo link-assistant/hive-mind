@@ -23,38 +23,12 @@ const execAsync = promisify(exec);
 // Import centralized limits and caching
 import { getCachedClaudeLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 
-/**
- * Configuration constants for queue throttling
- * All thresholds use ratios (0.0 - 1.0) representing usage percentage
- *
- * IMPORTANT: Running claude processes is NOT a blocking limit by itself.
- * Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded.
- * See: https://github.com/link-assistant/hive-mind/issues/1078
- */
-export const QUEUE_CONFIG = {
-  // Resource thresholds (usage ratios: 0.0 - 1.0)
-  // All thresholds use >= comparison (inclusive)
-  RAM_THRESHOLD: 0.65, // Enqueue if RAM usage >= 65%
-  // CPU threshold uses 5-minute load average, not instantaneous CPU usage
-  CPU_THRESHOLD: 0.65, // Enqueue if 5-minute load average >= 65% of CPU count
-  DISK_THRESHOLD: 0.9, // One-at-a-time if disk usage >= 90%
-
-  // API limit thresholds (usage ratios: 0.0 - 1.0)
-  // All thresholds use >= comparison (inclusive)
-  CLAUDE_5_HOUR_SESSION_THRESHOLD: 0.75, // One-at-a-time if 5-hour limit >= 75%
-  CLAUDE_WEEKLY_THRESHOLD: 0.97, // One-at-a-time if weekly limit >= 97%
-  GITHUB_API_THRESHOLD: 0.75, // Enqueue if GitHub >= 75% with parallel claude
-
-  // Timing
-  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
-  // This ensures that when API limits are checked, the running process is counted
-  MIN_START_INTERVAL_MS: 60000, // 1 minutes between starts
-  CONSUMER_POLL_INTERVAL_MS: 60000, // 1 minute between queue checks
-  MESSAGE_UPDATE_INTERVAL_MS: 60000, // 1 minute between status message updates
-
-  // Process detection
-  CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
-};
+// Import centralized queue configuration
+// This ensures thresholds are consistent between queue logic and display formatting
+// See: https://github.com/link-assistant/hive-mind/issues/1242
+// See: https://github.com/link-assistant/hive-mind/issues/1253 (configurable strategies)
+export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
+import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 
 /**
  * Status enum for queue items
@@ -69,13 +43,14 @@ export const QueueItemStatus = {
 };
 
 /**
- * Count running claude processes
+ * Count running processes by name
+ * @param {string} processName - Process name to search for (e.g., 'claude', 'agent')
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{count: number, processes: string[]}>}
  */
-export async function getRunningClaudeProcesses(verbose = false) {
+export async function getRunningProcesses(processName, verbose = false) {
   try {
-    const { stdout } = await execAsync('pgrep -l -x claude 2>/dev/null || true');
+    const { stdout } = await execAsync(`pgrep -l -x ${processName} 2>/dev/null || true`);
     const lines = stdout
       .trim()
       .split('\n')
@@ -86,15 +61,15 @@ export async function getRunningClaudeProcesses(verbose = false) {
         const parts = line.trim().split(/\s+/);
         return {
           pid: parts[0],
-          name: parts.slice(1).join(' ') || 'claude',
+          name: parts.slice(1).join(' ') || processName,
         };
       })
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve-queue found ${processes.length} running claude processes`);
+      console.log(`[VERBOSE] /solve_queue found ${processes.length} running ${processName} processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve-queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -104,10 +79,28 @@ export async function getRunningClaudeProcesses(verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve-queue error counting claude processes:', error.message);
+      console.error(`[VERBOSE] /solve_queue error counting ${processName} processes:`, error.message);
     }
     return { count: 0, processes: [] };
   }
+}
+
+/**
+ * Count running claude processes
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningClaudeProcesses(verbose = false) {
+  return getRunningProcesses('claude', verbose);
+}
+
+/**
+ * Count running agent processes
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, processes: string[]}>}
+ */
+export async function getRunningAgentProcesses(verbose = false) {
+  return getRunningProcesses('agent', verbose);
 }
 
 /**
@@ -117,6 +110,33 @@ export async function getRunningClaudeProcesses(verbose = false) {
  */
 function formatThresholdPercent(ratio) {
   return `${Math.round(ratio * 100)}%`;
+}
+
+/**
+ * Format milliseconds into human-readable duration
+ * Shows days, hours, minutes, and seconds as appropriate.
+ * Examples: "5h 43m 23s", "2m 15s", "45s", "1d 3h 12m 5s"
+ *
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} Human-readable duration
+ * @see https://github.com/link-assistant/hive-mind/issues/1267
+ */
+export function formatDuration(ms) {
+  if (ms < 0) ms = 0;
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+
+  return parts.join(' ');
 }
 
 /**
@@ -242,6 +262,13 @@ class SolveQueueItem {
 
 /**
  * Solve Queue - Producer/Consumer queue for /solve commands
+ *
+ * Uses separate queues for each tool type to ensure:
+ * - Claude tasks never block agent tasks (and vice versa)
+ * - Each tool queue maintains FIFO order
+ * - Each tool has independent rate limiting
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1159
  */
 export class SolveQueue {
   constructor(options = {}) {
@@ -249,14 +276,23 @@ export class SolveQueue {
     this.executeCallback = options.executeCallback || null;
     this.messageUpdateCallback = options.messageUpdateCallback || null;
 
-    // Queue state
-    this.queue = [];
+    // Separate queues per tool type - claude tasks never block agent tasks
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    this.queues = {
+      claude: [],
+      agent: [],
+    };
     this.processing = new Map();
     this.completed = [];
     this.failed = [];
     this.isRunning = true;
 
-    // Timing
+    // Timing - separate per tool to ensure independent processing
+    this.lastStartTimeByTool = {
+      claude: null,
+      agent: null,
+    };
+    // Legacy: keep for compatibility with existing code that uses lastStartTime
     this.lastStartTime = null;
 
     // Consumer task reference
@@ -272,7 +308,43 @@ export class SolveQueue {
       throttleReasons: {},
     };
 
-    this.log('SolveQueue initialized');
+    this.log('SolveQueue initialized with separate tool queues');
+  }
+
+  /**
+   * Get the queue array for a specific tool, creating it if needed
+   * @param {string} tool - Tool type ('claude', 'agent', etc.)
+   * @returns {Array} The queue array for this tool
+   */
+  getToolQueue(tool) {
+    if (!this.queues[tool]) {
+      this.queues[tool] = [];
+    }
+    return this.queues[tool];
+  }
+
+  /**
+   * Get combined queue length across all tools (for backwards compatibility)
+   * @returns {number} Total queue length
+   */
+  get queue() {
+    let total = [];
+    for (const toolQueue of Object.values(this.queues)) {
+      total = total.concat(toolQueue);
+    }
+    return total;
+  }
+
+  /**
+   * Get total pending count across all tool queues
+   * @returns {number} Total pending items
+   */
+  getTotalQueueLength() {
+    let total = 0;
+    for (const toolQueue of Object.values(this.queues)) {
+      total += toolQueue.length;
+    }
+    return total;
   }
 
   /**
@@ -281,21 +353,24 @@ export class SolveQueue {
    */
   log(message) {
     if (this.verbose) {
-      console.log(`[VERBOSE] /solve-queue: ${message}`);
+      console.log(`[VERBOSE] /solve_queue: ${message}`);
     }
   }
 
   /**
-   * Add a solve command to the queue
+   * Add a solve command to the appropriate tool queue
+   * Items are added to the queue for their specific tool type.
    * @param {Object} options - Queue item options
    * @returns {SolveQueueItem} The queued item
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   enqueue(options) {
     const item = new SolveQueueItem(options);
-    this.queue.push(item);
+    const toolQueue = this.getToolQueue(item.tool);
+    toolQueue.push(item);
     this.stats.totalEnqueued++;
 
-    this.log(`Enqueued: ${item.toString()}, queue length: ${this.queue.length}`);
+    this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
 
     // Start consumer if not already running
     this.ensureConsumerRunning();
@@ -304,17 +379,19 @@ export class SolveQueue {
   }
 
   /**
-   * Find an item by URL in the queue or processing items
+   * Find an item by URL in any queue or processing items
    * Used to prevent duplicate URLs from being added to the queue
    * @param {string} url - The URL to search for
    * @returns {SolveQueueItem|null} The found item or null
    * @see https://github.com/link-assistant/hive-mind/issues/1080
    */
   findByUrl(url) {
-    // Check queued items
-    const queuedItem = this.queue.find(item => item.url === url);
-    if (queuedItem) {
-      return queuedItem;
+    // Check all tool queues
+    for (const toolQueue of Object.values(this.queues)) {
+      const queuedItem = toolQueue.find(item => item.url === url);
+      if (queuedItem) {
+        return queuedItem;
+      }
     }
 
     // Check processing items
@@ -329,17 +406,22 @@ export class SolveQueue {
 
   /**
    * Cancel a queued item by ID
+   * Searches all tool queues to find the item.
    * @param {string} id - Item ID
    * @returns {boolean} True if cancelled
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   cancel(id) {
-    const queueIndex = this.queue.findIndex(item => item.id === id);
-    if (queueIndex !== -1) {
-      const item = this.queue.splice(queueIndex, 1)[0];
-      item.setCancelled();
-      this.stats.totalCancelled++;
-      this.log(`Cancelled queued item: ${item.toString()}`);
-      return true;
+    // Search all tool queues
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const queueIndex = toolQueue.findIndex(item => item.id === id);
+      if (queueIndex !== -1) {
+        const item = toolQueue.splice(queueIndex, 1)[0];
+        item.setCancelled();
+        this.stats.totalCancelled++;
+        this.log(`Cancelled queued item: ${item.toString()} from ${tool} queue`);
+        return true;
+      }
     }
 
     if (this.processing.has(id)) {
@@ -355,39 +437,130 @@ export class SolveQueue {
    * @returns {Object}
    */
   getStats() {
+    // Calculate per-tool queue stats
+    const queuedByTool = {};
+    let totalQueued = 0;
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      queuedByTool[tool] = toolQueue.length;
+      totalQueued += toolQueue.length;
+    }
+
     return {
-      queued: this.queue.length,
+      queued: totalQueued,
+      queuedByTool,
       processing: this.processing.size,
       completed: this.completed.length,
       failed: this.failed.length,
       ...this.stats,
       cacheStats: getLimitCache().getStats(),
       lastStartTime: this.lastStartTime,
+      lastStartTimeByTool: this.lastStartTimeByTool,
       isRunning: this.isRunning,
     };
   }
 
   /**
+   * Count processing items by tool type
+   * Used for tool-specific limit checking - e.g., Claude limits only count Claude processing items
+   * @param {string} tool - Tool type to count ('claude', 'agent', etc.)
+   * @returns {number} Count of processing items with the specified tool
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  getProcessingCountByTool(tool) {
+    let count = 0;
+    for (const item of this.processing.values()) {
+      if (item.tool === tool) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Find startable items from each tool queue
+   * Returns the first item from each tool queue that can start.
+   * With separate queues, each tool is checked independently so they don't block each other.
+   * @returns {Promise<Array<{item: SolveQueueItem, tool: string, index: number, check: Object}>>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  async findStartableItems() {
+    const startableItems = [];
+
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      if (toolQueue.length === 0) continue;
+
+      // Check if first item in this tool's queue can start
+      const item = toolQueue[0];
+      const check = await this.canStartCommand({ tool });
+
+      if (check.canStart) {
+        // Also check one-at-a-time mode for this specific tool
+        // For tool-specific one-at-a-time, only count that tool's processing items
+        const toolProcessingCount = this.getProcessingCountByTool(tool);
+        if (check.oneAtATime && toolProcessingCount > 0) {
+          // This tool is in one-at-a-time mode and has items processing
+          // Skip but don't block other tools
+          continue;
+        }
+        startableItems.push({ item, tool, index: 0, check });
+      }
+    }
+
+    return startableItems;
+  }
+
+  /**
+   * Find first queue item that can start based on its tool's limits (legacy compatibility)
+   * With separate queues, returns the first startable item from any tool queue.
+   * @returns {Promise<{item: SolveQueueItem|null, index: number, check: Object}>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   */
+  async findStartableItem() {
+    const startableItems = await this.findStartableItems();
+    if (startableItems.length > 0) {
+      // Return the first startable item (arbitrary order among tools)
+      const first = startableItems[0];
+      return { item: first.item, index: first.index, check: first.check };
+    }
+    return { item: null, index: -1, check: null };
+  }
+
+  /**
    * Get queue items summary for display
+   * Combines items from all tool queues into a single pending list.
    * @returns {Object}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   getQueueSummary() {
+    // Collect pending items from all tool queues
+    const pending = [];
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      for (const item of toolQueue) {
+        pending.push({
+          id: item.id,
+          url: item.url,
+          requester: item.requester,
+          waitTime: item.getWaitTime(),
+          createdAt: item.createdAt,
+          status: item.status,
+          waitingReason: item.waitingReason,
+          tool,
+        });
+      }
+    }
+
+    // Sort by createdAt to show oldest first (global order)
+    pending.sort((a, b) => a.createdAt - b.createdAt);
+
     return {
-      pending: this.queue.map(item => ({
-        id: item.id,
-        url: item.url,
-        requester: item.requester,
-        waitTime: item.getWaitTime(),
-        createdAt: item.createdAt,
-        status: item.status,
-        waitingReason: item.waitingReason,
-      })),
+      pending,
       processing: Array.from(this.processing.values()).map(item => ({
         id: item.id,
         url: item.url,
         requester: item.requester,
         startedAt: item.startedAt,
         status: item.status,
+        tool: item.tool,
       })),
     };
   }
@@ -400,15 +573,34 @@ export class SolveQueue {
    * 2. Commands can run in parallel as long as actual limits are not exceeded
    * 3. When any limit >= threshold, allow exactly one claude command to pass
    *
-   * @returns {Promise<{canStart: boolean, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
+   * Logic per issue #1159:
+   * - Different tools have different limits. Claude limits only apply to 'claude' tool.
+   * - Processing count for Claude limits only includes Claude items, not agent items.
+   * - This allows agent tasks to run in parallel when Claude limits are reached.
+   *
+   * Logic per issue #1253:
+   * - All thresholds now support configurable strategies (reject, enqueue, dequeue-one-at-a-time)
+   * - 'reject' strategy immediately rejects the command without queueing
+   * - 'enqueue' blocks and waits in queue until metric drops
+   * - 'dequeue-one-at-a-time' allows one command while blocking subsequent
+   *
+   * @param {Object} options - Options for the check
+   * @param {string} options.tool - The tool being used ('claude', 'agent', etc.)
+   * @returns {Promise<{canStart: boolean, rejected?: boolean, rejectReason?: string, reason?: string, reasons?: string[], oneAtATime?: boolean}>}
    */
-  async canStartCommand() {
+  async canStartCommand(options = {}) {
+    const tool = options.tool || 'claude';
     const reasons = [];
     let oneAtATime = false;
+    let rejected = false;
+    let rejectReason = null;
 
-    // Check minimum interval since last start
-    if (this.lastStartTime) {
-      const timeSinceLastStart = Date.now() - this.lastStartTime;
+    // Check minimum interval since last start FOR THIS TOOL
+    // Each tool queue has independent timing to prevent cross-blocking
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const lastStartTime = this.lastStartTimeByTool[tool] || null;
+    if (lastStartTime) {
+      const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
         const waitSeconds = Math.ceil((QUEUE_CONFIG.MIN_START_INTERVAL_MS - timeSinceLastStart) / 1000);
         reasons.push(formatWaitingReason('min_interval', 0, 0) + ` (${waitSeconds}s remaining)`);
@@ -420,30 +612,48 @@ export class SolveQueue {
     const claudeProcs = await getRunningClaudeProcesses(this.verbose);
     const hasRunningClaude = claudeProcs.count > 0;
 
-    // Calculate total processing count: queue-internal + external claude processes
-    // This is used for CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD
-    // to allow exactly one command at a time when threshold is reached
-    // See: https://github.com/link-assistant/hive-mind/issues/1133
+    // Calculate total processing count for system resources (all tools)
+    // System resources (RAM, CPU, disk) apply to all tools
     const totalProcessing = this.processing.size + claudeProcs.count;
+
+    // Calculate Claude-specific processing count for Claude API limits
+    // Only counts Claude items in queue + external claude processes
+    // Agent items don't count against Claude's one-at-a-time limit
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const claudeProcessingCount = this.getProcessingCountByTool('claude');
 
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
       this.recordThrottle('claude_running');
     }
 
-    // Check system resources (RAM, CPU block unconditionally; disk uses one-at-a-time mode)
+    // Check system resources with strategy support
+    // System resources apply to ALL tools, not just Claude
     // See: https://github.com/link-assistant/hive-mind/issues/1155
+    // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
     const resourceCheck = await this.checkSystemResources(totalProcessing);
-    if (!resourceCheck.ok) {
+    if (resourceCheck.rejected) {
+      rejected = true;
+      rejectReason = resourceCheck.rejectReason;
+    }
+    if (!resourceCheck.ok && !resourceCheck.rejected) {
       reasons.push(...resourceCheck.reasons);
     }
     if (resourceCheck.oneAtATime) {
       oneAtATime = true;
     }
 
-    // Check API limits (pass hasRunningClaude and totalProcessing for uniform checking)
-    const limitCheck = await this.checkApiLimits(hasRunningClaude, totalProcessing);
-    if (!limitCheck.ok) {
+    // Check API limits with strategy support (pass hasRunningClaude, claudeProcessingCount, and tool)
+    // Claude limits use claudeProcessingCount (only Claude items), not totalProcessing
+    // This allows agent tasks to proceed when Claude limits are reached
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    // See: https://github.com/link-assistant/hive-mind/issues/1253 (strategies)
+    const limitCheck = await this.checkApiLimits(hasRunningClaude, claudeProcessingCount, tool);
+    if (limitCheck.rejected) {
+      rejected = true;
+      rejectReason = limitCheck.rejectReason;
+    }
+    if (!limitCheck.ok && !limitCheck.rejected) {
       reasons.push(...limitCheck.reasons);
     }
     if (limitCheck.oneAtATime) {
@@ -459,19 +669,26 @@ export class SolveQueue {
       reasons.push(formatWaitingReason('claude_running', claudeProcs.count, 0) + ` (${claudeProcs.count} processes)`);
     }
 
-    const canStart = reasons.length === 0;
+    const canStart = reasons.length === 0 && !rejected;
 
     if (!canStart && this.verbose) {
-      this.log(`Cannot start: ${reasons.join(', ')}`);
+      if (rejected) {
+        this.log(`Rejected: ${rejectReason}`);
+      } else {
+        this.log(`Cannot start: ${reasons.join(', ')}`);
+      }
     }
 
     return {
       canStart,
+      rejected,
+      rejectReason,
       reason: reasons.length > 0 ? reasons.join('\n') : undefined,
       reasons,
       oneAtATime,
       claudeProcesses: claudeProcs.count,
       totalProcessing,
+      claudeProcessingCount,
     };
   }
 
@@ -482,33 +699,53 @@ export class SolveQueue {
    * This provides a more stable metric that isn't affected by brief spikes
    * during claude process startup.
    *
-   * Resource threshold modes:
-   * - RAM_THRESHOLD: Enqueue mode - blocks all commands unconditionally
-   * - CPU_THRESHOLD: Enqueue mode - blocks all commands unconditionally
-   * - DISK_THRESHOLD: One-at-a-time mode - allows exactly one command when nothing is processing
+   * Resource threshold modes are now configurable via HIVE_MIND_QUEUE_CONFIG:
+   * - 'reject': Immediately reject the command, no queueing
+   * - 'enqueue': Block all commands unconditionally until metric drops
+   * - 'dequeue-one-at-a-time': Allow one command when above threshold
+   *
+   * Default strategies:
+   * - RAM: enqueue
+   * - CPU: enqueue
+   * - DISK: reject (changed from dequeue-one-at-a-time - queue lost on restart)
    *
    * See: https://github.com/link-assistant/hive-mind/issues/1155
+   * See: https://github.com/link-assistant/hive-mind/issues/1253
    *
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
-   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
+   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
   async checkSystemResources(totalProcessing = 0) {
     const reasons = [];
     let oneAtATime = false;
+    let rejected = false;
+    let rejectReason = null;
 
     // Check RAM (using cached value)
-    // Enqueue mode: blocks all commands unconditionally
     const memResult = await getCachedMemoryInfo(this.verbose);
     if (memResult.success) {
       const usedRatio = memResult.memory.usedPercentage / 100;
-      if (usedRatio >= QUEUE_CONFIG.RAM_THRESHOLD) {
-        reasons.push(formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.RAM_THRESHOLD));
-        this.recordThrottle('ram_high');
+      if (usedRatio >= QUEUE_CONFIG.thresholds.ram.value) {
+        const reason = formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.thresholds.ram.value);
+        const strategy = QUEUE_CONFIG.thresholds.ram.strategy;
+        this.recordThrottle(`ram_${strategy}`);
+
+        if (strategy === 'reject') {
+          rejected = true;
+          rejectReason = reason;
+        } else if (strategy === 'dequeue-one-at-a-time') {
+          oneAtATime = true;
+          if (totalProcessing > 0) {
+            reasons.push(reason + ' (waiting for current command)');
+          }
+        } else {
+          // 'enqueue' - block unconditionally
+          reasons.push(reason);
+        }
       }
     }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
-    // Enqueue mode: blocks all commands unconditionally
     // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
@@ -525,33 +762,55 @@ export class SolveQueue {
         this.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
       }
 
-      if (usageRatio >= QUEUE_CONFIG.CPU_THRESHOLD) {
-        reasons.push(formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.CPU_THRESHOLD));
-        this.recordThrottle('cpu_high');
+      if (usageRatio >= QUEUE_CONFIG.thresholds.cpu.value) {
+        const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value);
+        const strategy = QUEUE_CONFIG.thresholds.cpu.strategy;
+        this.recordThrottle(`cpu_${strategy}`);
+
+        if (strategy === 'reject') {
+          rejected = true;
+          rejectReason = reason;
+        } else if (strategy === 'dequeue-one-at-a-time') {
+          oneAtATime = true;
+          if (totalProcessing > 0) {
+            reasons.push(reason + ' (waiting for current command)');
+          }
+        } else {
+          // 'enqueue' - block unconditionally
+          reasons.push(reason);
+        }
       }
     }
 
     // Check disk space (using cached value)
-    // One-at-a-time mode: allows exactly one command when nothing is processing
-    // Unlike RAM and CPU which block unconditionally, disk uses one-at-a-time mode
-    // because we cannot predict how much disk space a task will use
-    // See: https://github.com/link-assistant/hive-mind/issues/1155
+    // Default strategy changed to 'reject' because queue is lost on restart anyway
+    // See: https://github.com/link-assistant/hive-mind/issues/1253
     const diskResult = await getCachedDiskInfo(this.verbose);
     if (diskResult.success) {
       // Calculate usage from free percentage
       const usedPercent = 100 - diskResult.diskSpace.freePercentage;
       const usedRatio = usedPercent / 100;
-      if (usedRatio >= QUEUE_CONFIG.DISK_THRESHOLD) {
-        oneAtATime = true;
-        this.recordThrottle('disk_high');
-        // Only block if something is already processing (one-at-a-time mode)
-        if (totalProcessing > 0) {
-          reasons.push(formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.DISK_THRESHOLD) + ' (waiting for current command)');
+      if (usedRatio >= QUEUE_CONFIG.thresholds.disk.value) {
+        const reason = formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.thresholds.disk.value);
+        const strategy = QUEUE_CONFIG.thresholds.disk.strategy;
+        this.recordThrottle(`disk_${strategy}`);
+
+        if (strategy === 'reject') {
+          rejected = true;
+          rejectReason = reason;
+        } else if (strategy === 'dequeue-one-at-a-time') {
+          oneAtATime = true;
+          if (totalProcessing > 0) {
+            reasons.push(reason + ' (waiting for current command)');
+          }
+        } else {
+          // 'enqueue' - block unconditionally
+          reasons.push(reason);
         }
       }
     }
 
-    return { ok: reasons.length === 0, reasons, oneAtATime };
+    return { ok: reasons.length === 0 && !rejected, reasons, oneAtATime, rejected, rejectReason };
   }
 
   /**
@@ -559,70 +818,133 @@ export class SolveQueue {
    *
    * Logic per issue #1133:
    * - CLAUDE_5_HOUR_SESSION_THRESHOLD and CLAUDE_WEEKLY_THRESHOLD use one-at-a-time mode:
-   *   when above threshold, allow exactly one command, block if totalProcessing > 0
+   *   when above threshold, allow exactly one command, block if claudeProcessing > 0
    * - GitHub threshold blocks unconditionally when exceeded (ultimate restriction)
-   * - totalProcessing = queue-internal count + external claude processes (pgrep)
    *
-   * @param {boolean} hasRunningClaude - Whether claude processes are running
-   * @param {number} totalProcessing - Total processing count (queue + external claude processes)
-   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean}>}
+   * Logic per issue #1159:
+   * - When tool is 'agent', skip Claude-specific limits entirely since agent uses different
+   *   rate limits (Grok Code or similar). Only system resources and GitHub limits apply.
+   * - For Claude limits, only count Claude-specific processing items, not agent items.
+   *   This allows agent tasks to run in parallel even when Claude limits are reached.
+   *
+   * Logic per issue #1253:
+   * - All thresholds now support configurable strategies (reject, enqueue, dequeue-one-at-a-time)
+   * - Configuration via HIVE_MIND_QUEUE_CONFIG or individual env vars
+   *
+   * @param {boolean} hasRunningClaude - Whether claude processes are running (from pgrep)
+   * @param {number} claudeProcessingCount - Count of 'claude' tool items being processed in queue
+   * @param {string} tool - The tool being used ('claude', 'agent', etc.)
+   * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
    */
-  async checkApiLimits(hasRunningClaude = false, totalProcessing = 0) {
+  async checkApiLimits(hasRunningClaude = false, claudeProcessingCount = 0, tool = 'claude') {
     const reasons = [];
     let oneAtATime = false;
+    let rejected = false;
+    let rejectReason = null;
+
+    // Apply Claude-specific limits only when tool is 'claude'
+    // Other tools (like 'agent') use different rate limiting backends and are not
+    // affected by Claude API limits (5-hour session, weekly limits)
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const applyClaudeLimits = tool === 'claude';
+
+    // Calculate total Claude processing: queue-internal claude items + external claude processes
+    // This is used for Claude limits one-at-a-time mode - only counts Claude-related processing
+    // Agent items in the queue don't count against Claude's one-at-a-time limit
+    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    const totalClaudeProcessing = claudeProcessingCount + (hasRunningClaude ? 1 : 0);
 
     // Check Claude limits (using cached value)
-    const claudeResult = await getCachedClaudeLimits(this.verbose);
-    if (claudeResult.success) {
-      const sessionPercent = claudeResult.usage.currentSession.percentage;
-      const weeklyPercent = claudeResult.usage.allModels.percentage;
+    // Only applied when tool is 'claude'
+    if (applyClaudeLimits) {
+      const claudeResult = await getCachedClaudeLimits(this.verbose);
+      if (claudeResult.success) {
+        const sessionPercent = claudeResult.usage.currentSession.percentage;
+        const weeklyPercent = claudeResult.usage.allModels.percentage;
 
-      // Session limit (5-hour)
-      // When above threshold: allow exactly one command, block if any processing is happening
-      // Uses totalProcessing (queue + external claude) for uniform checking
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      if (sessionPercent !== null) {
-        const sessionRatio = sessionPercent / 100;
-        if (sessionRatio >= QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) {
-          oneAtATime = true;
-          this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : 'claude_5_hour_session_high');
-          // Use totalProcessing (queue + external claude) for uniform checking
-          if (totalProcessing > 0) {
-            reasons.push(formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD) + ' (waiting for current command)');
+        // Session limit (5-hour)
+        // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY
+        // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159, #1253
+        if (sessionPercent !== null) {
+          const sessionRatio = sessionPercent / 100;
+          if (sessionRatio >= QUEUE_CONFIG.thresholds.claude5Hour.value) {
+            const reason = formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.claude5Hour.value);
+            const strategy = QUEUE_CONFIG.thresholds.claude5Hour.strategy;
+            this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : `claude_5_hour_session_${strategy}`);
+
+            if (strategy === 'reject') {
+              rejected = true;
+              rejectReason = reason;
+            } else if (strategy === 'dequeue-one-at-a-time') {
+              oneAtATime = true;
+              if (totalClaudeProcessing > 0) {
+                reasons.push(reason + ' (waiting for current command)');
+              }
+            } else {
+              // 'enqueue' - block unconditionally
+              reasons.push(reason);
+            }
+          }
+        }
+
+        // Weekly limit
+        // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_CLAUDE_WEEKLY_STRATEGY
+        // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159, #1253
+        if (weeklyPercent !== null) {
+          const weeklyRatio = weeklyPercent / 100;
+          if (weeklyRatio >= QUEUE_CONFIG.thresholds.claudeWeekly.value) {
+            const reason = formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.claudeWeekly.value);
+            const strategy = QUEUE_CONFIG.thresholds.claudeWeekly.strategy;
+            this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : `claude_weekly_${strategy}`);
+
+            if (strategy === 'reject') {
+              rejected = true;
+              rejectReason = reason;
+            } else if (strategy === 'dequeue-one-at-a-time') {
+              oneAtATime = true;
+              if (totalClaudeProcessing > 0) {
+                reasons.push(reason + ' (waiting for current command)');
+              }
+            } else {
+              // 'enqueue' - block unconditionally
+              reasons.push(reason);
+            }
           }
         }
       }
-
-      // Weekly limit
-      // When above threshold: allow exactly one command, block if one is in progress
-      if (weeklyPercent !== null) {
-        const weeklyRatio = weeklyPercent / 100;
-        if (weeklyRatio >= QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) {
-          oneAtATime = true;
-          this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : 'claude_weekly_high');
-          // Use totalProcessing (queue + external claude) for uniform checking
-          // See: https://github.com/link-assistant/hive-mind/issues/1133
-          if (totalProcessing > 0) {
-            reasons.push(formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD) + ' (waiting for current command)');
-          }
-        }
-      }
+    } else if (this.verbose) {
+      this.log(`Claude limits not applied for --tool ${tool}`);
     }
 
     // Check GitHub limits (only relevant if claude processes running)
+    // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_GITHUB_API_STRATEGY
     if (hasRunningClaude) {
       const githubResult = await getCachedGitHubLimits(this.verbose);
       if (githubResult.success) {
         const usedPercent = githubResult.githubRateLimit.usedPercentage;
         const usedRatio = usedPercent / 100;
-        if (usedRatio >= QUEUE_CONFIG.GITHUB_API_THRESHOLD) {
-          reasons.push(formatWaitingReason('github', usedPercent, QUEUE_CONFIG.GITHUB_API_THRESHOLD));
-          this.recordThrottle(usedRatio >= 1.0 ? 'github_100' : 'github_high');
+        if (usedRatio >= QUEUE_CONFIG.thresholds.githubApi.value) {
+          const reason = formatWaitingReason('github', usedPercent, QUEUE_CONFIG.thresholds.githubApi.value);
+          const strategy = QUEUE_CONFIG.thresholds.githubApi.strategy;
+          this.recordThrottle(usedRatio >= 1.0 ? 'github_100' : `github_${strategy}`);
+
+          if (strategy === 'reject') {
+            rejected = true;
+            rejectReason = reason;
+          } else if (strategy === 'dequeue-one-at-a-time') {
+            oneAtATime = true;
+            if (totalClaudeProcessing > 0) {
+              reasons.push(reason + ' (waiting for current command)');
+            }
+          } else {
+            // 'enqueue' - block unconditionally
+            reasons.push(reason);
+          }
         }
       }
     }
 
-    return { ok: reasons.length === 0, reasons, oneAtATime };
+    return { ok: reasons.length === 0 && !rejected, reasons, oneAtATime, rejected, rejectReason };
   }
 
   /**
@@ -641,7 +963,7 @@ export class SolveQueue {
 
     this.consumerTask = this.runConsumer();
     this.consumerTask.catch(error => {
-      console.error('[solve-queue] Consumer error:', error);
+      console.error('[solve_queue] Consumer error:', error);
       this.consumerTask = null;
     });
   }
@@ -678,86 +1000,103 @@ export class SolveQueue {
   }
 
   /**
-   * Consumer loop - processes items from the queue
+   * Consumer loop - processes items from all tool queues
+   *
+   * With separate queues per tool:
+   * - Each tool queue is checked independently
+   * - Claude limits only affect Claude queue
+   * - Agent queue can proceed even when Claude is blocked (and vice versa)
+   * - Multiple items can start in the same cycle (one per tool)
+   *
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
   async runConsumer() {
-    this.log('Consumer started');
+    this.log('Consumer started with separate tool queues');
 
     while (this.isRunning) {
-      if (this.queue.length === 0) {
+      // Check if all queues are empty
+      if (this.getTotalQueueLength() === 0) {
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      const check = await this.canStartCommand();
+      // Find startable items from each tool queue
+      // Each tool is checked independently so they don't block each other
+      // See: https://github.com/link-assistant/hive-mind/issues/1159
+      const startableItems = await this.findStartableItems();
 
-      if (!check.canStart) {
-        // Update all queued items to waiting status with reason
-        // Also periodically refresh messages to show current status
-        // See: https://github.com/link-assistant/hive-mind/issues/1078
-        for (const item of this.queue) {
-          if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
-            const previousStatus = item.status;
-            const previousReason = item.waitingReason;
-            item.setWaiting(check.reason);
-
-            // Update message if:
-            // 1. Status or reason changed
-            // 2. OR it's time for a periodic update (every MESSAGE_UPDATE_INTERVAL_MS)
-            const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
-
-            if (shouldUpdate) {
-              const position = this.queue.indexOf(item) + 1;
-              await this.updateItemMessage(item, `⏳ Waiting (position #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${check.reason}`);
-            }
-          }
-        }
-
-        this.log(`Throttled: ${check.reason}`);
+      if (startableItems.length === 0) {
+        // No items can start - update all queued items with their tool-specific waiting reasons
+        await this.updateAllWaitingItems();
+        this.log(`Throttled: no items can start from any tool queue`);
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
 
-      // Check one-at-a-time mode
-      // When oneAtATime is true (e.g., weekly limit >= 99%), block if any processing is happening
-      // totalProcessing = queue-internal (this.processing.size) + external claude processes (pgrep)
-      // This ensures uniform checking across all threshold conditions
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      if (check.oneAtATime && check.totalProcessing > 0) {
-        const processInfo = check.claudeProcesses > 0 ? ` (${check.claudeProcesses} claude process${check.claudeProcesses > 1 ? 'es' : ''} running)` : '';
-        this.log(`One-at-a-time mode: waiting for current command to finish${processInfo}`);
-        await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
-        continue;
+      // Start items from each tool that can proceed
+      // This allows parallel starts from different tool queues
+      for (const startable of startableItems) {
+        const { tool } = startable;
+        const toolQueue = this.getToolQueue(tool);
+
+        // Remove the first item from this tool's queue
+        const item = toolQueue.shift();
+        if (!item) continue;
+
+        // Update status to Starting
+        item.setStarting();
+        this.processing.set(item.id, item);
+
+        // Update tool-specific last start time
+        this.lastStartTimeByTool[tool] = Date.now();
+        this.lastStartTime = Date.now(); // Legacy compatibility
+        this.stats.totalStarted++;
+
+        // Update message to show Starting status
+        await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
+
+        this.log(`Starting: ${item.toString()} from ${tool} queue`);
+
+        // Execute in background
+        this.executeItem(item).catch(error => {
+          console.error(`[solve_queue] Execution error for ${item.id}:`, error);
+        });
       }
-
-      // Get next item from queue
-      const item = this.queue.shift();
-      if (!item) continue;
-
-      // NOTE: Running claude processes is NOT a blocking limit by itself
-      // Commands can run in parallel as long as actual limits (CPU, API, etc.) are not exceeded
-      // The MIN_START_INTERVAL_MS ensures enough time for processes to be counted
-      // See: https://github.com/link-assistant/hive-mind/issues/1078
-
-      // Update status to Starting
-      item.setStarting();
-      this.processing.set(item.id, item);
-      this.lastStartTime = Date.now();
-      this.stats.totalStarted++;
-
-      // Update message to show Starting status
-      await this.updateItemMessage(item, `🚀 Starting solve command...\n\n${item.infoBlock}`);
-
-      this.log(`Starting: ${item.toString()}`);
-
-      // Execute in background
-      this.executeItem(item).catch(error => {
-        console.error(`[solve-queue] Execution error for ${item.id}:`, error);
-      });
     }
 
     this.log('Consumer stopped');
     this.consumerTask = null;
+  }
+
+  /**
+   * Update all waiting items with their tool-specific waiting reasons
+   * @see https://github.com/link-assistant/hive-mind/issues/1078
+   */
+  async updateAllWaitingItems() {
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      for (let i = 0; i < toolQueue.length; i++) {
+        const item = toolQueue[i];
+        if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
+          // Get the specific reason for this item's tool
+          const itemCheck = await this.canStartCommand({ tool: item.tool });
+          const previousStatus = item.status;
+          const previousReason = item.waitingReason;
+          // Use rejectReason when threshold strategy is 'reject', otherwise use reason
+          // This ensures disk-full and other rejection reasons are shown properly
+          // See: https://github.com/link-assistant/hive-mind/issues/1267
+          const waitReason = itemCheck.rejectReason || itemCheck.reason || 'Waiting in queue';
+          item.setWaiting(waitReason);
+
+          // Update message if status/reason changed or it's time for periodic update
+          const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
+
+          if (shouldUpdate) {
+            const position = i + 1; // Position within this tool's queue
+            await this.updateItemMessage(item, `⏳ Waiting (${tool} queue #${position})\n\n${item.infoBlock}\n\n*Reason:*\n${item.waitingReason}`);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -802,7 +1141,7 @@ export class SolveQueue {
             } catch (error) {
               // Log message edit failures for debugging
               // See: https://github.com/link-assistant/hive-mind/issues/1062
-              console.error(`[solve-queue] Failed to update message for item ${item.id}: ${error.message}`);
+              console.error(`[solve_queue] Failed to update message for item ${item.id}: ${error.message}`);
             }
           }
         }
@@ -813,7 +1152,7 @@ export class SolveQueue {
     } catch (error) {
       item.setFailed(error);
       this.stats.totalFailed++;
-      console.error(`[solve-queue] Item failed: ${item.id}`, error);
+      console.error(`[solve_queue] Item failed: ${item.id}`, error);
 
       // Try to update message with error
       const { chatId, messageId } = item.messageInfo || {};
@@ -823,7 +1162,7 @@ export class SolveQueue {
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062
-          console.error(`[solve-queue] Failed to update error message for item ${item.id}: ${editError.message}`);
+          console.error(`[solve_queue] Failed to update error message for item ${item.id}: ${editError.message}`);
         }
       }
     } finally {
@@ -869,52 +1208,112 @@ export class SolveQueue {
   }
 
   /**
-   * Format queue status for display
-   * @returns {string}
+   * Format queue status for display in /limits command
+   * Shows per-tool queue breakdown with processing counts.
+   *
+   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
+   * This is because items transition quickly through the processing state, but the actual
+   * work happens in the spawned system process (claude, agent, etc.).
+   *
+   * Output format:
+   * ```
+   * Queues
+   * claude (pending: 6, processing: 0)
+   * agent (pending: 2, processing: 0)
+   * ```
+   *
+   * @returns {Promise<string>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  formatStatus() {
-    const stats = this.getStats();
-    if (stats.queued > 0 || stats.processing > 0) {
-      return `Solve Queue: ${stats.queued} pending, ${stats.processing} processing\n`;
+  async formatStatus() {
+    // Get actual process counts for each tool queue
+    // The "processing" count is the number of running system processes, not queue internal state
+    // This ensures users see accurate counts of what's actually running
+    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
+    const agentProcs = await getRunningAgentProcesses(this.verbose);
+
+    const processCounts = {
+      claude: claudeProcs.count,
+      agent: agentProcs.count,
+    };
+
+    // Always show per-tool breakdown for all known queues
+    let message = 'Queues\n';
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const pending = toolQueue.length;
+      const processing = processCounts[tool] || 0;
+      message += `${tool} (pending: ${pending}, processing: ${processing})\n`;
     }
-    return 'Solve Queue: empty\n';
+
+    return message;
   }
 
   /**
    * Format detailed queue status for Telegram message
-   * @returns {string}
+   * Groups output by tool queue, shows first 5 items per queue, and uses human-readable time.
+   *
+   * Processing count = actual running system processes (via pgrep), not items in queue processing state.
+   * This is because items transition quickly through the processing state, but the actual
+   * work happens in the spawned system process (claude, agent, etc.).
+   *
+   * Output format:
+   * ```
+   * 📋 Solve Queue Status
+   *
+   * claude (pending: 6, processing: 0)
+   * • url1 (waiting, 5h 43m 23s)
+   *   └ RAM usage is 70% (threshold: 65%)
+   * • url2 (queued, 2m 15s)
+   *
+   * agent (pending: 2, processing: 0)
+   * • url3 (waiting, 1h 2m 5s)
+   * ```
+   *
+   * @returns {Promise<string>}
+   * @see https://github.com/link-assistant/hive-mind/issues/1159
+   * @see https://github.com/link-assistant/hive-mind/issues/1267
    */
-  formatDetailedStatus() {
+  async formatDetailedStatus() {
     const stats = this.getStats();
-    const summary = this.getQueueSummary();
+
+    // Get actual process counts for each tool queue
+    // The "processing" count is the number of running system processes, not queue internal state
+    // This ensures users see accurate counts of what's actually running
+    const claudeProcs = await getRunningClaudeProcesses(this.verbose);
+    const agentProcs = await getRunningAgentProcesses(this.verbose);
+
+    const processCounts = {
+      claude: claudeProcs.count,
+      agent: agentProcs.count,
+    };
 
     let message = '📋 *Solve Queue Status*\n\n';
-    message += `Pending: ${stats.queued}\n`;
-    message += `Processing: ${stats.processing}\n`;
-    message += `Completed: ${stats.completed}\n`;
-    message += `Failed: ${stats.failed}\n\n`;
 
-    if (summary.processing.length > 0) {
-      message += '*Currently Processing:*\n';
-      for (const item of summary.processing) {
-        message += `• ${item.url}\n`;
+    // Show per-tool queue breakdown with items grouped by queue
+    for (const [tool, toolQueue] of Object.entries(this.queues)) {
+      const pending = toolQueue.length;
+      const processing = processCounts[tool] || 0;
+      message += `*${tool}* (pending: ${pending}, processing: ${processing})\n`;
+
+      // Show first 5 queued items for this tool
+      const displayItems = toolQueue.slice(0, 5);
+      for (const item of displayItems) {
+        const waitTime = formatDuration(item.getWaitTime());
+        message += `  • ${item.url} (${item.status}, ${waitTime})\n`;
+        if (item.waitingReason) {
+          message += `    └ ${item.waitingReason}\n`;
+        }
       }
+      if (toolQueue.length > 5) {
+        message += `    ... and ${toolQueue.length - 5} more\n`;
+      }
+
       message += '\n';
     }
 
-    if (summary.pending.length > 0) {
-      message += '*Waiting in Queue:*\n';
-      for (const item of summary.pending.slice(0, 5)) {
-        const waitSeconds = Math.floor(item.waitTime / 1000);
-        message += `• ${item.url} (${item.status}, ${waitSeconds}s)\n`;
-        if (item.waitingReason) {
-          message += `  └ ${item.waitingReason}\n`;
-        }
-      }
-      if (summary.pending.length > 5) {
-        message += `  ... and ${summary.pending.length - 5} more\n`;
-      }
-    }
+    // Summary stats
+    message += `Completed: ${stats.completed}, Failed: ${stats.failed}\n`;
 
     return message;
   }
@@ -965,8 +1364,11 @@ export default {
   SolveQueueItem,
   getSolveQueue,
   resetSolveQueue,
+  getRunningProcesses,
   getRunningClaudeProcesses,
+  getRunningAgentProcesses,
   createQueueExecuteCallback,
+  formatDuration,
   QUEUE_CONFIG,
   QueueItemStatus,
 };

@@ -57,7 +57,11 @@ export const checkExistingForkOfRoot = async rootRepo => {
     const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
     if (forksResult.code !== 0) return null;
 
-    const forks = forksResult.stdout.toString().trim().split('\n').filter(f => f);
+    const forks = forksResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(f => f);
     return forks.length > 0 ? forks[0] : null;
   } catch (error) {
     reportError(error, { context: 'check_existing_fork_of_root', rootRepo, operation: 'search_user_forks' });

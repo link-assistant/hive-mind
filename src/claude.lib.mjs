@@ -841,6 +841,8 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
     let isRequestTimeout = false; // Issue #1353: Track "Request timed out" from Claude CLI
+    let apiMarkedNotRetryable = false; // Issue #1437: Track when API explicitly signals x-should-retry: false
+    let resultNumTurns = 0; // Issue #1437: Track num_turns from result event to detect stuck retries
     let stderrErrors = [];
     let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
@@ -1031,6 +1033,11 @@ export const executeClaudeCommand = async params => {
                   resultSummary = data.result;
                   await log('📝 Captured result summary from Claude output', { verbose: true });
                 }
+                // Issue #1437: Capture num_turns to detect stuck retries (degrading turn count signals non-recovery)
+                if (data.num_turns !== undefined) {
+                  resultNumTurns = data.num_turns;
+                  await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
+                }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
@@ -1129,6 +1136,17 @@ export const executeClaudeCommand = async params => {
           // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
+            // Issue #1437: Detect when Anthropic API explicitly signals x-should-retry: false.
+            // When ANTHROPIC_LOG=debug is active (via --verbose mode), the SDK logs response headers
+            // including 'x-should-retry'. "error; not retryable" appears in the same log line.
+            // This signal means the server itself considers the error non-transient — retrying is
+            // unlikely to succeed and we should fail fast rather than blindly retrying 10 times.
+            if (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"')) {
+              if (!apiMarkedNotRetryable) {
+                apiMarkedNotRetryable = true;
+                await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
+              }
+            }
             // Issue #1354: Split multi-line stderr chunks and check each line individually.
             // A single chunk may contain multiple newline-separated JSON messages (e.g. two
             // consecutive {"level":"warn",...} lines). Passing the whole chunk to isStderrError()
@@ -1207,10 +1225,35 @@ export const executeClaudeCommand = async params => {
         const maxRetries = isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        // Issue #1437: Fail fast when API explicitly signals x-should-retry: false AND the retry
+        // is making no progress (num_turns <= 1 means the session failed immediately on resume).
+        // Pattern from incident: 500 with x-should-retry:false → retry 1 (6 turns) → retry 2 (1 turn)
+        // → retry 3 (1 turn). After the first retry with minimal turns, recovery is impossible.
+        // Allow up to maxNotRetryableAttempts retries even when API says not retryable,
+        // because occasionally the signal can be wrong for temporary backend glitches.
+        const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
+        if (isStuckRetry) {
+          await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
+          await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
+          await log(`   Check https://status.anthropic.com/ for API status.`, { level: 'error' });
+          return {
+            success: false,
+            sessionId,
+            limitReached: false,
+            limitResetTime: null,
+            limitTimezone: null,
+            messageCount,
+            toolUseCount,
+            is503Error,
+            anthropicTotalCostUSD,
+            resultSummary,
+          };
+        }
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
           const errorLabel = isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ? 'API overload (500)' : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+          const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)${notRetryableHint}...`, { level: 'warning' });
           await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
           if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
           await waitWithCountdown(delay, log);

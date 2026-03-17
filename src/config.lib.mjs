@@ -110,6 +110,12 @@ export const retryLimits = {
   maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
   initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
   maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
+  // Not-retryable error fail-fast configuration (Issue #1437)
+  // When the API sends x-should-retry: false AND retries make no progress (num_turns <= 1),
+  // stop retrying after this many attempts to avoid a stuck loop with no recovery prospects.
+  // Default: 1 means we allow at most 1 retry before failing fast (the first retry may succeed
+  // if the "not retryable" signal was itself a transient glitch).
+  maxNotRetryableAttempts: parseIntWithDefault('HIVE_MIND_MAX_NOT_RETRYABLE_ATTEMPTS', 1),
 };
 
 // Claude Code CLI configurations

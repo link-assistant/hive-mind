@@ -115,7 +115,7 @@ export const retryLimits = {
 // Claude Code CLI configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1076
 // Claude models support different max output tokens:
-// - Opus 4.6: 128K tokens (Issue #1221)
+// - Opus 4.6 (default 'opus' alias): 128K tokens (Issue #1221, Issue #1433)
 // - Sonnet 4.5, Opus 4.5, Haiku 4.5: 64K tokens
 // Setting a higher limit allows Claude to generate longer responses without hitting the limit
 export const claudeCode = {
@@ -158,8 +158,8 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions
-  // Note: The 'opus' alias now maps to Opus 4.5 (Issue #1238), so we only check explicit version identifiers
-  return normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // Note: The 'opus' alias now maps to Opus 4.6 (Issue #1433), so we also check for the alias directly
+  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**

@@ -117,7 +117,7 @@ These settings control Claude Code CLI behavior, including output limits and MCP
 | `MCP_TOOL_TIMEOUT`                      | 900000  | MCP tool execution timeout in ms (15 min) (also: `HIVE_MIND_MCP_TOOL_TIMEOUT`)                        |
 | `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999   | Default max thinking budget for Opus 4.6+ models                                                      |
 
-**Note:** Claude models support different max output tokens: Opus 4.6 supports 128K tokens, while Sonnet 4.5, Opus 4.5, and Haiku 4.5 support 64K tokens. The MCP timeouts (15 minutes by default) accommodate long-running Playwright operations. See [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) and [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) for details.
+**Note:** Claude models support different max output tokens: Opus 4.6 (the default `opus` alias) supports 128K tokens, while Sonnet 4.5, Opus 4.5, and Haiku 4.5 support 64K tokens. The MCP timeouts (15 minutes by default) accommodate long-running Playwright operations. See [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) and [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) for details.
 
 ### 6. File and Path Settings
 

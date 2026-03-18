@@ -374,6 +374,13 @@ export const watchUntilMergeable = async params => {
   // - If workflows exist → 'no_checks' is a transient race condition; keep waiting.
   let repoHasWorkflows = null; // null = not yet checked; true/false = cached result
 
+  // Issue #1442: Track consecutive iterations where CI checks never appear despite
+  // workflows existing. After a configurable timeout, stop waiting indefinitely.
+  // Reasons CI may never start: fork PRs needing approval, paths-ignore filtering,
+  // workflow trigger conditions not matching, GitHub Actions disabled for forks, etc.
+  let consecutiveNoCIChecksIterations = 0;
+  const noCIChecksMaxWaitIterations = argv.noCiChecksTimeout || 10; // default: 10 iterations (~10 min at 60s interval)
+
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -867,9 +874,87 @@ The auto-restart-until-mergeable monitor is stopping since there is no CI to wai
             return { success: true, reason: 'no_ci_checks', latestSessionId, latestAnthropicCost };
           } else {
             // Repo has workflows but CI hasn't started yet — transient race condition, keep waiting
-            await log(formatAligned('⏳', 'Waiting for CI:', 'No checks yet (CI workflows exist, waiting for them to start)', 2));
+            consecutiveNoCIChecksIterations++;
+
+            // Issue #1442: After waiting long enough, stop assuming it's a transient race condition.
+            // CI may never start due to: fork PR needing maintainer approval, paths-ignore filtering
+            // all changed files, workflow trigger conditions not matching, etc.
+            if (consecutiveNoCIChecksIterations >= noCIChecksMaxWaitIterations) {
+              const waitedMinutes = Math.round((consecutiveNoCIChecksIterations * watchInterval) / 60);
+              await log('');
+              await log(formatAligned('⚠️', 'CI CHECKS NEVER STARTED', `Waited ${waitedMinutes} minute(s) across ${consecutiveNoCIChecksIterations} check(s)`));
+
+              // Re-check mergeability to decide the outcome
+              const finalMergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
+              if (finalMergeStatus.mergeable) {
+                await log(formatAligned('', 'PR status:', 'Mergeable (no required status checks blocking)', 2));
+                await log(formatAligned('', 'Conclusion:', 'CI workflows exist but are not triggered for this PR — treating as CI-passing', 2));
+                await log(formatAligned('', 'Possible reasons:', 'Fork PR needing approval, paths-ignore filtering, workflow conditions not met', 2));
+                await log(formatAligned('', 'Action:', 'Exiting monitoring loop', 2));
+                await log('');
+
+                // Post a comment explaining the situation
+                try {
+                  const commentBody = `## ⚠️ CI Checks Did Not Start
+
+The repository has GitHub Actions workflows configured, but no CI checks were triggered for this pull request after waiting ~${waitedMinutes} minute(s).
+
+**Possible reasons:**
+- Fork/cross-repository PR requiring maintainer approval to run CI
+- All changed files match \`paths-ignore\` filters in workflow configuration
+- Workflow trigger conditions (\`on:\` rules) do not match this PR
+- GitHub Actions is disabled for fork PRs in repository settings
+
+The PR is otherwise mergeable (no required status checks blocking). Exiting the monitoring loop.
+
+---
+*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                  await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+                } catch {
+                  // Don't fail if comment posting fails
+                }
+
+                return { success: true, reason: 'ci_checks_not_triggered', latestSessionId, latestAnthropicCost };
+              } else {
+                await log(formatAligned('', 'PR status:', `Not mergeable (${finalMergeStatus.mergeStateStatus || 'unknown'})`, 2));
+                await log(formatAligned('', 'Conclusion:', 'CI checks never started and PR is not mergeable — cannot proceed', 2));
+                await log(formatAligned('', 'Possible reasons:', 'Fork PR needing approval, required status checks configured but CI not triggered', 2));
+                await log(formatAligned('', 'Action:', 'Exiting monitoring loop — manual intervention required', 2));
+                await log('');
+
+                // Post a comment explaining the situation
+                try {
+                  const commentBody = `## ⚠️ CI Checks Did Not Start — PR Not Mergeable
+
+The repository has GitHub Actions workflows configured, but no CI checks were triggered for this pull request after waiting ~${waitedMinutes} minute(s).
+
+The PR is currently **not mergeable** (merge state: \`${finalMergeStatus.mergeStateStatus || 'unknown'}\`). This likely means required status checks are configured but CI was not triggered.
+
+**Possible reasons:**
+- Fork/cross-repository PR requiring maintainer approval to run CI
+- All changed files match \`paths-ignore\` filters in workflow configuration
+- Workflow trigger conditions (\`on:\` rules) do not match this PR
+- GitHub Actions is disabled for fork PRs in repository settings
+
+**Manual intervention needed:** A repository maintainer may need to approve the CI run or merge the PR manually.
+
+---
+*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                  await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+                } catch {
+                  // Don't fail if comment posting fails
+                }
+
+                return { success: false, reason: 'ci_checks_not_triggered', latestSessionId, latestAnthropicCost };
+              }
+            }
+
+            await log(formatAligned('⏳', 'Waiting for CI:', `No checks yet (CI workflows exist, waiting for them to start — attempt ${consecutiveNoCIChecksIterations}/${noCIChecksMaxWaitIterations})`, 2));
           }
         } else {
+          // Issue #1442: CI checks exist (not "no checks" state) — reset the no-CI-checks counter
+          consecutiveNoCIChecksIterations = 0;
+
           if (cancelledOnly && cancelledBlocker) {
             await log(formatAligned('🔄', 'Waiting for re-triggered CI:', cancelledBlocker.details.join(', '), 2));
           } else if (pendingBlocker) {
@@ -879,6 +964,8 @@ The auto-restart-until-mergeable monitor is stopping since there is no CI to wai
           }
         }
       } else {
+        // Issue #1442: No blockers — CI checks appeared and passed (or no CI needed), reset counter
+        consecutiveNoCIChecksIterations = 0;
         await log(formatAligned('', 'No action needed', 'Continuing to monitor...', 2));
       }
 

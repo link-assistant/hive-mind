@@ -13,6 +13,7 @@
  *
  * Excluded from code changes (don't require changesets):
  * - Markdown files (*.md) in any folder
+ * - .gitkeep files (auto-generated for PR creation, see issue #1436)
  * - .changeset/ folder (changeset metadata)
  * - data/ folder (data files)
  * - docs/ folder (documentation)
@@ -129,6 +130,12 @@ function isExcludedFromCodeChanges(filePath) {
     return true;
   }
 
+  // Exclude .gitkeep files — these are auto-generated for PR creation and should
+  // never trigger code checks. See: docs/case-studies/issue-1436/README.md
+  if (filePath === '.gitkeep' || filePath.endsWith('/.gitkeep')) {
+    return true;
+  }
+
   // Exclude specific folders from code changes
   const excludedFolders = ['.changeset/', 'data/', 'docs/', 'experiments/'];
 
@@ -196,6 +203,14 @@ function detectChanges() {
   const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
   const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
   setOutput('code', codeChanged ? 'true' : 'false');
+
+  // Detect .gitkeep-only changes (Issue #1436: skip CI for .gitkeep-only commits)
+  // When the ONLY changes are .gitkeep files, no CI checks are needed at all
+  const gitkeepOnly = changedFiles.length > 0 && changedFiles.every(file => file === '.gitkeep' || file.endsWith('/.gitkeep'));
+  setOutput('gitkeep-only', gitkeepOnly ? 'true' : 'false');
+  if (gitkeepOnly) {
+    console.log('\n⚡ Only .gitkeep files changed — CI checks can be skipped');
+  }
 
   console.log('\nChange detection completed.');
 }

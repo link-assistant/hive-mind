@@ -746,6 +746,40 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                 await log('');
                 await log(formatAligned('❌', `${argv.tool.toUpperCase()} RESUME FAILED`, ''));
                 await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed after limit reset', 2));
+                // Issue #1439: Attach failure log before stopping, so user can see what happened
+                const shouldAttachLogsOnResumeFail = argv.attachLogs || argv['attach-logs'];
+                if (prNumber && shouldAttachLogsOnResumeFail) {
+                  try {
+                    const logFile = getLogFile();
+                    if (logFile) {
+                      await attachLogToGitHub({
+                        logFile,
+                        targetType: 'pr',
+                        targetNumber: prNumber,
+                        owner,
+                        repo,
+                        $,
+                        log,
+                        sanitizeLogContent,
+                        verbose: argv.verbose,
+                        errorMessage: `${argv.tool.toUpperCase()} execution failed after limit reset`,
+                        sessionId: latestSessionId,
+                        tempDir,
+                        requestedModel: argv.model,
+                        tool: argv.tool || 'claude',
+                      });
+                    }
+                  } catch (logUploadError) {
+                    reportError(logUploadError, {
+                      context: 'attach_auto_restart_failure_log',
+                      prNumber,
+                      owner,
+                      repo,
+                      operation: 'upload_failure_log',
+                    });
+                    await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+                  }
+                }
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -762,6 +796,40 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
           await log('');
           await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
           await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
+          // Issue #1439: Attach failure log before stopping, so user can see what happened
+          const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
+          if (prNumber && shouldAttachLogsOnFail) {
+            try {
+              const logFile = getLogFile();
+              if (logFile) {
+                await attachLogToGitHub({
+                  logFile,
+                  targetType: 'pr',
+                  targetNumber: prNumber,
+                  owner,
+                  repo,
+                  $,
+                  log,
+                  sanitizeLogContent,
+                  verbose: argv.verbose,
+                  errorMessage: `${argv.tool.toUpperCase()} execution failed`,
+                  sessionId: latestSessionId,
+                  tempDir,
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
+                });
+              }
+            } catch (logUploadError) {
+              reportError(logUploadError, {
+                context: 'attach_auto_restart_failure_log',
+                prNumber,
+                owner,
+                repo,
+                operation: 'upload_failure_log',
+              });
+              await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
+            }
+          }
           return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
         } else {
           // Success - capture latest session data

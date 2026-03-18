@@ -6,15 +6,15 @@
 
 ## Timeline
 
-| Time (UTC) | Event |
-|---|---|
-| 15:53:36 | `solve` starts for BinDiffSynchronizer/issues/138 with `--model opus --attach-logs --verbose` |
-| 15:53:36 – 16:22:26 | AI agent works on the issue, creates PR #149 |
-| 16:22:26 | AI session ends, `AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE` begins monitoring PR #149 |
-| 16:22:27 | Check #1: "1 workflow(s) found — CI check is a transient race condition" |
-| 16:22:31 | "No checks yet (CI workflows exist, waiting for them to start)" — infinite loop begins |
-| 16:22:31 – 16:45:10 | Checks #1 through #22 repeat identical message every ~60 seconds |
-| 16:45:57 | User interrupts with CTRL+C after ~23 minutes of stuck waiting |
+| Time (UTC)          | Event                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| 15:53:36            | `solve` starts for BinDiffSynchronizer/issues/138 with `--model opus --attach-logs --verbose` |
+| 15:53:36 – 16:22:26 | AI agent works on the issue, creates PR #149                                                  |
+| 16:22:26            | AI session ends, `AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE` begins monitoring PR #149         |
+| 16:22:27            | Check #1: "1 workflow(s) found — CI check is a transient race condition"                      |
+| 16:22:31            | "No checks yet (CI workflows exist, waiting for them to start)" — infinite loop begins        |
+| 16:22:31 – 16:45:10 | Checks #1 through #22 repeat identical message every ~60 seconds                              |
+| 16:45:57            | User interrupts with CTRL+C after ~23 minutes of stuck waiting                                |
 
 ## Root Cause Analysis
 
@@ -30,10 +30,11 @@ The code assumes this is always a "transient race condition" (GitHub needs ~10-3
 ### Scenario 1: `paths-ignore` filtering (confirmed in this case)
 
 BinDiffSynchronizer's CI workflow has:
+
 ```yaml
 paths-ignore:
-  - "**/*.md"
-  - ".gitkeep"
+  - '**/*.md'
+  - '.gitkeep'
 ```
 
 PR #149 changed: `plan.md`, `pmem_array.h`, `readme.md`
@@ -69,6 +70,7 @@ watchUntilMergeable() loop
 ### Missing: No timeout on "waiting for CI to start"
 
 The code at line 868-870 of `solve.auto-merge.lib.mjs`:
+
 ```javascript
 } else {
   // Repo has workflows but CI hasn't started yet — transient race condition, keep waiting

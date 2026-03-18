@@ -274,7 +274,8 @@ test('BinDiffSynchronizer scenario: fork PR with CI workflow, checks never start
   // - CI never starts (needs maintainer approval for fork PRs)
   // - PR is mergeable (CLEAN state, no required status checks)
   // Before fix: infinite loop. After fix: exits after 10 iterations.
-  const states = Array.from({ length: 22 }, () => ({ // 22 iterations = what actually happened
+  const states = Array.from({ length: 22 }, () => ({
+    // 22 iterations = what actually happened
     isNoCIChecks: true,
     repoHasWorkflows: true, // 1 active workflow: CI
     prMergeable: true, // CLEAN state

@@ -57,6 +57,7 @@ jobs:
       workflow-changed: ${{ steps.changes.outputs.workflow }}
       docker-changed: ${{ steps.changes.outputs.docker }}
       any-code-changed: ${{ steps.changes.outputs.code }}
+      helm-changed: ${{ steps.changes.outputs.helm }}
 
     steps:
       - uses: actions/checkout@v5
@@ -73,10 +74,12 @@ jobs:
 
   # === VERSION CHANGE CHECK ===
   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
+  # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
   version-check:
     name: Check for Manual Version Changes
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
     steps:
       - uses: actions/checkout@v5
         with:
@@ -662,8 +665,8 @@ jobs:
   helm-pr-check:
     runs-on: ubuntu-latest
     needs: [detect-changes, changeset-check]
-    # Run if: changeset-check succeeded OR was skipped (docs-only PR)
-    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped')
+    # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
+    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
 
     steps:
       - name: Checkout repository

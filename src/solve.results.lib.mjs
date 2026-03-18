@@ -251,11 +251,19 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       await log(`   Detected initial commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
     }
 
-    // Determine which file was used based on the commit message or flags
-    // Check the commit message to determine which file was committed
-    const commitMsgResult = await $({ cwd: tempDir })`git log -1 --format=%s ${claudeCommitHash} 2>&1`;
+    // Determine which file was used based on the commit message or actual files changed
+    // Use %B (full message including body) instead of %s (subject only) to catch ".gitkeep" in body
+    // Also check the actual files changed as a fallback (Issue #1436)
+    const commitMsgResult = await $({ cwd: tempDir })`git log -1 --format=%B ${claudeCommitHash} 2>&1`;
     const commitMsg = commitMsgResult.stdout?.trim() || '';
-    const isGitkeepFile = commitMsg.includes('.gitkeep');
+    let isGitkeepFile = commitMsg.includes('.gitkeep');
+
+    // Fallback: check actual files changed in the commit if message doesn't mention .gitkeep
+    if (!isGitkeepFile) {
+      const filesResult = await $({ cwd: tempDir })`git diff-tree --no-commit-id --name-only -r ${claudeCommitHash} 2>&1`;
+      const files = filesResult.stdout?.trim().split('\n').filter(Boolean) || [];
+      isGitkeepFile = files.includes('.gitkeep');
+    }
     const fileName = isGitkeepFile ? '.gitkeep' : 'CLAUDE.md';
 
     await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
@@ -379,6 +387,31 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
           await log(`   Warning: Could not revert ${fileName} commit`, { verbose: true });
           await log(`   Revert output: ${revertOutput}`, { verbose: true });
         }
+      }
+    }
+    // Post-cleanup verification: check if the file was actually removed (Issue #1436)
+    // This catches cases where revert/push succeeded in logs but file still exists
+    const verifyResult = await $({ cwd: tempDir })`git ls-files ${fileName} 2>&1`;
+    const fileStillExists = verifyResult.code === 0 && verifyResult.stdout && verifyResult.stdout.trim();
+    if (fileStillExists) {
+      await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
+      // Check if the file existed before the initial commit (parent)
+      const parentCommit = `${claudeCommitHash}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
+      if (parentFileExists.code !== 0) {
+        // File didn't exist before the session — force remove it
+        await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
+        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
+        if (fallbackCommit.code === 0) {
+          const fallbackPush = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+          if (fallbackPush.code === 0) {
+            await log(`   ✅ ${fileName} removed via post-cleanup fallback`);
+          } else {
+            await log(`   ⚠️  ${fileName} removed locally but push failed`, { verbose: true });
+          }
+        }
+      } else {
+        await log(`   ℹ️  ${fileName} existed before this session — keeping pre-existing file`, { verbose: true });
       }
     }
   } catch (e) {

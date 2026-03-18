@@ -184,11 +184,6 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
-  'no-ci-checks-timeout': {
-    type: 'number',
-    description: 'Maximum number of check iterations to wait for CI checks to appear when a repo has workflows but no checks start (e.g., fork PRs needing approval, paths-ignore filtering). After this limit, exits gracefully. Default: 10 iterations (~10 min at 60s interval).',
-    default: 10,
-  },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',
     description: 'Automatically restart if PR title or description still contains auto-generated placeholder text after agent execution. Restarts with a hint about what was not updated.',

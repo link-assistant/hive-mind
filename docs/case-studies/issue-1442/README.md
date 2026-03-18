@@ -53,7 +53,7 @@ PR #149 is a **cross-repository (fork) PR** from `konard/netkeep80-BinDiffSynchr
 - Repository-level Actions settings disabling fork PR runs
 - All changed files matching `paths-ignore`
 
-### The Code Path
+### The Code Path (before fix)
 
 ```
 watchUntilMergeable() loop
@@ -64,31 +64,36 @@ watchUntilMergeable() loop
     → Returns blocker: {type: 'ci_pending', message: '...have not started yet...'}
   → isNoCIChecks=true, repoHasWorkflows=true
   → Logs "No checks yet (CI workflows exist, waiting for them to start)"
-  → NO TIMEOUT → loops forever
+  → NO EXIT CONDITION → loops forever
 ```
 
-### Missing: No timeout on "waiting for CI to start"
+### Key Insight: GitHub API provides definitive answer
 
-The code at line 868-870 of `solve.auto-merge.lib.mjs`:
+The reviewer asked: "Does GitHub API have a clear answer whether CI/CD will ever be started on the commit?"
 
-```javascript
-} else {
-  // Repo has workflows but CI hasn't started yet — transient race condition, keep waiting
-  await log(formatAligned('⏳', 'Waiting for CI:', 'No checks yet (CI workflows exist, waiting for them to start)', 2));
-}
-```
+**Yes.** The GitHub Actions workflow runs API (`GET /repos/{owner}/{repo}/actions/runs?head_sha={sha}`) definitively shows if any workflow runs were triggered for a specific commit:
 
-There is no counter, timer, or maximum wait for this specific state. The loop will continue indefinitely until the user manually interrupts.
+- `total_count > 0` → workflows were triggered, check-runs will appear soon (genuine race condition)
+- `total_count === 0` → no workflows were triggered for this commit (CI will NOT start)
+
+This is more reliable than a timeout because it gives an immediate, definitive answer.
 
 ## Solution
 
-Add a configurable maximum number of iterations to wait for CI checks to appear when the repo has workflows but no checks have started. After this limit:
+Use the workflow runs API in `getMergeBlockers()` to check if any workflow runs were triggered for the PR's HEAD SHA. This creates a four-way discrimination:
 
-1. Check if the PR is otherwise mergeable (mergeStateStatus === 'CLEAN')
-2. If mergeable: treat as "CI not required for this PR" and exit successfully
-3. If not mergeable: report the situation and exit with a diagnostic message
+1. `no_checks + NOT MERGEABLE` → pending race condition (wait)
+2. `no_checks + MERGEABLE + no workflows` → no CI configured (exit immediately)
+3. `no_checks + MERGEABLE + has workflows + has workflow runs` → genuine race condition (wait)
+4. `no_checks + MERGEABLE + has workflows + NO workflow runs` → **CI not triggered** (exit immediately)
 
-A reasonable default is 10 iterations (10 minutes with default 60s interval), which is well beyond the typical ~10-30s GitHub takes to register checks.
+State 4 is the new state that fixes the infinite loop. The existing `getWorkflowRunsForSha()` function was already available in the codebase but not used in this detection path.
+
+### Advantages over timeout approach
+
+- **Immediate**: Detects the condition on the first check, not after N minutes of waiting
+- **Definitive**: Based on actual API data, not heuristic timeout
+- **No configuration needed**: Removed the `--no-ci-checks-timeout` option since detection is instant
 
 ## Artifacts
 

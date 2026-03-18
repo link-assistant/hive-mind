@@ -4,17 +4,20 @@
  * Unit Tests: Issue #1442 - `--auto-restart-until-mergeable` stuck on no CI checks
  *
  * Tests verify that:
- * 1. When a repo has CI workflows but checks never start, the monitoring loop exits
- *    after a configurable timeout instead of waiting indefinitely
- * 2. When the PR is mergeable at timeout, it exits successfully with reason 'ci_checks_not_triggered'
- * 3. When the PR is NOT mergeable at timeout, it exits with failure
- * 4. The counter resets when CI checks appear (non-no_checks state)
- * 5. The timeout is configurable via --no-ci-checks-timeout
- * 6. Default timeout is 10 iterations
+ * 1. When a repo has CI workflows but no workflow runs were triggered for the commit,
+ *    getMergeBlockers returns noCiTriggered=true so the monitoring loop exits immediately
+ * 2. When workflow runs exist but check-runs haven't appeared yet, it's a genuine race
+ *    condition and a ci_pending blocker is returned
+ * 3. Existing behavior for no-workflows repos is preserved (noCiConfigured=true)
+ * 4. The workflow runs API check only happens when no_checks + mergeable + hasWorkflows
  *
  * Root cause: Repo has active workflows but CI never starts for the PR (e.g., fork PRs
  * needing maintainer approval, paths-ignore filtering all files, trigger conditions not met).
- * The code assumed this was always a transient race condition and waited indefinitely.
+ * The old code assumed this was always a transient race condition and waited indefinitely.
+ *
+ * Fix: Use GitHub Actions workflow runs API (repos/{owner}/{repo}/actions/runs?head_sha={sha})
+ * to definitively determine if any workflow runs were triggered for the commit. If zero
+ * workflow runs exist, CI was not triggered — exit immediately, no timeout needed.
  *
  * Run with: node tests/test-no-ci-checks-timeout-1442.mjs
  *
@@ -50,284 +53,279 @@ const assert = (condition, message) => {
 };
 
 console.log('================================================================================');
-console.log('Unit Tests: Issue #1442 - No CI checks timeout');
+console.log('Unit Tests: Issue #1442 - No CI checks (workflow runs API detection)');
 console.log('================================================================================\n');
 
-// ===== Simulate the watchUntilMergeable timeout logic =====
+// ===== Simulate the getMergeBlockers logic for CI detection =====
 
 /**
- * Simulates the no-CI-checks timeout logic from watchUntilMergeable.
+ * Simulates the three-way CI detection logic from getMergeBlockers.
  * This mirrors the actual behavior after the fix in src/solve.auto-merge.lib.mjs.
  *
+ * The key insight is that instead of using timeout-based detection, we now use
+ * the GitHub Actions API to definitively check if workflow runs were triggered
+ * for the PR's HEAD SHA. This gives us four distinct states:
+ *
+ * 1. no_checks + NOT MERGEABLE → pending race condition (wait)
+ * 2. no_checks + MERGEABLE + no workflows → no CI configured (exit: noCiConfigured)
+ * 3. no_checks + MERGEABLE + has workflows + has workflow runs → genuine race condition (wait)
+ * 4. no_checks + MERGEABLE + has workflows + NO workflow runs → CI not triggered (exit: noCiTriggered)
+ *
  * @param {Object} params
- * @param {number} params.maxWaitIterations - Max iterations to wait (--no-ci-checks-timeout)
- * @param {Array<Object>} params.iterationStates - Array of states per iteration, each with:
- *   - isNoCIChecks: boolean - Whether the "no checks yet" condition is detected
- *   - repoHasWorkflows: boolean - Whether repo has active workflows
- *   - prMergeable: boolean - Whether PR is mergeable (used at timeout)
- *   - mergeStateStatus: string - PR merge state (used in error messages)
- * @returns {Object} - { exitedAt, reason, success, consecutiveCount }
+ * @param {string} params.ciStatusStatus - CI status from getDetailedCIStatus ('no_checks', 'pending', etc.)
+ * @param {boolean} params.prMergeable - Whether PR is mergeable
+ * @param {boolean} params.repoHasWorkflows - Whether repo has active workflows
+ * @param {number} params.workflowRunsCount - Number of workflow runs for this SHA
+ * @returns {Object} - { blockers, noCiConfigured, noCiTriggered }
  */
-function simulateTimeoutLogic({ maxWaitIterations, iterationStates }) {
-  let consecutiveNoCIChecksIterations = 0;
-  let repoHasWorkflows = null; // cached
+function simulateMergeBlockers({ ciStatusStatus, prMergeable, repoHasWorkflows, workflowRunsCount }) {
+  const blockers = [];
 
-  for (let i = 0; i < iterationStates.length; i++) {
-    const state = iterationStates[i];
-
-    if (state.isNoCIChecks) {
-      // Lazy-cache workflow check
-      if (repoHasWorkflows === null) {
-        repoHasWorkflows = state.repoHasWorkflows;
-      }
-
-      if (repoHasWorkflows === false) {
-        // No workflows → exit as "no CI configured" (existing behavior from #1335)
-        return { exitedAt: i + 1, reason: 'no_ci_checks', success: true, consecutiveCount: consecutiveNoCIChecksIterations };
-      }
-
-      // Workflows exist but no checks started
-      consecutiveNoCIChecksIterations++;
-
-      if (consecutiveNoCIChecksIterations >= maxWaitIterations) {
-        // Timeout reached — check mergeability
-        if (state.prMergeable) {
-          return { exitedAt: i + 1, reason: 'ci_checks_not_triggered', success: true, consecutiveCount: consecutiveNoCIChecksIterations };
+  if (ciStatusStatus === 'no_checks') {
+    if (prMergeable) {
+      if (repoHasWorkflows) {
+        if (workflowRunsCount > 0) {
+          // Workflow runs exist but check-runs haven't appeared yet — genuine race condition
+          blockers.push({
+            type: 'ci_pending',
+            message: `CI/CD checks have not started yet (${workflowRunsCount} workflow run(s) triggered, waiting for check-runs to appear)`,
+          });
         } else {
-          return { exitedAt: i + 1, reason: 'ci_checks_not_triggered', success: false, consecutiveCount: consecutiveNoCIChecksIterations };
+          // No workflow runs — CI was definitively NOT triggered
+          return { blockers, noCiConfigured: false, noCiTriggered: true };
         }
+      } else {
+        // No workflows — no CI configured
+        return { blockers, noCiConfigured: true, noCiTriggered: false };
       }
-      // Keep waiting...
     } else {
-      // CI checks appeared (or different state) — reset counter
-      consecutiveNoCIChecksIterations = 0;
+      // PR not mergeable — treat as pending race condition
+      blockers.push({
+        type: 'ci_pending',
+        message: 'CI/CD checks have not started yet (waiting for checks to appear)',
+      });
     }
+  } else if (ciStatusStatus === 'pending') {
+    blockers.push({
+      type: 'ci_pending',
+      message: 'CI/CD checks are still running or queued',
+    });
+  } else if (ciStatusStatus === 'success') {
+    // No blocker
   }
 
-  // Ran out of iteration states without exiting
-  return { exitedAt: null, reason: 'still_running', success: null, consecutiveCount: consecutiveNoCIChecksIterations };
+  return { blockers, noCiConfigured: false, noCiTriggered: false };
 }
 
-// ===== Test: Basic timeout behavior =====
-console.log('📋 Basic Timeout Behavior\n');
+// ===== Test: Core four-way discrimination =====
+console.log('📋 Four-Way CI Detection (Issue #1442)\n');
 
-test('Exits after maxWaitIterations when CI never starts and PR is mergeable', () => {
-  const states = Array.from({ length: 10 }, () => ({
-    isNoCIChecks: true,
-    repoHasWorkflows: true,
-    prMergeable: true,
-    mergeStateStatus: 'CLEAN',
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === 10, `Should exit at iteration 10, got ${result.exitedAt}`);
-  assert(result.reason === 'ci_checks_not_triggered', `Reason should be ci_checks_not_triggered, got ${result.reason}`);
-  assert(result.success === true, 'Should succeed when PR is mergeable');
-  assert(result.consecutiveCount === 10, `Consecutive count should be 10, got ${result.consecutiveCount}`);
-});
-
-test('Exits after maxWaitIterations when CI never starts and PR is NOT mergeable', () => {
-  const states = Array.from({ length: 10 }, () => ({
-    isNoCIChecks: true,
-    repoHasWorkflows: true,
+test('State 1: no_checks + NOT MERGEABLE → pending race condition (wait)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
     prMergeable: false,
-    mergeStateStatus: 'BLOCKED',
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === 10, `Should exit at iteration 10, got ${result.exitedAt}`);
-  assert(result.reason === 'ci_checks_not_triggered', `Reason should be ci_checks_not_triggered, got ${result.reason}`);
-  assert(result.success === false, 'Should fail when PR is not mergeable');
-});
-
-test('Does NOT exit before maxWaitIterations', () => {
-  // Only 5 iterations but timeout is 10
-  const states = Array.from({ length: 5 }, () => ({
-    isNoCIChecks: true,
     repoHasWorkflows: true,
+    workflowRunsCount: 0,
+  });
+
+  assert(result.blockers.length === 1, `Should have 1 blocker, got ${result.blockers.length}`);
+  assert(result.blockers[0].type === 'ci_pending', `Blocker type should be ci_pending, got ${result.blockers[0].type}`);
+  assert(result.noCiConfigured === false, 'noCiConfigured should be false');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+});
+
+test('State 2: no_checks + MERGEABLE + no workflows → no CI configured (exit)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
     prMergeable: true,
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === null, 'Should not exit before timeout');
-  assert(result.reason === 'still_running', 'Should still be running');
-  assert(result.consecutiveCount === 5, `Consecutive count should be 5, got ${result.consecutiveCount}`);
-});
-
-// ===== Test: Counter reset =====
-console.log('\n📋 Counter Reset on CI Check Appearance\n');
-
-test('Counter resets when CI checks appear between no-checks iterations', () => {
-  const states = [
-    // 3 iterations of no checks
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-    // CI appears (e.g., checks start running)
-    { isNoCIChecks: false },
-    // 3 more iterations of no checks (counter should restart from 0)
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-    { isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true },
-  ];
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 5, iterationStates: states });
-
-  assert(result.exitedAt === null, 'Should not exit — counter was reset at iteration 4');
-  assert(result.reason === 'still_running', 'Should still be running');
-  assert(result.consecutiveCount === 3, `Should have 3 consecutive (after reset), got ${result.consecutiveCount}`);
-});
-
-test('Counter resets prevent false timeout when CI intermittently appears', () => {
-  // Pattern: no-checks, no-checks, checks-appear, no-checks, no-checks, checks-appear...
-  // Should never timeout with maxWait=3 because counter keeps resetting
-  const states = [];
-  for (let i = 0; i < 20; i++) {
-    if (i % 3 === 2) {
-      states.push({ isNoCIChecks: false }); // CI appears every 3rd iteration
-    } else {
-      states.push({ isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true });
-    }
-  }
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 3, iterationStates: states });
-
-  assert(result.exitedAt === null, 'Should never timeout with intermittent CI');
-  assert(result.reason === 'still_running', 'Should still be running');
-});
-
-// ===== Test: Configurable timeout =====
-console.log('\n📋 Configurable Timeout\n');
-
-test('Custom timeout of 5 iterations works correctly', () => {
-  const states = Array.from({ length: 5 }, () => ({
-    isNoCIChecks: true,
-    repoHasWorkflows: true,
-    prMergeable: true,
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 5, iterationStates: states });
-
-  assert(result.exitedAt === 5, `Should exit at iteration 5, got ${result.exitedAt}`);
-  assert(result.success === true, 'Should succeed');
-});
-
-test('Custom timeout of 1 iteration exits immediately', () => {
-  const states = [{ isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true }];
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 1, iterationStates: states });
-
-  assert(result.exitedAt === 1, `Should exit at iteration 1, got ${result.exitedAt}`);
-  assert(result.success === true, 'Should succeed');
-});
-
-test('Custom timeout of 20 iterations waits longer', () => {
-  const states = Array.from({ length: 15 }, () => ({
-    isNoCIChecks: true,
-    repoHasWorkflows: true,
-    prMergeable: true,
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 20, iterationStates: states });
-
-  assert(result.exitedAt === null, 'Should not exit after 15 iterations with timeout of 20');
-  assert(result.reason === 'still_running', 'Should still be running');
-});
-
-// ===== Test: Interaction with no-workflows detection =====
-console.log('\n📋 Interaction with No-Workflows Detection (#1335)\n');
-
-test('No-workflows still exits immediately (existing behavior preserved)', () => {
-  const states = [{ isNoCIChecks: true, repoHasWorkflows: false, prMergeable: true }];
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === 1, `Should exit at iteration 1, got ${result.exitedAt}`);
-  assert(result.reason === 'no_ci_checks', `Reason should be no_ci_checks, got ${result.reason}`);
-  assert(result.success === true, 'Should succeed');
-});
-
-test('No-workflows detection takes priority over timeout (exits before timeout)', () => {
-  // 5 iterations but workflow check finds no workflows on first check
-  const states = Array.from({ length: 5 }, () => ({
-    isNoCIChecks: true,
     repoHasWorkflows: false,
+    workflowRunsCount: 0,
+  });
+
+  assert(result.blockers.length === 0, `Should have 0 blockers, got ${result.blockers.length}`);
+  assert(result.noCiConfigured === true, 'noCiConfigured should be true');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+});
+
+test('State 3: no_checks + MERGEABLE + has workflows + has workflow runs → genuine race condition (wait)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
     prMergeable: true,
-  }));
+    repoHasWorkflows: true,
+    workflowRunsCount: 2,
+  });
 
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
+  assert(result.blockers.length === 1, `Should have 1 blocker, got ${result.blockers.length}`);
+  assert(result.blockers[0].type === 'ci_pending', `Blocker type should be ci_pending, got ${result.blockers[0].type}`);
+  assert(result.blockers[0].message.includes('2 workflow run(s) triggered'), `Message should mention 2 workflow runs, got: ${result.blockers[0].message}`);
+  assert(result.noCiConfigured === false, 'noCiConfigured should be false');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+});
 
-  assert(result.exitedAt === 1, 'Should exit at iteration 1 (no-workflows detection is immediate)');
-  assert(result.reason === 'no_ci_checks', 'Reason should be no_ci_checks, not timeout');
+test('State 4: no_checks + MERGEABLE + has workflows + NO workflow runs → CI not triggered (exit immediately)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 0,
+  });
+
+  assert(result.blockers.length === 0, `Should have 0 blockers, got ${result.blockers.length}`);
+  assert(result.noCiConfigured === false, 'noCiConfigured should be false');
+  assert(result.noCiTriggered === true, 'noCiTriggered should be true');
 });
 
 // ===== Test: Exact reproduction of issue #1442 scenario =====
 console.log('\n📋 Exact Reproduction of Issue #1442\n');
 
-test('BinDiffSynchronizer scenario: fork PR with CI workflow, checks never start, exits after timeout', () => {
+test('BinDiffSynchronizer scenario: fork PR with CI workflow, no workflow runs → exits immediately', () => {
   // Reproduce the exact scenario from the issue:
   // - Repo: netkeep80/BinDiffSynchronizer has 1 active workflow (CI)
   // - PR #149 is a cross-repository (fork) PR
   // - CI never starts (needs maintainer approval for fork PRs)
   // - PR is mergeable (CLEAN state, no required status checks)
-  // Before fix: infinite loop. After fix: exits after 10 iterations.
-  const states = Array.from({ length: 22 }, () => ({
-    // 22 iterations = what actually happened
-    isNoCIChecks: true,
-    repoHasWorkflows: true, // 1 active workflow: CI
-    prMergeable: true, // CLEAN state
-    mergeStateStatus: 'CLEAN',
-  }));
-
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === 10, `Should exit at iteration 10 (not 22 like before), got ${result.exitedAt}`);
-  assert(result.reason === 'ci_checks_not_triggered', `Reason should be ci_checks_not_triggered, got ${result.reason}`);
-  assert(result.success === true, 'Should succeed — PR is mergeable');
-});
-
-test('Similar scenario but PR is BLOCKED (required checks configured): fails gracefully', () => {
-  // If the repo has required status checks in branch protection,
-  // the PR won't be mergeable and we should fail with a clear message
-  const states = Array.from({ length: 10 }, () => ({
-    isNoCIChecks: true,
+  // - GitHub API: GET /repos/.../actions/runs?head_sha=<sha> returns { total_count: 0, workflow_runs: [] }
+  // Before fix: infinite loop (22+ minutes). After fix: exits immediately on first check.
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
     repoHasWorkflows: true,
-    prMergeable: false, // BLOCKED — required checks are configured
-    mergeStateStatus: 'BLOCKED',
-  }));
+    workflowRunsCount: 0, // No workflow runs triggered for this SHA
+  });
 
-  const result = simulateTimeoutLogic({ maxWaitIterations: 10, iterationStates: states });
-
-  assert(result.exitedAt === 10, `Should exit at iteration 10, got ${result.exitedAt}`);
-  assert(result.reason === 'ci_checks_not_triggered', `Reason should be ci_checks_not_triggered, got ${result.reason}`);
-  assert(result.success === false, 'Should fail — PR is not mergeable');
+  assert(result.noCiTriggered === true, 'Should detect CI was not triggered');
+  assert(result.blockers.length === 0, 'Should have no blockers (not waiting for anything)');
+  assert(result.noCiConfigured === false, 'noCiConfigured should be false (repo has workflows)');
 });
 
-// ===== Test: Default config value =====
-console.log('\n📋 Default Configuration\n');
+test('Similar scenario but PR is BLOCKED → waits (pending race condition)', () => {
+  // If the repo has required status checks in branch protection,
+  // the PR won't be mergeable — we wait since CI might still start
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: false,
+    repoHasWorkflows: true,
+    workflowRunsCount: 0,
+  });
 
-test('Default noCiChecksTimeout is 10', () => {
-  // The default from config should be 10
-  const defaultTimeout = 10;
-  assert(defaultTimeout === 10, `Default timeout should be 10, got ${defaultTimeout}`);
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false (PR not mergeable)');
+  assert(result.blockers.length === 1, 'Should have 1 blocker');
+  assert(result.blockers[0].type === 'ci_pending', 'Should be a ci_pending blocker');
 });
 
-test('Config value 0 means no timeout (original behavior)', () => {
-  // If someone sets --no-ci-checks-timeout=0, it should effectively disable the timeout
-  // Since 0 >= 0 is true on first iteration, let's test with a large number of iterations
-  // Actually, the code uses `consecutiveNoCIChecksIterations >= noCIChecksMaxWaitIterations`
-  // With maxWait=0: 0 >= 0 is true on first no-checks iteration → immediate exit
-  // This is actually a valid edge case: "don't wait at all for CI to start"
-  const states = [{ isNoCIChecks: true, repoHasWorkflows: true, prMergeable: true }];
+// ===== Test: Existing behavior preservation =====
+console.log('\n📋 Existing Behavior Preservation\n');
 
-  const result = simulateTimeoutLogic({ maxWaitIterations: 0, iterationStates: states });
+test('No-workflows still exits immediately (existing behavior from #1335 preserved)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: false,
+    workflowRunsCount: 0,
+  });
 
-  // With maxWait=0, the counter starts at 0 and increments to 1 before checking >= 0
-  // Wait — let's check: consecutiveNoCIChecksIterations++ makes it 1, then 1 >= 0 → exit
-  assert(result.exitedAt === 1, `With timeout=0, should exit at first no-checks iteration, got ${result.exitedAt}`);
+  assert(result.noCiConfigured === true, 'noCiConfigured should be true');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+  assert(result.blockers.length === 0, 'Should have no blockers');
+});
+
+test('CI success status returns no blockers (normal flow)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'success',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 1,
+  });
+
+  assert(result.blockers.length === 0, 'Should have no blockers');
+  assert(result.noCiConfigured === false, 'noCiConfigured should be false');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+});
+
+test('CI pending status returns blocker (normal flow)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'pending',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 1,
+  });
+
+  assert(result.blockers.length === 1, 'Should have 1 blocker');
+  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  assert(result.noCiTriggered === false, 'noCiTriggered should be false');
+});
+
+// ===== Test: Workflow runs count edge cases =====
+console.log('\n📋 Workflow Runs Edge Cases\n');
+
+test('Single workflow run → genuine race condition (wait for check-runs)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 1,
+  });
+
+  assert(result.blockers.length === 1, 'Should have 1 blocker');
+  assert(result.blockers[0].message.includes('1 workflow run(s) triggered'), `Message should mention 1 workflow run`);
+  assert(result.noCiTriggered === false, 'Should not flag noCiTriggered');
+});
+
+test('Multiple workflow runs → genuine race condition (wait for check-runs)', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 5,
+  });
+
+  assert(result.blockers.length === 1, 'Should have 1 blocker');
+  assert(result.blockers[0].message.includes('5 workflow run(s) triggered'), `Message should mention 5 workflow runs`);
+  assert(result.noCiTriggered === false, 'Should not flag noCiTriggered');
+});
+
+test('Zero workflow runs with multiple workflows → CI not triggered', () => {
+  // Repo has 3 workflows but none triggered for this commit
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 0,
+  });
+
+  assert(result.noCiTriggered === true, 'Should flag noCiTriggered');
+  assert(result.blockers.length === 0, 'Should have no blockers');
+});
+
+// ===== Test: Advantage over timeout approach =====
+console.log('\n📋 Advantage Over Timeout Approach\n');
+
+test('Detection is immediate — no need to wait 10 iterations', () => {
+  // With the old timeout approach, this would wait 10 iterations (~10 minutes).
+  // With the new approach, it exits on the very first check.
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 0,
+  });
+
+  assert(result.noCiTriggered === true, 'Should detect immediately, not after timeout');
+  assert(result.blockers.length === 0, 'No need to add blockers and wait');
+});
+
+test('Genuine race condition still waits (no false positives)', () => {
+  // When workflow runs ARE triggered but check-runs haven't appeared yet,
+  // we correctly identify this as a race condition and wait
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRunsCount: 1,
+  });
+
+  assert(result.noCiTriggered === false, 'Should NOT flag as not triggered');
+  assert(result.blockers.length === 1, 'Should wait for check-runs to appear');
 });
 
 // Summary

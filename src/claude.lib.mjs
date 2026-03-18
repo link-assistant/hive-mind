@@ -841,6 +841,8 @@ export const executeClaudeCommand = async params => {
     let is503Error = false;
     let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
     let isRequestTimeout = false; // Issue #1353: Track "Request timed out" from Claude CLI
+    let apiMarkedNotRetryable = false; // Issue #1437: Track when API explicitly signals x-should-retry: false
+    let resultNumTurns = 0; // Issue #1437: Track num_turns from result event to detect stuck retries
     let stderrErrors = [];
     let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
@@ -881,14 +883,10 @@ export const executeClaudeCommand = async params => {
     try {
       // Resolve thinking settings (see issue #1146)
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076), MAX_THINKING_TOKENS (see issue #1146),
-      // MCP timeout configurations (see issue #1066), and CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (Issue #1238)
-      // Pass model for model-specific max output tokens (Issue #1221)
-      // Pass thinkLevel and maxBudget for Opus 4.6 effort level conversion (Issue #1238)
+      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (#1076), MAX_THINKING_TOKENS (#1146), MCP timeout (#1066),
+      // CLAUDE_CODE_EFFORT_LEVEL (#1238), model/thinkLevel/maxBudget for effort conversion (#1221, #1238)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
-      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode to diagnose slow API requests.
-      // The BashTool pre-flight check suggests "Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
-      // When --verbose is enabled, we propagate ANTHROPIC_LOG=debug so users can see detailed API request info.
+      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode for detailed API request diagnostics.
       if (argv.verbose) {
         claudeEnv.ANTHROPIC_LOG = 'debug';
       }
@@ -923,14 +921,9 @@ export const executeClaudeCommand = async params => {
       // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
       // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
       let stdoutLineBuffer = '';
-      // Issue #1280: Track result event and timeout for hung processes
-      // Root cause: command-stream's stream() async iterator waits for BOTH process exit AND
-      // stdout/stderr pipe close before emitting 'end'. If the CLI process keeps stdout open after
-      // sending the result event, pumpReadable() hangs → finish() never fires → stream never ends.
-      // Additionally, command-stream v0.9.4 does NOT yield {type:'exit'} chunks from stream(),
-      // so the exit code detection via chunk.type==='exit' below is dead code.
-      // Workaround: after receiving the result event, start a timeout to force-kill the process.
-      // See: https://github.com/link-foundation/command-stream/issues/155
+      // Issue #1280: Track result event and timeout for hung processes.
+      // command-stream's stream() waits for BOTH process exit AND stdout pipe close; if stdout stays open
+      // the stream hangs. Workaround: force-kill after result event. See command-stream/issues/155
       let resultEventReceived = false;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
@@ -1025,11 +1018,15 @@ export const executeClaudeCommand = async params => {
                 } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
                 }
-                // Issue #1263: Extract result summary for --attach-solution-summary and --auto-attach-solution-summary
-                // The result field contains the AI's summary of the work done
+                // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
                 if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
                   resultSummary = data.result;
                   await log('📝 Captured result summary from Claude output', { verbose: true });
+                }
+                // Issue #1437: Capture num_turns to detect stuck retries (degrading turn count signals non-recovery)
+                if (data.num_turns !== undefined) {
+                  resultNumTurns = data.num_turns;
+                  await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1111,10 +1108,7 @@ export const executeClaudeCommand = async params => {
                 await log(line, { stream: 'raw' });
                 lastMessage = line;
 
-                // Detect Claude Code terms acceptance message (Issue #1015)
-                // When Claude CLI requires terms acceptance, it outputs a non-JSON message like:
-                // "[ACTION REQUIRED] An update to our Consumer Terms and Privacy Policy has taken effect..."
-                // This should be treated as an error requiring human intervention, not success
+                // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
                   commandFailed = true;
@@ -1129,11 +1123,16 @@ export const executeClaudeCommand = async params => {
           // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Issue #1354: Split multi-line stderr chunks and check each line individually.
-            // A single chunk may contain multiple newline-separated JSON messages (e.g. two
-            // consecutive {"level":"warn",...} lines). Passing the whole chunk to isStderrError()
-            // causes JSON.parse() to fail (multi-object is not valid JSON), falling through to
-            // keyword matching and producing false positives on words like "failed".
+            // Issue #1437: Detect x-should-retry: false in ANTHROPIC_LOG=debug output — signals
+            // a non-transient error; fail fast instead of blindly retrying.
+            if (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"')) {
+              if (!apiMarkedNotRetryable) {
+                apiMarkedNotRetryable = true;
+                await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
+              }
+            }
+            // Issue #1354: Split multi-line chunks — a chunk may contain multiple JSON messages;
+            // passing the whole chunk to isStderrError() causes JSON.parse() to fail.
             for (const line of errorOutput.split('\n')) {
               if (isStderrError(line)) {
                 stderrErrors.push(line.trim());
@@ -1141,9 +1140,7 @@ export const executeClaudeCommand = async params => {
             }
           }
         } else if (chunk.type === 'exit') {
-          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280).
-          // Exit code is obtained from execCommand.result.code after the loop.
-          // This branch is kept for forward-compatibility if command-stream adds exit chunks.
+          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280) — kept for forward-compat.
           exitCode = chunk.code;
           if (chunk.code !== 0) {
             commandFailed = true;
@@ -1172,9 +1169,7 @@ export const executeClaudeCommand = async params => {
           await log('✅ Stream closed normally after result event', { verbose: true });
         }
       }
-      // Issue #1165: Check actual exit code from command result for more reliable detection
-      // The .stream() method may not emit 'exit' chunks, but the command object still tracks the exit code
-      // Exit code 127 is the standard Unix convention for "command not found"
+      // Issue #1165: Check actual exit code from command result (stream() may not emit 'exit' chunks)
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;
         if (exitCode === 0 && resultExitCode !== 0) {
@@ -1197,20 +1192,39 @@ export const executeClaudeCommand = async params => {
         }
       }
 
-      // Issue #1331: Unified handler for all transient API errors (Overloaded, 503, Internal Server Error)
-      // Issue #1353: Also handle "Request timed out" — Claude CLI times out after exhausting its own retries
-      // All use exponential backoff with session preservation via --resume
+      // Issues #1331, #1353: Unified handler for transient API errors (Overloaded, 503, Internal Server Error,
+      // Request timed out). All use exponential backoff with session preservation via --resume.
       const isTransientError = isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
-        // Issue #1353: Use timeout-specific backoff params (5min–1hr) vs general transient params (1min–30min)
-        // Timeouts indicate network instability — Claude CLI already exhausted its own retries, so we need longer waits
+        // Issue #1353: Timeouts use longer backoff (5min–1hr) vs general transient (2min–30min)
         const maxRetries = isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        // Issue #1437: Fail fast when API signals x-should-retry: false AND session made no progress
+        // (num_turns <= 1). Allow maxNotRetryableAttempts before giving up (signal can be wrong sometimes).
+        const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
+        if (isStuckRetry) {
+          await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
+          await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
+          await log(`   Check https://status.anthropic.com/ for API status.`, { level: 'error' });
+          return {
+            success: false,
+            sessionId,
+            limitReached: false,
+            limitResetTime: null,
+            limitTimezone: null,
+            messageCount,
+            toolUseCount,
+            is503Error,
+            anthropicTotalCostUSD,
+            resultSummary,
+          };
+        }
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
           const errorLabel = isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) ? 'API overload (500)' : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+          const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)${notRetryableHint}...`, { level: 'warning' });
           await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
           if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
           await waitWithCountdown(delay, log);
@@ -1263,9 +1277,8 @@ export const executeClaudeCommand = async params => {
           }
         }
       }
-      // Additional failure detection: silent failures (no messages + stderr errors).
-      // E.g., sudo timeout causing "kill EPERM" → stderr error but exit code 0.
-      // Issue #1354: Skip if result event confirmed success (definitive proof regardless of messageCount).
+      // Issue #1354: Detect silent failures (no messages + stderr errors, e.g. "kill EPERM" with exit 0).
+      // Skip if result event confirmed success (definitive proof regardless of messageCount).
       if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
         const errorsPreview = stderrErrors

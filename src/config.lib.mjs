@@ -95,7 +95,7 @@ export const systemLimits = {
 
 // Retry configurations
 // Issue #1331: All API error types use unified retry parameters:
-// 10 max retries, 1 minute initial delay, 30 minute max delay (exponential backoff), session preserved
+// 10 max retries, 2 minute initial delay, 30 minute max delay (exponential backoff), session preserved
 export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
@@ -103,13 +103,19 @@ export const retryLimits = {
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
   maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
-  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 60 * 1000), // 1 minute
+  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 2 * 60 * 1000), // 2 minutes
   maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
   // Request timeout retry configuration (Issue #1353)
   // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
   maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
   initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
   maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
+  // Not-retryable error fail-fast configuration (Issue #1437)
+  // When the API sends x-should-retry: false AND retries make no progress (num_turns <= 1),
+  // stop retrying after this many attempts to avoid a stuck loop with no recovery prospects.
+  // Default: 5 — retry generously even when API signals not retryable, since the signal can be wrong
+  // for transient backend glitches (e.g. overloaded errors observed as non-retryable 500s).
+  maxNotRetryableAttempts: parseIntWithDefault('HIVE_MIND_MAX_NOT_RETRYABLE_ATTEMPTS', 5),
 };
 
 // Claude Code CLI configurations

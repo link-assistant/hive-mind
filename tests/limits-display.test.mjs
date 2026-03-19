@@ -777,7 +777,7 @@ test('formatRetryAfterMessage handles HTTP-date in the past', () => {
 
 test('formatRetryAfterMessage with rate-limit error message in formatUsageMessage', () => {
   // Simulate how the error appears in the full message
-  const errorMessage = `Rate limited by Claude Usage API.${formatRetryAfterMessage('0')}`;
+  const errorMessage = `Claude Usage API access has reached rate limit.${formatRetryAfterMessage('0')}`;
   const message = formatUsageMessage(null, null, null, null, null, errorMessage);
 
   // Should NOT contain "Retry after: 0s"
@@ -787,7 +787,7 @@ test('formatRetryAfterMessage with rate-limit error message in formatUsageMessag
 });
 
 test('formatRetryAfterMessage with positive retry-after in formatUsageMessage', () => {
-  const errorMessage = `Rate limited by Claude Usage API.${formatRetryAfterMessage('300')}`;
+  const errorMessage = `Claude Usage API access has reached rate limit.${formatRetryAfterMessage('300')}`;
   const message = formatUsageMessage(null, null, null, null, null, errorMessage);
 
   // Should contain "Resets in 5m"

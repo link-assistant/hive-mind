@@ -7,7 +7,7 @@ OAuth Usage API (`/api/oauth/usage`) returns HTTP 429 (Rate Limited):
 
 ```
 Claude limits
-Rate limited by Claude Usage API. Retry after: 0s
+Claude Usage API access has reached rate limit. Retry after: 0s
 ```
 
 The `Retry after: 0s` text is misleading because:
@@ -23,7 +23,7 @@ The `Retry after: 0s` text is misleading because:
 2. Bot calls `getAllCachedLimits()` which calls `getCachedClaudeLimits()`
 3. Cache miss → `getClaudeUsageLimits()` calls `GET https://api.anthropic.com/api/oauth/usage`
 4. API returns HTTP 429 with `retry-after: 0` header
-5. Code formats error as: `Rate limited by Claude Usage API. Retry after: 0s`
+5. Code formats error as: `Claude Usage API access has reached rate limit. Retry after: 0s`
 6. Error is passed as `claudeError` to `formatUsageMessage()` which displays it in the
    "Claude limits" section
 7. User sees misleading "Retry after: 0s" which implies they can retry immediately

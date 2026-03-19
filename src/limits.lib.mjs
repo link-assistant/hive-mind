@@ -647,7 +647,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         const retryAfter = response.headers.get('retry-after');
         return {
           success: false,
-          error: `Rate limited by Claude Usage API.${formatRetryAfterMessage(retryAfter)}`,
+          error: `Claude Usage API access has reached rate limit.${formatRetryAfterMessage(retryAfter)}`,
         };
       }
 

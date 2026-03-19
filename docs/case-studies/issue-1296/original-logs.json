@@ -1,0 +1,40 @@
+{
+  "successEvent": {
+    "timestamp": "2026-02-15T00:01:54.716Z",
+    "type": "step_finish",
+    "part": {
+      "id": "prt_c5e9a91a5001VWYa1WPGDHs2rd",
+      "sessionID": "ses_3a3d83adfffeCkqmlFB4bV7c68",
+      "messageID": "msg_c5e9a7dfa0017iGYs4xlbNbnUf",
+      "type": "step-finish",
+      "reason": "stop",
+      "snapshot": "b97ede242fffe6a754980d37eb48a40344d4c66a",
+      "cost": 0,
+      "tokens": {
+        "input": 22868,
+        "output": 159,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      }
+    }
+  },
+  "falsePositiveError": {
+    "timestamp": "2026-02-15T00:01:54.979Z",
+    "level": "warning",
+    "message": "Error event detected via fallback pattern match: The operation timed out."
+  },
+  "reportedError": {
+    "type": "error",
+    "exitCode": 0,
+    "errorDetectedInOutput": true,
+    "errorType": "AgentError",
+    "errorMatch": "The operation timed out.",
+    "message": "Agent reported error: The operation timed out.",
+    "sessionId": null,
+    "limitReached": false,
+    "limitResetTime": null
+  }
+}

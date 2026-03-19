@@ -62,6 +62,63 @@ async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbo
 }
 
 /**
+ * Format a retry-after value into a user-friendly message.
+ * The retry-after header can be either a number of seconds or an HTTP-date.
+ * Handles edge cases like 0, missing, or negative values gracefully.
+ *
+ * @param {string|null} retryAfter - Value of the retry-after header
+ * @returns {string} Formatted message part (e.g., " Resets in 2m 30s (Mar 19, 8:00pm UTC)" or " Try again later.")
+ * @see https://github.com/link-assistant/hive-mind/issues/1446
+ */
+export function formatRetryAfterMessage(retryAfter) {
+  if (retryAfter === null || retryAfter === undefined) {
+    return ' Try again later.';
+  }
+
+  // Try to parse as number of seconds first
+  const seconds = Number(retryAfter);
+  if (!Number.isNaN(seconds) && seconds > 0) {
+    // Calculate reset time from now + seconds
+    const resetAt = dayjs().add(seconds, 'second').utc();
+    const resetTimeStr = resetAt.format('MMM D, h:mma');
+
+    // Format relative time
+    const totalMinutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.round(seconds % 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    let relativeStr;
+    if (hours > 0) {
+      relativeStr = `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      relativeStr = remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
+    } else {
+      relativeStr = `${remainingSeconds}s`;
+    }
+
+    return ` Resets in ${relativeStr} (${resetTimeStr} UTC)`;
+  }
+
+  // Try to parse as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
+  const retryDate = dayjs(retryAfter);
+  if (retryDate.isValid()) {
+    const diffMs = retryDate.diff(dayjs());
+    if (diffMs > 0) {
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const relativeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      const resetTimeStr = retryDate.utc().format('MMM D, h:mma');
+      return ` Resets in ${relativeStr} (${resetTimeStr} UTC)`;
+    }
+  }
+
+  // Fallback for 0, negative, or unparseable values - don't show misleading info
+  return ' Try again later.';
+}
+
+/**
  * Format an ISO date string to a human-readable reset time using dayjs
  *
  * @param {string} isoDate - ISO date string (e.g., "2025-12-03T17:59:59.626485+00:00")
@@ -534,31 +591,47 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       };
     }
 
+    const requestHeaders = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'claude-code/2.0.55',
+      Authorization: `Bearer ${accessToken}`,
+      'anthropic-beta': 'oauth-2025-04-20',
+    };
+
     if (verbose) {
       console.log('[VERBOSE] /limits fetching usage from API...');
+      console.log(`[VERBOSE] /limits API request: GET ${USAGE_API_ENDPOINT}`);
+      // Log request headers with sanitized Authorization (show only last 8 chars)
+      const sanitizedHeaders = { ...requestHeaders };
+      if (sanitizedHeaders.Authorization) {
+        const token = sanitizedHeaders.Authorization;
+        sanitizedHeaders.Authorization = `Bearer ...${token.slice(-8)}`;
+      }
+      console.log('[VERBOSE] /limits API request headers:', JSON.stringify(sanitizedHeaders, null, 2));
     }
 
     // Call the Anthropic OAuth usage API
     const response = await fetch(USAGE_API_ENDPOINT, {
       method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'claude-code/2.0.55',
-        Authorization: `Bearer ${accessToken}`,
-        'anthropic-beta': 'oauth-2025-04-20',
-      },
+      headers: requestHeaders,
     });
 
-    // Log HTTP response status for debugging (always, not just on error)
+    // Log HTTP response status and headers for debugging (always in verbose mode, not just on error)
     if (verbose) {
       console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
+      // Log all response headers for debugging
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      console.log('[VERBOSE] /limits API response headers:', JSON.stringify(responseHeaders, null, 2));
     }
 
     if (!response.ok) {
       const errorText = await response.text();
       if (verbose) {
-        console.error('[VERBOSE] /limits API error:', response.status, errorText);
+        console.error('[VERBOSE] /limits API error body:', errorText);
       }
 
       // Check for specific error conditions
@@ -574,7 +647,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         const retryAfter = response.headers.get('retry-after');
         return {
           success: false,
-          error: `Rate limited by Claude Usage API. ${retryAfter ? `Retry after: ${retryAfter}s` : 'Try again later.'}`,
+          error: `Rate limited by Claude Usage API.${formatRetryAfterMessage(retryAfter)}`,
         };
       }
 
@@ -587,7 +660,7 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     const data = await response.json();
 
     if (verbose) {
-      console.log('[VERBOSE] /limits API response:', JSON.stringify(data, null, 2));
+      console.log('[VERBOSE] /limits API response body:', JSON.stringify(data, null, 2));
     }
 
     // Parse the API response
@@ -971,9 +1044,23 @@ export async function getCachedClaudeLimits(verbose = false) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
     return cached;
   }
+  // Also check if we have a cached rate-limit error to avoid hammering a 429'd endpoint
+  const cachedError = cache.get('claude-rate-limited', CACHE_TTL.USAGE_API);
+  if (cachedError) {
+    if (verbose) console.log('[VERBOSE] /limits-cache: Using cached rate-limit error (avoiding repeated 429 requests)');
+    return cachedError;
+  }
   if (verbose) console.log('[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...');
   const result = await getClaudeUsageLimits(verbose);
-  if (result.success) cache.set('claude', result, CACHE_TTL.USAGE_API);
+  if (result.success) {
+    cache.set('claude', result, CACHE_TTL.USAGE_API);
+  } else if (result.error && result.error.includes('Rate limited')) {
+    // Cache rate-limit errors to prevent hammering the API
+    // Use the same 20-minute TTL as successful responses
+    // See: https://github.com/link-assistant/hive-mind/issues/1446
+    cache.set('claude-rate-limited', result, CACHE_TTL.USAGE_API);
+    if (verbose) console.log('[VERBOSE] /limits-cache: Cached rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
+  }
   return result;
 }
 
@@ -1040,6 +1127,7 @@ export default {
   getProgressBar,
   calculateTimePassedPercentage,
   formatUsageMessage,
+  formatRetryAfterMessage,
   // Threshold constants for progress bar visualization
   DISPLAY_THRESHOLDS,
   // Cache management

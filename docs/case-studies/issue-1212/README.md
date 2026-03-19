@@ -140,19 +140,18 @@ As documented in [anthropics/claude-code#16093](https://github.com/anthropics/cl
 
 ## Proposed Solutions
 
-### Solution 1: Differentiate SUCCESS vs PARTIAL SUCCESS (Code Fix - hive-mind)
+### Solution 1: Treat ENOSPC as Immediate Failure (Code Fix - hive-mind)
 
-Modify `solve.results.lib.mjs` to distinguish between clean success and success-with-errors:
+When ENOSPC is detected in Claude CLI's `error_during_execution` errors array, treat it as a hard failure (`commandFailed = true`) instead of a soft warning. This prevents the false positive SUCCESS message. There is no "partial success" — ENOSPC always means failure.
 
 ```javascript
-if (errorDuringExecution) {
-  await log('\n⚠️  PARTIAL SUCCESS: Work was done but execution finished with errors');
-} else {
-  await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
+if ((data.errors || []).some(e => isENOSPC(e))) {
+  commandFailed = true;
+  await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
 }
 ```
 
-**Files:** `src/solve.results.lib.mjs`
+**Files:** `src/claude.lib.mjs`, `src/solve.results.lib.mjs`
 
 ### Solution 2: ENOSPC Detection and User Notification (Code Fix - hive-mind)
 

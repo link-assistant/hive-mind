@@ -15,7 +15,7 @@
  */
 
 // Import shared utility from lib.mjs
-import { maskToken, log } from './lib.mjs';
+import { maskToken, log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
 // Dynamic imports for runtime dependencies
@@ -538,7 +538,7 @@ export const sanitizeLogContent = async (logContent, options = {}) => {
     }
   } catch (error) {
     // Issue #1212: Detect ENOSPC specifically and log at non-verbose level
-    const isNoSpace = error?.code === 'ENOSPC' || error?.message?.includes('ENOSPC') || error?.message?.includes('no space left on device');
+    const isNoSpace = isENOSPC(error);
     reportError(error, {
       context: 'sanitize_log_content',
       level: isNoSpace ? 'error' : 'warning',

@@ -2,7 +2,7 @@
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
-import { log, maskToken, cleanErrorMessage } from './lib.mjs';
+import { log, maskToken, cleanErrorMessage, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
@@ -162,16 +162,7 @@ export const checkGitHubPermissions = async () => {
     return true; // Continue despite permission check failure
   }
 };
-/**
- * Check if the current user has write (push) permissions to a specific repository
- * This helps fail early before wasting AI tokens when --fork option is not used
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {Object} options - Configuration options
- * @param {boolean} options.useFork - Whether --fork flag is enabled
- * @param {string} options.issueUrl - Original issue URL for error messages
- * @returns {Promise<boolean>} True if has write access OR fork mode is enabled, false otherwise
- */
+/** Check if user has write permissions to repo. Fails early if --fork not used. */
 export const checkRepositoryWritePermission = async (owner, repo, options = {}) => {
   const { useFork = false, issueUrl = '' } = options;
   // Skip check if fork mode is enabled - user will work in their own fork
@@ -385,19 +376,17 @@ export async function attachLogToGitHub(options) {
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {
-    // Issue #1212: Check disk space before attempting log upload operations
+    // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
       const { checkDiskSpace } = await import('./memory-check.mjs');
-      const diskCheck = await checkDiskSpace(100, { log: async () => {} }); // 100MB minimum for log operations
+      const diskCheck = await checkDiskSpace(100, { log: async () => {} });
       if (!diskCheck.success) {
-        await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required)`);
-        await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
+        await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
         return false;
       }
     } catch {
-      // If disk check fails, continue anyway - the actual operation will fail with a clearer error
+      /* disk check failure is non-fatal — continue to actual operation */
     }
-
     // Check if log file exists and is not empty
     const logStats = await fs.stat(logFile);
     if (logStats.size === 0) {
@@ -813,14 +802,9 @@ ${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Ma
       return await attachRegularComment(options, logComment);
     }
   } catch (uploadError) {
-    // Issue #1212: Detect ENOSPC specifically and provide actionable guidance
-    const isNoSpace = uploadError?.code === 'ENOSPC' || uploadError?.message?.includes('ENOSPC') || uploadError?.message?.includes('no space left on device');
-    if (isNoSpace) {
-      await log(`  ❌ ENOSPC: No space left on device during log upload`);
-      await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
-    } else {
-      await log(`  ❌ Error uploading log file: ${uploadError.message}`);
-    }
+    // Issue #1212: ENOSPC-specific actionable guidance
+    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
+    await log(`  ❌ ${msg}`);
     return false;
   }
 }

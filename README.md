@@ -509,6 +509,21 @@ Shows:
 - Commands run as the system user running the bot
 - Ensure proper authentication (`gh auth login`, `claude-profiles`)
 
+## 🏆 Best Practices
+
+Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
+
+- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
+- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
+
+Key benefits of proper CI/CD:
+
+- AI solvers iterate until all checks pass
+- Consistent quality regardless of human/AI team composition
+- File size limits ensure code is readable by both AI and humans
+
+Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
+
 ## 🏗️ Architecture
 
 The Hive Mind operates on three layers:
@@ -849,21 +864,6 @@ That can be done, but not recommended as reboot have better effect.
 ## 📄 License
 
 Unlicense License - see [LICENSE](./LICENSE)
-
-## 🏆 Best Practices
-
-Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
-
-- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
-- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
-
-Key benefits of proper CI/CD:
-
-- AI solvers iterate until all checks pass
-- Consistent quality regardless of human/AI team composition
-- File size limits ensure code is readable by both AI and humans
-
-Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
 
 ## 🤖 Contributing
 

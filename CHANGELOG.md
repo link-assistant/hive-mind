@@ -1,5 +1,99 @@
 # @link-assistant/hive-mind
 
+## 1.34.6
+
+### Patch Changes
+
+- 3157192: Optimize CI/CD to skip checks for .gitkeep-only changes and harden .gitkeep cleanup logic (Issue #1436).
+
+  CI/CD jobs `version-check` and `helm-pr-check` now skip when only `.gitkeep` files changed, saving ~21 seconds of runner time per PR on the initial commit. The `detect-code-changes.mjs` script now excludes `.gitkeep` files from code change detection and outputs a `gitkeep-only` flag.
+
+  The `.gitkeep` cleanup logic in `solve.results.lib.mjs` is hardened with: (1) full commit message body detection (`%B` instead of `%s`) so `.gitkeep` references in commit body are found, (2) fallback file detection via `git diff-tree`, and (3) post-cleanup verification with direct removal fallback to prevent leftover `.gitkeep` files.
+
+  Also removes the leftover `.gitkeep` file from the repository that was left behind by PR #1420.
+
+## 1.34.5
+
+### Patch Changes
+
+- ab070db: Use workflow runs API to detect when CI is not triggered, preventing infinite loop (Issue #1442)
+
+  When `--auto-restart-until-mergeable` monitors a PR in a repo that has active GitHub Actions workflows but CI checks never start (e.g., fork PRs needing maintainer approval, `paths-ignore` filtering all changed files, workflow trigger conditions not matching), the monitoring loop now exits immediately instead of waiting indefinitely.
+
+  Instead of using a timeout-based approach, the fix uses the GitHub Actions workflow runs API (`repos/{owner}/{repo}/actions/runs?head_sha={sha}`) to definitively determine if any workflow runs were triggered for the PR's commit. If zero workflow runs exist, CI was not triggered and there is nothing to wait for — the system exits immediately with a diagnostic PR comment.
+
+## 1.34.4
+
+### Patch Changes
+
+- c3806b5: Fix missing log upload on tool failure and make HTTP 529 overload error retryable (Issue #1439)
+
+  Two fixes:
+  1. When `--attach-logs` is enabled and the tool execution fails during an auto-restart session, the failure log was not being uploaded to GitHub. Now the log is attached before stopping on both tool execution failure paths.
+  2. HTTP 529 (Anthropic "Overloaded") errors were not recognized as transient/retryable by the outer retry loop. The code only matched `API Error: 500` + `Overloaded`, but 529 uses `API Error: 529` + `overloaded_error`. Now both 500 and 529 overload errors trigger the retry logic with exponential backoff.
+
+## 1.34.3
+
+### Patch Changes
+
+- 22a8868: Fail fast when API signals x-should-retry: false and retries make no progress (Issue #1437). Increase minimum retry delay to 2 minutes.
+
+  When the Anthropic API returns HTTP 500 with `x-should-retry: false` AND subsequent retries immediately fail with `num_turns <= 1`, the outer retry loop now exits early instead of waiting through up to 10 retries with exponential backoff. This prevents stuck sessions where recovery is impossible.
+
+  Two new signals are tracked: (1) `apiMarkedNotRetryable` — set when `ANTHROPIC_LOG=debug` stderr contains `"error; not retryable"` or `x-should-retry: false`; (2) `resultNumTurns` — captured from the result event to detect sessions that failed immediately on resume. If both conditions are met after `HIVE_MIND_MAX_NOT_RETRYABLE_ATTEMPTS` (default: 5) retry attempts, the loop fails fast with a clear error message instead of continuing indefinitely.
+
+  The minimum retry delay for transient API errors (Overloaded, 503, Internal Server Error) is increased from 1 minute to 2 minutes (`HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS`), giving the API more time to recover between retries.
+
+## 1.34.2
+
+### Patch Changes
+
+- dc92237: Set `opus` alias to target Opus 4.6 instead of Opus 4.5 (Issue #1433). Opus 4.6 offers a 1M token context window and comparable cost efficiency. The `isOpus46OrLater` function is updated to recognise the `opus` alias directly so Opus 4.6 features (128K output tokens, effort-level thinking) are applied automatically when using the default alias.
+
+## 1.34.1
+
+### Patch Changes
+
+- 0f02dc5: Better wording for auto-restart comment
+
+  Updated the auto-restart comment to say "Starting new session to review and commit or discard them" instead of "Starting new session to review and commit them". This makes the wording consistent with the system prompts that already instruct the AI to either COMMIT or REVERT (discard) uncommitted changes.
+
+## 1.34.0
+
+### Minor Changes
+
+- 614c3d9: Add model information display in PR/issue log comments. Shows actual models used (extracted from CLI JSON output) vs requested model. Main model is bolded when it matches the request; a warning appears when it doesn't. Supporting models are listed separately. Uses models.dev API for full model name, provider, and knowledge cutoff. Replaces duplicated tool name mapping with unified getToolDisplayName() helper.
+
+## 1.33.0
+
+### Minor Changes
+
+- f7a2fdd: Add --auto-init-repository option to automatically initialize empty repositories by creating a simple README.md file, enabling branch creation and pull request workflows on repositories with no commits
+
+## 1.32.3
+
+### Patch Changes
+
+- 04cf237: fix: properly drain active handles at exit to prevent indefinite process hang (Issue #1431)
+
+  Root causes identified and fixed: process.stdin (ReadStream) was never unreferenced; undici's global connection pool (Socket×2) was never closed; surviving command-stream child processes (ChildProcess) were never unreferenced; process.stdout/stderr (WriteStream×2) were not unreferenced on non-TTY descriptors.
+
+  Added drainHandles() in exit-handler.lib.mjs that unrefs/closes all four handle types before process.exit(). Added logActiveHandles() export with per-handle detail (fd, path, pid, remoteAddress) that always logs to the log file. Added no-leaked-streams ESLint rule to catch bare createReadStream/createWriteStream calls whose return value is discarded — the stream companion to the existing no-leaked-timers rule.
+
+## 1.32.2
+
+### Patch Changes
+
+- 695954c: Remove duplication of locked options in /solve and /hive command responses by showing only user-provided options in the Options line, adding emoji prefix for visual distinction, and adding empty line separator between URL and options
+
+## 1.32.1
+
+### Patch Changes
+
+- 2f710dd: fix: sanitize orphaned UTF-16 surrogates across all CLI output parsing paths (Issue #1324)
+
+  Extract `sanitizeUnicode()` and `sanitizeObjectStrings()` into a shared `unicode-sanitization.lib.mjs` module and apply sanitization in all CLI output parsing paths — `claude.lib.mjs`, `agent.lib.mjs`, `codex.lib.mjs`, `opencode.lib.mjs`, and `interactive-mode.lib.mjs`. This ensures orphaned UTF-16 surrogates (from Claude CLI's `<persisted-output>` truncation) are replaced with U+FFFD before any JSON re-serialization, logging, or API calls. Add 62 unit tests covering surrogate edge cases, real-world Claude NDJSON events, and JSON round-trip safety.
+
 ## 1.32.0
 
 ### Minor Changes

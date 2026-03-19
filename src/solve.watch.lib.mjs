@@ -189,7 +189,7 @@ export const watchForFeedback = async params => {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
+              const commentBody = `## 🔄 Auto-restart ${autoRestartCount}/${maxAutoRestartIterations}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}. Please wait until working session will end and give your feedback.*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
               await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
             } catch (commentError) {
@@ -297,6 +297,9 @@ export const watchForFeedback = async params => {
                   // Mark if this was a usage limit failure
                   isUsageLimit: toolResult.limitReached,
                   limitResetTime: toolResult.limitResetTime,
+                  // Issue #1225: Pass model and tool info for PR comments
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
                 });
 
                 if (logUploadSuccess) {
@@ -363,6 +366,9 @@ export const watchForFeedback = async params => {
                   // Pass agent tool pricing data when available
                   publicPricingEstimate: toolResult.publicPricingEstimate,
                   pricingInfo: toolResult.pricingInfo,
+                  // Issue #1225: Pass model and tool info for PR comments
+                  requestedModel: argv.model,
+                  tool: argv.tool || 'claude',
                 });
 
                 if (logUploadSuccess) {

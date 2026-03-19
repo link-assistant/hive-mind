@@ -117,7 +117,7 @@ These settings control Claude Code CLI behavior, including output limits and MCP
 | `MCP_TOOL_TIMEOUT`                      | 900000  | MCP tool execution timeout in ms (15 min) (also: `HIVE_MIND_MCP_TOOL_TIMEOUT`)                        |
 | `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999   | Default max thinking budget for Opus 4.6+ models                                                      |
 
-**Note:** Claude models support different max output tokens: Opus 4.6 supports 128K tokens, while Sonnet 4.5, Opus 4.5, and Haiku 4.5 support 64K tokens. The MCP timeouts (15 minutes by default) accommodate long-running Playwright operations. See [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) and [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) for details.
+**Note:** Claude models support different max output tokens: Opus 4.6 (the default `opus` alias) supports 128K tokens, while Sonnet 4.5, Opus 4.5, and Haiku 4.5 support 64K tokens. The MCP timeouts (15 minutes by default) accommodate long-running Playwright operations. See [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) and [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) for details.
 
 ### 6. File and Path Settings
 
@@ -381,6 +381,7 @@ solve <issue-url> [options]
 | `--prompt-examples-folder`                                       |       | string  | ./examples    | Path to examples folder (empty to disable)                                                                                       |
 | `--playwright-mcp-auto-cleanup`                                  |       | boolean | true          | Auto-remove .playwright-mcp/ folder before uncommitted check                                                                     |
 | `--auto-gh-configuration-repair`                                 |       | boolean | false         | Auto-repair git config using gh-setup-git-identity                                                                               |
+| `--auto-init-repository`                                         |       | boolean | false         | Automatically initialize empty repositories by creating README.md, enabling branch creation on repos with no commits             |
 | `--prompt-subagents-via-agent-commander`                         |       | boolean | false         | Use agent-commander for subagent delegation (requires installation)                                                              |
 
 ### hive Options
@@ -408,6 +409,7 @@ hive <github-url> [options]
 | `--auto-cleanup`                       |       | boolean | false         | Clean temp directories on success                                                      |
 | `--fork`                               | `-f`  | boolean | false         | Fork repos if no write access                                                          |
 | `--auto-fork`                          |       | boolean | true          | Automatically fork public repos                                                        |
+| `--auto-init-repository`               |       | boolean | false         | Auto-initialize empty repos by creating README.md (passed to solve)                    |
 | `--attach-logs`                        |       | boolean | false         | Attach logs to PRs (sensitive)                                                         |
 | `--attach-solution-summary`            |       | boolean | false         | Attach AI solution summary as comment                                                  |
 | `--auto-attach-solution-summary`       |       | boolean | false         | Auto-attach summary if no AI comments                                                  |

@@ -17,6 +17,7 @@ import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -47,7 +48,7 @@ export const parseAgentTokenUsage = output => {
     if (!trimmedLine || !trimmedLine.startsWith('{')) continue;
 
     try {
-      const parsed = JSON.parse(trimmedLine);
+      const parsed = sanitizeObjectStrings(JSON.parse(trimmedLine));
 
       // Look for step_finish events which contain token usage
       if (parsed.type === 'step_finish' && parsed.part?.tokens) {
@@ -615,7 +616,7 @@ export const executeAgentCommand = async params => {
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
-              const data = JSON.parse(line);
+              const data = sanitizeObjectStrings(JSON.parse(line));
               // Output formatted JSON
               await log(JSON.stringify(data, null, 2));
               // Capture session ID from the first message
@@ -689,7 +690,7 @@ export const executeAgentCommand = async params => {
             for (const stderrLine of stderrLines) {
               if (!stderrLine.trim()) continue;
               try {
-                const stderrData = JSON.parse(stderrLine);
+                const stderrData = sanitizeObjectStrings(JSON.parse(stderrLine));
                 // Output formatted JSON (same formatting as stdout)
                 await log(JSON.stringify(stderrData, null, 2));
                 // Capture session ID from stderr too (agent sends it via stderr)
@@ -767,7 +768,7 @@ export const executeAgentCommand = async params => {
           if (!line.trim()) continue;
 
           try {
-            const msg = JSON.parse(line);
+            const msg = sanitizeObjectStrings(JSON.parse(line));
 
             // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {

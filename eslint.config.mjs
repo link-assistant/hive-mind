@@ -4,6 +4,7 @@ import prettierConfig from 'eslint-config-prettier';
 import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
 import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
+import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -26,6 +27,13 @@ const timerPlugin = {
   },
 };
 
+// Create custom plugin to prevent leaked stream handles (issue #1431)
+const streamsPlugin = {
+  rules: {
+    'no-leaked-streams': noLeakedStreams,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -35,6 +43,7 @@ export default [
       'gh-paginate': ghPaginatePlugin,
       'no-underscore-wrapper': noUnderscoreWrapperPlugin,
       timers: timerPlugin,
+      streams: streamsPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -98,6 +107,9 @@ export default [
       // Require capturing setTimeout/setInterval return values so timers can be cleared.
       // Floating timers keep the Node.js event loop alive and cause hangs (issue #1346).
       'timers/no-leaked-timers': 'error',
+      // Require capturing createReadStream/createWriteStream return values so streams can be closed.
+      // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
+      'streams/no-leaked-streams': 'error',
       // Enforce max 1500 lines per file to match CI workflow check
       // This ensures ESLint and check-file-line-limits job are synchronized
       // See: docs/case-studies/issue-1141 for context

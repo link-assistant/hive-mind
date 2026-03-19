@@ -313,7 +313,16 @@ export const measureTime = async (fn, label = 'Operation') => {
 export const isENOSPC = error => {
   if (!error) return false;
   const message = error?.message || (typeof error === 'string' ? error : '');
-  return error?.code === 'ENOSPC' || message.includes('ENOSPC') || message.includes('no space left on device');
+  const lowerMessage = message.toLowerCase();
+  return (
+    error?.code === 'ENOSPC' ||
+    message.includes('ENOSPC') ||
+    lowerMessage.includes('no space left on device') ||
+    // Issue #1211: git clone ENOSPC patterns — "unable to write file" and
+    // "cannot create directory" occur when disk fills during checkout
+    (lowerMessage.includes('unable to write file') && lowerMessage.includes('error')) ||
+    (lowerMessage.includes('cannot create directory') && lowerMessage.includes('no space left'))
+  );
 };
 
 /**

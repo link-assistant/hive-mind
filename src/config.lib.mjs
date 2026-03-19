@@ -54,6 +54,11 @@ export const timeouts = {
   // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
   // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
   resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
+  // Issue #1444: Timeout (ms) for stream inactivity — force-kill if no output received within this period
+  // Handles the case where Claude CLI hangs mid-session (e.g., API rate limit, connection drop)
+  // without ever emitting a result event (which Issue #1280 timeout requires)
+  // Default: 5 minutes (300000ms) — long enough for legitimate API delays, short enough to detect hangs
+  streamInactivityMs: parseIntWithDefault('HIVE_MIND_STREAM_INACTIVITY_TIMEOUT_MS', 300000),
 };
 
 // Auto-continue configurations

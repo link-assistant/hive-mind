@@ -50,7 +50,7 @@ const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
 const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo } = lib;
 const githubLib = await import('./github.lib.mjs');
-const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
 const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks } = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -76,29 +76,18 @@ const { startWatchMode } = watchLib;
 const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
+const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
+const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
+const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
-// Import new modular components
-const autoPrLib = await import('./solve.auto-pr.lib.mjs');
-const { handleAutoPrCreation } = autoPrLib;
-const repoSetupLib = await import('./solve.repo-setup.lib.mjs');
-const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = repoSetupLib;
-const branchLib = await import('./solve.branch.lib.mjs');
-const { createOrCheckoutBranch } = branchLib;
-const sessionLib = await import('./solve.session.lib.mjs');
-const { startWorkSession, endWorkSession, SESSION_TYPES } = sessionLib;
-const preparationLib = await import('./solve.preparation.lib.mjs');
-const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
-
-// Import model validation library
-const modelValidation = await import('./model-validation.lib.mjs');
-const { validateAndExitOnInvalidModel } = modelValidation;
-const acceptInviteLib = await import('./solve.accept-invite.lib.mjs');
-const { autoAcceptInviteForRepo } = acceptInviteLib;
-
-// Initialize log file EARLY (use cwd initially, will be updated after argv parsing)
+// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
 // Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
@@ -543,11 +532,16 @@ try {
   });
 
   // Verify default branch and status using the new module
+  // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
     log,
     formatAligned,
     $,
+    argv,
+    owner,
+    repo,
+    issueUrl,
   });
   // Create or checkout branch using the new module
   const branchName = await createOrCheckoutBranch({
@@ -948,9 +942,11 @@ try {
             // Mark this as a usage limit case for proper formatting
             isUsageLimit: true,
             limitResetTime: global.limitResetTime,
-            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
+            requestedModel: argv.model,
+            tool: argv.tool || 'claude',
           });
 
           if (logUploadSuccess) {
@@ -1008,13 +1004,15 @@ try {
               // Mark this as a usage limit case for proper formatting
               isUsageLimit: true,
               limitResetTime: global.limitResetTime,
-              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              toolName: getToolDisplayName(argv.tool),
               resumeCommand,
               sessionId,
               // Tell attachLogToGitHub that auto-resume is enabled to suppress CLI commands in the comment
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
+              requestedModel: argv.model,
+              tool: argv.tool || 'claude',
             });
 
             if (logUploadSuccess) {
@@ -1103,12 +1101,14 @@ try {
           // For usage limit, use a dedicated comment format to make it clear and actionable
           isUsageLimit: !!limitReached,
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
-          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+          toolName: getToolDisplayName(argv.tool),
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -1274,8 +1274,8 @@ try {
     await log('');
     await log('🔄 AUTO-RESTART: Uncommitted changes detected');
     await log('   Starting temporary monitoring cycle (NOT --watch mode)');
-    await log('   The tool will run once more to commit the changes');
-    await log('   Will exit automatically after changes are committed');
+    await log('   The tool will run once more to commit or discard the changes');
+    await log('   Will exit automatically after changes are committed or discarded');
     await log('');
   }
 
@@ -1360,6 +1360,8 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -1459,14 +1461,14 @@ try {
   // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
   await closeSentry();
 
-  // Issue #1335: Log active handles at exit to diagnose future process hang.
-  if (argv.verbose) {
-    const handles = process._getActiveHandles();
-    const requests = process._getActiveRequests();
-    if (handles.length > 0 || requests.length > 0) {
-      await log(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`, { verbose: true });
-      for (const h of handles) await log(`   Handle: ${h.constructor?.name || typeof h}`, { verbose: true });
-      for (const r of requests) await log(`   Request: ${r.constructor?.name || typeof r}`, { verbose: true });
-    }
-  }
+  // Issue #1431: Log active handles before draining.
+  // Always logged to file and console so future hangs are immediately visible in logs.
+  // drainHandles() inside safeExit() will unref/close these before process.exit().
+  await logActiveHandles(msg => log(msg));
+
+  // Issue #1431: safeExit() calls drainHandles() to unref/close known handle types
+  // (process.stdin ReadStream, undici Socket pool, command-stream ChildProcess,
+  // process.stdout/stderr WriteStreams) so the event loop exits naturally, then
+  // calls process.exit(0) as a deterministic safety net.
+  await safeExit(0, 'Process completed');
 }

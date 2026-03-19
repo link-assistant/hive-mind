@@ -59,6 +59,9 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
           sanitizeLogContent,
           verbose: ctx.argv.verbose || false,
           errorMessage: 'Session interrupted by user (CTRL+C)',
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: ctx.argv.model,
+          tool: ctx.argv.tool || 'claude',
         });
       } catch (uploadError) {
         await log(`⚠️  Could not upload logs on interrupt: ${uploadError.message}`, {

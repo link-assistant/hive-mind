@@ -95,7 +95,7 @@ export const systemLimits = {
 
 // Retry configurations
 // Issue #1331: All API error types use unified retry parameters:
-// 10 max retries, 1 minute initial delay, 30 minute max delay (exponential backoff), session preserved
+// 10 max retries, 2 minute initial delay, 30 minute max delay (exponential backoff), session preserved
 export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
@@ -103,19 +103,25 @@ export const retryLimits = {
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
   maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
-  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 60 * 1000), // 1 minute
+  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 2 * 60 * 1000), // 2 minutes
   maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
   // Request timeout retry configuration (Issue #1353)
   // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
   maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
   initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
   maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
+  // Not-retryable error fail-fast configuration (Issue #1437)
+  // When the API sends x-should-retry: false AND retries make no progress (num_turns <= 1),
+  // stop retrying after this many attempts to avoid a stuck loop with no recovery prospects.
+  // Default: 5 — retry generously even when API signals not retryable, since the signal can be wrong
+  // for transient backend glitches (e.g. overloaded errors observed as non-retryable 500s).
+  maxNotRetryableAttempts: parseIntWithDefault('HIVE_MIND_MAX_NOT_RETRYABLE_ATTEMPTS', 5),
 };
 
 // Claude Code CLI configurations
 // See: https://github.com/link-assistant/hive-mind/issues/1076
 // Claude models support different max output tokens:
-// - Opus 4.6: 128K tokens (Issue #1221)
+// - Opus 4.6 (default 'opus' alias): 128K tokens (Issue #1221, Issue #1433)
 // - Sonnet 4.5, Opus 4.5, Haiku 4.5: 64K tokens
 // Setting a higher limit allows Claude to generate longer responses without hitting the limit
 export const claudeCode = {
@@ -158,9 +164,9 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
-  // Note: The 'opus' alias now maps to Opus 4.5 (Issue #1238), so we only check explicit version identifiers
+  // Note: The 'opus' alias now maps to Opus 4.6 (Issue #1433), so we also check for the alias directly
   // opusplan uses Opus for planning, so it should get Opus-level settings
-  return normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**

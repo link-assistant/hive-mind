@@ -33,6 +33,7 @@
  *   - workflow: 'true' if any .github/workflows/ files changed
  *   - docker: 'true' if Dockerfile, coolify/Dockerfile, or .dockerignore changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
+ *   - helm: 'true' if any helm/ files changed
  */
 
 import { execSync } from 'child_process';
@@ -178,6 +179,10 @@ function detectChanges() {
   const dockerPattern = /^(Dockerfile|coolify\/Dockerfile|\.dockerignore)$/;
   const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
+
+  // Detect helm chart changes
+  const helmChanged = changedFiles.some(file => file.startsWith('helm/'));
+  setOutput('helm', helmChanged ? 'true' : 'false');
 
   // Detect code changes (excluding docs, changesets, experiments, data folders, and markdown files)
   const codeChangedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));

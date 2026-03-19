@@ -341,12 +341,13 @@ solve <issue-url> [options]
 
 **Other useful options:**
 
-| Option          | Alias | Description                                      | Default |
-| --------------- | ----- | ------------------------------------------------ | ------- |
-| `--tool`        |       | AI tool (claude, opencode, codex, agent)         | claude  |
-| `--verbose`     | `-v`  | Enable verbose logging                           | false   |
-| `--attach-logs` |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
-| `--help`        | `-h`  | Show all available options                       | -       |
+| Option                   | Alias | Description                                      | Default |
+| ------------------------ | ----- | ------------------------------------------------ | ------- |
+| `--tool`                 |       | AI tool (claude, opencode, codex, agent)         | claude  |
+| `--verbose`              | `-v`  | Enable verbose logging                           | false   |
+| `--attach-logs`          |       | Attach logs to PR (⚠️ may expose sensitive data) | false   |
+| `--auto-init-repository` |       | Auto-initialize empty repos (creates README.md)  | false   |
+| `--help`                 | `-h`  | Show all available options                       | -       |
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
@@ -507,6 +508,21 @@ Shows:
 - Optional chat ID restrictions via `TELEGRAM_ALLOWED_CHATS`
 - Commands run as the system user running the bot
 - Ensure proper authentication (`gh auth login`, `claude-profiles`)
+
+## 🏆 Best Practices
+
+Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
+
+- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
+- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
+
+Key benefits of proper CI/CD:
+
+- AI solvers iterate until all checks pass
+- Consistent quality regardless of human/AI team composition
+- File size limits ensure code is readable by both AI and humans
+
+Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
 
 ## 🏗️ Architecture
 
@@ -848,21 +864,6 @@ That can be done, but not recommended as reboot have better effect.
 ## 📄 License
 
 Unlicense License - see [LICENSE](./LICENSE)
-
-## 🏆 Best Practices
-
-Hive Mind works even better when repositories have strong CI/CD pipelines and clear issue requirements. See:
-
-- [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
-- [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
-
-Key benefits of proper CI/CD:
-
-- AI solvers iterate until all checks pass
-- Consistent quality regardless of human/AI team composition
-- File size limits ensure code is readable by both AI and humans
-
-Ready-to-use templates are available for JavaScript, Rust, Python, Go, C#, and Java.
 
 ## 🤖 Contributing
 

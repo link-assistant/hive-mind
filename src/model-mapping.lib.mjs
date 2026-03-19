@@ -6,10 +6,10 @@
  */
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329)
+// Updated for Opus 4.5/4.6 and Sonnet 4.6 support (Issue #1221, Issue #1238, Issue #1329, Issue #1433)
 export const claudeModels = {
   sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
-  opus: 'claude-opus-4-5-20251101', // Opus 4.5 (Issue #1238)
+  opus: 'claude-opus-4-6', // Opus 4.6 (Issue #1433)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3

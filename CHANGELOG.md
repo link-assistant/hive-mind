@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.34.7
+
+### Patch Changes
+
+- bb83be9: fix: fail with helpful error when --fork used on own repository (issue #1206)
+
 ## 1.34.6
 
 ### Patch Changes

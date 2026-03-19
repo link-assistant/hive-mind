@@ -856,14 +856,12 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Build claude command with optional resume flag
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     // Issue #1223: When --plan-model is specified, auto-switch to opusplan mode
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined;
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
-    // Build claude command arguments
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
@@ -887,20 +885,14 @@ export const executeClaudeCommand = async params => {
     try {
       // Resolve thinking settings (see issue #1146)
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (#1076), MAX_THINKING_TOKENS (#1146), MCP timeout (#1066),
-      // CLAUDE_CODE_EFFORT_LEVEL (#1238), model/thinkLevel/maxBudget for effort conversion (#1221, #1238),
-      // planModel/executionModel for opusplan (#1223)
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel });
-      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode for detailed API request diagnostics.
-      if (argv.verbose) {
-        claudeEnv.ANTHROPIC_LOG = 'debug';
-      }
+      // Set env vars: max tokens (#1076), thinking (#1146), MCP (#1066), effort (#1238), opusplan (#1223)
+      const envOpts = { thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget };
+      const claudeEnv = getClaudeEnv({ ...envOpts, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel });
+      if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug'; // Issue #1337
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
       if (resolvedPlanModel && argv.verbose) {
-        await log(`📊 ANTHROPIC_DEFAULT_OPUS_MODEL: ${resolvedPlanModel} (--plan-model → plan mode)`, { verbose: true });
-        await log(`📊 ANTHROPIC_DEFAULT_SONNET_MODEL: ${resolvedExecutionModel} (--model → execution mode)`, { verbose: true });
-        await log(`📊 Effective model: opusplan (auto-switched for plan/execution split)`, { verbose: true });
+        await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
       }
       if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
       if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });

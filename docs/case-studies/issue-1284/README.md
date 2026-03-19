@@ -402,22 +402,108 @@ cd ~/.claude/plugins/marketplaces/playwright-skill/skills/playwright-skill
 npm run setup
 ```
 
-### Frontend-Design Plugin: NOT Related to Playwright
+### Frontend-Design Plugin: Deep Dive
 
-The `frontend-design` plugin (by Anthropic, 324,000+ installs) is a **design aesthetics skill** that helps Claude create visually distinctive UI code. It has **no Playwright dependency** and **no browser automation capability**. It auto-activates when Claude detects frontend development tasks and guides bold design choices (typography, color, animation, layout).
+The `frontend-design` plugin (by Anthropic, 277,000+ installs) is a **design aesthetics skill** that helps Claude create visually distinctive UI code. It has **no Playwright dependency** and **no browser automation capability**.
 
-### Correct Plugin Install Commands
+#### Source Code
 
-The commands mentioned in the PR comment are **not correct**. Here are the correct commands:
+The plugin is open source and exists in two Anthropic repositories:
 
-| Incorrect Command                                        | Correct Alternative                                       |
-| -------------------------------------------------------- | --------------------------------------------------------- |
-| `claude plugin install @anthropic/frontend-design`       | `/plugin install frontend-design@claude-plugins-official` |
-| `/plugin install frontend-design@anthropics-claude-code` | `/plugin install frontend-design@claude-plugins-official` |
+1. **Primary**: [`anthropics/claude-code/plugins/frontend-design`](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design)
+2. **Official marketplace copy**: [`anthropics/claude-plugins-official/plugins/frontend-design`](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/frontend-design)
 
-**Correct syntax**: `/plugin install {plugin-name}@{marketplace-name}`
+#### File Structure
 
-The official Anthropic marketplace is `claude-plugins-official` (pre-configured, no need to add it). The demo marketplace at `anthropics/claude-code` must be added first with `/plugin marketplace add anthropics/claude-code`.
+```
+plugins/frontend-design/
+├── .claude-plugin/
+│   └── plugin.json          # Plugin metadata
+├── skills/
+│   └── frontend-design/
+│       └── SKILL.md         # The core instructions injected into Claude's context
+├── LICENSE
+└── README.md
+```
+
+This is a **skills-only plugin** — it contains no slash commands, agents, hooks, or MCP servers. Just a single `SKILL.md` file.
+
+#### plugin.json
+
+```json
+{
+  "name": "frontend-design",
+  "version": "1.0.0",
+  "description": "Frontend design skill for UI/UX implementation",
+  "author": {
+    "name": "Prithvi Rajasekaran, Alexander Bricken",
+    "email": "prithvi@anthropic.com, alexander@anthropic.com"
+  }
+}
+```
+
+Authors: **Prithvi Rajasekaran** and **Alexander Bricken** at Anthropic.
+
+#### How It Works Technically
+
+The plugin uses the **Skills** primitive of the Claude Code plugin system:
+
+1. When installed, the `SKILL.md` file is stored locally in `~/.claude/plugins/`
+2. Claude Code reads the `description` field in the SKILL.md frontmatter: _"Use this skill when the user asks to build web components, pages, or applications"_
+3. When that context matches, Claude **automatically injects** the SKILL.md content into its system context — **no slash command needed**
+4. The injected instructions guide Claude's design decisions throughout the conversation
+
+#### SKILL.md Frontmatter
+
+```yaml
+---
+name: frontend-design
+description: Create distinctive, production-grade frontend interfaces with high design quality.
+  Use this skill when the user asks to build web components, pages, or applications.
+  Generates creative, polished code that avoids generic AI aesthetics.
+license: Complete terms in LICENSE.txt
+---
+```
+
+#### What the SKILL.md Instructs Claude To Do
+
+1. **Before coding**: Commit to a bold aesthetic direction from: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian
+
+2. **Typography**: Avoid generic fonts (Arial, Inter, Roboto, system defaults). Use distinctive, characterful display/body pairings
+
+3. **Color**: Commit to a cohesive palette. Dominant colors with sharp accents beat timid, evenly-distributed palettes
+
+4. **Motion**: CSS-only animations for plain HTML; Motion library for React. One well-orchestrated page load with staggered reveals beats scattered micro-interactions
+
+5. **Spatial Composition**: Asymmetry, overlap, diagonal flow, grid-breaking elements
+
+6. **Backgrounds**: Gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows — never plain solid color defaults
+
+7. **NEVER use**: Inter/Roboto/Arial, purple gradients on white, predictable layouts, cookie-cutter components, Space Grotesk
+
+#### Correct Install Commands
+
+The user's command `/plugin install frontend-design@claude-code-plugins` uses the **`claude-code-plugins`** marketplace name, which is the demo marketplace embedded in the `anthropics/claude-code` repo. This requires first adding that marketplace:
+
+```bash
+# Option A: From the anthropics/claude-code demo marketplace
+/plugin marketplace add anthropics/claude-code
+/plugin install frontend-design@claude-code-plugins
+
+# Option B: From the official pre-configured marketplace (no setup needed)
+/plugin install frontend-design@claude-plugins-official
+```
+
+Both install the **same plugin** from the same Anthropic authors. Option B is simpler since `claude-plugins-official` is pre-configured.
+
+Full correction table for all mentioned commands:
+
+| Command                                                  | Status  | Correct Alternative                                       |
+| -------------------------------------------------------- | ------- | --------------------------------------------------------- |
+| `claude plugin install @anthropic/frontend-design`       | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official` |
+| `/plugin install frontend-design@anthropics-claude-code` | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official` |
+| `/plugin install frontend-design@claude-code-plugins`    | ✅ Works | (requires `/plugin marketplace add anthropics/claude-code` first) |
+| `/plugin install frontend-design@claude-plugins-official`| ✅ Works | Pre-configured, no marketplace setup needed               |
 
 ### Can Playwright MCP and Playwright Plugin Coexist?
 
@@ -520,10 +606,14 @@ For frontend design quality (unrelated to Playwright):
 
 - [Create plugins - Claude Code Docs](https://code.claude.com/docs/en/plugins)
 - [Discover and install plugins - Claude Code Docs](https://code.claude.com/docs/en/discover-plugins)
-- [Frontend Design Plugin (GitHub)](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design)
-- [Frontend Design Plugin (Official)](https://claude.com/plugins/frontend-design)
+- [Frontend Design Plugin (GitHub - claude-code)](https://github.com/anthropics/claude-code/tree/main/plugins/frontend-design)
+- [Frontend Design Plugin SKILL.md](https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md)
+- [Frontend Design Plugin (Official Page)](https://claude.com/plugins/frontend-design)
+- [Frontend Design Plugin (claude-plugins-official)](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/frontend-design)
 - [Playwright Plugin (Official)](https://claude.com/plugins/playwright)
 - [Playwright Plugin Source (claude-plugins-official)](https://github.com/anthropics/claude-plugins-official/tree/main/external_plugins/playwright)
+- [Frontend Design Cookbook (Anthropic)](https://github.com/anthropics/claude-cookbooks/blob/main/coding/prompting_for_frontend_aesthetics.ipynb)
+- [Blog: Claude Code Plugins and the Frontend Design Skill](https://paddo.dev/blog/claude-code-plugins-frontend-design/)
 
 ### Alternative Implementations
 

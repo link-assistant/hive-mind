@@ -33,38 +33,16 @@ import { safeExit } from './exit-handler.lib.mjs';
 const githubLib = await import('./github.lib.mjs');
 const { checkRepositoryWritePermission } = githubLib;
 
-// Get the root repository of any repository
-// Returns the source (root) repository if the repo is a fork, otherwise returns the repo itself
-// Returns null if repository is not accessible (404 or other errors)
+// Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
   try {
     const result = await $`gh api repos/${owner}/${repo} --jq '{fork: .fork, source: .source.full_name}' 2>&1`;
-
-    if (result.code !== 0) {
-      // Check if it's a 404 error - repository doesn't exist or no permissions
-      const errorOutput = (result.stderr || result.stdout || '').toString();
-      if (errorOutput.includes('HTTP 404') || errorOutput.includes('Not Found')) {
-        // Repository not accessible - this will be handled by fork creation logic
-        // Return null to indicate we couldn't determine root repo
-        return null;
-      }
-      return null;
-    }
+    if (result.code !== 0) return null;
 
     const repoInfo = JSON.parse(result.stdout.toString().trim());
-
-    if (repoInfo.fork && repoInfo.source) {
-      return repoInfo.source;
-    } else {
-      return `${owner}/${repo}`;
-    }
+    return repoInfo.fork && repoInfo.source ? repoInfo.source : `${owner}/${repo}`;
   } catch (error) {
-    reportError(error, {
-      context: 'get_root_repository',
-      owner,
-      repo,
-      operation: 'determine_fork_root',
-    });
+    reportError(error, { context: 'get_root_repository', owner, repo, operation: 'determine_fork_root' });
     return null;
   }
 };
@@ -73,34 +51,20 @@ export const getRootRepository = async (owner, repo) => {
 export const checkExistingForkOfRoot = async rootRepo => {
   try {
     const userResult = await $`gh api user --jq .login`;
-    if (userResult.code !== 0) {
-      return null;
-    }
+    if (userResult.code !== 0) return null;
     const currentUser = userResult.stdout.toString().trim();
 
     const forksResult = await $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`;
-
-    if (forksResult.code !== 0) {
-      return null;
-    }
+    if (forksResult.code !== 0) return null;
 
     const forks = forksResult.stdout
       .toString()
       .trim()
       .split('\n')
       .filter(f => f);
-
-    if (forks.length > 0) {
-      return forks[0];
-    } else {
-      return null;
-    }
+    return forks.length > 0 ? forks[0] : null;
   } catch (error) {
-    reportError(error, {
-      context: 'check_existing_fork_of_root',
-      rootRepo,
-      operation: 'search_user_forks',
-    });
+    reportError(error, { context: 'check_existing_fork_of_root', rootRepo, operation: 'search_user_forks' });
     return null;
   }
 };
@@ -406,6 +370,30 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       await safeExit(1, 'Repository setup failed');
     }
     const currentUser = userResult.stdout.toString().trim();
+
+    // Check if user owns the repository (Issue #1206)
+    // GitHub doesn't allow forking your own repositories and returns HTTP 403
+    // When --fork is explicitly used, fail with a clear error and suggest --auto-fork
+    if (currentUser === owner) {
+      await log('');
+      await log(`${formatAligned('❌', 'CANNOT FORK OWN REPOSITORY', '')}`, { level: 'error' });
+      await log('');
+      await log('  🔍 What happened:');
+      await log(`     You are the owner of ${owner}/${repo}`);
+      await log('     GitHub does not allow forking your own repositories (returns HTTP 403)');
+      await log('');
+      await log('  💡 Solutions:');
+      await log('');
+      await log('     Option 1: Use --auto-fork instead of --fork');
+      await log('        --auto-fork automatically detects ownership and works directly');
+      await log('        on the repository when you have write access, without forking.');
+      await log(`        Example: solve "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}" --auto-fork`);
+      await log('');
+      await log('     Option 2: Work directly on the repository without forking');
+      await log(`        Example: solve "${issueUrl || `https://github.com/${owner}/${repo}/issues/<number>`}"`);
+      await log('');
+      await safeExit(1, 'Cannot fork own repository - use --auto-fork or remove --fork flag');
+    }
 
     // Check for fork conflicts (Issue #344)
     // Detect if we're trying to fork a repository that shares the same root

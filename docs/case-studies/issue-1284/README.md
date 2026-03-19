@@ -498,12 +498,12 @@ Both install the **same plugin** from the same Anthropic authors. Option B is si
 
 Full correction table for all mentioned commands:
 
-| Command                                                  | Status  | Correct Alternative                                       |
-| -------------------------------------------------------- | ------- | --------------------------------------------------------- |
-| `claude plugin install @anthropic/frontend-design`       | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official` |
-| `/plugin install frontend-design@anthropics-claude-code` | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official` |
-| `/plugin install frontend-design@claude-code-plugins`    | ✅ Works | (requires `/plugin marketplace add anthropics/claude-code` first) |
-| `/plugin install frontend-design@claude-plugins-official`| ✅ Works | Pre-configured, no marketplace setup needed               |
+| Command                                                   | Status   | Correct Alternative                                               |
+| --------------------------------------------------------- | -------- | ----------------------------------------------------------------- |
+| `claude plugin install @anthropic/frontend-design`        | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official`         |
+| `/plugin install frontend-design@anthropics-claude-code`  | ❌ Wrong | `/plugin install frontend-design@claude-plugins-official`         |
+| `/plugin install frontend-design@claude-code-plugins`     | ✅ Works | (requires `/plugin marketplace add anthropics/claude-code` first) |
+| `/plugin install frontend-design@claude-plugins-official` | ✅ Works | Pre-configured, no marketplace setup needed                       |
 
 ### Can Playwright MCP and Playwright Plugin Coexist?
 

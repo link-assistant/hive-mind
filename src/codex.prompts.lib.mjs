@@ -181,6 +181,8 @@ Solution development and testing.
       write unit tests with mocks for easy and quick start.
    - When you test integrations, use existing framework.
    - When you test solution draft, include automated checks in pr.
+   - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
+   - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
    - When issue is unclear, write comment on issue asking questions.
    - When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.

@@ -29,31 +29,31 @@ const test = (name, fn) => {
 };
 
 // ============================================================
-// Section 1: Opus Default Model Tests (Issue #1238: opus -> Opus 4.5)
+// Section 1: Opus Default Model Tests (Issue #1433: opus -> Opus 4.6)
 // ============================================================
-console.log('\n=== 1. Opus Default Model Tests (Issue #1238) ===');
+console.log('\n=== 1. Opus Default Model Tests (Issue #1433) ===');
 
-test('opus alias maps to claude-opus-4-5-20251101 in CLAUDE_MODELS', () => {
-  assert.strictEqual(CLAUDE_MODELS['opus'], 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
+test('opus alias maps to claude-opus-4-6 in CLAUDE_MODELS', () => {
+  assert.strictEqual(CLAUDE_MODELS['opus'], 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
-test('opus alias maps to claude-opus-4-5-20251101 in availableModels (claude.lib.mjs)', () => {
-  assert.strictEqual(availableModels['opus'], 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
+test('opus alias maps to claude-opus-4-6 in availableModels (claude.lib.mjs)', () => {
+  assert.strictEqual(availableModels['opus'], 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
-test('opus alias maps to claude-opus-4-5-20251101 in claudeModels (model-mapping.lib.mjs)', () => {
-  assert.strictEqual(claudeModels['opus'], 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
+test('opus alias maps to claude-opus-4-6 in claudeModels (model-mapping.lib.mjs)', () => {
+  assert.strictEqual(claudeModels['opus'], 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
-test('validateModelName accepts opus and maps to claude-opus-4-5-20251101', () => {
+test('validateModelName accepts opus and maps to claude-opus-4-6', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
-test('mapModelToId maps opus to claude-opus-4-5-20251101', () => {
+test('mapModelToId maps opus to claude-opus-4-6', () => {
   const result = mapModelToId('opus');
-  assert.strictEqual(result, 'claude-opus-4-5-20251101', 'mapModelToId should map opus to claude-opus-4-5-20251101');
+  assert.strictEqual(result, 'claude-opus-4-6', 'mapModelToId should map opus to claude-opus-4-6');
 });
 
 // ============================================================
@@ -160,10 +160,10 @@ test('supports1mContext returns false for non-claude tools', () => {
 // ============================================================
 console.log('\n=== 6. [1m] Suffix with validateModelName Tests ===');
 
-test('validateModelName accepts opus[1m] (now maps to Opus 4.5, Issue #1238)', () => {
+test('validateModelName accepts opus[1m] (now maps to Opus 4.6, Issue #1433)', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101[1m]', 'Should map to claude-opus-4-5-20251101[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6[1m]', 'Should map to claude-opus-4-6[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -192,9 +192,9 @@ test('validateModelName rejects haiku[1m] (unsupported)', () => {
 // ============================================================
 console.log('\n=== 7. mapModelToId with [1m] Suffix Tests ===');
 
-test('mapModelToId handles opus[1m] (now maps to Opus 4.5, Issue #1238)', () => {
+test('mapModelToId handles opus[1m] (now maps to Opus 4.6, Issue #1433)', () => {
   const result = mapModelToId('opus[1m]');
-  assert.strictEqual(result, 'claude-opus-4-5-20251101[1m]', 'mapModelToId should handle opus[1m]');
+  assert.strictEqual(result, 'claude-opus-4-6[1m]', 'mapModelToId should handle opus[1m]');
 });
 
 test('mapModelToId handles claude-opus-4-6[1m]', () => {
@@ -212,8 +212,8 @@ test('mapModelToId handles sonnet[1m] (now maps to Sonnet 4.6, Issue #1329)', ()
 // ============================================================
 console.log('\n=== 8. Opus 4.5/4.6 Max Output Tokens Tests (Issue #1238) ===');
 
-test('isOpus46OrLater returns false for opus (now maps to Opus 4.5, Issue #1238)', () => {
-  assert.strictEqual(isOpus46OrLater('opus'), false, 'opus should NOT be identified as Opus 4.6+ (now Opus 4.5)');
+test('isOpus46OrLater returns true for opus (now maps to Opus 4.6, Issue #1433)', () => {
+  assert.strictEqual(isOpus46OrLater('opus'), true, 'opus should be identified as Opus 4.6+ (now Opus 4.6)');
 });
 
 test('isOpus46OrLater returns true for claude-opus-4-6', () => {
@@ -228,8 +228,8 @@ test('isOpus46OrLater returns false for sonnet', () => {
   assert.strictEqual(isOpus46OrLater('sonnet'), false, 'sonnet should not be Opus 4.6+');
 });
 
-test('getMaxOutputTokensForModel returns 64000 for opus (now Opus 4.5, Issue #1238)', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('opus'), 64000, 'Opus 4.5 should have 64K max output tokens');
+test('getMaxOutputTokensForModel returns 128000 for opus (now Opus 4.6, Issue #1433)', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('opus'), 128000, 'Opus 4.6 should have 128K max output tokens');
 });
 
 test('getMaxOutputTokensForModel returns 128000 for opus-4-6', () => {
@@ -240,8 +240,8 @@ test('getMaxOutputTokensForModel returns 128000 for claude-opus-4-6', () => {
   assert.strictEqual(getMaxOutputTokensForModel('claude-opus-4-6'), 128000, 'claude-opus-4-6 should have 128K max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 64000 for sonnet', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), 64000, 'Sonnet should have 64K max output tokens');
+test('getMaxOutputTokensForModel returns 128000 for sonnet (env CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000)', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), 128000, 'Sonnet should have 128K max output tokens (per env override)');
 });
 
 // ============================================================
@@ -253,8 +253,8 @@ test('DEFAULT_MAX_THINKING_BUDGET_OPUS_46 is 31999 (aligned with standard models
   assert.strictEqual(DEFAULT_MAX_THINKING_BUDGET_OPUS_46, 31999, 'Opus 4.6 default thinking budget should be 31999');
 });
 
-test('getDefaultMaxThinkingBudgetForModel returns 31999 for opus (now Opus 4.5, Issue #1238)', () => {
-  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opus'), 31999, 'Opus 4.5 should have 31999 thinking budget');
+test('getDefaultMaxThinkingBudgetForModel returns 31999 for opus (now Opus 4.6, Issue #1433)', () => {
+  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opus'), 31999, 'Opus 4.6 should have 31999 thinking budget');
 });
 
 test('getDefaultMaxThinkingBudgetForModel returns 31999 for opus-4-6 (aligned with standard, Issue #1238)', () => {
@@ -356,13 +356,13 @@ console.log('\n=== 11. Case Insensitivity Tests (Issue #1238) ===');
 test('validateModelName handles OPUS (uppercase)', () => {
   const result = validateModelName('OPUS', 'claude');
   assert(result.valid, `OPUS should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'OPUS should map to claude-opus-4-5-20251101');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'OPUS should map to claude-opus-4-6');
 });
 
 test('validateModelName handles OPUS[1M] (uppercase)', () => {
   const result = validateModelName('OPUS[1M]', 'claude');
   assert(result.valid, `OPUS[1M] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101[1m]', 'OPUS[1M] should map to claude-opus-4-5-20251101[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6[1m]', 'OPUS[1M] should map to claude-opus-4-6[1m]');
 });
 
 // ============================================================

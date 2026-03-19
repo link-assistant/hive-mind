@@ -602,7 +602,6 @@ ${logContent}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     }
-    // Ensure proper whitespace between sections (prevent content running together on one line)
     // Check GitHub comment size limit or large file mode
     // Issue #1173: Also use gh-upload-log for large files, not just long comments
     let commentResult;

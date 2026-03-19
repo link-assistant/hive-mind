@@ -5,7 +5,7 @@
  */
 
 // Test config.lib.mjs exports
-import { DEFAULT_MAX_THINKING_BUDGET, getThinkingLevelToTokens, getTokensToThinkingLevel, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget } from '../src/config.lib.mjs';
+import { DEFAULT_MAX_THINKING_BUDGET, DEFAULT_MAX_THINKING_BUDGET_OPUS_46, getThinkingLevelToTokens, getTokensToThinkingLevel, thinkingLevelToTokens, tokensToThinkingLevel, supportsThinkingBudget, getClaudeEnv, thinkLevelToEffortLevel, thinkingBudgetToEffortLevel, OPUS_46_EFFORT_LEVELS } from '../src/config.lib.mjs';
 
 console.log('=== Testing Thinking Budget Translation (Issue #1146) ===\n');
 
@@ -105,9 +105,144 @@ for (const { version, minVersion, expected } of test6Cases) {
 console.log('   Status:', test6Pass ? '✅ PASS' : '❌ FAIL');
 console.log();
 
+// Test 7: Opus 4.6 max thinking budget should equal standard models (Issue #1238)
+console.log('7. DEFAULT_MAX_THINKING_BUDGET_OPUS_46 equals DEFAULT_MAX_THINKING_BUDGET:');
+console.log('   DEFAULT_MAX_THINKING_BUDGET_OPUS_46:', DEFAULT_MAX_THINKING_BUDGET_OPUS_46);
+console.log('   DEFAULT_MAX_THINKING_BUDGET:', DEFAULT_MAX_THINKING_BUDGET);
+console.log('   Expected: both should be 31999');
+const test7Pass = DEFAULT_MAX_THINKING_BUDGET_OPUS_46 === 31999 && DEFAULT_MAX_THINKING_BUDGET_OPUS_46 === DEFAULT_MAX_THINKING_BUDGET;
+console.log('   Status:', test7Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 8: Default thinking budget should be 0 when not specified (Issue #1238)
+console.log('8. getClaudeEnv() sets MAX_THINKING_TOKENS=0 by default:');
+const envDefault = getClaudeEnv();
+const envDefaultValue = envDefault.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (no options):', envDefaultValue, '(expected: "0")');
+const test8aPass = envDefaultValue === '0';
+console.log('   Status:', test8aPass ? '✅ PASS' : '❌ FAIL');
+
+console.log('   getClaudeEnv({ thinkingBudget: 16000 }) sets MAX_THINKING_TOKENS=16000:');
+const envExplicit = getClaudeEnv({ thinkingBudget: 16000 });
+const envExplicitValue = envExplicit.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (explicit 16000):', envExplicitValue, '(expected: "16000")');
+const test8bPass = envExplicitValue === '16000';
+console.log('   Status:', test8bPass ? '✅ PASS' : '❌ FAIL');
+
+console.log('   getClaudeEnv({ thinkingBudget: 0 }) sets MAX_THINKING_TOKENS=0:');
+const envZero = getClaudeEnv({ thinkingBudget: 0 });
+const envZeroValue = envZero.MAX_THINKING_TOKENS;
+console.log('   MAX_THINKING_TOKENS (explicit 0):', envZeroValue, '(expected: "0")');
+const test8cPass = envZeroValue === '0';
+console.log('   Status:', test8cPass ? '✅ PASS' : '❌ FAIL');
+
+const test8Pass = test8aPass && test8bPass && test8cPass;
+console.log('   Overall Test 8 Status:', test8Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 9: thinkLevelToEffortLevel conversion (Issue #1238)
+console.log('9. thinkLevelToEffortLevel conversion for Opus 4.6:');
+const test9Cases = [
+  { thinkLevel: undefined, expected: undefined },
+  { thinkLevel: 'off', expected: undefined },
+  { thinkLevel: 'low', expected: 'low' },
+  { thinkLevel: 'medium', expected: 'medium' },
+  { thinkLevel: 'high', expected: 'high' },
+  { thinkLevel: 'max', expected: 'high' }, // 'max' maps to 'high' (highest Opus 4.6 level)
+];
+let test9Pass = true;
+for (const { thinkLevel, expected } of test9Cases) {
+  const result = thinkLevelToEffortLevel(thinkLevel);
+  const pass = result === expected;
+  const thinkLevelStr = thinkLevel === undefined ? 'undefined' : `'${thinkLevel}'`;
+  const expectedStr = expected === undefined ? 'undefined' : `'${expected}'`;
+  const resultStr = result === undefined ? 'undefined' : `'${result}'`;
+  console.log(`   ${thinkLevelStr} → ${resultStr} (expected: ${expectedStr}) ${pass ? '✅' : '❌'}`);
+  if (!pass) test9Pass = false;
+}
+console.log('   Status:', test9Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 10: thinkingBudgetToEffortLevel conversion (Issue #1238)
+console.log('10. thinkingBudgetToEffortLevel conversion for Opus 4.6:');
+const test10Cases = [
+  { budget: undefined, expected: undefined },
+  { budget: 0, expected: undefined },
+  { budget: 5000, expected: 'low' },
+  { budget: 8000, expected: 'low' },
+  { budget: 12000, expected: 'medium' },
+  { budget: 16000, expected: 'medium' },
+  { budget: 20000, expected: 'high' },
+  { budget: 24000, expected: 'high' },
+  { budget: 28000, expected: 'high' }, // 'max' maps to 'high'
+  { budget: 31999, expected: 'high' }, // 'max' maps to 'high'
+];
+let test10Pass = true;
+for (const { budget, expected } of test10Cases) {
+  const result = thinkingBudgetToEffortLevel(budget);
+  const pass = result === expected;
+  const budgetStr = budget === undefined ? 'undefined' : String(budget);
+  const expectedStr = expected === undefined ? 'undefined' : `'${expected}'`;
+  const resultStr = result === undefined ? 'undefined' : `'${result}'`;
+  console.log(`   ${budgetStr} → ${resultStr} (expected: ${expectedStr}) ${pass ? '✅' : '❌'}`);
+  if (!pass) test10Pass = false;
+}
+console.log('   Status:', test10Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 11: getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 (Issue #1238)
+console.log('11. getClaudeEnv sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6:');
+
+console.log('   getClaudeEnv({ model: "opus-4-6", thinkLevel: "medium" }):');
+const envOpus46Medium = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'medium' });
+const test11aPass = envOpus46Medium.CLAUDE_CODE_EFFORT_LEVEL === 'medium';
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: "${envOpus46Medium.CLAUDE_CODE_EFFORT_LEVEL}" (expected: "medium") ${test11aPass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "opus-4-6", thinkLevel: "max" }):');
+const envOpus46Max = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'max' });
+const test11bPass = envOpus46Max.CLAUDE_CODE_EFFORT_LEVEL === 'high';
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: "${envOpus46Max.CLAUDE_CODE_EFFORT_LEVEL}" (expected: "high") ${test11bPass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "opus-4-6", thinkLevel: "off" }):');
+const envOpus46Off = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'off' });
+const test11cPass = envOpus46Off.CLAUDE_CODE_EFFORT_LEVEL === undefined;
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: ${envOpus46Off.CLAUDE_CODE_EFFORT_LEVEL} (expected: undefined) ${test11cPass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "opus-4-6", thinkingBudget: 16000 }):');
+const envOpus46Budget = getClaudeEnv({ model: 'opus-4-6', thinkingBudget: 16000 });
+const test11dPass = envOpus46Budget.CLAUDE_CODE_EFFORT_LEVEL === 'medium';
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: "${envOpus46Budget.CLAUDE_CODE_EFFORT_LEVEL}" (expected: "medium") ${test11dPass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "sonnet", thinkLevel: "high" }): (non-Opus 4.6)');
+const envSonnet = getClaudeEnv({ model: 'sonnet', thinkLevel: 'high' });
+const test11ePass = envSonnet.CLAUDE_CODE_EFFORT_LEVEL === undefined;
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: ${envSonnet.CLAUDE_CODE_EFFORT_LEVEL} (expected: undefined) ${test11ePass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "opus" }): (now Opus 4.5, no effort level)');
+const envOpus = getClaudeEnv({ model: 'opus' });
+const test11fPass = envOpus.CLAUDE_CODE_EFFORT_LEVEL === undefined;
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: ${envOpus.CLAUDE_CODE_EFFORT_LEVEL} (expected: undefined) ${test11fPass ? '✅' : '❌'}`);
+
+console.log('   getClaudeEnv({ model: "claude-opus-4-6", thinkLevel: "low" }):');
+const envOpus46Full = getClaudeEnv({ model: 'claude-opus-4-6', thinkLevel: 'low' });
+const test11gPass = envOpus46Full.CLAUDE_CODE_EFFORT_LEVEL === 'low';
+console.log(`      CLAUDE_CODE_EFFORT_LEVEL: "${envOpus46Full.CLAUDE_CODE_EFFORT_LEVEL}" (expected: "low") ${test11gPass ? '✅' : '❌'}`);
+
+const test11Pass = test11aPass && test11bPass && test11cPass && test11dPass && test11ePass && test11fPass && test11gPass;
+console.log('   Overall Test 11 Status:', test11Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
+// Test 12: OPUS_46_EFFORT_LEVELS constant (Issue #1238)
+console.log('12. OPUS_46_EFFORT_LEVELS constant:');
+const test12Pass = OPUS_46_EFFORT_LEVELS.length === 3 && OPUS_46_EFFORT_LEVELS.includes('low') && OPUS_46_EFFORT_LEVELS.includes('medium') && OPUS_46_EFFORT_LEVELS.includes('high');
+console.log('   OPUS_46_EFFORT_LEVELS:', JSON.stringify(OPUS_46_EFFORT_LEVELS));
+console.log('   Expected: ["low", "medium", "high"]');
+console.log('   Status:', test12Pass ? '✅ PASS' : '❌ FAIL');
+console.log();
+
 // Summary
 console.log('=== Test Summary ===');
-const allPass = test2Pass && test3Pass && test4Pass && test5Pass && test6Pass;
+const allPass = test2Pass && test3Pass && test4Pass && test5Pass && test6Pass && test7Pass && test8Pass && test9Pass && test10Pass && test11Pass && test12Pass;
 console.log('Overall:', allPass ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED');
 
 process.exit(allPass ? 0 : 1);

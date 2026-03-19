@@ -1,0 +1,13 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "<img width=\"561\" height=\"499\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/4bc1fb49-cfb2-4211-b8d9-29f3a6222eab\" />\n\nMessage with issue link:\n\n```\nЗавёл тут: https://github.com/link-assistant/hive-mind/issues/1324\n```\n\nReply to that message, that didn't work:\n\n```\n/solve —model opus\n```\n\nError returned by `/solve` command\n\n```\n❌ First argument must be a GitHub URL\n\nExample: /solve https://github.com/owner/repo/issues/123\n\nOr reply to a message containing a GitHub link with /solve\n```\n\nIn addition to reply with just `/solve`, we need support reply with `/solve` and all additional options we usually support in `/solve`, but we can get link to the issue from the message we do reply to.\n\nPlease download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions (including known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "createdAt": "2026-02-17T20:25:29Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "state": "OPEN",
+  "title": "Support all options via `/solve` command, that is executed as reply",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1325"
+}

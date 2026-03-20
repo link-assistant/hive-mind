@@ -124,8 +124,8 @@ try {
     .join('\n') // Rejoin with newlines
     .replace(/\n{3,}/g, '\n\n'); // Normalize excessive blank lines (3+ becomes 2)
 
-  // Find ALL PRs that contain the release commits (Issue #1271 fix)
-  // Uses commit hashes from changelog AND passed commit SHA from workflow
+  // Find ALL PRs that contain the release commits (Issue #1271 fix, Issue #1452 enhancement)
+  // Uses commit hashes from changelog, passed commit SHA, AND merge commits between version tags
   const relatedPrNumbers = new Set();
 
   // Build list of all commit SHAs to look up
@@ -134,11 +134,49 @@ try {
     commitsToLookup.push(passedCommitSha);
   }
 
+  // Issue #1452: When changesets are merged or don't have commit hashes,
+  // find all merge commits between the previous version tag and the current one.
+  // This ensures we detect ALL related PRs even when multiple PRs merge before a release.
+  try {
+    const versionWithoutV = version.replace(/^v/, '');
+    const currentTag = `v${versionWithoutV}`;
+
+    // Find the previous version tag by listing tags sorted by version
+    const tagsResult = await $`gh api "repos/${repository}/tags?per_page=10" --jq '.[].name'`.run({ capture: true });
+    const tags = tagsResult.stdout
+      .trim()
+      .split('\n')
+      .filter(t => t.startsWith('v'));
+
+    const currentTagIndex = tags.indexOf(currentTag);
+    const previousTag = currentTagIndex >= 0 && currentTagIndex + 1 < tags.length ? tags[currentTagIndex + 1] : null;
+
+    if (previousTag) {
+      console.log(`Finding merge commits between ${previousTag} and ${currentTag}...`);
+      const mergeCommitsResult = await $`gh api "repos/${repository}/compare/${previousTag}...${currentTag}" --jq '.commits[] | select(.parents | length > 1) | .sha'`.run({ capture: true });
+      const mergeCommits = mergeCommitsResult.stdout.trim().split('\n').filter(Boolean);
+
+      console.log(`Found ${mergeCommits.length} merge commit(s) between tags`);
+      for (const sha of mergeCommits) {
+        if (!commitsToLookup.includes(sha)) {
+          commitsToLookup.push(sha);
+        }
+      }
+    } else {
+      console.log(`Could not find previous tag before ${currentTag}`);
+    }
+  } catch (error) {
+    console.log(`Could not find merge commits between tags: ${error.message}`);
+    if (process.env.DEBUG) {
+      console.error(error);
+    }
+  }
+
   if (commitsToLookup.length > 0) {
     console.log(`Looking up PRs for ${commitsToLookup.length} commit(s)...`);
 
     for (const sha of commitsToLookup) {
-      const source = commitHashes.includes(sha) ? 'changelog' : 'workflow';
+      const source = commitHashes.includes(sha) ? 'changelog' : sha === passedCommitSha ? 'workflow' : 'tag-range';
       console.log(`  Checking commit ${sha} (from ${source})...`);
 
       try {

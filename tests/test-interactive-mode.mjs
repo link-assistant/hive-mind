@@ -33,21 +33,29 @@ async function runTest(name, testFn) {
 }
 
 /** Create a handler with default test mocks, overridable per-test. */
+let mockCommentIdCounter = 1000;
 function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123, verbose = false, onComment } = {}) {
   const comments = [];
+  const edits = [];
   const logs = [];
   const mock$ = (...args) => {
     const body = args[0].reduce((acc, str, i) => acc + str + (args[i + 1] || ''), '');
+    // Detect if this is an edit (PATCH) vs a new comment
+    if (body.includes('-X PATCH')) {
+      edits.push(body);
+      return Promise.resolve({ stdout: Buffer.from('') });
+    }
     comments.push(body);
     if (onComment) onComment(body);
-    return Promise.resolve();
+    const commentId = ++mockCommentIdCounter;
+    return Promise.resolve({ stdout: Buffer.from(`https://github.com/${owner}/${repo}/pull/${prNumber}#issuecomment-${commentId}\n`) });
   };
   const mockLog = msg => {
     logs.push(msg);
     return Promise.resolve();
   };
   const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose });
-  return { handler, comments, logs };
+  return { handler, comments, edits, logs };
 }
 
 // ============================================
@@ -829,6 +837,250 @@ await runTest('JSON round-trip: safeJsonStringify output is always parseable', (
       throw new Error(`safeJsonStringify produced unparseable JSON for input: ${JSON.stringify(testCase)}: ${e.message}`);
     }
   }
+});
+
+// ============================================
+// AGENT TASK EVENT TESTS (Issue #1450)
+// ============================================
+//
+// These tests verify the new handlers for system.task_started,
+// system.task_progress, system.task_notification, and rate_limit_event.
+// Previously these were all posted as "Unrecognized Event" comments.
+
+console.log('\n=== Testing Agent Task Events (Issue #1450) ===\n');
+
+await runTest('processEvent handles system.task_started', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'task-abc-123',
+    tool_use_id: 'toolu_01ABC',
+    description: 'Read issue and explore codebase',
+    task_type: 'local_agent',
+    prompt: 'Read the GitHub issue and explore...',
+    session_id: 'test-session',
+  });
+  if (comments.length === 0) throw new Error('Expected a comment for task_started');
+  const comment = comments[0];
+  if (!comment.includes('Agent task')) throw new Error('Expected "Agent task" in comment');
+  if (!comment.includes('Read issue and explore codebase')) throw new Error('Expected description in comment');
+  if (!comment.includes('task-abc-123')) throw new Error('Expected task ID in comment');
+  if (!comment.includes('Running')) throw new Error('Expected running status in comment');
+  // Verify state tracking
+  const state = handler.getState();
+  if (!state.pendingTasks.has('task-abc-123')) throw new Error('Expected task to be in pendingTasks');
+});
+
+await runTest('processEvent handles system.task_progress with pending task', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  // First create a task
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'task-progress-1',
+    tool_use_id: 'toolu_01PROG',
+    description: 'Explore codebase',
+    task_type: 'local_agent',
+    session_id: 'test-session',
+  });
+  const commentsAfterStart = comments.length;
+  // Send progress update
+  await new Promise(r => setTimeout(r, 100));
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: 'task-progress-1',
+    tool_use_id: 'toolu_01PROG',
+    description: 'Running View GitHub issue',
+    usage: { total_tokens: 12000, tool_uses: 1, duration_ms: 5000 },
+    last_tool_name: 'Bash',
+    session_id: 'test-session',
+  });
+  // Should NOT create a new comment (should edit the existing one)
+  if (comments.length > commentsAfterStart) throw new Error('Expected no new comment for task_progress (should edit existing)');
+});
+
+await runTest('processEvent handles system.task_progress without pending task (graceful fallback)', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  // Send progress for a task that was never started
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: 'unknown-task-999',
+    description: 'Running something',
+    usage: { total_tokens: 5000, tool_uses: 1, duration_ms: 2000 },
+    last_tool_name: 'Bash',
+    session_id: 'test-session',
+  });
+  // Should NOT create a comment (silently logged instead of unrecognized)
+  if (comments.length > 0) throw new Error('Expected no comment for orphaned task_progress');
+});
+
+await runTest('processEvent handles system.task_notification (completed)', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  // Create task first
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'task-notify-1',
+    tool_use_id: 'toolu_01NOTIFY',
+    description: 'Analyze code',
+    task_type: 'local_agent',
+    session_id: 'test-session',
+  });
+  // Send completion notification
+  await new Promise(r => setTimeout(r, 100));
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_notification',
+    task_id: 'task-notify-1',
+    tool_use_id: 'toolu_01NOTIFY',
+    status: 'completed',
+    summary: 'Analyze code',
+    usage: { total_tokens: 23000, tool_uses: 13, duration_ms: 49000 },
+    session_id: 'test-session',
+  });
+  // Task should be removed from pendingTasks
+  const state = handler.getState();
+  if (state.pendingTasks.has('task-notify-1')) throw new Error('Expected task to be removed from pendingTasks after notification');
+});
+
+await runTest('processEvent handles system.task_notification without pending task (standalone)', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  // Send notification for a task that was never started
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_notification',
+    task_id: 'orphan-task-1',
+    status: 'completed',
+    summary: 'Unknown task finished',
+    session_id: 'test-session',
+  });
+  // Should post as standalone comment
+  if (comments.length === 0) throw new Error('Expected standalone comment for orphaned task_notification');
+  if (!comments[comments.length - 1].includes('Completed')) throw new Error('Expected completion status in comment');
+});
+
+await runTest('processEvent handles rate_limit_event silently', async () => {
+  const { handler, comments, logs } = makeHandler({ verbose: true });
+  await handler.processEvent({
+    type: 'rate_limit_event',
+    rate_limit_info: {
+      status: 'allowed',
+      resetsAt: 1774022400,
+      rateLimitType: 'five_hour',
+      overageStatus: 'rejected',
+      isUsingOverage: false,
+    },
+    session_id: 'test-session',
+  });
+  // Should NOT create a comment
+  if (comments.length > 0) throw new Error('Expected no comment for rate_limit_event (should be silent)');
+  // Should log in verbose mode
+  if (!logs.some(l => l.includes('Rate limit event'))) throw new Error('Expected verbose log for rate_limit_event');
+});
+
+await runTest('processEvent no longer marks known system subtypes as unrecognized', async () => {
+  const { handler, comments } = makeHandler();
+  // Test all previously unrecognized system subtypes
+  const systemEvents = [
+    { type: 'system', subtype: 'task_started', task_id: 't1', description: 'Test', session_id: 's1' },
+    { type: 'system', subtype: 'task_progress', task_id: 't1', description: 'Progress', usage: {}, session_id: 's1' },
+    { type: 'system', subtype: 'task_notification', task_id: 't1', status: 'completed', summary: 'Done', session_id: 's1' },
+  ];
+  for (const event of systemEvents) {
+    await handler.processEvent(event);
+    await new Promise(r => setTimeout(r, 100));
+  }
+  // No comment should contain "Unrecognized Event"
+  const unrecognized = comments.filter(c => c.includes('Unrecognized Event'));
+  if (unrecognized.length > 0) throw new Error(`Found ${unrecognized.length} unrecognized event comments for known system subtypes`);
+});
+
+await runTest('processEvent still marks truly unknown system subtypes as unrecognized', async () => {
+  const { handler, comments } = makeHandler();
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'completely_unknown_subtype',
+    data: { foo: 'bar' },
+  });
+  if (comments.length === 0) throw new Error('Expected unrecognized comment for unknown subtype');
+  if (!comments[0].includes('Unrecognized Event')) throw new Error('Expected "Unrecognized Event" header');
+});
+
+await runTest('full agent task lifecycle: started -> progress -> progress -> notification', async () => {
+  const { handler, comments } = makeHandler({ verbose: true });
+  // 1. Task started
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'lifecycle-task-1',
+    tool_use_id: 'toolu_lifecycle',
+    description: 'Full lifecycle test',
+    task_type: 'local_agent',
+    prompt: 'Do some work',
+    session_id: 'lifecycle-session',
+  });
+  const commentsAfterStart = comments.length;
+  if (commentsAfterStart === 0) throw new Error('Expected task_started comment');
+
+  // 2. First progress
+  await new Promise(r => setTimeout(r, 100));
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: 'lifecycle-task-1',
+    description: 'Running Step 1',
+    usage: { total_tokens: 5000, tool_uses: 1, duration_ms: 3000 },
+    last_tool_name: 'Bash',
+    session_id: 'lifecycle-session',
+  });
+
+  // 3. Second progress
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: 'lifecycle-task-1',
+    description: 'Running Step 2',
+    usage: { total_tokens: 10000, tool_uses: 2, duration_ms: 6000 },
+    last_tool_name: 'Read',
+    session_id: 'lifecycle-session',
+  });
+
+  // Should NOT have created new comments for progress
+  if (comments.length > commentsAfterStart) throw new Error(`Expected no new comments for progress, got ${comments.length - commentsAfterStart} new`);
+
+  // 4. Task notification (completed)
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'task_notification',
+    task_id: 'lifecycle-task-1',
+    status: 'completed',
+    summary: 'Full lifecycle test',
+    usage: { total_tokens: 15000, tool_uses: 3, duration_ms: 10000 },
+    session_id: 'lifecycle-session',
+  });
+
+  // Task should be cleaned up
+  const state = handler.getState();
+  if (state.pendingTasks.has('lifecycle-task-1')) throw new Error('Expected task to be cleaned up');
+
+  // Total comments should be just 1 (the initial task_started comment, edited by progress/notification)
+  if (comments.length > commentsAfterStart) throw new Error(`Expected no new comments beyond task_started, got ${comments.length} total`);
+});
+
+await runTest('getToolIcon returns Agent icon', () => {
+  if (utils.getToolIcon('Agent') !== '🤖') throw new Error('Expected 🤖 for Agent');
+});
+
+await runTest('handler exposes new task handlers', async () => {
+  const { handler } = makeHandler();
+  const handlers = handler._handlers;
+  if (typeof handlers.handleTaskStarted !== 'function') throw new Error('Expected handleTaskStarted function');
+  if (typeof handlers.handleTaskProgress !== 'function') throw new Error('Expected handleTaskProgress function');
+  if (typeof handlers.handleTaskNotification !== 'function') throw new Error('Expected handleTaskNotification function');
+  if (typeof handlers.handleRateLimitEvent !== 'function') throw new Error('Expected handleRateLimitEvent function');
 });
 
 // ============================================

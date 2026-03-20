@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.35.0
+
+### Minor Changes
+
+- f3de781: Add handlers for agent task lifecycle events (task_started, task_progress, task_notification) and rate_limit_event in interactive mode, reducing PR comment noise by ~30%
+
 ## 1.34.8
 
 ### Patch Changes

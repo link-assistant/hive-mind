@@ -25,7 +25,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   // Issue #1250: Check for OpenCode Zen actual cost
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  let costInfo = '\n\n💰 **Cost estimation:**';
+  let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
@@ -141,7 +141,7 @@ console.log('\n📋 Test Group: Public pricing estimate\n');
 
 runTest('shows public pricing estimate when available', () => {
   const result = buildCostInfoString(1.5, null, null);
-  assertContains(result, '💰 **Cost estimation:**', 'Should contain cost estimation header');
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should contain cost estimation header');
   assertContains(result, 'Public pricing estimate: $1.500000', 'Should contain formatted cost');
 });
 
@@ -466,7 +466,7 @@ runTest('isOpencodeFreeModel triggers hasPricing check', () => {
     isOpencodeFreeModel: true,
   });
   // Should not be empty since isOpencodeFreeModel is truthy
-  assertContains(result, '💰 **Cost estimation:**', 'Should show cost header');
+  assertContains(result, '### 💰 **Cost estimation:**', 'Should show cost header');
 });
 
 // ==== Issue #1250: Base model pricing tests ====

@@ -22,7 +22,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  let costInfo = '\n\n💰 **Cost estimation:**';
+  let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
@@ -557,7 +557,7 @@ ${logContent}
       logComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
-**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -714,8 +714,8 @@ ${resumeCommand}
 
             logUploadComment += `${modelInfoString}
 
-📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${logUrl})
+### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete execution log](${logUrl})
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
@@ -726,8 +726,10 @@ The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
 \`\`\`${modelInfoString}
-📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${logUrl})
+
+### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete failure log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else if (errorDuringExecution) {
@@ -736,10 +738,11 @@ ${errorMessage}
             logUploadComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
-**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
-📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${logUrl})
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
@@ -761,8 +764,10 @@ This log file contains the complete execution trace of the AI ${targetType === '
             }
             logUploadComment = `## ${title}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
-${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${logUrl})
+${sessionNote}
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }

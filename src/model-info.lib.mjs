@@ -179,7 +179,7 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
 
   if (!hasRequested && !hasModelsUsed && !hasModelInfo && !hasPricingModel) return '';
 
-  let info = '\n\n🤖 **Models used:**';
+  let info = '\n\n### 🤖 **Models used:**';
 
   // Display tool name
   if (tool) {
@@ -201,26 +201,26 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
 
     // Build main model line
     const mainModelName = mainModelMeta?.name || mainModelId;
-    const mainModelProvider = mainModelMeta?.provider || null;
-    const mainModelKnowledge = mainModelMeta?.knowledge || null;
+
+    // Use "Model" label when only one model, "Main model" when multiple
+    const modelLabel = supportingEntries.length > 0 ? 'Main model' : 'Model';
 
     if (mainMatches) {
-      info += `\n- **Main model: ${mainModelName}** (ID: \`${mainModelId}\`${mainModelProvider ? `, ${mainModelProvider}` : ''}${mainModelKnowledge ? `, cutoff: ${mainModelKnowledge}` : ''})`;
+      info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
     } else {
       // Main model doesn't match requested - show warning
-      info += `\n- **Main model: ${mainModelName}** (ID: \`${mainModelId}\`${mainModelProvider ? `, ${mainModelProvider}` : ''}${mainModelKnowledge ? `, cutoff: ${mainModelKnowledge}` : ''})`;
+      info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
       if (hasRequested) {
         info += `\n- ⚠️ **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
       }
     }
 
-    // Display supporting models
+    // Display additional models
     if (supportingEntries.length > 0) {
-      info += '\n- Supporting models:';
+      info += '\n- **Additional models:**';
       for (const entry of supportingEntries) {
         const name = entry.modelInfo?.name || entry.modelId;
-        const provider = entry.modelInfo?.provider || null;
-        info += `\n  - ${name} (\`${entry.modelId}\`${provider ? `, ${provider}` : ''})`;
+        info += `\n  *  **${name}** (\`${entry.modelId}\`)`;
       }
     }
   } else if (hasModelInfo) {

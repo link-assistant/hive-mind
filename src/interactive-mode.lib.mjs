@@ -7,10 +7,14 @@
  *
  * Supported JSON event types:
  * - system.init: Session initialization
+ * - system.task_started: Agent subtask started (Issue #1450)
+ * - system.task_progress: Agent subtask progress update (Issue #1450)
+ * - system.task_notification: Agent subtask completed/failed (Issue #1450)
  * - assistant (text): AI text responses
  * - assistant (tool_use): Tool invocations
  * - user (tool_result): Tool execution results
  * - result: Session completion
+ * - rate_limit_event: Rate limit info (silently logged, Issue #1450)
  * - unrecognized: Any unknown event types
  *
  * Features:

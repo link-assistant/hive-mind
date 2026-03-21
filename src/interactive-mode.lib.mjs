@@ -52,6 +52,13 @@ const CONFIG = {
 // See: https://github.com/link-assistant/hive-mind/issues/1324
 import { sanitizeUnicode } from './unicode-sanitization.lib.mjs';
 
+// Use child_process for stdin-based API calls to avoid shell quoting issues
+// with large/complex comment bodies containing backticks, quotes, etc.
+// See: https://github.com/link-assistant/hive-mind/issues/1458
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
+
 /**
  * Truncate content in the middle, keeping start and end
  * This helps show context while reducing size for large outputs
@@ -237,7 +244,9 @@ const getToolIcon = toolName => {
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = options => {
-  const { owner, repo, prNumber, $, log, verbose = false } = options;
+  const { owner, repo, prNumber, $, log, verbose = false, execFile: execFileFn } = options;
+  // Use injected execFile for testability, or the real one by default
+  const runGhApi = execFileFn || execFileAsync;
 
   // State tracking for the handler
   const state = {
@@ -291,24 +300,35 @@ export const createInteractiveHandler = options => {
     }
 
     try {
-      // Post comment and capture the output to get the comment URL/ID
-      const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
+      // Post comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/${prNumber}/comments`;
+      const jsonPayload = JSON.stringify({ body });
+      const { stdout } = await runGhApi('gh', ['api', apiUrl, '-X', 'POST', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
       state.lastCommentTime = Date.now();
 
-      // Extract comment ID from the result (gh outputs the comment URL)
-      // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
-      // Note: command-stream returns stdout as a Buffer, so we need to call .toString()
-      const output = result.stdout?.toString() || result.toString() || '';
-      const match = output.match(/issuecomment-(\d+)/);
-      const commentId = match ? match[1] : null;
+      // Extract comment ID from the API response JSON
+      let commentId = null;
+      try {
+        const response = JSON.parse(stdout);
+        commentId = response.id ? String(response.id) : null;
+      } catch {
+        // Fallback: try to extract from URL pattern
+        const match = stdout.match(/issuecomment-(\d+)|"id":\s*(\d+)/);
+        commentId = match ? (match[1] || match[2]) : null;
+      }
 
       if (verbose) {
-        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''}`, { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${body.length} chars)`, { verbose: true });
       }
       return commentId;
     } catch (error) {
       if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to post comment: ${error.message}`, { verbose: true });
+        await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`, { verbose: true });
       }
       return null;
     }
@@ -330,14 +350,22 @@ export const createInteractiveHandler = options => {
     }
 
     try {
-      await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+      // Edit comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/comments/${commentId}`;
+      const jsonPayload = JSON.stringify({ body });
+      await runGhApi('gh', ['api', apiUrl, '-X', 'PATCH', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
       if (verbose) {
-        await log(`✅ Interactive mode: Comment ${commentId} updated`, { verbose: true });
+        await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${body.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
       }
       return true;
     } catch (error) {
       if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to edit comment: ${error.message}`, { verbose: true });
+        await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`, { verbose: true });
       }
       return false;
     }
@@ -398,6 +426,16 @@ export const createInteractiveHandler = options => {
    * @param {Object} data - Event data
    */
   const handleSystemInit = async data => {
+    // Guard against duplicate init events (e.g., when a late task_notification
+    // arrives after the result event and triggers a new conversation turn)
+    // See: https://github.com/link-assistant/hive-mind/issues/1458
+    if (state.sessionId) {
+      if (verbose) {
+        await log(`⚠️ Interactive mode: Ignoring duplicate system.init event (session already initialized: ${state.sessionId})`, { verbose: true });
+      }
+      return;
+    }
+
     state.sessionId = data.session_id;
     state.startTime = Date.now();
 
@@ -672,20 +710,43 @@ ${createRawJsonSection(data)}`;
       // If comment ID is not yet available (comment was queued), wait for it
       // But use a timeout to avoid blocking forever
       if (!commentId && commentIdPromise) {
-        if (verbose) {
-          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
-            verbose: true,
-          });
+        // First, try to flush the queue — the tool_use comment may still be
+        // waiting for rate-limit clearance. Processing it here avoids the 30s
+        // timeout that previously caused many comments to stay stuck on
+        // "Waiting for result...".
+        // See: https://github.com/link-assistant/hive-mind/issues/1458
+        if (state.commentQueue.length > 0) {
+          if (verbose) {
+            await log(`🔄 Interactive mode: Flushing comment queue (${state.commentQueue.length} items) before waiting for tool use comment`, {
+              verbose: true,
+            });
+          }
+          // Temporarily reset isProcessing to allow processQueue to run
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
         }
-        // Wait for the comment to be posted (with 30 second timeout)
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
-        commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+        // Check again after queue flush
+        commentId = pendingCall.commentId;
 
         if (!commentId) {
           if (verbose) {
-            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+            await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
               verbose: true,
             });
+          }
+          // Wait for the comment to be posted (with 30 second timeout)
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
+          commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+          if (!commentId) {
+            if (verbose) {
+              await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+                verbose: true,
+              });
+            }
           }
         }
       }

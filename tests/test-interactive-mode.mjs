@@ -38,15 +38,24 @@ function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123,
   const comments = [];
   const edits = [];
   const logs = [];
-  const mock$ = (...args) => {
-    const body = args[0].reduce((acc, str, i) => acc + str + (args[i + 1] || ''), '');
-    // Detect if this is an edit (PATCH) vs a new comment
-    if (body.includes('-X PATCH')) {
-      edits.push(body);
-      return Promise.resolve({ stdout: Buffer.from('') });
+  // Mock execFile to intercept gh api calls (used by postComment and editComment)
+  // See: https://github.com/link-assistant/hive-mind/issues/1458
+  const mockExecFile = async (cmd, args, options) => {
+    const argsStr = args.join(' ');
+    const inputBody = options?.input ? JSON.parse(options.input).body : '';
+    if (argsStr.includes('-X PATCH')) {
+      edits.push({ args: argsStr, body: inputBody });
+      return { stdout: JSON.stringify({ id: mockCommentIdCounter, body: inputBody }) };
     }
-    comments.push(body);
-    if (onComment) onComment(body);
+    const commentId = ++mockCommentIdCounter;
+    comments.push({ args: argsStr, body: inputBody });
+    if (onComment) onComment(inputBody);
+    return { stdout: JSON.stringify({ id: commentId, html_url: `https://github.com/${owner}/${repo}/pull/${prNumber}#issuecomment-${commentId}` }) };
+  };
+  const mock$ = (...args) => {
+    // Legacy mock for any remaining $ usage (e.g. task notifications)
+    const body = args[0].reduce((acc, str, i) => acc + str + (args[i + 1] || ''), '');
+    comments.push({ args: body, body: '' });
     const commentId = ++mockCommentIdCounter;
     return Promise.resolve({ stdout: Buffer.from(`https://github.com/${owner}/${repo}/pull/${prNumber}#issuecomment-${commentId}\n`) });
   };
@@ -54,7 +63,7 @@ function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123,
     logs.push(msg);
     return Promise.resolve();
   };
-  const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose });
+  const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose, execFile: mockExecFile });
   return { handler, comments, edits, logs };
 }
 
@@ -862,7 +871,7 @@ await runTest('processEvent handles system.task_started', async () => {
     session_id: 'test-session',
   });
   if (comments.length === 0) throw new Error('Expected a comment for task_started');
-  const comment = comments[0];
+  const comment = comments[0].body;
   if (!comment.includes('Agent task')) throw new Error('Expected "Agent task" in comment');
   if (!comment.includes('Read issue and explore codebase')) throw new Error('Expected description in comment');
   if (!comment.includes('task-abc-123')) throw new Error('Expected task ID in comment');
@@ -959,7 +968,7 @@ await runTest('processEvent handles system.task_notification without pending tas
   });
   // Should post as standalone comment
   if (comments.length === 0) throw new Error('Expected standalone comment for orphaned task_notification');
-  if (!comments[comments.length - 1].includes('Completed')) throw new Error('Expected completion status in comment');
+  if (!comments[comments.length - 1].body.includes('Completed')) throw new Error('Expected completion status in comment');
 });
 
 await runTest('processEvent handles rate_limit_event silently', async () => {
@@ -994,7 +1003,7 @@ await runTest('processEvent no longer marks known system subtypes as unrecognize
     await new Promise(r => setTimeout(r, 100));
   }
   // No comment should contain "Unrecognized Event"
-  const unrecognized = comments.filter(c => c.includes('Unrecognized Event'));
+  const unrecognized = comments.filter(c => c.body.includes('Unrecognized Event'));
   if (unrecognized.length > 0) throw new Error(`Found ${unrecognized.length} unrecognized event comments for known system subtypes`);
 });
 
@@ -1006,7 +1015,7 @@ await runTest('processEvent still marks truly unknown system subtypes as unrecog
     data: { foo: 'bar' },
   });
   if (comments.length === 0) throw new Error('Expected unrecognized comment for unknown subtype');
-  if (!comments[0].includes('Unrecognized Event')) throw new Error('Expected "Unrecognized Event" header');
+  if (!comments[0].body.includes('Unrecognized Event')) throw new Error('Expected "Unrecognized Event" header');
 });
 
 await runTest('full agent task lifecycle: started -> progress -> progress -> notification', async () => {

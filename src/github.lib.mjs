@@ -381,6 +381,8 @@ export async function attachLogToGitHub(options) {
     // Issue #1225: Model information for PR comments
     requestedModel = null, // The --model flag value (e.g., "opus", "sonnet")
     tool = null, // The tool used (e.g., "claude", "agent", "codex", "opencode")
+    // Issue #1454: modelUsage from result JSON for accurate multi-model display
+    resultModelUsage = null,
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -426,6 +428,27 @@ export async function attachLogToGitHub(options) {
         // Don't fail the entire upload if token calculation fails
         if (verbose) {
           await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
+        }
+      }
+    }
+    // Issue #1454: Use resultModelUsage from result JSON as authoritative source for model IDs.
+    // The result JSON contains all models used (including subagent models like Haiku) that may
+    // not appear in the session JSONL file parsed by calculateSessionTokens.
+    if (resultModelUsage && typeof resultModelUsage === 'object') {
+      const resultModelIds = Object.keys(resultModelUsage);
+      if (resultModelIds.length > 0) {
+        // If session JSONL found fewer models than the result JSON, use result JSON as it's more complete
+        if (!actualModelIds || resultModelIds.length > actualModelIds.length) {
+          // Sort by cost (descending) so the most expensive/main model comes first
+          resultModelIds.sort((a, b) => {
+            const costA = resultModelUsage[a]?.costUSD ?? 0;
+            const costB = resultModelUsage[b]?.costUSD ?? 0;
+            return costB - costA;
+          });
+          actualModelIds = resultModelIds;
+          if (verbose) {
+            await log(`  🤖 Using result JSON modelUsage (${resultModelIds.length} models): ${resultModelIds.join(', ')}`, { verbose: true });
+          }
         }
       }
     }

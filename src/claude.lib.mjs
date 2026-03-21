@@ -848,6 +848,7 @@ export const executeClaudeCommand = async params => {
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
     let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
+    let resultModelUsage = null; // Issue #1454: Capture modelUsage from result JSON for accurate multi-model display
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -1027,6 +1028,16 @@ export const executeClaudeCommand = async params => {
                 if (data.num_turns !== undefined) {
                   resultNumTurns = data.num_turns;
                   await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
+                }
+                // Issue #1454: Capture modelUsage from result JSON for accurate multi-model display
+                // The result JSON contains authoritative modelUsage with all models (including subagent models
+                // like Haiku) that may not appear in the session JSONL file parsed by calculateSessionTokens
+                if (data.subtype === 'success' && data.modelUsage && typeof data.modelUsage === 'object') {
+                  resultModelUsage = data.modelUsage;
+                  const modelIds = Object.keys(resultModelUsage);
+                  if (modelIds.length > 0) {
+                    await log(`📊 Result modelUsage captured: ${modelIds.join(', ')}`, { verbose: true });
+                  }
                 }
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
@@ -1380,6 +1391,7 @@ export const executeClaudeCommand = async params => {
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
+        resultModelUsage, // Issue #1454: Pass modelUsage from result JSON for accurate multi-model display
       };
     } catch (error) {
       reportError(error, {

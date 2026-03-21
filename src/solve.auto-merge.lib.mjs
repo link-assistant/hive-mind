@@ -658,7 +658,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         // Post a comment to PR about the restart
         // Issue #1356: Include restart count for tracking and add deduplication
         try {
-          const commentBody = `## 🔄 Auto-restart triggered (attempt ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {

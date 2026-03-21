@@ -112,7 +112,7 @@ export const watchForFeedback = async params => {
       // Check if we've reached max iterations
       if (autoRestartCount >= maxAutoRestartIterations) {
         await log('');
-        await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} attempts`));
+        await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} iterations`));
         await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
         await log(formatAligned('', 'Please review and commit manually if needed', '', 2));
         await log('');

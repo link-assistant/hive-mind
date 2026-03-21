@@ -569,10 +569,8 @@ function stripMarkdown(text) {
   return text
     // Convert [text](url) links to "text (url)"
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    // Remove escape backslashes before special chars
-    .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1')
-    // Remove remaining markdown formatting chars (bold, italic markers)
-    .replace(/[*_`]/g, '');
+    // Remove escape backslashes before special chars (restores the original character)
+    .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1');
 }
 
 /**

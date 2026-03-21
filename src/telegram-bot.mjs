@@ -559,6 +559,51 @@ function validateGitHubUrl(args, options = {}) {
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
 /**
+ * Strip Markdown formatting to produce plain text.
+ * Removes escape sequences and link syntax while preserving readable content.
+ * @param {string} text - Markdown-formatted text
+ * @returns {string} Plain text version
+ */
+function stripMarkdown(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    // Convert [text](url) links to "text (url)"
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+    // Remove escape backslashes before special chars
+    .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1')
+    // Remove remaining markdown formatting chars (bold, italic markers)
+    .replace(/[*_`]/g, '');
+}
+
+/**
+ * Safely reply to a message with Markdown, falling back to plain text on parse error.
+ * Issue #1460: Prevents "can't parse entities" errors from crashing the command flow.
+ * @param {Object} ctx - Telegram context
+ * @param {string} text - Message text (Markdown-formatted)
+ * @param {Object} options - Additional options for ctx.reply (e.g., reply_to_message_id)
+ * @returns {Object} The sent message object
+ */
+async function safeReply(ctx, text, options = {}) {
+  try {
+    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
+  } catch (error) {
+    const isParsingError = error.message && (
+      error.message.includes("can't parse entities") ||
+      error.message.includes("Can't parse entities") ||
+      error.message.includes("can't find end of") ||
+      (error.message.includes('Bad Request') && error.message.includes('entity'))
+    );
+    if (isParsingError) {
+      console.error(`[telegram-bot] Markdown parsing failed, retrying as plain text: ${error.message}`);
+      // Retry without Markdown parse mode - strip formatting for readable plain text
+      const plainText = stripMarkdown(text);
+      return await ctx.reply(plainText, { ...options, parse_mode: undefined });
+    }
+    throw error; // Re-throw non-parsing errors
+  }
+}
+
+/**
  * Execute a start-screen command and update the initial message with the result.
  * Used by both /solve and /hive commands to reduce code duplication.
  *
@@ -1015,18 +1060,21 @@ async function handleSolveCommand(ctx) {
   // their command cannot be processed (e.g., disk full, server maintenance pending).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   if (check.rejected) {
-    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
+    await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   if (check.canStart && queueStats.queued === 0) {
-    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
+    const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
-    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
+    const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
@@ -1170,7 +1218,8 @@ async function handleHiveCommand(ctx) {
     infoBlock += `\n🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
-  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
+  const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 }
 

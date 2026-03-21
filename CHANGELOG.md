@@ -1,5 +1,15 @@
 # @link-assistant/hive-mind
 
+## 1.35.2
+
+### Patch Changes
+
+- 0cfcb6a: Fix CI/CD changelog formatting when multiple PRs merge before a release (Issue #1452). The merge-changesets script now keeps each changeset as a separate file (only harmonizing bump types) instead of merging descriptions into one, so @changesets/cli produces separate bullet items. Also enhances release notes PR detection to find all related PRs via tag-range merge commit lookup.
+- a689f6b: fix: use result JSON modelUsage for accurate multi-model display in GitHub comments
+
+  When Claude Code uses multiple models (e.g., main model + subagent), the completion
+  comment now correctly displays all models instead of just the main model.
+
 ## 1.35.1
 
 ### Patch Changes

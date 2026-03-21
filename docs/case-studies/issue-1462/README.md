@@ -6,23 +6,23 @@ When hive-mind attempted to solve an issue on `netkeep80/BinDiffSynchronizer#190
 
 ## Timeline of Events
 
-| Timestamp           | Event                                                              |
-| ------------------- | ------------------------------------------------------------------ |
-| 2026-03-21 22:34:09 | solve.mjs v1.35.1 started for `netkeep80/BinDiffSynchronizer#190`  |
-| 2026-03-21 22:34:15 | Fork mode enabled (no write access to target repo)                 |
-| 2026-03-21 22:34:19 | Fork `konard/netkeep80-BinDiffSynchronizer` confirmed              |
-| 2026-03-21 22:34:25 | Branch `issue-190-82d805435bf7` created, .gitkeep committed        |
-| 2026-03-21 22:34:26 | Branch pushed to fork successfully                                 |
-| 2026-03-21 22:34:28 | GitHub compare API confirmed 1 commit ahead                        |
-| 2026-03-21 22:34:30 | `gh pr create --draft` executed (cross-repo fork PR)               |
-| 2026-03-21 22:34:31 | `gh pr create` returned (no stderr captured in logs)               |
-| 2026-03-21 22:34:32 | **PR verification FAILED**: PR does not exist on GitHub            |
-| 2026-03-21 22:34:32 | **ERROR 1**: "FATAL ERROR: PR creation failed" (verification)      |
-| 2026-03-21 22:34:32 | **ERROR 2**: "PR CREATION FAILED" (catch in prCreateError handler) |
-| 2026-03-21 22:34:32 | **ERROR 3**: "FATAL ERROR: PR creation failed" (outer catch)       |
-| 2026-03-21 22:34:32 | `handleErrorWithIssueCreation` called but skipped (non-interactive)|
-| 2026-03-21 22:34:32 | Log NOT uploaded to issue (no `global.createdPR` available)        |
-| 2026-03-21 22:34:32 | "Could not determine GitHub user" warning                          |
+| Timestamp           | Event                                                               |
+| ------------------- | ------------------------------------------------------------------- |
+| 2026-03-21 22:34:09 | solve.mjs v1.35.1 started for `netkeep80/BinDiffSynchronizer#190`   |
+| 2026-03-21 22:34:15 | Fork mode enabled (no write access to target repo)                  |
+| 2026-03-21 22:34:19 | Fork `konard/netkeep80-BinDiffSynchronizer` confirmed               |
+| 2026-03-21 22:34:25 | Branch `issue-190-82d805435bf7` created, .gitkeep committed         |
+| 2026-03-21 22:34:26 | Branch pushed to fork successfully                                  |
+| 2026-03-21 22:34:28 | GitHub compare API confirmed 1 commit ahead                         |
+| 2026-03-21 22:34:30 | `gh pr create --draft` executed (cross-repo fork PR)                |
+| 2026-03-21 22:34:31 | `gh pr create` returned (no stderr captured in logs)                |
+| 2026-03-21 22:34:32 | **PR verification FAILED**: PR does not exist on GitHub             |
+| 2026-03-21 22:34:32 | **ERROR 1**: "FATAL ERROR: PR creation failed" (verification)       |
+| 2026-03-21 22:34:32 | **ERROR 2**: "PR CREATION FAILED" (catch in prCreateError handler)  |
+| 2026-03-21 22:34:32 | **ERROR 3**: "FATAL ERROR: PR creation failed" (outer catch)        |
+| 2026-03-21 22:34:32 | `handleErrorWithIssueCreation` called but skipped (non-interactive) |
+| 2026-03-21 22:34:32 | Log NOT uploaded to issue (no `global.createdPR` available)         |
+| 2026-03-21 22:34:32 | "Could not determine GitHub user" warning                           |
 
 ## Root Cause Analysis
 
@@ -51,6 +51,7 @@ Each handler adds its own multi-line error block with troubleshooting steps, res
 ### Root Cause 3: Log not uploaded to issue when PR creation fails
 
 In `solve.error-handlers.lib.mjs`, `handleFailure()` (line 43) only uploads logs when:
+
 ```javascript
 if (shouldAttachLogs && getLogFile() && global.createdPR && global.createdPR.number)
 ```

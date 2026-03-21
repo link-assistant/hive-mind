@@ -992,9 +992,10 @@ async function handleSolveCommand(ctx) {
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  const userOptionsText = userArgs.slice(1).join(' ') || 'none';
+  // Issue #1460: Escape options text to prevent Markdown parsing errors
+  const userOptionsText = escapeMarkdown(userArgs.slice(1).join(' ') || 'none');
   let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\n\n🛠 Options: ${userOptionsText}`;
-  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
+  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
   // Check for duplicate URL in queue
@@ -1162,10 +1163,11 @@ async function handleHiveCommand(ctx) {
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const escapedUrl = escapeMarkdown(args[0]);
   // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  const userOptionsText = normalizedArgs.slice(1).join(' ') || 'none';
+  // Issue #1460: Escape options text to prevent Markdown parsing errors
+  const userOptionsText = escapeMarkdown(normalizedArgs.slice(1).join(' ') || 'none');
   let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\n\n🛠 Options: ${userOptionsText}`;
   if (hiveOverrides.length > 0) {
-    infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
+    infoBlock += `\n🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
   const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

@@ -2,89 +2,53 @@
 
 **Issue:** [#1460](https://github.com/link-assistant/hive-mind/issues/1460)
 **Date:** 2026-03-21
-**Status:** Fixed
+**Status:** Under investigation (defensive fixes applied, root cause not yet confirmed)
 
 ## Summary
 
-Users running `/solve` command with URLs containing underscores (e.g., `space_db_private`) experienced a confusing error message about "message formatting" that provided no actionable information. The command failed silently without executing, and retrying didn't help.
+A user running `/solve https://github.com/xlab2016/space_db_private/issues/17` experienced `400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 133`. The command failed without executing, and retrying (with and without `--interactive-mode`) produced the same error at the same byte offset.
 
 ## Timeline / Sequence of Events
 
-1. User sends: `/solve https://github.com/xlab2016/space_db_private/issues/17 --interactive-mode`
+1. User "S 19" sends: `/solve https://github.com/xlab2016/space_db_private/issues/17 --interactive-mode`
 2. Bot processes the command, validates URL, builds a status message
 3. Bot calls `ctx.reply()` with `parse_mode: 'Markdown'` to send the starting message
-4. Telegram API rejects the message: `400: Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 133`
+4. Telegram API rejects the message at byte offset 133
 5. Error propagates to `bot.catch()` global error handler
 6. Error handler sends a generic "message formatting error occurred" message
-7. User retries without `--interactive-mode` flag - same error at same byte offset
+7. User retries without `--interactive-mode` flag — same error at same byte offset 133
 8. User is stuck with no way to use the command
 
 ## Root Cause Analysis
 
-### Primary Root Cause: Unescaped special characters in Telegram Markdown messages
+### What we know
 
-The bot sends messages using Telegram's legacy Markdown parser (`parse_mode: 'Markdown'`). In this mode, characters like `_`, `*`, `` ` ``, and `[` have special meaning:
+1. **The URL was already escaped.** At v1.35.1, `escapeMarkdown(normalizedUrl)` was already applied to the URL in the message. The underscores in `space_db_private` were being escaped to `space\_db\_private`. URL underscores are NOT the root cause.
 
-- `_text_` = italic
-- `*text*` = bold
-- `[text](url)` = link
+2. **Byte offset 133 is the same in both attempts.** The only difference between the two commands is the options text (`--interactive-mode` vs `none`), which appears AFTER the common prefix. This means the error is in the portion of the message before the options text (user mention or URL).
 
-**Three sources of unescaped content were identified:**
+3. **The user's display name is "S 19"** (visible in screenshots). We do not know their Telegram `@username` or user ID from the screenshots alone.
 
-#### 1. `buildUserMention()` - Display name not escaped (critical)
+4. **`buildUserMention` for Markdown mode did NOT escape underscores** in display names or `@username`. If the user had a username containing underscores (e.g., `@s_19`), the Markdown link text `[@s_19](url)` would contain unescaped `_`, which Telegram's parser could interpret as an italic entity start — causing "can't find end of entity".
 
-In `src/buildUserMention.lib.mjs`, the Markdown mode returns:
+### What we don't know
 
-```javascript
-return `[${displayName}](${link})`;
-```
+- The user's actual Telegram `@username` (not visible in screenshots)
+- The user's Telegram user ID (needed to calculate exact byte offsets)
+- The bot's `solveOverrides` configuration at the time of the error
+- Whether the `@username` or display name contained special characters
 
-If the user's Telegram username contains underscores (e.g., `@my_cool_bot`), the display name `@my_cool_bot` is NOT escaped, creating an unmatched italic entity within the link text.
+### Hypotheses (ranked by likelihood)
 
-#### 2. `userOptionsText` - Command options not escaped
+1. **User's `@username` contains underscores** — The unescaped `_` inside `[@username](url)` link text is the most likely cause. This is a real bug in `buildUserMention` that was not caught because most users don't have underscores in their usernames.
 
-In `src/telegram-bot.mjs`, user-provided options were inserted directly:
+2. **Non-printable characters in user's display name** — Zero-width characters or unusual Unicode in the user's Telegram name could shift byte offsets and confuse the parser.
 
-```javascript
-const userOptionsText = userArgs.slice(1).join(' ') || 'none';
-let infoBlock = `...🛠 Options: ${userOptionsText}`;
-```
+3. **Interaction between escaped underscores and Telegram's parser** — The `\_` escaping in the URL text may behave unexpectedly in certain contexts of Telegram's legacy Markdown parser.
 
-Options like `--some_flag` would have unescaped underscores.
+### Why it worked for everyone else
 
-#### 3. `solveOverrides`/`hiveOverrides` - Server config not escaped
-
-Locked options from server configuration were also not escaped:
-
-```javascript
-if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
-```
-
-### Secondary Root Cause: Unhelpful error message
-
-The error handler showed:
-
-```
-❌ A message formatting error occurred.
-
-💡 This usually means there was a problem with special characters in the response.
-Please try your command again with a different URL or contact support.
-```
-
-This message:
-
-- Suggests the URL is the problem ("try with a different URL") when the URL escaping was actually correct
-- Only shows debug info when VERBOSE mode is enabled
-- Doesn't show the actual Telegram API error to the user
-- Doesn't visualize what characters were problematic
-
-### Why byte offset 133 was the same in both attempts
-
-Both attempts (with and without `--interactive-mode`) produced the same byte offset because:
-
-- The error was in the portion of the message **before** the options text
-- The same user mention and URL appear in both cases
-- The unescaped character (likely in the user's display name or a quirk of URL underscore escaping at a specific position) was at the same location
+Most users' Telegram usernames and display names don't contain `_` or `*`. The URL escaping was already in place. The combination of a user with special characters in their identity + a URL with underscores may be what triggered this specific failure.
 
 ## Telegram Markdown Parsing Rules
 
@@ -92,64 +56,38 @@ From the [Telegram Bot API docs](https://core.telegram.org/bots/api#formatting-o
 
 > To escape characters `_`, `*`, `` ` ``, `[` use the character `\` before them.
 > Escaping inside entities is not allowed, i.e. entity must be closed first.
+> Entities must not be nested. Use parse mode MarkdownV2 instead.
 
-The legacy Markdown mode is officially deprecated in favor of MarkdownV2, but remains widely used.
+The legacy Markdown mode is officially deprecated in favor of MarkdownV2.
 
 ## Fixes Applied
 
 ### Fix 1: Escape display name in `buildUserMention` (Markdown mode)
 
-```javascript
-// Before:
-return `[${displayName}](${link})`;
+Escapes `_` and `*` in display names to prevent unescaped Markdown entities inside link text. This is a correctness fix regardless of whether it was the root cause of this specific incident.
 
-// After:
-const escapedMarkdownName = displayName.replace(/_/g, '\\_').replace(/\*/g, '\\*');
-return `[${escapedMarkdownName}](${link})`;
-```
+### Fix 2: Escape user options and server overrides (defensive)
 
-### Fix 2: Escape user options and server overrides
-
-```javascript
-const userOptionsText = escapeMarkdown(userArgs.slice(1).join(' ') || 'none');
-// ...
-if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
-```
+While current options don't contain `_` or `*`, this prevents future options from causing issues.
 
 ### Fix 3: Add `safeReply` helper with automatic fallback
 
-When Markdown parsing fails, automatically retry by stripping formatting and sending as plain text:
+When Telegram rejects Markdown, logs the exact failing message (for root cause analysis) and retries as plain text. This ensures the command still works even if formatting fails.
 
-```javascript
-async function safeReply(ctx, text, options = {}) {
-  try {
-    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
-  } catch (error) {
-    if (isParsingError) {
-      const plainText = stripMarkdown(text);
-      return await ctx.reply(plainText, { ...options, parse_mode: undefined });
-    }
-    throw error;
-  }
-}
-```
+### Fix 4: Add diagnostic logging
 
-### Fix 4: Improve error messages with detailed debug output
+- `safeReply` logs the exact message text that failed (byte length and content)
+- Error handler logs the user's Telegram identity (id, username, first_name, last_name)
+- Error handler shows input with special characters visualized
+- Parsing error messages are always sent as plain text to avoid double failure
 
-- Always show the Telegram API error message (not just in VERBOSE mode)
-- Show user input with special characters visualized
-- Report hidden character count
-- Send parsing error messages as plain text to avoid double failure
+## Next Steps
 
-## Prevention Recommendations
-
-1. **Consider migrating to MarkdownV2** - The legacy Markdown parser is deprecated and has quirky escaping rules. MarkdownV2 is more predictable.
-2. **Consider using HTML parse mode** - HTML is even more predictable and doesn't require escaping common characters like `_` in URLs.
-3. **Always escape user-generated content** - Any text that comes from users (names, URLs, options) should be escaped before inclusion in Markdown messages.
-4. **Use `safeReply` for all user-facing messages** - The fallback mechanism ensures users always get a response even if formatting fails.
+1. **Wait for the error to recur** — With the new logging, we'll capture the exact message text, user identity, and byte offsets needed to confirm the root cause.
+2. **Consider migrating to MarkdownV2 or HTML** — The legacy Markdown parser is deprecated and has quirky escaping rules.
 
 ## References
 
 - [Telegram Bot API: Formatting Options](https://core.telegram.org/bots/api#formatting-options)
 - [python-telegram-bot #1967: Can't parse entities at byte offset](https://github.com/python-telegram-bot/python-telegram-bot/issues/1967)
-- [TelegramBots #121: Exception on sending message with underline character](https://github.com/rubenlagus/TelegramBots/issues/121)
+- [telegraf #1242: What are all the special characters that need to be escaped](https://github.com/telegraf/telegraf/issues/1242)

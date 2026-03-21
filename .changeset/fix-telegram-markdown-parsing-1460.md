@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Fix /solve command "can't parse entities" error by escaping special characters in user mentions, options text, and server overrides. Add automatic plain text fallback when Telegram rejects Markdown formatting. Improve error messages to always show debug info for parsing errors.
+Harden Telegram message formatting: escape special characters in user mentions, options text, and server overrides. Add safeReply with plain text fallback and diagnostic logging when Telegram rejects Markdown. Improve error messages with user identity context for root cause analysis.

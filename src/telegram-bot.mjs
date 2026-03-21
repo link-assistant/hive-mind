@@ -1311,8 +1311,13 @@ bot.catch((error, ctx) => {
     let errorMessage;
 
     if (isTelegramParsingError) {
-      // Issue #1460: Show detailed debug info for parsing errors to help find root cause
-      // Always show debug info for parsing errors (not just VERBOSE), as requested
+      // Issue #1460: Log detailed context for root cause analysis
+      // Log the user info that was used to build the message (helps identify if user's name/username contains special chars)
+      const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
+      console.error(`[telegram-bot] Parsing error context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
+      console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
+
+      // Show detailed debug info for parsing errors to help find root cause
       const escapedError = error.message || 'Unknown error';
       errorMessage = `A message formatting error occurred.\n\nTelegram API error: ${escapedError}`;
 

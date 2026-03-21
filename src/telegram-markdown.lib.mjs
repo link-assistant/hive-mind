@@ -131,7 +131,9 @@ export async function safeReply(ctx, text, options = {}) {
   } catch (error) {
     const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('entity')));
     if (isParsingError) {
-      console.error(`[telegram-bot] Markdown parsing failed, retrying as plain text: ${error.message}`);
+      // Log the exact message that failed for root cause analysis (issue #1460)
+      console.error(`[telegram-bot] Markdown parsing failed: ${error.message}`);
+      console.error(`[telegram-bot] Failing message text (${Buffer.byteLength(text)} bytes):\n${text}`);
       // Retry without Markdown parse mode - strip formatting for readable plain text
       const plainText = stripMarkdown(text);
       return await ctx.reply(plainText, { ...options, parse_mode: undefined });

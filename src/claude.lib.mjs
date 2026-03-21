@@ -848,6 +848,7 @@ export const executeClaudeCommand = async params => {
     let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
     let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
     let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
+    let resultModelUsage = null; // Issue #1454
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -1028,6 +1029,7 @@ export const executeClaudeCommand = async params => {
                   resultNumTurns = data.num_turns;
                   await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
                 }
+                if (data.subtype === 'success' && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
@@ -1107,7 +1109,6 @@ export const executeClaudeCommand = async params => {
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'raw' });
                 lastMessage = line;
-
                 // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
@@ -1182,7 +1183,6 @@ export const executeClaudeCommand = async params => {
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
       }
-
       // Flush any remaining queued comments from interactive mode
       if (interactiveHandler) {
         try {
@@ -1380,6 +1380,7 @@ export const executeClaudeCommand = async params => {
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
+        resultModelUsage, // Issue #1454
       };
     } catch (error) {
       reportError(error, {

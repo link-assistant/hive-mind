@@ -289,15 +289,15 @@ test('wait is at least buffer duration even without a reset time', () => {
   assert(totalWaitMs === 10 * 60 * 1000, 'Wait should be exactly buffer when no reset time');
 });
 
-// ===== Test: Auto-restart comment includes attempt number =====
+// ===== Test: Auto-restart comment includes iteration number =====
 console.log('\n📋 Auto-restart Comment Tracking Tests\n');
 
-test('auto-restart comment includes attempt number', () => {
+test('auto-restart comment includes iteration number', () => {
   const restartCount = 3;
   const restartReason = 'CI failures detected';
-  const commentBody = `## 🔄 Auto-restart triggered (attempt ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
+  const commentBody = `## 🔄 Auto-restart triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
 
-  assert(commentBody.includes('(attempt 3)'), 'Comment should include attempt number');
+  assert(commentBody.includes('(iteration 3)'), 'Comment should include iteration number');
   assert(commentBody.includes('CI failures detected'), 'Comment should include reason');
 });
 

@@ -40,35 +40,45 @@ export const handleFailure = async options => {
   }
 
   // If --attach-logs is enabled, try to attach failure logs
-  if (shouldAttachLogs && getLogFile() && global.createdPR && global.createdPR.number) {
-    await log('\n📄 Attempting to attach failure logs...');
-    try {
-      const logUploadSuccess = await attachLogToGitHub({
-        logFile: getLogFile(),
-        targetType: 'pr',
-        targetNumber: global.createdPR.number,
-        owner: global.owner || owner,
-        repo: global.repo || repo,
-        $,
-        log,
-        sanitizeLogContent,
-        verbose: argv.verbose,
-        errorMessage: cleanErrorMessage(error),
-        // Issue #1225: Pass model and tool info for PR comments
-        requestedModel: argv.model,
-        tool: argv.tool || 'claude',
-      });
-      if (logUploadSuccess) {
-        await log('📎 Failure log attached to Pull Request');
+  if (shouldAttachLogs && getLogFile()) {
+    // Issue #1462: Upload logs to PR if available, otherwise fall back to the issue
+    const hasPR = global.createdPR && global.createdPR.number;
+    const hasIssue = global.issueNumber;
+    const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const targetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const targetLabel = hasPR ? 'Pull Request' : 'Issue';
+
+    if (targetType && targetNumber) {
+      await log(`\n📄 Attempting to attach failure logs to ${targetLabel}...`);
+      try {
+        const logUploadSuccess = await attachLogToGitHub({
+          logFile: getLogFile(),
+          targetType,
+          targetNumber,
+          owner: global.owner || owner,
+          repo: global.repo || repo,
+          $,
+          log,
+          sanitizeLogContent,
+          verbose: argv.verbose,
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
+        });
+        if (logUploadSuccess) {
+          await log(`📎 Failure log attached to ${targetLabel}`);
+        }
+      } catch (attachError) {
+        reportError(attachError, {
+          context: 'attach_failure_log',
+          targetType,
+          targetNumber,
+          errorType,
+          operation: `attach_log_to_${targetType}`,
+        });
+        await log(`⚠️  Could not attach failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
       }
-    } catch (attachError) {
-      reportError(attachError, {
-        context: 'attach_failure_log',
-        prNumber: global.createdPR?.number,
-        errorType,
-        operation: 'attach_log_to_pr',
-      });
-      await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
     }
   }
 

@@ -496,6 +496,9 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
+// Issue #1462: Store issueNumber in global so error handlers can upload logs to the issue
+// as a fallback when PR creation fails and global.createdPR is not available
+global.issueNumber = issueNumber;
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 cleanupContext.tempDir = tempDir;
@@ -1076,19 +1079,25 @@ try {
       await log('');
     }
 
-    // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
+    // If --attach-logs is enabled, attach failure logs before exiting
     // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
-    // This aligns with the pattern in handleFailure() in solve.error-handlers.lib.mjs
-    if (shouldAttachLogs && global.createdPR && global.createdPR.number) {
-      await log('\n📄 Attaching failure logs to Pull Request...');
+    // Issue #1462: Fall back to uploading logs to the issue if PR is not available
+    const hasPR = global.createdPR && global.createdPR.number;
+    const hasIssue = global.issueNumber;
+    const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const logTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const logTargetLabel = hasPR ? 'Pull Request' : 'Issue';
+
+    if (shouldAttachLogs && logTargetType && logTargetNumber) {
+      await log(`\n📄 Attaching failure logs to ${logTargetLabel}...`);
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
         const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
-          targetType: 'pr',
-          targetNumber: global.createdPR.number,
+          targetType: logTargetType,
+          targetNumber: logTargetNumber,
           owner,
           repo,
           $,
@@ -1110,7 +1119,7 @@ try {
         });
 
         if (logUploadSuccess) {
-          await log('  ✅ Failure logs uploaded successfully');
+          await log(`  ✅ Failure logs uploaded to ${logTargetLabel} successfully`);
         } else {
           await log('  ⚠️  Failed to upload logs', { verbose: true });
         }

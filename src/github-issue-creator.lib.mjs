@@ -52,13 +52,26 @@ const getCurrentGitHubUser = async () => {
   try {
     const result = await $`gh api user --jq .login`;
     if (result.exitCode === 0) {
-      return result.stdout.toString().trim();
+      const user = result.stdout.toString().trim();
+      if (user) return user;
     }
   } catch (error) {
     reportError(error, {
       context: 'get_github_user',
       operation: 'gh_api_user',
     });
+  }
+  // Issue #1462: Fallback to gh auth status when gh api user fails
+  // This handles OAuth tokens (gho_****) that may lack the 'user' API scope
+  try {
+    const authResult = await $`gh auth status --hostname github.com 2>&1`;
+    const output = (authResult.stdout?.toString() || '') + (authResult.stderr?.toString() || '');
+    const userMatch = output.match(/Logged in to github\.com account (\S+)/i) || output.match(/Logged in to github\.com as (\S+)/i);
+    if (userMatch) {
+      return userMatch[1];
+    }
+  } catch {
+    // Silently ignore - will return null below
   }
   return null;
 };

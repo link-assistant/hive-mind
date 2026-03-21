@@ -319,7 +319,7 @@ export const createInteractiveHandler = options => {
       } catch {
         // Fallback: try to extract from URL pattern
         const match = stdout.match(/issuecomment-(\d+)|"id":\s*(\d+)/);
-        commentId = match ? (match[1] || match[2]) : null;
+        commentId = match ? match[1] || match[2] : null;
       }
 
       if (verbose) {

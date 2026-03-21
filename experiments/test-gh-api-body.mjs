@@ -52,9 +52,6 @@ console.log(`Quoted body ends with: ${quoted.substring(quoted.length - 50)}`);
 const owner = 'xlab2016';
 const repo = 'space_db_private';
 const commentId = '12345';
-const cmd = buildShellCommand(
-  ['gh api repos/', '/', '/issues/comments/', ' -X PATCH -f body=', ''],
-  [owner, repo, commentId, testBody]
-);
+const cmd = buildShellCommand(['gh api repos/', '/', '/issues/comments/', ' -X PATCH -f body=', ''], [owner, repo, commentId, testBody]);
 console.log(`\nFull command length: ${cmd.length}`);
 console.log(`Command starts with: ${cmd.substring(0, 100)}`);

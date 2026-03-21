@@ -152,7 +152,7 @@ if (actual !== bodyToEdit) {
   // Show first difference
   for (let i = 0; i < Math.max(actual.length, bodyToEdit.length); i++) {
     if (actual[i] !== bodyToEdit[i]) {
-      console.log(`First difference at position ${i}: actual='${actual.substring(i, i+20)}' expected='${bodyToEdit.substring(i, i+20)}'`);
+      console.log(`First difference at position ${i}: actual='${actual.substring(i, i + 20)}' expected='${bodyToEdit.substring(i, i + 20)}'`);
       break;
     }
   }

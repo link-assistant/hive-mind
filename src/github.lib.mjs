@@ -366,23 +366,15 @@ export async function attachLogToGitHub(options) {
     limitResetTime = null,
     toolName = 'AI tool',
     resumeCommand = null,
-    // Whether auto-resume/auto-restart is enabled (determines if CLI commands should be shown)
-    // See: https://github.com/link-assistant/hive-mind/issues/1152
-    isAutoResumeEnabled = false,
+    isAutoResumeEnabled = false, // Issue #1152: Whether auto-resume/auto-restart is enabled
     autoResumeMode = 'resume', // 'resume' or 'restart'
-    // Session type for differentiating solution draft log comments
-    // See: https://github.com/link-assistant/hive-mind/issues/1152
-    sessionType = 'new', // 'new', 'resume', 'auto-resume', 'auto-restart'
-    // New parameters for agent tool pricing support
-    publicPricingEstimate = null,
+    sessionType = 'new', // Issue #1152: 'new', 'resume', 'auto-resume', 'auto-restart'
+    publicPricingEstimate = null, // Agent tool pricing support
     pricingInfo = null,
-    // Issue #1088: Track error_during_execution for "Finished with errors" state
-    errorDuringExecution = false,
-    // Issue #1225: Model information for PR comments
-    requestedModel = null, // The --model flag value (e.g., "opus", "sonnet")
-    tool = null, // The tool used (e.g., "claude", "agent", "codex", "opencode")
-    // Issue #1454: modelUsage from result JSON for accurate multi-model display
-    resultModelUsage = null,
+    errorDuringExecution = false, // Issue #1088
+    requestedModel = null, // Issue #1225: The --model flag value
+    tool = null, // The tool used (claude, agent, opencode, codex)
+    resultModelUsage = null, // Issue #1454
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -393,15 +385,12 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
-    // Issue #1173: Remove premature size check that blocked large files.
-    // gh-upload-log can handle files of any size by using repositories for large files.
-    // For files larger than fileMaxSize, we'll skip inline comment attempt and go directly to gh-upload-log.
+    // Issue #1173: gh-upload-log handles large files; skip inline comment for files > fileMaxSize
     const useLargeFileMode = logStats.size > githubLimits.fileMaxSize;
     if (useLargeFileMode && verbose) {
       await log(`  📁 Large log file (${Math.round(logStats.size / 1024 / 1024)}MB), will use gh-upload-log`, { verbose: true });
     }
-    // Calculate token usage if sessionId and tempDir are provided
-    // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
+    // Calculate token usage if sessionId and tempDir are provided (skip for agent tool with pricing)
     let totalCostUSD = publicPricingEstimate;
     // Issue #1225: Collect actual model IDs from Claude session JSON output
     let actualModelIds = null;
@@ -431,25 +420,13 @@ export async function attachLogToGitHub(options) {
         }
       }
     }
-    // Issue #1454: Use resultModelUsage from result JSON as authoritative source for model IDs.
-    // The result JSON contains all models used (including subagent models like Haiku) that may
-    // not appear in the session JSONL file parsed by calculateSessionTokens.
+    // Issue #1454: Use resultModelUsage from result JSON when it has more models (includes subagent models)
     if (resultModelUsage && typeof resultModelUsage === 'object') {
-      const resultModelIds = Object.keys(resultModelUsage);
-      if (resultModelIds.length > 0) {
-        // If session JSONL found fewer models than the result JSON, use result JSON as it's more complete
-        if (!actualModelIds || resultModelIds.length > actualModelIds.length) {
-          // Sort by cost (descending) so the most expensive/main model comes first
-          resultModelIds.sort((a, b) => {
-            const costA = resultModelUsage[a]?.costUSD ?? 0;
-            const costB = resultModelUsage[b]?.costUSD ?? 0;
-            return costB - costA;
-          });
-          actualModelIds = resultModelIds;
-          if (verbose) {
-            await log(`  🤖 Using result JSON modelUsage (${resultModelIds.length} models): ${resultModelIds.join(', ')}`, { verbose: true });
-          }
-        }
+      const ids = Object.keys(resultModelUsage);
+      if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
+        ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
+        actualModelIds = ids;
+        if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
     // For agent tool, extract actual model ID from pricingInfo (Issue #1225)

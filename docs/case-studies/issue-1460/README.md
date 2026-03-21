@@ -34,6 +34,7 @@ The bot sends messages using Telegram's legacy Markdown parser (`parse_mode: 'Ma
 #### 1. `buildUserMention()` - Display name not escaped (critical)
 
 In `src/buildUserMention.lib.mjs`, the Markdown mode returns:
+
 ```javascript
 return `[${displayName}](${link})`;
 ```
@@ -43,6 +44,7 @@ If the user's Telegram username contains underscores (e.g., `@my_cool_bot`), the
 #### 2. `userOptionsText` - Command options not escaped
 
 In `src/telegram-bot.mjs`, user-provided options were inserted directly:
+
 ```javascript
 const userOptionsText = userArgs.slice(1).join(' ') || 'none';
 let infoBlock = `...🛠 Options: ${userOptionsText}`;
@@ -53,6 +55,7 @@ Options like `--some_flag` would have unescaped underscores.
 #### 3. `solveOverrides`/`hiveOverrides` - Server config not escaped
 
 Locked options from server configuration were also not escaped:
+
 ```javascript
 if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
 ```
@@ -60,6 +63,7 @@ if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverr
 ### Secondary Root Cause: Unhelpful error message
 
 The error handler showed:
+
 ```
 ❌ A message formatting error occurred.
 
@@ -68,6 +72,7 @@ Please try your command again with a different URL or contact support.
 ```
 
 This message:
+
 - Suggests the URL is the problem ("try with a different URL") when the URL escaping was actually correct
 - Only shows debug info when VERBOSE mode is enabled
 - Doesn't show the actual Telegram API error to the user
@@ -76,6 +81,7 @@ This message:
 ### Why byte offset 133 was the same in both attempts
 
 Both attempts (with and without `--interactive-mode`) produced the same byte offset because:
+
 - The error was in the portion of the message **before** the options text
 - The same user mention and URL appear in both cases
 - The unescaped character (likely in the user's display name or a quirk of URL underscore escaping at a specific position) was at the same location
@@ -92,6 +98,7 @@ The legacy Markdown mode is officially deprecated in favor of MarkdownV2, but re
 ## Fixes Applied
 
 ### Fix 1: Escape display name in `buildUserMention` (Markdown mode)
+
 ```javascript
 // Before:
 return `[${displayName}](${link})`;
@@ -102,6 +109,7 @@ return `[${escapedMarkdownName}](${link})`;
 ```
 
 ### Fix 2: Escape user options and server overrides
+
 ```javascript
 const userOptionsText = escapeMarkdown(userArgs.slice(1).join(' ') || 'none');
 // ...
@@ -109,7 +117,9 @@ if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${escapeMark
 ```
 
 ### Fix 3: Add `safeReply` helper with automatic fallback
+
 When Markdown parsing fails, automatically retry by stripping formatting and sending as plain text:
+
 ```javascript
 async function safeReply(ctx, text, options = {}) {
   try {
@@ -125,6 +135,7 @@ async function safeReply(ctx, text, options = {}) {
 ```
 
 ### Fix 4: Improve error messages with detailed debug output
+
 - Always show the Telegram API error message (not just in VERBOSE mode)
 - Show user input with special characters visualized
 - Report hidden character count

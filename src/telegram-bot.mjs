@@ -50,7 +50,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible, stripMarkdown, safeReply } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
@@ -558,46 +558,6 @@ function validateGitHubUrl(args, options = {}) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text safe for Markdown parse_mode
  */
-/**
- * Strip Markdown formatting to produce plain text.
- * Removes escape sequences and link syntax while preserving readable content.
- * @param {string} text - Markdown-formatted text
- * @returns {string} Plain text version
- */
-function stripMarkdown(text) {
-  if (!text || typeof text !== 'string') return text;
-  return (
-    text
-      // Convert [text](url) links to "text (url)"
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-      // Remove escape backslashes before special chars (restores the original character)
-      .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1')
-  );
-}
-
-/**
- * Safely reply to a message with Markdown, falling back to plain text on parse error.
- * Issue #1460: Prevents "can't parse entities" errors from crashing the command flow.
- * @param {Object} ctx - Telegram context
- * @param {string} text - Message text (Markdown-formatted)
- * @param {Object} options - Additional options for ctx.reply (e.g., reply_to_message_id)
- * @returns {Object} The sent message object
- */
-async function safeReply(ctx, text, options = {}) {
-  try {
-    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
-  } catch (error) {
-    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('entity')));
-    if (isParsingError) {
-      console.error(`[telegram-bot] Markdown parsing failed, retrying as plain text: ${error.message}`);
-      // Retry without Markdown parse mode - strip formatting for readable plain text
-      const plainText = stripMarkdown(text);
-      return await ctx.reply(plainText, { ...options, parse_mode: undefined });
-    }
-    throw error; // Re-throw non-parsing errors
-  }
-}
-
 /**
  * Execute a start-screen command and update the initial message with the result.
  * Used by both /solve and /hive commands to reduce code duplication.

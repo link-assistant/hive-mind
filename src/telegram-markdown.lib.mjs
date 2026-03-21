@@ -100,6 +100,46 @@ export function cleanNonPrintableChars(text) {
  * @param {number} options.maxLength - Maximum length of output (default: 200)
  * @returns {string} Text with special characters made visible
  */
+/**
+ * Strip Markdown formatting to produce plain text.
+ * Removes escape sequences and link syntax while preserving readable content.
+ * @param {string} text - Markdown-formatted text
+ * @returns {string} Plain text version
+ */
+export function stripMarkdown(text) {
+  if (!text || typeof text !== 'string') return text;
+  return (
+    text
+      // Convert [text](url) links to "text (url)"
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      // Remove escape backslashes before special chars (restores the original character)
+      .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1')
+  );
+}
+
+/**
+ * Safely reply to a message with Markdown, falling back to plain text on parse error.
+ * Issue #1460: Prevents "can't parse entities" errors from crashing the command flow.
+ * @param {Object} ctx - Telegram context
+ * @param {string} text - Message text (Markdown-formatted)
+ * @param {Object} options - Additional options for ctx.reply (e.g., reply_to_message_id)
+ * @returns {Object} The sent message object
+ */
+export async function safeReply(ctx, text, options = {}) {
+  try {
+    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
+  } catch (error) {
+    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('entity')));
+    if (isParsingError) {
+      console.error(`[telegram-bot] Markdown parsing failed, retrying as plain text: ${error.message}`);
+      // Retry without Markdown parse mode - strip formatting for readable plain text
+      const plainText = stripMarkdown(text);
+      return await ctx.reply(plainText, { ...options, parse_mode: undefined });
+    }
+    throw error; // Re-throw non-parsing errors
+  }
+}
+
 export function makeSpecialCharsVisible(text, options = {}) {
   if (!text || typeof text !== 'string') return text;
 

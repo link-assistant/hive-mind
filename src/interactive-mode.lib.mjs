@@ -244,7 +244,7 @@ const getToolIcon = toolName => {
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = options => {
-  const { owner, repo, prNumber, $, log, verbose = false, execFile: execFileFn } = options;
+  const { owner, repo, prNumber, log, verbose = false, execFile: execFileFn } = options;
   // Use injected execFile for testability, or the real one by default
   const runGhApi = execFileFn || execFileAsync;
 

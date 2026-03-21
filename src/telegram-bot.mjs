@@ -566,11 +566,13 @@ function validateGitHubUrl(args, options = {}) {
  */
 function stripMarkdown(text) {
   if (!text || typeof text !== 'string') return text;
-  return text
-    // Convert [text](url) links to "text (url)"
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    // Remove escape backslashes before special chars (restores the original character)
-    .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1');
+  return (
+    text
+      // Convert [text](url) links to "text (url)"
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      // Remove escape backslashes before special chars (restores the original character)
+      .replace(/\\([_*`[\]()~>#+\-=|{}.!\\])/g, '$1')
+  );
 }
 
 /**
@@ -585,12 +587,7 @@ async function safeReply(ctx, text, options = {}) {
   try {
     return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
   } catch (error) {
-    const isParsingError = error.message && (
-      error.message.includes("can't parse entities") ||
-      error.message.includes("Can't parse entities") ||
-      error.message.includes("can't find end of") ||
-      (error.message.includes('Bad Request') && error.message.includes('entity'))
-    );
+    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('entity')));
     if (isParsingError) {
       console.error(`[telegram-bot] Markdown parsing failed, retrying as plain text: ${error.message}`);
       // Retry without Markdown parse mode - strip formatting for readable plain text

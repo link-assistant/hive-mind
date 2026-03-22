@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.35.6
+
+### Patch Changes
+
+- 4b0beaf: Fix interactive mode PR comment output: use stdin for GitHub API calls to prevent shell quoting corruption, flush comment queue before tool result timeout to prevent stuck "Waiting for result..." comments, and guard against duplicate session started comments from late system.init events
+
 ## 1.35.5
 
 ### Patch Changes

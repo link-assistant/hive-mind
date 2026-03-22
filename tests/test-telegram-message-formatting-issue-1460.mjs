@@ -85,7 +85,7 @@ console.log('─'.repeat(60));
 console.log('\n🧪 Test Suite 2: Full message construction safety');
 console.log('─'.repeat(60));
 
-// Simulate the exact scenario from the issue
+// Simulate the exact scenario from the issue (with options)
 {
   const user = { id: 12345, username: 'some_user' };
   const normalizedUrl = 'https://github.com/xlab2016/space_db_private/issues/17';
@@ -93,9 +93,10 @@ console.log('─'.repeat(60));
   const solveOverrides = ['--auto-fork'];
 
   const requester = buildUserMention({ user, parseMode: 'Markdown' });
-  const userOptionsText = escapeMarkdown(userArgs.slice(1).join(' ') || 'none');
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\n\n🛠 Options: ${userOptionsText}`;
-  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
+  const userOptionsRaw = userArgs.slice(1).join(' ');
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
+  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
+  if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
 
   const message = `🚀 Starting solve command...\n\n${infoBlock}`;
 
@@ -104,6 +105,38 @@ console.log('─'.repeat(60));
   const textOutsideLinks = message.replace(/\[[^\]]*\]\([^)]*\)/g, '');
   const unescapedUnderscores = textOutsideLinks.match(/(?<!\\)_/g);
   assert(!unescapedUnderscores, 'No unescaped underscores in message text (outside links)', unescapedUnderscores ? `Found ${unescapedUnderscores.length} unescaped underscore(s) in: ${textOutsideLinks.substring(0, 200)}` : '');
+}
+
+// Issue #1460: Options line is omitted when no options are specified
+{
+  const user = { id: 12345, username: 'testuser' };
+  const normalizedUrl = 'https://github.com/owner/repo/issues/1';
+  const userArgs = [normalizedUrl]; // no options
+
+  const requester = buildUserMention({ user, parseMode: 'Markdown' });
+  const userOptionsRaw = userArgs.slice(1).join(' ');
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
+  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
+
+  assert(!infoBlock.includes('🛠 Options'), 'Options line is omitted when no options specified', `Got: ${infoBlock}`);
+  assert(infoBlock.includes('Requested by:') && infoBlock.includes('URL:'), 'Required fields still present when no options');
+}
+
+// Issue #1460: Locked options get blank line separator when no user options
+{
+  const user = { id: 12345, username: 'testuser' };
+  const normalizedUrl = 'https://github.com/owner/repo/issues/1';
+  const userArgs = [normalizedUrl]; // no user options
+  const solveOverrides = ['--auto-fork'];
+
+  const requester = buildUserMention({ user, parseMode: 'Markdown' });
+  const userOptionsRaw = userArgs.slice(1).join(' ');
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
+  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
+  if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
+
+  assert(!infoBlock.includes('🛠 Options'), 'No options line when only locked overrides present');
+  assert(infoBlock.includes('\n\n🔒 Locked options'), 'Locked options have blank line separator when no user options', `Got: ${infoBlock}`);
 }
 
 // Test with user who has no username (first/last name with special chars)

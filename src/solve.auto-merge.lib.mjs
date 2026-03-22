@@ -232,10 +232,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
           // Also covers other non-executing conclusions: cancelled, stale workflows that
           // completed without producing check-runs won't produce them in the future either.
           const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
-          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r =>
-            r.conclusion === 'action_required' || r.conclusion === 'cancelled' ||
-            r.conclusion === 'stale' || r.conclusion === 'skipped'
-          );
+          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
 
           if (allRunsNonExecuting) {
             // All workflow runs completed without executing jobs — check-runs will never appear.

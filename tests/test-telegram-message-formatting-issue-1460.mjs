@@ -5,13 +5,12 @@
  *
  * Tests verify that:
  * 1. buildUserMention escapes display names in Markdown mode
- * 2. stripMarkdown properly converts formatted text to plain text
- * 3. Message construction with user-generated content is safe for Telegram Markdown
- * 4. safeReply fallback logic works correctly
+ * 2. Message construction with user-generated content is safe for Telegram Markdown
+ * 3. makeSpecialCharsVisible and cleanNonPrintableChars work for diagnostic logging
  */
 
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
-import { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible, stripMarkdown } from '../src/telegram-markdown.lib.mjs';
+import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -126,38 +125,9 @@ console.log('─'.repeat(60));
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 3: stripMarkdown function
+// Test Suite 3: Diagnostic logging utilities
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 3: stripMarkdown function');
-console.log('─'.repeat(60));
-
-assertEqual(stripMarkdown('[Click here](https://example.com)'), 'Click here (https://example.com)', 'Converts Markdown links to plain text');
-
-assertEqual(stripMarkdown('URL: https://github.com/test\\_repo/issues/1'), 'URL: https://github.com/test_repo/issues/1', 'Removes escape backslashes from underscores');
-
-assertEqual(stripMarkdown('*bold* and _italic_'), '*bold* and _italic_', 'Preserves unescaped formatting markers (readable in plain text)');
-
-assertEqual(stripMarkdown('`code block`'), '`code block`', 'Preserves backtick code markers (readable in plain text)');
-
-assertEqual(stripMarkdown(null), null, 'Handles null input');
-
-assertEqual(stripMarkdown(''), '', 'Handles empty string');
-
-assertEqual(stripMarkdown('No formatting here'), 'No formatting here', 'Passes through plain text unchanged');
-
-// Test the real-world scenario: full message strip
-{
-  const formatted = '🚀 Starting solve command...\n\nRequested by: [@my\\_user](https://t.me/my_user)\nURL: https://github.com/xlab2016/space\\_db\\_private/issues/17\n\n🛠 Options: --interactive-mode';
-  const plain = stripMarkdown(formatted);
-  assert(plain.includes('@my_user (https://t.me/my_user)') || plain.includes('@my_user'), 'Full message strip: link converted and underscores restored', `Got: ${plain.substring(0, 200)}`);
-  assert(plain.includes('space_db_private'), 'Full message strip: escaped underscores restored', `Got: ${plain.substring(0, 200)}`);
-  assert(!plain.includes('\\'), 'Full message strip: no backslashes remain', `Got: ${plain.substring(0, 200)}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Test Suite 4: Error message improvements
-// ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 4: Error message improvements');
+console.log('\n🧪 Test Suite 3: Diagnostic logging utilities');
 console.log('─'.repeat(60));
 
 // Test makeSpecialCharsVisible with typical user input

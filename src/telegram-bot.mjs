@@ -50,7 +50,7 @@ const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName } = await import('./model-validation.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
-const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible, safeReply } = await import('./telegram-markdown.lib.mjs');
+const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
@@ -1015,21 +1015,18 @@ async function handleSolveCommand(ctx) {
   // their command cannot be processed (e.g., disk full, server maintenance pending).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   if (check.rejected) {
-    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
-    await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   if (check.canStart && queueStats.queued === 0) {
-    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
-    const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
+    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
-    // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
-    const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
+    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
@@ -1173,8 +1170,7 @@ async function handleHiveCommand(ctx) {
     infoBlock += `\n🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
-  // Issue #1460: Use safeReply to gracefully handle Markdown parsing failures
-  const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
+  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 }
 
@@ -1311,33 +1307,22 @@ bot.catch((error, ctx) => {
     let errorMessage;
 
     if (isTelegramParsingError) {
-      // Issue #1460: Log detailed context for root cause analysis
-      // Log the user info that was used to build the message (helps identify if user's name/username contains special chars)
+      // Issue #1460: Log detailed context for root cause analysis (always logged, not just in verbose mode)
       const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
+      console.error(`[telegram-bot] Parsing error: ${error.message}`);
       console.error(`[telegram-bot] Parsing error context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
       console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
-
-      // Show detailed debug info for parsing errors to help find root cause
-      const escapedError = error.message || 'Unknown error';
-      errorMessage = `A message formatting error occurred.\n\nTelegram API error: ${escapedError}`;
-
-      // Show the user's input with special characters visible (if available)
       if (ctx.message?.text) {
-        const rawInput = ctx.message.text;
-        const visibleInput = makeSpecialCharsVisible(rawInput, { maxLength: 300 });
-        // Always show the input for parsing errors so user can identify problematic characters
-        errorMessage += `\n\nYour input (with special chars visible):\n${visibleInput}`;
-
-        // Show which non-printable characters were detected
-        const cleanedInput = cleanNonPrintableChars(rawInput);
-        if (cleanedInput !== rawInput) {
-          const diffLen = rawInput.length - cleanedInput.length;
-          errorMessage += `\n\n${diffLen} hidden character(s) detected and would be cleaned.`;
+        const visibleInput = makeSpecialCharsVisible(ctx.message.text, { maxLength: 500 });
+        console.error(`[telegram-bot] User input (special chars visible): ${visibleInput}`);
+        const cleanedInput = cleanNonPrintableChars(ctx.message.text);
+        if (cleanedInput !== ctx.message.text) {
+          console.error(`[telegram-bot] ${ctx.message.text.length - cleanedInput.length} hidden character(s) detected in input`);
         }
       }
 
-      errorMessage += `\n\nUpdate ID: ${ctx.update.update_id}`;
-      errorMessage += '\n\nThis is likely a bug in message formatting. The command may still work - the bot will auto-retry without formatting.';
+      // Issue #1460: Show user a simple, non-confusing message — all details are in the logs
+      errorMessage = `❌ Failed to send formatted message. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
     } else {
       // Build informative error message for other errors
       errorMessage = '❌ An error occurred while processing your request.\n\n';

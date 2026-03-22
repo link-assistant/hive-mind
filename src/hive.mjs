@@ -95,7 +95,7 @@ if (isDirectExecution) {
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
@@ -310,6 +310,9 @@ if (isDirectExecution) {
 
     // Set global verbose mode
     global.verboseMode = argv.verbose;
+
+    // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+    setupVerboseLogInterceptor();
 
     // Use the universal GitHub URL parser
     if (githubUrl) {

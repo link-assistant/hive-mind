@@ -48,7 +48,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo, setupVerboseLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -110,6 +110,9 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
+
+// Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+setupVerboseLogInterceptor();
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 

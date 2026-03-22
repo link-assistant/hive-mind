@@ -115,6 +115,43 @@ export const log = async (message, options = {}) => {
 };
 
 /**
+ * Issue #1466: Intercept console.log to capture [VERBOSE] output in the log file.
+ *
+ * Functions in github-merge.lib.mjs and github-merge-ci.lib.mjs use console.log()
+ * directly for verbose output (e.g., `console.log('[VERBOSE] /merge: ...')`).
+ * This means verbose diagnostic data only appears in the terminal, not in log files,
+ * making debugging harder.
+ *
+ * This interceptor wraps console.log so that any message containing '[VERBOSE]'
+ * is also appended to the log file. It preserves the original console.log behavior.
+ *
+ * Call this once after setLogFile() to enable the interceptor.
+ */
+let verboseInterceptorInstalled = false;
+export const setupVerboseLogInterceptor = () => {
+  if (verboseInterceptorInstalled) return;
+  verboseInterceptorInstalled = true;
+
+  const originalConsoleLog = console.log.bind(console);
+  console.log = (...args) => {
+    // Always call original console.log first
+    originalConsoleLog(...args);
+
+    // If a log file is set and the message looks like a [VERBOSE] log, append to file
+    if (logFile && args.length > 0) {
+      const firstArg = String(args[0]);
+      if (firstArg.includes('[VERBOSE]')) {
+        const message = args.map(a => String(a)).join(' ');
+        const logMessage = `[${new Date().toISOString()}] [VERBOSE] ${message}`;
+        fs.appendFile(logFile, logMessage + '\n').catch(() => {
+          // Silent fail to avoid infinite loops
+        });
+      }
+    }
+  };
+};
+
+/**
  * Mask sensitive tokens in text
  * @param {string} token - Token to mask
  * @param {Object} options - Masking options
@@ -469,6 +506,7 @@ export default {
   formatAligned,
   displayFormattedError,
   cleanupTempDirectories,
+  setupVerboseLogInterceptor,
 };
 
 /**

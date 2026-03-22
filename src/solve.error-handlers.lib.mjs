@@ -8,8 +8,8 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-// Import GitHub issue creator
-import { handleErrorWithIssueCreation } from './github-issue-creator.lib.mjs';
+// Import GitHub error reporter
+import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 
 /**
  * Handles log attachment and PR closing on failure

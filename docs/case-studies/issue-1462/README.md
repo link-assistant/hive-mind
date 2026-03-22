@@ -60,7 +60,7 @@ When PR creation fails, `global.createdPR` is never set, so the condition is fal
 
 ### Root Cause 4: "Could not determine GitHub user" in error reporter
 
-The `github-issue-creator.lib.mjs` uses `gh api user --jq .login` to get the current user. The user's token (`gho_****` - OAuth token) may have limited API scopes. Even though `gh auth status` shows the user as `konard`, the API call to `/user` endpoint can fail with certain token types. Additionally, the process was non-interactive (`!process.stdin.isTTY`), so issue creation would have been skipped anyway, but the "Could not determine GitHub user" warning added confusion.
+The `github-error-reporter.lib.mjs` uses `gh api user --jq .login` to get the current user. The user's token (`gho_****` - OAuth token) may have limited API scopes. Even though `gh auth status` shows the user as `konard`, the API call to `/user` endpoint can fail with certain token types. Additionally, the process was non-interactive (`!process.stdin.isTTY`), so issue creation would have been skipped anyway, but the "Could not determine GitHub user" warning added confusion.
 
 ## Impact
 

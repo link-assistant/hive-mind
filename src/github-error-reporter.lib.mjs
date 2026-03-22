@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Automatic GitHub issue creation for error reporting
+ * GitHub error reporter - handles error reporting via GitHub issues and comments
  */
 
 import { createInterface } from 'readline';

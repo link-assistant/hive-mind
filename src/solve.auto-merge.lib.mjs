@@ -224,7 +224,31 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         //   - workflow_runs.length === 0 → CI was NOT triggered (fork PR, paths-ignore, etc.)
         const workflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
         if (workflowRuns.length > 0) {
-          // Workflow runs exist but check-runs haven't appeared yet — genuine race condition
+          // Issue #1466: Check if ALL workflow runs are completed without producing check-runs.
+          // This happens when workflows require manual approval (first-time fork contributors,
+          // deployment approvals) — they complete with conclusion=action_required but never
+          // create check-runs. Waiting for check-runs in this case is an infinite loop.
+          //
+          // Also covers other non-executing conclusions: cancelled, stale workflows that
+          // completed without producing check-runs won't produce them in the future either.
+          const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
+          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r =>
+            r.conclusion === 'action_required' || r.conclusion === 'cancelled' ||
+            r.conclusion === 'stale' || r.conclusion === 'skipped'
+          );
+
+          if (allRunsNonExecuting) {
+            // All workflow runs completed without executing jobs — check-runs will never appear.
+            // Treat the same as "CI not triggered" to avoid infinite waiting.
+            const conclusions = [...new Set(workflowRuns.map(r => r.conclusion))].join(', ');
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
+            }
+            await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
+          }
+
+          // Some workflow runs are still in progress or produced results — genuine race condition
           if (verbose) {
             console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI check-runs yet, but ${workflowRuns.length} workflow run(s) were triggered for SHA ${ciStatus.sha.substring(0, 7)} - genuine race condition (waiting for check-runs to appear)`);
           }
@@ -414,7 +438,7 @@ export const watchUntilMergeable = async params => {
 
     try {
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
@@ -422,10 +446,15 @@ export const watchUntilMergeable = async params => {
       // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);
 
-      // Issue #1442: If CI workflows exist but were not triggered for this commit,
+      // Issue #1442/#1466: If CI workflows exist but were not triggered for this commit,
       // log why before proceeding to the mergeable path.
       if (noCiTriggered) {
-        await log(formatAligned('ℹ️', 'CI not triggered:', 'Workflows exist but no workflow runs for this commit (fork PR, paths-ignore, workflow conditions)', 2));
+        if (workflowRunConclusions) {
+          // Issue #1466: Workflow runs exist but completed without executing (action_required, cancelled, etc.)
+          await log(formatAligned('ℹ️', 'CI not executed:', `Workflow runs completed with: ${workflowRunConclusions} (likely needs maintainer approval)`, 2));
+        } else {
+          await log(formatAligned('ℹ️', 'CI not triggered:', 'Workflows exist but no workflow runs for this commit (fork PR, paths-ignore, workflow conditions)', 2));
+        }
       }
 
       // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
@@ -444,7 +473,7 @@ export const watchUntilMergeable = async params => {
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? '- CI workflows exist but were not triggered for this commit' : '- All CI checks have passed';
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
             } catch {
@@ -468,7 +497,7 @@ export const watchUntilMergeable = async params => {
           try {
             if (!readyToMergeCommentPosted) {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? '- CI workflows exist but were not triggered for this commit' : '- All CI checks have passed';
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
               readyToMergeCommentPosted = true;

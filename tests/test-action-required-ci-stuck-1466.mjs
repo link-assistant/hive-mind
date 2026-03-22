@@ -68,10 +68,7 @@ function simulateWorkflowRunCheck({ workflowRuns }) {
   if (workflowRuns.length > 0) {
     // Issue #1466: Check if ALL workflow runs completed without producing check-runs
     const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
-    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r =>
-      r.conclusion === 'action_required' || r.conclusion === 'cancelled' ||
-      r.conclusion === 'stale' || r.conclusion === 'skipped'
-    );
+    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
 
     if (allRunsNonExecuting) {
       // All workflow runs completed without executing — check-runs will never appear
@@ -121,9 +118,7 @@ test('All workflows completed with action_required → treat as CI not triggered
 
 test('Single workflow with action_required → treat as CI not triggered', () => {
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'action_required' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'action_required' }],
   });
 
   assert(result.noCiTriggered === true, 'Should treat as CI not triggered');
@@ -147,9 +142,7 @@ test('All workflows completed with cancelled → treat as CI not triggered', () 
 
 test('All workflows completed with stale → treat as CI not triggered', () => {
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'stale' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'stale' }],
   });
 
   assert(result.noCiTriggered === true, 'Should treat as CI not triggered');
@@ -157,9 +150,7 @@ test('All workflows completed with stale → treat as CI not triggered', () => {
 
 test('All workflows completed with skipped → treat as CI not triggered', () => {
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'skipped' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'skipped' }],
   });
 
   assert(result.noCiTriggered === true, 'Should treat as CI not triggered');
@@ -197,9 +188,7 @@ test('Workflow runs in_progress → genuine race condition, WAIT', () => {
 
 test('Workflow runs queued → genuine race condition, WAIT', () => {
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'queued', conclusion: null },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'queued', conclusion: null }],
   });
 
   assert(result.raceCondition === true, 'Should treat as race condition');
@@ -222,9 +211,7 @@ test('Mixed: one action_required + one in_progress → WAIT (not all non-executi
 test('Completed with success but no check-runs → race condition (success means jobs ran)', () => {
   // If a workflow completed successfully, it DID execute jobs. Check-runs should appear soon.
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'success' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'success' }],
   });
 
   assert(result.raceCondition === true, 'Should treat as race condition (success = jobs ran)');
@@ -233,9 +220,7 @@ test('Completed with success but no check-runs → race condition (success means
 
 test('Completed with failure but no check-runs → race condition (failure means jobs ran)', () => {
   const result = simulateWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'failure' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'failure' }],
   });
 
   assert(result.raceCondition === true, 'Should treat as race condition');

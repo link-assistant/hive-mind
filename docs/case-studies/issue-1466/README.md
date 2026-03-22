@@ -26,6 +26,7 @@ no_checks + PR is mergeable?
 
 The flaw is in the `workflowRuns.length > 0` branch. It assumes workflow runs with
 results mean check-runs will eventually appear. But when workflow runs have:
+
 - `status: "completed"`
 - `conclusion: "action_required"`
 
@@ -33,6 +34,7 @@ results mean check-runs will eventually appear. But when workflow runs have:
 maintainer approval (first-time fork contributor). Check-runs will **never** appear.
 
 This is common with:
+
 - First-time fork contributors (GitHub's "Approve and run" feature)
 - Workflows requiring deployment approval
 - Any workflow that completes without producing check-runs
@@ -52,12 +54,14 @@ that would reveal the root cause (e.g., the `conclusion=action_required` data).
 ## Timeline Reconstruction
 
 ### Case 1: PR in `VisageDvachevsky/katana_docs` (Log: 48fdb846)
+
 - The system detected 3 pending CI checks: Performance Regression Detection, Pull Request CI, Code Coverage
 - Started waiting at ~09:26 UTC on 2026-03-22
 - Continued for **268 iterations** (~4.5 hours) at 60-second intervals
 - User interrupted with Ctrl+C at ~14:14 UTC
 
 ### Case 2: PR #5 in `VisageDvachevsky/katana_docs` (Log: 6f8c135b)
+
 - The system detected 2 pending CI checks: Code Coverage, Pull Request CI
 - Verbose output (visible in terminal, not in log) showed:
   - `PR #5 has no CI checks yet - treating as no_checks`

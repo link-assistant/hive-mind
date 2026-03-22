@@ -992,9 +992,11 @@ async function handleSolveCommand(ctx) {
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  const userOptionsText = userArgs.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}\n\n🛠 Options: ${userOptionsText}`;
-  if (solveOverrides.length > 0) infoBlock += `\n🔒 Locked options: ${solveOverrides.join(' ')}`;
+  // Issue #1460: Escape options text to prevent Markdown parsing errors
+  const userOptionsRaw = userArgs.slice(1).join(' ');
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
+  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
+  if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
   // Check for duplicate URL in queue
@@ -1162,10 +1164,12 @@ async function handleHiveCommand(ctx) {
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   const escapedUrl = escapeMarkdown(args[0]);
   // Issue #1228: Show only user-provided options (exclude locked overrides to avoid duplication)
-  const userOptionsText = normalizedArgs.slice(1).join(' ') || 'none';
-  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}\n\n🛠 Options: ${userOptionsText}`;
+  // Issue #1460: Escape options text to prevent Markdown parsing errors
+  const userOptionsRaw = normalizedArgs.slice(1).join(' ');
+  let infoBlock = `Requested by: ${requester}\nURL: ${escapedUrl}`;
+  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
   if (hiveOverrides.length > 0) {
-    infoBlock += `\n🔒 Locked options: ${hiveOverrides.join(' ')}`;
+    infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
   const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
@@ -1305,18 +1309,22 @@ bot.catch((error, ctx) => {
     let errorMessage;
 
     if (isTelegramParsingError) {
-      // Special handling for Telegram API parsing errors caused by unescaped special characters
-      errorMessage = `❌ A message formatting error occurred.\n\n💡 This usually means there was a problem with special characters in the response.\nPlease try your command again with a different URL or contact support.`;
-      // Show the user's input with special characters visible (if available)
+      // Issue #1460: Log detailed context for root cause analysis (always logged, not just in verbose mode)
+      const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
+      console.error(`[telegram-bot] Parsing error: ${error.message}`);
+      console.error(`[telegram-bot] Parsing error context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
+      console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
       if (ctx.message?.text) {
+        const visibleInput = makeSpecialCharsVisible(ctx.message.text, { maxLength: 500 });
+        console.error(`[telegram-bot] User input (special chars visible): ${visibleInput}`);
         const cleanedInput = cleanNonPrintableChars(ctx.message.text);
-        const visibleInput = makeSpecialCharsVisible(cleanedInput, { maxLength: 150 });
-        if (visibleInput !== cleanedInput) errorMessage += `\n\n📝 Your input (with special chars visible):\n\`${escapeMarkdown(visibleInput)}\``;
+        if (cleanedInput !== ctx.message.text) {
+          console.error(`[telegram-bot] ${ctx.message.text.length - cleanedInput.length} hidden character(s) detected in input`);
+        }
       }
-      if (VERBOSE) {
-        const escapedError = escapeMarkdown(error.message || 'Unknown error');
-        errorMessage += `\n\n🔍 Debug info: ${escapedError}\nUpdate ID: ${ctx.update.update_id}`;
-      }
+
+      // Issue #1460: Show user a simple, non-confusing message — all details are in the logs
+      errorMessage = `❌ Failed to send formatted message. Please try your command again.\n\nIf the issue persists, contact support with Update ID: ${ctx.update.update_id}`;
     } else {
       // Build informative error message for other errors
       errorMessage = '❌ An error occurred while processing your request.\n\n';
@@ -1334,14 +1342,21 @@ bot.catch((error, ctx) => {
       if (VERBOSE) errorMessage += `\n\n🔍 Debug info: Update ID: ${ctx.update.update_id}`;
     }
 
-    ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
-      console.error('Failed to send error message to user:', replyError);
-      // Try sending a simple text message without Markdown if Markdown parsing failed
-      const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
-      ctx.reply(plainMessage).catch(fallbackError => {
-        console.error('Failed to send fallback error message:', fallbackError);
+    // Issue #1460: For parsing errors, always send as plain text (we already know Markdown is the problem)
+    // For other errors, try Markdown first, then fall back to plain text
+    if (isTelegramParsingError) {
+      ctx.reply(errorMessage).catch(fallbackError => {
+        console.error('Failed to send plain text error message:', fallbackError);
       });
-    });
+    } else {
+      ctx.reply(errorMessage, { parse_mode: 'Markdown' }).catch(replyError => {
+        console.error('Failed to send error message to user:', replyError);
+        const plainMessage = `An error occurred while processing your request. Please try again or contact support.\n\nError: ${error.message || 'Unknown error'}`;
+        ctx.reply(plainMessage).catch(fallbackError => {
+          console.error('Failed to send fallback error message:', fallbackError);
+        });
+      });
+    }
   }
 });
 

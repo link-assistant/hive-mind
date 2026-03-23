@@ -1257,7 +1257,7 @@ export const executeClaudeCommand = async params => {
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
-            tool: 'Claude',
+            tool: 'Anthropic Claude Code',
             resetTime: limitInfo.resetTime,
             sessionId,
             resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null,

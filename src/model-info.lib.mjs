@@ -26,13 +26,13 @@ export const getToolDisplayName = tool => {
   const name = (tool || '').toString().toLowerCase();
   switch (name) {
     case 'claude':
-      return 'Claude';
+      return 'Anthropic Claude Code';
     case 'codex':
-      return 'Codex';
+      return 'OpenAI Codex';
     case 'opencode':
       return 'OpenCode';
     case 'agent':
-      return 'Agent';
+      return 'Agent CLI';
     default:
       return 'AI tool';
   }

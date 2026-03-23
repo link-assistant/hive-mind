@@ -899,7 +899,7 @@ export const executeAgentCommand = async params => {
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
-            tool: 'Agent',
+            tool: 'Agent CLI',
             resetTime: limitInfo.resetTime,
             sessionId,
             resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null,

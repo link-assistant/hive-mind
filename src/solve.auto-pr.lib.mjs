@@ -1203,33 +1203,59 @@ ${prBody}`,
 
               // CRITICAL: Verify the PR was actually created by querying GitHub API
               // This is essential because gh pr create can return a URL but PR creation might have failed
+              // Issue #1468: Use retry with exponential backoff because GitHub's API is eventually
+              // consistent — a newly created PR may not be visible via gh pr view for several seconds.
+              // This matches the existing retry pattern used for the compare API (lines 571-624).
               await log(formatAligned('🔍', 'Verifying:', 'PR creation...'), { verbose: true });
-              const verifyResult = await $({
-                silent: true,
-              })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
 
-              if (verifyResult.code === 0) {
-                try {
-                  const prData = JSON.parse(verifyResult.stdout.toString().trim());
-                  if (prData.number && prData.url) {
-                    await log(formatAligned('✅', 'Verification:', 'PR exists on GitHub'), { verbose: true });
-                    // Update prUrl and localPrNumber from verified data
-                    prUrl = prData.url;
-                    localPrNumber = String(prData.number);
-                  } else {
-                    throw new Error('PR data incomplete');
-                  }
-                } catch {
-                  await log('❌ PR verification failed: Could not parse PR data', { level: 'error' });
-                  throw new Error('PR creation verification failed - invalid response');
+              let prVerified = false;
+              let verifyAttempts = 0;
+              const maxVerifyAttempts = 5;
+              let lastVerifyResult = null;
+
+              while (!prVerified && verifyAttempts < maxVerifyAttempts) {
+                verifyAttempts++;
+                const waitTime = Math.min(2000 * verifyAttempts, 10000); // 2s, 4s, 6s, 8s, 10s
+
+                if (verifyAttempts > 1) {
+                  await log(`   Retry ${verifyAttempts}/${maxVerifyAttempts}: Waiting ${waitTime}ms for GitHub to propagate PR...`);
                 }
-              } else {
-                // PR does not exist - gh pr create must have failed silently
+
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+
+                lastVerifyResult = await $({
+                  silent: true,
+                })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
+
+                if (lastVerifyResult.code === 0) {
+                  try {
+                    const prData = JSON.parse(lastVerifyResult.stdout.toString().trim());
+                    if (prData.number && prData.url) {
+                      await log(formatAligned('✅', 'Verification:', `PR exists on GitHub (attempt ${verifyAttempts}/${maxVerifyAttempts})`), { verbose: true });
+                      // Update prUrl and localPrNumber from verified data
+                      prUrl = prData.url;
+                      localPrNumber = String(prData.number);
+                      prVerified = true;
+                    }
+                  } catch {
+                    // Parse failed, will retry
+                    if (argv.verbose) {
+                      await log(`   Verify attempt ${verifyAttempts}: Could not parse PR data, retrying...`, { verbose: true });
+                    }
+                  }
+                } else if (argv.verbose) {
+                  const attemptStderr = lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                  await log(`   Verify attempt ${verifyAttempts}: PR not found yet${attemptStderr ? ` (${attemptStderr})` : ''}`, { verbose: true });
+                }
+              }
+
+              if (!prVerified) {
+                // PR does not exist after all retries - gh pr create must have failed silently
                 // Issue #1462: Include gh pr create stderr for root cause diagnosis
-                const verifyStderr = verifyResult.stderr ? verifyResult.stderr.toString().trim() : '';
+                const verifyStderr = lastVerifyResult && lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
                 const stderrInfo = prCreateStderr ? ` (gh pr create stderr: ${prCreateStderr.trim()})` : '';
                 const verifyInfo = verifyStderr ? ` (gh pr view stderr: ${verifyStderr})` : '';
-                throw new Error(`PR verification failed - gh pr create returned URL "${prUrl}" but PR #${localPrNumber} does not exist on GitHub${stderrInfo}${verifyInfo}`);
+                throw new Error(`PR verification failed - gh pr create returned URL "${prUrl}" but PR #${localPrNumber} does not exist on GitHub after ${maxVerifyAttempts} verification attempts${stderrInfo}${verifyInfo}`);
               }
               // Store PR info globally for error handlers
               global.createdPR = { number: localPrNumber, url: prUrl };

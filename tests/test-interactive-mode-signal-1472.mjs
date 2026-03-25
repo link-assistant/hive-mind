@@ -37,16 +37,16 @@ console.log('─'.repeat(60));
 const interactiveModeLib = await import(join(__dirname, '..', 'src', 'interactive-mode.lib.mjs'));
 
 // Test: Function is exported
-assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function',
-  'validateInteractiveModeConfig is exported as a function');
+assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function', 'validateInteractiveModeConfig is exported as a function');
 
 // Test: Returns true when disabled (no-op)
 {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
-  const result = await interactiveModeLib.validateInteractiveModeConfig(
-    { interactiveMode: false, tool: 'claude' }, mockLog
-  );
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
+  const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   assert(result === true, 'Returns true when interactive mode is disabled');
   assert(logs.length === 0, 'No log messages when interactive mode is disabled');
 }
@@ -54,26 +54,33 @@ assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function',
 // Test: Returns true and logs ENABLED when active with claude
 {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
-  const result = await interactiveModeLib.validateInteractiveModeConfig(
-    { interactiveMode: true, tool: 'claude' }, mockLog
-  );
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
+  const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog);
   assert(result === true, 'Returns true when interactive mode is enabled with claude tool');
-  assert(logs.some(l => l.includes('ENABLED')), 'Logs ENABLED message',
-    `Logs were: ${JSON.stringify(logs)}`);
+  assert(
+    logs.some(l => l.includes('ENABLED')),
+    'Logs ENABLED message',
+    `Logs were: ${JSON.stringify(logs)}`
+  );
 }
 
 // Test: Returns false and logs warning when active with unsupported tool
 {
   const logs = [];
-  const mockLog = (msg) => { logs.push(msg); return Promise.resolve(); };
-  const result = await interactiveModeLib.validateInteractiveModeConfig(
-    { interactiveMode: true, tool: 'opencode' }, mockLog
-  );
+  const mockLog = msg => {
+    logs.push(msg);
+    return Promise.resolve();
+  };
+  const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
   assert(result === false, 'Returns false when interactive mode is enabled with unsupported tool');
-  assert(logs.some(l => l.includes('only supported for --tool claude')),
+  assert(
+    logs.some(l => l.includes('only supported for --tool claude')),
     'Logs unsupported tool warning',
-    `Logs were: ${JSON.stringify(logs)}`);
+    `Logs were: ${JSON.stringify(logs)}`
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -98,27 +105,21 @@ function buildInfoBlock(args, userOptionsRaw, overrides) {
 {
   const args = ['https://github.com/owner/repo/issues/1', '--model', 'opus', '--interactive-mode'];
   const infoBlock = buildInfoBlock(args, '--model opus --interactive-mode', []);
-  assert(infoBlock.includes('Interactive mode: ENABLED'),
-    'Info block includes interactive mode signal when --interactive-mode is in args',
-    `Got: ${infoBlock}`);
+  assert(infoBlock.includes('Interactive mode: ENABLED'), 'Info block includes interactive mode signal when --interactive-mode is in args', `Got: ${infoBlock}`);
 }
 
 // Test: Info block does NOT include interactive mode signal when flag is absent
 {
   const args = ['https://github.com/owner/repo/issues/1', '--model', 'opus'];
   const infoBlock = buildInfoBlock(args, '--model opus', []);
-  assert(!infoBlock.includes('Interactive mode'),
-    'Info block does NOT include interactive mode signal when --interactive-mode is absent',
-    `Got: ${infoBlock}`);
+  assert(!infoBlock.includes('Interactive mode'), 'Info block does NOT include interactive mode signal when --interactive-mode is absent', `Got: ${infoBlock}`);
 }
 
 // Test: Info block includes interactive mode signal even with locked options
 {
   const args = ['https://github.com/owner/repo/issues/1', '--interactive-mode', '--attach-logs', '--verbose'];
   const infoBlock = buildInfoBlock(args, '--interactive-mode', ['--attach-logs', '--verbose']);
-  assert(infoBlock.includes('Interactive mode: ENABLED'),
-    'Info block includes interactive mode signal with locked options present',
-    `Got: ${infoBlock}`);
+  assert(infoBlock.includes('Interactive mode: ENABLED'), 'Info block includes interactive mode signal with locked options present', `Got: ${infoBlock}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -132,15 +133,12 @@ import { readFile } from 'node:fs/promises';
 {
   const solveMjsContent = await readFile(join(__dirname, '..', 'src', 'solve.mjs'), 'utf-8');
 
-  assert(solveMjsContent.includes("import('./interactive-mode.lib.mjs')"),
-    'solve.mjs imports from interactive-mode.lib.mjs');
+  assert(solveMjsContent.includes("import('./interactive-mode.lib.mjs')"), 'solve.mjs imports from interactive-mode.lib.mjs');
 
-  assert(solveMjsContent.includes('validateInteractiveModeConfig'),
-    'solve.mjs references validateInteractiveModeConfig');
+  assert(solveMjsContent.includes('validateInteractiveModeConfig'), 'solve.mjs references validateInteractiveModeConfig');
 
   // Check it's actually called (not just imported)
-  assert(solveMjsContent.includes('await validateInteractiveModeConfig(argv, log)'),
-    'solve.mjs calls validateInteractiveModeConfig(argv, log)');
+  assert(solveMjsContent.includes('await validateInteractiveModeConfig(argv, log)'), 'solve.mjs calls validateInteractiveModeConfig(argv, log)');
 }
 
 // ═══════════════════════════════════════════════════════════════════

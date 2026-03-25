@@ -3,6 +3,7 @@
 ## Summary
 
 The user ran `/solve` with `--interactive-mode` option via Telegram bot and expected either:
+
 1. A clear signal that interactive mode was activated and working, or
 2. A warning that the option is invalid/unrecognized
 
@@ -12,26 +13,26 @@ Neither happened. The Telegram bot response showed the option as plain text with
 
 ### Case 1: trees-rs/issues/8 (PR #9)
 
-| Time | Event |
-|------|-------|
-| 09:13:40 | solve v1.35.9 started with `--model opus --interactive-mode` |
-| 09:13:45 | System checks passed |
-| 09:13:49 | Branch `issue-8-c1619bfb477b` created, initial commit pushed |
-| 09:13:59 | Draft PR #9 created |
+| Time     | Event                                                                                |
+| -------- | ------------------------------------------------------------------------------------ |
+| 09:13:40 | solve v1.35.9 started with `--model opus --interactive-mode`                         |
+| 09:13:45 | System checks passed                                                                 |
+| 09:13:49 | Branch `issue-8-c1619bfb477b` created, initial commit pushed                         |
+| 09:13:59 | Draft PR #9 created                                                                  |
 | 09:14:10 | `🔌 Interactive mode: Creating handler for real-time PR comments` (verbose log only) |
-| 09:14:10 | "▶️ Streaming output:" logged - Claude CLI started |
-| 13:57:58 | ~4h44m later: User pressed CTRL+C |
-| 13:57:58 | First system.init event received from Claude (session `7f20332f`) |
-| 13:57:58 | Interactive mode tried to post comment, got HTTP 400 |
-| 13:58:01 | Process terminated |
+| 09:14:10 | "▶️ Streaming output:" logged - Claude CLI started                                   |
+| 13:57:58 | ~4h44m later: User pressed CTRL+C                                                    |
+| 13:57:58 | First system.init event received from Claude (session `7f20332f`)                    |
+| 13:57:58 | Interactive mode tried to post comment, got HTTP 400                                 |
+| 13:58:01 | Process terminated                                                                   |
 
 ### Case 2: xlab2016/space_db_private/issues/23 (PR #24)
 
-| Time | Event |
-|------|-------|
-| 09:42:04 | solve started with `--interactive-mode` |
-| 09:42:41 | Interactive mode handler created |
-| 13:59:45 | ~4h17m later: User pressed CTRL+C |
+| Time     | Event                                          |
+| -------- | ---------------------------------------------- |
+| 09:42:04 | solve started with `--interactive-mode`        |
+| 09:42:41 | Interactive mode handler created               |
+| 13:59:45 | ~4h17m later: User pressed CTRL+C              |
 | 13:59:45 | Same pattern: init event + failed comment post |
 
 ## Root Causes Identified
@@ -40,10 +41,12 @@ Neither happened. The Telegram bot response showed the option as plain text with
 
 The `validateInteractiveModeConfig()` function exists in `interactive-mode.lib.mjs` (line 1258) and
 provides clear user-facing log messages like:
+
 - `🔌 Interactive mode: ENABLED (experimental)`
 - `⚠️ --interactive-mode is only supported for --tool claude`
 
 However, **this function is never called** in the main solve flow (`solve.mjs`). It is only:
+
 - Exported from the module
 - Tested in `tests/test-interactive-mode.mjs`
 - But never imported or called in `solve.mjs` or any other main flow file
@@ -54,6 +57,7 @@ that only appears deep in the log file, not at the option summary stage.
 ### Root Cause 2: Telegram bot response doesn't distinguish recognized vs unknown options
 
 The Telegram bot at `telegram-bot.mjs:996-998` simply echoes back the raw user options string:
+
 ```javascript
 const userOptionsRaw = userArgs.slice(1).join(' ');
 if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
@@ -72,6 +76,7 @@ issue tracked in #1475 where the solve command execution gets stuck.
 
 Add a call to `validateInteractiveModeConfig()` in the solve.mjs startup sequence, after argument
 parsing and tool validation. This will:
+
 - Log `🔌 Interactive mode: ENABLED (experimental)` when active
 - Warn if tool is not supported for interactive mode
 - Provide clear feedback in the log file

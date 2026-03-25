@@ -15,6 +15,7 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 import { log } from './lib.mjs';
+import { mapModelForTool } from './model-mapping.lib.mjs';
 
 /**
  * Map tool identifier to user-friendly display name.
@@ -255,52 +256,13 @@ export const resolveModelId = (requestedModel, tool) => {
   if (!requestedModel) return null;
 
   try {
-    // Use model-mapping.lib.mjs mappings as authoritative source
-    const modelMaps = {
-      claude: {
-        sonnet: 'claude-sonnet-4-6',
-        opus: 'claude-opus-4-6',
-        haiku: 'claude-haiku-4-5-20251001',
-        'opus-4-6': 'claude-opus-4-6',
-        'opus-4-5': 'claude-opus-4-5-20251101',
-        'sonnet-4-6': 'claude-sonnet-4-6',
-        'sonnet-4-5': 'claude-sonnet-4-5-20250929',
-        'haiku-4-5': 'claude-haiku-4-5-20251001',
-      },
-      agent: {
-        grok: 'opencode/grok-code',
-        'grok-code': 'opencode/grok-code',
-        sonnet: 'anthropic/claude-3-5-sonnet',
-        opus: 'anthropic/claude-3-opus',
-        haiku: 'anthropic/claude-3-5-haiku',
-      },
-      opencode: {
-        gpt4: 'openai/gpt-4',
-        gpt4o: 'openai/gpt-4o',
-        sonnet: 'anthropic/claude-3-5-sonnet',
-        opus: 'anthropic/claude-3-opus',
-        grok: 'opencode/grok-code',
-      },
-      codex: {
-        gpt5: 'gpt-5',
-        'gpt-5': 'gpt-5',
-        o3: 'o3',
-        gpt4: 'gpt-4',
-        gpt4o: 'gpt-4o',
-        sonnet: 'claude-3-5-sonnet',
-        opus: 'claude-3-opus',
-      },
-    };
-
     const toolName = (tool || 'claude').toString().toLowerCase();
-    const map = modelMaps[toolName];
-    if (map) {
-      // Strip [1m] suffix if present (1M context window flag)
-      const cleanModel = requestedModel.replace(/\[1m\]$/i, '');
-      return map[cleanModel.toLowerCase()] || cleanModel;
-    }
-
-    return requestedModel;
+    // Strip [1m] suffix if present (1M context window flag)
+    const cleanModel = requestedModel.replace(/\[1m\]$/i, '');
+    // Use mapModelForTool from model-mapping.lib.mjs as the single source of truth
+    // This ensures resolveModelId stays in sync with the canonical model mappings
+    // (Issue #1473: previously used hardcoded maps that were missing agent free models)
+    return mapModelForTool(toolName, cleanModel);
   } catch {
     return requestedModel;
   }

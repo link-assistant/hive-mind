@@ -117,6 +117,11 @@ const getBaseModelForPricing = modelName => {
     'kimi-k2.5-free': 'kimi-k2.5',
     'glm-4.7-free': 'glm-4.7',
     'minimax-m2.1-free': 'minimax-m2.1',
+    'minimax-m2.5-free': 'minimax-m2.5', // Issue #1473: Added mapping for new default model
+    'glm-5-free': 'glm-5', // Issue #1473: Added Kilo free models
+    'glm-4.5-air-free': 'glm-4.5-air',
+    'deepseek-r1-free': 'deepseek-r1',
+    'giga-potato-free': 'giga-potato',
     'trinity-large-preview-free': 'trinity-large-preview',
     // Grok models don't have a paid equivalent with same name
     // These are kept as-is since they're truly free
@@ -322,7 +327,7 @@ export const mapModelToId = model => {
 };
 
 // Function to validate Agent connection
-export const validateAgentConnection = async (model = 'grok-code-fast-1') => {
+export const validateAgentConnection = async (model = 'minimax-m2.5-free') => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 

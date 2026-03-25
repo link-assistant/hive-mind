@@ -2,14 +2,18 @@
 
 This document provides comprehensive information about the free models supported by hive-mind when using the `--tool agent` option.
 
-> **Last Updated:** March 2026
-> **Related:** [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free as default)
+> **Last Updated:** March 25, 2026
+> **Related:**
+>
+> - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Upstream free models list (canonical source)
+> - [Agent PR #209](https://github.com/link-assistant/agent/pull/209) - Upstream free model updates (minimax-m2.5-free as default)
+> - [Agent Issue #208](https://github.com/link-assistant/agent/issues/208) - kimi-k2.5-free removed from OpenCode Zen
 
 ## Available Free Models
 
 Hive-mind supports free models from two providers:
 
-1. **OpenCode Zen** - 4 free models with `opencode/` prefix
+1. **OpenCode Zen** - 3 free models with `opencode/` prefix
 2. **Kilo Gateway** - 6 free models with `kilo/` prefix (Issue #1282)
 
 ---
@@ -57,13 +61,14 @@ Hive-mind supports free models from two providers:
 
 The following models were previously free but are no longer available:
 
-| Model             | Former Model ID              | Status                                           |
-| ----------------- | ---------------------------- | ------------------------------------------------ |
-| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Not supported — returns ModelError (Issue #1391) |
-| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`         |
-| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                   |
+| Model             | Former Model ID              | Status                                                                                                       |
+| ----------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Kimi K2.5 Free    | `opencode/kimi-k2.5-free`    | Removed from OpenCode Zen (March 2026) — see [agent#208](https://github.com/link-assistant/agent/issues/208) |
+| Grok Code Fast 1  | `opencode/grok-code`         | Discontinued January 2026                                                                                    |
+| MiniMax M2.1 Free | `opencode/minimax-m2.1-free` | Replaced by `opencode/minimax-m2.5-free`                                                                     |
+| GLM 4.7 Free      | `opencode/glm-4.7-free`      | No longer free on OpenCode Zen                                                                               |
 
-> **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) for the current list of free models.
+> **Note:** See [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) and [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) for the current list of free models.
 
 ---
 
@@ -247,7 +252,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 | Feature       | OpenCode Zen                        | Kilo Gateway             |
 | ------------- | ----------------------------------- | ------------------------ |
-| Free Models   | 4 models                            | 6 models                 |
+| Free Models   | 3 models                            | 6 models                 |
 | Default Model | minimax-m2.5-free                   | glm-5-free (recommended) |
 | API Format    | OpenAI-compatible                   | OpenAI-compatible        |
 | Free API Key  | `public`                            | `public`                 |
@@ -283,6 +288,7 @@ If you encounter issues with any of these models:
 
 ## Related Documentation
 
+- [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Canonical upstream free models list
 - [Model Validation Library](../src/model-validation.lib.mjs) - Core model validation logic
 - [Model Mapping Library](../src/model-mapping.lib.mjs) - Tool-specific model mapping
 - [Agent CLI Documentation](https://github.com/link-assistant/agent) - Direct agent CLI usage
@@ -290,11 +296,12 @@ If you encounter issues with any of these models:
 - [Case Study: Issue #1282](./case-studies/issue-1282/README.md) - Kilo models integration analysis
 - [Case Study: Issue #1300](./case-studies/issue-1300/README.md) - Free models update (MiniMax M2.5, DeepSeek R1)
 - [Case Study: Issue #1391](./case-studies/issue-1391/README.md) - Free models update (minimax-m2.5-free as default, kimi-k2.5-free deprecated)
+- [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix and free models sync
 - [OpenCode Zen Documentation](https://opencode.ai/docs/zen/) - OpenCode Zen provider details
 - [Kilo Gateway Documentation](https://kilo.ai/docs/gateway) - Kilo Gateway provider details
 
 ---
 
-**Last Updated**: March 4, 2026
-**Hive-Mind Version**: 1.26.3
+**Last Updated**: March 25, 2026
+**Hive-Mind Version**: 1.35.9
 **Agent CLI Version**: Latest (with free model updates from PR #209)

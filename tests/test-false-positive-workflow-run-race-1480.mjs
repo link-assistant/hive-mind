@@ -76,10 +76,7 @@ function simulateFixedWorkflowRunCheck({ workflowRuns, commitInfo, prTriggers })
   if (workflowRuns.length > 0) {
     // Issue #1466: Check if ALL workflow runs completed without producing check-runs
     const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
-    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r =>
-      r.conclusion === 'action_required' || r.conclusion === 'cancelled' ||
-      r.conclusion === 'stale' || r.conclusion === 'skipped'
-    );
+    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
 
     if (allRunsNonExecuting) {
       const conclusions = [...new Set(workflowRuns.map(r => r.conclusion))].join(', ');
@@ -252,9 +249,7 @@ console.log('\n📋 Test Suite 5: Backward compatibility with existing behaviors
 test('Workflow runs exist + action_required → still treat as CI not triggered (issue #1466)', () => {
   // The issue #1466 fix must still work correctly
   const result = simulateFixedWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'action_required' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'action_required' }],
     commitInfo: { ageSeconds: 10 },
     prTriggers: { hasPRTriggers: true, workflows: [] },
   });
@@ -266,9 +261,7 @@ test('Workflow runs exist + action_required → still treat as CI not triggered 
 test('Workflow runs exist + in_progress → genuine race condition (not affected by grace period)', () => {
   // When workflow runs exist, the existing behavior should be preserved regardless of commit age
   const result = simulateFixedWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'in_progress', conclusion: null },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'in_progress', conclusion: null }],
     commitInfo: { ageSeconds: 5 },
     prTriggers: { hasPRTriggers: true, workflows: [] },
   });
@@ -283,9 +276,7 @@ test('Workflow runs exist + completed success → no change needed (this path ha
   // This path actually wouldn't reach our code (getDetailedCIStatus would return success/failure)
   // But test it for completeness
   const result = simulateFixedWorkflowRunCheck({
-    workflowRuns: [
-      { id: 1, name: 'CI', status: 'completed', conclusion: 'success' },
-    ],
+    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'success' }],
     commitInfo: { ageSeconds: 60 },
     prTriggers: { hasPRTriggers: true, workflows: [] },
   });
@@ -303,17 +294,8 @@ console.log('\n📋 Test Suite 6: Workflow file PR trigger parsing patterns\n');
  * Simulates checkWorkflowsHavePRTriggers parsing logic for a single workflow content
  */
 function checkContentForPRTriggers(content) {
-  const prTriggerPatterns = [
-    /\bon:\s*\n\s+pull_request/m,
-    /\bon:\s*\[.*pull_request.*\]/m,
-    /\bon:\s*pull_request\b/m,
-    /\bpull_request_target\b/m,
-  ];
-  const pushTriggerPatterns = [
-    /\bon:\s*\n\s+push/m,
-    /\bon:\s*\[.*push.*\]/m,
-    /\bon:\s*push\b/m,
-  ];
+  const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
+  const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
 
   const triggers = [];
   if (prTriggerPatterns.some(p => p.test(content))) triggers.push('pull_request');

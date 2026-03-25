@@ -9,22 +9,23 @@ check-file-line-limits).
 
 ## Timeline
 
-| Time (UTC)   | Event                                                    |
-|-------------|----------------------------------------------------------|
-| 09:53:33    | Last commit `9ed29b7` pushed (Revert "Initial commit")  |
-| ~09:53:50   | Auto-merge monitor runs `getMergeBlockers()`             |
-| ~09:53:50   | `getDetailedCIStatus()` returns `no_checks`              |
-| ~09:53:50   | `checkPRMergeable()` returns `mergeable: true`           |
-| ~09:53:50   | `getActiveRepoWorkflows()` returns `hasWorkflows: true`  |
-| ~09:53:50   | `getWorkflowRunsForSha()` returns **0 runs** (not yet registered) |
-| ~09:53:50   | Code concludes: "CI was definitively NOT triggered"      |
-| 09:53:52    | "Ready to merge" comment posted (FALSE POSITIVE)         |
-| 09:55:18    | CI workflow actually starts running                      |
-| 09:56:11    | CI finishes — `lint` and `check-file-line-limits` FAIL   |
+| Time (UTC) | Event                                                             |
+| ---------- | ----------------------------------------------------------------- |
+| 09:53:33   | Last commit `9ed29b7` pushed (Revert "Initial commit")            |
+| ~09:53:50  | Auto-merge monitor runs `getMergeBlockers()`                      |
+| ~09:53:50  | `getDetailedCIStatus()` returns `no_checks`                       |
+| ~09:53:50  | `checkPRMergeable()` returns `mergeable: true`                    |
+| ~09:53:50  | `getActiveRepoWorkflows()` returns `hasWorkflows: true`           |
+| ~09:53:50  | `getWorkflowRunsForSha()` returns **0 runs** (not yet registered) |
+| ~09:53:50  | Code concludes: "CI was definitively NOT triggered"               |
+| 09:53:52   | "Ready to merge" comment posted (FALSE POSITIVE)                  |
+| 09:55:18   | CI workflow actually starts running                               |
+| 09:56:11   | CI finishes — `lint` and `check-file-line-limits` FAIL            |
 
 ## Root Cause
 
 The fix for issue #1442 added `getWorkflowRunsForSha()` to distinguish between:
+
 - Workflow runs triggered but check-runs not yet registered (race condition)
 - CI not triggered at all (fork PR, `paths-ignore`, etc.)
 
@@ -33,6 +34,7 @@ triggered." But this assumption is flawed — **GitHub Actions workflow runs als
 to appear in the API after a push** (typically 30-120 seconds).
 
 The race condition timeline:
+
 ```
 Push → (0-30s) → Workflow runs appear in API → (0-30s) → Check-runs appear in API
 ```

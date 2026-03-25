@@ -1339,19 +1339,10 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
       return { hasPRTriggers: false, workflows: [] };
     }
 
-    const prTriggerPatterns = [
-      /\bon:\s*\n\s+pull_request/m,
-      /\bon:\s*\[.*pull_request.*\]/m,
-      /\bon:\s*pull_request\b/m,
-      /\bpull_request_target\b/m,
-    ];
+    const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
 
     // Also check for push triggers (push to PR branches triggers CI)
-    const pushTriggerPatterns = [
-      /\bon:\s*\n\s+push/m,
-      /\bon:\s*\[.*push.*\]/m,
-      /\bon:\s*push\b/m,
-    ];
+    const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
 
     const results = [];
 

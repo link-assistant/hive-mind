@@ -1286,6 +1286,119 @@ export async function getActiveRepoWorkflows(owner, repo, verbose = false) {
   }
 }
 
+/**
+ * Get the committed date of a specific commit from GitHub API
+ * Issue #1480: Used to determine how recently a commit was pushed, to distinguish between
+ * "CI not yet registered in API" (race condition) and "CI definitively not triggered"
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {string} sha - Commit SHA
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{date: Date|null, ageSeconds: number|null}>}
+ */
+export async function getCommitDate(owner, repo, sha, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh api repos/${owner}/${repo}/commits/${sha} --jq '.commit.committer.date'`);
+    const dateStr = stdout.trim();
+    if (!dateStr) {
+      return { date: null, ageSeconds: null };
+    }
+    const commitDate = new Date(dateStr);
+    const ageSeconds = Math.floor((Date.now() - commitDate.getTime()) / 1000);
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Commit ${sha.substring(0, 7)} date: ${dateStr} (${ageSeconds}s ago)`);
+    }
+    return { date: commitDate, ageSeconds };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error fetching commit date for ${sha}: ${error.message}`);
+    }
+    return { date: null, ageSeconds: null };
+  }
+}
+
+/**
+ * Check if any workflow files in the repository have PR-related triggers
+ * Issue #1480: Used as additional signal to determine if CI should run on PRs.
+ * Parses .github/workflows/*.yml files from the repository content API.
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{hasPRTriggers: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
+ */
+export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false) {
+  try {
+    // List workflow files in .github/workflows/
+    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+    const files = JSON.parse(listJson.trim() || '[]');
+
+    if (files.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: No workflow files found in ${owner}/${repo}/.github/workflows/`);
+      }
+      return { hasPRTriggers: false, workflows: [] };
+    }
+
+    const prTriggerPatterns = [
+      /\bon:\s*\n\s+pull_request/m,
+      /\bon:\s*\[.*pull_request.*\]/m,
+      /\bon:\s*pull_request\b/m,
+      /\bpull_request_target\b/m,
+    ];
+
+    // Also check for push triggers (push to PR branches triggers CI)
+    const pushTriggerPatterns = [
+      /\bon:\s*\n\s+push/m,
+      /\bon:\s*\[.*push.*\]/m,
+      /\bon:\s*push\b/m,
+    ];
+
+    const results = [];
+
+    for (const file of files) {
+      try {
+        // Fetch file content (use raw content from the API)
+        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}" --jq '.content'`);
+        const content = Buffer.from(contentJson.trim().replace(/"/g, ''), 'base64').toString('utf-8');
+
+        const triggers = [];
+        if (prTriggerPatterns.some(p => p.test(content))) {
+          triggers.push('pull_request');
+        }
+        if (pushTriggerPatterns.some(p => p.test(content))) {
+          triggers.push('push');
+        }
+
+        if (triggers.length > 0) {
+          results.push({ name: file.name, triggers });
+        }
+
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Workflow ${file.name}: triggers=[${triggers.join(', ')}]`);
+        }
+      } catch (fileError) {
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: Error reading workflow file ${file.name}: ${fileError.message}`);
+        }
+      }
+    }
+
+    const hasPRTriggers = results.length > 0;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: ${results.length}/${files.length} workflow files have PR/push triggers`);
+    }
+
+    return { hasPRTriggers, workflows: results };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking workflow PR triggers: ${error.message}`);
+    }
+    // On error, assume workflows might have PR triggers (safer: avoids false positives)
+    return { hasPRTriggers: true, workflows: [] };
+  }
+}
+
 // Issue #1341: Re-export post-merge CI functions from separate module
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
@@ -1323,6 +1436,9 @@ export default {
   checkBranchCIHealth,
   getMergeCommitSha,
   getActiveRepoWorkflows,
+  // Issue #1480: Commit date and workflow PR triggers for race condition detection
+  getCommitDate,
+  checkWorkflowsHavePRTriggers,
   // Issue #1413: Use issue timeline to find genuinely linked PRs (avoids false positives from text search)
   getLinkedPRsFromTimeline,
 };

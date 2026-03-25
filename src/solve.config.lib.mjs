@@ -8,7 +8,7 @@
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
-import { defaultModels } from './model-mapping.lib.mjs';
+import { defaultModels } from './models/index.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -432,7 +432,7 @@ export const createYargsConfig = yargsInstance => {
       description: 'Model to use (for claude: opus, sonnet, haiku, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: minimax-m2.5-free, big-pickle, gpt-5-nano, glm-5-free, deepseek-r1-free)',
       alias: 'm',
       default: currentParsedArgs => {
-        // Dynamic default based on tool selection (Issue #1473: centralized in model-mapping.lib.mjs)
+        // Dynamic default based on tool selection (Issue #1473: centralized in models/index.mjs)
         return defaultModels[currentParsedArgs?.tool] || defaultModels.claude;
       },
     })
@@ -565,7 +565,7 @@ export const parseArguments = async (yargs, hideBin) => {
 
   if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
     // User did not explicitly provide --model, so use the correct default for the tool
-    // (Issue #1473: centralized in model-mapping.lib.mjs)
+    // (Issue #1473: centralized in models/index.mjs)
     argv.model = defaultModels[argv.tool];
   }
 

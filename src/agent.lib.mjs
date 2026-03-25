@@ -18,7 +18,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { agentModels, defaultModels, freeToBaseModelMap } from './model-mapping.lib.mjs';
+import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -113,7 +113,7 @@ const getOriginalProviderName = providerId => {
  *   - isFreeVariant: Whether this is a free variant
  */
 const getBaseModelForPricing = modelName => {
-  // Issue #1473: Use centralized freeToBaseModelMap from model-mapping.lib.mjs
+  // Issue #1473: Use centralized freeToBaseModelMap from models/index.mjs
 
   // Check if there's a direct mapping
   if (freeToBaseModelMap[modelName]) {
@@ -276,7 +276,7 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
-// Issue #1473: Uses centralized agentModels from model-mapping.lib.mjs (single source of truth)
+// Issue #1473: Uses centralized agentModels from models/index.mjs (single source of truth)
 export const mapModelToId = model => {
   return agentModels[model] || model;
 };

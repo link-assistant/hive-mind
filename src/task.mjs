@@ -41,7 +41,7 @@ const { spawn } = (await use('child_process')).default;
 
 // Import Claude execution functions
 import { mapModelToId } from './claude.lib.mjs';
-import { claudeModels, defaultModels } from './model-mapping.lib.mjs';
+import { claudeModels, defaultModels } from './models/index.mjs';
 
 // Global log file reference
 let logFile = null;

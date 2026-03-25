@@ -47,7 +47,7 @@ const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl } = await import('./github.lib.mjs');
-const { validateModelName } = await import('./model-validation.lib.mjs');
+const { validateModelName } = await import('./models/index.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');

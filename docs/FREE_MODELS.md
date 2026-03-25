@@ -267,7 +267,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 
 All free models have been tested and validated for:
 
-1. **Model Configuration**: All models are properly configured in `src/model-validation.lib.mjs` and `src/model-mapping.lib.mjs`
+1. **Model Configuration**: All models are properly configured in `src/models/index.mjs`
 2. **CLI Integration**: All models are accepted by both hive-mind and agent CLI
 3. **Tool Compatibility**: All models are compatible with the `--tool agent` option
 4. **Case Insensitive Usage**: Models can be specified in any case (e.g., `KILO/GLM-5-FREE`)
@@ -289,8 +289,7 @@ If you encounter issues with any of these models:
 ## Related Documentation
 
 - [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md) - Canonical upstream free models list
-- [Model Validation Library](../src/model-validation.lib.mjs) - Core model validation logic
-- [Model Mapping Library](../src/model-mapping.lib.mjs) - Tool-specific model mapping
+- [Models Module](../src/models/index.mjs) - Unified model data, validation, mapping, and info
 - [Agent CLI Documentation](https://github.com/link-assistant/agent) - Direct agent CLI usage
 - [Agent Kilo Documentation](https://github.com/link-assistant/agent/blob/main/docs/kilo.md) - Kilo Gateway details
 - [Case Study: Issue #1282](./case-studies/issue-1282/README.md) - Kilo models integration analysis

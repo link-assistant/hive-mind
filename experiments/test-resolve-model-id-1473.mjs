@@ -10,7 +10,7 @@
  * After the fix, it returns 'opencode/kimi-k2.5-free'
  */
 
-import { resolveModelId } from '../src/model-info.lib.mjs';
+import { resolveModelId } from '../src/models/index.mjs';
 
 const testCases = [
   // Agent free models - these were broken before the fix

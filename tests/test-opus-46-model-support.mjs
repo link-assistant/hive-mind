@@ -6,9 +6,8 @@
 import assert from 'assert';
 
 // Import the model validation module
-const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames } = await import('../src/model-validation.lib.mjs');
+const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { claudeModels } = await import('../src/model-mapping.lib.mjs');
 const { isOpus46OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET, DEFAULT_MAX_THINKING_BUDGET_OPUS_46 } = await import('../src/config.lib.mjs');
 
 console.log('Testing Claude Opus 4.5/4.6 Model Support (Issue #1221, Issue #1238)\n');
@@ -41,7 +40,7 @@ test('opus alias maps to claude-opus-4-5-20251101 in availableModels (claude.lib
   assert.strictEqual(availableModels['opus'], 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
 });
 
-test('opus alias maps to claude-opus-4-5-20251101 in claudeModels (model-mapping.lib.mjs)', () => {
+test('opus alias maps to claude-opus-4-5-20251101 in claudeModels (models/index.mjs)', () => {
   assert.strictEqual(claudeModels['opus'], 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
 });
 

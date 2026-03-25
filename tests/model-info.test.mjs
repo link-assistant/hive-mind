@@ -2,7 +2,7 @@
 /**
  * Model Information Library Unit Tests
  *
- * Tests for the model-info.lib.mjs module, including:
+ * Tests for the models/index.mjs module (model info functions), including:
  * - getToolDisplayName() mapping
  * - buildModelInfoString() output formatting
  * - resolveModelId() alias resolution
@@ -14,7 +14,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { getToolDisplayName, buildModelInfoString, resolveModelId } from '../src/model-info.lib.mjs';
+import { getToolDisplayName, buildModelInfoString, resolveModelId } from '../src/models/index.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -459,7 +459,7 @@ async function asyncTest(name, fn) {
 }
 
 // Import getModelInfoForComment for async tests
-const { getModelInfoForComment } = await import('../src/model-info.lib.mjs');
+const { getModelInfoForComment } = await import('../src/models/index.mjs');
 
 await asyncTest('getModelInfoForComment returns string (no crash)', async () => {
   const result = await getModelInfoForComment({ requestedModel: 'sonnet', tool: 'claude' });

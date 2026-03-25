@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 // Import the unified model mapping
-import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/model-mapping.lib.mjs';
+import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/models/index.mjs';
 
 test('Model mapping - Agent tool should map grok-code correctly', () => {
   const mapped = mapModelForTool('agent', 'grok-code');

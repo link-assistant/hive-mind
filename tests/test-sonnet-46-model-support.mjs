@@ -5,9 +5,8 @@
 import assert from 'assert';
 
 // Import the model validation module
-const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames } = await import('../src/model-validation.lib.mjs');
+const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { claudeModels } = await import('../src/model-mapping.lib.mjs');
 const { getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode } = await import('../src/config.lib.mjs');
 
 console.log('Testing Claude Sonnet 4.6 Model Support (Issue #1329)\n');
@@ -40,7 +39,7 @@ test('sonnet alias maps to claude-sonnet-4-6 in availableModels (claude.lib.mjs)
   assert.strictEqual(availableModels['sonnet'], 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
 });
 
-test('sonnet alias maps to claude-sonnet-4-6 in claudeModels (model-mapping.lib.mjs)', () => {
+test('sonnet alias maps to claude-sonnet-4-6 in claudeModels (models/index.mjs)', () => {
   assert.strictEqual(claudeModels['sonnet'], 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
 });
 

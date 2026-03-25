@@ -18,10 +18,10 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { opencodeModels, defaultModels } from './model-mapping.lib.mjs';
+import { opencodeModels, defaultModels } from './models/index.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
-// Issue #1473: Uses centralized opencodeModels from model-mapping.lib.mjs (single source of truth)
+// Issue #1473: Uses centralized opencodeModels from models/index.mjs (single source of truth)
 export const mapModelToId = model => {
   return opencodeModels[model] || model;
 };

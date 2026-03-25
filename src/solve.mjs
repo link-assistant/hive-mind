@@ -86,6 +86,7 @@ const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solv
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
 const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
+const { validateInteractiveModeConfig } = await import('./interactive-mode.lib.mjs');
 
 // Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
@@ -210,6 +211,10 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 // Model validation is a simple string check and should always be performed
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
+// Issue #1472: Validate and signal interactive mode configuration early
+// validateInteractiveModeConfig() was exported but never called in the main flow
+await validateInteractiveModeConfig(argv, log);
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;

@@ -18,6 +18,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { agentModels, defaultModels, freeToBaseModelMap } from './model-mapping.lib.mjs';
 
 // Import pricing functions from claude.lib.mjs
 // We reuse fetchModelInfo and checkModelVisionCapability to get data from models.dev API
@@ -112,25 +113,12 @@ const getOriginalProviderName = providerId => {
  *   - isFreeVariant: Whether this is a free variant
  */
 const getBaseModelForPricing = modelName => {
-  // Known mappings for free models to their base paid versions
-  const freeToBaseMap = {
-    'kimi-k2.5-free': 'kimi-k2.5',
-    'glm-4.7-free': 'glm-4.7',
-    'minimax-m2.1-free': 'minimax-m2.1',
-    'minimax-m2.5-free': 'minimax-m2.5', // Issue #1473: Added mapping for new default model
-    'glm-5-free': 'glm-5', // Issue #1473: Added Kilo free models
-    'glm-4.5-air-free': 'glm-4.5-air',
-    'deepseek-r1-free': 'deepseek-r1',
-    'giga-potato-free': 'giga-potato',
-    'trinity-large-preview-free': 'trinity-large-preview',
-    // Grok models don't have a paid equivalent with same name
-    // These are kept as-is since they're truly free
-  };
+  // Issue #1473: Use centralized freeToBaseModelMap from model-mapping.lib.mjs
 
   // Check if there's a direct mapping
-  if (freeToBaseMap[modelName]) {
+  if (freeToBaseModelMap[modelName]) {
     return {
-      baseModelName: freeToBaseMap[modelName],
+      baseModelName: freeToBaseModelMap[modelName],
       isFreeVariant: true,
     };
   }
@@ -288,46 +276,13 @@ export const calculateAgentPricing = async (modelId, tokenUsage) => {
 };
 
 // Model mapping to translate aliases to full model IDs for Agent
-// Agent uses OpenCode Zen's JSON interface and models
-// Issue #1185: Free models use opencode/ prefix (not openai/)
-// Issue #1300: Updated mappings - use opencode/ and kilo/ prefixes only,
-// short names for Kilo-exclusive models map to kilo/ prefix
+// Issue #1473: Uses centralized agentModels from model-mapping.lib.mjs (single source of truth)
 export const mapModelToId = model => {
-  const modelMap = {
-    // OpenCode Zen free models
-    grok: 'opencode/grok-code',
-    'grok-code': 'opencode/grok-code',
-    'grok-code-fast-1': 'opencode/grok-code',
-    'big-pickle': 'opencode/big-pickle',
-    'gpt-5-nano': 'opencode/gpt-5-nano',
-    'minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-    // Kilo Gateway free models - short names for Kilo-exclusive models (Issue #1300)
-    'glm-5-free': 'kilo/glm-5-free',
-    'glm-4.5-air-free': 'kilo/glm-4.5-air-free',
-    'deepseek-r1-free': 'kilo/deepseek-r1-free',
-    'giga-potato-free': 'kilo/giga-potato-free',
-    'trinity-large-preview': 'kilo/trinity-large-preview',
-    // Premium models
-    sonnet: 'anthropic/claude-3-5-sonnet',
-    haiku: 'anthropic/claude-3-5-haiku',
-    opus: 'anthropic/claude-3-opus',
-    'gemini-3-pro': 'google/gemini-3-pro',
-    'gpt-4o-mini': 'openai/gpt-4o-mini',
-    'gpt-4o': 'openai/gpt-4o',
-    'claude-3.5-haiku': 'anthropic/claude-3.5-haiku',
-    'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
-    // Deprecated free models (backward compatibility)
-    'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported by OpenCode Zen (Issue #1391)
-    'glm-4.7-free': 'opencode/glm-4.7-free',
-    'minimax-m2.1-free': 'opencode/minimax-m2.1-free',
-  };
-
-  // Return mapped model ID if it's an alias, otherwise return as-is
-  return modelMap[model] || model;
+  return agentModels[model] || model;
 };
 
 // Function to validate Agent connection
-export const validateAgentConnection = async (model = 'minimax-m2.5-free') => {
+export const validateAgentConnection = async (model = defaultModels.agent) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 

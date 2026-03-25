@@ -91,6 +91,73 @@ export const codexModels = {
   opus: 'claude-3-opus',
 };
 
+// Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
+export const defaultModels = {
+  claude: 'sonnet',
+  agent: 'minimax-m2.5-free',
+  opencode: 'grok-code-fast-1',
+  codex: 'gpt-5',
+};
+
+// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329)
+// See: https://code.claude.com/docs/en/model-config
+export const MODELS_SUPPORTING_1M_CONTEXT = [
+  'claude-opus-4-6',
+  'claude-opus-4-5-20251101',
+  'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
+  'claude-sonnet-4-5-20250929',
+  'claude-sonnet-4-5',
+  'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
+  'sonnet-4-6', // Short alias (Issue #1329)
+  'opus',
+  'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
+  'opus-4-5', // Short alias (Issue #1238)
+  'sonnet-4-5', // Short alias (Issue #1221 - PR comment feedback)
+];
+
+// Free model to base model mapping for pricing lookup (Issue #1250, Issue #1473)
+// Free models like "kimi-k2.5-free" should use pricing from base model "kimi-k2.5"
+export const freeToBaseModelMap = {
+  'kimi-k2.5-free': 'kimi-k2.5',
+  'glm-4.7-free': 'glm-4.7',
+  'minimax-m2.1-free': 'minimax-m2.1',
+  'minimax-m2.5-free': 'minimax-m2.5',
+  'glm-5-free': 'glm-5',
+  'glm-4.5-air-free': 'glm-4.5-air',
+  'deepseek-r1-free': 'deepseek-r1',
+  'giga-potato-free': 'giga-potato',
+  'trinity-large-preview-free': 'trinity-large-preview',
+};
+
+/**
+ * Get the model map object for a given tool
+ * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @returns {Object} The model mapping for the tool
+ */
+export const getModelMapForTool = tool => {
+  switch (tool) {
+    case 'claude':
+      return claudeModels;
+    case 'agent':
+      return agentModels;
+    case 'opencode':
+      return opencodeModels;
+    case 'codex':
+      return codexModels;
+    default:
+      return claudeModels;
+  }
+};
+
+/**
+ * Get the default model for a given tool
+ * @param {string} tool - The tool name (claude, agent, opencode, codex)
+ * @returns {string} The default model alias for the tool
+ */
+export const getDefaultModelForTool = tool => {
+  return defaultModels[tool] || defaultModels.claude;
+};
+
 /**
  * Map model name to full model ID for a specific tool
  * @param {string} tool - The tool name (claude, agent, opencode, codex)

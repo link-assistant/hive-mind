@@ -41,6 +41,7 @@ const { spawn } = (await use('child_process')).default;
 
 // Import Claude execution functions
 import { mapModelToId } from './claude.lib.mjs';
+import { claudeModels, defaultModels } from './model-mapping.lib.mjs';
 
 // Global log file reference
 let logFile = null;
@@ -108,8 +109,8 @@ const argv = yargs()
     type: 'string',
     description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
     alias: 'm',
-    default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-6', 'claude-opus-4-5-20251101'],
+    default: defaultModels.claude,
+    choices: Object.keys(claudeModels),
   })
   .option('verbose', {
     type: 'boolean',

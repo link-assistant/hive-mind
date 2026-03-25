@@ -1116,42 +1116,97 @@ ${prBody}`,
           let prCreateStderr = '';
           let assigneeFailed = false;
 
-          // Try to create PR with assignee first (if specified)
-          try {
-            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-            output = result.stdout;
-            prCreateStderr = result.stderr || '';
-          } catch (firstError) {
-            // Check if the error is specifically about assignee validation
-            const errorMsg = firstError.message || '';
-            if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
-              // Assignee validation failed - retry without assignee
-              assigneeFailed = true;
-              await log('');
-              await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
-                level: 'warning',
-              });
-              await log('     Retrying PR creation without assignee...');
+          // Issue #1478: Helper to detect transient GitHub API errors that are safe to retry.
+          // These are server-side failures (HTTP 500-class) that often resolve on a subsequent attempt.
+          // Non-transient errors (validation, auth, "No commits between") are NOT retried.
+          const isTransientGitHubError = (errorMsg) => {
+            const transientPatterns = [
+              'Something went wrong while executing your query', // GitHub GraphQL server error
+              'something went wrong while executing your query', // case-insensitive variant
+              '502 Bad Gateway',
+              '503 Service Unavailable',
+              '504 Gateway Timeout',
+              'INTERNAL_ERROR',
+              'ETIMEDOUT',
+              'ECONNRESET',
+              'ECONNREFUSED',
+              'socket hang up',
+              'network error',
+            ];
+            return transientPatterns.some(pattern => errorMsg.includes(pattern));
+          };
 
-              // Rebuild command without --assignee flag
-              if (argv.fork && forkedRepo) {
-                const forkUser = forkedRepo.split('/')[0];
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
+          // Issue #1478: Retry loop for transient GitHub API errors during PR creation.
+          // Uses the same exponential backoff pattern as the compare API (lines 571-624)
+          // and PR verification (lines 1206-1259) retries.
+          const maxPrCreateAttempts = 3;
+          let prCreateAttempt = 0;
+
+          while (prCreateAttempt < maxPrCreateAttempts) {
+            prCreateAttempt++;
+
+            try {
+              // Try to create PR with assignee first (if specified)
+              try {
+                const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+                output = result.stdout;
+                prCreateStderr = result.stderr || '';
+              } catch (firstError) {
+                // Check if the error is specifically about assignee validation
+                const errorMsg = firstError.message || '';
+                if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
+                  // Assignee validation failed - retry without assignee
+                  assigneeFailed = true;
+                  await log('');
+                  await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
+                    level: 'warning',
+                  });
+                  await log('     Retrying PR creation without assignee...');
+
+                  // Rebuild command without --assignee flag
+                  if (argv.fork && forkedRepo) {
+                    const forkUser = forkedRepo.split('/')[0];
+                    command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
+                  } else {
+                    command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                  }
+
+                  if (argv.verbose) {
+                    await log(`   Retry command (without assignee): ${command}`, { verbose: true });
+                  }
+
+                  // Retry without assignee - if this fails, let the error propagate
+                  const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+                  output = retryResult.stdout;
+                  prCreateStderr = retryResult.stderr || '';
+                } else {
+                  // Not an assignee error, re-throw for transient error check
+                  throw firstError;
+                }
+              }
+
+              // If we get here, PR creation succeeded — break out of retry loop
+              break;
+            } catch (prAttemptError) {
+              const attemptErrorMsg = prAttemptError.message || '';
+
+              // Issue #1478: Only retry transient server errors, not validation/auth errors
+              if (isTransientGitHubError(attemptErrorMsg) && prCreateAttempt < maxPrCreateAttempts) {
+                const waitTime = Math.min(5000 * prCreateAttempt, 15000); // 5s, 10s, 15s
+                await log('');
+                await log(formatAligned('⚠️', 'Warning:', `Transient GitHub API error during PR creation (attempt ${prCreateAttempt}/${maxPrCreateAttempts})`), {
+                  level: 'warning',
+                });
+                await log(`     Waiting ${waitTime / 1000}s before retry...`);
+                if (argv.verbose) {
+                  await log(`     Error: ${attemptErrorMsg.split('\n')[0]}`, { verbose: true });
+                }
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                // Continue to next iteration
               } else {
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                // Non-transient error or last attempt — throw to outer handler
+                throw prAttemptError;
               }
-
-              if (argv.verbose) {
-                await log(`   Retry command (without assignee): ${command}`, { verbose: true });
-              }
-
-              // Retry without assignee - if this fails, let the error propagate to outer catch
-              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-              output = retryResult.stdout;
-              prCreateStderr = retryResult.stderr || '';
-            } else {
-              // Not an assignee error, re-throw the original error
-              throw firstError;
             }
           }
 

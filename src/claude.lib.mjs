@@ -6,7 +6,6 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-// Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
@@ -18,7 +17,6 @@ import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
-// Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
   const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
@@ -49,9 +47,7 @@ export const mapModelToId = model => {
 };
 // Function to validate Claude CLI connection with retry logic
 export const validateClaudeConnection = async (model = 'haiku-3') => {
-  // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  // Retry configuration for API overload errors
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
   let retryCount = 0;
@@ -62,13 +58,11 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
       } else {
         await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Claude CLI validation...`);
       }
-      // First try a quick validation approach
       try {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
-          // Store the version for thinking settings translation (issue #1146)
-          detectedClaudeVersion = version;
+          detectedClaudeVersion = version; // issue #1146
           if (retryCount === 0) {
             await log(`📦 Claude CLI version: ${version}`);
           }
@@ -84,7 +78,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         // Primary validation: use printf piping with specified model
         result = await $`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
-        // If piping fails, fallback to the timeout approach as last resort
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
           result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p hi`;
@@ -99,17 +92,13 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             });
             return false;
           }
-          // Re-throw if it's not a timeout error
           throw timeoutError;
         }
       }
-      // Check for common error patterns
       const stdout = result.stdout?.toString() || '';
       const stderr = result.stderr?.toString() || '';
-      // Check for JSON errors in stdout or stderr
       const checkForJsonError = text => {
         try {
-          // Look for JSON error patterns
           if (text.includes('"error"') && text.includes('"type"')) {
             const jsonMatch = text.match(/\{.*"error".*\}/);
             if (jsonMatch) {
@@ -118,7 +107,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             }
           }
         } catch (e) {
-          // Not valid JSON, continue with other checks
           if (global.verboseMode) {
             reportError(e, {
               context: 'claude_json_error_parse',
@@ -149,10 +137,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
           return false;
         }
       }
-      // Use exitCode if code is undefined (Bun shell behavior)
-      const exitCode = result.code ?? result.exitCode ?? 0;
+      const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
-        // Command failed
         if (jsonError) {
           await log(`❌ Claude CLI authentication failed: ${jsonError.type} - ${jsonError.message}`, {
             level: 'error',
@@ -166,7 +152,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Check for error patterns in successful response
       if (jsonError) {
         if ((jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded') {
           if (retryCount < maxRetries) {
@@ -188,7 +173,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Success - Claude responded (LLM responses are probabilistic, so any response is good)
       await log('✅ Claude CLI connection validated successfully');
       return true;
     } catch (error) {

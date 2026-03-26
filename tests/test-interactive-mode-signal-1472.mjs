@@ -62,7 +62,7 @@ console.log('─'.repeat(60));
   // Test: Startup timeout variables declared
   assert(claudeLibContent.includes('firstChunkReceived'), 'claude.lib.mjs declares firstChunkReceived tracking variable');
 
-  assert(claudeLibContent.includes('streamStartupTimeoutMs'), 'claude.lib.mjs uses streamStartupTimeoutMs from timeouts config');
+  assert(claudeLibContent.includes('streamStartupMs'), 'claude.lib.mjs uses streamStartupMs from timeouts config');
 
   assert(claudeLibContent.includes('startupTimeoutId'), 'claude.lib.mjs declares startupTimeoutId for timeout management');
 

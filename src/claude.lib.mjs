@@ -919,67 +919,49 @@ export const executeClaudeCommand = async params => {
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
       // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
-      // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
-      // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
-      let stdoutLineBuffer = '';
-      // Issue #1280: Track result event and timeout for hung processes.
-      // command-stream's stream() waits for BOTH process exit AND stdout pipe close; if stdout stays open
-      // the stream hangs. Workaround: force-kill after result event. See command-stream/issues/155
+      let stdoutLineBuffer = ''; // Issue #1183: Line buffer for NDJSON stream parsing
+      // Issue #1280: Track result event and timeout for hung processes (force-kill after result event)
       let resultEventReceived = false;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
-      // Issue #1472/#1475: Detect stuck Claude CLI by monitoring time-to-first-output.
-      // In both affected sessions (trees-rs#9, space_db_private#24), Claude CLI produced zero
-      // stdout/stderr output for ~4.5 hours despite receiving a successful API response.
-      // Normal startup emits system.init within 1-3 seconds.
-      let firstChunkReceived = false;
-      const streamStartupTimeoutMs = timeouts.streamStartupMs;
+      let firstChunkReceived = false; // Issue #1472/#1475: Track time-to-first-output (stuck CLI detection)
       let startupTimeoutId = null;
-      if (streamStartupTimeoutMs > 0) {
-        startupTimeoutId = setTimeout(async () => {
-          if (!firstChunkReceived && !forceExitTriggered) {
-            const elapsed = `${streamStartupTimeoutMs / 1000}s`;
-            await log(`\n⚠️ No output received from Claude CLI after ${elapsed} (Issue #1472/#1475)`, { level: 'warning' });
-            await log(`   Claude CLI process appears stuck — no stdout or stderr output since startup`, { level: 'warning' });
-            await log(`   Force-killing process to prevent indefinite hang`, { level: 'warning' });
-            await forceExitOnTimeout();
-          }
-        }, streamStartupTimeoutMs);
-        startupTimeoutId.unref();
-      }
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
-        const elapsed = `${streamCloseTimeoutMs / 1000}s`;
-        await log(`⚠️ Stream didn't close ${elapsed} after result event, forcing exit (Issue #1280)`, { verbose: true });
-        await log(`   command-stream stream() is likely stuck waiting for pipe close`, { verbose: true });
+        await log(`⚠️ Stream timeout — forcing exit (Issue #1280)`, { verbose: true });
         try {
           if (execCommand.kill) {
-            await log(`   Sending SIGTERM to process...`, { verbose: true });
             execCommand.kill('SIGTERM');
-            // Issue #1346: Capture timer handle so it can be cleared after use to avoid
-            // leaking an active event loop reference when the process exits before 2s
-            const sigkillTimerId = setTimeout(() => {
+            // Issue #1346: Follow up with SIGKILL after 2s if still alive
+            const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) {
-                  log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
-                  execCommand.kill('SIGKILL');
-                }
+                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
               } catch {
-                /* process may have exited */
+                /* exited */
               }
             }, 2000);
-            sigkillTimerId.unref();
+            t.unref();
           }
         } catch (e) {
           await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
         }
       };
+      // Issue #1472/#1475: Startup timeout — force-kill if no output within streamStartupMs
+      if (timeouts.streamStartupMs > 0) {
+        startupTimeoutId = setTimeout(async () => {
+          if (!firstChunkReceived && !forceExitTriggered) {
+            await log(`\n⚠️ No output from Claude CLI after ${timeouts.streamStartupMs / 1000}s — force-killing (Issue #1472/#1475)`, { level: 'warning' });
+            await forceExitOnTimeout();
+          }
+        }, timeouts.streamStartupMs);
+        startupTimeoutId.unref();
+      }
       for await (const chunk of execCommand.stream()) {
         if (forceExitTriggered) break;
-        // Issue #1472/#1475: Clear startup timeout on first output
         if (!firstChunkReceived) {
+          // Issue #1472/#1475: Clear startup timeout on first output
           firstChunkReceived = true;
           if (startupTimeoutId) {
             clearTimeout(startupTimeoutId);
@@ -1188,11 +1170,10 @@ export const executeClaudeCommand = async params => {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
       }
-      // Issue #1472/#1475: Clear startup timeout if still pending
       if (startupTimeoutId) {
         clearTimeout(startupTimeoutId);
         startupTimeoutId = null;
-      }
+      } // Issue #1472/#1475
       // Issue #1280: Clear the stream close timeout since we exited the loop
       if (resultTimeoutId) {
         clearTimeout(resultTimeoutId);

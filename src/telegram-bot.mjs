@@ -997,10 +997,6 @@ async function handleSolveCommand(ctx) {
   let infoBlock = `Requested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
   if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
   if (solveOverrides.length > 0) infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(solveOverrides.join(' '))}`;
-  // Issue #1472: Signal interactive mode activation to the user
-  if (args.includes('--interactive-mode')) {
-    infoBlock += '\n🔌 Interactive mode: ENABLED \\(experimental\\)';
-  }
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
 
   // Check for duplicate URL in queue
@@ -1174,10 +1170,6 @@ async function handleHiveCommand(ctx) {
   if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
   if (hiveOverrides.length > 0) {
     infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
-  }
-  // Issue #1472: Signal interactive mode activation to the user
-  if (args.includes('--interactive-mode')) {
-    infoBlock += '\n🔌 Interactive mode: ENABLED \\(experimental\\)';
   }
 
   const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });

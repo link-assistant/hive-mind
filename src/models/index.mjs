@@ -290,6 +290,33 @@ export const getValidModelsForTool = tool => {
   }
 };
 
+// Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
+// These are the recommended model names users should see in --model help text
+export const primaryModelNames = {
+  claude: ['opus', 'sonnet', 'haiku', 'haiku-3-5', 'haiku-3'],
+  opencode: ['grok', 'gpt4o'],
+  codex: ['gpt5', 'gpt5-codex', 'o3'],
+  agent: ['minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
+};
+
+/**
+ * Build the --model CLI option description string dynamically from centralized model data.
+ * @returns {string} Description like "Model to use (for claude: opus, sonnet, ...; for agent: ...)"
+ */
+export const buildModelOptionDescription = () => {
+  const parts = Object.entries(primaryModelNames).map(([tool, names]) => `for ${tool}: ${names.join(', ')}`);
+  return `Model to use (${parts.join('; ')})`;
+};
+
+/**
+ * Get the primary choices for Claude model selection (used in review.mjs and task.mjs).
+ * Returns short aliases plus key full model IDs for backward compatibility.
+ * @returns {string[]}
+ */
+export const getClaudeModelChoices = () => {
+  return Object.keys(claudeModels);
+};
+
 /**
  * Validate tool-model compatibility and throw descriptive error if invalid
  * @param {string} tool - The tool name

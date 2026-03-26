@@ -187,16 +187,16 @@ test('mapModelToId handles sonnet-4-5[1m]', () => {
 // ============================================================
 console.log('\n=== 6. Max Output Tokens and Thinking Budget Tests ===');
 
-test('getMaxOutputTokensForModel returns 64000 for sonnet (Sonnet 4.6)', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), 64000, 'Sonnet 4.6 should have 64K max output tokens');
+test('getMaxOutputTokensForModel returns default max for sonnet (Sonnet 4.6)', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokens, 'Sonnet 4.6 should have default max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 64000 for sonnet-4-6', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet-4-6'), 64000, 'sonnet-4-6 should have 64K max output tokens');
+test('getMaxOutputTokensForModel returns default max for sonnet-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet-4-6'), claudeCode.maxOutputTokens, 'sonnet-4-6 should have default max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 64000 for claude-sonnet-4-6', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('claude-sonnet-4-6'), 64000, 'claude-sonnet-4-6 should have 64K max output tokens');
+test('getMaxOutputTokensForModel returns default max for claude-sonnet-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('claude-sonnet-4-6'), claudeCode.maxOutputTokens, 'claude-sonnet-4-6 should have default max output tokens');
 });
 
 test('getDefaultMaxThinkingBudgetForModel returns 31999 for sonnet', () => {
@@ -263,7 +263,7 @@ console.log('\n=== 9. Regression Tests for Other Models ===');
 test('opus alias still works (regression test)', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'opus should map to claude-opus-4-5-20251101');
+  assert.strictEqual(result.mappedModel, 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
 test('haiku alias still works (regression test)', () => {

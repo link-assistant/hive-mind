@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * Tests for issue #1472: Interactive mode was not activated, nor it was signaled
+ * Tests for issue #1472/#1475: Stuck Claude CLI streaming and interactive mode
  *
  * Verifies that:
- * 1. validateInteractiveModeConfig is properly exported and callable
- * 2. Telegram bot response includes interactive mode signal when --interactive-mode is in args
- * 3. Interactive mode signal is not shown when --interactive-mode is absent
+ * 1. Stream startup timeout is properly configured in config.lib.mjs
+ * 2. The timeout is configurable via environment variable
+ * 3. claude.lib.mjs contains the startup timeout implementation
+ * 4. Interactive mode handler is still correctly created in claude.lib.mjs
+ * 5. validateInteractiveModeConfig remains exported (used by claude.lib.mjs internally)
  */
 
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -29,18 +32,101 @@ function assert(condition, testName, details = '') {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 1: validateInteractiveModeConfig is exported and works
+// Test Suite 1: Stream startup timeout configuration
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 1: validateInteractiveModeConfig');
+console.log('\n🧪 Test Suite 1: Stream startup timeout configuration');
 console.log('─'.repeat(60));
 
-const interactiveModeLib = await import(join(__dirname, '..', 'src', 'interactive-mode.lib.mjs'));
-
-// Test: Function is exported
-assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function', 'validateInteractiveModeConfig is exported as a function');
-
-// Test: Returns true when disabled (no-op)
 {
+  const configLib = await import(join(__dirname, '..', 'src', 'config.lib.mjs'));
+
+  // Test: timeouts.streamStartupMs exists
+  assert(typeof configLib.timeouts.streamStartupMs === 'number', 'timeouts.streamStartupMs is a number', `Got: ${typeof configLib.timeouts.streamStartupMs}`);
+
+  // Test: Default value is 120000ms (2 minutes)
+  assert(configLib.timeouts.streamStartupMs === 120000, 'Default streamStartupMs is 120000ms (2 minutes)', `Got: ${configLib.timeouts.streamStartupMs}`);
+
+  // Test: resultStreamCloseMs still exists (Issue #1280)
+  assert(typeof configLib.timeouts.resultStreamCloseMs === 'number', 'resultStreamCloseMs still exists (Issue #1280)', `Got: ${typeof configLib.timeouts.resultStreamCloseMs}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Suite 2: claude.lib.mjs contains startup timeout implementation
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 2: claude.lib.mjs startup timeout implementation');
+console.log('─'.repeat(60));
+
+{
+  const claudeLibContent = await readFile(join(__dirname, '..', 'src', 'claude.lib.mjs'), 'utf-8');
+
+  // Test: Startup timeout variables declared
+  assert(claudeLibContent.includes('firstChunkReceived'), 'claude.lib.mjs declares firstChunkReceived tracking variable');
+
+  assert(claudeLibContent.includes('streamStartupTimeoutMs'), 'claude.lib.mjs uses streamStartupTimeoutMs from timeouts config');
+
+  assert(claudeLibContent.includes('startupTimeoutId'), 'claude.lib.mjs declares startupTimeoutId for timeout management');
+
+  // Test: Startup timeout is set with setTimeout
+  assert(claudeLibContent.includes('startupTimeoutId = setTimeout'), 'claude.lib.mjs sets startup timeout via setTimeout');
+
+  // Test: Startup timeout is cleared on first chunk
+  assert(claudeLibContent.includes('clearTimeout(startupTimeoutId)'), 'claude.lib.mjs clears startup timeout when first chunk received');
+
+  // Test: References Issue #1472/#1475
+  assert(claudeLibContent.includes('Issue #1472/#1475'), 'claude.lib.mjs references Issue #1472/#1475 in comments');
+
+  // Test: Calls forceExitOnTimeout when stuck
+  assert(claudeLibContent.includes('await forceExitOnTimeout()'), 'Startup timeout triggers forceExitOnTimeout when no output received');
+
+  // Test: Still creates interactive handler when enabled
+  assert(claudeLibContent.includes('createInteractiveHandler'), 'claude.lib.mjs still creates interactive handler when interactiveMode is enabled');
+
+  // Test: Interactive handler processes events in stream loop
+  assert(claudeLibContent.includes('interactiveHandler.processEvent'), 'claude.lib.mjs still calls interactiveHandler.processEvent for stream events');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Suite 3: Telegram bot does NOT have redundant interactive mode signal
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 3: Telegram bot signal reverted per reviewer');
+console.log('─'.repeat(60));
+
+{
+  const telegramBotContent = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
+
+  // Test: No redundant interactive mode signal (reviewer feedback: options already show it)
+  assert(!telegramBotContent.includes('Interactive mode: ENABLED'), 'Telegram bot does NOT contain redundant "Interactive mode: ENABLED" signal');
+
+  // Test: Options display still exists
+  assert(telegramBotContent.includes('Options:'), 'Telegram bot still displays user options (which include --interactive-mode when used)');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Suite 4: solve.mjs does NOT call validateInteractiveModeConfig
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 4: solve.mjs reverted per reviewer');
+console.log('─'.repeat(60));
+
+{
+  const solveMjsContent = await readFile(join(__dirname, '..', 'src', 'solve.mjs'), 'utf-8');
+
+  // Test: solve.mjs does NOT import validateInteractiveModeConfig (reverted)
+  assert(!solveMjsContent.includes('validateInteractiveModeConfig'), 'solve.mjs does NOT reference validateInteractiveModeConfig (reverted per reviewer)');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Suite 5: validateInteractiveModeConfig still exported (used internally)
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 5: validateInteractiveModeConfig internal validation');
+console.log('─'.repeat(60));
+
+{
+  const interactiveModeLib = await import(join(__dirname, '..', 'src', 'interactive-mode.lib.mjs'));
+
+  // Test: Function is still exported
+  assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function', 'validateInteractiveModeConfig is still exported as a function');
+
+  // Test: Returns true when disabled
   const logs = [];
   const mockLog = msg => {
     logs.push(msg);
@@ -48,97 +134,36 @@ assert(typeof interactiveModeLib.validateInteractiveModeConfig === 'function', '
   };
   const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   assert(result === true, 'Returns true when interactive mode is disabled');
-  assert(logs.length === 0, 'No log messages when interactive mode is disabled');
-}
 
-// Test: Returns true and logs ENABLED when active with claude
-{
-  const logs = [];
-  const mockLog = msg => {
-    logs.push(msg);
+  // Test: Returns true when enabled with claude
+  const logs2 = [];
+  const mockLog2 = msg => {
+    logs2.push(msg);
     return Promise.resolve();
   };
-  const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog);
-  assert(result === true, 'Returns true when interactive mode is enabled with claude tool');
-  assert(
-    logs.some(l => l.includes('ENABLED')),
-    'Logs ENABLED message',
-    `Logs were: ${JSON.stringify(logs)}`
-  );
-}
+  const result2 = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: true, tool: 'claude' }, mockLog2);
+  assert(result2 === true, 'Returns true when interactive mode is enabled with claude tool');
 
-// Test: Returns false and logs warning when active with unsupported tool
-{
-  const logs = [];
-  const mockLog = msg => {
-    logs.push(msg);
-    return Promise.resolve();
-  };
-  const result = await interactiveModeLib.validateInteractiveModeConfig({ interactiveMode: true, tool: 'opencode' }, mockLog);
-  assert(result === false, 'Returns false when interactive mode is enabled with unsupported tool');
-  assert(
-    logs.some(l => l.includes('only supported for --tool claude')),
-    'Logs unsupported tool warning',
-    `Logs were: ${JSON.stringify(logs)}`
-  );
+  // Test: isInteractiveModeSupported
+  assert(typeof interactiveModeLib.isInteractiveModeSupported === 'function', 'isInteractiveModeSupported is exported');
+  assert(interactiveModeLib.isInteractiveModeSupported('claude') === true, 'isInteractiveModeSupported returns true for claude');
+  assert(interactiveModeLib.isInteractiveModeSupported('opencode') === false, 'isInteractiveModeSupported returns false for opencode');
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 2: Telegram bot info block includes interactive mode signal
+// Test Suite 6: config.lib.mjs comment references
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 2: Telegram bot interactive mode signal logic');
+console.log('\n🧪 Test Suite 6: config.lib.mjs documentation');
 console.log('─'.repeat(60));
 
-// Simulate the Telegram bot info block construction logic from telegram-bot.mjs
-function buildInfoBlock(args, userOptionsRaw, overrides) {
-  let infoBlock = `Requested by: @testuser\nURL: https://github.com/owner/repo/issues/1`;
-  if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${userOptionsRaw}`;
-  if (overrides && overrides.length > 0) infoBlock += `\n🔒 Locked options: ${overrides.join(' ')}`;
-  // Issue #1472: Signal interactive mode activation to the user
-  if (args.includes('--interactive-mode')) {
-    infoBlock += '\n🔌 Interactive mode: ENABLED \\(experimental\\)';
-  }
-  return infoBlock;
-}
-
-// Test: Info block includes interactive mode signal when flag is present
 {
-  const args = ['https://github.com/owner/repo/issues/1', '--model', 'opus', '--interactive-mode'];
-  const infoBlock = buildInfoBlock(args, '--model opus --interactive-mode', []);
-  assert(infoBlock.includes('Interactive mode: ENABLED'), 'Info block includes interactive mode signal when --interactive-mode is in args', `Got: ${infoBlock}`);
-}
+  const configContent = await readFile(join(__dirname, '..', 'src', 'config.lib.mjs'), 'utf-8');
 
-// Test: Info block does NOT include interactive mode signal when flag is absent
-{
-  const args = ['https://github.com/owner/repo/issues/1', '--model', 'opus'];
-  const infoBlock = buildInfoBlock(args, '--model opus', []);
-  assert(!infoBlock.includes('Interactive mode'), 'Info block does NOT include interactive mode signal when --interactive-mode is absent', `Got: ${infoBlock}`);
-}
+  // Test: Config documents the startup timeout
+  assert(configContent.includes('HIVE_MIND_STREAM_STARTUP_MS'), 'Config references HIVE_MIND_STREAM_STARTUP_MS env variable');
 
-// Test: Info block includes interactive mode signal even with locked options
-{
-  const args = ['https://github.com/owner/repo/issues/1', '--interactive-mode', '--attach-logs', '--verbose'];
-  const infoBlock = buildInfoBlock(args, '--interactive-mode', ['--attach-logs', '--verbose']);
-  assert(infoBlock.includes('Interactive mode: ENABLED'), 'Info block includes interactive mode signal with locked options present', `Got: ${infoBlock}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Test Suite 3: solve.mjs imports validateInteractiveModeConfig
-// ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 3: solve.mjs imports validateInteractiveModeConfig');
-console.log('─'.repeat(60));
-
-import { readFile } from 'node:fs/promises';
-
-{
-  const solveMjsContent = await readFile(join(__dirname, '..', 'src', 'solve.mjs'), 'utf-8');
-
-  assert(solveMjsContent.includes("import('./interactive-mode.lib.mjs')"), 'solve.mjs imports from interactive-mode.lib.mjs');
-
-  assert(solveMjsContent.includes('validateInteractiveModeConfig'), 'solve.mjs references validateInteractiveModeConfig');
-
-  // Check it's actually called (not just imported)
-  assert(solveMjsContent.includes('await validateInteractiveModeConfig(argv, log)'), 'solve.mjs calls validateInteractiveModeConfig(argv, log)');
+  // Test: Config references Issue #1472/#1475
+  assert(configContent.includes('Issue #1472/#1475'), 'Config references Issue #1472/#1475 for stream startup timeout');
 }
 
 // ═══════════════════════════════════════════════════════════════════

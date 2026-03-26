@@ -54,6 +54,11 @@ export const timeouts = {
   // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
   // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
   resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
+  // Issue #1472/#1475: Timeout (ms) to wait for first stream output from Claude CLI after startup.
+  // If no stdout/stderr output is received within this period, the process is considered stuck
+  // and will be force-killed. Both affected sessions showed ~4.5h with zero output from Claude CLI.
+  // Default: 120000ms (2 minutes) — Claude CLI normally emits system.init within 1-3 seconds.
+  streamStartupMs: parseIntWithDefault('HIVE_MIND_STREAM_STARTUP_MS', 120000),
 };
 
 // Auto-continue configurations

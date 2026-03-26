@@ -929,6 +929,25 @@ export const executeClaudeCommand = async params => {
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
+      // Issue #1472/#1475: Detect stuck Claude CLI by monitoring time-to-first-output.
+      // In both affected sessions (trees-rs#9, space_db_private#24), Claude CLI produced zero
+      // stdout/stderr output for ~4.5 hours despite receiving a successful API response.
+      // Normal startup emits system.init within 1-3 seconds.
+      let firstChunkReceived = false;
+      const streamStartupTimeoutMs = timeouts.streamStartupMs;
+      let startupTimeoutId = null;
+      if (streamStartupTimeoutMs > 0) {
+        startupTimeoutId = setTimeout(async () => {
+          if (!firstChunkReceived && !forceExitTriggered) {
+            const elapsed = `${streamStartupTimeoutMs / 1000}s`;
+            await log(`\n⚠️ No output received from Claude CLI after ${elapsed} (Issue #1472/#1475)`, { level: 'warning' });
+            await log(`   Claude CLI process appears stuck — no stdout or stderr output since startup`, { level: 'warning' });
+            await log(`   Force-killing process to prevent indefinite hang`, { level: 'warning' });
+            await forceExitOnTimeout();
+          }
+        }, streamStartupTimeoutMs);
+        startupTimeoutId.unref();
+      }
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -959,6 +978,14 @@ export const executeClaudeCommand = async params => {
       };
       for await (const chunk of execCommand.stream()) {
         if (forceExitTriggered) break;
+        // Issue #1472/#1475: Clear startup timeout on first output
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          if (startupTimeoutId) {
+            clearTimeout(startupTimeoutId);
+            startupTimeoutId = null;
+          }
+        }
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
           // Append to buffer and split; keep last element (may be incomplete) for next chunk
@@ -1160,6 +1187,11 @@ export const executeClaudeCommand = async params => {
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
+      }
+      // Issue #1472/#1475: Clear startup timeout if still pending
+      if (startupTimeoutId) {
+        clearTimeout(startupTimeoutId);
+        startupTimeoutId = null;
       }
       // Issue #1280: Clear the stream close timeout since we exited the loop
       if (resultTimeoutId) {

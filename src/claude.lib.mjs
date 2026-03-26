@@ -16,7 +16,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
-import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
+import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
 // Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
@@ -48,7 +48,7 @@ export const mapModelToId = model => {
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
-export const validateClaudeConnection = async (model = 'haiku-3') => {
+export const validateClaudeConnection = async (model = 'haiku') => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   // Retry configuration for API overload errors

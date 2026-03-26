@@ -84,7 +84,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
 // Initialize log file early (before argument parsing) to capture all output

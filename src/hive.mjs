@@ -101,7 +101,7 @@ if (isDirectExecution) {
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
-    const modelValidation = await import('./model-validation.lib.mjs');
+    const modelValidation = await import('./models/index.mjs');
     const { validateAndExitOnInvalidModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;

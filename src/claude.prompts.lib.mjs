@@ -5,6 +5,7 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
+import { primaryModelNames } from './models/index.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -309,7 +310,7 @@ Agent Commander usage (unified subagent delegation).
       --tool <name>: Agent to use (claude, opencode, codex, agent)
       --working-directory <path>: Execution directory (use current directory for context)
       --prompt <text>: The task to delegate
-      --model <name>: Model to use (sonnet, opus, haiku, grok, etc.)
+      --model <name>: Model to use (${[...new Set(Object.values(primaryModelNames).flat())].slice(0, 5).join(', ')}, etc.)
       --isolation <mode>: Execution context (none, screen, docker)
       --detached: Run in background mode
    - Examples:

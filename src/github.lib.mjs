@@ -11,7 +11,7 @@ export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTok
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
-import { getToolDisplayName, getModelInfoForComment } from './model-info.lib.mjs';
+import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 // Re-export for use by other modules
 export { getToolDisplayName };
 

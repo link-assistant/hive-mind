@@ -1318,6 +1318,65 @@ export async function getCommitDate(owner, repo, sha, verbose = false) {
 }
 
 /**
+ * Check if any previous commits in a PR had workflow runs triggered.
+ * Issue #1480: If earlier commits in the same PR triggered CI, we should expect CI
+ * for the HEAD commit too (unless conditions changed). This provides an additional
+ * signal that CI should be expected and avoids false "CI not triggered" conclusions.
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {string} headSha - Current HEAD SHA (to exclude from check)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{hadPreviousCI: boolean, previousCommitsWithCI: number, totalPreviousCommits: number}>}
+ */
+export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha, verbose = false) {
+  try {
+    // Get all commits in the PR
+    const { stdout: commitsJson } = await exec(`gh api "repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=100" --jq '[.[].sha]'`);
+    const allShas = JSON.parse(commitsJson.trim() || '[]');
+
+    // Exclude the current HEAD SHA
+    const previousShas = allShas.filter(sha => sha !== headSha);
+
+    if (previousShas.length === 0) {
+      if (verbose) {
+        console.log(`[VERBOSE] /merge: PR #${prNumber} has no previous commits to check for CI history`);
+      }
+      return { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 };
+    }
+
+    // Check the most recent previous commits (limit to last 3 to avoid excessive API calls)
+    const commitsToCheck = previousShas.slice(-3);
+    let commitsWithCI = 0;
+
+    for (const sha of commitsToCheck) {
+      try {
+        const { stdout } = await exec(`gh api "repos/${owner}/${repo}/actions/runs?head_sha=${sha}&per_page=1" --jq '.total_count'`);
+        const count = parseInt(stdout.trim(), 10);
+        if (count > 0) {
+          commitsWithCI++;
+        }
+      } catch {
+        // Skip errors for individual commits
+      }
+    }
+
+    const hadPreviousCI = commitsWithCI > 0;
+
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${prNumber} previous CI history: ${commitsWithCI}/${commitsToCheck.length} checked commits had workflow runs (total PR commits: ${allShas.length})`);
+    }
+
+    return { hadPreviousCI, previousCommitsWithCI: commitsWithCI, totalPreviousCommits: previousShas.length };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error checking previous PR commits CI history: ${error.message}`);
+    }
+    return { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 };
+  }
+}
+
+/**
  * Check if any workflow files in the repository have PR-related triggers
  * Issue #1480: Used as additional signal to determine if CI should run on PRs.
  * Parses .github/workflows/*.yml files from the repository content API.
@@ -1427,8 +1486,9 @@ export default {
   checkBranchCIHealth,
   getMergeCommitSha,
   getActiveRepoWorkflows,
-  // Issue #1480: Commit date and workflow PR triggers for race condition detection
+  // Issue #1480: Commit date, workflow PR triggers, and previous commit CI history for race condition detection
   getCommitDate,
+  checkPreviousPRCommitsHadCI,
   checkWorkflowsHavePRTriggers,
   // Issue #1413: Use issue timeline to find genuinely linked PRs (avoids false positives from text search)
   getLinkedPRsFromTimeline,

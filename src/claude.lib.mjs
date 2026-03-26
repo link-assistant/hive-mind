@@ -48,7 +48,7 @@ export const mapModelToId = model => {
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
-export const validateClaudeConnection = async (model = 'haiku-3') => {
+export const validateClaudeConnection = async (model = 'haiku') => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   // Retry configuration for API overload errors

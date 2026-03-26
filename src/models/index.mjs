@@ -293,7 +293,7 @@ export const getValidModelsForTool = tool => {
 // Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
-  claude: ['opus', 'sonnet', 'haiku', 'haiku-3-5', 'haiku-3'],
+  claude: ['opus', 'sonnet', 'haiku'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt5', 'gpt5-codex', 'o3'],
   agent: ['minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],

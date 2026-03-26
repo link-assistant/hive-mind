@@ -10,37 +10,38 @@ output for ~4.5 hours. The solve command was stuck, requiring manual CTRL+C to t
 
 ### Case 1: trees-rs/issues/8 (PR #9)
 
-| Time     | Event                                                                                |
-| -------- | ------------------------------------------------------------------------------------ |
-| 09:13:40 | solve v1.35.9 started with `--model opus --interactive-mode`                         |
-| 09:13:45 | System checks passed (disk, memory)                                                  |
-| 09:13:49 | Branch `issue-8-c1619bfb477b` created, initial commit pushed                         |
-| 09:13:59 | Draft PR #9 created                                                                  |
-| 09:14:10 | Interactive mode handler created (`claude.lib.mjs:854`)                               |
-| 09:14:10 | Claude CLI process spawned with `--output-format stream-json --verbose`               |
-| 09:14:14 | API request sent to Anthropic, 200 OK received (per response `date` header)          |
-| 09:14:14 | **No output from Claude CLI from this point onward**                                 |
-| 13:57:58 | **~4h44m later**: User pressed CTRL+C                                                |
-| 13:57:58 | ALL buffered output flushed at once: system.init event, API debug logs               |
-| 13:57:58 | Interactive mode tried to post comment on init, got HTTP 400 (body: 2860 chars)      |
-| 13:58:01 | Process terminated                                                                   |
+| Time     | Event                                                                           |
+| -------- | ------------------------------------------------------------------------------- |
+| 09:13:40 | solve v1.35.9 started with `--model opus --interactive-mode`                    |
+| 09:13:45 | System checks passed (disk, memory)                                             |
+| 09:13:49 | Branch `issue-8-c1619bfb477b` created, initial commit pushed                    |
+| 09:13:59 | Draft PR #9 created                                                             |
+| 09:14:10 | Interactive mode handler created (`claude.lib.mjs:854`)                         |
+| 09:14:10 | Claude CLI process spawned with `--output-format stream-json --verbose`         |
+| 09:14:14 | API request sent to Anthropic, 200 OK received (per response `date` header)     |
+| 09:14:14 | **No output from Claude CLI from this point onward**                            |
+| 13:57:58 | **~4h44m later**: User pressed CTRL+C                                           |
+| 13:57:58 | ALL buffered output flushed at once: system.init event, API debug logs          |
+| 13:57:58 | Interactive mode tried to post comment on init, got HTTP 400 (body: 2860 chars) |
+| 13:58:01 | Process terminated                                                              |
 
 ### Case 2: xlab2016/space_db_private/issues/23 (PR #24)
 
-| Time     | Event                                                                      |
-| -------- | -------------------------------------------------------------------------- |
-| 09:42:04 | solve started with `--interactive-mode` (no --model, defaults to sonnet)   |
-| 09:42:41 | Interactive mode handler created, Claude CLI spawned                        |
-| 09:42:44 | API request 200 OK (per response `date` header)                            |
-| 09:42:44 | **No output from Claude CLI from this point onward**                       |
-| 13:59:45 | **~4h17m later**: User pressed CTRL+C, all output flushed at once          |
-| 13:59:45 | Same pattern: system.init + API debug dump + failed comment post           |
+| Time     | Event                                                                    |
+| -------- | ------------------------------------------------------------------------ |
+| 09:42:04 | solve started with `--interactive-mode` (no --model, defaults to sonnet) |
+| 09:42:41 | Interactive mode handler created, Claude CLI spawned                     |
+| 09:42:44 | API request 200 OK (per response `date` header)                          |
+| 09:42:44 | **No output from Claude CLI from this point onward**                     |
+| 13:59:45 | **~4h17m later**: User pressed CTRL+C, all output flushed at once        |
+| 13:59:45 | Same pattern: system.init + API debug dump + failed comment post         |
 
 ## Root Cause Analysis
 
 ### Primary Root Cause: Claude CLI stdout/stderr completely stuck
 
 Both sessions show identical behavior:
+
 1. Claude CLI (v2.1.81) was spawned via `command-stream` with `stdin: prompt`
 2. The process successfully made the API request (confirmed by response headers)
 3. The API returned 200 OK with `text/event-stream` content within ~2 seconds

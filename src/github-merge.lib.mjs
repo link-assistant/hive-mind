@@ -1383,7 +1383,7 @@ export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{hasPRTriggers: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
+ * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
  */
 export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false) {
   try {
@@ -1393,9 +1393,10 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
 
     if (files.length === 0) {
       if (verbose) {
-        console.log(`[VERBOSE] /merge: No workflow files found in ${owner}/${repo}/.github/workflows/`);
+        console.log(`[VERBOSE] /merge: No workflow files found in ${owner}/${repo}/.github/workflows/ — no CI/CD will execute`);
       }
-      return { hasPRTriggers: false, workflows: [] };
+      // Issue #1480: hasWorkflowFiles=false is a strong signal that no CI/CD is configured at the file level
+      return { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] };
     }
 
     const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
@@ -1439,13 +1440,13 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
       console.log(`[VERBOSE] /merge: ${results.length}/${files.length} workflow files have PR/push triggers`);
     }
 
-    return { hasPRTriggers, workflows: results };
+    return { hasPRTriggers, hasWorkflowFiles: true, workflows: results };
   } catch (error) {
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error checking workflow PR triggers: ${error.message}`);
     }
     // On error, assume workflows might have PR triggers (safer: avoids false positives)
-    return { hasPRTriggers: true, workflows: [] };
+    return { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] };
   }
 }
 

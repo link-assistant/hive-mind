@@ -271,6 +271,15 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
           // Issue #1480: Parse workflow files for PR triggers (used in both grace period and post-grace checks)
           const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose);
 
+          // Issue #1480: If .github/workflows folder doesn't exist or has no workflow files,
+          // that's a definitive signal — no CI/CD will execute, skip grace period entirely
+          if (!prTriggers.hasWorkflowFiles) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
+            }
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+          }
+
           if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
             // Commit is recent — workflow runs may not have appeared in the API yet
             if (verbose) {

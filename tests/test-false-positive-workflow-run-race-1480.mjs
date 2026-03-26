@@ -61,17 +61,23 @@ const WORKFLOW_RUN_GRACE_PERIOD_SECONDS = 120;
 
 /**
  * Simulates the fixed getMergeBlockers logic specifically for the path:
- * no_checks → mergeable → has workflows → 0 workflow runs → grace period check
+ * no_checks → mergeable → has workflows → 0 workflow runs → multi-layer defense
  *
  * This mirrors the actual logic in src/solve.auto-merge.lib.mjs after the Issue #1480 fix.
  *
  * @param {Object} params
  * @param {Array} params.workflowRuns - Workflow runs returned by getWorkflowRunsForSha
  * @param {{ageSeconds: number|null}} params.commitInfo - Commit age info from getCommitDate
- * @param {{hasPRTriggers: boolean, workflows: Array}} params.prTriggers - PR trigger info from checkWorkflowsHavePRTriggers
+ * @param {{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array}} params.prTriggers - PR trigger info from checkWorkflowsHavePRTriggers
+ * @param {{hadPreviousCI: boolean, previousCommitsWithCI: number, totalPreviousCommits: number}} [params.previousCI] - Previous commit CI history
  */
-function simulateFixedWorkflowRunCheck({ workflowRuns, commitInfo, prTriggers }) {
+function simulateFixedWorkflowRunCheck({ workflowRuns, commitInfo, prTriggers, previousCI }) {
   const blockers = [];
+
+  // Default previousCI for backward compatibility with existing tests
+  if (!previousCI) {
+    previousCI = { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 };
+  }
 
   if (workflowRuns.length > 0) {
     // Issue #1466: Check if ALL workflow runs completed without producing check-runs
@@ -92,7 +98,14 @@ function simulateFixedWorkflowRunCheck({ workflowRuns, commitInfo, prTriggers })
     return { blockers, noCiTriggered: false, workflowRunConclusions: undefined, raceCondition: true };
   }
 
-  // No workflow runs for this SHA — Issue #1480: check commit age before concluding
+  // No workflow runs for this SHA — Issue #1480 multi-layer defense
+
+  // Layer 1: If no workflow files exist at all, no CI will execute
+  if (!prTriggers.hasWorkflowFiles) {
+    return { blockers, noCiTriggered: true, workflowRunConclusions: undefined, raceCondition: false };
+  }
+
+  // Layer 2: Grace period check
   if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
     // Commit is recent — workflow runs may not have appeared in the API yet
     if (prTriggers.hasPRTriggers) {
@@ -111,7 +124,17 @@ function simulateFixedWorkflowRunCheck({ workflowRuns, commitInfo, prTriggers })
     return { blockers, noCiTriggered: false, workflowRunConclusions: undefined, raceCondition: true };
   }
 
-  // Commit is old enough — CI was definitively NOT triggered
+  // Layer 3: Previous commit CI history check (after grace period)
+  if (previousCI.hadPreviousCI && prTriggers.hasPRTriggers) {
+    blockers.push({
+      type: 'ci_pending',
+      message: `CI/CD workflow runs missing for HEAD — previous PR commits had CI (${previousCI.previousCommitsWithCI} of ${previousCI.totalPreviousCommits}), workflows have PR triggers, possible API delay`,
+      details: prTriggers.workflows.map(w => w.name),
+    });
+    return { blockers, noCiTriggered: false, workflowRunConclusions: undefined, raceCondition: true };
+  }
+
+  // Layer 4: Definitive conclusion — CI was NOT triggered
   return { blockers, noCiTriggered: true, workflowRunConclusions: undefined, raceCondition: false };
 }
 
@@ -129,6 +152,7 @@ test('PR #1479 scenario: 0 workflow runs + commit only 17s old + has PR triggers
     commitInfo: { ageSeconds: 17 },
     prTriggers: {
       hasPRTriggers: true,
+      hasWorkflowFiles: true,
       workflows: [{ name: 'release.yml', triggers: ['push'] }],
     },
   });
@@ -150,7 +174,7 @@ test('Commit is 0 seconds old → wait (within grace period)', () => {
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 0 },
-    prTriggers: { hasPRTriggers: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
   });
 
   assert(result.noCiTriggered === false, 'Should NOT conclude CI is not triggered');
@@ -161,7 +185,7 @@ test('Commit is 119 seconds old → wait (still within grace period)', () => {
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 119 },
-    prTriggers: { hasPRTriggers: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
   });
 
   assert(result.noCiTriggered === false, 'Should NOT conclude CI is not triggered');
@@ -172,7 +196,7 @@ test('Commit is exactly 120 seconds old → conclude CI not triggered (grace per
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 120 },
-    prTriggers: { hasPRTriggers: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
   });
 
   assert(result.noCiTriggered === true, 'Should conclude CI is not triggered — grace period elapsed');
@@ -183,7 +207,7 @@ test('Commit is 300 seconds old → conclude CI not triggered (well past grace p
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 300 },
-    prTriggers: { hasPRTriggers: true, workflows: [] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === true, 'Should conclude CI is not triggered');
@@ -199,7 +223,7 @@ test('Commit date unknown (ageSeconds=null) → conclude CI not triggered (fail-
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: null },
-    prTriggers: { hasPRTriggers: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
   });
 
   assert(result.noCiTriggered === true, 'Should conclude CI is not triggered when date is unknown');
@@ -215,7 +239,7 @@ test('Recent commit + no PR triggers in workflow files → still wait (be safe)'
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 30 },
-    prTriggers: { hasPRTriggers: false, workflows: [] },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === false, 'Should NOT conclude CI is not triggered — commit is recent');
@@ -229,6 +253,7 @@ test('Recent commit + has PR triggers → wait with workflow details', () => {
     commitInfo: { ageSeconds: 45 },
     prTriggers: {
       hasPRTriggers: true,
+      hasWorkflowFiles: true,
       workflows: [
         { name: 'ci.yml', triggers: ['pull_request'] },
         { name: 'tests.yml', triggers: ['push', 'pull_request'] },
@@ -251,7 +276,7 @@ test('Workflow runs exist + action_required → still treat as CI not triggered 
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'action_required' }],
     commitInfo: { ageSeconds: 10 },
-    prTriggers: { hasPRTriggers: true, workflows: [] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === true, 'Should treat as CI not triggered (action_required)');
@@ -263,7 +288,7 @@ test('Workflow runs exist + in_progress → genuine race condition (not affected
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [{ id: 1, name: 'CI', status: 'in_progress', conclusion: null }],
     commitInfo: { ageSeconds: 5 },
-    prTriggers: { hasPRTriggers: true, workflows: [] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === false, 'Should NOT conclude CI is not triggered');
@@ -278,7 +303,7 @@ test('Workflow runs exist + completed success → no change needed (this path ha
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'success' }],
     commitInfo: { ageSeconds: 60 },
-    prTriggers: { hasPRTriggers: true, workflows: [] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [] },
   });
 
   // Completed with success is NOT a non-executing conclusion, so it's a genuine race condition
@@ -396,7 +421,7 @@ test('Scenario: Repo with only schedule/dispatch workflows + recent commit → w
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 15 },
-    prTriggers: { hasPRTriggers: false, workflows: [] },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === false, 'Should wait even without PR triggers — commit is recent');
@@ -408,7 +433,7 @@ test('Scenario: Repo with only schedule/dispatch workflows + old commit → CI n
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 300 },
-    prTriggers: { hasPRTriggers: false, workflows: [] },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: true, workflows: [] },
   });
 
   assert(result.noCiTriggered === true, 'Should conclude CI not triggered');
@@ -421,11 +446,152 @@ test('Scenario: Fork PR with paths-ignore + old commit → CI not triggered', ()
   const result = simulateFixedWorkflowRunCheck({
     workflowRuns: [],
     commitInfo: { ageSeconds: 200 },
-    prTriggers: { hasPRTriggers: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
   });
 
   assert(result.noCiTriggered === true, 'Should conclude CI not triggered — grace period passed');
   assert(result.blockers.length === 0, 'No blockers');
+});
+
+// ===== Test Suite 8: Empty workflows folder detection (Layer 1) =====
+console.log('\n📋 Test Suite 8: Empty workflows folder detection (no .github/workflows files)\n');
+
+test('No workflow files at all + recent commit → immediately conclude no CI (skip grace period)', () => {
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 5 }, // Very recent commit
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] },
+  });
+
+  assert(result.noCiTriggered === true, 'Should immediately conclude CI not triggered — no workflow files');
+  assert(result.blockers.length === 0, 'Should NOT add blockers — no files means no CI');
+});
+
+test('No workflow files + old commit → conclude no CI', () => {
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 300 },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] },
+  });
+
+  assert(result.noCiTriggered === true, 'Should conclude CI not triggered');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+test('No workflow files + null commit date → conclude no CI', () => {
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: null },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] },
+  });
+
+  assert(result.noCiTriggered === true, 'Should conclude CI not triggered — no files regardless of date');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+// ===== Test Suite 9: Previous commit CI history (Layer 3) =====
+console.log('\n📋 Test Suite 9: Previous commit CI history detection\n');
+
+test('Grace period elapsed + previous commits had CI + PR triggers → wait (safety measure)', () => {
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 150 }, // Past grace period
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['push'] }] },
+    previousCI: { hadPreviousCI: true, previousCommitsWithCI: 2, totalPreviousCommits: 3 },
+  });
+
+  assert(result.noCiTriggered === false, 'Should NOT conclude CI not triggered — previous commits had CI');
+  assert(result.blockers.length === 1, 'Should add ci_pending blocker');
+  assert(result.blockers[0].message.includes('previous PR commits had CI'), 'Message should mention previous CI');
+  assert(result.blockers[0].message.includes('2 of 3'), 'Message should include commit counts');
+});
+
+test('Grace period elapsed + previous commits had CI + NO PR triggers → conclude no CI', () => {
+  // Previous commits had CI but workflow files don't have PR triggers anymore
+  // (maybe triggers were changed) — conclude no CI
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 150 },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: true, workflows: [] },
+    previousCI: { hadPreviousCI: true, previousCommitsWithCI: 1, totalPreviousCommits: 2 },
+  });
+
+  assert(result.noCiTriggered === true, 'Should conclude CI not triggered — no PR triggers in current files');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+test('Grace period elapsed + no previous CI + PR triggers → conclude no CI', () => {
+  // First commit in PR, no previous CI history, grace period passed
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 200 },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['pull_request'] }] },
+    previousCI: { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 },
+  });
+
+  assert(result.noCiTriggered === true, 'Should conclude CI not triggered — no previous CI evidence');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+test('Grace period elapsed + no previous CI + no PR triggers → conclude no CI', () => {
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 300 },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: true, workflows: [] },
+    previousCI: { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 0 },
+  });
+
+  assert(result.noCiTriggered === true, 'Should conclude CI not triggered');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+// ===== Test Suite 10: Multi-layer defense interaction tests =====
+console.log('\n📋 Test Suite 10: Multi-layer defense interaction tests\n');
+
+test('Layer priority: no workflow files overrides recent commit (Layer 1 > Layer 2)', () => {
+  // Even though commit is very recent (would normally wait), no workflow files = no CI
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 1 },
+    prTriggers: { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] },
+    previousCI: { hadPreviousCI: true, previousCommitsWithCI: 1, totalPreviousCommits: 1 },
+  });
+
+  assert(result.noCiTriggered === true, 'Layer 1 (no files) should take priority over everything');
+  assert(result.blockers.length === 0, 'No blockers');
+});
+
+test('Layer priority: grace period overrides previous CI (Layer 2 > Layer 3)', () => {
+  // During grace period, we wait regardless of previous CI history
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 30 },
+    prTriggers: { hasPRTriggers: true, hasWorkflowFiles: true, workflows: [{ name: 'ci.yml', triggers: ['push'] }] },
+    previousCI: { hadPreviousCI: false, previousCommitsWithCI: 0, totalPreviousCommits: 5 },
+  });
+
+  assert(result.noCiTriggered === false, 'Should wait during grace period regardless of previous CI');
+  assert(result.blockers.length === 1, 'Should have ci_pending blocker');
+  assert(result.blockers[0].message.includes('30s old'), 'Should mention commit age from grace period');
+});
+
+test('Full pipeline: PR #1479 exact scenario with all layers (enhanced)', () => {
+  // Exact reproduction: commit 17s old, has workflows with push triggers, previous commits had CI
+  const result = simulateFixedWorkflowRunCheck({
+    workflowRuns: [],
+    commitInfo: { ageSeconds: 17 },
+    prTriggers: {
+      hasPRTriggers: true,
+      hasWorkflowFiles: true,
+      workflows: [{ name: 'release.yml', triggers: ['push'] }],
+    },
+    previousCI: { hadPreviousCI: true, previousCommitsWithCI: 4, totalPreviousCommits: 4 },
+  });
+
+  assert(result.noCiTriggered === false, 'Must NOT conclude CI not triggered');
+  assert(result.raceCondition === true, 'Should detect race condition');
+  assert(result.blockers.length === 1, 'Should have exactly 1 blocker');
+  assert(result.blockers[0].type === 'ci_pending', 'Blocker type should be ci_pending');
 });
 
 // ===== Summary =====

@@ -100,7 +100,7 @@ export function detectBranchFormat(branchName) {
   return null;
 }
 
-export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
+export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber, prForkRemote, prForkOwner }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;
   let checkoutResult;
@@ -110,8 +110,9 @@ export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNu
     branchName = prBranch;
     const repository = await import('./solve.repository.lib.mjs');
     const { checkoutPrBranch } = repository;
+    // Pass prForkRemote/prForkOwner to checkout from the correct remote when PR is from another user's fork
     // Pass prNumber to enable PR refs fallback (refs/pull/{number}/head) when fork checkout fails
-    checkoutResult = await checkoutPrBranch(tempDir, branchName, null, null, prNumber);
+    checkoutResult = await checkoutPrBranch(tempDir, branchName, prForkRemote || null, prForkOwner || null, prNumber);
   } else {
     // Traditional mode: create new branch for issue
     const randomHex = crypto.randomBytes(6).toString('hex');

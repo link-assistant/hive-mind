@@ -513,7 +513,7 @@ let limitReached = false;
 try {
   // Set up repository and clone using the new module
   // If --working-directory points to existing repo, needsClone is false and we skip cloning
-  const { forkedRepo } = await setupRepositoryAndClone({
+  const { forkedRepo, prForkRemote, prForkOwner } = await setupRepositoryAndClone({
     argv,
     owner,
     repo,
@@ -555,6 +555,8 @@ try {
     owner,
     repo,
     prNumber,
+    prForkRemote,
+    prForkOwner,
   });
   cleanupContext.branchName = branchName;
 

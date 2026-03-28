@@ -1025,8 +1025,8 @@ export const executeClaudeCommand = async params => {
                   const subtype = data.subtype || 'unknown';
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
-                    // Issue #1212: ENOSPC in error_during_execution is always a hard failure
                     if ((data.errors || []).some(e => isENOSPC(e))) {
+                      // Issue #1212: ENOSPC = hard failure
                       commandFailed = true;
                       await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
                     } else {

@@ -32,11 +32,9 @@ export const formatNumber = num => {
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
-// Model mapping to translate aliases to full model IDs
-// Supports [1m] suffix for 1 million token context (Issue #1221)
+// Model mapping: aliases to full model IDs, supports [1m] suffix (Issue #1221)
 export const mapModelToId = model => {
   if (!model || typeof model !== 'string') return model;
-  // Check for [1m] suffix (case-insensitive)
   const match = model.match(/^(.+?)\[1m\]$/i);
   if (match) {
     const baseModel = match[1];
@@ -45,9 +43,7 @@ export const mapModelToId = model => {
   }
   return availableModels[model] || model;
 };
-// Function to validate Claude CLI connection with retry logic
 export const validateClaudeConnection = async (model = 'haiku') => {
-  // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
@@ -201,8 +197,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
   return await attemptValidation();
 };
 export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
-// Store Claude Code version globally (set during validation)
-let detectedClaudeVersion = null;
+let detectedClaudeVersion = null; // Claude Code version (set during validation)
 /** Get the detected Claude Code version @returns {string|null} */
 export const getClaudeVersion = () => detectedClaudeVersion;
 /** Set the detected Claude Code version (called during validation) @param {string} version */
@@ -214,9 +209,7 @@ export const resolveThinkingSettings = async (argv, log) => {
   const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
   const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
   const isNewVersion = supportsThinkingBudget(version, minVersion);
-  // Get max thinking budget from argv or use default (see issue #1146)
-  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
-  // Get thinking level mappings calculated from maxBudget
+  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET; // Issue #1146
   const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
   const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
   let thinkingBudget = argv.thinkingBudget;
@@ -881,9 +874,7 @@ export const executeClaudeCommand = async params => {
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
-      // Issue #1223: Show effective model info (opusplan shows plan+execution models)
-      const modelDisplay = effectiveModel === 'opusplan' ? `Claude OPUSPLAN (plan: ${resolvedPlanModel}, exec: ${resolvedExecutionModel})` : `Claude ${argv.model.toUpperCase()}`;
-      await log(formatAligned('🤖', 'Model:', modelDisplay, 2));
+      await log(formatAligned('🤖', 'Model:', effectiveModel === 'opusplan' ? `Claude OPUSPLAN (plan: ${resolvedPlanModel}, exec: ${resolvedExecutionModel})` : `Claude ${argv.model.toUpperCase()}`, 2));
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
@@ -996,20 +987,12 @@ export const executeClaudeCommand = async params => {
                   reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
-                // Issue #1223: Runtime verification of opusplan model switching
-                // Claude Code CLI has a known bug where --model opusplan resolves to sonnet
-                // without actually enabling plan-mode model switching. Detect and warn.
                 if (effectiveModel === 'opusplan' && data.model) {
-                  const reportedModel = data.model;
-                  const expectedPlanModel = resolvedPlanModel || 'claude-opus-4-6';
-                  if (reportedModel.includes('sonnet') || !reportedModel.includes('opus')) {
-                    await log(`\n⚠️  OPUSPLAN WARNING: Claude Code reported model "${reportedModel}" instead of expected "${expectedPlanModel}"`, { level: 'warning' });
-                    await log(`   This is a known upstream bug (anthropics/claude-code#16982, #35650).`, { level: 'warning' });
-                    await log(`   opusplan mode may not actually use Opus for planning.`, { level: 'warning' });
-                    await log(`   Workaround: Use --model opus directly if Opus-quality planning is critical.\n`, { level: 'warning' });
-                  } else {
-                    await log(`✅ opusplan: Claude Code confirmed plan model: ${reportedModel}`, { verbose: true });
-                  }
+                  // Issue #1223: verify opusplan model switching
+                  if (!data.model.includes('opus')) {
+                    const expected = resolvedPlanModel || 'claude-opus-4-6';
+                    await log(`\n⚠️  OPUSPLAN WARNING: model="${data.model}" (expected "${expected}"). Known bug: anthropics/claude-code#16982. Use --model opus.\n`, { level: 'warning' });
+                  } else await log(`✅ opusplan: plan model confirmed: ${data.model}`, { verbose: true });
                 }
               }
               if (data.type === 'message') messageCount++;

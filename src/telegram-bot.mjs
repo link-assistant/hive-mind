@@ -47,7 +47,7 @@ const hideBin = _helpersBot.hideBin || (argv => argv.slice(2));
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl } = await import('./github.lib.mjs');
-const { validateModelName } = await import('./model-validation.lib.mjs');
+const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
@@ -659,7 +659,7 @@ bot.command('help', async ctx => {
   message += '*/help* - Show this help message\n\n';
   message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
-  message += '• `--model <model>` or `-m` - Specify AI model (sonnet, opus, haiku, haiku-3-5, haiku-3)\n';
+  message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
   message += '• `--think <level>` - Thinking level (off/low/medium/high/max) | `--thinking-budget <num>` - Token budget (0-63999)\n';
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';

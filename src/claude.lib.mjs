@@ -15,7 +15,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
-import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
+import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
@@ -46,7 +46,8 @@ export const mapModelToId = model => {
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
-export const validateClaudeConnection = async (model = 'haiku-3') => {
+export const validateClaudeConnection = async (model = 'haiku') => {
+  // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;

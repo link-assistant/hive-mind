@@ -7,8 +7,7 @@
  */
 
 import { strict as assert } from 'assert';
-import { validateModelName, AGENT_MODELS } from '../src/model-validation.lib.mjs';
-import { mapModelForTool, isModelCompatibleWithTool, getValidModelsForTool, agentModels } from '../src/model-mapping.lib.mjs';
+import { validateModelName, AGENT_MODELS, mapModelForTool, isModelCompatibleWithTool, getValidModelsForTool, agentModels } from '../src/models/index.mjs';
 
 // OpenCode Zen free models (current - Issue #1300)
 const OPENCODE_FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/minimax-m2.5-free'];
@@ -213,7 +212,7 @@ for (const deprecatedModel of allDeprecatedModels) {
 
 console.log('\n🎯 All free model tests passed!');
 
-// Test 13: Mapping between model-validation.lib.mjs and model-mapping.lib.mjs consistency
+// Test 13: Mapping between models/index.mjs and models/index.mjs consistency
 console.log('\n1️⃣3️⃣ Testing consistency between validation and mapping modules...');
 for (const [alias, fullModel] of Object.entries(agentModels)) {
   if (ALL_FREE_MODELS.includes(fullModel) || OPENCODE_SHORT_ALIASES.includes(alias) || KILO_SHORT_ALIASES.includes(alias) || KILO_EXCLUSIVE_SHORT_ALIASES.includes(alias)) {
@@ -228,7 +227,7 @@ for (const [alias, fullModel] of Object.entries(agentModels)) {
 
 // Test 15: agent.lib.mjs mapModelToId consistency (Issue #1300 - PR feedback)
 // The mapModelToId function in agent.lib.mjs is the ACTUAL production mapping used
-// when executing agent CLI commands. It must be consistent with model-mapping.lib.mjs.
+// when executing agent CLI commands. It must be consistent with models/index.mjs.
 console.log('\n1️⃣5️⃣ Testing agent.lib.mjs mapModelToId consistency...');
 const { mapModelToId } = await import('../src/agent.lib.mjs');
 
@@ -244,7 +243,7 @@ for (const shortName of freeShortNames) {
   // Verify it uses only opencode/ or kilo/ prefix
   assert.ok(mappedByAgentLib.startsWith('opencode/') || mappedByAgentLib.startsWith('kilo/'), `mapModelToId(${shortName}) should use opencode/ or kilo/ prefix, got ${mappedByAgentLib}`);
 
-  // Verify consistency between agent.lib.mjs and model-mapping.lib.mjs
+  // Verify consistency between agent.lib.mjs and models/index.mjs
   assert.strictEqual(mappedByAgentLib, mappedByMappingLib, `mapModelToId(${shortName})=${mappedByAgentLib} should match mapModelForTool(agent, ${shortName})=${mappedByMappingLib}`);
 
   console.log(`✅ ${shortName} -> ${mappedByAgentLib}: Consistent (no moonshot/ prefix)`);

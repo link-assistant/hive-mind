@@ -86,6 +86,54 @@ console.log('─'.repeat(60));
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Test Suite 2b: Startup timeout triggers retry logic (not just kill)
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 2b: Startup timeout retry integration');
+console.log('─'.repeat(60));
+
+{
+  const claudeLibContent = await readFile(join(__dirname, '..', 'src', 'claude.lib.mjs'), 'utf-8');
+
+  // Test: isStartupTimeout flag exists
+  assert(claudeLibContent.includes('isStartupTimeout'), 'claude.lib.mjs declares isStartupTimeout flag for retry logic');
+
+  // Test: isStartupTimeout is set when startup timeout fires
+  assert(claudeLibContent.includes('isStartupTimeout = true'), 'isStartupTimeout is set to true when startup timeout fires');
+
+  // Test: isStartupTimeout is included in transient error detection
+  assert(claudeLibContent.includes('isStartupTimeout || isOverloadError'), 'isStartupTimeout is included in isTransientError condition for retry');
+
+  // Test: Startup timeout uses shorter backoff (fresh start, not session resume)
+  assert(claudeLibContent.includes('isStartupTimeout ? 30000'), 'Startup timeout uses 30s initial delay (shorter than API errors)');
+  assert(claudeLibContent.includes('isStartupTimeout ? 120000'), 'Startup timeout uses 120s max delay');
+
+  // Test: Startup timeout does NOT preserve session (no session to resume)
+  assert(claudeLibContent.includes('!isStartupTimeout && sessionId'), 'Startup timeout skips session resume (no session created when stuck)');
+
+  // Test: Startup timeout has distinct error label
+  assert(claudeLibContent.includes('Stream startup timeout (Issue #1472/#1475)'), 'Startup timeout has distinct error label for logs');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Test Suite 2c: Interactive mode status tracking (zero-comments detection)
+// ═══════════════════════════════════════════════════════════════════
+console.log('\n🧪 Test Suite 2c: Interactive mode status tracking');
+console.log('─'.repeat(60));
+
+{
+  const claudeLibContent = await readFile(join(__dirname, '..', 'src', 'claude.lib.mjs'), 'utf-8');
+
+  // Test: First event logging for interactive mode
+  assert(claudeLibContent.includes('_firstEventLogged'), 'claude.lib.mjs tracks first event received by interactive handler');
+
+  // Test: Warning when zero events received
+  assert(claudeLibContent.includes('No events received from Claude CLI'), 'claude.lib.mjs warns when interactive mode received zero events');
+
+  // Test: First event log message
+  assert(claudeLibContent.includes('First event received'), 'claude.lib.mjs logs when first interactive mode event arrives');
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Test Suite 3: Telegram bot does NOT have redundant interactive mode signal
 // ═══════════════════════════════════════════════════════════════════
 console.log('\n🧪 Test Suite 3: Telegram bot signal reverted per reviewer');

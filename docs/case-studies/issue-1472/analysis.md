@@ -72,7 +72,7 @@ This is NOT a simple buffering issue — both stdout (stream-json events) AND st
 
 ## Fix Applied
 
-### Stream Startup Timeout (`claude.lib.mjs` + `config.lib.mjs`)
+### 1. Stream Startup Timeout (`claude.lib.mjs` + `config.lib.mjs`)
 
 Added a configurable timeout (default: 2 minutes) that monitors time-to-first-output from
 Claude CLI. If no stdout or stderr chunk arrives within this period, the process is
@@ -83,8 +83,46 @@ force-killed via the existing `forceExitOnTimeout()` mechanism.
 - Configurable via `HIVE_MIND_STREAM_STARTUP_MS` environment variable
 - Timeout is cleared immediately when any output chunk is received
 
-This prevents the indefinite hang observed in both affected sessions and allows the
-retry logic to attempt a fresh Claude CLI start.
+### 2. Automatic Retry on Startup Timeout (`claude.lib.mjs`)
+
+The startup timeout is now integrated into the unified transient error retry system:
+
+- When the startup timeout fires, `isStartupTimeout` flag is set to `true`
+- This flag is included in the `isTransientError` condition, triggering automatic retry
+- Startup timeout retries use shorter backoff (30s initial, 120s max) vs API errors,
+  since this is a CLI bug not server-side load
+- Retries start fresh (no `--resume`) since no session was created during the stuck period
+- This ensures the solve command recovers automatically instead of just failing
+
+### 3. Interactive Mode Status Tracking (`claude.lib.mjs`)
+
+Added diagnostic logging to detect and report the zero-comments problem:
+
+- Logs when the first stream event reaches the interactive mode handler (confirms stream
+  is active and interactive mode is receiving data)
+- Warns explicitly when interactive mode was enabled but received zero events from
+  Claude CLI — the exact condition that caused Issue #1472's "zero comments" problem
+- This diagnostic output appears in verbose logs for troubleshooting
+
+### How This Solves the Original Issue
+
+The original problem was: `--interactive-mode` was requested but zero comments were posted.
+
+**Root cause chain:**
+
+1. Claude CLI stdout was stuck (CLI bug in v2.1.81)
+2. No stream events reached the parent process
+3. Interactive mode handler never received events to post as comments
+4. No timeout existed to detect the zero-output condition
+5. Process hung indefinitely until manual CTRL+C
+
+**Fix chain:**
+
+1. Startup timeout detects zero output within 2 minutes
+2. Process is force-killed (instead of hanging for 4.5+ hours)
+3. `isStartupTimeout` flag triggers automatic retry with fresh CLI start
+4. On retry, if CLI works normally, interactive mode receives events and posts comments
+5. Diagnostic logging confirms whether interactive mode is receiving events
 
 ## Log Files
 

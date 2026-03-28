@@ -433,6 +433,11 @@ export async function attachLogToGitHub(options) {
     if (!actualModelIds && pricingInfo?.modelId) {
       actualModelIds = [pricingInfo.modelId];
     }
+    // Issue #1486: Filter out internal/synthetic model entries (e.g., "<synthetic>" from Claude CLI's inference router)
+    if (actualModelIds) {
+      actualModelIds = actualModelIds.filter(id => !(id.startsWith('<') && id.endsWith('>')));
+      if (actualModelIds.length === 0) actualModelIds = null;
+    }
     // Issue #1225: Fetch model information for comment using actual models from CLI output
     let modelInfoString = '';
     if (requestedModel || tool || actualModelIds) {

@@ -593,6 +593,11 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
         const entry = JSON.parse(line);
         if (entry.message && entry.message.usage && entry.message.model) {
           const model = entry.message.model;
+          // Issue #1486: Skip internal/synthetic model entries from Claude CLI's inference router.
+          // These have model name "<synthetic>" with 0 tokens and are not real model usage.
+          if (model === '<synthetic>' || model.startsWith('<') && model.endsWith('>')) {
+            continue;
+          }
           const usage = entry.message.usage;
           // Initialize model entry if it doesn't exist
           if (!modelUsage[model]) {

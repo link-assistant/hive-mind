@@ -48,6 +48,7 @@ const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = awai
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
 const { parseGitHubUrl } = await import('./github.lib.mjs');
 const { validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
+const { validateBranchName } = await import('./solve.branch.lib.mjs');
 const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mjs');
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
@@ -203,6 +204,11 @@ if (solveEnabled && solveOverrides.length > 0) {
           throw new Error(msg);
         });
       await testYargs.parse(testArgs);
+      // Issue #1482: Validate --base-branch in overrides early
+      const overrideBranchError = validateBranchInArgs(solveOverrides);
+      if (overrideBranchError) {
+        throw new Error(overrideBranchError);
+      }
       console.log('✅ Solve overrides validated successfully');
     } finally {
       // Restore stderr
@@ -243,6 +249,11 @@ if (hiveEnabled && hiveOverrides.length > 0) {
           throw new Error(msg);
         });
       await testYargs.parse(testArgs);
+      // Issue #1482: Validate --base-branch/--target-branch in overrides early
+      const overrideBranchError = validateBranchInArgs(hiveOverrides);
+      if (overrideBranchError) {
+        throw new Error(overrideBranchError);
+      }
       console.log('✅ Hive overrides validated successfully');
     } finally {
       // Restore stderr
@@ -433,6 +444,30 @@ function validateModelInArgs(args, tool = 'claude') {
       const validation = validateModelName(modelName, tool);
       if (!validation.valid) {
         return validation.message;
+      }
+    }
+  }
+  return null;
+}
+
+// Issue #1482: Validate --base-branch and --target-branch values early in telegram bot
+// to reject URLs and invalid git branch names before spawning solve/hive processes
+function validateBranchInArgs(args) {
+  const branchFlags = ['--base-branch', '-b', '--target-branch', '-tb'];
+  for (let i = 0; i < args.length; i++) {
+    for (const flag of branchFlags) {
+      if (args[i] === flag && i + 1 < args.length) {
+        const branchValue = args[i + 1];
+        const validation = validateBranchName(branchValue);
+        if (!validation.valid) {
+          return `Invalid ${flag} value: ${validation.reason}`;
+        }
+      } else if (args[i].startsWith(flag + '=')) {
+        const branchValue = args[i].substring(flag.length + 1);
+        const validation = validateBranchName(branchValue);
+        if (!validation.valid) {
+          return `Invalid ${flag} value: ${validation.reason}`;
+        }
       }
     }
   }
@@ -957,6 +992,12 @@ async function handleSolveCommand(ctx) {
     await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
+  // Issue #1482: Validate --base-branch value early to reject URLs and invalid branch names
+  const branchError = validateBranchInArgs(args);
+  if (branchError) {
+    await ctx.reply(`❌ ${branchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
   // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
   const { malformed, errors: malformedErrors } = detectMalformedFlags(args);
   if (malformed.length > 0) {
@@ -1135,6 +1176,12 @@ async function handleHiveCommand(ctx) {
   const hiveModelError = validateModelInArgs(args, hiveTool);
   if (hiveModelError) {
     await ctx.reply(`❌ ${hiveModelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    return;
+  }
+  // Issue #1482: Validate --base-branch/--target-branch value early to reject URLs and invalid branch names
+  const hiveBranchError = validateBranchInArgs(args);
+  if (hiveBranchError) {
+    await ctx.reply(`❌ ${hiveBranchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
     return;
   }
 

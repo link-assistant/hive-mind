@@ -586,13 +586,13 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     // Read the entire file
     const fileContent = await fs.readFile(sessionFile, 'utf8');
     const lines = fileContent.trim().split('\n');
-    // Parse each line and accumulate token counts per model
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
         if (entry.message && entry.message.usage && entry.message.model) {
           const model = entry.message.model;
+          if (model.startsWith('<') && model.endsWith('>')) continue; // Issue #1486: skip <synthetic> etc.
           const usage = entry.message.usage;
           // Initialize model entry if it doesn't exist
           if (!modelUsage[model]) {

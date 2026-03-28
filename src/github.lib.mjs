@@ -390,9 +390,7 @@ export async function attachLogToGitHub(options) {
     if (useLargeFileMode && verbose) {
       await log(`  📁 Large log file (${Math.round(logStats.size / 1024 / 1024)}MB), will use gh-upload-log`, { verbose: true });
     }
-    // Calculate token usage if sessionId and tempDir are provided (skip for agent tool with pricing)
-    let totalCostUSD = publicPricingEstimate;
-    // Issue #1225: Collect actual model IDs from Claude session JSON output
+    let totalCostUSD = publicPricingEstimate; // Issue #1225: token usage + actual model IDs
     let actualModelIds = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
@@ -401,23 +399,15 @@ export async function attachLogToGitHub(options) {
         if (tokenUsage) {
           if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
             totalCostUSD = tokenUsage.totalCostUSD;
-            if (verbose) {
-              await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
-            }
+            if (verbose) await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
           }
-          // Extract actual model IDs from session data (Issue #1225)
           if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
             actualModelIds = Object.keys(tokenUsage.modelUsage);
-            if (verbose) {
-              await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
-            }
+            if (verbose) await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
           }
         }
       } catch (tokenError) {
-        // Don't fail the entire upload if token calculation fails
-        if (verbose) {
-          await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
-        }
+        if (verbose) await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
       }
     }
     // Issue #1454: Use resultModelUsage from result JSON when it has more models (includes subagent models)
@@ -432,6 +422,11 @@ export async function attachLogToGitHub(options) {
     // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
     if (!actualModelIds && pricingInfo?.modelId) {
       actualModelIds = [pricingInfo.modelId];
+    }
+    // Issue #1486: Filter out internal/synthetic model entries (e.g., "<synthetic>" from Claude CLI's inference router)
+    if (actualModelIds) {
+      actualModelIds = actualModelIds.filter(id => !(id.startsWith('<') && id.endsWith('>')));
+      if (actualModelIds.length === 0) actualModelIds = null;
     }
     // Issue #1225: Fetch model information for comment using actual models from CLI output
     let modelInfoString = '';

@@ -881,7 +881,9 @@ export const executeClaudeCommand = async params => {
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
-      await log(formatAligned('🤖', 'Model:', `Claude ${argv.model.toUpperCase()}`, 2));
+      // Issue #1223: Show effective model info (opusplan shows plan+execution models)
+      const modelDisplay = effectiveModel === 'opusplan' ? `Claude OPUSPLAN (plan: ${resolvedPlanModel}, exec: ${resolvedExecutionModel})` : `Claude ${argv.model.toUpperCase()}`;
+      await log(formatAligned('🤖', 'Model:', modelDisplay, 2));
       if (argv.fork && forkedRepo) {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
@@ -993,6 +995,21 @@ export const executeClaudeCommand = async params => {
                 } catch (renameError) {
                   reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
+                }
+                // Issue #1223: Runtime verification of opusplan model switching
+                // Claude Code CLI has a known bug where --model opusplan resolves to sonnet
+                // without actually enabling plan-mode model switching. Detect and warn.
+                if (effectiveModel === 'opusplan' && data.model) {
+                  const reportedModel = data.model;
+                  const expectedPlanModel = resolvedPlanModel || 'claude-opus-4-6';
+                  if (reportedModel.includes('sonnet') || !reportedModel.includes('opus')) {
+                    await log(`\n⚠️  OPUSPLAN WARNING: Claude Code reported model "${reportedModel}" instead of expected "${expectedPlanModel}"`, { level: 'warning' });
+                    await log(`   This is a known upstream bug (anthropics/claude-code#16982, #35650).`, { level: 'warning' });
+                    await log(`   opusplan mode may not actually use Opus for planning.`, { level: 'warning' });
+                    await log(`   Workaround: Use --model opus directly if Opus-quality planning is critical.\n`, { level: 'warning' });
+                  } else {
+                    await log(`✅ opusplan: Claude Code confirmed plan model: ${reportedModel}`, { verbose: true });
+                  }
                 }
               }
               if (data.type === 'message') messageCount++;

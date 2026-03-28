@@ -5,7 +5,7 @@
  * Tests that validateBranchInArgs() correctly parses and validates branch flags from args arrays
  */
 
-import { validateBranchName } from '../src/solve.branch.lib.mjs';
+import { validateBranchInArgs } from '../src/solve.branch.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -26,30 +26,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message || 'Assertion failed');
   }
-}
-
-// Replicate the validateBranchInArgs function from telegram-bot.mjs
-// (not exported, so we reproduce the same logic for testing)
-function validateBranchInArgs(args) {
-  const branchFlags = ['--base-branch', '-b', '--target-branch', '-tb'];
-  for (let i = 0; i < args.length; i++) {
-    for (const flag of branchFlags) {
-      if (args[i] === flag && i + 1 < args.length) {
-        const branchValue = args[i + 1];
-        const validation = validateBranchName(branchValue);
-        if (!validation.valid) {
-          return `Invalid ${flag} value: ${validation.reason}`;
-        }
-      } else if (args[i].startsWith(flag + '=')) {
-        const branchValue = args[i].substring(flag.length + 1);
-        const validation = validateBranchName(branchValue);
-        if (!validation.valid) {
-          return `Invalid ${flag} value: ${validation.reason}`;
-        }
-      }
-    }
-  }
-  return null;
 }
 
 console.log('\ud83e\uddea Telegram Bot Branch Validation Tests (Issue #1482)\n');

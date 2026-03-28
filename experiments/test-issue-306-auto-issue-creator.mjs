@@ -4,7 +4,7 @@
  * Test script for automatic GitHub issue creation (issue #306)
  */
 
-import { createIssueForError, formatLogForIssue } from '../src/github-issue-creator.lib.mjs';
+import { createIssueForError, formatLogForIssue } from '../src/github-error-reporter.lib.mjs';
 
 console.log('🧪 Testing automatic GitHub issue creator');
 console.log('==========================================\n');

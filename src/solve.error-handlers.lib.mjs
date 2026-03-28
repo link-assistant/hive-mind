@@ -8,8 +8,8 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import Sentry integration
 import { reportError } from './sentry.lib.mjs';
 
-// Import GitHub issue creator
-import { handleErrorWithIssueCreation } from './github-issue-creator.lib.mjs';
+// Import GitHub error reporter
+import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 
 /**
  * Handles log attachment and PR closing on failure
@@ -30,6 +30,8 @@ export const handleFailure = async options => {
         errorType,
       },
       skipPrompt: !process.stdin.isTTY || argv.noIssueCreation,
+      autoReport: argv.autoReportIssue,
+      disableReport: argv.disableReportIssue,
     });
   } catch (issueError) {
     reportError(issueError, {
@@ -39,16 +41,17 @@ export const handleFailure = async options => {
     await log(`⚠️  Could not create issue: ${issueError.message}`, { level: 'warning' });
   }
 
-  // If --attach-logs is enabled, try to attach failure logs to PR or issue
+  // If --attach-logs is enabled, try to attach failure logs
   if (shouldAttachLogs && getLogFile()) {
-    // Issue #1212: Attach to PR if available, otherwise fall back to issue
+    // Issues #1212, #1462: Upload logs to PR if available, otherwise fall back to the issue
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
     const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
     const targetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const targetLabel = hasPR ? 'Pull Request' : 'Issue';
+
     if (targetType && targetNumber) {
-      const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
-      await log(`\n📄 Attempting to attach failure logs to ${targetName}...`);
+      await log(`\n📄 Attempting to attach failure logs to ${targetLabel}...`);
       try {
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
@@ -66,17 +69,17 @@ export const handleFailure = async options => {
           tool: argv.tool || 'claude',
         });
         if (logUploadSuccess) {
-          await log(`📎 Failure log attached to ${targetName}`);
+          await log(`📎 Failure log attached to ${targetLabel}`);
         }
       } catch (attachError) {
         reportError(attachError, {
           context: 'attach_failure_log',
-          prNumber: global.createdPR?.number,
-          issueNumber: global.issueNumber,
+          targetType,
+          targetNumber,
           errorType,
           operation: `attach_log_to_${targetType}`,
         });
-        await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
+        await log(`⚠️  Could not attach failure log to ${targetLabel}: ${attachError.message}`, { level: 'warning' });
       }
     }
   }

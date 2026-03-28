@@ -54,6 +54,17 @@ export const timeouts = {
   // Issue #1280: Timeout (ms) to wait for stream close after result event before force-killing
   // command-stream's stream() waits for process exit + pipe close; if stdout stays open, it hangs
   resultStreamCloseMs: parseIntWithDefault('HIVE_MIND_RESULT_STREAM_CLOSE_MS', 30000),
+  // Issue #1472/#1475: Timeout (ms) to wait for first stream output from Claude CLI after startup.
+  // If no stdout/stderr output is received within this period, the process is considered stuck
+  // and will be force-killed. Both affected sessions showed ~4.5h with zero output from Claude CLI.
+  // Default: 120000ms (2 minutes) — Claude CLI normally emits system.init within 1-3 seconds.
+  streamStartupMs: parseIntWithDefault('HIVE_MIND_STREAM_STARTUP_MS', 120000),
+  // Issue #1472: Activity timeout (ms) — if no new stream output is received for this duration
+  // after at least one event was received, the process is considered hung mid-session.
+  // This catches the case where Claude CLI starts producing output but then stops (e.g., the
+  // original Issue #1472 where CLI was stuck for 4.5h with all output arriving only at CTRL+C).
+  // Default: 300000ms (5 minutes). Set to 0 to disable. Configurable via environment variable.
+  streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 300000),
 };
 
 // Auto-continue configurations
@@ -163,9 +174,10 @@ export const DEFAULT_MAX_THINKING_BUDGET_OPUS_46 = parseIntWithDefault('HIVE_MIN
 export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // Check for explicit opus-4-6 or later versions
+  // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
   // Note: The 'opus' alias now maps to Opus 4.6 (Issue #1433), so we also check for the alias directly
-  return normalizedModel === 'opus' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
+  // opusplan uses Opus for planning, so it should get Opus-level settings
+  return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-5');
 };
 
 /**
@@ -307,6 +319,10 @@ export const supportsThinkingBudget = (version, minVersion = '2.1.12') => {
 // Also sets MCP_TIMEOUT and MCP_TOOL_TIMEOUT for MCP tool execution (see issue #1066)
 // Supports model-specific max output tokens for Opus 4.6 (Issue #1221)
 // Sets CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 models (Issue #1238)
+// Supports planModel/executionModel for opusplan mode (Issue #1223)
+// See: https://code.claude.com/docs/en/model-config
+//   ANTHROPIC_DEFAULT_OPUS_MODEL  → model used in plan mode (and for 'opus' alias)
+//   ANTHROPIC_DEFAULT_SONNET_MODEL → model used in execution mode (and for 'sonnet' alias)
 export const getClaudeEnv = (options = {}) => {
   // Get max output tokens based on model (Issue #1221)
   const maxOutputTokens = options.model ? getMaxOutputTokensForModel(options.model) : claudeCode.maxOutputTokens;
@@ -316,8 +332,6 @@ export const getClaudeEnv = (options = {}) => {
     CLAUDE_CODE_MAX_OUTPUT_TOKENS: String(maxOutputTokens),
     // MCP timeout configurations to prevent tool calls from hanging indefinitely
     // See: https://github.com/link-assistant/hive-mind/issues/1066
-    // MCP_TIMEOUT: Timeout for MCP server startup
-    // MCP_TOOL_TIMEOUT: Timeout for MCP tool execution (the one that prevents stuck tools)
     MCP_TIMEOUT: String(claudeCode.mcpTimeout),
     MCP_TOOL_TIMEOUT: String(claudeCode.mcpToolTimeout),
   };
@@ -342,6 +356,17 @@ export const getClaudeEnv = (options = {}) => {
     if (effortLevel) {
       env.CLAUDE_CODE_EFFORT_LEVEL = effortLevel;
     }
+  }
+  // Set ANTHROPIC_DEFAULT_OPUS_MODEL when planModel is specified (Issue #1223)
+  // This tells Claude Code which model to use during plan mode in opusplan
+  if (options.planModel) {
+    env.ANTHROPIC_DEFAULT_OPUS_MODEL = String(options.planModel);
+  }
+  // Set ANTHROPIC_DEFAULT_SONNET_MODEL when executionModel is specified (Issue #1223)
+  // This tells Claude Code which model to use during execution mode in opusplan
+  // Enables combinations like --plan-model opus --model haiku
+  if (options.executionModel) {
+    env.ANTHROPIC_DEFAULT_SONNET_MODEL = String(options.executionModel);
   }
 
   return env;
@@ -402,6 +427,7 @@ const defaultAvailableModels = `(
   opus
   sonnet
   haiku
+  opusplan
 )`;
 
 export const modelConfig = {

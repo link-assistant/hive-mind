@@ -48,7 +48,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo, setupVerboseLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -84,7 +84,7 @@ const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidModel } = await import('./model-validation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
 // Initialize log file early (before argument parsing) to capture all output
@@ -110,6 +110,9 @@ try {
   await safeExit(1, 'Invalid command-line arguments');
 }
 global.verboseMode = argv.verbose;
+
+// Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+setupVerboseLogInterceptor();
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 
@@ -207,6 +210,15 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 // Model validation is a simple string check and should always be performed
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+
+// Validate --plan-model if provided (Issue #1223)
+if (argv.planModel) {
+  if (tool !== 'claude') {
+    await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    await safeExit(1, '--plan-model requires --tool claude');
+  }
+  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+}
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
@@ -496,7 +508,7 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Issue #1212: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
+// Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
@@ -866,6 +878,7 @@ try {
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
   let resultSummary = toolResult.resultSummary || null; // Issue #1263: Capture result summary for --attach-solution-summary
+  let resultModelUsage = toolResult.resultModelUsage || null; // Issue #1454: Capture modelUsage from result JSON
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -940,6 +953,8 @@ try {
             sessionId,
             requestedModel: argv.model,
             tool: argv.tool || 'claude',
+            // Issue #1454: Pass resultModelUsage for accurate multi-model display
+            resultModelUsage,
           });
 
           if (logUploadSuccess) {
@@ -1008,6 +1023,8 @@ try {
               autoResumeMode: limitContinueMode,
               requestedModel: argv.model,
               tool: argv.tool || 'claude',
+              // Issue #1454: Pass resultModelUsage for accurate multi-model display
+              resultModelUsage,
             });
 
             if (logUploadSuccess) {
@@ -1077,24 +1094,25 @@ try {
       await log('');
     }
 
-    // If --attach-logs is enabled, attach failure logs to PR or fall back to issue
+    // If --attach-logs is enabled, attach failure logs before exiting
     // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
-    // Issue #1212: Fall back to issue comment when no PR exists yet
+    // Issues #1212, #1462: Fall back to uploading logs to the issue if PR is not available
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
-    const failureTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
-    const failureTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
-    if (shouldAttachLogs && failureTargetType && failureTargetNumber) {
-      const failureTargetName = failureTargetType === 'pr' ? 'Pull Request' : 'Issue';
-      await log(`\n📄 Attaching failure logs to ${failureTargetName}...`);
+    const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const logTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const logTargetLabel = hasPR ? 'Pull Request' : 'Issue';
+
+    if (shouldAttachLogs && logTargetType && logTargetNumber) {
+      await log(`\n📄 Attaching failure logs to ${logTargetLabel}...`);
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
         const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
-          targetType: failureTargetType,
-          targetNumber: failureTargetNumber,
+          targetType: logTargetType,
+          targetNumber: logTargetNumber,
           owner,
           repo,
           $,
@@ -1111,10 +1129,12 @@ try {
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
           requestedModel: argv.model,
           tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
         });
 
         if (logUploadSuccess) {
-          await log(`  ✅ Failure logs uploaded to ${failureTargetName} successfully`);
+          await log(`  ✅ Failure logs uploaded to ${logTargetLabel} successfully`);
         } else {
           // Issue #1212: Always show log upload failures (not just verbose)
           await log('  ⚠️  Failed to upload failure logs');
@@ -1196,7 +1216,7 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content
@@ -1243,7 +1263,7 @@ try {
     await cleanupClaudeFile(tempDir, branchName, null, argv);
 
     // Re-verify results after restart (without auto-restart flag to prevent recursion)
-    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType);
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
 
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');
@@ -1366,6 +1386,8 @@ try {
           anthropicTotalCostUSD,
           requestedModel: argv.model,
           tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
         });
 
         if (logUploadSuccess) {

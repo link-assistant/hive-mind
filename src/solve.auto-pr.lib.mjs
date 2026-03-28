@@ -1113,12 +1113,14 @@ ${prBody}`,
           }
 
           let output;
+          let prCreateStderr = '';
           let assigneeFailed = false;
 
           // Try to create PR with assignee first (if specified)
           try {
             const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
             output = result.stdout;
+            prCreateStderr = result.stderr || '';
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -1146,6 +1148,7 @@ ${prBody}`,
               // Retry without assignee - if this fails, let the error propagate to outer catch
               const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
               output = retryResult.stdout;
+              prCreateStderr = retryResult.stderr || '';
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;
@@ -1167,6 +1170,14 @@ ${prBody}`,
               operation: 'delete_temp_file',
             });
           });
+
+          // Log gh pr create output for debugging (Issue #1462)
+          if (argv.verbose) {
+            await log(`   gh pr create stdout: ${(output || '').trim() || '(empty)'}`, { verbose: true });
+            if (prCreateStderr) {
+              await log(`   gh pr create stderr: ${prCreateStderr.trim()}`, { verbose: true });
+            }
+          }
 
           // Extract PR URL from output - gh pr create outputs the URL to stdout
           prUrl = output.trim();
@@ -1192,44 +1203,59 @@ ${prBody}`,
 
               // CRITICAL: Verify the PR was actually created by querying GitHub API
               // This is essential because gh pr create can return a URL but PR creation might have failed
+              // Issue #1468: Use retry with exponential backoff because GitHub's API is eventually
+              // consistent — a newly created PR may not be visible via gh pr view for several seconds.
+              // This matches the existing retry pattern used for the compare API (lines 571-624).
               await log(formatAligned('🔍', 'Verifying:', 'PR creation...'), { verbose: true });
-              const verifyResult = await $({
-                silent: true,
-              })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
 
-              if (verifyResult.code === 0) {
-                try {
-                  const prData = JSON.parse(verifyResult.stdout.toString().trim());
-                  if (prData.number && prData.url) {
-                    await log(formatAligned('✅', 'Verification:', 'PR exists on GitHub'), { verbose: true });
-                    // Update prUrl and localPrNumber from verified data
-                    prUrl = prData.url;
-                    localPrNumber = String(prData.number);
-                  } else {
-                    throw new Error('PR data incomplete');
-                  }
-                } catch {
-                  await log('❌ PR verification failed: Could not parse PR data', { level: 'error' });
-                  throw new Error('PR creation verification failed - invalid response');
+              let prVerified = false;
+              let verifyAttempts = 0;
+              const maxVerifyAttempts = 5;
+              let lastVerifyResult = null;
+
+              while (!prVerified && verifyAttempts < maxVerifyAttempts) {
+                verifyAttempts++;
+                const waitTime = Math.min(2000 * verifyAttempts, 10000); // 2s, 4s, 6s, 8s, 10s
+
+                if (verifyAttempts > 1) {
+                  await log(`   Retry ${verifyAttempts}/${maxVerifyAttempts}: Waiting ${waitTime}ms for GitHub to propagate PR...`);
                 }
-              } else {
-                // PR does not exist - gh pr create must have failed silently
-                await log('');
-                await log(formatAligned('❌', 'FATAL ERROR:', 'PR creation failed'), { level: 'error' });
-                await log('');
-                await log('  🔍 What happened:');
-                await log('     The gh pr create command returned a URL, but the PR does not exist on GitHub.');
-                await log('');
-                await log('  🔧 How to fix:');
-                await log('     1. Check if PR exists manually:');
-                await log(`        gh pr list --repo ${owner}/${repo} --head ${branchName}`);
-                await log('     2. Try creating PR manually:');
-                await log(`        cd ${tempDir}`);
-                await log(`        gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
-                await log('     3. Check GitHub authentication:');
-                await log('        gh auth status');
-                await log('');
-                throw new Error('PR creation failed - PR does not exist on GitHub');
+
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+
+                lastVerifyResult = await $({
+                  silent: true,
+                })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
+
+                if (lastVerifyResult.code === 0) {
+                  try {
+                    const prData = JSON.parse(lastVerifyResult.stdout.toString().trim());
+                    if (prData.number && prData.url) {
+                      await log(formatAligned('✅', 'Verification:', `PR exists on GitHub (attempt ${verifyAttempts}/${maxVerifyAttempts})`), { verbose: true });
+                      // Update prUrl and localPrNumber from verified data
+                      prUrl = prData.url;
+                      localPrNumber = String(prData.number);
+                      prVerified = true;
+                    }
+                  } catch {
+                    // Parse failed, will retry
+                    if (argv.verbose) {
+                      await log(`   Verify attempt ${verifyAttempts}: Could not parse PR data, retrying...`, { verbose: true });
+                    }
+                  }
+                } else if (argv.verbose) {
+                  const attemptStderr = lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                  await log(`   Verify attempt ${verifyAttempts}: PR not found yet${attemptStderr ? ` (${attemptStderr})` : ''}`, { verbose: true });
+                }
+              }
+
+              if (!prVerified) {
+                // PR does not exist after all retries - gh pr create must have failed silently
+                // Issue #1462: Include gh pr create stderr for root cause diagnosis
+                const verifyStderr = lastVerifyResult && lastVerifyResult.stderr ? lastVerifyResult.stderr.toString().trim() : '';
+                const stderrInfo = prCreateStderr ? ` (gh pr create stderr: ${prCreateStderr.trim()})` : '';
+                const verifyInfo = verifyStderr ? ` (gh pr view stderr: ${verifyStderr})` : '';
+                throw new Error(`PR verification failed - gh pr create returned URL "${prUrl}" but PR #${localPrNumber} does not exist on GitHub after ${maxVerifyAttempts} verification attempts${stderrInfo}${verifyInfo}`);
               }
               // Store PR info globally for error handlers
               global.createdPR = { number: localPrNumber, url: prUrl };
@@ -1374,73 +1400,22 @@ ${prBody}`,
             branchName,
             operation: 'create_pull_request',
           });
+          // Issue #1462: Don't log verbose error block here - let the outer catch
+          // handler produce a single consolidated error message to avoid triple error output.
+          // Extract clean error message and re-throw with context.
           const errorMsg = prCreateError.message || '';
-
-          // Clean up the error message - extract the meaningful part
           let cleanError = errorMsg;
           if (errorMsg.includes('pull request create failed:')) {
             cleanError = errorMsg.split('pull request create failed:')[1].trim();
           } else if (errorMsg.includes('Command failed:')) {
-            // Extract just the error part, not the full command
             const lines = errorMsg.split('\n');
             cleanError = lines[lines.length - 1] || errorMsg;
           }
 
-          // Check for specific error types
-          // Note: Assignee errors are now handled by automatic retry in the try block above
-          // This catch block only handles other types of PR creation failures
           if (errorMsg.includes('No commits between') || errorMsg.includes("Head sha can't be blank")) {
-            // Empty PR error
-            await log('');
-            await log(formatAligned('❌', 'PR CREATION FAILED', ''), { level: 'error' });
-            await log('');
-            await log('  🔍 What happened:');
-            await log('     Cannot create PR - no commits between branches.');
-            await log('');
-            await log('  📦 Error details:');
-            for (const line of cleanError.split('\n')) {
-              if (line.trim()) await log(`     ${line.trim()}`);
-            }
-            await log('');
-            await log('  💡 Possible causes:');
-            await log("     • The branch wasn't pushed properly");
-            await log("     • The commit wasn't created");
-            await log('     • GitHub sync issue');
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     1. Verify commit exists:');
-            await log(`        cd ${tempDir} && git log --format="%h %s" -5`);
-            await log('     2. Push again with tracking:');
-            await log(`        cd ${tempDir} && git push -u origin ${branchName}`);
-            await log('     3. Create PR manually:');
-            await log(`        cd ${tempDir} && gh pr create --draft`);
-            await log('');
-            await log(`  📂 Working directory: ${tempDir}`);
-            await log(`  🌿 Current branch: ${branchName}`);
-            await log('');
-            throw new Error('PR creation failed - no commits between branches');
+            throw new Error(`PR creation failed - no commits between branches: ${cleanError}`);
           } else {
-            // Generic PR creation error
-            await log('');
-            await log(formatAligned('❌', 'PR CREATION FAILED', ''), { level: 'error' });
-            await log('');
-            await log('  🔍 What happened:');
-            await log('     Failed to create pull request.');
-            await log('');
-            await log('  📦 Error details:');
-            for (const line of cleanError.split('\n')) {
-              if (line.trim()) await log(`     ${line.trim()}`);
-            }
-            await log('');
-            await log('  🔧 How to fix:');
-            await log('     1. Try creating PR manually:');
-            await log(`        cd ${tempDir} && gh pr create --draft`);
-            await log('     2. Check branch status:');
-            await log(`        cd ${tempDir} && git status`);
-            await log('     3. Verify GitHub authentication:');
-            await log('        gh auth status');
-            await log('');
-            throw new Error('PR creation failed');
+            throw new Error(`PR creation failed: ${cleanError}`);
           }
         }
       }
@@ -1452,23 +1427,22 @@ ${prBody}`,
       operation: 'handle_auto_pr',
     });
 
-    // CRITICAL: PR creation failure should stop the entire process
-    // We cannot continue without a PR when auto-PR creation is enabled
+    // Issue #1462: Single consolidated error message for PR creation failure.
+    // Previously this was the third of three error blocks, causing confusing output.
+    // Now this is the ONLY error block shown for PR creation failures.
     await log('');
     await log(formatAligned('❌', 'FATAL ERROR:', 'PR creation failed'), { level: 'error' });
     await log('');
-    await log('  🔍 What this means:');
-    await log('     The solve command cannot continue without a pull request.');
-    await log('     Auto-PR creation is enabled but failed to create the PR.');
-    await log('');
-    await log('  📦 Error details:');
+    await log('  🔍 What happened:');
     await log(`     ${prError.message}`);
+    await log('');
+    await log('  💡 The solve command cannot continue without a pull request.');
     await log('');
     await log('  🔧 How to fix:');
     await log('');
     await log('  Option 1: Retry without auto-PR creation');
     await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
-    await log('     (Claude will create the PR during the session)');
+    await log('     (The AI agent will create the PR during the session)');
     await log('');
     await log('  Option 2: Create PR manually first');
     await log(`     cd ${tempDir}`);
@@ -1482,8 +1456,9 @@ ${prBody}`,
     await log('     gh pr create --draft  # Try manually to see detailed error');
     await log('');
 
-    // Re-throw the error to stop execution
-    throw new Error(`PR creation failed: ${prError.message}`);
+    // Re-throw the error to stop execution - use prError.message directly
+    // to avoid "PR creation failed: PR creation failed" redundancy (Issue #1462)
+    throw prError;
   }
 
   return { prUrl, prNumber: localPrNumber, claudeCommitHash };

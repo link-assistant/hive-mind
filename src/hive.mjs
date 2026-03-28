@@ -95,13 +95,13 @@ if (isDirectExecution) {
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
-    const modelValidation = await import('./model-validation.lib.mjs');
+    const modelValidation = await import('./models/index.mjs');
     const { validateAndExitOnInvalidModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
@@ -152,9 +152,7 @@ if (isDirectExecution) {
         // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
         await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
-        // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
-        // This approach uses the GitHub API directly to fetch all repositories without any limits
-        // Include isArchived field to filter out archived repositories
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
         let repoListCmd;
         if (scope === 'organization') {
           repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
@@ -311,6 +309,9 @@ if (isDirectExecution) {
     // Set global verbose mode
     global.verboseMode = argv.verbose;
 
+    // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+    setupVerboseLogInterceptor();
+
     // Use the universal GitHub URL parser
     if (githubUrl) {
       const parsedUrl = parseGitHubUrl(githubUrl);
@@ -433,8 +434,6 @@ if (isDirectExecution) {
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
 
-    // Unhandled error handlers are now managed by exit-handler.lib.mjs
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -467,18 +466,28 @@ if (isDirectExecution) {
       }
     }
 
-    // Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-    // Model validation is a simple string check and should always be performed
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+    }
+
+    // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
-    // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
 
     if (argv.skipIssuesWithPrs) {
-      // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
           level: 'error',
@@ -489,8 +498,7 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // If user didn't explicitly set auto-continue, disable it when -s is used
-      // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+      // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
@@ -763,14 +771,20 @@ if (isDirectExecution) {
             const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
             // Special handling for options with different semantics in hive vs solve
-            if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
-            else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
+            }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             if (argv.dryRun) args.push('--dry-run');
-            if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default
-
-            // Options already handled above or deprecated aliases (skip in generic loop)
-            const SKIP_AUTO_FORWARD = new Set(['model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+            if (argv.autoCleanup) args.push('--auto-cleanup');
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
 
             for (const optionName of getSolvePassthroughOptionNames()) {
               if (SKIP_AUTO_FORWARD.has(optionName)) continue;
@@ -1420,8 +1434,7 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // Function to validate Claude CLI connection
-    // validateClaudeConnection is now imported from lib.mjs
+    // validateClaudeConnection is imported from lib.mjs
 
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
@@ -1473,8 +1486,7 @@ if (isDirectExecution) {
       await safeExit(1, 'Error occurred');
     }
   } catch (fatalError) {
-    // Handle any errors that occurred during initialization or execution
-    // This prevents silent failures when the script hangs or crashes
+    // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
     console.error(`   ${fatalError.message || fatalError}`);
     if (fatalError.stack) {

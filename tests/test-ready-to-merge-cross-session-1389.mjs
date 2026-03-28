@@ -110,7 +110,7 @@ test('OLD BUG: Session 1 posts "Ready to merge" → Session 3 sees it in history
   // PR comment history after Session 1
   const allPrCommentBodies = [
     '## 🤖 Solution Draft Log\nCost: $0.729114...',
-    '## 🔄 Auto-restart triggered (attempt 1)\n\nReason: CI failures...',
+    '## 🔄 Auto-restart triggered (iteration 1)\n\nReason: CI failures...',
     '## 🔄 Auto-restart-until-mergeable Log (iteration 1)...',
     '## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n...', // ← Session 1 comment
     'Human: "Will it not break queue display?"',

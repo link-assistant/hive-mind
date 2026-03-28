@@ -37,6 +37,7 @@ When the hive-mind solver ran on [link-foundation/meta-theory#22](https://github
 **Root cause**: Claude CLI's inference router emits JSONL entries with `model: "<synthetic>"` in the session data file (`~/.claude/projects/<project>/<session>.jsonl`). These entries have 0 input tokens and 0 output tokens — they represent internal routing/discovery events, not actual model usage.
 
 **Code path**:
+
 1. `calculateSessionTokens()` in `src/claude.lib.mjs` parses EVERY line in the JSONL file
 2. It creates a `modelUsage` entry for `<synthetic>` (with 0 tokens, null cost)
 3. `attachLogToGitHub()` in `src/github.lib.mjs` extracts `actualModelIds` from `modelUsage` keys — including `<synthetic>`
@@ -51,6 +52,7 @@ When the hive-mind solver ran on [link-foundation/meta-theory#22](https://github
 **Finding**: The cost discrepancy is NOT a bug — it's expected behavior showing the difference between public API list prices and actual Anthropic billing.
 
 **Evidence**:
+
 - JSONL session sums (39 turns): `input: 289, cache_creation: 581,659, cache_read: 20,999,543, output: 42,583`
 - Result JSON (Anthropic billing): `input: 39, cache_creation: 89,964, cache_read: 3,172,578, output: 7,567`
 - JSONL values are ~6-7x larger because they sum ALL API calls across all conversation turns
@@ -78,6 +80,7 @@ Session 3 has a much higher difference because it used extensive prompt caching 
 ### After Fix
 
 The PR comment will show:
+
 ```
 ### 🤖 Models used:
 - Tool: Anthropic Claude Code

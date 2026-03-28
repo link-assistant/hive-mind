@@ -41,12 +41,7 @@ const parseModelUsageFromLines = lines => {
 };
 
 // Test data simulating JSONL lines from a Claude session
-const testLines = [
-  JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 100, output_tokens: 50 } } }),
-  JSON.stringify({ message: { model: '<synthetic>', usage: { input_tokens: 0, output_tokens: 0 } } }),
-  JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 200, output_tokens: 75 } } }),
-  JSON.stringify({ message: { model: '<synthetic>', usage: { input_tokens: 0, output_tokens: 0 } } }),
-];
+const testLines = [JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 100, output_tokens: 50 } } }), JSON.stringify({ message: { model: '<synthetic>', usage: { input_tokens: 0, output_tokens: 0 } } }), JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 200, output_tokens: 75 } } }), JSON.stringify({ message: { model: '<synthetic>', usage: { input_tokens: 0, output_tokens: 0 } } })];
 
 const modelUsage = parseModelUsageFromLines(testLines);
 
@@ -60,11 +55,7 @@ console.log('  ✅ Passed');
 // ─── Test 2: Other angle-bracket models also filtered ───
 
 console.log('Test 2: Other angle-bracket internal models filtered');
-const testLines2 = [
-  JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 100, output_tokens: 50 } } }),
-  JSON.stringify({ message: { model: '<internal>', usage: { input_tokens: 0, output_tokens: 0 } } }),
-  JSON.stringify({ message: { model: '<router>', usage: { input_tokens: 5, output_tokens: 3 } } }),
-];
+const testLines2 = [JSON.stringify({ message: { model: 'claude-opus-4-6', usage: { input_tokens: 100, output_tokens: 50 } } }), JSON.stringify({ message: { model: '<internal>', usage: { input_tokens: 0, output_tokens: 0 } } }), JSON.stringify({ message: { model: '<router>', usage: { input_tokens: 5, output_tokens: 3 } } })];
 
 const modelUsage2 = parseModelUsageFromLines(testLines2);
 assert.deepStrictEqual(Object.keys(modelUsage2), ['claude-opus-4-6'], 'Should filter all <...> models');
@@ -80,11 +71,7 @@ const filterModelIds = ids => {
 };
 
 console.log('Test 3: actualModelIds filter removes synthetic models');
-assert.deepStrictEqual(
-  filterModelIds(['claude-opus-4-6', '<synthetic>']),
-  ['claude-opus-4-6'],
-  'Should remove <synthetic> from model IDs',
-);
+assert.deepStrictEqual(filterModelIds(['claude-opus-4-6', '<synthetic>']), ['claude-opus-4-6'], 'Should remove <synthetic> from model IDs');
 console.log('  ✅ Passed');
 
 console.log('Test 4: actualModelIds filter with only synthetic returns null');
@@ -96,11 +83,7 @@ assert.strictEqual(filterModelIds(null), null, 'Should return null for null inpu
 console.log('  ✅ Passed');
 
 console.log('Test 6: actualModelIds filter with no synthetic models passes through');
-assert.deepStrictEqual(
-  filterModelIds(['claude-opus-4-6', 'claude-haiku-4-5-20251001']),
-  ['claude-opus-4-6', 'claude-haiku-4-5-20251001'],
-  'Should keep all real model IDs',
-);
+assert.deepStrictEqual(filterModelIds(['claude-opus-4-6', 'claude-haiku-4-5-20251001']), ['claude-opus-4-6', 'claude-haiku-4-5-20251001'], 'Should keep all real model IDs');
 console.log('  ✅ Passed');
 
 // ─── Test 7: Real-world scenario from issue #1486 ───

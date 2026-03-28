@@ -913,6 +913,9 @@ export const executeClaudeCommand = async params => {
       let firstChunkReceived = false; // Issue #1472/#1475: Track time-to-first-output (stuck CLI detection)
       let startupTimeoutId = null;
       let isStartupTimeout = false; // Issue #1472/#1475: Track startup timeout for retry logic
+      let lastEventTime = null; // Issue #1472: Track time of last event for activity monitoring
+      let activityTimeoutId = null; // Issue #1472: Activity timeout for mid-session hangs
+      let isActivityTimeout = false; // Issue #1472: Flag when activity timeout triggers
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -945,6 +948,21 @@ export const executeClaudeCommand = async params => {
         }, timeouts.streamStartupMs);
         startupTimeoutId.unref();
       }
+      // Issue #1472: Helper to reset activity timeout on each stdout chunk
+      const resetActivityTimeout = () => {
+        if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
+          if (activityTimeoutId) clearTimeout(activityTimeoutId);
+          activityTimeoutId = setTimeout(async () => {
+            if (!forceExitTriggered && !resultEventReceived) {
+              isActivityTimeout = true;
+              const idleSeconds = lastEventTime ? Math.round((Date.now() - lastEventTime) / 1000) : 'unknown';
+              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}s) — force-killing (Issue #1472)`, { level: 'warning' });
+              await forceExitOnTimeout();
+            }
+          }, timeouts.streamActivityMs);
+          activityTimeoutId.unref();
+        }
+      };
       for await (const chunk of execCommand.stream()) {
         if (forceExitTriggered) break;
         if (!firstChunkReceived) {
@@ -957,6 +975,7 @@ export const executeClaudeCommand = async params => {
         }
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
+          resetActivityTimeout(); // Issue #1472: Reset activity timeout on each stdout chunk
           // Append to buffer and split; keep last element (may be incomplete) for next chunk
           stdoutLineBuffer += output;
           const lines = stdoutLineBuffer.split('\n');
@@ -972,6 +991,7 @@ export const executeClaudeCommand = async params => {
                   interactiveHandler._firstEventLogged = true;
                   await log(`🔌 Interactive mode: First event received (type: ${data.type || 'unknown'}) — stream is active`, { verbose: true });
                 }
+                lastEventTime = Date.now();
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
@@ -1150,12 +1170,21 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      // Issue #1472: Also forward remaining buffer events to interactive handler
       if (stdoutLineBuffer.trim()) {
         try {
           const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
           await log(JSON.stringify(data, null, 2));
           if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;
+          }
+          // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
+          if (interactiveHandler) {
+            try {
+              await interactiveHandler.processEvent(data);
+            } catch (interactiveError) {
+              await log(`⚠️ Interactive mode error (remaining buffer): ${interactiveError.message}`, { verbose: true });
+            }
           }
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
@@ -1165,6 +1194,10 @@ export const executeClaudeCommand = async params => {
         clearTimeout(startupTimeoutId);
         startupTimeoutId = null;
       } // Issue #1472/#1475
+      if (activityTimeoutId) {
+        clearTimeout(activityTimeoutId);
+        activityTimeoutId = null;
+      } // Issue #1472: Clean up activity timeout
       if (resultTimeoutId) {
         clearTimeout(resultTimeoutId); // Issue #1280
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
@@ -1181,7 +1214,7 @@ export const executeClaudeCommand = async params => {
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
       }
-      // Issue #1472: Flush remaining queued comments and warn on zero events
+      // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
       if (interactiveHandler) {
         if (!interactiveHandler._firstEventLogged) {
           await log('⚠️ Interactive mode: No events received from Claude CLI — zero comments posted (Issue #1472)', { level: 'warning' });
@@ -1191,15 +1224,24 @@ export const executeClaudeCommand = async params => {
         } catch (flushError) {
           await log(`⚠️ Interactive mode flush error: ${flushError.message}`, { verbose: true });
         }
+        // Issue #1472: Diagnostic summary — log event counts and handler state for debugging
+        const handlerState = interactiveHandler.getState();
+        const durationMs = Date.now() - handlerState.startTime;
+        const durationMin = (durationMs / 60000).toFixed(1);
+        await log(`🔌 Interactive mode summary: ${handlerState.eventsProcessed} events processed, ${handlerState.commentsAttempted} comments attempted, ${handlerState.commentsPosted} posted, ${handlerState.commentsFailed} failed, ${handlerState.editsAttempted} edits attempted, ${handlerState.editsSucceeded} succeeded, ${handlerState.editsFailed} failed, ${handlerState.commentQueue.length} still queued, duration ${durationMin}m`);
+        if (handlerState.eventsProcessed > 0 && handlerState.commentsPosted === 0) {
+          await log(`⚠️ Interactive mode: Events were received (${handlerState.eventsProcessed}) but zero comments were posted — check GitHub API connectivity and PR access (${handlerState.commentsFailed} failures)`, { level: 'warning' });
+        }
       }
 
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
-      const isTransientError = isStartupTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
+      const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
-        // Issue #1472/#1475: Startup timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
-        const maxRetries = isStartupTimeout ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-        const initialDelay = isStartupTimeout ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
-        const maxDelay = isStartupTimeout ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
+        const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
+        const maxRetries = isTimeoutRetry ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         // Issue #1437: Fail fast when API signals x-should-retry: false AND session made no progress
         const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
         if (isStuckRetry) {
@@ -1221,12 +1263,14 @@ export const executeClaudeCommand = async params => {
         }
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${isStartupTimeout ? ' (fresh start)' : ' (session preserved)'}${notRetryableHint}...`, { level: 'warning' });
-          await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : lastMessage.substring(0, 200)}`, { verbose: true });
-          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume (skip for startup timeout — no session to resume)
+          const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
+          await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
+          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;

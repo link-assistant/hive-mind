@@ -270,6 +270,14 @@ export const createInteractiveHandler = options => {
     // Track active agent tasks for progress update deduplication
     // Map of task_id -> { commentId, toolUseId, description, commentIdPromise, resolveCommentId }
     pendingTasks: new Map(),
+    // Issue #1472: Diagnostic counters for tracking comment posting success/failure
+    eventsProcessed: 0,
+    commentsAttempted: 0,
+    commentsPosted: 0,
+    commentsFailed: 0,
+    editsAttempted: 0,
+    editsSucceeded: 0,
+    editsFailed: 0,
   };
 
   /**
@@ -299,6 +307,7 @@ export const createInteractiveHandler = options => {
       return null;
     }
 
+    state.commentsAttempted++;
     try {
       // Post comment via gh api with stdin to avoid shell quoting issues
       // with complex markdown bodies containing backticks, quotes, etc.
@@ -310,6 +319,7 @@ export const createInteractiveHandler = options => {
         maxBuffer: 10 * 1024 * 1024, // 10MB
       });
       state.lastCommentTime = Date.now();
+      state.commentsPosted++;
 
       // Extract comment ID from the API response JSON
       let commentId = null;
@@ -327,9 +337,9 @@ export const createInteractiveHandler = options => {
       }
       return commentId;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`, { verbose: true });
-      }
+      state.commentsFailed++;
+      // Issue #1472: Always log comment failures (not just verbose) — silent failures cause zero-comment bugs
+      await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`);
       return null;
     }
   };
@@ -349,6 +359,7 @@ export const createInteractiveHandler = options => {
       return false;
     }
 
+    state.editsAttempted++;
     try {
       // Edit comment via gh api with stdin to avoid shell quoting issues
       // with complex markdown bodies containing backticks, quotes, etc.
@@ -359,14 +370,14 @@ export const createInteractiveHandler = options => {
         input: jsonPayload,
         maxBuffer: 10 * 1024 * 1024, // 10MB
       });
+      state.editsSucceeded++;
       if (verbose) {
         await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${body.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
       }
       return true;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`, { verbose: true });
-      }
+      state.editsFailed++;
+      await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`);
       return false;
     }
   };
@@ -1135,6 +1146,7 @@ ${createRawJsonSection(data)}`;
     if (!data || typeof data !== 'object') {
       return;
     }
+    state.eventsProcessed++;
 
     // Handle events without type as unrecognized
     if (!data.type) {

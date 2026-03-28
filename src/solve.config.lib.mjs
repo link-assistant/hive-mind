@@ -369,6 +369,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically initialize empty repositories by creating a simple README.md file. Only works when you have write access to the repository. This allows branch creation and pull request workflows to proceed on repositories that have no commits.',
     default: false,
   },
+  'auto-report-issue': {
+    type: 'boolean',
+    description: 'Automatically create a GitHub issue on failure without prompting (non-interactive mode). The issue includes error details, logs, and case study analysis instructions. Sets issue type and label to bug.',
+    default: false,
+  },
+  'disable-report-issue': {
+    type: 'boolean',
+    description: 'Disable error issue creation entirely (no prompt, no automatic creation). Overrides --auto-report-issue if both are specified.',
+    default: false,
+  },
   'attach-solution-summary': {
     type: 'boolean',
     description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',

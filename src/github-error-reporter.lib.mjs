@@ -149,7 +149,7 @@ export const formatLogForIssue = async (logContent, logFilePath) => {
  * @returns {Promise<string|null>} Issue URL or null on failure
  */
 export const createIssueForError = async options => {
-  const { error, errorType, logFile, context = {} } = options;
+  const { error, errorType, logFile, context = {}, autoReport = false } = options;
 
   try {
     const currentUser = await getCurrentGitHubUser();
@@ -159,7 +159,20 @@ export const createIssueForError = async options => {
     }
 
     const errorMessage = cleanErrorMessage(error);
-    const shouldCreateIssue = await promptUserForIssueCreation(errorMessage);
+
+    let shouldCreateIssue;
+    if (autoReport) {
+      // Auto-report mode: skip prompt, automatically create issue
+      console.log('\n❌ An error occurred:');
+      console.log(`   ${errorMessage}`);
+      if (isSentryEnabled()) {
+        console.log('\n✅ Error reported to Sentry successfully');
+      }
+      console.log('\nℹ️  --auto-report-issue enabled: automatically creating GitHub issue...');
+      shouldCreateIssue = true;
+    } else {
+      shouldCreateIssue = await promptUserForIssueCreation(errorMessage);
+    }
 
     if (!shouldCreateIssue) {
       await log('ℹ️  Issue creation cancelled by user');
@@ -197,6 +210,20 @@ export const createIssueForError = async options => {
         });
         issueBody += `### Log File\n\nCould not read log file: ${logFile}\n\n`;
       }
+    }
+
+    if (autoReport) {
+      issueBody += '### Instructions\n\n';
+      issueBody += 'We need to download all logs and data related about the issue to this repository, ';
+      issueBody += 'make sure we compile that data to `./docs/case-studies/issue-{id}` folder, ';
+      issueBody += 'and use it to do deep case study analysis (also make sure to search online for additional facts and data), ';
+      issueBody += 'in which we will reconstruct timeline/sequence of events, find root causes of the problem, ';
+      issueBody += 'and propose possible solutions (including known existing components/libraries, ';
+      issueBody += 'that solve similar problem or can help in solutions).\n\n';
+      issueBody += 'If there is not enough data to find actual root cause, add debug output and verbose mode if not present, ';
+      issueBody += 'that will allow us to find root cause on next iteration.\n\n';
+      issueBody += 'If issue related to any other repository/project, where we can report issues on GitHub, please do so. ';
+      issueBody += 'Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\n';
     }
 
     issueBody += '---\n';
@@ -239,7 +266,24 @@ export const createIssueForError = async options => {
  * @returns {Promise<string|null>} Issue URL if created, null otherwise
  */
 export const handleErrorWithIssueCreation = async options => {
-  const { error, errorType, logFile, context = {}, skipPrompt = false } = options;
+  const { error, errorType, logFile, context = {}, skipPrompt = false, autoReport = false, disableReport = false } = options;
+
+  // --disable-report-issue takes highest precedence
+  if (disableReport) {
+    await log('ℹ️  Issue reporting disabled via --disable-report-issue.');
+    return null;
+  }
+
+  // --auto-report-issue: create issue automatically without prompting
+  if (autoReport) {
+    return await createIssueForError({
+      error,
+      errorType,
+      logFile: logFile || (await getAbsoluteLogPath()),
+      context,
+      autoReport: true,
+    });
+  }
 
   if (skipPrompt) {
     return null;

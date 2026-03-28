@@ -30,6 +30,8 @@ export const handleFailure = async options => {
         errorType,
       },
       skipPrompt: !process.stdin.isTTY || argv.noIssueCreation,
+      autoReport: argv.autoReportIssue,
+      disableReport: argv.disableReportIssue,
     });
   } catch (issueError) {
     reportError(issueError, {

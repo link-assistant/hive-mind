@@ -470,12 +470,9 @@ if (isDirectExecution) {
       }
     }
 
-    // Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-    // Model validation is a simple string check and should always be performed
+    // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
-
-    // Validate --plan-model if provided (Issue #1223)
     if (argv.planModel) {
       if (tool !== 'claude') {
         await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
@@ -485,12 +482,10 @@ if (isDirectExecution) {
     }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
-    // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
 
     if (argv.skipIssuesWithPrs) {
-      // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
           level: 'error',
@@ -501,8 +496,7 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // If user didn't explicitly set auto-continue, disable it when -s is used
-      // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+      // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
@@ -787,9 +781,7 @@ if (isDirectExecution) {
             }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             if (argv.dryRun) args.push('--dry-run');
-            if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default
-
-            // Options already handled above or deprecated aliases (skip in generic loop)
+            if (argv.autoCleanup) args.push('--auto-cleanup');
             const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
 
             for (const optionName of getSolvePassthroughOptionNames()) {

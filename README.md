@@ -859,6 +859,12 @@ ps axjf
 pkill -f gh-issue-solver-1773073065743
 ```
 
+### Kill all headless browsers spawned by ms-playwright
+
+```bash
+pkill -f ms-playwright/chromium_headless_shell-1200
+```
+
 That can be done, but not recommended as reboot have better effect.
 
 ## 📄 License

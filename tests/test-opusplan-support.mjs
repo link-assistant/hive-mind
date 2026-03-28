@@ -313,6 +313,44 @@ test('Any valid Claude model can be used as execution/worker model', () => {
 });
 
 // ============================================================
+// Section 13: --plan Flag Tests
+// ============================================================
+console.log('\n=== 13. --plan Flag Tests ===');
+
+test('SOLVE_OPTION_DEFINITIONS includes plan option', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  assert('plan' in SOLVE_OPTION_DEFINITIONS, 'SOLVE_OPTION_DEFINITIONS should include plan');
+  assert.strictEqual(SOLVE_OPTION_DEFINITIONS['plan'].type, 'boolean', 'plan should be a boolean option');
+  assert.strictEqual(SOLVE_OPTION_DEFINITIONS['plan'].default, false, 'plan should default to false');
+});
+
+test('--plan flag description mentions opus and sonnet defaults', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  const desc = SOLVE_OPTION_DEFINITIONS['plan'].description;
+  assert(desc.includes('opus'), 'plan description should mention opus');
+  assert(desc.includes('sonnet'), 'plan description should mention sonnet');
+});
+
+test('--plan flag description mentions --tool claude restriction', async () => {
+  const { SOLVE_OPTION_DEFINITIONS } = await import('../src/solve.config.lib.mjs');
+  const desc = SOLVE_OPTION_DEFINITIONS['plan'].description;
+  assert(desc.includes('claude'), 'plan description should mention claude tool restriction');
+});
+
+test('getClaudeEnv works correctly with --plan defaults (opus plan, sonnet execution)', () => {
+  // Simulate the env that would be created when --plan expands to
+  // --plan-model opus --model sonnet (mapped to model IDs by claude.lib.mjs)
+  const env = getClaudeEnv({
+    model: 'opusplan',
+    planModel: 'claude-opus-4-6',
+    executionModel: 'claude-sonnet-4-6',
+  });
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, 'claude-opus-4-6', 'Plan model should be opus');
+  assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, 'claude-sonnet-4-6', 'Execution model should be sonnet');
+  assert.strictEqual(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '128000', 'opusplan should get 128K max output tokens');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 console.log('\n' + '='.repeat(50));

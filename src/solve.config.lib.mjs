@@ -284,6 +284,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     choices: ['claude', 'opencode', 'codex', 'agent'],
     default: 'claude',
   },
+  plan: {
+    type: 'boolean',
+    description: 'Enable plan mode: uses opus for planning, sonnet for execution (shortcut for --plan-model opus --worker-model sonnet). Only works with --tool claude.',
+    default: false,
+  },
   'plan-model': {
     type: 'string',
     description: 'Model to use for plan mode (e.g., opus). When specified, auto-switches to opusplan mode and sets ANTHROPIC_DEFAULT_OPUS_MODEL. Use with --model/--worker-model to set separate plan and execution models (e.g., --plan-model opus --model sonnet). Only works with --tool claude.',
@@ -559,7 +564,20 @@ export const parseArguments = async (yargs, hideBin) => {
   // Post-processing: Fix model default for opencode and codex tools
   // Yargs doesn't properly handle dynamic defaults based on other arguments,
   // so we need to handle this manually after parsing
-  const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m');
+  const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+  const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
+
+  // --plan flag expansion (Issue #1223)
+  // When --plan is set, it acts as a shortcut for --plan-model opus --worker-model sonnet
+  // Explicit --plan-model and --model/--worker-model values take precedence
+  if (argv && argv.plan) {
+    if (!planModelExplicitlyProvided) {
+      argv.planModel = 'opus';
+    }
+    if (!modelExplicitlyProvided) {
+      argv.model = 'sonnet';
+    }
+  }
 
   // Normalize alias flags: legacy --skip-tool-check and --skip-claude-check behave like --skip-tool-connection-check
   if (argv) {

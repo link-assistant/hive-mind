@@ -152,9 +152,7 @@ if (isDirectExecution) {
         // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
         await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
-        // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
-        // This approach uses the GitHub API directly to fetch all repositories without any limits
-        // Include isArchived field to filter out archived repositories
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
         let repoListCmd;
         if (scope === 'organization') {
           repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
@@ -436,8 +434,6 @@ if (isDirectExecution) {
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
 
-    // Unhandled error handlers are now managed by exit-handler.lib.mjs
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -468,6 +464,12 @@ if (isDirectExecution) {
         await log('❌ Project number must be a positive integer', { level: 'error' });
         await safeExit(1, 'Error occurred');
       }
+    }
+
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
     }
 
     // Validate model names EARLY (simple string check, always runs)
@@ -1432,8 +1434,7 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // Function to validate Claude CLI connection
-    // validateClaudeConnection is now imported from lib.mjs
+    // validateClaudeConnection is imported from lib.mjs
 
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
@@ -1485,8 +1486,7 @@ if (isDirectExecution) {
       await safeExit(1, 'Error occurred');
     }
   } catch (fatalError) {
-    // Handle any errors that occurred during initialization or execution
-    // This prevents silent failures when the script hangs or crashes
+    // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
     console.error(`   ${fatalError.message || fatalError}`);
     if (fatalError.stack) {

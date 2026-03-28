@@ -351,6 +351,51 @@ test('getClaudeEnv works correctly with --plan defaults (opus plan, sonnet execu
 });
 
 // ============================================================
+// Section 14: Runtime Verification Logic Tests
+// ============================================================
+console.log('\n=== 14. Runtime Verification Logic Tests ===');
+
+// These tests verify the conditions that trigger the opusplan warning
+// in executeClaudeCommand() when Claude CLI's init event reports an unexpected model
+
+test('opusplan verification: sonnet model triggers warning condition', () => {
+  // Simulates what happens when Claude CLI reports sonnet instead of opus
+  const effectiveModel = 'opusplan';
+  const reportedModel = 'claude-sonnet-4-6';
+  const shouldWarn = effectiveModel === 'opusplan' && (reportedModel.includes('sonnet') || !reportedModel.includes('opus'));
+  assert.strictEqual(shouldWarn, true, 'Should trigger warning when Claude reports sonnet for opusplan');
+});
+
+test('opusplan verification: opus model does NOT trigger warning', () => {
+  const effectiveModel = 'opusplan';
+  const reportedModel = 'claude-opus-4-6';
+  const shouldWarn = effectiveModel === 'opusplan' && (reportedModel.includes('sonnet') || !reportedModel.includes('opus'));
+  assert.strictEqual(shouldWarn, false, 'Should NOT warn when Claude reports opus for opusplan');
+});
+
+test('opusplan verification: haiku model triggers warning condition', () => {
+  // Edge case: if CLI somehow resolves to haiku
+  const effectiveModel = 'opusplan';
+  const reportedModel = 'claude-haiku-4-5-20251001';
+  const shouldWarn = effectiveModel === 'opusplan' && (reportedModel.includes('sonnet') || !reportedModel.includes('opus'));
+  assert.strictEqual(shouldWarn, true, 'Should trigger warning when Claude reports haiku for opusplan');
+});
+
+test('non-opusplan model does NOT trigger verification', () => {
+  const effectiveModel = 'claude-sonnet-4-6';
+  const reportedModel = 'claude-sonnet-4-6';
+  const shouldWarn = effectiveModel === 'opusplan' && (reportedModel.includes('sonnet') || !reportedModel.includes('opus'));
+  assert.strictEqual(shouldWarn, false, 'Should NOT check verification for non-opusplan models');
+});
+
+test('opusplan verification: opus-4-5 model does NOT trigger warning', () => {
+  const effectiveModel = 'opusplan';
+  const reportedModel = 'claude-opus-4-5-20251101';
+  const shouldWarn = effectiveModel === 'opusplan' && (reportedModel.includes('sonnet') || !reportedModel.includes('opus'));
+  assert.strictEqual(shouldWarn, false, 'Should NOT warn when Claude reports any opus model for opusplan');
+});
+
+// ============================================================
 // Summary
 // ============================================================
 console.log('\n' + '='.repeat(50));

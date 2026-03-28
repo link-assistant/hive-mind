@@ -6,7 +6,6 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-// Import log from general lib
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
@@ -16,9 +15,8 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
-import { CLAUDE_MODELS as availableModels } from './model-validation.lib.mjs'; // Issue #1221
+import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
 export { availableModels }; // Re-export for backward compatibility
-// Helper to display resume command at end of session
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
   const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
@@ -48,10 +46,9 @@ export const mapModelToId = model => {
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
-export const validateClaudeConnection = async (model = 'haiku-3') => {
+export const validateClaudeConnection = async (model = 'haiku') => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  // Retry configuration for API overload errors
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
   let retryCount = 0;
@@ -62,13 +59,11 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
       } else {
         await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Claude CLI validation...`);
       }
-      // First try a quick validation approach
       try {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
-          // Store the version for thinking settings translation (issue #1146)
-          detectedClaudeVersion = version;
+          detectedClaudeVersion = version; // issue #1146
           if (retryCount === 0) {
             await log(`📦 Claude CLI version: ${version}`);
           }
@@ -84,7 +79,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         // Primary validation: use printf piping with specified model
         result = await $`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
-        // If piping fails, fallback to the timeout approach as last resort
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
           result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p hi`;
@@ -99,17 +93,13 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             });
             return false;
           }
-          // Re-throw if it's not a timeout error
           throw timeoutError;
         }
       }
-      // Check for common error patterns
       const stdout = result.stdout?.toString() || '';
       const stderr = result.stderr?.toString() || '';
-      // Check for JSON errors in stdout or stderr
       const checkForJsonError = text => {
         try {
-          // Look for JSON error patterns
           if (text.includes('"error"') && text.includes('"type"')) {
             const jsonMatch = text.match(/\{.*"error".*\}/);
             if (jsonMatch) {
@@ -118,7 +108,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             }
           }
         } catch (e) {
-          // Not valid JSON, continue with other checks
           if (global.verboseMode) {
             reportError(e, {
               context: 'claude_json_error_parse',
@@ -149,10 +138,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
           return false;
         }
       }
-      // Use exitCode if code is undefined (Bun shell behavior)
-      const exitCode = result.code ?? result.exitCode ?? 0;
+      const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
-        // Command failed
         if (jsonError) {
           await log(`❌ Claude CLI authentication failed: ${jsonError.type} - ${jsonError.message}`, {
             level: 'error',
@@ -166,7 +153,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Check for error patterns in successful response
       if (jsonError) {
         if ((jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded') {
           if (retryCount < maxRetries) {
@@ -188,7 +174,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Success - Claude responded (LLM responses are probabilistic, so any response is good)
       await log('✅ Claude CLI connection validated successfully');
       return true;
     } catch (error) {
@@ -839,16 +824,16 @@ export const executeClaudeCommand = async params => {
     let lastMessage = '';
     let isOverloadError = false;
     let is503Error = false;
-    let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
-    let isRequestTimeout = false; // Issue #1353: Track "Request timed out" from Claude CLI
-    let apiMarkedNotRetryable = false; // Issue #1437: Track when API explicitly signals x-should-retry: false
-    let resultNumTurns = 0; // Issue #1437: Track num_turns from result event to detect stuck retries
+    let isInternalServerError = false;
+    let isRequestTimeout = false;
+    let apiMarkedNotRetryable = false;
+    let resultNumTurns = 0;
     let stderrErrors = [];
-    let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
-    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
-    let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
-    let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
-    let resultModelUsage = null; // Issue #1454
+    let resultSuccessReceived = false;
+    let anthropicTotalCostUSD = null;
+    let errorDuringExecution = false;
+    let resultSummary = null;
+    let resultModelUsage = null;
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -872,40 +857,25 @@ export const executeClaudeCommand = async params => {
     await log(`${fullCommand}`);
     await log('');
     if (argv.verbose) {
-      await log('📋 User prompt:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('📋 System prompt:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
+      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${prompt}\n---END USER PROMPT---`, { verbose: true });
+      await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
     }
     try {
-      // Resolve thinking settings (see issue #1146)
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (#1076), MAX_THINKING_TOKENS (#1146), MCP timeout (#1066),
-      // CLAUDE_CODE_EFFORT_LEVEL (#1238), model/thinkLevel/maxBudget for effort conversion (#1221, #1238)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
-      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode for detailed API request diagnostics.
-      if (argv.verbose) {
-        claudeEnv.ANTHROPIC_LOG = 'debug';
-      }
+      if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
-      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
-      if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
-      if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
-      if (argv.verbose) await log(`📊 ANTHROPIC_LOG: debug (verbose mode)`, { verbose: true });
-      if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
-      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
-      if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      if (argv.verbose) {
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+        if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      }
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
@@ -917,50 +887,78 @@ export const executeClaudeCommand = async params => {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
-      // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
-      // Issue #1183: Line buffer for NDJSON stream parsing - accumulate incomplete lines across chunks
-      // Long JSON messages (e.g., result with total_cost_usd) may be split across multiple stdout chunks
       let stdoutLineBuffer = '';
-      // Issue #1280: Track result event and timeout for hung processes.
-      // command-stream's stream() waits for BOTH process exit AND stdout pipe close; if stdout stays open
-      // the stream hangs. Workaround: force-kill after result event. See command-stream/issues/155
       let resultEventReceived = false;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
+      let firstChunkReceived = false;
+      let startupTimeoutId = null;
+      let isStartupTimeout = false;
+      let lastEventTime = null;
+      let activityTimeoutId = null;
+      let isActivityTimeout = false;
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
-        const elapsed = `${streamCloseTimeoutMs / 1000}s`;
-        await log(`⚠️ Stream didn't close ${elapsed} after result event, forcing exit (Issue #1280)`, { verbose: true });
-        await log(`   command-stream stream() is likely stuck waiting for pipe close`, { verbose: true });
+        await log(`⚠️ Stream timeout — forcing exit (Issue #1280)`, { verbose: true });
         try {
           if (execCommand.kill) {
-            await log(`   Sending SIGTERM to process...`, { verbose: true });
             execCommand.kill('SIGTERM');
-            // Issue #1346: Capture timer handle so it can be cleared after use to avoid
-            // leaking an active event loop reference when the process exits before 2s
-            const sigkillTimerId = setTimeout(() => {
+            // Issue #1346: Follow up with SIGKILL after 2s if still alive
+            const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) {
-                  log(`   Process still alive after 2s, sending SIGKILL`, { verbose: true });
-                  execCommand.kill('SIGKILL');
-                }
+                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
               } catch {
-                /* process may have exited */
+                /* exited */
               }
             }, 2000);
-            sigkillTimerId.unref();
+            t.unref();
           }
         } catch (e) {
           await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
         }
       };
+      // Issue #1472/#1475: Startup timeout — force-kill if no output within streamStartupMs
+      if (timeouts.streamStartupMs > 0) {
+        startupTimeoutId = setTimeout(async () => {
+          if (!firstChunkReceived && !forceExitTriggered) {
+            isStartupTimeout = true; // Issue #1472/#1475: Flag for retry logic
+            await log(`\n⚠️ No output from Claude CLI after ${timeouts.streamStartupMs / 1000}s — force-killing (Issue #1472/#1475)`, { level: 'warning' });
+            await forceExitOnTimeout();
+          }
+        }, timeouts.streamStartupMs);
+        startupTimeoutId.unref();
+      }
+      // Issue #1472: Helper to reset activity timeout on each stdout chunk
+      const resetActivityTimeout = () => {
+        if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
+          if (activityTimeoutId) clearTimeout(activityTimeoutId);
+          activityTimeoutId = setTimeout(async () => {
+            if (!forceExitTriggered && !resultEventReceived) {
+              isActivityTimeout = true;
+              const idleSeconds = lastEventTime ? Math.round((Date.now() - lastEventTime) / 1000) : 'unknown';
+              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}s) — force-killing (Issue #1472)`, { level: 'warning' });
+              await forceExitOnTimeout();
+            }
+          }, timeouts.streamActivityMs);
+          activityTimeoutId.unref();
+        }
+      };
       for await (const chunk of execCommand.stream()) {
         if (forceExitTriggered) break;
+        if (!firstChunkReceived) {
+          // Issue #1472/#1475: Clear startup timeout on first output
+          firstChunkReceived = true;
+          if (startupTimeoutId) {
+            clearTimeout(startupTimeoutId);
+            startupTimeoutId = null;
+          }
+        }
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
+          resetActivityTimeout(); // Issue #1472: Reset activity timeout on each stdout chunk
           // Append to buffer and split; keep last element (may be incomplete) for next chunk
           stdoutLineBuffer += output;
           const lines = stdoutLineBuffer.split('\n');
@@ -970,8 +968,12 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
-              // Process event in interactive mode
               if (interactiveHandler) {
+                if (!interactiveHandler._firstEventLogged) {
+                  interactiveHandler._firstEventLogged = true;
+                  await log(`🔌 Interactive mode: First event received (type: ${data.type || 'unknown'}) — stream is active`, { verbose: true });
+                }
+                lastEventTime = Date.now();
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
@@ -979,7 +981,6 @@ export const executeClaudeCommand = async params => {
                 }
               }
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID and rename log file
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
@@ -995,24 +996,15 @@ export const executeClaudeCommand = async params => {
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              if (data.type === 'message') {
-                messageCount++;
-              } else if (data.type === 'tool_use') {
-                toolUseCount++;
-              }
-              // Handle session result type from Claude CLI (emitted when session completes)
+              if (data.type === 'message') messageCount++;
+              else if (data.type === 'tool_use') toolUseCount++;
               if (data.type === 'result') {
-                // Issue #1280: Start 30s timeout for stream close after result event
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
                 }
-                // Issue #1354: Track when result event confirms success (prevents false positive detection)
-                if (data.subtype === 'success') {
-                  resultSuccessReceived = true;
-                }
-                // Issue #1104: Only extract cost from subtype 'success' results
+                if (data.subtype === 'success') resultSuccessReceived = true;
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
@@ -1024,7 +1016,6 @@ export const executeClaudeCommand = async params => {
                   resultSummary = data.result;
                   await log('📝 Captured result summary from Claude output', { verbose: true });
                 }
-                // Issue #1437: Capture num_turns to detect stuck retries (degrading turn count signals non-recovery)
                 if (data.num_turns !== undefined) {
                   resultNumTurns = data.num_turns;
                   await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
@@ -1033,7 +1024,6 @@ export const executeClaudeCommand = async params => {
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
-                  // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
                     await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
@@ -1055,16 +1045,11 @@ export const executeClaudeCommand = async params => {
                   }
                 }
               }
-              // Store last message for error detection
-              if (data.type === 'text' && data.text) {
-                lastMessage = data.text;
-              } else if (data.type === 'error') {
+              if (data.type === 'text' && data.text) lastMessage = data.text;
+              else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
-                if (lastMessage.includes('Internal server error')) {
-                  isInternalServerError = true;
-                }
+                if (lastMessage.includes('Internal server error')) isInternalServerError = true;
               }
-              // Check for API overload error and 503 errors
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
                 for (const item of content) {
@@ -1121,23 +1106,15 @@ export const executeClaudeCommand = async params => {
         }
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
-          // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Issue #1437: Detect x-should-retry: false in ANTHROPIC_LOG=debug output — signals
-            // a non-transient error; fail fast instead of blindly retrying.
-            if (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"')) {
-              if (!apiMarkedNotRetryable) {
-                apiMarkedNotRetryable = true;
-                await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
-              }
+            // Issue #1437: Detect x-should-retry: false — non-transient error, fail fast
+            if (!apiMarkedNotRetryable && (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"'))) {
+              apiMarkedNotRetryable = true;
+              await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
             }
-            // Issue #1354: Split multi-line chunks — a chunk may contain multiple JSON messages;
-            // passing the whole chunk to isStderrError() causes JSON.parse() to fail.
             for (const line of errorOutput.split('\n')) {
-              if (isStderrError(line)) {
-                stderrErrors.push(line.trim());
-              }
+              if (isStderrError(line)) stderrErrors.push(line.trim());
             }
           }
         } else if (chunk.type === 'exit') {
@@ -1150,6 +1127,7 @@ export const executeClaudeCommand = async params => {
       }
 
       // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      // Issue #1472: Also forward remaining buffer events to interactive handler
       if (stdoutLineBuffer.trim()) {
         try {
           const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
@@ -1157,20 +1135,30 @@ export const executeClaudeCommand = async params => {
           if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
             anthropicTotalCostUSD = data.total_cost_usd;
           }
+          // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
+          if (interactiveHandler) {
+            try {
+              await interactiveHandler.processEvent(data);
+            } catch (interactiveError) {
+              await log(`⚠️ Interactive mode error (remaining buffer): ${interactiveError.message}`, { verbose: true });
+            }
+          }
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }
       }
-      // Issue #1280: Clear the stream close timeout since we exited the loop
-      if (resultTimeoutId) {
-        clearTimeout(resultTimeoutId);
-        if (forceExitTriggered) {
-          await log('⚠️ Stream exited via force-kill timeout (Issue #1280)', { verbose: true });
-        } else {
-          await log('✅ Stream closed normally after result event', { verbose: true });
-        }
+      if (startupTimeoutId) {
+        clearTimeout(startupTimeoutId);
+        startupTimeoutId = null;
       }
-      // Issue #1165: Check actual exit code from command result (stream() may not emit 'exit' chunks)
+      if (activityTimeoutId) {
+        clearTimeout(activityTimeoutId);
+        activityTimeoutId = null;
+      }
+      if (resultTimeoutId) {
+        clearTimeout(resultTimeoutId); // Issue #1280
+        await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
+      }
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;
         if (exitCode === 0 && resultExitCode !== 0) {
@@ -1183,25 +1171,34 @@ export const executeClaudeCommand = async params => {
           await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
         }
       }
-      // Flush any remaining queued comments from interactive mode
+      // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
       if (interactiveHandler) {
+        if (!interactiveHandler._firstEventLogged) {
+          await log('⚠️ Interactive mode: No events received from Claude CLI — zero comments posted (Issue #1472)', { level: 'warning' });
+        }
         try {
           await interactiveHandler.flush();
         } catch (flushError) {
           await log(`⚠️ Interactive mode flush error: ${flushError.message}`, { verbose: true });
         }
+        const handlerState = interactiveHandler.getState();
+        const durationMin = ((Date.now() - handlerState.startTime) / 60000).toFixed(1);
+        const { eventsProcessed: ep, commentsAttempted: ca, commentsPosted: cp, commentsFailed: cf, editsAttempted: ea, editsSucceeded: es, editsFailed: ef, commentQueue: cq } = handlerState;
+        await log(`🔌 Interactive mode summary: ${ep} events processed, ${ca} comments attempted, ${cp} posted, ${cf} failed, ${ea} edits attempted, ${es} succeeded, ${ef} failed, ${cq.length} still queued, duration ${durationMin}m`);
+        if (handlerState.eventsProcessed > 0 && handlerState.commentsPosted === 0) {
+          await log(`⚠️ Interactive mode: Events were received (${handlerState.eventsProcessed}) but zero comments were posted — check GitHub API connectivity and PR access (${handlerState.commentsFailed} failures)`, { level: 'warning' });
+        }
       }
 
-      // Issues #1331, #1353: Unified handler for transient API errors (Overloaded, 503, Internal Server Error,
-      // Request timed out). All use exponential backoff with session preservation via --resume.
-      const isTransientError = isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
+      // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
+      const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
       if ((commandFailed || isTransientError) && isTransientError) {
-        // Issue #1353: Timeouts use longer backoff (5min–1hr) vs general transient (2min–30min)
-        const maxRetries = isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-        const initialDelay = isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
-        const maxDelay = isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
+        const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
+        const maxRetries = isTimeoutRetry ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         // Issue #1437: Fail fast when API signals x-should-retry: false AND session made no progress
-        // (num_turns <= 1). Allow maxNotRetryableAttempts before giving up (signal can be wrong sometimes).
         const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
         if (isStuckRetry) {
           await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
@@ -1222,11 +1219,14 @@ export const executeClaudeCommand = async params => {
         }
         if (retryCount < maxRetries) {
           const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)${notRetryableHint}...`, { level: 'warning' });
-          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          if (sessionId && !argv.resume) argv.resume = sessionId; // preserve session for resume
+          const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+          const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
+          await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
+          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;

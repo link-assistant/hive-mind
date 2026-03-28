@@ -5,7 +5,7 @@
 import assert from 'assert';
 
 // Import the model validation module
-const { AGENT_MODELS, validateModelName, getAvailableModelNames } = await import('../src/model-validation.lib.mjs');
+const { AGENT_MODELS, validateModelName, getAvailableModelNames } = await import('../src/models/index.mjs');
 const { mapModelToId } = await import('../src/agent.lib.mjs');
 
 console.log('🧪 Testing Agent Model Validation (Issue #1185)\n');

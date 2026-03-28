@@ -49,6 +49,7 @@ import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
 import { executeClaudeCommand } from './claude.lib.mjs';
+import { defaultModels, getClaudeModelChoices, buildModelOptionDescription } from './models/index.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
 // Use yargs().parse(args) instead of yargs(args).argv to ensure .strict() mode works
@@ -70,10 +71,10 @@ const argv = yargs()
   })
   .option('model', {
     type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
+    description: buildModelOptionDescription(),
     alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-6', 'claude-opus-4-5-20251101'],
+    default: defaultModels.claude,
+    choices: getClaudeModelChoices(),
   })
   .option('focus', {
     type: 'string',

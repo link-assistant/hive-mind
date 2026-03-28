@@ -4,6 +4,7 @@
 // This module has no heavy dependencies to allow fast loading for --help
 
 import { SOLVE_OPTION_DEFINITIONS } from './solve.config.lib.mjs';
+import { buildModelOptionDescription } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
 // These are excluded when auto-registering solve-passthrough options.
@@ -19,7 +20,7 @@ const SOLVE_ONLY_OPTION_NAMES = new Set(['resume', 'working-directory', 'only-pr
 const HIVE_CUSTOM_SOLVE_OPTIONS = {
   model: {
     type: 'string',
-    description: 'Model to use for solve (opus, sonnet, haiku, haiku-3-5, haiku-3, or any model ID supported by the tool)',
+    description: `${buildModelOptionDescription()}, or any model ID supported by the tool`,
     alias: 'm',
     default: 'sonnet',
   },

@@ -1,5 +1,51 @@
 # @link-assistant/hive-mind
 
+## 1.36.0
+
+### Minor Changes
+
+- 3adbf2b: feat: add --auto-report-issue and --disable-report-issue flags for non-interactive error reporting (Issue #1484)
+  - Add `--auto-report-issue` flag that automatically creates a GitHub issue on failure without prompting.
+    The auto-reported issue includes error details, logs, and case study analysis instructions in the body.
+    Issue is labeled as `bug`.
+  - Add `--disable-report-issue` flag that completely disables error issue creation (no prompt, no auto-creation).
+    Takes precedence over `--auto-report-issue` if both are specified.
+  - Default behavior (neither flag) preserves the existing interactive y/n prompt.
+  - Both flags are automatically available as passthrough options in hive and TELEGRAM_HIVE_OVERRIDES.
+
+## 1.35.12
+
+### Patch Changes
+
+- 05a72c3: fix: reject URLs and invalid git branch names used as --base-branch (Issue #1482)
+  - Add `validateBranchName()` function to `solve.branch.lib.mjs` that validates branch names against git-check-ref-format rules
+  - Reject URLs (https://, http://, git@, ssh://) passed as --base-branch with clear error message
+  - Reject invalid git ref characters (spaces, ~, ^, :, ?, \*, [, ], \, control chars, .., @{)
+  - Add validation in `solve.config.lib.mjs` parseArguments (early catch), `solve.branch.lib.mjs` createOrCheckoutBranch (defense-in-depth), and `hive.mjs` (before forwarding to solve)
+  - Add 19 test cases in `tests/test-base-branch-validation.mjs`
+  - Add case study documentation in `docs/case-studies/issue-1482/`
+
+## 1.35.11
+
+### Patch Changes
+
+- 6edb401: fix: add stream startup timeout to detect stuck Claude CLI (Issue #1472/#1475)
+
+  Both affected sessions showed ~4.5 hours with zero stdout/stderr from Claude CLI despite a successful API response. Adds a configurable startup timeout (default: 2 minutes, env: HIVE_MIND_STREAM_STARTUP_MS) that force-kills the Claude CLI process if no output is received, preventing indefinite hangs and enabling retry logic.
+
+## 1.35.10
+
+### Patch Changes
+
+- 21e1f5e: fix: fix model recognition logic and update free models docs (Issue #1473)
+  - Consolidate `model-info.lib.mjs`, `model-mapping.lib.mjs`, and `model-validation.lib.mjs` into single `src/models/index.mjs`
+  - Fix `resolveModelId()` to use `mapModelForTool()` as single source of truth instead of duplicated hardcoded maps that were missing agent free model mappings
+  - Fix false warning "Main model does not match requested model" for agent free models (e.g., `kimi-k2.5-free` → `opencode/kimi-k2.5-free`)
+  - Add missing base model pricing mappings for `minimax-m2.5-free`, `glm-5-free`, `glm-4.5-air-free`, `deepseek-r1-free`, `giga-potato-free` in `getBaseModelForPricing()`
+  - Update `validateAgentConnection()` default model to `minimax-m2.5-free`
+  - Update `docs/FREE_MODELS.md` to sync with upstream [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md)
+  - Update README.md examples to use `minimax-m2.5-free` instead of deprecated `kimi-k2.5-free`
+
 ## 1.35.9
 
 ### Patch Changes

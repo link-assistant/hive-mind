@@ -6,7 +6,7 @@
  */
 
 import { execSync } from 'child_process';
-import { validateModelName } from '../src/model-validation.lib.mjs';
+import { validateModelName } from '../src/models/index.mjs';
 
 const FREE_MODELS = ['opencode/big-pickle', 'opencode/gpt-5-nano', 'opencode/kimi-k2.5-free', 'opencode/glm-4.7-free', 'opencode/minimax-m2.1-free'];
 

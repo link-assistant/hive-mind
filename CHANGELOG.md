@@ -1,5 +1,12 @@
 # @link-assistant/hive-mind
 
+## 1.37.0
+
+### Minor Changes
+
+- f02c1fc: fix synthetic model appearing in PR comments by filtering internal Claude CLI router entries (Issue #1486)
+- dd87b23: Add opusplan model support and --plan-model option for flexible plan/execution model pairing
+
 ## 1.36.1
 
 ### Patch Changes

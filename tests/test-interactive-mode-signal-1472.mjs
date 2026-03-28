@@ -402,7 +402,7 @@ console.log('─'.repeat(60));
   // Test: Summary includes event counts
   assert(claudeLibContent.includes('events processed'), 'Summary logs events processed count');
   assert(claudeLibContent.includes('comments attempted'), 'Summary logs comments attempted count');
-  assert(claudeLibContent.includes('commentsFailed} failed'), 'Summary logs about comment failures');
+  assert(claudeLibContent.includes('cf} failed'), 'Summary logs about comment failures');
 
   // Test: Zero-comment warning
   assert(claudeLibContent.includes('zero comments were posted'), 'Warns when events received but zero comments posted');

@@ -824,16 +824,16 @@ export const executeClaudeCommand = async params => {
     let lastMessage = '';
     let isOverloadError = false;
     let is503Error = false;
-    let isInternalServerError = false; // Issue #1331: Track 500 Internal server error
-    let isRequestTimeout = false; // Issue #1353: Track "Request timed out" from Claude CLI
-    let apiMarkedNotRetryable = false; // Issue #1437: Track when API explicitly signals x-should-retry: false
-    let resultNumTurns = 0; // Issue #1437: Track num_turns from result event to detect stuck retries
+    let isInternalServerError = false;
+    let isRequestTimeout = false;
+    let apiMarkedNotRetryable = false;
+    let resultNumTurns = 0;
     let stderrErrors = [];
-    let resultSuccessReceived = false; // Issue #1354: Track if result success event was received
-    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
-    let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
-    let resultSummary = null; // Issue #1263: Capture AI result summary for --attach-solution-summary
-    let resultModelUsage = null; // Issue #1454
+    let resultSuccessReceived = false;
+    let anthropicTotalCostUSD = null;
+    let errorDuringExecution = false;
+    let resultSummary = null;
+    let resultModelUsage = null;
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -857,40 +857,25 @@ export const executeClaudeCommand = async params => {
     await log(`${fullCommand}`);
     await log('');
     if (argv.verbose) {
-      await log('📋 User prompt:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('📋 System prompt:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
+      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${prompt}\n---END USER PROMPT---`, { verbose: true });
+      await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
     }
     try {
-      // Resolve thinking settings (see issue #1146)
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (#1076), MAX_THINKING_TOKENS (#1146), MCP timeout (#1066),
-      // CLAUDE_CODE_EFFORT_LEVEL (#1238), model/thinkLevel/maxBudget for effort conversion (#1221, #1238)
       const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: mappedModel, thinkLevel, maxBudget });
-      // Issue #1337: Enable ANTHROPIC_LOG=debug in --verbose mode for detailed API request diagnostics.
-      if (argv.verbose) {
-        claudeEnv.ANTHROPIC_LOG = 'debug';
-      }
+      if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(mappedModel);
-      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}`, { verbose: true });
-      if (argv.verbose) await log(`📊 MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms (server startup)`, { verbose: true });
-      if (argv.verbose) await log(`📊 MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms (tool execution)`, { verbose: true });
-      if (argv.verbose) await log(`📊 ANTHROPIC_LOG: debug (verbose mode)`, { verbose: true });
-      if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
-      if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
-      if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      if (argv.verbose) {
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+        if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      }
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
         const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
         execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
@@ -902,20 +887,18 @@ export const executeClaudeCommand = async params => {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
-      // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
-      let stdoutLineBuffer = ''; // Issue #1183: Line buffer for NDJSON stream parsing
-      // Issue #1280: Track result event and timeout for hung processes (force-kill after result event)
+      let stdoutLineBuffer = '';
       let resultEventReceived = false;
       let resultTimeoutId = null;
       let forceExitTriggered = false;
       const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
-      let firstChunkReceived = false; // Issue #1472/#1475: Track time-to-first-output (stuck CLI detection)
+      let firstChunkReceived = false;
       let startupTimeoutId = null;
-      let isStartupTimeout = false; // Issue #1472/#1475: Track startup timeout for retry logic
-      let lastEventTime = null; // Issue #1472: Track time of last event for activity monitoring
-      let activityTimeoutId = null; // Issue #1472: Activity timeout for mid-session hangs
-      let isActivityTimeout = false; // Issue #1472: Flag when activity timeout triggers
+      let isStartupTimeout = false;
+      let lastEventTime = null;
+      let activityTimeoutId = null;
+      let isActivityTimeout = false;
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -985,7 +968,6 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
-              // Process event in interactive mode (Issue #1472: log first event to confirm stream is alive)
               if (interactiveHandler) {
                 if (!interactiveHandler._firstEventLogged) {
                   interactiveHandler._firstEventLogged = true;
@@ -999,7 +981,6 @@ export const executeClaudeCommand = async params => {
                 }
               }
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID and rename log file
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
@@ -1015,24 +996,15 @@ export const executeClaudeCommand = async params => {
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              if (data.type === 'message') {
-                messageCount++;
-              } else if (data.type === 'tool_use') {
-                toolUseCount++;
-              }
-              // Handle session result type from Claude CLI (emitted when session completes)
+              if (data.type === 'message') messageCount++;
+              else if (data.type === 'tool_use') toolUseCount++;
               if (data.type === 'result') {
-                // Issue #1280: Start 30s timeout for stream close after result event
                 if (!resultEventReceived) {
                   resultEventReceived = true;
                   await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
                   resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
                 }
-                // Issue #1354: Track when result event confirms success (prevents false positive detection)
-                if (data.subtype === 'success') {
-                  resultSuccessReceived = true;
-                }
-                // Issue #1104: Only extract cost from subtype 'success' results
+                if (data.subtype === 'success') resultSuccessReceived = true;
                 if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
                   anthropicTotalCostUSD = data.total_cost_usd;
                   await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
@@ -1044,7 +1016,6 @@ export const executeClaudeCommand = async params => {
                   resultSummary = data.result;
                   await log('📝 Captured result summary from Claude output', { verbose: true });
                 }
-                // Issue #1437: Capture num_turns to detect stuck retries (degrading turn count signals non-recovery)
                 if (data.num_turns !== undefined) {
                   resultNumTurns = data.num_turns;
                   await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
@@ -1053,7 +1024,6 @@ export const executeClaudeCommand = async params => {
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
-                  // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
                     await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
@@ -1075,16 +1045,11 @@ export const executeClaudeCommand = async params => {
                   }
                 }
               }
-              // Store last message for error detection
-              if (data.type === 'text' && data.text) {
-                lastMessage = data.text;
-              } else if (data.type === 'error') {
+              if (data.type === 'text' && data.text) lastMessage = data.text;
+              else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
-                if (lastMessage.includes('Internal server error')) {
-                  isInternalServerError = true;
-                }
+                if (lastMessage.includes('Internal server error')) isInternalServerError = true;
               }
-              // Check for API overload error and 503 errors
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
                 for (const item of content) {
@@ -1141,23 +1106,15 @@ export const executeClaudeCommand = async params => {
         }
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
-          // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Issue #1437: Detect x-should-retry: false in ANTHROPIC_LOG=debug output — signals
-            // a non-transient error; fail fast instead of blindly retrying.
-            if (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"')) {
-              if (!apiMarkedNotRetryable) {
-                apiMarkedNotRetryable = true;
-                await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
-              }
+            // Issue #1437: Detect x-should-retry: false — non-transient error, fail fast
+            if (!apiMarkedNotRetryable && (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"'))) {
+              apiMarkedNotRetryable = true;
+              await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
             }
-            // Issue #1354: Split multi-line chunks — a chunk may contain multiple JSON messages;
-            // passing the whole chunk to isStderrError() causes JSON.parse() to fail.
             for (const line of errorOutput.split('\n')) {
-              if (isStderrError(line)) {
-                stderrErrors.push(line.trim());
-              }
+              if (isStderrError(line)) stderrErrors.push(line.trim());
             }
           }
         } else if (chunk.type === 'exit') {
@@ -1193,11 +1150,11 @@ export const executeClaudeCommand = async params => {
       if (startupTimeoutId) {
         clearTimeout(startupTimeoutId);
         startupTimeoutId = null;
-      } // Issue #1472/#1475
+      }
       if (activityTimeoutId) {
         clearTimeout(activityTimeoutId);
         activityTimeoutId = null;
-      } // Issue #1472: Clean up activity timeout
+      }
       if (resultTimeoutId) {
         clearTimeout(resultTimeoutId); // Issue #1280
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
@@ -1224,11 +1181,10 @@ export const executeClaudeCommand = async params => {
         } catch (flushError) {
           await log(`⚠️ Interactive mode flush error: ${flushError.message}`, { verbose: true });
         }
-        // Issue #1472: Diagnostic summary — log event counts and handler state for debugging
         const handlerState = interactiveHandler.getState();
-        const durationMs = Date.now() - handlerState.startTime;
-        const durationMin = (durationMs / 60000).toFixed(1);
-        await log(`🔌 Interactive mode summary: ${handlerState.eventsProcessed} events processed, ${handlerState.commentsAttempted} comments attempted, ${handlerState.commentsPosted} posted, ${handlerState.commentsFailed} failed, ${handlerState.editsAttempted} edits attempted, ${handlerState.editsSucceeded} succeeded, ${handlerState.editsFailed} failed, ${handlerState.commentQueue.length} still queued, duration ${durationMin}m`);
+        const durationMin = ((Date.now() - handlerState.startTime) / 60000).toFixed(1);
+        const { eventsProcessed: ep, commentsAttempted: ca, commentsPosted: cp, commentsFailed: cf, editsAttempted: ea, editsSucceeded: es, editsFailed: ef, commentQueue: cq } = handlerState;
+        await log(`🔌 Interactive mode summary: ${ep} events processed, ${ca} comments attempted, ${cp} posted, ${cf} failed, ${ea} edits attempted, ${es} succeeded, ${ef} failed, ${cq.length} still queued, duration ${durationMin}m`);
         if (handlerState.eventsProcessed > 0 && handlerState.commentsPosted === 0) {
           await log(`⚠️ Interactive mode: Events were received (${handlerState.eventsProcessed}) but zero comments were posted — check GitHub API connectivity and PR access (${handlerState.commentsFailed} failures)`, { level: 'warning' });
         }

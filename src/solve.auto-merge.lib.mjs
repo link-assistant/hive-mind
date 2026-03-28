@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -224,7 +224,28 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         //   - workflow_runs.length === 0 → CI was NOT triggered (fork PR, paths-ignore, etc.)
         const workflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
         if (workflowRuns.length > 0) {
-          // Workflow runs exist but check-runs haven't appeared yet — genuine race condition
+          // Issue #1466: Check if ALL workflow runs are completed without producing check-runs.
+          // This happens when workflows require manual approval (first-time fork contributors,
+          // deployment approvals) — they complete with conclusion=action_required but never
+          // create check-runs. Waiting for check-runs in this case is an infinite loop.
+          //
+          // Also covers other non-executing conclusions: cancelled, stale workflows that
+          // completed without producing check-runs won't produce them in the future either.
+          const allRunsCompleted = workflowRuns.every(r => r.status === 'completed');
+          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+
+          if (allRunsNonExecuting) {
+            // All workflow runs completed without executing jobs — check-runs will never appear.
+            // Treat the same as "CI not triggered" to avoid infinite waiting.
+            const conclusions = [...new Set(workflowRuns.map(r => r.conclusion))].join(', ');
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
+            }
+            await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
+          }
+
+          // Some workflow runs are still in progress or produced results — genuine race condition
           if (verbose) {
             console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI check-runs yet, but ${workflowRuns.length} workflow run(s) were triggered for SHA ${ciStatus.sha.substring(0, 7)} - genuine race condition (waiting for check-runs to appear)`);
           }
@@ -234,14 +255,86 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
             details: workflowRuns.map(r => r.name),
           });
         } else {
-          // No workflow runs for this SHA — CI was definitively NOT triggered
-          // Issue #1442: This is the root cause of the infinite loop. Fork PRs needing
-          // maintainer approval, paths-ignore filtering, workflow conditions not matching,
-          // etc. all result in zero workflow runs. No need for timeout — exit immediately.
-          if (verbose) {
-            console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} — CI was not triggered (fork PR, paths-ignore, workflow conditions, etc.)`);
+          // No workflow runs for this SHA — but this could be a race condition!
+          // Issue #1480: GitHub Actions workflow runs take 30-120 seconds to appear in the
+          // API after a push. The previous fix (issue #1442) assumed 0 workflow runs meant
+          // "CI definitively NOT triggered", but this caused false positive "Ready to merge"
+          // when checked too soon after a push.
+          //
+          // Multi-layer defense (Issue #1480 enhanced):
+          // Layer 1: Grace period — check commit age
+          // Layer 2: Workflow file parsing — check .github/workflows for PR triggers
+          // Layer 3: Previous commit CI history — check if earlier PR commits had CI runs
+          const WORKFLOW_RUN_GRACE_PERIOD_SECONDS = 120; // 2 minutes — generous to cover slow GitHub API registration
+          const commitInfo = await getCommitDate(owner, repo, ciStatus.sha, verbose);
+
+          // Issue #1480: Parse workflow files for PR triggers (used in both grace period and post-grace checks)
+          const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose);
+
+          // Issue #1480: If .github/workflows folder doesn't exist or has no workflow files,
+          // that's a definitive signal — no CI/CD will execute, skip grace period entirely
+          if (!prTriggers.hasWorkflowFiles) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
+            }
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
           }
-          return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+
+          if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
+            // Commit is recent — workflow runs may not have appeared in the API yet
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but commit is only ${commitInfo.ageSeconds}s old (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s) — treating as potential race condition`);
+            }
+
+            if (prTriggers.hasPRTriggers) {
+              // Workflows have PR/push triggers AND commit is recent — almost certainly a race condition
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: Workflow files confirm PR/push triggers exist (${prTriggers.workflows.map(w => w.name).join(', ')}) — waiting for workflow runs to appear`);
+              }
+              blockers.push({
+                type: 'ci_pending',
+                message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
+                details: prTriggers.workflows.map(w => w.name),
+              });
+            } else {
+              // No PR triggers found in workflow files — but commit is still recent, be safe and wait
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
+              }
+              blockers.push({
+                type: 'ci_pending',
+                message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
+                details: [],
+              });
+            }
+          } else {
+            // Commit is old enough (grace period elapsed) — but check additional signals before concluding
+            // Issue #1480: Layer 3 — Check if previous commits in this PR had CI runs.
+            // If earlier commits had CI, the HEAD commit should also have CI unless conditions changed.
+            const previousCI = await checkPreviousPRCommitsHadCI(owner, repo, prNumber, ciStatus.sha, verbose);
+
+            if (previousCI.hadPreviousCI && prTriggers.hasPRTriggers) {
+              // Previous commits had CI AND workflow files have PR triggers — something is wrong,
+              // this could be a GitHub API glitch or delayed registration beyond the grace period.
+              // Wait one more cycle to be safe.
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: PR #${prNumber} previous commits had CI (${previousCI.previousCommitsWithCI}/${previousCI.totalPreviousCommits}) and workflows have PR triggers, but HEAD has no runs — waiting as safety measure`);
+              }
+              blockers.push({
+                type: 'ci_pending',
+                message: `CI/CD workflow runs missing for HEAD — previous PR commits had CI (${previousCI.previousCommitsWithCI} of ${previousCI.totalPreviousCommits}), workflows have PR triggers, possible API delay`,
+                details: prTriggers.workflows.map(w => w.name),
+              });
+            } else {
+              // CI was definitively NOT triggered
+              // Issue #1442: Fork PRs needing maintainer approval, paths-ignore filtering,
+              // workflow conditions not matching, etc. all result in zero workflow runs.
+              if (verbose) {
+                console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s elapsed, previous CI: ${previousCI.hadPreviousCI}, PR triggers: ${prTriggers.hasPRTriggers}) — CI was not triggered`);
+              }
+              return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
+            }
+          }
         }
       } else {
         // Repo has NO workflows — this is truly "no CI configured"
@@ -414,7 +507,7 @@ export const watchUntilMergeable = async params => {
 
     try {
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);
@@ -422,10 +515,15 @@ export const watchUntilMergeable = async params => {
       // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);
 
-      // Issue #1442: If CI workflows exist but were not triggered for this commit,
+      // Issue #1442/#1466: If CI workflows exist but were not triggered for this commit,
       // log why before proceeding to the mergeable path.
       if (noCiTriggered) {
-        await log(formatAligned('ℹ️', 'CI not triggered:', 'Workflows exist but no workflow runs for this commit (fork PR, paths-ignore, workflow conditions)', 2));
+        if (workflowRunConclusions) {
+          // Issue #1466: Workflow runs exist but completed without executing (action_required, cancelled, etc.)
+          await log(formatAligned('ℹ️', 'CI not executed:', `Workflow runs completed with: ${workflowRunConclusions} (likely needs maintainer approval)`, 2));
+        } else {
+          await log(formatAligned('ℹ️', 'CI not triggered:', 'Workflows exist but no workflow runs for this commit (fork PR, paths-ignore, workflow conditions)', 2));
+        }
       }
 
       // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
@@ -444,7 +542,7 @@ export const watchUntilMergeable = async params => {
             // Post success comment
             try {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? '- CI workflows exist but were not triggered for this commit' : '- All CI checks have passed';
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
             } catch {
@@ -468,7 +566,7 @@ export const watchUntilMergeable = async params => {
           try {
             if (!readyToMergeCommentPosted) {
               // Issue #1345: Differentiate message when no CI is configured
-              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? '- CI workflows exist but were not triggered for this commit' : '- All CI checks have passed';
+              const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
               await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
               readyToMergeCommentPosted = true;
@@ -658,7 +756,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         // Post a comment to PR about the restart
         // Issue #1356: Include restart count for tracking and add deduplication
         try {
-          const commentBody = `## 🔄 Auto-restart triggered (attempt ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
+          const commentBody = `## 🔄 Auto-restart triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*`;
           await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
         } catch (commentError) {

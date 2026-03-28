@@ -4,10 +4,9 @@
 
 import assert from 'assert';
 
-// Import the model validation module
-const { CLAUDE_MODELS, validateModelName, getAvailableModelNames } = await import('../src/model-validation.lib.mjs');
+// Import from consolidated models module (Issue #1473)
+const { CLAUDE_MODELS, validateModelName, getAvailableModelNames, claudeModels, isModelCompatibleWithTool } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { claudeModels, isModelCompatibleWithTool } = await import('../src/model-mapping.lib.mjs');
 const { isOpus46OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, getClaudeEnv } = await import('../src/config.lib.mjs');
 
 console.log('Testing opusplan Model Support (Issue #1223)\n');
@@ -40,7 +39,7 @@ test('opusplan alias exists in availableModels (claude.lib.mjs)', () => {
   assert.strictEqual(availableModels['opusplan'], 'opusplan', 'opusplan should map to opusplan');
 });
 
-test('opusplan alias exists in claudeModels (model-mapping.lib.mjs)', () => {
+test('opusplan alias exists in claudeModels (models/index.mjs)', () => {
   assert.strictEqual(claudeModels['opusplan'], 'opusplan', 'opusplan should map to opusplan');
 });
 

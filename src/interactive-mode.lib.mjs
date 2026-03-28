@@ -7,10 +7,14 @@
  *
  * Supported JSON event types:
  * - system.init: Session initialization
+ * - system.task_started: Agent subtask started (Issue #1450)
+ * - system.task_progress: Agent subtask progress update (Issue #1450)
+ * - system.task_notification: Agent subtask completed/failed (Issue #1450)
  * - assistant (text): AI text responses
  * - assistant (tool_use): Tool invocations
  * - user (tool_result): Tool execution results
  * - result: Session completion
+ * - rate_limit_event: Rate limit info (silently logged, Issue #1450)
  * - unrecognized: Any unknown event types
  *
  * Features:
@@ -47,6 +51,13 @@ const CONFIG = {
 // Claude output parsing path (claude.lib.mjs).
 // See: https://github.com/link-assistant/hive-mind/issues/1324
 import { sanitizeUnicode } from './unicode-sanitization.lib.mjs';
+
+// Use child_process for stdin-based API calls to avoid shell quoting issues
+// with large/complex comment bodies containing backticks, quotes, etc.
+// See: https://github.com/link-assistant/hive-mind/issues/1458
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 
 /**
  * Truncate content in the middle, keeping start and end
@@ -213,6 +224,7 @@ const getToolIcon = toolName => {
     WebSearch: '🔍',
     TodoWrite: '📋',
     Task: '🎯',
+    Agent: '🤖',
     NotebookEdit: '📓',
     default: '🔧',
   };
@@ -232,7 +244,9 @@ const getToolIcon = toolName => {
  * @returns {Object} Handler object with event processing methods
  */
 export const createInteractiveHandler = options => {
-  const { owner, repo, prNumber, $, log, verbose = false } = options;
+  const { owner, repo, prNumber, log, verbose = false, execFile: execFileFn } = options;
+  // Use injected execFile for testability, or the real one by default
+  const runGhApi = execFileFn || execFileAsync;
 
   // State tracking for the handler
   const state = {
@@ -253,6 +267,17 @@ export const createInteractiveHandler = options => {
     // Simple map of tool_use_id -> { toolName, toolIcon } for standalone tool results
     // This is preserved even after pendingToolCalls entry is deleted
     toolUseRegistry: new Map(),
+    // Track active agent tasks for progress update deduplication
+    // Map of task_id -> { commentId, toolUseId, description, commentIdPromise, resolveCommentId }
+    pendingTasks: new Map(),
+    // Issue #1472: Diagnostic counters for tracking comment posting success/failure
+    eventsProcessed: 0,
+    commentsAttempted: 0,
+    commentsPosted: 0,
+    commentsFailed: 0,
+    editsAttempted: 0,
+    editsSucceeded: 0,
+    editsFailed: 0,
   };
 
   /**
@@ -282,26 +307,39 @@ export const createInteractiveHandler = options => {
       return null;
     }
 
+    state.commentsAttempted++;
     try {
-      // Post comment and capture the output to get the comment URL/ID
-      const result = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${body}`;
+      // Post comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/${prNumber}/comments`;
+      const jsonPayload = JSON.stringify({ body });
+      const { stdout } = await runGhApi('gh', ['api', apiUrl, '-X', 'POST', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
       state.lastCommentTime = Date.now();
+      state.commentsPosted++;
 
-      // Extract comment ID from the result (gh outputs the comment URL)
-      // Format: https://github.com/owner/repo/pull/123#issuecomment-1234567890
-      // Note: command-stream returns stdout as a Buffer, so we need to call .toString()
-      const output = result.stdout?.toString() || result.toString() || '';
-      const match = output.match(/issuecomment-(\d+)/);
-      const commentId = match ? match[1] : null;
+      // Extract comment ID from the API response JSON
+      let commentId = null;
+      try {
+        const response = JSON.parse(stdout);
+        commentId = response.id ? String(response.id) : null;
+      } catch {
+        // Fallback: try to extract from URL pattern
+        const match = stdout.match(/issuecomment-(\d+)|"id":\s*(\d+)/);
+        commentId = match ? match[1] || match[2] : null;
+      }
 
       if (verbose) {
-        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''}`, { verbose: true });
+        await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${body.length} chars)`, { verbose: true });
       }
       return commentId;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to post comment: ${error.message}`, { verbose: true });
-      }
+      state.commentsFailed++;
+      // Issue #1472: Always log comment failures (not just verbose) — silent failures cause zero-comment bugs
+      await log(`⚠️ Interactive mode: Failed to post comment: ${error.message} (body: ${body.length} chars)`);
       return null;
     }
   };
@@ -321,16 +359,25 @@ export const createInteractiveHandler = options => {
       return false;
     }
 
+    state.editsAttempted++;
     try {
-      await $`gh api repos/${owner}/${repo}/issues/comments/${commentId} -X PATCH -f body=${body}`;
+      // Edit comment via gh api with stdin to avoid shell quoting issues
+      // with complex markdown bodies containing backticks, quotes, etc.
+      // See: https://github.com/link-assistant/hive-mind/issues/1458
+      const apiUrl = `repos/${owner}/${repo}/issues/comments/${commentId}`;
+      const jsonPayload = JSON.stringify({ body });
+      await runGhApi('gh', ['api', apiUrl, '-X', 'PATCH', '--input', '-'], {
+        input: jsonPayload,
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      });
+      state.editsSucceeded++;
       if (verbose) {
-        await log(`✅ Interactive mode: Comment ${commentId} updated`, { verbose: true });
+        await log(`✅ Interactive mode: Comment ${commentId} updated (body: ${body.length} chars, payload: ${jsonPayload.length} chars)`, { verbose: true });
       }
       return true;
     } catch (error) {
-      if (verbose) {
-        await log(`⚠️ Interactive mode: Failed to edit comment: ${error.message}`, { verbose: true });
-      }
+      state.editsFailed++;
+      await log(`⚠️ Interactive mode: Failed to edit comment ${commentId}: ${error.message} (body: ${body.length} chars)`);
       return false;
     }
   };
@@ -390,6 +437,16 @@ export const createInteractiveHandler = options => {
    * @param {Object} data - Event data
    */
   const handleSystemInit = async data => {
+    // Guard against duplicate init events (e.g., when a late task_notification
+    // arrives after the result event and triggers a new conversation turn)
+    // See: https://github.com/link-assistant/hive-mind/issues/1458
+    if (state.sessionId) {
+      if (verbose) {
+        await log(`⚠️ Interactive mode: Ignoring duplicate system.init event (session already initialized: ${state.sessionId})`, { verbose: true });
+      }
+      return;
+    }
+
     state.sessionId = data.session_id;
     state.startTime = Date.now();
 
@@ -664,20 +721,43 @@ ${createRawJsonSection(data)}`;
       // If comment ID is not yet available (comment was queued), wait for it
       // But use a timeout to avoid blocking forever
       if (!commentId && commentIdPromise) {
-        if (verbose) {
-          await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
-            verbose: true,
-          });
+        // First, try to flush the queue — the tool_use comment may still be
+        // waiting for rate-limit clearance. Processing it here avoids the 30s
+        // timeout that previously caused many comments to stay stuck on
+        // "Waiting for result...".
+        // See: https://github.com/link-assistant/hive-mind/issues/1458
+        if (state.commentQueue.length > 0) {
+          if (verbose) {
+            await log(`🔄 Interactive mode: Flushing comment queue (${state.commentQueue.length} items) before waiting for tool use comment`, {
+              verbose: true,
+            });
+          }
+          // Temporarily reset isProcessing to allow processQueue to run
+          const wasProcessing = state.isProcessing;
+          state.isProcessing = false;
+          await processQueue();
+          state.isProcessing = wasProcessing;
         }
-        // Wait for the comment to be posted (with 30 second timeout)
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
-        commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+        // Check again after queue flush
+        commentId = pendingCall.commentId;
 
         if (!commentId) {
           if (verbose) {
-            await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+            await log(`⏳ Interactive mode: Waiting for tool use comment to be posted (tool: ${toolUseId})`, {
               verbose: true,
             });
+          }
+          // Wait for the comment to be posted (with 30 second timeout)
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 30000));
+          commentId = await Promise.race([commentIdPromise, timeoutPromise]);
+
+          if (!commentId) {
+            if (verbose) {
+              await log('⚠️ Interactive mode: Timeout waiting for tool use comment, posting result separately', {
+                verbose: true,
+              });
+            }
           }
         }
       }
@@ -810,6 +890,232 @@ ${createRawJsonSection(data)}`;
   };
 
   /**
+   * Handle system.task_started event (Agent subtask started)
+   * Creates a progress comment that will be updated by task_progress events
+   * @param {Object} data - Event data
+   */
+  const handleTaskStarted = async data => {
+    const taskId = data.task_id;
+    const toolUseId = data.tool_use_id || '';
+    const description = data.description || 'Agent task';
+    const taskType = data.task_type || 'unknown';
+
+    // Create a promise for the comment ID (handles queued comments)
+    let resolveCommentId;
+    const commentIdPromise = new Promise(resolve => {
+      resolveCommentId = resolve;
+    });
+
+    // Build prompt preview if available
+    let promptSection = '';
+    if (data.prompt) {
+      const truncatedPrompt = truncateMiddle(data.prompt, { maxLines: 15, keepStart: 6, keepEnd: 6 });
+      promptSection = '\n\n' + createCollapsible('📝 Task prompt', truncatedPrompt);
+    }
+
+    const comment = `## 🤖 Agent task: ${escapeMarkdown(description)}
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId || 'unknown'}\` |
+| **Type** | \`${taskType}\` |
+| **Status** | ⏳ Running... |
+${promptSection}
+
+---
+
+${createRawJsonSection(data)}`;
+
+    // Track this task BEFORE posting
+    state.pendingTasks.set(taskId, {
+      commentId: null,
+      commentIdPromise,
+      resolveCommentId,
+      toolUseId,
+      description,
+      lastProgressDescription: description,
+      progressCount: 0,
+      allEvents: [data],
+    });
+
+    const commentId = await postComment(comment, null);
+
+    if (commentId) {
+      const pendingTask = state.pendingTasks.get(taskId);
+      if (pendingTask) {
+        pendingTask.commentId = commentId;
+        resolveCommentId(commentId);
+      }
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Agent task started - ${description} (task: ${taskId})`, { verbose: true });
+    }
+  };
+
+  /**
+   * Handle system.task_progress event (Agent subtask progress update)
+   * Updates the existing task comment instead of creating a new one
+   * @param {Object} data - Event data
+   */
+  const handleTaskProgress = async data => {
+    const taskId = data.task_id;
+    const description = data.description || 'Working...';
+    const lastToolName = data.last_tool_name || '';
+    const usage = data.usage || {};
+
+    const pendingTask = state.pendingTasks.get(taskId);
+
+    if (pendingTask) {
+      pendingTask.progressCount++;
+      pendingTask.lastProgressDescription = description;
+      pendingTask.allEvents.push(data);
+
+      let commentId = pendingTask.commentId;
+
+      // Wait for comment ID if not yet available
+      if (!commentId && pendingTask.commentIdPromise) {
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+        commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+      }
+
+      if (commentId) {
+        // Build progress steps list from accumulated events
+        const progressSteps = pendingTask.allEvents
+          .filter(e => e.subtype === 'task_progress')
+          .map(e => {
+            const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
+            return `- ${toolIcon} ${e.description || 'Working...'}`;
+          })
+          .join('\n');
+
+        const durationText = usage.duration_ms ? formatDuration(usage.duration_ms) : '';
+        const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
+        const statsText = [durationText, toolUsesText].filter(Boolean).join(' | ');
+
+        const updatedComment = `## 🤖 Agent task: ${escapeMarkdown(pendingTask.description)}
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId}\` |
+| **Status** | ⏳ Running... |
+| **Progress** | ${pendingTask.progressCount} updates |
+${statsText ? `| **Stats** | ${statsText} |\n` : ''}
+${createCollapsible(`📋 Progress steps (${pendingTask.progressCount})`, progressSteps, true)}
+
+---
+
+${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
+
+        await editComment(commentId, updatedComment);
+      }
+    } else {
+      // No pending task found - this can happen if task_started was missed
+      // Just log it silently rather than creating an unrecognized comment
+      if (verbose) {
+        await log(`🤖 Interactive mode: Task progress for unknown task ${taskId}: ${description}`, { verbose: true });
+      }
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Task progress - ${description} (task: ${taskId}, tool: ${lastToolName})`, { verbose: true });
+    }
+  };
+
+  /**
+   * Handle system.task_notification event (Agent subtask completed/failed)
+   * Updates the existing task comment with final status
+   * @param {Object} data - Event data
+   */
+  const handleTaskNotification = async data => {
+    const taskId = data.task_id;
+    const status = data.status || 'unknown';
+    const summary = data.summary || data.description || 'Task finished';
+    const usage = data.usage || {};
+    const isCompleted = status === 'completed';
+    const statusIcon = isCompleted ? '✅' : '❌';
+    const statusText = isCompleted ? 'Completed' : status.charAt(0).toUpperCase() + status.slice(1);
+
+    const pendingTask = state.pendingTasks.get(taskId);
+
+    if (pendingTask) {
+      pendingTask.allEvents.push(data);
+
+      let commentId = pendingTask.commentId;
+
+      // Wait for comment ID if not yet available
+      if (!commentId && pendingTask.commentIdPromise) {
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 15000));
+        commentId = await Promise.race([pendingTask.commentIdPromise, timeoutPromise]);
+      }
+
+      if (commentId) {
+        // Build final progress steps list
+        const progressSteps = pendingTask.allEvents
+          .filter(e => e.subtype === 'task_progress')
+          .map(e => {
+            const toolIcon = e.last_tool_name ? getToolIcon(e.last_tool_name) : '🔄';
+            return `- ${toolIcon} ${e.description || 'Working...'}`;
+          })
+          .join('\n');
+
+        const durationText = usage.duration_ms ? formatDuration(usage.duration_ms) : '';
+        const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
+        const tokensText = usage.total_tokens ? `${usage.total_tokens.toLocaleString()} tokens` : '';
+        const statsText = [durationText, toolUsesText, tokensText].filter(Boolean).join(' | ');
+
+        const updatedComment = `## 🤖 Agent task: ${escapeMarkdown(pendingTask.description)}
+
+| Property | Value |
+|----------|-------|
+| **Task ID** | \`${taskId}\` |
+| **Status** | ${statusIcon} ${statusText} |
+| **Summary** | ${escapeMarkdown(summary)} |
+${statsText ? `| **Stats** | ${statsText} |\n` : ''}
+${progressSteps ? createCollapsible(`📋 Progress steps (${pendingTask.progressCount})`, progressSteps) : ''}
+
+---
+
+${createRawJsonSection([pendingTask.allEvents[0], data])}`;
+
+        await editComment(commentId, updatedComment);
+      }
+
+      // Clean up
+      state.pendingTasks.delete(taskId);
+    } else {
+      // Post as standalone if no pending task
+      const comment = `## 🤖 Agent task ${statusIcon} ${statusText}
+
+**Summary:** ${escapeMarkdown(summary)}
+
+---
+
+${createRawJsonSection(data)}`;
+
+      await postComment(comment);
+    }
+
+    if (verbose) {
+      await log(`🤖 Interactive mode: Task ${statusText.toLowerCase()} - ${summary} (task: ${taskId})`, {
+        verbose: true,
+      });
+    }
+  };
+
+  /**
+   * Handle rate_limit_event (silently logged, no comment created)
+   * @param {Object} data - Event data
+   */
+  const handleRateLimitEvent = async data => {
+    // Rate limit events are internal/informational - log but don't create a PR comment
+    if (verbose) {
+      const info = data.rate_limit_info || {};
+      await log(`⏱️ Interactive mode: Rate limit event - status: ${info.status || 'unknown'}, type: ${info.rateLimitType || 'unknown'}`, { verbose: true });
+    }
+  };
+
+  /**
    * Handle unrecognized event types
    * @param {Object} data - Event data
    */
@@ -840,6 +1146,7 @@ ${createRawJsonSection(data)}`;
     if (!data || typeof data !== 'object') {
       return;
     }
+    state.eventsProcessed++;
 
     // Handle events without type as unrecognized
     if (!data.type) {
@@ -851,10 +1158,20 @@ ${createRawJsonSection(data)}`;
       case 'system':
         if (data.subtype === 'init') {
           await handleSystemInit(data);
+        } else if (data.subtype === 'task_started') {
+          await handleTaskStarted(data);
+        } else if (data.subtype === 'task_progress') {
+          await handleTaskProgress(data);
+        } else if (data.subtype === 'task_notification') {
+          await handleTaskNotification(data);
         } else {
           // Unknown system subtype
           await handleUnrecognized(data);
         }
+        break;
+
+      case 'rate_limit_event':
+        await handleRateLimitEvent(data);
         break;
 
       case 'assistant':
@@ -923,6 +1240,10 @@ ${createRawJsonSection(data)}`;
       handleToolUse,
       handleToolResult,
       handleResult,
+      handleTaskStarted,
+      handleTaskProgress,
+      handleTaskNotification,
+      handleRateLimitEvent,
       handleUnrecognized,
     },
   };

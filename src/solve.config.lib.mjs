@@ -8,6 +8,8 @@
 // This approach was adopted per issue #482 feedback to minimize custom code maintenance
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
+import { defaultModels, buildModelOptionDescription } from './models/index.mjs';
+import { validateBranchName } from './solve.branch.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -377,6 +379,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically initialize empty repositories by creating a simple README.md file. Only works when you have write access to the repository. This allows branch creation and pull request workflows to proceed on repositories that have no commits.',
     default: false,
   },
+  'auto-report-issue': {
+    type: 'boolean',
+    description: 'Automatically create a GitHub issue on failure without prompting (non-interactive mode). The issue includes error details, logs, and case study analysis instructions. Sets issue type and label to bug.',
+    default: false,
+  },
+  'disable-report-issue': {
+    type: 'boolean',
+    description: 'Disable error issue creation entirely (no prompt, no automatic creation). Overrides --auto-report-issue if both are specified.',
+    default: false,
+  },
   'attach-solution-summary': {
     type: 'boolean',
     description: 'Attach the AI solution summary (from the result field) as a comment to the PR/issue after completion. The summary is extracted from the AI tool JSON output and posted under a "Solution summary" header.',
@@ -438,18 +450,11 @@ export const createYargsConfig = yargsInstance => {
   config = config
     .option('model', {
       type: 'string',
-      description: 'Model to use (for claude: opus, sonnet, haiku, opusplan, haiku-3-5, haiku-3; for opencode: grok, gpt4o; for codex: gpt5, gpt5-codex, o3; for agent: minimax-m2.5-free, big-pickle, gpt-5-nano, glm-5-free, deepseek-r1-free)',
+      description: buildModelOptionDescription(),
       alias: ['m', 'worker-model'],
       default: currentParsedArgs => {
-        // Dynamic default based on tool selection
-        if (currentParsedArgs?.tool === 'opencode') {
-          return 'grok-code-fast-1';
-        } else if (currentParsedArgs?.tool === 'codex') {
-          return 'gpt-5';
-        } else if (currentParsedArgs?.tool === 'agent') {
-          return 'minimax-m2.5-free';
-        }
-        return 'sonnet';
+        // Dynamic default based on tool selection (Issue #1473: centralized in models/index.mjs)
+        return defaultModels[currentParsedArgs?.tool] || defaultModels.claude;
       },
     })
     .parserConfiguration({
@@ -579,15 +584,18 @@ export const parseArguments = async (yargs, hideBin) => {
     }
   }
 
-  if (argv.tool === 'opencode' && !modelExplicitlyProvided) {
-    // User did not explicitly provide --model, so use the correct default for opencode
-    argv.model = 'grok-code-fast-1';
-  } else if (argv.tool === 'codex' && !modelExplicitlyProvided) {
-    // User did not explicitly provide --model, so use the correct default for codex
-    argv.model = 'gpt-5';
-  } else if (argv.tool === 'agent' && !modelExplicitlyProvided) {
-    // User did not explicitly provide --model, so use the correct default for agent
-    argv.model = 'minimax-m2.5-free';
+  // Validate --base-branch value (issue #1482: reject URLs and invalid git branch names)
+  if (argv.baseBranch) {
+    const branchValidation = validateBranchName(argv.baseBranch);
+    if (!branchValidation.valid) {
+      throw new Error(`Invalid --base-branch value: ${branchValidation.reason}`);
+    }
+  }
+
+  if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
+    // User did not explicitly provide --model, so use the correct default for the tool
+    // (Issue #1473: centralized in models/index.mjs)
+    argv.model = defaultModels[argv.tool];
   }
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file

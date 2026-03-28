@@ -95,13 +95,13 @@ if (isDirectExecution) {
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
-    const modelValidation = await import('./model-validation.lib.mjs');
+    const modelValidation = await import('./models/index.mjs');
     const { validateAndExitOnInvalidModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
@@ -310,6 +310,9 @@ if (isDirectExecution) {
 
     // Set global verbose mode
     global.verboseMode = argv.verbose;
+
+    // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+    setupVerboseLogInterceptor();
 
     // Use the universal GitHub URL parser
     if (githubUrl) {
@@ -772,8 +775,16 @@ if (isDirectExecution) {
             const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
             // Special handling for options with different semantics in hive vs solve
-            if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
-            else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
+            }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             if (argv.dryRun) args.push('--dry-run');
             if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default

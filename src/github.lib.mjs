@@ -11,7 +11,7 @@ export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTok
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
-import { getToolDisplayName, getModelInfoForComment } from './model-info.lib.mjs';
+import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 // Re-export for use by other modules
 export { getToolDisplayName };
 
@@ -22,7 +22,7 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
   const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
   if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
-  let costInfo = '\n\n💰 **Cost estimation:**';
+  let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
@@ -366,21 +366,15 @@ export async function attachLogToGitHub(options) {
     limitResetTime = null,
     toolName = 'AI tool',
     resumeCommand = null,
-    // Whether auto-resume/auto-restart is enabled (determines if CLI commands should be shown)
-    // See: https://github.com/link-assistant/hive-mind/issues/1152
-    isAutoResumeEnabled = false,
+    isAutoResumeEnabled = false, // Issue #1152: Whether auto-resume/auto-restart is enabled
     autoResumeMode = 'resume', // 'resume' or 'restart'
-    // Session type for differentiating solution draft log comments
-    // See: https://github.com/link-assistant/hive-mind/issues/1152
-    sessionType = 'new', // 'new', 'resume', 'auto-resume', 'auto-restart'
-    // New parameters for agent tool pricing support
-    publicPricingEstimate = null,
+    sessionType = 'new', // Issue #1152: 'new', 'resume', 'auto-resume', 'auto-restart'
+    publicPricingEstimate = null, // Agent tool pricing support
     pricingInfo = null,
-    // Issue #1088: Track error_during_execution for "Finished with errors" state
-    errorDuringExecution = false,
-    // Issue #1225: Model information for PR comments
-    requestedModel = null, // The --model flag value (e.g., "opus", "sonnet")
-    tool = null, // The tool used (e.g., "claude", "agent", "codex", "opencode")
+    errorDuringExecution = false, // Issue #1088
+    requestedModel = null, // Issue #1225: The --model flag value
+    tool = null, // The tool used (claude, agent, opencode, codex)
+    resultModelUsage = null, // Issue #1454
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -391,15 +385,12 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
-    // Issue #1173: Remove premature size check that blocked large files.
-    // gh-upload-log can handle files of any size by using repositories for large files.
-    // For files larger than fileMaxSize, we'll skip inline comment attempt and go directly to gh-upload-log.
+    // Issue #1173: gh-upload-log handles large files; skip inline comment for files > fileMaxSize
     const useLargeFileMode = logStats.size > githubLimits.fileMaxSize;
     if (useLargeFileMode && verbose) {
       await log(`  📁 Large log file (${Math.round(logStats.size / 1024 / 1024)}MB), will use gh-upload-log`, { verbose: true });
     }
-    // Calculate token usage if sessionId and tempDir are provided
-    // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
+    // Calculate token usage if sessionId and tempDir are provided (skip for agent tool with pricing)
     let totalCostUSD = publicPricingEstimate;
     // Issue #1225: Collect actual model IDs from Claude session JSON output
     let actualModelIds = null;
@@ -427,6 +418,15 @@ export async function attachLogToGitHub(options) {
         if (verbose) {
           await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
         }
+      }
+    }
+    // Issue #1454: Use resultModelUsage from result JSON when it has more models (includes subagent models)
+    if (resultModelUsage && typeof resultModelUsage === 'object') {
+      const ids = Object.keys(resultModelUsage);
+      if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
+        ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
+        actualModelIds = ids;
+        if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
     // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
@@ -557,7 +557,7 @@ ${logContent}
       logComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
-**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -714,8 +714,8 @@ ${resumeCommand}
 
             logUploadComment += `${modelInfoString}
 
-📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${logUrl})
+### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete execution log](${logUrl})
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
@@ -726,8 +726,10 @@ The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
 \`\`\`${modelInfoString}
-📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${logUrl})
+
+### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete failure log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else if (errorDuringExecution) {
@@ -736,10 +738,11 @@ ${errorMessage}
             logUploadComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
 
-**Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
-📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${logUrl})
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
@@ -761,8 +764,10 @@ This log file contains the complete execution trace of the AI ${targetType === '
             }
             logUploadComment = `## ${title}
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
-${sessionNote}📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${logUrl})
+${sessionNote}
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }

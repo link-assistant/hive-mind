@@ -6,9 +6,8 @@
 import assert from 'assert';
 
 // Import the model validation module
-const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames } = await import('../src/model-validation.lib.mjs');
+const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
-const { claudeModels } = await import('../src/model-mapping.lib.mjs');
 const { isOpus46OrLater, getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode, DEFAULT_MAX_THINKING_BUDGET, DEFAULT_MAX_THINKING_BUDGET_OPUS_46 } = await import('../src/config.lib.mjs');
 
 console.log('Testing Claude Opus 4.5/4.6 Model Support (Issue #1221, Issue #1238)\n');
@@ -41,7 +40,7 @@ test('opus alias maps to claude-opus-4-6 in availableModels (claude.lib.mjs)', (
   assert.strictEqual(availableModels['opus'], 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
-test('opus alias maps to claude-opus-4-6 in claudeModels (model-mapping.lib.mjs)', () => {
+test('opus alias maps to claude-opus-4-6 in claudeModels (models/index.mjs)', () => {
   assert.strictEqual(claudeModels['opus'], 'claude-opus-4-6', 'opus should map to claude-opus-4-6');
 });
 
@@ -229,19 +228,19 @@ test('isOpus46OrLater returns false for sonnet', () => {
 });
 
 test('getMaxOutputTokensForModel returns 128000 for opus (now Opus 4.6, Issue #1433)', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('opus'), 128000, 'Opus 4.6 should have 128K max output tokens');
+  assert.strictEqual(getMaxOutputTokensForModel('opus'), claudeCode.maxOutputTokensOpus46, 'Opus 4.6 should have Opus 4.6 max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 128000 for opus-4-6', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('opus-4-6'), 128000, 'opus-4-6 should have 128K max output tokens');
+test('getMaxOutputTokensForModel returns opus46 max for opus-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('opus-4-6'), claudeCode.maxOutputTokensOpus46, 'opus-4-6 should have Opus 4.6 max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 128000 for claude-opus-4-6', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('claude-opus-4-6'), 128000, 'claude-opus-4-6 should have 128K max output tokens');
+test('getMaxOutputTokensForModel returns opus46 max for claude-opus-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('claude-opus-4-6'), claudeCode.maxOutputTokensOpus46, 'claude-opus-4-6 should have Opus 4.6 max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns 128000 for sonnet (env CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000)', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), 128000, 'Sonnet should have 128K max output tokens (per env override)');
+test('getMaxOutputTokensForModel returns default max for sonnet', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokens, 'Sonnet should have default max output tokens');
 });
 
 // ============================================================
@@ -344,8 +343,8 @@ test('isOpus46OrLater returns true for opus-4-6', () => {
   assert.strictEqual(isOpus46OrLater('opus-4-6'), true, 'opus-4-6 should be identified as Opus 4.6+');
 });
 
-test('getMaxOutputTokensForModel returns 128000 for opus-4-6', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('opus-4-6'), 128000, 'opus-4-6 should have 128K max output tokens');
+test('getMaxOutputTokensForModel returns opus46 max for opus-4-6', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('opus-4-6'), claudeCode.maxOutputTokensOpus46, 'opus-4-6 should have Opus 4.6 max output tokens');
 });
 
 // ============================================================

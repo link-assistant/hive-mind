@@ -186,7 +186,7 @@ runTest('detectUsageLimit: no reset time for non-limit message', () => {
 
 runTest('formatUsageLimitMessage: includes session ID and resume command', () => {
   const lines = formatUsageLimitMessage({
-    tool: 'Claude',
+    tool: 'Anthropic Claude Code',
     resetTime: '8:00 PM',
     sessionId: '4c549ec6-3204-4312-b8e2-5f04113b2f86',
     resumeCommand: './solve.mjs "https://example.com" --resume 4c549ec6-3204-4312-b8e2-5f04113b2f86',
@@ -194,7 +194,7 @@ runTest('formatUsageLimitMessage: includes session ID and resume command', () =>
 
   const message = lines.join('\n');
   assertTrue(message.includes('Usage Limit Reached'), 'Should include header');
-  assertTrue(message.includes('Claude'), 'Should include tool name');
+  assertTrue(message.includes('Anthropic Claude Code'), 'Should include tool name');
   assertTrue(message.includes('8:00 PM'), 'Should include reset time');
   assertTrue(message.includes('4c549ec6-3204-4312-b8e2-5f04113b2f86'), 'Should include session ID');
   assertTrue(message.includes('--resume'), 'Should include resume command');
@@ -202,7 +202,7 @@ runTest('formatUsageLimitMessage: includes session ID and resume command', () =>
 
 runTest('formatUsageLimitMessage: handles missing reset time', () => {
   const lines = formatUsageLimitMessage({
-    tool: 'Claude',
+    tool: 'Anthropic Claude Code',
     resetTime: null,
     sessionId: 'test-session',
     resumeCommand: './solve.mjs --resume test-session',
@@ -214,7 +214,7 @@ runTest('formatUsageLimitMessage: handles missing reset time', () => {
 
 runTest('formatUsageLimitMessage: handles missing session ID', () => {
   const lines = formatUsageLimitMessage({
-    tool: 'Claude',
+    tool: 'Anthropic Claude Code',
     resetTime: '5:00 AM',
     sessionId: null,
     resumeCommand: null,

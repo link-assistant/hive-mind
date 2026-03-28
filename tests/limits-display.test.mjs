@@ -15,7 +15,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
@@ -703,6 +703,96 @@ test('formatUsageMessage sections are separated by blank lines', () => {
   assert.ok(diskIndex < claudeIndex, 'Disk space section should appear before Claude section');
   const between = message.slice(diskIndex, claudeIndex);
   assert.ok(between.includes('\n\n'), 'There should be a blank line between Disk space and Claude sections');
+});
+
+// ============================================================================
+// formatRetryAfterMessage Tests (Issue #1446)
+// ============================================================================
+
+console.log('\n📋 formatRetryAfterMessage Tests (Issue #1446)\n');
+
+test('formatRetryAfterMessage returns "Try again later." for null', () => {
+  const result = formatRetryAfterMessage(null);
+  assert.equal(result, ' Try again later.');
+});
+
+test('formatRetryAfterMessage returns "Try again later." for undefined', () => {
+  const result = formatRetryAfterMessage(undefined);
+  assert.equal(result, ' Try again later.');
+});
+
+test('formatRetryAfterMessage returns "Try again later." for "0"', () => {
+  // This is the key fix for issue #1446 - retry-after: 0 should NOT show "Retry after: 0s"
+  const result = formatRetryAfterMessage('0');
+  assert.equal(result, ' Try again later.', 'retry-after: 0 should show "Try again later." not "Retry after: 0s"');
+});
+
+test('formatRetryAfterMessage returns "Try again later." for negative value', () => {
+  const result = formatRetryAfterMessage('-5');
+  assert.equal(result, ' Try again later.');
+});
+
+test('formatRetryAfterMessage formats seconds correctly for small values', () => {
+  const result = formatRetryAfterMessage('30');
+  assert.ok(result.startsWith(' Resets in 30s'), `Expected "Resets in 30s..." but got "${result}"`);
+  assert.ok(result.includes('UTC'), 'Should include UTC timezone');
+});
+
+test('formatRetryAfterMessage formats seconds correctly for minutes', () => {
+  const result = formatRetryAfterMessage('150');
+  // 150 seconds = 2 minutes 30 seconds
+  assert.ok(result.startsWith(' Resets in 2m 30s'), `Expected "Resets in 2m 30s..." but got "${result}"`);
+  assert.ok(result.includes('UTC'), 'Should include UTC timezone');
+});
+
+test('formatRetryAfterMessage formats seconds correctly for hours', () => {
+  const result = formatRetryAfterMessage('3600');
+  // 3600 seconds = 1 hour
+  assert.ok(result.startsWith(' Resets in 1h 0m'), `Expected "Resets in 1h 0m..." but got "${result}"`);
+  assert.ok(result.includes('UTC'), 'Should include UTC timezone');
+});
+
+test('formatRetryAfterMessage formats exact minutes without trailing seconds', () => {
+  const result = formatRetryAfterMessage('120');
+  // 120 seconds = 2 minutes exactly
+  assert.ok(result.startsWith(' Resets in 2m'), `Expected "Resets in 2m..." but got "${result}"`);
+  assert.ok(!result.includes('2m 0s'), 'Should not show "2m 0s", just "2m"');
+});
+
+test('formatRetryAfterMessage handles HTTP-date format', () => {
+  // Create a future date 30 minutes from now
+  const futureDate = new Date(Date.now() + 30 * 60 * 1000);
+  const httpDate = futureDate.toUTCString(); // e.g., "Wed, 19 Mar 2026 07:28:00 GMT"
+  const result = formatRetryAfterMessage(httpDate);
+  assert.ok(result.startsWith(' Resets in'), `Expected "Resets in..." but got "${result}"`);
+  assert.ok(result.includes('UTC'), 'Should include UTC timezone');
+});
+
+test('formatRetryAfterMessage handles HTTP-date in the past', () => {
+  const pastDate = new Date(Date.now() - 60 * 1000);
+  const httpDate = pastDate.toUTCString();
+  const result = formatRetryAfterMessage(httpDate);
+  assert.equal(result, ' Try again later.', 'Past HTTP-date should show "Try again later."');
+});
+
+test('formatRetryAfterMessage with rate-limit error message in formatUsageMessage', () => {
+  // Simulate how the error appears in the full message
+  const errorMessage = `Claude Usage API access has reached rate limit.${formatRetryAfterMessage('0')}`;
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage);
+
+  // Should NOT contain "Retry after: 0s"
+  assert.ok(!message.includes('Retry after: 0s'), 'Should NOT show "Retry after: 0s" in the formatted message');
+  // Should contain "Try again later."
+  assert.ok(message.includes('Try again later'), 'Should show "Try again later." for retry-after: 0');
+});
+
+test('formatRetryAfterMessage with positive retry-after in formatUsageMessage', () => {
+  const errorMessage = `Claude Usage API access has reached rate limit.${formatRetryAfterMessage('300')}`;
+  const message = formatUsageMessage(null, null, null, null, null, errorMessage);
+
+  // Should contain "Resets in 5m"
+  assert.ok(message.includes('Resets in 5m'), 'Should show "Resets in 5m" for retry-after: 300');
+  assert.ok(message.includes('UTC'), 'Should include UTC timezone in reset time');
 });
 
 // ============================================================================

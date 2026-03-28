@@ -24,7 +24,7 @@ All times UTC, from https://github.com/link-assistant/hive-mind/pull/1388
 | Time (UTC)        | Event                                                                                              |
 | ----------------- | -------------------------------------------------------------------------------------------------- |
 | 09:24:34          | **Session 1** starts: initial solution draft log uploaded to PR #1388                              |
-| 09:26:50          | Session 1: auto-restart triggered (attempt 1) due to CI failures                                   |
+| 09:26:50          | Session 1: auto-restart triggered (iteration 1) due to CI failures                                 |
 | 09:36:08          | Session 1 iteration 1: auto-restart-until-mergeable log uploaded (cost: $0.52)                     |
 | **09:37:14**      | **Session 1**: `## ✅ Ready to merge` comment posted — all CI checks passed                        |
 | 09:51:14          | Human feedback: "Will it not break queue display that goes after claude limits section?"           |

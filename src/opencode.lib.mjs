@@ -18,27 +18,16 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { opencodeModels, defaultModels } from './models/index.mjs';
 
 // Model mapping to translate aliases to full model IDs for OpenCode
+// Issue #1473: Uses centralized opencodeModels from models/index.mjs (single source of truth)
 export const mapModelToId = model => {
-  const modelMap = {
-    gpt4: 'openai/gpt-4',
-    gpt4o: 'openai/gpt-4o',
-    claude: 'anthropic/claude-3-5-sonnet',
-    sonnet: 'anthropic/claude-3-5-sonnet',
-    opus: 'anthropic/claude-3-opus',
-    gemini: 'google/gemini-pro',
-    grok: 'opencode/grok-code',
-    'grok-code': 'opencode/grok-code',
-    'grok-code-fast-1': 'opencode/grok-code',
-  };
-
-  // Return mapped model ID if it's an alias, otherwise return as-is
-  return modelMap[model] || model;
+  return opencodeModels[model] || model;
 };
 
 // Function to validate OpenCode connection
-export const validateOpenCodeConnection = async (model = 'grok-code-fast-1') => {
+export const validateOpenCodeConnection = async (model = defaultModels.opencode) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
 

@@ -1,5 +1,158 @@
 # @link-assistant/hive-mind
 
+## 1.36.1
+
+### Patch Changes
+
+- 74bf211: fix false positive 'Ready to merge' by adding workflow run grace period (Issue #1480)
+
+## 1.36.0
+
+### Minor Changes
+
+- 3adbf2b: feat: add --auto-report-issue and --disable-report-issue flags for non-interactive error reporting (Issue #1484)
+  - Add `--auto-report-issue` flag that automatically creates a GitHub issue on failure without prompting.
+    The auto-reported issue includes error details, logs, and case study analysis instructions in the body.
+    Issue is labeled as `bug`.
+  - Add `--disable-report-issue` flag that completely disables error issue creation (no prompt, no auto-creation).
+    Takes precedence over `--auto-report-issue` if both are specified.
+  - Default behavior (neither flag) preserves the existing interactive y/n prompt.
+  - Both flags are automatically available as passthrough options in hive and TELEGRAM_HIVE_OVERRIDES.
+
+## 1.35.12
+
+### Patch Changes
+
+- 05a72c3: fix: reject URLs and invalid git branch names used as --base-branch (Issue #1482)
+  - Add `validateBranchName()` function to `solve.branch.lib.mjs` that validates branch names against git-check-ref-format rules
+  - Reject URLs (https://, http://, git@, ssh://) passed as --base-branch with clear error message
+  - Reject invalid git ref characters (spaces, ~, ^, :, ?, \*, [, ], \, control chars, .., @{)
+  - Add validation in `solve.config.lib.mjs` parseArguments (early catch), `solve.branch.lib.mjs` createOrCheckoutBranch (defense-in-depth), and `hive.mjs` (before forwarding to solve)
+  - Add 19 test cases in `tests/test-base-branch-validation.mjs`
+  - Add case study documentation in `docs/case-studies/issue-1482/`
+
+## 1.35.11
+
+### Patch Changes
+
+- 6edb401: fix: add stream startup timeout to detect stuck Claude CLI (Issue #1472/#1475)
+
+  Both affected sessions showed ~4.5 hours with zero stdout/stderr from Claude CLI despite a successful API response. Adds a configurable startup timeout (default: 2 minutes, env: HIVE_MIND_STREAM_STARTUP_MS) that force-kills the Claude CLI process if no output is received, preventing indefinite hangs and enabling retry logic.
+
+## 1.35.10
+
+### Patch Changes
+
+- 21e1f5e: fix: fix model recognition logic and update free models docs (Issue #1473)
+  - Consolidate `model-info.lib.mjs`, `model-mapping.lib.mjs`, and `model-validation.lib.mjs` into single `src/models/index.mjs`
+  - Fix `resolveModelId()` to use `mapModelForTool()` as single source of truth instead of duplicated hardcoded maps that were missing agent free model mappings
+  - Fix false warning "Main model does not match requested model" for agent free models (e.g., `kimi-k2.5-free` → `opencode/kimi-k2.5-free`)
+  - Add missing base model pricing mappings for `minimax-m2.5-free`, `glm-5-free`, `glm-4.5-air-free`, `deepseek-r1-free`, `giga-potato-free` in `getBaseModelForPricing()`
+  - Update `validateAgentConnection()` default model to `minimax-m2.5-free`
+  - Update `docs/FREE_MODELS.md` to sync with upstream [Agent CLI FREE_MODELS.md](https://github.com/link-assistant/agent/blob/main/FREE_MODELS.md)
+  - Update README.md examples to use `minimax-m2.5-free` instead of deprecated `kimi-k2.5-free`
+
+## 1.35.9
+
+### Patch Changes
+
+- 2e4e00e: fix: update tool display names to full official names (Issue #1470)
+  - Update `getToolDisplayName()` in `src/model-info.lib.mjs` to return full official names: "Anthropic Claude Code", "OpenAI Codex", "OpenCode", "Agent CLI"
+  - Update usage limit messages in `src/claude.lib.mjs`, `src/codex.lib.mjs`, and `src/agent.lib.mjs` to use full tool names
+  - Update test assertions in `tests/model-info.test.mjs` and `tests/test-usage-limit.mjs` to match new display names
+
+## 1.35.8
+
+### Patch Changes
+
+- ca57154: fix: add retry with exponential backoff for PR verification after creation (Issue #1468)
+  - Add retry logic with exponential backoff (up to 5 attempts: 2s, 4s, 6s, 8s, 10s) to PR verification step in solve.auto-pr.lib.mjs to handle GitHub API eventual consistency
+  - Add case study with timeline reconstruction and root cause analysis
+  - Add 11 unit tests covering retry behavior, backoff timing, and edge cases
+
+## 1.35.7
+
+### Patch Changes
+
+- fca8460: fix: prevent infinite CI waiting loop when workflows complete with action_required (Issue #1466)
+  - Detect when all workflow runs completed with non-executing conclusions (action_required, cancelled, stale, skipped) and treat as "CI not triggered" instead of waiting indefinitely for check-runs that will never appear
+  - Add verbose log interceptor (setupVerboseLogInterceptor) to capture [VERBOSE] console.log output in log files, fixing the discrepancy between terminal and log file output
+  - Add case study with root cause analysis and timeline reconstruction from 5 production log files
+  - Add 14 unit tests covering action_required handling, non-executing conclusions, race conditions, and edge cases
+
+## 1.35.6
+
+### Patch Changes
+
+- 4b0beaf: Fix interactive mode PR comment output: use stdin for GitHub API calls to prevent shell quoting corruption, flush comment queue before tool result timeout to prevent stuck "Waiting for result..." comments, and guard against duplicate session started comments from late system.init events
+
+## 1.35.5
+
+### Patch Changes
+
+- 37481da: fix: improve PR creation failure error messaging and log upload fallback (Issue #1462)
+  - Consolidate triple error output into a single clear error message when PR creation fails
+  - Upload failure logs to the issue as fallback when PR is not available (--attach-logs)
+  - Capture and log `gh pr create` stdout/stderr in verbose mode for root cause diagnosis
+  - Add fallback GitHub user detection via `gh auth status` when `gh api user` fails
+  - Rename `github-issue-creator.lib.mjs` to `github-error-reporter.lib.mjs` for clarity
+
+## 1.35.4
+
+### Patch Changes
+
+- 0df2139: Harden Telegram message formatting: escape special characters in user mentions, options text, and server overrides. Add safeReply with plain text fallback and diagnostic logging when Telegram rejects Markdown. Improve error messages with user identity context for root cause analysis.
+
+## 1.35.3
+
+### Patch Changes
+
+- 22ae6d6: fix: rename "attempt" to "iteration" in auto-restart messages (Issue #1456)
+
+  The auto-restart PR comment title and log message now use "iteration" instead of "attempt" to match the project's terminology. Affected messages:
+  - PR comment: `Auto-restart triggered (iteration N)` (was `attempt N`)
+  - Log: `Exiting auto-restart mode after N iterations` (was `attempts`)
+
+## 1.35.2
+
+### Patch Changes
+
+- 0cfcb6a: Fix CI/CD changelog formatting when multiple PRs merge before a release (Issue #1452). The merge-changesets script now keeps each changeset as a separate file (only harmonizing bump types) instead of merging descriptions into one, so @changesets/cli produces separate bullet items. Also enhances release notes PR detection to find all related PRs via tag-range merge commit lookup.
+- a689f6b: fix: use result JSON modelUsage for accurate multi-model display in GitHub comments
+
+  When Claude Code uses multiple models (e.g., main model + subagent), the completion
+  comment now correctly displays all models instead of just the main model.
+
+## 1.35.1
+
+### Patch Changes
+
+- Fix misleading "Retry after: 0s" message in /limits command when Claude Usage API returns 429. Now shows "Try again later." for zero/missing retry-after values, or proper reset time format (e.g., "Resets in 5m (Mar 19, 8:00pm UTC)") for meaningful values. Also caches 429 errors to prevent repeated requests to rate-limited endpoint, and adds full request/response verbose logging for debugging.
+
+  improve Solution Draft Log comment formatting for better readability (issue #1448)
+
+## 1.35.0
+
+### Minor Changes
+
+- f3de781: Add handlers for agent task lifecycle events (task_started, task_progress, task_notification) and rate_limit_event in interactive mode, reducing PR comment noise by ~30%
+
+## 1.34.8
+
+### Patch Changes
+
+- c95a472: Add test timeout guidelines to system prompt and case study documentation
+  - Added guidelines for setting reasonable test timeouts in CI/CD pipelines
+  - Created comprehensive case study in docs/case-studies/issue-1197/
+  - Recommendations include: 5-30s for unit tests, 30-60s for E2E tests
+  - Guidelines for job-level workflow timeouts and fail-fast patterns
+
+## 1.34.7
+
+### Patch Changes
+
+- bb83be9: fix: fail with helpful error when --fork used on own repository (issue #1206)
+
 ## 1.34.6
 
 ### Patch Changes

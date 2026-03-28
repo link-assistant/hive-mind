@@ -5,6 +5,7 @@
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
+import { primaryModelNames } from './models/index.mjs';
 
 /**
  * Build the user prompt for Claude
@@ -215,6 +216,8 @@ Solution development and testing.
       write unit tests with mocks for easy and quick start.
    - When you test integrations, use existing framework.
    - When you test solution draft, include automated checks in pr.
+   - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
+   - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
    - When issue is unclear, write comment on issue asking questions.
    - When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
@@ -307,7 +310,7 @@ Agent Commander usage (unified subagent delegation).
       --tool <name>: Agent to use (claude, opencode, codex, agent)
       --working-directory <path>: Execution directory (use current directory for context)
       --prompt <text>: The task to delegate
-      --model <name>: Model to use (sonnet, opus, haiku, grok, etc.)
+      --model <name>: Model to use (${[...new Set(Object.values(primaryModelNames).flat())].slice(0, 5).join(', ')}, etc.)
       --isolation <mode>: Execution context (none, screen, docker)
       --detached: Run in background mode
    - Examples:

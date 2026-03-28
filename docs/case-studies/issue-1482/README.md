@@ -57,9 +57,10 @@ Added to `solve.branch.lib.mjs`, this function validates branch names against:
 
 ### Validation Points (defense-in-depth)
 
-1. **`solve.config.lib.mjs:parseArguments()`** - Early validation after CLI parsing, before any processing.
-2. **`solve.branch.lib.mjs:createOrCheckoutBranch()`** - Defense-in-depth check right before `git checkout`.
-3. **`hive.mjs`** - Validation before forwarding `--base-branch`/`--target-branch` to the solve subprocess.
+1. **`telegram-bot.mjs`** - Earliest validation point: rejects invalid branch names in `/solve` and `/hive` commands before any process is spawned. Also validates `--base-branch`/`--target-branch` in solve/hive overrides at bot startup.
+2. **`solve.config.lib.mjs:parseArguments()`** - Early validation after CLI parsing, before any processing.
+3. **`solve.branch.lib.mjs:createOrCheckoutBranch()`** - Defense-in-depth check right before `git checkout`.
+4. **`hive.mjs`** - Validation before forwarding `--base-branch`/`--target-branch` to the solve subprocess.
 
 ### Error Messages
 
@@ -81,4 +82,6 @@ Invalid --base-branch value: "https://github.com/rumaster/2book-es/pull/172" loo
 ## References
 
 - [git-check-ref-format documentation](https://git-scm.com/docs/git-check-ref-format)
-- Screenshot: [screenshot.png](./screenshot.png)
+- Screenshot (issue): [screenshot1.png](./screenshot1.png)
+- Screenshot (comment): [screenshot2.png](./screenshot2.png)
+- [Full solve log](./solve-log.log)

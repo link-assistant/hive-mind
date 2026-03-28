@@ -6,7 +6,7 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-import { log } from './lib.mjs';
+import { log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -808,12 +808,10 @@ export const executeClaudeCommand = async params => {
         await log('   Feedback info included: No', { verbose: true });
       }
     }
-    // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
-    // Use command-stream's async iteration for real-time streaming with file logging
     let commandFailed = false;
     let sessionId = null;
     let limitReached = false;
@@ -1027,7 +1025,12 @@ export const executeClaudeCommand = async params => {
                   const subtype = data.subtype || 'unknown';
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
-                    await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                    if ((data.errors || []).some(e => isENOSPC(e))) {
+                      commandFailed = true;
+                      await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
+                    } else {
+                      await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                    }
                   } else {
                     commandFailed = true;
                     await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
@@ -1039,8 +1042,8 @@ export const executeClaudeCommand = async params => {
                   if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
                     isInternalServerError = true;
                   }
-                  // Issue #1353: Detect "Request timed out" — Claude CLI emits {type:"result",is_error:true,result:"Request timed out"} after exhausting retries
-                  if (lastMessage === 'Request timed out' || lastMessage.includes('Request timed out')) {
+                  // Issue #1353: Detect "Request timed out" from Claude CLI
+                  if (lastMessage.includes('Request timed out')) {
                     isRequestTimeout = true;
                     await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
                   }
@@ -1277,8 +1280,7 @@ export const executeClaudeCommand = async params => {
           }
         }
       }
-      // Issue #1354: Detect silent failures (no messages + stderr errors, e.g. "kill EPERM" with exit 0).
-      // Skip if result event confirmed success (definitive proof regardless of messageCount).
+      // Issue #1354: Detect silent failures (no messages + stderr errors, skip if result confirmed success)
       if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
         const errorsPreview = stderrErrors
@@ -1307,9 +1309,7 @@ export const executeClaudeCommand = async params => {
           resultSummary, // Issue #1263: Include result summary
         };
       }
-      // Issue #1088: If error_during_execution occurred but command didn't fail,
-      // log it as "Finished with errors" instead of pure success
-      // Issue #1351: Distinguish interrupted sessions (exit code 130) from normal completion
+      // Issue #1088/#1351: Log execution result status
       if (exitCode === 130) {
         await log('\n\n⚠️ Claude command interrupted (CTRL+C)');
       } else if (errorDuringExecution) {

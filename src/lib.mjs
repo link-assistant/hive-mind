@@ -341,6 +341,28 @@ export const measureTime = async (fn, label = 'Operation') => {
 };
 
 /**
+ * Check if an error is an ENOSPC (no space left on device) error
+ * Issue #1212: ENOSPC errors need specific handling because they cascade
+ * (once disk is full, all operations fail) and require user action (cleanup).
+ * @param {Error|string} error - Error object or message
+ * @returns {boolean} True if the error is an ENOSPC error
+ */
+export const isENOSPC = error => {
+  if (!error) return false;
+  const message = error?.message || (typeof error === 'string' ? error : '');
+  const lowerMessage = message.toLowerCase();
+  return (
+    error?.code === 'ENOSPC' ||
+    message.includes('ENOSPC') ||
+    lowerMessage.includes('no space left on device') ||
+    // Issue #1211: git clone ENOSPC patterns — "unable to write file" and
+    // "cannot create directory" occur when disk fills during checkout
+    (lowerMessage.includes('unable to write file') && lowerMessage.includes('error')) ||
+    (lowerMessage.includes('cannot create directory') && lowerMessage.includes('no space left'))
+  );
+};
+
+/**
  * Clean up error messages for better user experience
  * @param {Error|string} error - Error object or message
  * @returns {string} Cleaned error message
@@ -502,6 +524,7 @@ export default {
   retry,
   formatBytes,
   measureTime,
+  isENOSPC,
   cleanErrorMessage,
   formatAligned,
   displayFormattedError,

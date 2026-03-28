@@ -901,6 +901,11 @@ Thank you!`;
 export const classifyCloneError = errorOutput => {
   const output = errorOutput.toLowerCase();
 
+  // Issue #1211: ENOSPC (disk full) errors - NOT retryable, requires user action
+  if (lib.isENOSPC(errorOutput) || output.includes('no space left on device') || (output.includes('unable to write file') && output.includes('error')) || output.includes('errno -28')) {
+    return { type: 'ENOSPC', retryable: false, description: 'No space left on device' };
+  }
+
   // Transient server errors (5xx) - typically retryable
   if (output.includes('error: 500') || output.includes('internal server error') || output.includes('error: 502') || output.includes('error: 503') || output.includes('error: 504')) {
     return { type: 'TRANSIENT', retryable: true, description: 'GitHub server error' };
@@ -983,36 +988,34 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         if (line.trim()) await log(`     ${line}`);
       }
       await log('');
-      await log('  💡 Common causes:');
-      await log("     • Repository doesn't exist or is private");
-      await log('     • No GitHub authentication');
-      await log('     • Network connectivity issues');
-      if (errorClassification.type === 'TRANSIENT') {
-        await log('     • GitHub server issues (temporary)');
+
+      // Issue #1211: ENOSPC-specific guidance
+      if (errorClassification.type === 'ENOSPC') {
+        await log('  💡 Cause: Disk is full — not enough space to clone the repository');
+        await log('');
+        await log('  🔧 How to fix:');
+        await log('     1. Free disk space: sudo rm -rf /tmp/* /var/tmp/*');
+        await log('     2. Check disk usage: df -h');
+        await log('     3. Clean Docker/npm: docker system prune -af && npm cache clean --force');
+        await log('');
+      } else {
+        await log('  💡 Common causes:');
+        await log("     • Repository doesn't exist or is private");
+        await log('     • No GitHub authentication');
+        await log('     • Network connectivity issues');
+        if (errorClassification.type === 'TRANSIENT') await log('     • GitHub server issues (temporary)');
+        if (errorClassification.type === 'RATE_LIMIT') await log('     • API rate limiting exceeded');
+        if (argv.fork) await log('     • Fork not ready yet (try again in a moment)');
+        await log('');
+        await log('  🔧 How to fix:');
+        await log('     1. Check authentication: gh auth status');
+        await log('     2. Login if needed: gh auth login');
+        await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
+        if (argv.fork) await log(`     4. Check fork: gh repo view ${repoToClone}`);
+        if (errorClassification.type === 'TRANSIENT') await log('     5. Wait and retry / check: https://www.githubstatus.com');
+        if (errorClassification.type === 'RATE_LIMIT') await log('     5. Wait for rate limit to reset or use --token with different token');
+        await log('');
       }
-      if (errorClassification.type === 'RATE_LIMIT') {
-        await log('     • API rate limiting exceeded');
-      }
-      if (argv.fork) {
-        await log('     • Fork not ready yet (try again in a moment)');
-      }
-      await log('');
-      await log('  🔧 How to fix:');
-      await log('     1. Check authentication: gh auth status');
-      await log('     2. Login if needed: gh auth login');
-      await log(`     3. Verify access: gh repo view ${owner}/${repo}`);
-      if (argv.fork) {
-        await log(`     4. Check fork: gh repo view ${repoToClone}`);
-      }
-      if (errorClassification.type === 'TRANSIENT') {
-        await log('     5. Wait a few minutes and retry (GitHub server issue)');
-        await log('     6. Check GitHub status: https://www.githubstatus.com');
-      }
-      if (errorClassification.type === 'RATE_LIMIT') {
-        await log('     5. Wait for rate limit to reset (check your quota)');
-        await log('     6. Use --token flag with different token if available');
-      }
-      await log('');
       await safeExit(1, 'Repository setup failed');
     }
 

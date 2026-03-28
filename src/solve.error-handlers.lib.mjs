@@ -43,7 +43,7 @@ export const handleFailure = async options => {
 
   // If --attach-logs is enabled, try to attach failure logs
   if (shouldAttachLogs && getLogFile()) {
-    // Issue #1462: Upload logs to PR if available, otherwise fall back to the issue
+    // Issues #1212, #1462: Upload logs to PR if available, otherwise fall back to the issue
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
     const targetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;

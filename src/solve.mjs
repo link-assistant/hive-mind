@@ -508,8 +508,7 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Issue #1462: Store issueNumber in global so error handlers can upload logs to the issue
-// as a fallback when PR creation fails and global.createdPR is not available
+// Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
@@ -961,10 +960,12 @@ try {
           if (logUploadSuccess) {
             await log('  ✅ Logs uploaded successfully');
           } else {
-            await log('  ⚠️  Failed to upload logs', { verbose: true });
+            // Issue #1212: Always show log upload failures (not just verbose)
+            await log('  ⚠️  Failed to upload logs');
           }
         } catch (uploadError) {
-          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+          // Issue #1212: Always show log upload errors (not just verbose)
+          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
         }
       } else if (prNumber) {
         // Fallback: Post simple failure comment if logs are not attached
@@ -1029,10 +1030,12 @@ try {
             if (logUploadSuccess) {
               await log('  ✅ Logs uploaded successfully');
             } else {
-              await log('  ⚠️  Failed to upload logs', { verbose: true });
+              // Issue #1212: Always show log upload failures (not just verbose)
+              await log('  ⚠️  Failed to upload logs');
             }
           } catch (uploadError) {
-            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+            // Issue #1212: Always show log upload errors (not just verbose)
+            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
           }
         } else {
           // Fallback: Post simple waiting comment if logs are not attached
@@ -1093,7 +1096,7 @@ try {
 
     // If --attach-logs is enabled, attach failure logs before exiting
     // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
-    // Issue #1462: Fall back to uploading logs to the issue if PR is not available
+    // Issues #1212, #1462: Fall back to uploading logs to the issue if PR is not available
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
     const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
@@ -1133,10 +1136,12 @@ try {
         if (logUploadSuccess) {
           await log(`  ✅ Failure logs uploaded to ${logTargetLabel} successfully`);
         } else {
-          await log('  ⚠️  Failed to upload logs', { verbose: true });
+          // Issue #1212: Always show log upload failures (not just verbose)
+          await log('  ⚠️  Failed to upload failure logs');
         }
       } catch (uploadError) {
-        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+        // Issue #1212: Always show log upload errors (not just verbose)
+        await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
     }
 

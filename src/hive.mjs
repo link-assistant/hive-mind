@@ -766,8 +766,16 @@ if (isDirectExecution) {
             const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
             // Special handling for options with different semantics in hive vs solve
-            if (argv.baseBranch) args.push('--base-branch', argv.baseBranch);
-            else if (argv.targetBranch) args.push('--base-branch', argv.targetBranch);
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
+            }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             if (argv.dryRun) args.push('--dry-run');
             if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default

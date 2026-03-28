@@ -9,6 +9,7 @@
 
 import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.lib.mjs';
 import { defaultModels, buildModelOptionDescription } from './models/index.mjs';
+import { validateBranchName } from './solve.branch.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -560,6 +561,14 @@ export const parseArguments = async (yargs, hideBin) => {
     // Normalize: if passed as boolean true (flag without value), treat as 1 iteration
     if (argv.finalize === true) {
       argv.finalize = 1;
+    }
+  }
+
+  // Validate --base-branch value (issue #1482: reject URLs and invalid git branch names)
+  if (argv.baseBranch) {
+    const branchValidation = validateBranchName(argv.baseBranch);
+    if (!branchValidation.valid) {
+      throw new Error(`Invalid --base-branch value: ${branchValidation.reason}`);
     }
   }
 

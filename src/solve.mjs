@@ -211,6 +211,15 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
+// Validate --plan-model if provided (Issue #1223)
+if (argv.planModel) {
+  if (tool !== 'claude') {
+    await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    await safeExit(1, '--plan-model requires --tool claude');
+  }
+  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+}
+
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {

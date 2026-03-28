@@ -253,7 +253,7 @@ test('DEFAULT_MAX_THINKING_BUDGET_OPUS_46 is 31999 (aligned with standard models
 });
 
 test('getDefaultMaxThinkingBudgetForModel returns 31999 for opus (now Opus 4.6, Issue #1433)', () => {
-  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opus'), 31999, 'Opus 4.5 should have 31999 thinking budget');
+  assert.strictEqual(getDefaultMaxThinkingBudgetForModel('opus'), 31999, 'Opus 4.6 should have 31999 thinking budget');
 });
 
 test('getDefaultMaxThinkingBudgetForModel returns 31999 for opus-4-6 (aligned with standard, Issue #1238)', () => {

@@ -152,9 +152,7 @@ if (isDirectExecution) {
         // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
         await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
-        // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
-        // This approach uses the GitHub API directly to fetch all repositories without any limits
-        // Include isArchived field to filter out archived repositories
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
         let repoListCmd;
         if (scope === 'organization') {
           repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
@@ -436,8 +434,6 @@ if (isDirectExecution) {
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
 
-    // Unhandled error handlers are now managed by exit-handler.lib.mjs
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -470,18 +466,28 @@ if (isDirectExecution) {
       }
     }
 
-    // Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-    // Model validation is a simple string check and should always be performed
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+    }
+
+    // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
-    // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
 
     if (argv.skipIssuesWithPrs) {
-      // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
           level: 'error',
@@ -492,8 +498,7 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // If user didn't explicitly set auto-continue, disable it when -s is used
-      // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+      // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
@@ -778,10 +783,8 @@ if (isDirectExecution) {
             }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
             if (argv.dryRun) args.push('--dry-run');
-            if (argv.autoCleanup) args.push('--auto-cleanup'); // hive default differs from solve's auto-detect default
-
-            // Options already handled above or deprecated aliases (skip in generic loop)
-            const SKIP_AUTO_FORWARD = new Set(['model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+            if (argv.autoCleanup) args.push('--auto-cleanup');
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
 
             for (const optionName of getSolvePassthroughOptionNames()) {
               if (SKIP_AUTO_FORWARD.has(optionName)) continue;
@@ -1431,8 +1434,7 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // Function to validate Claude CLI connection
-    // validateClaudeConnection is now imported from lib.mjs
+    // validateClaudeConnection is imported from lib.mjs
 
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
@@ -1484,8 +1486,7 @@ if (isDirectExecution) {
       await safeExit(1, 'Error occurred');
     }
   } catch (fatalError) {
-    // Handle any errors that occurred during initialization or execution
-    // This prevents silent failures when the script hangs or crashes
+    // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
     console.error(`   ${fatalError.message || fatalError}`);
     if (fatalError.stack) {

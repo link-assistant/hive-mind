@@ -30,6 +30,7 @@ export const claudeModels = {
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
+  opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias
@@ -258,7 +259,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
 
   switch (tool) {
     case 'claude':
-      return mappedModel.startsWith('claude-');
+      return mappedModel.startsWith('claude-') || mappedModel === 'opusplan';
     case 'agent':
       return mappedModel.includes('/') || Object.keys(agentModels).includes(model);
     case 'opencode':
@@ -293,7 +294,7 @@ export const getValidModelsForTool = tool => {
 // Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
-  claude: ['opus', 'sonnet', 'haiku'],
+  claude: ['opus', 'sonnet', 'haiku', 'opusplan'],
   opencode: ['grok', 'gpt4o'],
   codex: ['gpt5', 'gpt5-codex', 'o3'],
   agent: ['minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],

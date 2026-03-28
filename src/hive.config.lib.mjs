@@ -21,7 +21,7 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
   model: {
     type: 'string',
     description: `${buildModelOptionDescription()}, or any model ID supported by the tool`,
-    alias: 'm',
+    alias: ['m', 'worker-model'],
     default: 'sonnet',
   },
   'dry-run': {

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.36.1
+
+### Patch Changes
+
+- 74bf211: fix false positive 'Ready to merge' by adding workflow run grace period (Issue #1480)
+
 ## 1.36.0
 
 ### Minor Changes

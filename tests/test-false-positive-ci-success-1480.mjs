@@ -54,6 +54,24 @@ const assert = (condition, message) => {
   }
 };
 
+// Assertion helpers to reduce test boilerplate
+const assertBlockerCount = (result, expected) => {
+  assert(result.blockers.length === expected, `Expected ${expected} blocker(s), got ${result.blockers.length}`);
+};
+
+const assertBlockerType = (result, expectedType) => {
+  assert(result.blockers[0].type === expectedType, `Expected blocker type '${expectedType}', got '${result.blockers[0].type}'`);
+};
+
+const assertHasBlocker = (result, expectedType) => {
+  assertBlockerCount(result, 1);
+  assertBlockerType(result, expectedType);
+};
+
+const assertNoBlockers = result => {
+  assertBlockerCount(result, 0);
+};
+
 console.log('================================================================================');
 console.log('Unit Tests: Issue #1480 - `Ready to merge` false positives');
 console.log('================================================================================\n');
@@ -193,8 +211,7 @@ test('CodeFactor passed but no workflow runs yet (first check) → ci_pending bl
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, `Should have 1 blocker, got ${result.blockers.length}`);
-  assert(result.blockers[0].type === 'ci_pending', `Blocker type should be ci_pending, got ${result.blockers[0].type}`);
+  assertHasBlocker(result, 'ci_pending');
   assert(result.blockers[0].message.includes('external check'), `Message should mention external checks`);
 });
 
@@ -208,8 +225,7 @@ test('CodeFactor passed, workflow runs exist but in_progress → ci_pending bloc
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, `Should have 1 blocker, got ${result.blockers.length}`);
-  assert(result.blockers[0].type === 'ci_pending', `Should be ci_pending`);
+  assertHasBlocker(result, 'ci_pending');
   assert(result.blockers[0].message.includes('in progress'), `Message should mention in progress`);
 });
 
@@ -223,7 +239,7 @@ test('CodeFactor passed, all workflow runs completed → no blocker (trust succe
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 0, `Should have 0 blockers, got ${result.blockers.length}`);
+  assertNoBlockers(result);
 });
 
 test('Success with no workflow runs, no PR triggers → no blocker (external checks are the only CI)', () => {
@@ -236,7 +252,7 @@ test('Success with no workflow runs, no PR triggers → no blocker (external che
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 0, `Should have 0 blockers, got ${result.blockers.length}`);
+  assertNoBlockers(result);
 });
 
 test('Success with no workflow runs, no repo workflows → no blocker (truly no CI)', () => {
@@ -249,7 +265,7 @@ test('Success with no workflow runs, no repo workflows → no blocker (truly no 
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 0, `Should have 0 blockers, got ${result.blockers.length}`);
+  assertNoBlockers(result);
 });
 
 test('Success safety valve: after 5 checks, trust external checks even without workflow runs', () => {
@@ -262,7 +278,7 @@ test('Success safety valve: after 5 checks, trust external checks even without w
     checkCount: 5,
   });
 
-  assert(result.blockers.length === 0, `Should have 0 blockers after safety valve, got ${result.blockers.length}`);
+  assertNoBlockers(result);
 });
 
 test('Success with incomplete workflow run on check 4 (before safety valve) → still waits', () => {
@@ -275,8 +291,7 @@ test('Success with incomplete workflow run on check 4 (before safety valve) → 
     checkCount: 4,
   });
 
-  assert(result.blockers.length === 1, `Should have 1 blocker on check 4, got ${result.blockers.length}`);
-  assert(result.blockers[0].type === 'ci_pending', `Should be ci_pending`);
+  assertHasBlocker(result, 'ci_pending');
 });
 
 // ===== Test Suite 2: Case 1 — 'no_checks' with stale commit age =====
@@ -296,8 +311,7 @@ test('no_checks, PR triggers exist, old commit (600s) — first check → waits 
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, `Should have 1 blocker, got ${result.blockers.length}`);
-  assert(result.blockers[0].type === 'ci_pending', `Should be ci_pending, got ${result.blockers[0].type}`);
+  assertHasBlocker(result, 'ci_pending');
   assert(!result.noCiTriggered, 'Should NOT conclude noCiTriggered on first check');
 });
 
@@ -314,7 +328,7 @@ test('no_checks, PR triggers exist, old commit — check 3 → still waits', () 
     checkCount: 3,
   });
 
-  assert(result.blockers.length === 1, `Should still have 1 blocker on check 3`);
+  assertBlockerCount(result, 1);
   assert(!result.noCiTriggered, 'Should NOT conclude noCiTriggered on check 3');
 });
 
@@ -331,7 +345,7 @@ test('no_checks, PR triggers exist — safety valve at check 5 → concludes noC
     checkCount: 5,
   });
 
-  assert(result.blockers.length === 0, `Should have 0 blockers after safety valve`);
+  assertNoBlockers(result);
   assert(result.noCiTriggered === true, 'Should conclude noCiTriggered after safety valve');
 });
 
@@ -349,7 +363,7 @@ test('no_checks, no PR triggers, old commit → noCiTriggered immediately', () =
   });
 
   assert(result.noCiTriggered === true, 'Should conclude noCiTriggered when no PR triggers');
-  assert(result.blockers.length === 0, 'Should have no blockers');
+  assertNoBlockers(result);
 });
 
 test('no_checks, no PR triggers, recent commit → waits (grace period)', () => {
@@ -365,8 +379,7 @@ test('no_checks, no PR triggers, recent commit → waits (grace period)', () => 
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, 'Should wait during grace period');
-  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  assertHasBlocker(result, 'ci_pending');
 });
 
 test('no_checks, no workflow files → noCiTriggered immediately', () => {
@@ -397,27 +410,17 @@ test('Genuine CI success with completed workflow runs → no blockers', () => {
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 0, 'Should have no blockers for genuine success');
+  assertNoBlockers(result);
 });
 
 test('CI pending → ci_pending blocker (unchanged behavior)', () => {
-  const result = simulateFixedMergeBlockers({
-    ciStatusStatus: 'pending',
-    checkCount: 1,
-  });
-
-  assert(result.blockers.length === 1, 'Should have 1 blocker');
-  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  const result = simulateFixedMergeBlockers({ ciStatusStatus: 'pending', checkCount: 1 });
+  assertHasBlocker(result, 'ci_pending');
 });
 
 test('CI failure → ci_failure blocker (unchanged behavior)', () => {
-  const result = simulateFixedMergeBlockers({
-    ciStatusStatus: 'failure',
-    checkCount: 1,
-  });
-
-  assert(result.blockers.length === 1, 'Should have 1 blocker');
-  assert(result.blockers[0].type === 'ci_failure', 'Should be ci_failure');
+  const result = simulateFixedMergeBlockers({ ciStatusStatus: 'failure', checkCount: 1 });
+  assertHasBlocker(result, 'ci_failure');
 });
 
 test('no_checks, no workflows → noCiConfigured (unchanged behavior)', () => {
@@ -430,7 +433,7 @@ test('no_checks, no workflows → noCiConfigured (unchanged behavior)', () => {
   });
 
   assert(result.noCiConfigured === true, 'Should be noCiConfigured');
-  assert(result.blockers.length === 0, 'Should have no blockers');
+  assertNoBlockers(result);
 });
 
 test('no_checks, workflow runs exist, all non-executing → noCiTriggered with conclusions', () => {
@@ -456,8 +459,7 @@ test('no_checks, PR not mergeable → ci_pending (unchanged behavior)', () => {
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, 'Should have 1 blocker');
-  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  assertHasBlocker(result, 'ci_pending');
 });
 
 // ===== Test Suite 4: Mixed workflow run states =====
@@ -476,8 +478,7 @@ test('Success with some workflow runs completed, some queued → waits', () => {
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, 'Should have 1 blocker');
-  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  assertHasBlocker(result, 'ci_pending');
   assert(result.blockers[0].message.includes('1 workflow run(s) still in progress'), 'Should mention incomplete runs');
 });
 
@@ -491,8 +492,7 @@ test('no_checks with workflow runs triggered (some in_progress) → genuine race
     checkCount: 1,
   });
 
-  assert(result.blockers.length === 1, 'Should have 1 blocker');
-  assert(result.blockers[0].type === 'ci_pending', 'Should be ci_pending');
+  assertHasBlocker(result, 'ci_pending');
   assert(result.blockers[0].message.includes('1 workflow run(s) triggered'), 'Should mention triggered runs');
 });
 

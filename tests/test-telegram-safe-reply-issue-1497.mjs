@@ -231,7 +231,7 @@ console.log('─'.repeat(60));
 
 // Test: Error output in triple backticks
 {
-  const errorOutput = 'Error: ENOENT: no such file or directory, open \'/tmp/test_file.txt\'';
+  const errorOutput = "Error: ENOENT: no such file or directory, open '/tmp/test_file.txt'";
   const msg = `❌ Error executing solve command:\n\n\`\`\`\n${errorOutput}\n\`\`\``;
   const error = checkTelegramMarkdown(msg);
   assert(error === null, 'Error output in code block is safe', error || '');

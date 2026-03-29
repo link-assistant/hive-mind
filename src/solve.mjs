@@ -917,21 +917,11 @@ try {
           await log(`⏰ Limit resets at: ${formattedResetTime}`);
         }
         await log('');
-        // Show claude resume commands only for --tool claude (or default)
-        // Two types of resume commands are provided:
-        // 1. Interactive resume: Opens Claude Code in interactive mode for user interaction
-        // 2. Autonomous resume: Continues the work autonomously without user interaction
-        const toolForResume = argv.tool || 'claude';
-        if (toolForResume === 'claude') {
-          const interactiveResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-          const autonomousResumeCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
+        // Show dual resume commands (interactive + autonomous) only for --tool claude
+        if ((argv.tool || 'claude') === 'claude') {
           await log('💡 To continue this session:');
-          await log('');
-          await log('   Interactive mode (opens Claude Code for user interaction):');
-          await log(`   ${interactiveResumeCmd}`);
-          await log('');
-          await log('   Autonomous mode (continues work without user interaction):');
-          await log(`   ${autonomousResumeCmd}`);
+          await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+          await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           await log('');
         }
       }
@@ -975,12 +965,9 @@ try {
           await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
         }
       } else if (prNumber) {
-        // Fallback: Post simple failure comment if logs are not attached
-        // Note: Commands should not be in GitHub comments - only mention the option
+        // Fallback: Post simple failure comment (no CLI commands in GitHub comments, only mention option)
         try {
           const resetTime = global.limitResetTime;
-          // Note: Commands should not be in GitHub comments - only mention the option
-          // The resume command is available in the logs (collapsed block or gist link) for advanced users
           const resumeSection = sessionId ? `Session ID: \`${sessionId}\`\n\nUse the \`--auto-continue-on-limit-reset\` option to automatically resume when the limit resets.` : 'Use the `--auto-continue-on-limit-reset` option to automatically resume when the limit resets.';
           // Format the reset time with relative time and UTC conversion if available
           const timezone = global.limitTimezone || null;
@@ -1089,22 +1076,12 @@ try {
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
 
   if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
-    // Show claude resume commands only for --tool claude (or default) on failure
-    // Two types of resume commands are provided:
-    // 1. Interactive resume: Opens Claude Code in interactive mode for user interaction
-    // 2. Autonomous resume: Continues the work autonomously without user interaction
-    const toolForFailure = argv.tool || 'claude';
-    if (sessionId && toolForFailure === 'claude') {
-      const interactiveResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-      const autonomousResumeCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
+    // Show dual resume commands (interactive + autonomous) only for --tool claude on failure
+    if (sessionId && (argv.tool || 'claude') === 'claude') {
       await log('');
       await log('💡 To continue this session:');
-      await log('');
-      await log('   Interactive mode (opens Claude Code for user interaction):');
-      await log(`   ${interactiveResumeCmd}`);
-      await log('');
-      await log('   Autonomous mode (continues work without user interaction):');
-      await log(`   ${autonomousResumeCmd}`);
+      await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+      await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
       await log('');
     }
 

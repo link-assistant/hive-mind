@@ -19,13 +19,9 @@ import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue 
 export { availableModels }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
-  const interactiveCmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
-  const autonomousCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model });
-  await log('\n💡 To continue this session:\n');
-  await log('   Interactive mode (opens Claude Code for user interaction):');
-  await log(`   ${interactiveCmd}\n`);
-  await log('   Autonomous mode (continues work without user interaction):');
-  await log(`   ${autonomousCmd}\n`);
+  await log(`\n💡 To continue this session:\n`);
+  await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
+  await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
 };
 /** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
@@ -1262,14 +1258,13 @@ export const executeClaudeCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
           limitTimezone = limitInfo.timezone;
-
-          // Format and display user-friendly message with both Claude CLI resume commands
+          const hasSession = tempDir && sessionId;
           const messageLines = formatUsageLimitMessage({
             tool: 'Anthropic Claude Code',
             resetTime: limitInfo.resetTime,
             sessionId,
-            interactiveResumeCommand: tempDir && sessionId ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
-            autonomousResumeCommand: tempDir && sessionId ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            interactiveResumeCommand: hasSession ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
+            autonomousResumeCommand: hasSession ? buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model }) : null,
           });
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
@@ -1279,12 +1274,9 @@ export const executeClaudeCommand = async params => {
         } else {
           await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
           if (sessionId && !argv.resume && tempDir) {
-            const interactiveCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-            const autonomousCmd = buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model });
-            await log(`📌 Session ID: ${sessionId}`);
-            await log('\n💡 To continue this session:');
-            await log(`   Interactive mode: ${interactiveCmd}`);
-            await log(`   Autonomous mode: ${autonomousCmd}`);
+            await log(`📌 Session ID: ${sessionId}\n\n💡 To continue this session:`);
+            await log(`   Interactive mode: ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+            await log(`   Autonomous mode:  ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
           }
         }
       }

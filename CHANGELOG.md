@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.38.0
+
+### Minor Changes
+
+- ee331ef: Enhance --tokens-budget-stats with sub-session tracking, stream comparison, and GitHub comment display
+
 ## 1.37.4
 
 ### Patch Changes

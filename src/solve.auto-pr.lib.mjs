@@ -1116,60 +1116,64 @@ ${prBody}`,
           let prCreateStderr = '';
           let assigneeFailed = false;
 
-          // Try to create PR with assignee first (if specified)
+          // Issue #1493: Wrap in try/finally to ensure temp files are always cleaned up,
+          // even if the command throws (e.g., non-assignee errors that re-throw).
           try {
-            const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-            output = result.stdout;
-            prCreateStderr = result.stderr || '';
-          } catch (firstError) {
-            // Check if the error is specifically about assignee validation
-            const errorMsg = firstError.message || '';
-            if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
-              // Assignee validation failed - retry without assignee
-              assigneeFailed = true;
-              await log('');
-              await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
-                level: 'warning',
-              });
-              await log('     Retrying PR creation without assignee...');
+            // Try to create PR with assignee first (if specified)
+            try {
+              const result = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+              output = result.stdout;
+              prCreateStderr = result.stderr || '';
+            } catch (firstError) {
+              // Check if the error is specifically about assignee validation
+              const errorMsg = firstError.message || '';
+              if ((errorMsg.includes('could not assign user') || errorMsg.includes('not found')) && currentUser && canAssign) {
+                // Assignee validation failed - retry without assignee
+                assigneeFailed = true;
+                await log('');
+                await log(formatAligned('⚠️', 'Warning:', `User assignment failed for '${currentUser}'`), {
+                  level: 'warning',
+                });
+                await log('     Retrying PR creation without assignee...');
 
-              // Rebuild command without --assignee flag
-              if (argv.fork && forkedRepo) {
-                const forkUser = forkedRepo.split('/')[0];
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
+                // Rebuild command without --assignee flag
+                if (argv.fork && forkedRepo) {
+                  const forkUser = forkedRepo.split('/')[0];
+                  command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${forkUser}:${branchName} --repo ${owner}/${repo}`;
+                } else {
+                  command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                }
+
+                if (argv.verbose) {
+                  await log(`   Retry command (without assignee): ${command}`, { verbose: true });
+                }
+
+                // Retry without assignee - if this fails, let the error propagate to outer catch
+                const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
+                output = retryResult.stdout;
+                prCreateStderr = retryResult.stderr || '';
               } else {
-                command = `cd "${tempDir}" && gh pr create --draft --title "$(cat '${prTitleFile}')" --body-file "${prBodyFile}" --base ${targetBranch} --head ${branchName}`;
+                // Not an assignee error, re-throw the original error
+                throw firstError;
               }
-
-              if (argv.verbose) {
-                await log(`   Retry command (without assignee): ${command}`, { verbose: true });
-              }
-
-              // Retry without assignee - if this fails, let the error propagate to outer catch
-              const retryResult = await execAsync(command, { encoding: 'utf8', cwd: tempDir, env: process.env });
-              output = retryResult.stdout;
-              prCreateStderr = retryResult.stderr || '';
-            } else {
-              // Not an assignee error, re-throw the original error
-              throw firstError;
             }
+          } finally {
+            // Clean up temp files — always runs even if command throws
+            await fs.unlink(prBodyFile).catch(unlinkError => {
+              reportError(unlinkError, {
+                context: 'pr_body_file_cleanup',
+                prBodyFile,
+                operation: 'delete_temp_file',
+              });
+            });
+            await fs.unlink(prTitleFile).catch(unlinkError => {
+              reportError(unlinkError, {
+                context: 'pr_title_file_cleanup',
+                prTitleFile,
+                operation: 'delete_temp_file',
+              });
+            });
           }
-
-          // Clean up temp files
-          await fs.unlink(prBodyFile).catch(unlinkError => {
-            reportError(unlinkError, {
-              context: 'pr_body_file_cleanup',
-              prBodyFile,
-              operation: 'delete_temp_file',
-            });
-          });
-          await fs.unlink(prTitleFile).catch(unlinkError => {
-            reportError(unlinkError, {
-              context: 'pr_title_file_cleanup',
-              prTitleFile,
-              operation: 'delete_temp_file',
-            });
-          });
 
           // Log gh pr create output for debugging (Issue #1462)
           if (argv.verbose) {

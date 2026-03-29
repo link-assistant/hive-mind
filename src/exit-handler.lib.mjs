@@ -205,18 +205,7 @@ export const logActiveHandles = async (log = null) => {
     for (const h of handles) {
       const name = h.constructor?.name || typeof h;
       // Extra detail for streams: show fd, path, remoteAddress, pid, exitCode, killed state
-      const detail = [
-        h.fd != null ? `fd=${h.fd}` : null,
-        h.path ? `path=${h.path}` : null,
-        h.remoteAddress ? `remote=${h.remoteAddress}:${h.remotePort}` : null,
-        h.pid != null ? `pid=${h.pid}` : null,
-        h.spawnfile ? `file=${h.spawnfile}` : null,
-        h.exitCode != null ? `exitCode=${h.exitCode}` : null,
-        h.killed ? 'killed=true' : null,
-        h.destroyed ? 'destroyed=true' : null,
-      ]
-        .filter(Boolean)
-        .join(', ');
+      const detail = [h.fd != null ? `fd=${h.fd}` : null, h.path ? `path=${h.path}` : null, h.remoteAddress ? `remote=${h.remoteAddress}:${h.remotePort}` : null, h.pid != null ? `pid=${h.pid}` : null, h.spawnfile ? `file=${h.spawnfile}` : null, h.exitCode != null ? `exitCode=${h.exitCode}` : null, h.killed ? 'killed=true' : null, h.destroyed ? 'destroyed=true' : null].filter(Boolean).join(', ');
       await emit(`   Handle: ${name}${detail ? ` (${detail})` : ''}`);
     }
     for (const r of requests) {

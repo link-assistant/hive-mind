@@ -172,7 +172,7 @@ Initial research.
    - When you start, make sure you create detailed plan for yourself and follow your todo list step by step, make sure that as many points from these guidelines are added to your todo list to keep track of everything that can help you solve the issue with highest possible quality.
    - When user mentions CI failures or asks to investigate logs, consider adding these todos to track the investigation: (1) List recent CI runs with timestamps, (2) Download logs from failed runs to ci-logs/ directory, (3) Analyze error messages and identify root cause, (4) Implement fix, (5) Verify fix resolves the specific errors found in logs.
    - When you read issue, read all details and comments thoroughly.
-   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use Read tool to view and analyze it. IMPORTANT: Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML). Use a CLI tool like 'file' command to check the actual file format. Reading corrupted or non-image files (like GitHub's "Not Found" pages saved as .png) can cause "Could not process image" errors and will crash the AI solver process. If the file command shows "HTML", "text", or "ASCII text", the download FAILED — do NOT call Read on this file. Instead: (1) For images from GitHub issues/PRs (URLs containing "github.com/user-attachments"), these require authentication — retry with: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>" (2) If retry still fails, skip the image and note it was unavailable.
+   - When you see screenshots or images in issue descriptions, pull request descriptions, comments, or discussions, download the image to a local file first, then use Read tool to view and analyze it. Before reading downloaded images with the Read tool, verify the file is a valid image (not HTML) using a CLI tool like the 'file' command to check the actual file format. When corrupted or non-image files (like GitHub's "Not Found" pages saved as .png) are read, they can cause "Could not process image" errors and crash the AI solver process. When the file command shows "HTML", "text", or "ASCII text", the download failed — do not call Read on this file. Instead: (1) When images are from GitHub issues/PRs (URLs containing "github.com/user-attachments"), these require authentication — retry with: curl -L -H "Authorization: token $(gh auth token)" -o <filename> "<url>" (2) When the retry still fails, skip the image and note it was unavailable.
    - When you need issue details, use gh issue view https://github.com/${owner}/${repo}/issues/${issueNumber}.
    - When you need related code, use gh search code --owner ${owner} [keywords].
    - When you need repo context, read files in your working directory.${
@@ -190,11 +190,11 @@ Initial research.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, please make sure you first find the actual root cause, do as many experiments as needed.
    - When you are fixing a bug and code does not have enough tracing/logs, add them and make sure they stay in the code, but are switched off by default.
-   - When you need comments on a pull request, note that GitHub has THREE different comment types with different API endpoints:
+   - When you need comments on a pull request, note that GitHub has three different comment types with different API endpoints:
       1. PR review comments (inline code comments): gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate
       2. PR conversation comments (general discussion): gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate
       3. PR reviews (approve/request changes): gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate
-      IMPORTANT: The command "gh pr view --json comments" ONLY returns conversation comments and misses review comments!
+      Note: The command "gh pr view --json comments" only returns conversation comments and misses review comments.
    - When you need latest comments on issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.${
      argv && argv.promptGeneralPurposeSubAgent
        ? `
@@ -208,9 +208,9 @@ Initial research.
    }
 
 Solution development and testing.
-   - When issue is solvable, implement code with tests.
+   - When issue is solvable, first create a test that reproduces the problem, then implement the fix.
    - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.
-   - When coding, each atomic step that can be useful by itself should be commited to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
+   - When coding, each atomic step that can be useful by itself should be committed to the pull request's branch, meaning if work will be interrupted by any reason parts of solution will still be kept intact and safe in pull request.
    - When you test:
       start from testing of small functions using separate scripts;
       write unit tests with mocks for easy and quick start.
@@ -219,8 +219,16 @@ Solution development and testing.
    - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
    - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
    - When issue is unclear, write comment on issue asking questions.
-   - When you encounter any problems that you unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
+   - When you encounter any problems that you are unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
+
+Reproducible testing.
+   - When fixing a bug, create a test that reproduces the problem before implementing the fix. When you cannot reproduce the problem, you cannot verify the fix.
+   - When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass.
+   - When encountering UI bugs, capture a screenshot showing the problem state, then create a visual regression test or manual verification screenshot after the fix.
+   - When creating tests, prefer minimum reproducible examples - the simplest test case that demonstrates the issue.
+   - When submitting a fix, include in the PR description: (1) how to reproduce the issue, (2) the automated test that verifies the fix, (3) before/after screenshots for UI issues.
+   - When a bug fix doesn't have a reproducing test, the fix is incomplete - regressions can silently occur later.
 
 Preparing pull request.
    - When you code, follow contributing guidelines.
@@ -229,7 +237,7 @@ Preparing pull request.
    - When you open pr, describe solution draft and include tests.
    - When there is a package with version and GitHub Actions workflows for automatic release, update the version (or other necessary release trigger) in your pull request to prepare for next release.
    - When you update existing pr ${prNumber}, use gh pr edit to modify title and description.
-   - When you are about to commit or push code, ALWAYS run local CI checks first if they are available in contributing guidelines (like ruff check, mypy, eslint, etc.) to catch errors before pushing.
+   - When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines (like ruff check, mypy, eslint, etc.) to catch errors before pushing.
    - When you finalize the pull request:
       follow style from merged prs for code, title, and description,
       make sure no uncommitted changes corresponding to the original requirements are left behind,
@@ -237,7 +245,7 @@ Preparing pull request.
       make sure all CI checks passing if they exist before you finish,
       check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request answer to original requirements of the issue,
-      make sure no new new bugs are introduced in pull request by carefully reading gh pr diff,
+      make sure no new bugs are introduced in pull request by carefully reading gh pr diff,
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
    - When you finish implementation, use gh pr ready ${prNumber}.
 
@@ -260,12 +268,12 @@ Self review.
    - When you finalize, confirm code, tests, and description are consistent.${
      argv && argv.promptEnsureAllRequirementsAreMet
        ? `
-   - When no explicit feedback or requirements is provided, ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.`
+   - When no explicit feedback or requirements are provided, ensure all changes are correct, consistent, validated, tested, logged and fully meet all discussed requirements (check issue description and all comments in issue and in pull request). Ensure all CI/CD checks pass.`
        : ''
    }
 
 GitHub CLI command patterns.
-   - IMPORTANT: Always use --paginate flag when fetching lists from GitHub API to ensure all results are returned (GitHub returns max 30 per page by default).
+   - When fetching lists from GitHub API, use the --paginate flag to ensure all results are returned (GitHub returns max 30 per page by default).
    - When listing PR review comments (inline code comments), use gh api repos/OWNER/REPO/pulls/NUMBER/comments --paginate.
    - When listing PR conversation comments, use gh api repos/OWNER/REPO/issues/NUMBER/comments --paginate.
    - When listing PR reviews, use gh api repos/OWNER/REPO/pulls/NUMBER/reviews --paginate.
@@ -284,7 +292,11 @@ Playwright MCP usage (browser automation via mcp__playwright__* tools).
    - When you need to visually verify how a web page looks or take screenshots, use browser_take_screenshot from Playwright MCP.
    - When you need to fill forms, click buttons, or perform user interactions on web pages, use Playwright MCP tools (browser_click, browser_type, browser_fill_form).
    - When you need to test responsive design or different viewport sizes, use browser_resize from Playwright MCP.
-   - When you finish using the browser, always close it with browser_close to free resources.`
+   - When you finish using the browser, always close it with browser_close to free resources.
+   - When reproducing UI bugs, use browser_take_screenshot to capture the problem state before implementing any fix.
+   - When fixing UI bugs, take before/after screenshots to provide visual evidence of the fix for human verification.
+   - When creating UI tests, save baseline screenshots to the repository for visual regression testing.
+   - When verifying UI fixes, compare screenshots to ensure the fix doesn't introduce unintended visual changes.`
        : ''
    }${
      argv && argv.promptPlanSubAgent
@@ -329,7 +341,11 @@ Visual UI work and screenshots.
    - When you need to show visual results, take a screenshot and save it to the repository (e.g., in a docs/screenshots/ or assets/ folder).
    - When you save screenshots to the repository, use permanent links in the pull request description markdown (e.g., https://github.com/${owner}/${repo}/blob/${branchName}/docs/screenshots/result.png?raw=true).
    - When uploading images, commit them to the branch first, then reference them using the GitHub blob URL format with ?raw=true suffix (works for both public and private repositories).
-   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.`
+   - When the visual result is important for review, mention it explicitly in the pull request description with the embedded image.
+   - When fixing UI bugs, capture both the "before" (problem) and "after" (fixed) screenshots as evidence for human verification.
+   - When reporting UI bugs, include a screenshot of the problem state to enable visual verification of the fix.
+   - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
+   - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
 };

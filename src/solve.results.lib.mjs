@@ -494,8 +494,22 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
+
+  // Issue #1491: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
+  let budgetStatsData = null;
+  if (argv.tokensBudgetStats && sessionId && tempDir) {
+    try {
+      const { calculateSessionTokens } = await import('./claude.lib.mjs');
+      const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+      if (tokenUsage) {
+        budgetStatsData = { tokenUsage, streamTokenUsage };
+      }
+    } catch (budgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+    }
+  }
 
   try {
     // Get the current user's GitHub username
@@ -713,6 +727,8 @@ Fixes ${issueRef}
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
             resultModelUsage,
+            // Issue #1491: Pass budget stats for token budget display in comment
+            budgetStatsData,
           });
         }
 
@@ -797,6 +813,8 @@ Fixes ${issueRef}
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
           resultModelUsage,
+          // Issue #1491: Pass budget stats for token budget display in comment
+          budgetStatsData,
         });
       }
 

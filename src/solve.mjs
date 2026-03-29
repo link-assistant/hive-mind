@@ -879,6 +879,7 @@ try {
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
   let resultSummary = toolResult.resultSummary || null; // Issue #1263: Capture result summary for --attach-solution-summary
   let resultModelUsage = toolResult.resultModelUsage || null; // Issue #1454: Capture modelUsage from result JSON
+  let streamTokenUsage = toolResult.streamTokenUsage || null; // Issue #1491: Stream-calculated token usage
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -1216,7 +1217,7 @@ try {
   }
 
   // Search for newly created pull requests and comments
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content
@@ -1263,7 +1264,7 @@ try {
     await cleanupClaudeFile(tempDir, branchName, null, argv);
 
     // Re-verify results after restart (without auto-restart flag to prevent recursion)
-    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage);
 
     if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
       await log('⚠️  PR title/description still not updated after restart');

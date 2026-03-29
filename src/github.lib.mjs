@@ -14,6 +14,8 @@ import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: htt
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
 // Re-export for use by other modules
 export { getToolDisplayName };
+// Issue #1491: Import budget stats builder for GitHub comments
+import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 
 /** Build cost estimation string for log comments (Issue #1250) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
@@ -366,6 +368,7 @@ export async function attachLogToGitHub(options) {
     requestedModel = null, // Issue #1225: The --model flag value
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
+    budgetStatsData = null, // Issue #1491: { tokenUsage, streamTokenUsage } for budget stats in comment
   } = options;
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
@@ -551,8 +554,10 @@ ${logContent}
     } else if (errorDuringExecution) {
       // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      // Issue #1491: Build budget stats for comment
+      const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
       logComment = `## ⚠️ Solution Draft Finished with Errors
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
@@ -570,6 +575,8 @@ ${logContent}
     } else {
       // Success log format - use helper function for cost info
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      // Issue #1491: Build budget stats for comment
+      const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
       // Determine title based on session type
       // See: https://github.com/link-assistant/hive-mind/issues/1152
       let title = customTitle;
@@ -585,7 +592,7 @@ ${logContent}
         sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
       }
       logComment = `## ${title}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}${sessionNote}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}${sessionNote}
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -732,8 +739,10 @@ ${errorMessage}
           } else if (errorDuringExecution) {
             // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            // Issue #1491: Build budget stats for comment
+            const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
             logUploadComment = `## ⚠️ Solution Draft Finished with Errors
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
 > **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
 
@@ -745,6 +754,8 @@ This log file contains the complete execution trace of the AI ${targetType === '
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            // Issue #1491: Build budget stats for comment
+            const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
             // Determine title based on session type
             // See: https://github.com/link-assistant/hive-mind/issues/1152
             let title = customTitle;
@@ -760,7 +771,7 @@ This log file contains the complete execution trace of the AI ${targetType === '
               sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
             }
             logUploadComment = `## ${title}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${modelInfoString}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 ${sessionNote}
 ### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 - [View complete solution draft log](${logUrl})

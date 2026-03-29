@@ -12,7 +12,7 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, displaySubSessionStats, displayTokenComparison } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -565,6 +565,48 @@ const displayCostComparison = async (publicCost, anthropicCost, log) => {
     await log('      Difference:              unknown');
   }
 };
+/**
+ * Helper: creates a fresh sub-session usage object for tracking tokens between compactification events
+ * @returns {Object} Empty sub-session usage structure
+ */
+const createEmptySubSessionUsage = () => ({
+  inputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  outputTokens: 0,
+  messageCount: 0,
+});
+
+/**
+ * Helper: accumulates token usage from a JSONL entry into a model usage map
+ * @param {Object} modelUsageMap - Map of model ID to usage data
+ * @param {Object} entry - Parsed JSONL entry with message.usage and message.model
+ */
+const accumulateModelUsage = (modelUsageMap, entry) => {
+  const model = entry.message.model;
+  if (model.startsWith('<') && model.endsWith('>')) return; // Issue #1486: skip <synthetic> etc.
+  const usage = entry.message.usage;
+  if (!modelUsageMap[model]) {
+    modelUsageMap[model] = {
+      inputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheCreation5mTokens: 0,
+      cacheCreation1hTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      webSearchRequests: 0,
+    };
+  }
+  if (usage.input_tokens) modelUsageMap[model].inputTokens += usage.input_tokens;
+  if (usage.cache_creation_input_tokens) modelUsageMap[model].cacheCreationTokens += usage.cache_creation_input_tokens;
+  if (usage.cache_creation) {
+    if (usage.cache_creation.ephemeral_5m_input_tokens) modelUsageMap[model].cacheCreation5mTokens += usage.cache_creation.ephemeral_5m_input_tokens;
+    if (usage.cache_creation.ephemeral_1h_input_tokens) modelUsageMap[model].cacheCreation1hTokens += usage.cache_creation.ephemeral_1h_input_tokens;
+  }
+  if (usage.cache_read_input_tokens) modelUsageMap[model].cacheReadTokens += usage.cache_read_input_tokens;
+  if (usage.output_tokens) modelUsageMap[model].outputTokens += usage.output_tokens;
+};
+
 export const calculateSessionTokens = async (sessionId, tempDir) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
@@ -582,6 +624,10 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
   }
   // Initialize per-model usage tracking
   const modelUsage = {};
+  // Issue #1491: Track sub-sessions between compactification events
+  const subSessions = [];
+  let currentSubSession = createEmptySubSessionUsage();
+  const compactifications = [];
   try {
     // Read the entire file
     const fileContent = await fs.readFile(sessionFile, 'utf8');
@@ -590,52 +636,38 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
+        // Issue #1491: Detect compactification boundary events
+        if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
+          // Save current sub-session and start a new one
+          if (currentSubSession.messageCount > 0) {
+            subSessions.push(currentSubSession);
+          }
+          compactifications.push({
+            timestamp: entry.timestamp || null,
+            preTokens: entry.compactMetadata?.preTokens || null,
+            trigger: entry.compactMetadata?.trigger || 'unknown',
+          });
+          currentSubSession = createEmptySubSessionUsage();
+          continue;
+        }
         if (entry.message && entry.message.usage && entry.message.model) {
-          const model = entry.message.model;
-          if (model.startsWith('<') && model.endsWith('>')) continue; // Issue #1486: skip <synthetic> etc.
+          accumulateModelUsage(modelUsage, entry);
+          // Issue #1491: Also track per-sub-session usage
           const usage = entry.message.usage;
-          // Initialize model entry if it doesn't exist
-          if (!modelUsage[model]) {
-            modelUsage[model] = {
-              inputTokens: 0,
-              cacheCreationTokens: 0,
-              cacheCreation5mTokens: 0,
-              cacheCreation1hTokens: 0,
-              cacheReadTokens: 0,
-              outputTokens: 0,
-              webSearchRequests: 0,
-            };
-          }
-          // Add input tokens
-          if (usage.input_tokens) {
-            modelUsage[model].inputTokens += usage.input_tokens;
-          }
-          // Add cache creation tokens (total)
-          if (usage.cache_creation_input_tokens) {
-            modelUsage[model].cacheCreationTokens += usage.cache_creation_input_tokens;
-          }
-          // Add cache creation tokens breakdown (5m and 1h)
-          if (usage.cache_creation) {
-            if (usage.cache_creation.ephemeral_5m_input_tokens) {
-              modelUsage[model].cacheCreation5mTokens += usage.cache_creation.ephemeral_5m_input_tokens;
-            }
-            if (usage.cache_creation.ephemeral_1h_input_tokens) {
-              modelUsage[model].cacheCreation1hTokens += usage.cache_creation.ephemeral_1h_input_tokens;
-            }
-          }
-          // Add cache read tokens
-          if (usage.cache_read_input_tokens) {
-            modelUsage[model].cacheReadTokens += usage.cache_read_input_tokens;
-          }
-          // Add output tokens
-          if (usage.output_tokens) {
-            modelUsage[model].outputTokens += usage.output_tokens;
-          }
+          if (usage.input_tokens) currentSubSession.inputTokens += usage.input_tokens;
+          if (usage.cache_creation_input_tokens) currentSubSession.cacheCreationTokens += usage.cache_creation_input_tokens;
+          if (usage.cache_read_input_tokens) currentSubSession.cacheReadTokens += usage.cache_read_input_tokens;
+          if (usage.output_tokens) currentSubSession.outputTokens += usage.output_tokens;
+          currentSubSession.messageCount++;
         }
       } catch {
         // Skip lines that aren't valid JSON
         continue;
       }
+    }
+    // Push the final sub-session
+    if (currentSubSession.messageCount > 0) {
+      subSessions.push(currentSubSession);
     }
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
@@ -699,6 +731,9 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       outputTokens: totalOutputTokens,
       totalTokens,
       totalCostUSD: hasCostData ? totalCostUSD : null,
+      // Issue #1491: Sub-session and compactification data
+      subSessions: subSessions.length > 1 ? subSessions : null, // Only include if compactification occurred
+      compactifications: compactifications.length > 0 ? compactifications : null,
     };
   } catch (readError) {
     throw new Error(`Failed to read session file: ${readError.message}`);
@@ -832,6 +867,14 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    // Issue #1491: Track token usage from stream JSON events for independent calculation
+    const streamTokenUsage = {
+      inputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      eventCount: 0,
+    };
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -1053,6 +1096,15 @@ export const executeClaudeCommand = async params => {
               else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
                 if (lastMessage.includes('Internal server error')) isInternalServerError = true;
+              }
+              // Issue #1491: Track token usage from stream events for independent calculation
+              if (data.type === 'assistant' && data.message && data.message.usage) {
+                const u = data.message.usage;
+                if (u.input_tokens) streamTokenUsage.inputTokens += u.input_tokens;
+                if (u.cache_creation_input_tokens) streamTokenUsage.cacheCreationTokens += u.cache_creation_input_tokens;
+                if (u.cache_read_input_tokens) streamTokenUsage.cacheReadTokens += u.cache_read_input_tokens;
+                if (u.output_tokens) streamTokenUsage.outputTokens += u.output_tokens;
+                streamTokenUsage.eventCount++;
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -1336,6 +1388,15 @@ export const executeClaudeCommand = async params => {
                   await displayBudgetStats(usage, log);
                 }
               }
+              // Issue #1491: Display sub-session breakdown if compactification occurred
+              if (argv.tokensBudgetStats && tokenUsage.subSessions) {
+                const primaryModelInfo = Object.values(tokenUsage.modelUsage).find(u => u.modelInfo?.limit)?.modelInfo;
+                await displaySubSessionStats(tokenUsage, primaryModelInfo, log);
+              }
+              // Issue #1491: Display stream vs JSONL token comparison
+              if (argv.tokensBudgetStats && streamTokenUsage.eventCount > 0) {
+                await displayTokenComparison(streamTokenUsage, tokenUsage, log);
+              }
               // Show totals if multiple models were used
               if (modelIds.length > 1) {
                 await log('\n   📈 Total across all models:');
@@ -1381,6 +1442,7 @@ export const executeClaudeCommand = async params => {
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
         resultModelUsage, // Issue #1454
+        streamTokenUsage: streamTokenUsage.eventCount > 0 ? streamTokenUsage : null, // Issue #1491
       };
     } catch (error) {
       reportError(error, {

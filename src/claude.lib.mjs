@@ -1007,16 +1007,27 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
-              // Live progress monitoring: detect TodoWrite tool_use events and update PR description
-              if (progressMonitor && data.type === 'assistant' && data.message?.content) {
-                const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                for (const item of contentItems) {
-                  if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
-                    try {
-                      await progressMonitor.updateProgress(item.input.todos);
-                    } catch (progressError) {
-                      await log(`⚠️ Progress monitoring error: ${progressError.message}`, { verbose: true });
+              // Live progress monitoring: detect TodoWrite events and update PR description
+              if (progressMonitor) {
+                // Pattern 1: assistant event with tool_use containing TodoWrite input
+                if (data.type === 'assistant' && data.message?.content) {
+                  const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                  for (const item of contentItems) {
+                    if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
+                      try {
+                        await progressMonitor.updateProgress(item.input.todos);
+                      } catch (progressError) {
+                        await log(`⚠️ Progress monitoring error: ${progressError.message}`, { verbose: true });
+                      }
                     }
+                  }
+                }
+                // Pattern 2: user event with tool_use_result containing newTodos (confirmation)
+                if (data.type === 'user' && data.tool_use_result?.newTodos) {
+                  try {
+                    await progressMonitor.updateProgress(data.tool_use_result.newTodos);
+                  } catch (progressError) {
+                    await log(`⚠️ Progress monitoring error (tool result): ${progressError.message}`, { verbose: true });
                   }
                 }
               }

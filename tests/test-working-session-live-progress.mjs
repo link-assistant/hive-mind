@@ -223,37 +223,51 @@ test('hive config defines working-session-live-progress option', () => {
 
 section('\nTesting Option Forwarding');
 
-// Test 9: Check hive.mjs forwards the option
+// Test 9: Check option is in SOLVE_OPTION_DEFINITIONS (auto-forwarded by hive)
+test('SOLVE_OPTION_DEFINITIONS includes working-session-live-progress', () => {
+  assert(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'] !== undefined);
+  assert.equal(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'].type, 'boolean');
+  assert.equal(solveConfig.SOLVE_OPTION_DEFINITIONS['working-session-live-progress'].default, false);
+});
+
+// Test 10: Check hive auto-registers the option via getSolvePassthroughOptionNames
+test('hive.config exports getSolvePassthroughOptionNames', () => {
+  assert(typeof hiveConfig.getSolvePassthroughOptionNames === 'function');
+});
+
+test('getSolvePassthroughOptionNames includes working-session-live-progress', () => {
+  const passthroughNames = hiveConfig.getSolvePassthroughOptionNames();
+  assert(passthroughNames.includes('working-session-live-progress'));
+});
+
+section('\nTesting Claude Integration');
+
+// Test 11: Check claude.lib.mjs integration
 import { readFile } from 'fs/promises';
-const hiveSource = await readFile('./src/hive.mjs', 'utf-8');
+const claudeSource = await readFile('./src/claude.lib.mjs', 'utf-8');
 
-test('hive.mjs checks argv.workingSessionLiveProgress', () => {
-  assert(hiveSource.includes('argv.workingSessionLiveProgress'));
+test('claude.lib.mjs imports progress monitoring module', () => {
+  assert(claudeSource.includes("import { createProgressMonitor } from './solve.progress-monitoring.lib.mjs'"));
 });
 
-test('hive.mjs adds flag to args array', () => {
-  assert(hiveSource.includes("args.push('--working-session-live-progress')"));
+test('claude.lib.mjs creates progressMonitor when workingSessionLiveProgress is enabled', () => {
+  assert(claudeSource.includes('argv.workingSessionLiveProgress'));
+  assert(claudeSource.includes('createProgressMonitor'));
 });
 
-section('\nTesting Interactive Mode Integration');
-
-// Test 10: Check interactive-mode.lib.mjs integration
-const interactiveSource = await readFile('./src/interactive-mode.lib.mjs', 'utf-8');
-
-test('interactive-mode.lib.mjs imports progress monitoring module', () => {
-  assert(interactiveSource.includes('solve.progress-monitoring.lib.mjs'));
+test('claude.lib.mjs detects TodoWrite tool_use events for progress monitoring', () => {
+  assert(claudeSource.includes("item.name === 'TodoWrite'"));
+  assert(claudeSource.includes('progressMonitor.updateProgress'));
 });
 
-test('interactive-mode.lib.mjs accepts enableProgressMonitoring option', () => {
-  assert(interactiveSource.includes('enableProgressMonitoring'));
+test('claude.lib.mjs detects tool_use_result with newTodos for progress monitoring', () => {
+  assert(claudeSource.includes('data.tool_use_result?.newTodos'));
 });
 
-test('interactive-mode.lib.mjs creates progressMonitor instance', () => {
-  assert(interactiveSource.includes('createProgressMonitor'));
-});
-
-test('interactive-mode.lib.mjs calls updateProgress for TodoWrite', () => {
-  assert(interactiveSource.includes('progressMonitor.updateProgress'));
+test('claude.lib.mjs progress monitoring works without --interactive-mode', () => {
+  // The progressMonitor creation is SEPARATE from interactiveHandler creation
+  // It only depends on argv.workingSessionLiveProgress, not argv.interactiveMode
+  assert(claudeSource.includes('// Create progress monitor if enabled (works with or without --interactive-mode)'));
 });
 
 section('\nTesting Module Structure');

@@ -10,14 +10,17 @@ Add experimental live progress monitoring for work sessions
   - Progress bar visualization (percentage complete)
   - Automatic PR description updates with progress section
   - Rate limiting to avoid GitHub API throttling
-- Integrate progress monitoring into interactive mode
+- Integrate progress monitoring into claude.lib.mjs event stream processing
+  - Detects TodoWrite tool_use events (assistant) and tool_use_result events (user)
   - Updates PR description when TodoWrite tool is invoked
   - Displays task completion stats and progress bar
   - Supports work session identification
+- Works with or without `--interactive-mode` (independent feature)
+- Auto-registered in hive via SOLVE_OPTION_DEFINITIONS (no manual forwarding needed)
 - Add comprehensive test suite (29 tests) covering:
   - Progress calculation and formatting
   - CLI configuration in solve and hive
-  - Option forwarding from hive to solve
-  - Interactive mode integration
-- Feature is experimental and requires `--interactive-mode` to be enabled
+  - Auto-registration and forwarding via getSolvePassthroughOptionNames
+  - Claude integration for TodoWrite detection
+- Feature is experimental, opt-in via `--working-session-live-progress`
 - Implements issue #936

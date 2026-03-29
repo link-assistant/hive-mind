@@ -83,14 +83,13 @@ const getCurrentGitHubUser = async () => {
  * @returns {Promise<string|null>} Gist URL or null on failure
  */
 const createSecretGist = async (logContent, filename) => {
+  const tempFile = `/tmp/${filename}`;
   try {
-    const tempFile = `/tmp/${filename}`;
     await fs.writeFile(tempFile, logContent);
 
     const result = await $`gh gist create ${tempFile} --secret --desc "Error log for hive-mind"`;
     if (result.exitCode === 0) {
       const gistUrl = result.stdout.toString().trim();
-      await fs.unlink(tempFile).catch(() => {});
       return gistUrl;
     }
   } catch (error) {
@@ -98,6 +97,8 @@ const createSecretGist = async (logContent, filename) => {
       context: 'create_secret_gist',
       operation: 'gh_gist_create',
     });
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
   }
   return null;
 };
@@ -232,9 +233,12 @@ export const createIssueForError = async options => {
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
     await fs.writeFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
-
-    await fs.unlink(tempBodyFile).catch(() => {});
+    let result;
+    try {
+      result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    } finally {
+      await fs.unlink(tempBodyFile).catch(() => {});
+    }
 
     if (result.exitCode === 0) {
       const issueUrl = result.stdout.toString().trim();

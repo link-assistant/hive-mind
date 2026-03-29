@@ -575,21 +575,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
               const tempBodyFile = `/tmp/pr-body-update-${pr.number}-${Date.now()}.md`;
               await fs.writeFile(tempBodyFile, updatedBody);
 
+              let updateResult;
               try {
-                const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-
-                // Clean up temp file
+                updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              } finally {
                 await fs.unlink(tempBodyFile).catch(() => {});
+              }
 
-                if (updateResult.code === 0) {
-                  await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-                } else {
-                  await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-                }
-              } catch (updateError) {
-                // Clean up temp file on error
-                await fs.unlink(tempBodyFile).catch(() => {});
-                throw updateError;
+              if (updateResult.code === 0) {
+                await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
+              } else {
+                await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
               }
             } else {
               await log('  ✅ PR body already contains issue reference');
@@ -655,18 +651,19 @@ Fixes ${issueRef}
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
             await fs.writeFile(tempBodyFile, newDescription);
 
+            let descResult;
             try {
-              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
-              await fs.unlink(tempBodyFile).catch(() => {});
-
-              if (descResult.code === 0) {
-                await log(`  ✅ Updated PR description with solution summary`);
-              } else {
-                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
-              }
+              descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
             } catch (descError) {
-              await fs.unlink(tempBodyFile).catch(() => {});
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
+            } finally {
+              await fs.unlink(tempBodyFile).catch(() => {});
+            }
+
+            if (descResult?.code === 0) {
+              await log(`  ✅ Updated PR description with solution summary`);
+            } else if (descResult) {
+              await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
             }
           }
 

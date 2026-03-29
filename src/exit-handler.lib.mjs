@@ -83,17 +83,21 @@ const showExitMessage = async (reason = 'Process exiting', code = 0) => {
  *                   all pooled connections.
  *
  *   - ChildProcess — command-stream spawns child processes. The handle stays alive
- *                    until the OS reclaims the process entry. Calling .unref() on
- *                    each surviving child lets Node exit without waiting for them.
+ *                    until the OS reclaims the process entry. We now kill surviving
+ *                    child processes with SIGTERM (+ SIGKILL fallback) to prevent
+ *                    orphans, then call .unref() so they don't block exit.
+ *                    (Issue #1493: previously only .unref() was called, leaving
+ *                    orphaned processes alive after the parent exited.)
  *
  *   - WriteStream (×2) — process.stdout and process.stderr are always-open writable
  *                        streams. On non-TTY file descriptors (e.g. pipes, redirects)
  *                        they can keep the event loop alive. Calling .unref() is safe
  *                        because we have already finished all output at this point.
  *
- * All of these are "unref" fixes — the handles are not forcibly destroyed, just
- * marked as non-blocking so the event loop considers the process idle once all real
- * async work is done. This is the idiomatic Node.js pattern for CLI tools.
+ * For stdin, stdout, stderr, and undici sockets, we use "unref" fixes — handles are
+ * marked as non-blocking so the event loop considers the process idle. For child
+ * processes, we actively kill them (SIGTERM + SIGKILL fallback) before unref to
+ * prevent orphaned processes (Issue #1493).
  */
 const drainHandles = async () => {
   // 1. Unref process.stdin so a dangling ReadStream cannot block exit.
@@ -121,13 +125,38 @@ const drainHandles = async () => {
     // undici may not be available in all Node versions — safe to ignore
   }
 
-  // 3. Unref surviving child processes from command-stream.
-  //    These are typically already-exited but their OS handle entry lingers.
+  // 3. Kill and unref surviving child processes from command-stream.
+  //    Issue #1493: Previously we only called .unref(), which allows Node to exit
+  //    but leaves orphaned child processes alive. Now we send SIGTERM first to
+  //    request graceful shutdown, then .unref() so they don't block exit.
+  //    A follow-up SIGKILL is scheduled (and unref'd) to forcibly terminate any
+  //    process that doesn't respond to SIGTERM within 2 seconds.
   try {
+    const childHandles = [];
     for (const handle of process._getActiveHandles()) {
       if (handle?.constructor?.name === 'ChildProcess' && typeof handle.unref === 'function') {
-        handle.unref();
+        childHandles.push(handle);
       }
+    }
+    for (const child of childHandles) {
+      try {
+        // Only kill processes that are still running (not already exited)
+        if (child.exitCode === null && !child.killed) {
+          child.kill('SIGTERM');
+          // Schedule SIGKILL as a fallback if SIGTERM doesn't work within 2s
+          const killTimer = setTimeout(() => {
+            try {
+              if (child.exitCode === null) child.kill('SIGKILL');
+            } catch {
+              /* already exited */
+            }
+          }, 2000);
+          killTimer.unref();
+        }
+      } catch {
+        /* process may have already exited between check and kill */
+      }
+      child.unref();
     }
   } catch {
     // _getActiveHandles is a private V8 API — safe to ignore
@@ -161,11 +190,33 @@ export const logActiveHandles = async (log = null) => {
     if (handles.length === 0 && requests.length === 0) return;
 
     const emit = log || (msg => console.warn(msg));
-    await emit(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests):`);
+
+    // Issue #1493: Categorize handles by type for summary diagnostics
+    const categories = {};
     for (const h of handles) {
       const name = h.constructor?.name || typeof h;
-      // Extra detail for streams: show fd and path/remoteAddress if available
-      const detail = [h.fd != null ? `fd=${h.fd}` : null, h.path ? `path=${h.path}` : null, h.remoteAddress ? `remote=${h.remoteAddress}:${h.remotePort}` : null, h.pid != null ? `pid=${h.pid}` : null, h.spawnfile ? `file=${h.spawnfile}` : null].filter(Boolean).join(', ');
+      categories[name] = (categories[name] || 0) + 1;
+    }
+    const summary = Object.entries(categories)
+      .map(([name, count]) => `${name}×${count}`)
+      .join(', ');
+
+    await emit(`\n🔍 Active Node.js handles at exit (${handles.length} handles, ${requests.length} requests): [${summary}]`);
+    for (const h of handles) {
+      const name = h.constructor?.name || typeof h;
+      // Extra detail for streams: show fd, path, remoteAddress, pid, exitCode, killed state
+      const detail = [
+        h.fd != null ? `fd=${h.fd}` : null,
+        h.path ? `path=${h.path}` : null,
+        h.remoteAddress ? `remote=${h.remoteAddress}:${h.remotePort}` : null,
+        h.pid != null ? `pid=${h.pid}` : null,
+        h.spawnfile ? `file=${h.spawnfile}` : null,
+        h.exitCode != null ? `exitCode=${h.exitCode}` : null,
+        h.killed ? 'killed=true' : null,
+        h.destroyed ? 'destroyed=true' : null,
+      ]
+        .filter(Boolean)
+        .join(', ');
       await emit(`   Handle: ${name}${detail ? ` (${detail})` : ''}`);
     }
     for (const r of requests) {

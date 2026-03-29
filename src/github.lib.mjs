@@ -770,8 +770,11 @@ ${sessionNote}
           }
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
           await fs.writeFile(tempCommentFile, logUploadComment);
-          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempCommentFile}"`;
-          await fs.unlink(tempCommentFile).catch(() => {});
+          try {
+            commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempCommentFile}"`;
+          } finally {
+            await fs.unlink(tempCommentFile).catch(() => {});
+          }
           if (commentResult.code === 0) {
             await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}`);
             await log(`  🔗 Log URL: ${logUrl}`);
@@ -846,9 +849,12 @@ ${truncatedContent}
   const tempFile = `/tmp/log-truncated-comment-${targetType}-${Date.now()}.md`;
   await fs.writeFile(tempFile, truncatedComment);
 
-  const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
-
-  await fs.unlink(tempFile).catch(() => {});
+  let result;
+  try {
+    result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
+  }
 
   if (result.code === 0) {
     await log(`  ✅ Truncated solution draft log uploaded to ${targetName}`);
@@ -873,9 +879,12 @@ async function attachRegularComment(options, logComment) {
   const tempFile = `/tmp/log-comment-${targetType}-${Date.now()}.md`;
   await fs.writeFile(tempFile, logComment);
 
-  const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
-
-  await fs.unlink(tempFile).catch(() => {});
+  let result;
+  try {
+    result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempFile}"`;
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
+  }
 
   if (result.code === 0) {
     await log(`  ✅ Solution draft log uploaded to ${targetName} as comment`);

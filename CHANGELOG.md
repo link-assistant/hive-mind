@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.38.1
+
+### Patch Changes
+
+- 1525ecb: fix: prevent 'Failed to send formatted message' Telegram error by adding safeReply helper and escaping unescaped Markdown in bot messages
+
 ## 1.38.0
 
 ### Minor Changes

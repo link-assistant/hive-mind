@@ -558,69 +558,26 @@ function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url };
 }
 
-/**
- * Escape special characters for Telegram's legacy Markdown parser.
- * In Telegram's Markdown, these characters need escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
- * However, for plain text (not inside markup), we primarily need to escape _ and *
- * to prevent them from being interpreted as formatting.
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text safe for Markdown parse_mode
- */
-/**
- * Safely reply to a Telegram message with Markdown formatting.
- * If Markdown parsing fails (e.g., due to unescaped special characters),
- * logs the failing message for diagnostics and retries as plain text.
- *
- * Issue #1460: Proposed as Fix 3 (safeReply helper with automatic fallback).
- * Issue #1497: Implemented to prevent "Failed to send formatted message" errors
- * from reaching users when Markdown parsing fails.
- *
- * @param {Object} ctx - Telegram context
- * @param {string} text - Message text (may contain Markdown formatting)
- * @param {Object} [options] - Additional options for ctx.reply (e.g., reply_to_message_id)
- * @returns {Promise<Object>} The sent message object
- */
+// Issue #1460/#1497: safeReply - try Markdown first, fall back to plain text on parsing errors
 async function safeReply(ctx, text, options = {}) {
   try {
     return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
   } catch (error) {
     const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
-
-    if (isParsingError) {
-      // Log the exact failing message for root cause analysis
-      console.error(`[telegram-bot] safeReply: Markdown parsing failed: ${error.message}`);
-      console.error(`[telegram-bot] safeReply: Failing message (${Buffer.byteLength(text, 'utf-8')} bytes): ${text}`);
-
-      // Strip Markdown formatting for plain text fallback:
-      // - Remove link syntax [text](url) -> text (url)
-      // - Remove bold *text* -> text
-      // - Remove inline code `text` -> text
-      const plainText = text
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-        .replace(/\\_/g, '_')
-        .replace(/\\\*/g, '*')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/`([^`]+)`/g, '$1');
-
-      return await ctx.reply(plainText, { ...options, parse_mode: undefined });
-    }
-
-    // Re-throw non-parsing errors
-    throw error;
+    if (!isParsingError) throw error;
+    console.error(`[telegram-bot] safeReply: Markdown parsing failed: ${error.message}`);
+    console.error(`[telegram-bot] safeReply: Failing message (${Buffer.byteLength(text, 'utf-8')} bytes): ${text}`);
+    const plainText = text
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      .replace(/\\_/g, '_')
+      .replace(/\\\*/g, '*')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1');
+    return await ctx.reply(plainText, { ...options, parse_mode: undefined });
   }
 }
 
-/**
- * Execute a start-screen command and update the initial message with the result.
- * Used by both /solve and /hive commands to reduce code duplication.
- *
- * @param {Object} ctx - Telegram context
- * @param {Object} startingMessage - The initial message to update
- * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
- * @param {string[]} args - Command arguments
- * @param {string} infoBlock - Info block with request details
- */
+// Execute a start-screen command and update the initial message with the result
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
   const { chat, message_id } = startingMessage;

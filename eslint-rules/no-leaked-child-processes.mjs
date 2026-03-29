@@ -105,8 +105,7 @@ export default {
       recommended: true,
     },
     messages: {
-      bareSpawn:
-        '"{{name}}()" return value is not captured — the child process can never be killed or monitored. Assign to a variable and call .kill() or listen for \'close\'/\'exit\' events when done to prevent event loop leaks and orphaned processes (see issue #1493).',
+      bareSpawn: "\"{{name}}()\" return value is not captured — the child process can never be killed or monitored. Assign to a variable and call .kill() or listen for 'close'/'exit' events when done to prevent event loop leaks and orphaned processes (see issue #1493).",
     },
     schema: [],
   },
@@ -119,10 +118,7 @@ export default {
 
         // Only flag bare ExpressionStatement (result completely discarded)
         if (node.parent && node.parent.type === 'ExpressionStatement') {
-          const name =
-            node.callee.type === 'MemberExpression'
-              ? `${node.callee.object.name ?? ''}.${node.callee.property.name}`
-              : node.callee.name;
+          const name = node.callee.type === 'MemberExpression' ? `${node.callee.object.name ?? ''}.${node.callee.property.name}` : node.callee.name;
 
           context.report({
             node,

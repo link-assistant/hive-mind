@@ -42,6 +42,7 @@ Claude Code stores session data as JSONL files at `~/.claude/projects/<project-d
 ### Compactification
 
 When a session approaches the context window limit, Claude Code automatically compacts the conversation:
+
 1. Summarizes older turns
 2. Inserts a `compact_boundary` system record
 3. Follows with a synthetic user message containing the summary
@@ -61,6 +62,7 @@ The NDJSON stream from `--output-format stream-json` provides per-event token us
 ### Model Context Limits (2025-2026)
 
 From models.dev API:
+
 - Claude Opus 4.5/4.6: 200K context, 32K output
 - Claude Sonnet 4.5/4.6: 200K context (1M beta), 64K output
 - Claude Haiku 4.5: 200K context, 64K output
@@ -70,6 +72,7 @@ From models.dev API:
 ### 1. Sub-Session Tracking in calculateSessionTokens
 
 Modify `calculateSessionTokens()` in `claude.lib.mjs` to:
+
 - Detect `compact_boundary` records in the session JSONL
 - Track token usage per sub-session (between compactification events)
 - Calculate per-sub-session context window usage percentages
@@ -78,6 +81,7 @@ Modify `calculateSessionTokens()` in `claude.lib.mjs` to:
 ### 2. Independent Token Calculation from Stream Events
 
 During NDJSON stream parsing in `executeClaudeCommand()`:
+
 - Sum token usage from each streamed event
 - Store as "stream-calculated" totals
 - Compare against JSONL-calculated totals
@@ -85,6 +89,7 @@ During NDJSON stream parsing in `executeClaudeCommand()`:
 ### 3. Budget Stats in GitHub Comments
 
 Add `buildBudgetStatsString()` function to generate markdown for PR comments:
+
 - Show per-model context window usage with percentages
 - Show sub-session breakdown when compactification occurred
 - Show comparison between stream-calculated and JSONL-calculated tokens
@@ -92,6 +97,7 @@ Add `buildBudgetStatsString()` function to generate markdown for PR comments:
 ### 4. Enhanced displayBudgetStats
 
 Update the terminal display to show:
+
 - Sub-session breakdown
 - Both calculation sources
 - Clear percentage indicators

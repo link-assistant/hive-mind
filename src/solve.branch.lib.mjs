@@ -187,6 +187,24 @@ export function validateBranchName(branchName) {
   return { valid: true };
 }
 
+// Issue #1482: Validate --base-branch/--target-branch values in an args array
+// Used by telegram-bot.mjs for early validation before spawning processes
+export function validateBranchInArgs(args) {
+  const branchFlags = ['--base-branch', '-b', '--target-branch', '-tb'];
+  for (let i = 0; i < args.length; i++) {
+    for (const flag of branchFlags) {
+      if (args[i] === flag && i + 1 < args.length) {
+        const v = validateBranchName(args[i + 1]);
+        if (!v.valid) return `Invalid ${flag} value: ${v.reason}`;
+      } else if (args[i].startsWith(flag + '=')) {
+        const v = validateBranchName(args[i].substring(flag.length + 1));
+        if (!v.valid) return `Invalid ${flag} value: ${v.reason}`;
+      }
+    }
+  }
+  return null;
+}
+
 export async function createOrCheckoutBranch({ isContinueMode, prBranch, issueNumber, tempDir, defaultBranch, argv, log, formatAligned, $, crypto, owner, repo, prNumber }) {
   // Create a branch for the issue or checkout existing PR branch
   let branchName;

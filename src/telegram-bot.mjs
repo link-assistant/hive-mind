@@ -558,25 +558,26 @@ function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url };
 }
 
-/**
- * Escape special characters for Telegram's legacy Markdown parser.
- * In Telegram's Markdown, these characters need escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
- * However, for plain text (not inside markup), we primarily need to escape _ and *
- * to prevent them from being interpreted as formatting.
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text safe for Markdown parse_mode
- */
-/**
- * Execute a start-screen command and update the initial message with the result.
- * Used by both /solve and /hive commands to reduce code duplication.
- *
- * @param {Object} ctx - Telegram context
- * @param {Object} startingMessage - The initial message to update
- * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
- * @param {string[]} args - Command arguments
- * @param {string} infoBlock - Info block with request details
- */
+// Issue #1460/#1497: safeReply - try Markdown first, fall back to plain text on parsing errors
+async function safeReply(ctx, text, options = {}) {
+  try {
+    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
+  } catch (error) {
+    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
+    if (!isParsingError) throw error;
+    console.error(`[telegram-bot] safeReply: Markdown parsing failed: ${error.message}`);
+    console.error(`[telegram-bot] safeReply: Failing message (${Buffer.byteLength(text, 'utf-8')} bytes): ${text}`);
+    const plainText = text
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      .replace(/\\_/g, '_')
+      .replace(/\\\*/g, '*')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1');
+    return await ctx.reply(plainText, { ...options, parse_mode: undefined });
+  }
+}
+
+// Execute a start-screen command and update the initial message with the result
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
   const { chat, message_id } = startingMessage;
@@ -914,8 +915,7 @@ async function handleSolveCommand(ctx) {
       if (VERBOSE) {
         console.log('[VERBOSE] Multiple GitHub URLs found in replied message');
       }
-      await ctx.reply(`❌ ${extraction.error}`, {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, `❌ ${escapeMarkdown(extraction.error)}`, {
         reply_to_message_id: ctx.message.message_id,
       });
       return;
@@ -931,7 +931,7 @@ async function handleSolveCommand(ctx) {
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, '❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -943,7 +943,7 @@ async function handleSolveCommand(ctx) {
       errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
     }
     errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
-    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -963,19 +963,19 @@ async function handleSolveCommand(ctx) {
   // Validate model name with helpful error message (before yargs validation)
   const modelError = validateModelInArgs(args, solveTool);
   if (modelError) {
-    await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1482: Validate --base-branch early to reject URLs and invalid branch names
   const branchError = validateBranchInArgs(args);
   if (branchError) {
-    await ctx.reply(`❌ ${branchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(branchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
   const { malformed, errors: malformedErrors } = detectMalformedFlags(args);
   if (malformed.length > 0) {
-    await ctx.reply(`❌ ${malformedErrors.join('\n')}\n\nPlease check your option syntax.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Validate merged arguments using solve's yargs config
@@ -994,8 +994,7 @@ async function handleSolveCommand(ctx) {
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -1019,7 +1018,7 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve\\_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1031,18 +1030,18 @@ async function handleSolveCommand(ctx) {
   // their command cannot be processed (e.g., disk full, server maintenance pending).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   if (check.rejected) {
-    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${escapeMarkdown(check.rejectReason || 'Unknown')}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   if (check.canStart && queueStats.queued === 0) {
-    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
-    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
-    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
+    const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
@@ -1122,7 +1121,7 @@ async function handleHiveCommand(ctx) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
     errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
-    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Normalize issues_list/pulls_list to base repo URL, or use cleaned URL
@@ -1149,13 +1148,13 @@ async function handleHiveCommand(ctx) {
   // Validate model name with helpful error message (before yargs validation)
   const hiveModelError = validateModelInArgs(args, hiveTool);
   if (hiveModelError) {
-    await ctx.reply(`❌ ${hiveModelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(hiveModelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1482: Validate branch flags early to reject URLs and invalid branch names
   const hiveBranchError = validateBranchInArgs(args);
   if (hiveBranchError) {
-    await ctx.reply(`❌ ${hiveBranchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(hiveBranchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1175,8 +1174,7 @@ async function handleHiveCommand(ctx) {
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -1193,7 +1191,7 @@ async function handleHiveCommand(ctx) {
     infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
-  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 }
 

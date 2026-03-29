@@ -12,9 +12,7 @@ import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
-// Re-export for use by other modules
-export { getToolDisplayName };
-// Issue #1491: Import budget stats builder for GitHub comments
+export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 
 /** Build cost estimation string for log comments (Issue #1250) */
@@ -368,8 +366,9 @@ export async function attachLogToGitHub(options) {
     requestedModel = null, // Issue #1225: The --model flag value
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
-    budgetStatsData = null, // Issue #1491: { tokenUsage, streamTokenUsage } for budget stats in comment
+    budgetStatsData = null, // Issue #1491: budget stats for comment
   } = options;
+  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {
@@ -554,8 +553,6 @@ ${logContent}
     } else if (errorDuringExecution) {
       // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      // Issue #1491: Build budget stats for comment
-      const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
       logComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
@@ -573,12 +570,8 @@ ${logContent}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     } else {
-      // Success log format - use helper function for cost info
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      // Issue #1491: Build budget stats for comment
-      const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
-      // Determine title based on session type
-      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      // Determine title based on session type (Issue #1152)
       let title = customTitle;
       let sessionNote = '';
       if (sessionType === 'auto-resume') {
@@ -739,8 +732,6 @@ ${errorMessage}
           } else if (errorDuringExecution) {
             // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            // Issue #1491: Build budget stats for comment
-            const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
             logUploadComment = `## ⚠️ Solution Draft Finished with Errors
 This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
 
@@ -754,8 +745,6 @@ This log file contains the complete execution trace of the AI ${targetType === '
           } else {
             // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            // Issue #1491: Build budget stats for comment
-            const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.streamTokenUsage) : '';
             // Determine title based on session type
             // See: https://github.com/link-assistant/hive-mind/issues/1152
             let title = customTitle;

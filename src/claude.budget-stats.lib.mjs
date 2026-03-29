@@ -5,6 +5,135 @@
 import { formatNumber } from './claude.lib.mjs';
 
 /**
+ * Helper: creates a fresh sub-session usage object for tracking tokens between compactification events
+ * @returns {Object} Empty sub-session usage structure
+ */
+export const createEmptySubSessionUsage = () => ({
+  inputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  outputTokens: 0,
+  messageCount: 0,
+});
+
+/**
+ * Helper: accumulates token usage from a JSONL entry into a model usage map
+ * @param {Object} modelUsageMap - Map of model ID to usage data
+ * @param {Object} entry - Parsed JSONL entry with message.usage and message.model
+ */
+export const accumulateModelUsage = (modelUsageMap, entry) => {
+  const model = entry.message.model;
+  if (model.startsWith('<') && model.endsWith('>')) return; // Issue #1486: skip <synthetic> etc.
+  const usage = entry.message.usage;
+  if (!modelUsageMap[model]) {
+    modelUsageMap[model] = {
+      inputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheCreation5mTokens: 0,
+      cacheCreation1hTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      webSearchRequests: 0,
+    };
+  }
+  if (usage.input_tokens) modelUsageMap[model].inputTokens += usage.input_tokens;
+  if (usage.cache_creation_input_tokens) modelUsageMap[model].cacheCreationTokens += usage.cache_creation_input_tokens;
+  if (usage.cache_creation) {
+    if (usage.cache_creation.ephemeral_5m_input_tokens) modelUsageMap[model].cacheCreation5mTokens += usage.cache_creation.ephemeral_5m_input_tokens;
+    if (usage.cache_creation.ephemeral_1h_input_tokens) modelUsageMap[model].cacheCreation1hTokens += usage.cache_creation.ephemeral_1h_input_tokens;
+  }
+  if (usage.cache_read_input_tokens) modelUsageMap[model].cacheReadTokens += usage.cache_read_input_tokens;
+  if (usage.output_tokens) modelUsageMap[model].outputTokens += usage.output_tokens;
+};
+
+/**
+ * Display detailed model usage information
+ * @param {Object} usage - Usage data for a model
+ * @param {Function} log - Logging function
+ */
+export const displayModelUsage = async (usage, log) => {
+  // Show all model characteristics if available
+  if (usage.modelInfo) {
+    const info = usage.modelInfo;
+    const fields = [
+      { label: 'Model ID', value: info.id },
+      { label: 'Provider', value: info.provider || 'Unknown' },
+      { label: 'Context window', value: info.limit?.context ? `${formatNumber(info.limit.context)} tokens` : null },
+      { label: 'Max output', value: info.limit?.output ? `${formatNumber(info.limit.output)} tokens` : null },
+      { label: 'Input modalities', value: info.modalities?.input?.join(', ') || 'N/A' },
+      { label: 'Output modalities', value: info.modalities?.output?.join(', ') || 'N/A' },
+      { label: 'Knowledge cutoff', value: info.knowledge },
+      { label: 'Released', value: info.release_date },
+      {
+        label: 'Capabilities',
+        value: [info.attachment && 'Attachments', info.reasoning && 'Reasoning', info.temperature && 'Temperature', info.tool_call && 'Tool calls'].filter(Boolean).join(', ') || 'N/A',
+      },
+      { label: 'Open weights', value: info.open_weights ? 'Yes' : 'No' },
+    ];
+    for (const { label, value } of fields) {
+      if (value) await log(`      ${label}: ${value}`);
+    }
+    await log('');
+  } else {
+    await log('      ⚠️  Model info not available\n');
+  }
+  // Show usage data
+  await log('      Usage:');
+  await log(`        Input tokens: ${formatNumber(usage.inputTokens)}`);
+  if (usage.cacheCreationTokens > 0) {
+    await log(`        Cache creation tokens: ${formatNumber(usage.cacheCreationTokens)}`);
+  }
+  if (usage.cacheReadTokens > 0) {
+    await log(`        Cache read tokens: ${formatNumber(usage.cacheReadTokens)}`);
+  }
+  await log(`        Output tokens: ${formatNumber(usage.outputTokens)}`);
+  if (usage.webSearchRequests > 0) {
+    await log(`        Web search requests: ${usage.webSearchRequests}`);
+  }
+  // Show detailed cost calculation
+  if (usage.costUSD !== null && usage.costUSD !== undefined && usage.costBreakdown) {
+    await log('');
+    await log('      Cost Calculation (USD):');
+    const breakdown = usage.costBreakdown;
+    const types = [
+      { key: 'input', label: 'Input' },
+      { key: 'cacheWrite', label: 'Cache write' },
+      { key: 'cacheRead', label: 'Cache read' },
+      { key: 'output', label: 'Output' },
+    ];
+    for (const { key, label } of types) {
+      if (breakdown[key].tokens > 0) {
+        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${breakdown[key].cost.toFixed(6)}`);
+      }
+    }
+    await log('        ─────────────────────────────────');
+    await log(`        Total: $${usage.costUSD.toFixed(6)}`);
+  } else if (usage.modelInfo === null) {
+    await log('');
+    await log('      Cost: Not available (could not fetch pricing)');
+  }
+};
+
+/**
+ * Display cost comparison between public pricing and Anthropic's official cost
+ * @param {number|null} publicCost - Public pricing estimate
+ * @param {number|null} anthropicCost - Anthropic's official cost
+ * @param {Function} log - Logging function
+ */
+export const displayCostComparison = async (publicCost, anthropicCost, log) => {
+  await log('\n   💰 Cost estimation:');
+  await log(`      Public pricing estimate: ${publicCost !== null && publicCost !== undefined ? `$${publicCost.toFixed(6)} USD` : 'unknown'}`);
+  await log(`      Calculated by Anthropic: ${anthropicCost !== null && anthropicCost !== undefined ? `$${anthropicCost.toFixed(6)} USD` : 'unknown'}`);
+  if (publicCost !== null && publicCost !== undefined && anthropicCost !== null && anthropicCost !== undefined) {
+    const difference = anthropicCost - publicCost;
+    const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
+    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
+  } else {
+    await log('      Difference:              unknown');
+  }
+};
+
+/**
  * Display token budget statistics (context window usage and ratios)
  * @param {Object} usage - Usage data for a model
  * @param {Function} log - Logging function

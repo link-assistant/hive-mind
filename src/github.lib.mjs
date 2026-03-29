@@ -454,12 +454,10 @@ export async function attachLogToGitHub(options) {
     }
     let logContent = await sanitizeLogContent(rawLogContent);
 
-    // Escape code blocks in the log content to prevent them from breaking markdown formatting
     if (verbose) {
       await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
     }
     logContent = escapeCodeBlocksInLog(logContent);
-    // Create formatted comment
     let logComment;
     // Usage limit comments should be shown whenever isUsageLimit is true,
     // regardless of whether a generic errorMessage is provided.
@@ -999,11 +997,9 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
       });
       throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
     }
-    // Add delay to respect rate limits
     await log('   ⏰ Waiting 2 seconds before API call to respect rate limits...', { verbose: true });
     await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
     const startTime = Date.now();
-    // Fetch all project items
     await log(`   🔎 Executing: gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
       verbose: true,
     });
@@ -1012,13 +1008,11 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     const projectData = JSON.parse(result.stdout || '{"items": []}');
     const allItems = projectData.items || [];
     await log(`   📊 Found ${allItems.length} total project items in ${Math.round((endTime - startTime) / 1000)}s`);
-    // Filter by status and item type (only Issues)
     const filteredIssues = allItems.filter(item => {
       // Check if it's an Issue (not PR, Discussion, etc.)
       if (item.content?.type !== 'Issue') {
         return false;
       }
-      // Check status field - look for Status field in fieldValueByName
       const statusField = item.fieldValueByName?.Status;
       if (!statusField) {
         // If no status field, skip this item
@@ -1027,7 +1021,6 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
       // Match against configured status value
       return statusField.name === statusFilter;
     });
-    // Extract issue information
     const issues = filteredIssues.map(item => ({
       url: item.content.url,
       title: item.content.title,
@@ -1043,7 +1036,6 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
         await log(`      • #${issue.number}: ${issue.title}`, { verbose: true });
       }
     }
-    // Add delay after API call
     await log('   ⏰ Adding 2-second delay after API call to respect rate limits...', { verbose: true });
     await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay));
     return issues;

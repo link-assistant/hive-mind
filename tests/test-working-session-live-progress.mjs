@@ -246,28 +246,30 @@ section('\nTesting Claude Integration');
 import { readFile } from 'fs/promises';
 const claudeSource = await readFile('./src/claude.lib.mjs', 'utf-8');
 
-test('claude.lib.mjs imports progress monitoring module', () => {
-  assert(claudeSource.includes("import { createProgressMonitor } from './solve.progress-monitoring.lib.mjs'"));
+test('claude.lib.mjs imports initProgressMonitoring from progress module', () => {
+  assert(claudeSource.includes("import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs'"));
 });
 
-test('claude.lib.mjs creates progressMonitor when workingSessionLiveProgress is enabled', () => {
-  assert(claudeSource.includes('argv.workingSessionLiveProgress'));
-  assert(claudeSource.includes('createProgressMonitor'));
+test('claude.lib.mjs initializes progressMonitor via initProgressMonitoring', () => {
+  assert(claudeSource.includes('initProgressMonitoring(argv'));
 });
 
-test('claude.lib.mjs detects TodoWrite tool_use events for progress monitoring', () => {
-  assert(claudeSource.includes("item.name === 'TodoWrite'"));
-  assert(claudeSource.includes('progressMonitor.updateProgress'));
-});
-
-test('claude.lib.mjs detects tool_use_result with newTodos for progress monitoring', () => {
-  assert(claudeSource.includes('data.tool_use_result?.newTodos'));
+test('claude.lib.mjs calls processStreamEvent for progress monitoring', () => {
+  assert(claudeSource.includes('progressMonitor.processStreamEvent(data'));
 });
 
 test('claude.lib.mjs progress monitoring works without --interactive-mode', () => {
   // The progressMonitor creation is SEPARATE from interactiveHandler creation
-  // It only depends on argv.workingSessionLiveProgress, not argv.interactiveMode
-  assert(claudeSource.includes('// Create progress monitor if enabled (works with or without --interactive-mode)'));
+  assert(claudeSource.includes('works with or without --interactive-mode'));
+});
+
+test('Progress module exports initProgressMonitoring factory', () => {
+  assert(typeof progressModule.initProgressMonitoring === 'function');
+});
+
+test('initProgressMonitoring returns null when disabled', async () => {
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: false }, { owner: 'o', repo: 'r', prNumber: 1, $: null, log: async () => {} });
+  assert.equal(result, null);
 });
 
 section('\nTesting Module Structure');

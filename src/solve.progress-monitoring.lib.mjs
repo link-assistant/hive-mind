@@ -267,8 +267,36 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
     return generateProgressSection(todos, state.sessionId);
   };
 
+  /**
+   * Process a Claude CLI stream event, detecting TodoWrite tool calls
+   * and updating progress automatically. Call this for each parsed NDJSON event.
+   *
+   * @param {Object} data - Parsed JSON event from Claude CLI stream
+   * @param {boolean} force - Force update even if within rate limit interval
+   * @returns {Promise<boolean>} True if a progress update was triggered
+   */
+  const processStreamEvent = async (data, force = false) => {
+    if (!data || typeof data !== 'object') return false;
+    let updated = false;
+    // Pattern 1: assistant event with tool_use containing TodoWrite input
+    if (data.type === 'assistant' && data.message?.content) {
+      const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+      for (const item of contentItems) {
+        if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
+          updated = await updateProgress(item.input.todos, force);
+        }
+      }
+    }
+    // Pattern 2: user event with tool_use_result containing newTodos (confirmation)
+    if (data.type === 'user' && data.tool_use_result?.newTodos) {
+      updated = await updateProgress(data.tool_use_result.newTodos, force);
+    }
+    return updated;
+  };
+
   return {
     updateProgress,
+    processStreamEvent,
     getStats,
     generateSection,
     get currentTodos() {
@@ -278,6 +306,25 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       return state.sessionId;
     },
   };
+};
+
+/**
+ * Initialize progress monitoring if enabled. Returns null if disabled or missing PR info.
+ * Logs status to the provided log function. Designed to minimize integration lines in claude.lib.mjs.
+ *
+ * @param {Object} argv - Parsed CLI arguments (needs workingSessionLiveProgress)
+ * @param {Object} context - { owner, repo, prNumber, $, log }
+ * @returns {Promise<Object|null>} Progress monitor instance or null
+ */
+export const initProgressMonitoring = async (argv, { owner, repo, prNumber, $, log }) => {
+  if (!argv.workingSessionLiveProgress) return null;
+  if (!owner || !repo || !prNumber) {
+    await log('⚠️ Live progress monitoring: Disabled - missing PR info', { verbose: true });
+    return null;
+  }
+  const monitor = createProgressMonitor({ owner, repo, prNumber, $, log, verbose: argv.verbose, sessionId: `session-${Date.now()}` });
+  await log(`📊 Live progress monitoring: ENABLED (session: ${monitor.sessionId})`, { verbose: true });
+  return monitor;
 };
 
 /**

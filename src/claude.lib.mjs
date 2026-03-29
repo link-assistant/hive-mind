@@ -11,7 +11,7 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
-import { createProgressMonitor } from './solve.progress-monitoring.lib.mjs';
+import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
@@ -721,10 +721,8 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
 export const isStderrError = message => {
   const trimmed = message.trim();
   if (!trimmed) return false;
-
   // Detection 1: Emoji-prefixed warnings (Issue #477)
   let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-
   // Detection 2: JSON-structured log messages (Issue #1337)
   if (!isWarning && trimmed.startsWith('{')) {
     try {
@@ -740,13 +738,11 @@ export const isStderrError = message => {
       // Not valid JSON — fall through to keyword matching
     }
   }
-
   if (!isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
     return true;
   }
   return false;
 };
-
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -841,15 +837,7 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Create progress monitor if enabled (works with or without --interactive-mode)
-    let progressMonitor = null;
-    if (argv.workingSessionLiveProgress && owner && repo && prNumber) {
-      const workSessionId = `session-${Date.now()}`;
-      progressMonitor = createProgressMonitor({ owner, repo, prNumber, $, log, verbose: argv.verbose, sessionId: workSessionId });
-      await log(`📊 Live progress monitoring: ENABLED (session: ${workSessionId})`, { verbose: true });
-    } else if (argv.workingSessionLiveProgress) {
-      await log('⚠️ Live progress monitoring: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
-    }
+    const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
@@ -1007,30 +995,7 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'message') messageCount++;
               else if (data.type === 'tool_use') toolUseCount++;
-              // Live progress monitoring: detect TodoWrite events and update PR description
-              if (progressMonitor) {
-                // Pattern 1: assistant event with tool_use containing TodoWrite input
-                if (data.type === 'assistant' && data.message?.content) {
-                  const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                  for (const item of contentItems) {
-                    if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
-                      try {
-                        await progressMonitor.updateProgress(item.input.todos);
-                      } catch (progressError) {
-                        await log(`⚠️ Progress monitoring error: ${progressError.message}`, { verbose: true });
-                      }
-                    }
-                  }
-                }
-                // Pattern 2: user event with tool_use_result containing newTodos (confirmation)
-                if (data.type === 'user' && data.tool_use_result?.newTodos) {
-                  try {
-                    await progressMonitor.updateProgress(data.tool_use_result.newTodos);
-                  } catch (progressError) {
-                    await log(`⚠️ Progress monitoring error (tool result): ${progressError.message}`, { verbose: true });
-                  }
-                }
-              }
+              if (progressMonitor) await progressMonitor.processStreamEvent(data).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
               if (data.type === 'result') {
                 if (!resultEventReceived) {
                   resultEventReceived = true;
@@ -1181,19 +1146,7 @@ export const executeClaudeCommand = async params => {
               await log(`⚠️ Interactive mode error (remaining buffer): ${interactiveError.message}`, { verbose: true });
             }
           }
-          // Live progress monitoring: detect TodoWrite in remaining buffer
-          if (progressMonitor && data.type === 'assistant' && data.message?.content) {
-            const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-            for (const item of contentItems) {
-              if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
-                try {
-                  await progressMonitor.updateProgress(item.input.todos, true); // force final update
-                } catch (progressError) {
-                  await log(`⚠️ Progress monitoring error (remaining buffer): ${progressError.message}`, { verbose: true });
-                }
-              }
-            }
-          }
+          if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
           if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
         }

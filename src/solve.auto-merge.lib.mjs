@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -187,7 +187,7 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
  * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
  * - no_checks: No CI checks yet (race condition) → wait
  */
-const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
+const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1) => {
   const blockers = [];
 
   // Use detailed CI status to distinguish between all possible states
@@ -280,60 +280,54 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
             return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
           }
 
-          if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
-            // Commit is recent — workflow runs may not have appeared in the API yet
-            if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but commit is only ${commitInfo.ageSeconds}s old (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s) — treating as potential race condition`);
-            }
-
-            if (prTriggers.hasPRTriggers) {
-              // Workflows have PR/push triggers AND commit is recent — almost certainly a race condition
+          if (prTriggers.hasPRTriggers) {
+            // Issue #1480 (enhanced): Workflows have PR/push triggers but no runs yet.
+            // This is almost certainly a race condition — GitHub takes 30-120s to register
+            // workflow runs after a push. We MUST wait regardless of commit age, because
+            // commit date reflects authoring time, NOT push time.
+            //
+            // The commit may have been authored hours ago but pushed just now (rebased branches,
+            // amended commits, cherry-picks). Using commit age as a proxy for push age caused
+            // false positives in Case 1 of Issue #1480.
+            //
+            // Safety valve: after MAX_NO_RUNS_CHECKS consecutive checks (typically 5 × 60s = 5 min),
+            // conclude CI was not triggered. This handles cases like paths-ignore excluding all
+            // changed files, conditional workflows that don't match, etc.
+            const MAX_NO_RUNS_CHECKS = 5;
+            if (checkCount >= MAX_NO_RUNS_CHECKS) {
+              // We've waited long enough — CI was genuinely not triggered
               if (verbose) {
-                console.log(`[VERBOSE] /merge: Workflow files confirm PR/push triggers exist (${prTriggers.workflows.map(w => w.name).join(', ')}) — waiting for workflow runs to appear`);
-              }
-              blockers.push({
-                type: 'ci_pending',
-                message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
-                details: prTriggers.workflows.map(w => w.name),
-              });
-            } else {
-              // No PR triggers found in workflow files — but commit is still recent, be safe and wait
-              if (verbose) {
-                console.log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
-              }
-              blockers.push({
-                type: 'ci_pending',
-                message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
-                details: [],
-              });
-            }
-          } else {
-            // Commit is old enough (grace period elapsed) — but check additional signals before concluding
-            // Issue #1480: Layer 3 — Check if previous commits in this PR had CI runs.
-            // If earlier commits had CI, the HEAD commit should also have CI unless conditions changed.
-            const previousCI = await checkPreviousPRCommitsHadCI(owner, repo, prNumber, ciStatus.sha, verbose);
-
-            if (previousCI.hadPreviousCI && prTriggers.hasPRTriggers) {
-              // Previous commits had CI AND workflow files have PR triggers — something is wrong,
-              // this could be a GitHub API glitch or delayed registration beyond the grace period.
-              // Wait one more cycle to be safe.
-              if (verbose) {
-                console.log(`[VERBOSE] /merge: PR #${prNumber} previous commits had CI (${previousCI.previousCommitsWithCI}/${previousCI.totalPreviousCommits}) and workflows have PR triggers, but HEAD has no runs — waiting as safety measure`);
-              }
-              blockers.push({
-                type: 'ci_pending',
-                message: `CI/CD workflow runs missing for HEAD — previous PR commits had CI (${previousCI.previousCommitsWithCI} of ${previousCI.totalPreviousCommits}), workflows have PR triggers, possible API delay`,
-                details: prTriggers.workflows.map(w => w.name),
-              });
-            } else {
-              // CI was definitively NOT triggered
-              // Issue #1442: Fork PRs needing maintainer approval, paths-ignore filtering,
-              // workflow conditions not matching, etc. all result in zero workflow runs.
-              if (verbose) {
-                console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s elapsed, previous CI: ${previousCI.hadPreviousCI}, PR triggers: ${prTriggers.hasPRTriggers}) — CI was not triggered`);
+                console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs after ${checkCount} consecutive checks — concluding CI was not triggered despite PR triggers existing`);
               }
               return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
             }
+
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — waiting for workflow runs to appear (check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s)`);
+            }
+            blockers.push({
+              type: 'ci_pending',
+              message: `CI/CD workflow runs have not appeared yet — workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}), waiting for GitHub to register workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
+              details: prTriggers.workflows.map(w => w.name),
+            });
+          } else if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
+            // No PR triggers found in workflow files, but commit is still recent — be safe and wait
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
+            }
+            blockers.push({
+              type: 'ci_pending',
+              message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
+              details: [],
+            });
+          } else {
+            // No PR triggers AND commit is old enough — CI was definitively NOT triggered
+            // Issue #1442: Fork PRs needing maintainer approval, paths-ignore filtering,
+            // workflow conditions not matching, etc. all result in zero workflow runs.
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, no PR/push triggers in workflow files) — CI was not triggered`);
+            }
+            return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
           }
         }
       } else {
@@ -354,6 +348,60 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false) => {
         message: 'CI/CD checks have not started yet (waiting for checks to appear)',
         details: [],
       });
+    }
+  } else if (ciStatus.status === 'success') {
+    // Issue #1480: Cross-validate "success" with workflow runs API.
+    // A fast external check (e.g., CodeFactor) can register and pass before the main CI
+    // pipeline starts, causing getDetailedCIStatus to return 'success' prematurely.
+    // We must verify that all expected workflow runs have actually completed.
+    const workflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
+
+    if (workflowRuns.length > 0) {
+      // Workflow runs exist — check if any are still running
+      const incompleteRuns = workflowRuns.filter(r => r.status !== 'completed');
+      if (incompleteRuns.length > 0) {
+        // Some workflow runs are still in progress — more check-runs may appear
+        if (verbose) {
+          console.log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} checks passed), but ${incompleteRuns.length} workflow run(s) still in progress — waiting for completion`);
+        }
+        blockers.push({
+          type: 'ci_pending',
+          message: `CI checks show success (${ciStatus.passedChecks.length} passed) but ${incompleteRuns.length} workflow run(s) still in progress — waiting for all to complete`,
+          details: incompleteRuns.map(r => r.name),
+        });
+      }
+      // All workflow runs completed — the check-runs we see are the final set, trust the 'success' status
+    } else {
+      // No workflow runs for this SHA — the passed checks are from external services only
+      // (e.g., CodeFactor, Codecov). Check if the repo has workflows that should produce runs.
+      const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
+      if (repoWorkflows.hasWorkflows) {
+        const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose);
+        if (prTriggers.hasPRTriggers) {
+          // Repo has workflows with PR triggers but no runs yet — CI hasn't started
+          // This is the exact scenario from Case 2 of Issue #1480
+          //
+          // Safety valve: after MAX_NO_RUNS_CHECKS consecutive checks, trust the external checks
+          const MAX_NO_RUNS_CHECKS = 5;
+          if (checkCount >= MAX_NO_RUNS_CHECKS) {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} CI 'success' with ${ciStatus.passedChecks.length} external checks, no workflow runs after ${checkCount} checks — trusting external checks`);
+            }
+            // Fall through — trust the success status from external checks
+          } else {
+            if (verbose) {
+              console.log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} external checks), but repo has PR-triggered workflows with 0 workflow runs — likely race condition (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`);
+            }
+            // Wait for GitHub Actions to register workflow runs
+            blockers.push({
+              type: 'ci_pending',
+              message: `CI shows ${ciStatus.passedChecks.length} passed check(s) from external services, but repo has PR-triggered workflows that haven't started yet — waiting for GitHub Actions to register (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
+              details: prTriggers.workflows.map(w => w.name),
+            });
+          }
+        }
+      }
+      // No repo workflows → external checks are the only CI, trust the 'success' status
     }
   } else if (ciStatus.status === 'pending') {
     // CI is still running or queued - wait for completion
@@ -507,7 +555,7 @@ export const watchUntilMergeable = async params => {
 
     try {
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions } = await getMergeBlockers(owner, repo, prNumber, argv.verbose);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, iteration);
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);

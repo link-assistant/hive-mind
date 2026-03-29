@@ -65,7 +65,7 @@ async function runTestAsync(name, testFn) {
 
 // Test 1: QUEUE_CONFIG has required properties with ratio format
 runTest('QUEUE_CONFIG has required properties (ratio format)', () => {
-  const requiredProps = ['RAM_THRESHOLD', 'CPU_THRESHOLD', 'DISK_THRESHOLD', 'CLAUDE_SESSION_THRESHOLD', 'CLAUDE_WEEKLY_THRESHOLD', 'GITHUB_API_THRESHOLD', 'MIN_START_INTERVAL_MS', 'CONSUMER_POLL_INTERVAL_MS'];
+  const requiredProps = ['RAM_THRESHOLD', 'CPU_THRESHOLD', 'DISK_THRESHOLD', 'CLAUDE_5_HOUR_SESSION_THRESHOLD', 'CLAUDE_WEEKLY_THRESHOLD', 'GITHUB_API_THRESHOLD', 'MIN_START_INTERVAL_MS', 'CONSUMER_POLL_INTERVAL_MS'];
 
   for (const prop of requiredProps) {
     if (!(prop in QUEUE_CONFIG)) {
@@ -83,10 +83,10 @@ runTest('Default thresholds match requirements (ratio format)', () => {
   // - RAM: 0.5 (50%)
   // - CPU: 0.5 (50%)
   // - Disk: 0.95 (95% usage, i.e., 5% free)
-  // - Claude session: 0.9 (90%)
+  // - Claude 5 hour session: 0.9 (90%)
   // - Claude weekly: 0.99 (99%)
   // - GitHub API: 0.8 (80%)
-  // - Min interval: 1 minute
+  // - Min interval: 2 minutes
 
   if (QUEUE_CONFIG.RAM_THRESHOLD !== 0.5) {
     throw new Error(`RAM threshold should be 0.5, got ${QUEUE_CONFIG.RAM_THRESHOLD}`);
@@ -97,8 +97,8 @@ runTest('Default thresholds match requirements (ratio format)', () => {
   if (QUEUE_CONFIG.DISK_THRESHOLD !== 0.95) {
     throw new Error(`Disk threshold should be 0.95, got ${QUEUE_CONFIG.DISK_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD !== 0.9) {
-    throw new Error(`Claude session threshold should be 0.9, got ${QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD}`);
+  if (QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== 0.9) {
+    throw new Error(`Claude 5 hour session threshold should be 0.9, got ${QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD}`);
   }
   if (QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD !== 0.99) {
     throw new Error(`Claude weekly threshold should be 0.99, got ${QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD}`);
@@ -106,8 +106,8 @@ runTest('Default thresholds match requirements (ratio format)', () => {
   if (QUEUE_CONFIG.GITHUB_API_THRESHOLD !== 0.8) {
     throw new Error(`GitHub API threshold should be 0.8, got ${QUEUE_CONFIG.GITHUB_API_THRESHOLD}`);
   }
-  if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 60000) {
-    throw new Error(`Min interval should be 60000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
+  if (QUEUE_CONFIG.MIN_START_INTERVAL_MS !== 120000) {
+    throw new Error(`Min interval should be 120000ms, got ${QUEUE_CONFIG.MIN_START_INTERVAL_MS}`);
   }
 });
 
@@ -545,9 +545,9 @@ await runTestAsync('checkApiLimits allows one command when limit >= threshold bu
     throw new Error('Should have reasons array');
   }
 
-  // Verify no Claude session/weekly limit reasons when no Claude running
+  // Verify no Claude 5 hour session/weekly limit reasons when no Claude running
   // (GitHub limits are only checked when hasRunningClaude=true)
-  const claudeLimitReasons = result.reasons.filter(r => r.includes('Claude session') || r.includes('Claude weekly'));
+  const claudeLimitReasons = result.reasons.filter(r => r.includes('Claude 5 hour session') || r.includes('Claude weekly'));
   if (claudeLimitReasons.length > 0) {
     throw new Error(`Should not have Claude limit reasons when no Claude running, got: ${claudeLimitReasons.join(', ')}`);
   }

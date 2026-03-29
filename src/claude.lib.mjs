@@ -1,64 +1,55 @@
 #!/usr/bin/env node
-// Claude CLI-related utility functions
-// If not, fetch it (when running standalone)
+// Claude CLI-related utility functions. Fetch use-m if not available.
 if (typeof globalThis.use === 'undefined') {
   globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
 }
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-// Import log from general lib
-import { log, cleanErrorMessage } from './lib.mjs';
+import { log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, retryLimits, claudeCode, getClaudeEnv } from './config.lib.mjs';
+import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
+import { createProgressMonitor } from './solve.progress-monitoring.lib.mjs';
+import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
-// Import Claude command builder for generating resume commands
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
-
-// Helper to display resume command at end of session
+import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
+import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
+export { availableModels }; // Re-export for backward compatibility
 const showResumeCommand = async (sessionId, tempDir, claudePath, model, log) => {
   if (!sessionId || !tempDir) return;
   const cmd = buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model });
   await log('\n💡 To continue this session in Claude Code interactive mode:\n');
   await log(`   ${cmd}\n`);
 };
-
-/**
- * Format numbers with spaces as thousands separator (no commas)
- * Per issue #667: Use spaces for thousands, . for decimals
- * @param {number|null|undefined} num - Number to format
- * @returns {string} Formatted number string
- */
+/** Format numbers with spaces as thousands separator (no commas) */
 export const formatNumber = num => {
   if (num === null || num === undefined) return 'N/A';
-  // Convert to string and split on decimal point
   const parts = num.toString().split('.');
   const integerPart = parts[0];
   const decimalPart = parts[1];
-  // Add spaces every 3 digits from the right
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  // Return with decimal part if it exists
   return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 };
-// Available model configurations
-export const availableModels = {
-  sonnet: 'claude-sonnet-4-5-20250929', // Sonnet 4.5
-  opus: 'claude-opus-4-5-20251101', // Opus 4.5
-  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
-  'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
-};
 // Model mapping to translate aliases to full model IDs
+// Supports [1m] suffix for 1 million token context (Issue #1221)
 export const mapModelToId = model => {
+  if (!model || typeof model !== 'string') return model;
+  // Check for [1m] suffix (case-insensitive)
+  const match = model.match(/^(.+?)\[1m\]$/i);
+  if (match) {
+    const baseModel = match[1];
+    const mappedBase = availableModels[baseModel] || baseModel;
+    return `${mappedBase}[1m]`;
+  }
   return availableModels[model] || model;
 };
 // Function to validate Claude CLI connection with retry logic
-export const validateClaudeConnection = async (model = 'haiku-3') => {
+export const validateClaudeConnection = async (model = 'haiku') => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
-  // Retry configuration for API overload errors
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
   let retryCount = 0;
@@ -69,11 +60,11 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
       } else {
         await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Claude CLI validation...`);
       }
-      // First try a quick validation approach
       try {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
+          detectedClaudeVersion = version; // issue #1146
           if (retryCount === 0) {
             await log(`📦 Claude CLI version: ${version}`);
           }
@@ -89,7 +80,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         // Primary validation: use printf piping with specified model
         result = await $`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
-        // If piping fails, fallback to the timeout approach as last resort
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
         try {
           result = await $`timeout ${Math.floor(timeouts.claudeCli / 1000)} claude --model ${mappedModel} -p hi`;
@@ -104,18 +94,13 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             });
             return false;
           }
-          // Re-throw if it's not a timeout error
           throw timeoutError;
         }
       }
-
-      // Check for common error patterns
       const stdout = result.stdout?.toString() || '';
       const stderr = result.stderr?.toString() || '';
-      // Check for JSON errors in stdout or stderr
       const checkForJsonError = text => {
         try {
-          // Look for JSON error patterns
           if (text.includes('"error"') && text.includes('"type"')) {
             const jsonMatch = text.match(/\{.*"error".*\}/);
             if (jsonMatch) {
@@ -124,7 +109,6 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
             }
           }
         } catch (e) {
-          // Not valid JSON, continue with other checks
           if (global.verboseMode) {
             reportError(e, {
               context: 'claude_json_error_parse',
@@ -135,9 +119,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         return null;
       };
       const jsonError = checkForJsonError(stdout) || checkForJsonError(stderr);
-      // Check for API overload error pattern
-      const isOverloadError = (stdout.includes('API Error: 500') && stdout.includes('Overloaded')) || (stderr.includes('API Error: 500') && stderr.includes('Overloaded')) || (jsonError && jsonError.type === 'api_error' && jsonError.message === 'Overloaded');
-
+      // Check for API overload error pattern (Issue #1439: also detect 529 overloaded_error)
+      const isOverloadError = (stdout.includes('API Error: 500') && stdout.includes('Overloaded')) || (stdout.includes('API Error: 529') && stdout.includes('Overloaded')) || (stderr.includes('API Error: 500') && stderr.includes('Overloaded')) || (stderr.includes('API Error: 529') && stderr.includes('Overloaded')) || (jsonError && (jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded');
       // Handle overload errors with retry
       if (isOverloadError) {
         if (retryCount < maxRetries) {
@@ -156,10 +139,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
           return false;
         }
       }
-      // Use exitCode if code is undefined (Bun shell behavior)
-      const exitCode = result.code ?? result.exitCode ?? 0;
+      const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
-        // Command failed
         if (jsonError) {
           await log(`❌ Claude CLI authentication failed: ${jsonError.type} - ${jsonError.message}`, {
             level: 'error',
@@ -173,9 +154,8 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Check for error patterns in successful response
       if (jsonError) {
-        if (jsonError.type === 'api_error' && jsonError.message === 'Overloaded') {
+        if ((jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded') {
           if (retryCount < maxRetries) {
             const delay = baseDelay * Math.pow(2, retryCount);
             await log(`⚠️ API overload error in response. Retrying in ${delay / 1000} seconds...`, {
@@ -195,12 +175,11 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
         }
         return false;
       }
-      // Success - Claude responded (LLM responses are probabilistic, so any response is good)
       await log('✅ Claude CLI connection validated successfully');
       return true;
     } catch (error) {
       const errorStr = error.message || error.toString();
-      if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded'))) {
+      if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('API Error: 529') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded'))) {
         if (retryCount < maxRetries) {
           const delay = baseDelay * Math.pow(2, retryCount);
           await log(`⚠️ API overload error during validation. Retrying in ${delay / 1000} seconds...`, {
@@ -222,200 +201,89 @@ export const validateClaudeConnection = async (model = 'haiku-3') => {
   // Start the validation with retry logic
   return await attemptValidation();
 };
-// Function to handle Claude runtime switching between Node.js and Bun
-export const handleClaudeRuntimeSwitch = async argv => {
-  if (argv['force-claude-bun-run']) {
-    await log('\n🔧 Switching Claude runtime to bun...');
-    try {
-      try {
-        await $`which bun`;
-        await log('   ✅ Bun runtime found');
-      } catch (bunError) {
-        reportError(bunError, {
-          context: 'claude.lib.mjs - bun availability check',
-          level: 'error',
-        });
-        await log('❌ Bun runtime not found. Please install bun first: https://bun.sh/', { level: 'error' });
-        process.exit(1);
-      }
-
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
-
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
-
-      await log(`   Claude path: ${claudePath}`);
-
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (bun)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use bun');
-        process.exit(0);
-      }
-
-      // Create backup
-      const backupPath = `${claudePath}.nodejs-backup`;
-      await $`cp "${claudePath}" "${backupPath}"`;
-      await log(`   📦 Backup created: ${backupPath}`);
-
-      // Read file content and replace shebang
-      const content = await fs.readFile(claudePath, 'utf8');
-      const newContent = content.replace(/^#!.*node.*$/m, '#!/usr/bin/env bun');
-
-      if (content === newContent) {
-        await log('⚠️  No Node.js shebang found to replace', { level: 'warning' });
-        await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-        process.exit(0);
-      }
-
-      await fs.writeFile(claudePath, newContent);
-      await log('   ✅ Claude shebang updated to use bun');
-      await log('   🔄 Claude will now run with bun runtime');
-    } catch (error) {
-      await log(`❌ Failed to switch Claude to bun: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
-    }
-
-    // Exit after switching runtime
-    process.exit(0);
-  }
-
-  if (argv['force-claude-nodejs-run']) {
-    await log('\n🔧 Restoring Claude runtime to Node.js...');
-    try {
-      try {
-        await $`which node`;
-        await log('   ✅ Node.js runtime found');
-      } catch (nodeError) {
-        reportError(nodeError, {
-          context: 'claude.lib.mjs - Node.js availability check',
-          level: 'error',
-        });
-        await log('❌ Node.js runtime not found. Please install Node.js first', { level: 'error' });
-        process.exit(1);
-      }
-
-      // Find Claude executable path
-      const claudePathResult = await $`which claude`;
-      const claudePath = claudePathResult.stdout.toString().trim();
-
-      if (!claudePath) {
-        await log('❌ Claude executable not found', { level: 'error' });
-        process.exit(1);
-      }
-
-      await log(`   Claude path: ${claudePath}`);
-
-      try {
-        await fs.access(claudePath, fs.constants.W_OK);
-      } catch (accessError) {
-        reportError(accessError, {
-          context: 'claude.lib.mjs - Claude executable write permission check (nodejs)',
-          level: 'error',
-        });
-        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
-        await log('   Try running with sudo or changing file permissions', { level: 'error' });
-        process.exit(1);
-      }
-      // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
-      const currentShebang = firstLine.stdout.toString().trim();
-      await log(`   Current shebang: ${currentShebang}`);
-      if (currentShebang.includes('node') && !currentShebang.includes('bun')) {
-        await log('   ✅ Claude is already configured to use Node.js');
-        process.exit(0);
-      }
-
-      const backupPath = `${claudePath}.nodejs-backup`;
-      try {
-        await fs.access(backupPath);
-        // Restore from backup
-        await $`cp "${backupPath}" "${claudePath}"`;
-        await log(`   ✅ Restored Claude from backup: ${backupPath}`);
-      } catch (backupError) {
-        reportError(backupError, {
-          context: 'claude_restore_backup',
-          level: 'info',
-        });
-        // No backup available, manually update shebang
-        await log('   📝 No backup found, manually updating shebang...');
-        const content = await fs.readFile(claudePath, 'utf8');
-        const newContent = content.replace(/^#!.*bun.*$/m, '#!/usr/bin/env node');
-
-        if (content === newContent) {
-          await log('⚠️  No bun shebang found to replace', { level: 'warning' });
-          await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
-          process.exit(0);
-        }
-
-        await fs.writeFile(claudePath, newContent);
-        await log('   ✅ Claude shebang updated to use Node.js');
-      }
-
-      await log('   🔄 Claude will now run with Node.js runtime');
-    } catch (error) {
-      await log(`❌ Failed to restore Claude to Node.js: ${cleanErrorMessage(error)}`, { level: 'error' });
-      process.exit(1);
-    }
-
-    // Exit after restoring runtime
-    process.exit(0);
-  }
+export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
+// Store Claude Code version globally (set during validation)
+let detectedClaudeVersion = null;
+/** Get the detected Claude Code version @returns {string|null} */
+export const getClaudeVersion = () => detectedClaudeVersion;
+/** Set the detected Claude Code version (called during validation) @param {string} version */
+export const setClaudeVersion = version => {
+  detectedClaudeVersion = version;
 };
-/**
- * Check if Playwright MCP is available and connected to Claude
- * @returns {Promise<boolean>} True if Playwright MCP is available, false otherwise
- */
+/** Resolve thinking settings based on --think and --thinking-budget options */
+export const resolveThinkingSettings = async (argv, log) => {
+  const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
+  const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
+  const isNewVersion = supportsThinkingBudget(version, minVersion);
+  // Get max thinking budget from argv or use default (see issue #1146)
+  const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
+  // Get thinking level mappings calculated from maxBudget
+  const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
+  const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
+  let thinkingBudget = argv.thinkingBudget;
+  let thinkLevel = argv.think;
+  let translation = null;
+  if (isNewVersion) {
+    // Claude Code >= 2.1.12: translate --think to --thinking-budget
+    if (thinkLevel !== undefined && thinkingBudget === undefined) {
+      thinkingBudget = thinkingLevelToTokens[thinkLevel];
+      translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (>= ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+        if (maxBudget !== DEFAULT_MAX_THINKING_BUDGET) {
+          await log(`   Using custom --max-thinking-budget: ${maxBudget}`, { verbose: true });
+        }
+      }
+    }
+  } else {
+    // Claude Code < 2.1.12: translate --thinking-budget to --think keywords
+    if (thinkingBudget !== undefined && thinkLevel === undefined) {
+      thinkLevel = tokensToThinkingLevel(thinkingBudget);
+      translation = `--thinking-budget ${thinkingBudget} → --think ${thinkLevel}`;
+      if (argv.verbose) {
+        await log(`📊 Translating for Claude Code ${version} (< ${minVersion}):`, { verbose: true });
+        await log(`   ${translation}`, { verbose: true });
+      }
+      // Clear thinkingBudget since old versions don't support it
+      thinkingBudget = undefined;
+    }
+  }
+  return { thinkingBudget, thinkLevel, translation, isNewVersion, maxBudget };
+};
+/** Check if Playwright MCP is available and connected to Claude @returns {Promise<boolean>} */
 export const checkPlaywrightMcpAvailability = async () => {
   try {
-    // Try to run a simple claude command that would list MCP servers if available
-    // Use a timeout to avoid hanging if Claude is not installed
     const result = await $`timeout 5 claude mcp list 2>&1`.catch(() => null);
-
-    if (!result || result.code !== 0) {
-      return false;
-    }
-
+    if (!result || result.code !== 0) return false;
     const output = result.stdout?.toString() || '';
-
-    // Check if playwright is in the list of MCP servers
-    if (output.toLowerCase().includes('playwright')) {
-      return true;
-    }
-
+    if (output.toLowerCase().includes('playwright')) return true;
     return false;
   } catch {
-    // If any error occurs, assume Playwright MCP is not available
     return false;
   }
 };
-/**
- * Execute Claude with all prompts and settings
- * This is the main entry point that handles all prompt building and execution
- * @param {Object} params - Parameters for Claude execution
- * @returns {Object} Result of the execution including success status and session info
- */
+/** Execute Claude with all prompts and settings - main entry point */
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
+  // Check if agent-commander is installed when the option is enabled
+  if (argv.promptSubagentsViaAgentCommander) {
+    try {
+      await $`which start-agent`;
+      argv.agentCommanderInstalled = true;
+    } catch {
+      argv.agentCommanderInstalled = false;
+      await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
+    }
+  }
   // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+  // Check if the model supports vision using models.dev API
+  const mappedModel = mapModelToId(argv.model);
+  const modelSupportsVision = await checkModelVisionCapability(mappedModel);
+  if (argv.verbose) {
+    await log(`👁️  Model vision capability: ${modelSupportsVision ? 'supported' : 'not supported'}`, { verbose: true });
+  }
   // Build the user prompt
   const prompt = buildUserPrompt({
     issueUrl,
@@ -448,6 +316,7 @@ export const executeClaude = async params => {
     isContinueMode,
     forkedRepo,
     argv,
+    modelSupportsVision,
   });
   // Log prompt details in verbose mode
   if (argv.verbose) {
@@ -496,12 +365,6 @@ export const executeClaude = async params => {
     prNumber,
   });
 };
-/**
- * Calculate total token usage from a session's JSONL file
- * @param {string} sessionId - The session ID
- * @param {string} tempDir - The temporary directory where the session ran
- * @returns {Object} Token usage statistics
- */
 /**
  * Fetches model information from pricing API
  * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
@@ -554,13 +417,18 @@ export const fetchModelInfo = async modelId => {
     return null;
   }
 };
-/**
- * Calculate USD cost for a model's usage with detailed breakdown
- * @param {Object} usage - Token usage object
- * @param {Object} modelInfo - Model information from pricing API
- * @param {boolean} includeBreakdown - Whether to include detailed calculation breakdown
- * @returns {Object} Cost data with optional breakdown
- */
+/** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
+export const checkModelVisionCapability = async modelId => {
+  try {
+    const modelInfo = await fetchModelInfo(modelId);
+    if (!modelInfo) return false;
+    const inputModalities = modelInfo.modalities?.input || [];
+    return inputModalities.includes('image');
+  } catch {
+    return false;
+  }
+};
+/** Calculate USD cost for a model's usage with detailed breakdown */
 export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) => {
   if (!modelInfo || !modelInfo.cost) {
     return includeBreakdown ? { total: 0, breakdown: null } : 0;
@@ -719,13 +587,13 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     // Read the entire file
     const fileContent = await fs.readFile(sessionFile, 'utf8');
     const lines = fileContent.trim().split('\n');
-    // Parse each line and accumulate token counts per model
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
         if (entry.message && entry.message.usage && entry.message.model) {
           const model = entry.message.model;
+          if (model.startsWith('<') && model.endsWith('>')) continue; // Issue #1486: skip <synthetic> etc.
           const usage = entry.message.usage;
           // Initialize model entry if it doesn't exist
           if (!modelUsage[model]) {
@@ -837,6 +705,48 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     throw new Error(`Failed to read session file: ${readError.message}`);
   }
 };
+/**
+ * Determines whether a stderr message line should be treated as an error.
+ *
+ * Excludes:
+ * - Emoji-prefixed warnings (Issue #477): lines starting with ⚠️ or ⚠
+ * - JSON-structured log messages with non-error level (Issue #1337):
+ *   e.g. {"level":"warn","message":"...failed..."} — the word "failed" is in
+ *   the message text but the level is "warn", so it is NOT an error.
+ *   Only JSON lines with level "error" or "fatal" are treated as real errors.
+ *
+ * @param {string} message - A single trimmed stderr line
+ * @returns {boolean} true if the line should count as an error
+ */
+export const isStderrError = message => {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+
+  // Detection 1: Emoji-prefixed warnings (Issue #477)
+  let isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
+
+  // Detection 2: JSON-structured log messages (Issue #1337)
+  if (!isWarning && trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed.level === 'string') {
+        const level = parsed.level.toLowerCase();
+        // Only "error" and "fatal" levels are real errors.
+        if (level !== 'error' && level !== 'fatal') {
+          isWarning = true;
+        }
+      }
+    } catch {
+      // Not valid JSON — fall through to keyword matching
+    }
+  }
+
+  if (!isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed') || trimmed.includes('not found'))) {
+    return true;
+  }
+  return false;
+};
+
 export const executeClaudeCommand = async params => {
   const {
     tempDir,
@@ -860,17 +770,30 @@ export const executeClaudeCommand = async params => {
     repo,
     prNumber,
   } = params;
-  // Retry configuration for API overload errors
-  const maxRetries = 3;
-  const baseDelay = timeouts.retryBaseDelay;
+  // Issue #1331: Unified retry configuration for all transient API errors
+  // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
+  // Helper: wait with per-minute countdown for delays >1 minute (Issue #1331)
+  const waitWithCountdown = async (delayMs, log) => {
+    if (delayMs <= 60000) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      return;
+    }
+    let remaining = delayMs;
+    const timer = setInterval(async () => {
+      remaining -= 60000;
+      if (remaining > 0) await log(`⏳ ${Math.round(remaining / 60000)} min remaining...`);
+    }, 60000);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    clearInterval(timer);
+  };
   // Function to execute with retry logic
   const executeWithRetry = async () => {
     // Execute claude command from the cloned repository directory
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${maxRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
     if (argv.verbose) {
       // Output the actual model being used
@@ -886,90 +809,84 @@ export const executeClaudeCommand = async params => {
         await log('   Feedback info included: No', { verbose: true });
       }
     }
-    // Take resource snapshot before execution
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
     await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
-    // Use command-stream's async iteration for real-time streaming with file logging
     let commandFailed = false;
     let sessionId = null;
     let limitReached = false;
     let limitResetTime = null;
+    let limitTimezone = null;
     let messageCount = 0;
     let toolUseCount = 0;
     let lastMessage = '';
     let isOverloadError = false;
     let is503Error = false;
+    let isInternalServerError = false;
+    let isRequestTimeout = false;
+    let apiMarkedNotRetryable = false;
+    let resultNumTurns = 0;
     let stderrErrors = [];
-    let anthropicTotalCostUSD = null; // Capture Anthropic's official total_cost_usd from result
-    let errorDuringExecution = false; // Issue #1088: Track if error_during_execution subtype occurred
-
+    let resultSuccessReceived = false;
+    let anthropicTotalCostUSD = null;
+    let errorDuringExecution = false;
+    let resultSummary = null;
+    let resultModelUsage = null;
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
-    // Generate a unique session ID for this work session
-    const workSessionId = `session-${Date.now()}`;
     if (argv.interactiveMode && owner && repo && prNumber) {
       await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
-      interactiveHandler = createInteractiveHandler({
-        owner,
-        repo,
-        prNumber,
-        $,
-        log,
-        verbose: argv.verbose,
-        enableProgressMonitoring: argv.workingSessionLiveProgress || false,
-        sessionId: workSessionId,
-      });
-      if (argv.workingSessionLiveProgress) {
-        await log(`📊 Live progress monitoring: ENABLED (session: ${workSessionId})`, { verbose: true });
-      }
+      interactiveHandler = createInteractiveHandler({ owner, repo, prNumber, $, log, verbose: argv.verbose });
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-
-    // Build claude command with optional resume flag
+    // Create progress monitor if enabled (works with or without --interactive-mode)
+    let progressMonitor = null;
+    if (argv.workingSessionLiveProgress && owner && repo && prNumber) {
+      const workSessionId = `session-${Date.now()}`;
+      progressMonitor = createProgressMonitor({ owner, repo, prNumber, $, log, verbose: argv.verbose, sessionId: workSessionId });
+      await log(`📊 Live progress monitoring: ENABLED (session: ${workSessionId})`, { verbose: true });
+    } else if (argv.workingSessionLiveProgress) {
+      await log('⚠️ Live progress monitoring: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
+    }
     let execCommand;
-    // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
-    // Build claude command arguments
-    let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel}`;
+    const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
+    const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
+    const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
+    let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
       claudeArgs = `--resume ${argv.resume} ${claudeArgs}`;
     }
     claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
-    // Build the full command for display (with jq for formatting as in v0.3.2)
     const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
-    // Print the actual raw command being executed
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
     await log('');
-    // Output prompts in verbose mode for debugging
     if (argv.verbose) {
-      await log('📋 User prompt:', { verbose: true });
-      await log('---BEGIN USER PROMPT---', { verbose: true });
-      await log(prompt, { verbose: true });
-      await log('---END USER PROMPT---', { verbose: true });
-      await log('', { verbose: true });
-      await log('📋 System prompt:', { verbose: true });
-      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
-      await log(systemPrompt, { verbose: true });
-      await log('---END SYSTEM PROMPT---', { verbose: true });
-      await log('', { verbose: true });
+      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${prompt}\n---END USER PROMPT---`, { verbose: true });
+      await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
     }
     try {
-      const claudeEnv = getClaudeEnv(); // Set CLAUDE_CODE_MAX_OUTPUT_TOKENS (see issue #1076)
-      if (argv.verbose) await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${claudeCode.maxOutputTokens}`, { verbose: true });
+      const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel });
+      if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
+      const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
+      if (argv.verbose) {
+        await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
+        if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
+        if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
+        if (!isNewVersion && thinkLevel) await log(`📊 Thinking level (via keywords): ${thinkLevel}`, { verbose: true });
+      }
+      const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
       if (argv.resume) {
-        // When resuming, pass prompt directly with -p flag. Escape double quotes for shell.
         const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
-        const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        // When not resuming, pass prompt via stdin. Escape double quotes for shell.
-        const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${mappedModel} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -979,78 +896,164 @@ export const executeClaudeCommand = async params => {
         await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
       }
       await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
-      // Use command-stream's async iteration for real-time streaming
       let exitCode = 0;
+      let stdoutLineBuffer = '';
+      let resultEventReceived = false;
+      let resultTimeoutId = null;
+      let forceExitTriggered = false;
+      const streamCloseTimeoutMs = timeouts.resultStreamCloseMs;
+      let firstChunkReceived = false;
+      let startupTimeoutId = null;
+      let isStartupTimeout = false;
+      let lastEventTime = null;
+      let activityTimeoutId = null;
+      let isActivityTimeout = false;
+      const forceExitOnTimeout = async () => {
+        if (forceExitTriggered) return;
+        forceExitTriggered = true;
+        await log(`⚠️ Stream timeout — forcing exit (Issue #1280)`, { verbose: true });
+        try {
+          if (execCommand.kill) {
+            execCommand.kill('SIGTERM');
+            // Issue #1346: Follow up with SIGKILL after 2s if still alive
+            const t = setTimeout(() => {
+              try {
+                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
+              } catch {
+                /* exited */
+              }
+            }, 2000);
+            t.unref();
+          }
+        } catch (e) {
+          await log(`   Warning: Could not kill process: ${e.message}`, { verbose: true });
+        }
+      };
+      // Issue #1472/#1475: Startup timeout — force-kill if no output within streamStartupMs
+      if (timeouts.streamStartupMs > 0) {
+        startupTimeoutId = setTimeout(async () => {
+          if (!firstChunkReceived && !forceExitTriggered) {
+            isStartupTimeout = true; // Issue #1472/#1475: Flag for retry logic
+            await log(`\n⚠️ No output from Claude CLI after ${timeouts.streamStartupMs / 1000}s — force-killing (Issue #1472/#1475)`, { level: 'warning' });
+            await forceExitOnTimeout();
+          }
+        }, timeouts.streamStartupMs);
+        startupTimeoutId.unref();
+      }
+      // Issue #1472: Helper to reset activity timeout on each stdout chunk
+      const resetActivityTimeout = () => {
+        if (timeouts.streamActivityMs > 0 && !resultEventReceived) {
+          if (activityTimeoutId) clearTimeout(activityTimeoutId);
+          activityTimeoutId = setTimeout(async () => {
+            if (!forceExitTriggered && !resultEventReceived) {
+              isActivityTimeout = true;
+              const idleSeconds = lastEventTime ? Math.round((Date.now() - lastEventTime) / 1000) : 'unknown';
+              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}s) — force-killing (Issue #1472)`, { level: 'warning' });
+              await forceExitOnTimeout();
+            }
+          }, timeouts.streamActivityMs);
+          activityTimeoutId.unref();
+        }
+      };
       for await (const chunk of execCommand.stream()) {
+        if (forceExitTriggered) break;
+        if (!firstChunkReceived) {
+          // Issue #1472/#1475: Clear startup timeout on first output
+          firstChunkReceived = true;
+          if (startupTimeoutId) {
+            clearTimeout(startupTimeoutId);
+            startupTimeoutId = null;
+          }
+        }
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          // Split output into individual lines for NDJSON parsing
-          // Claude CLI outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
-          // This allows us to parse each event independently and extract structured data like session IDs,
-          // message counts, and error patterns. Attempting to parse the entire chunk as single JSON would fail
-          // since multiple JSON objects aren't valid JSON together.
-          const lines = output.split('\n');
+          resetActivityTimeout(); // Issue #1472: Reset activity timeout on each stdout chunk
+          // Append to buffer and split; keep last element (may be incomplete) for next chunk
+          stdoutLineBuffer += output;
+          const lines = stdoutLineBuffer.split('\n');
+          stdoutLineBuffer = lines.pop() || '';
+          // Parse each complete NDJSON line
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
-              const data = JSON.parse(line);
-              // Process event in interactive mode (posts PR comments in real-time)
+              const data = sanitizeObjectStrings(JSON.parse(line));
               if (interactiveHandler) {
+                if (!interactiveHandler._firstEventLogged) {
+                  interactiveHandler._firstEventLogged = true;
+                  await log(`🔌 Interactive mode: First event received (type: ${data.type || 'unknown'}) — stream is active`, { verbose: true });
+                }
+                lastEventTime = Date.now();
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
-                  // Don't let interactive mode errors stop the main execution
                   await log(`⚠️ Interactive mode error: ${interactiveError.message}`, { verbose: true });
                 }
               }
-              // Output formatted JSON as in v0.3.2
               await log(JSON.stringify(data, null, 2));
-              // Capture session ID from the first message
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
-                // Try to rename log file to include session ID
                 let sessionLogFile;
                 try {
                   const currentLogFile = getLogFile();
-                  const logDir = path.dirname(currentLogFile);
-                  sessionLogFile = path.join(logDir, `${sessionId}.log`);
-                  // Use fs.promises to rename the file
+                  sessionLogFile = path.join(path.dirname(currentLogFile), `${sessionId}.log`);
                   await fs.rename(currentLogFile, sessionLogFile);
-                  // Update the global log file reference
                   setLogFile(sessionLogFile);
                   await log(`📁 Log renamed to: ${sessionLogFile}`);
                 } catch (renameError) {
-                  reportError(renameError, {
-                    context: 'rename_session_log',
-                    sessionId,
-                    sessionLogFile,
-                    operation: 'rename_log_file',
-                  });
-                  // If rename fails, keep original filename
+                  reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              // Track message and tool use counts
-              if (data.type === 'message') {
-                messageCount++;
-              } else if (data.type === 'tool_use') {
-                toolUseCount++;
-              }
-              // Handle session result type from Claude CLI (emitted when session completes)
-              // Subtypes: "success", "error_during_execution" (work may have been done), etc.
-              if (data.type === 'result') {
-                if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+              if (data.type === 'message') messageCount++;
+              else if (data.type === 'tool_use') toolUseCount++;
+              // Live progress monitoring: detect TodoWrite tool_use events and update PR description
+              if (progressMonitor && data.type === 'assistant' && data.message?.content) {
+                const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                for (const item of contentItems) {
+                  if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
+                    try {
+                      await progressMonitor.updateProgress(item.input.todos);
+                    } catch (progressError) {
+                      await log(`⚠️ Progress monitoring error: ${progressError.message}`, { verbose: true });
+                    }
+                  }
                 }
+              }
+              if (data.type === 'result') {
+                if (!resultEventReceived) {
+                  resultEventReceived = true;
+                  await log(`📌 Result event received, starting ${streamCloseTimeoutMs / 1000}s stream close timeout (Issue #1280)`, { verbose: true });
+                  resultTimeoutId = setTimeout(forceExitOnTimeout, streamCloseTimeoutMs);
+                }
+                if (data.subtype === 'success') resultSuccessReceived = true;
+                if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  anthropicTotalCostUSD = data.total_cost_usd;
+                  await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
+                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result ignored: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
+                }
+                // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
+                if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
+                  resultSummary = data.result;
+                  await log('📝 Captured result summary from Claude output', { verbose: true });
+                }
+                if (data.num_turns !== undefined) {
+                  resultNumTurns = data.num_turns;
+                  await log(`📊 Session num_turns: ${resultNumTurns}`, { verbose: true });
+                }
+                if (data.subtype === 'success' && data.modelUsage) resultModelUsage = data.modelUsage; // Issue #1454
                 if (data.is_error === true) {
                   lastMessage = data.result || JSON.stringify(data);
                   const subtype = data.subtype || 'unknown';
-                  // Issue #1088: "error_during_execution" = warning (work may exist), others = failure
                   if (subtype === 'error_during_execution') {
                     errorDuringExecution = true;
-                    await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                    if ((data.errors || []).some(e => isENOSPC(e))) {
+                      commandFailed = true;
+                      await log('❌ ENOSPC: No space left on device. Free disk space (check ~/.claude/debug).');
+                    } else {
+                      await log(`⚠️ Error during execution (subtype: ${subtype}) - work may be completed`, { verbose: true });
+                    }
                   } else {
                     commandFailed = true;
                     await log(`⚠️ Detected error from Claude CLI (subtype: ${subtype})`, { verbose: true });
@@ -1059,30 +1062,46 @@ export const executeClaudeCommand = async params => {
                     limitReached = true;
                     await log('⚠️ Detected session limit in result', { verbose: true });
                   }
+                  if (lastMessage.includes('Internal server error') && !lastMessage.includes('Overloaded')) {
+                    isInternalServerError = true;
+                  }
+                  // Issue #1353: Detect "Request timed out" from Claude CLI
+                  if (lastMessage.includes('Request timed out')) {
+                    isRequestTimeout = true;
+                    await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
+                  }
                 }
               }
-              // Store last message for error detection
-              if (data.type === 'text' && data.text) {
-                lastMessage = data.text;
-              } else if (data.type === 'error') {
+              if (data.type === 'text' && data.text) lastMessage = data.text;
+              else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
+                if (lastMessage.includes('Internal server error')) isInternalServerError = true;
               }
-              // Check for API overload error and 503 errors
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
                 for (const item of content) {
                   if (item.type === 'text' && item.text) {
-                    // Check for the specific 500 overload error pattern
-                    if (item.text.includes('API Error: 500') && item.text.includes('api_error') && item.text.includes('Overloaded')) {
+                    // Check for the specific 500/529 overload error pattern (Issue #1439: 529 is also an overload)
+                    if ((item.text.includes('API Error: 500') || item.text.includes('API Error: 529')) && (item.text.includes('api_error') || item.text.includes('overloaded_error')) && item.text.includes('Overloaded')) {
                       isOverloadError = true;
                       lastMessage = item.text;
-                      await log('⚠️ Detected API overload error', { verbose: true });
+                      await log(`⚠️ Detected API overload error${item.text.includes('529') ? ' (529)' : ' (500)'}`, { verbose: true });
+                    }
+                    if (item.text.includes('API Error: 500') && item.text.includes('Internal server error') && !item.text.includes('Overloaded')) {
+                      isInternalServerError = true;
+                      lastMessage = item.text;
                     }
                     // Check for 503 errors
                     if (item.text.includes('API Error: 503') || (item.text.includes('503') && item.text.includes('upstream connect error')) || (item.text.includes('503') && item.text.includes('remote connection failure'))) {
                       is503Error = true;
                       lastMessage = item.text;
                       await log('⚠️ Detected 503 network error', { verbose: true });
+                    }
+                    // Issue #1353: Detect "Request timed out" in assistant text content
+                    if (item.text === 'Request timed out' || item.text.includes('Request timed out')) {
+                      isRequestTimeout = true;
+                      lastMessage = item.text;
+                      await log('⏱️ Detected request timeout in assistant message (will retry with --resume)', { verbose: true });
                     }
                   }
                 }
@@ -1102,16 +1121,11 @@ export const executeClaudeCommand = async params => {
               if (line.trim() && !line.includes('node:internal')) {
                 await log(line, { stream: 'raw' });
                 lastMessage = line;
-
-                // Detect Claude Code terms acceptance message (Issue #1015)
-                // When Claude CLI requires terms acceptance, it outputs a non-JSON message like:
-                // "[ACTION REQUIRED] An update to our Consumer Terms and Privacy Policy has taken effect..."
-                // This should be treated as an error requiring human intervention, not success
+                // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
                 if (termsAcceptancePattern.test(line)) {
                   commandFailed = true;
-                  await log('\n❌ Claude Code requires terms acceptance - please run `claude` interactively to accept the updated terms', { level: 'error' });
-                  await log('   This is not an error in your code, but Claude CLI needs human interaction.', { level: 'error' });
+                  await log('\n❌ Claude Code requires terms acceptance - please run `claude` interactively to accept the updated terms\n   This is not an error in your code, but Claude CLI needs human interaction.', { level: 'error' });
                 }
               }
             }
@@ -1119,105 +1133,157 @@ export const executeClaudeCommand = async params => {
         }
         if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
-          // Log stderr immediately
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
-            // Track stderr errors for failure detection
-            const trimmed = errorOutput.trim();
-            // Exclude warnings (messages starting with ⚠️) from being treated as errors
-            // Example: "⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests."
-            // Even though this contains the word "failed", it's a warning, not an error
-            const isWarning = trimmed.startsWith('⚠️') || trimmed.startsWith('⚠');
-            if (trimmed && !isWarning && (trimmed.includes('Error:') || trimmed.includes('error') || trimmed.includes('failed'))) {
-              stderrErrors.push(trimmed);
+            // Issue #1437: Detect x-should-retry: false — non-transient error, fail fast
+            if (!apiMarkedNotRetryable && (errorOutput.includes('not retryable') || errorOutput.includes("'x-should-retry': 'false'") || errorOutput.includes('"x-should-retry": "false"'))) {
+              apiMarkedNotRetryable = true;
+              await log('⚠️ API signaled error is not retryable (x-should-retry: false)', { verbose: true });
+            }
+            for (const line of errorOutput.split('\n')) {
+              if (isStderrError(line)) stderrErrors.push(line.trim());
             }
           }
         } else if (chunk.type === 'exit') {
+          // Note: command-stream v0.9.4 stream() does NOT yield exit chunks (Issue #1280) — kept for forward-compat.
           exitCode = chunk.code;
           if (chunk.code !== 0) {
             commandFailed = true;
           }
-          // Don't break here - let the loop finish naturally to process all output
         }
       }
 
-      // Flush any remaining queued comments from interactive mode
+      // Issue #1183: Process remaining buffer content - extract cost from result type if present
+      // Issue #1472: Also forward remaining buffer events to interactive handler
+      if (stdoutLineBuffer.trim()) {
+        try {
+          const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
+          await log(JSON.stringify(data, null, 2));
+          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
+            anthropicTotalCostUSD = data.total_cost_usd;
+          }
+          // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
+          if (interactiveHandler) {
+            try {
+              await interactiveHandler.processEvent(data);
+            } catch (interactiveError) {
+              await log(`⚠️ Interactive mode error (remaining buffer): ${interactiveError.message}`, { verbose: true });
+            }
+          }
+          // Live progress monitoring: detect TodoWrite in remaining buffer
+          if (progressMonitor && data.type === 'assistant' && data.message?.content) {
+            const contentItems = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+            for (const item of contentItems) {
+              if (item.type === 'tool_use' && item.name === 'TodoWrite' && item.input?.todos) {
+                try {
+                  await progressMonitor.updateProgress(item.input.todos, true); // force final update
+                } catch (progressError) {
+                  await log(`⚠️ Progress monitoring error (remaining buffer): ${progressError.message}`, { verbose: true });
+                }
+              }
+            }
+          }
+        } catch {
+          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
+        }
+      }
+      if (startupTimeoutId) {
+        clearTimeout(startupTimeoutId);
+        startupTimeoutId = null;
+      }
+      if (activityTimeoutId) {
+        clearTimeout(activityTimeoutId);
+        activityTimeoutId = null;
+      }
+      if (resultTimeoutId) {
+        clearTimeout(resultTimeoutId); // Issue #1280
+        await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
+      }
+      if (execCommand.result && typeof execCommand.result.code === 'number') {
+        const resultExitCode = execCommand.result.code;
+        if (exitCode === 0 && resultExitCode !== 0) {
+          exitCode = resultExitCode;
+          await log(`⚠️ Updated exit code from command result: ${resultExitCode}`, { verbose: true });
+        }
+        // Specifically detect "command not found" via exit code 127
+        if (resultExitCode === 127 && !commandFailed) {
+          commandFailed = true;
+          await log(`\n❌ Command not found (exit code 127) - "${claudePath}" is not installed or not in PATH\n   Please ensure Claude CLI is installed: npm install -g @anthropic-ai/claude-code`, { level: 'error' });
+        }
+      }
+      // Issue #1472: Flush remaining queued comments, log diagnostic summary, warn on zero events
       if (interactiveHandler) {
+        if (!interactiveHandler._firstEventLogged) {
+          await log('⚠️ Interactive mode: No events received from Claude CLI — zero comments posted (Issue #1472)', { level: 'warning' });
+        }
         try {
           await interactiveHandler.flush();
         } catch (flushError) {
           await log(`⚠️ Interactive mode flush error: ${flushError.message}`, { verbose: true });
         }
-      }
-
-      if ((commandFailed || isOverloadError) && (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')))) {
-        if (retryCount < maxRetries) {
-          // Calculate exponential backoff delay
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`\n⚠️ API overload error detected. Retrying in ${delay / 1000} seconds...`, { level: 'warning' });
-          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        } else {
-          await log(`\n\n❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
-          await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
-          return {
-            success: false,
-            sessionId,
-            limitReached: false,
-            limitResetTime: null,
-            messageCount,
-            toolUseCount,
-          };
+        const handlerState = interactiveHandler.getState();
+        const durationMin = ((Date.now() - handlerState.startTime) / 60000).toFixed(1);
+        const { eventsProcessed: ep, commentsAttempted: ca, commentsPosted: cp, commentsFailed: cf, editsAttempted: ea, editsSucceeded: es, editsFailed: ef, commentQueue: cq } = handlerState;
+        await log(`🔌 Interactive mode summary: ${ep} events processed, ${ca} comments attempted, ${cp} posted, ${cf} failed, ${ea} edits attempted, ${es} succeeded, ${ef} failed, ${cq.length} still queued, duration ${durationMin}m`);
+        if (handlerState.eventsProcessed > 0 && handlerState.commentsPosted === 0) {
+          await log(`⚠️ Interactive mode: Events were received (${handlerState.eventsProcessed}) but zero comments were posted — check GitHub API connectivity and PR access (${handlerState.commentsFailed} failures)`, { level: 'warning' });
         }
       }
-      if ((commandFailed || is503Error) && argv.autoResumeOnErrors && (is503Error || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && lastMessage.includes('upstream connect error')) || (lastMessage.includes('503') && lastMessage.includes('remote connection failure')))) {
-        if (retryCount < retryLimits.max503Retries) {
-          // Calculate exponential backoff delay starting from 5 minutes
-          const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ 503 network error detected. Retrying in ${delayMinutes} minutes...`, { level: 'warning' });
-          await log(`   Error: ${lastMessage.substring(0, 200)}`, { verbose: true });
-          await log(`   Retry ${retryCount + 1}/${retryLimits.max503Retries}`, { verbose: true });
-          // Show countdown for long waits
-          if (delay > 60000) {
-            const countdownInterval = 60000; // Every minute
-            let remainingMs = delay;
-            const countdownTimer = setInterval(async () => {
-              remainingMs -= countdownInterval;
-              if (remainingMs > 0) {
-                const remainingMinutes = Math.round(remainingMs / (1000 * 60));
-                await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
-              }
-            }, countdownInterval);
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-            clearInterval(countdownTimer);
-          } else {
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-          await log('\n🔄 Retrying now...');
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        } else {
-          await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, {
-            level: 'error',
-          });
-          await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
-          await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+
+      // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
+      const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
+      if ((commandFailed || isTransientError) && isTransientError) {
+        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
+        const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
+        const maxRetries = isTimeoutRetry ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        // Issue #1437: Fail fast when API signals x-should-retry: false AND session made no progress
+        const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
+        if (isStuckRetry) {
+          await log(`\n\n❌ API explicitly marked error as not retryable (x-should-retry: false) and session made no progress (num_turns=${resultNumTurns}) after ${retryCount} attempt(s)`, { level: 'error' });
+          await log(`   This error is not recoverable. Failing fast to avoid a stuck retry loop (Issue #1437).`, { level: 'error' });
+          await log(`   Check https://status.anthropic.com/ for API status.`, { level: 'error' });
           return {
             success: false,
             sessionId,
             limitReached: false,
             limitResetTime: null,
+            limitTimezone: null,
             messageCount,
             toolUseCount,
-            is503Error: true,
+            is503Error,
+            anthropicTotalCostUSD,
+            resultSummary,
+          };
+        }
+        if (retryCount < maxRetries) {
+          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
+          const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+          const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
+          await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
+          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
+          await waitWithCountdown(delay, log);
+          await log('\n🔄 Retrying now...');
+          retryCount++;
+          return await executeWithRetry();
+        } else {
+          await log(`\n\n❌ Transient API error persisted after ${maxRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          return {
+            success: false,
+            sessionId,
+            limitReached: false,
+            limitResetTime: null,
+            limitTimezone: null,
+            messageCount,
+            toolUseCount,
+            is503Error, // preserve for callers that check this
+            anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+            resultSummary, // Issue #1263: Include result summary
           };
         }
       }
@@ -1227,15 +1293,15 @@ export const executeClaudeCommand = async params => {
         if (limitInfo.isUsageLimit) {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
+          limitTimezone = limitInfo.timezone;
 
           // Format and display user-friendly message
           const messageLines = formatUsageLimitMessage({
-            tool: 'Claude',
+            tool: 'Anthropic Claude Code',
             resetTime: limitInfo.resetTime,
             sessionId,
             resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null,
           });
-
           for (const line of messageLines) {
             await log(line, { level: 'warning' });
           }
@@ -1250,32 +1316,14 @@ export const executeClaudeCommand = async params => {
           }
         }
       }
-      // Additional failure detection: if no messages were processed and there were stderr errors,
-      // or if the command produced no output at all, treat it as a failure
-      //
-      // This is critical for detecting "silent failures" where:
-      // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
-      // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
-      // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
-      //
-      // Common cause: sudo commands that timeout
-      // - Timeout triggers process.kill() in Claude CLI
-      // - If child process runs with sudo (root), parent can't kill it → EPERM error
-      // - Error logged to stderr, but command doesn't properly fail
-      //
-      // Workaround (applied in system prompt):
-      // - Instruct Claude to run sudo commands (installations) in background
-      // - Background processes avoid timeout kill mechanism
-      // - Prevents EPERM errors and false success reports
-      //
-      // See: docs/dependencies-research/claude-code-issues/README.md for full details
-      if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+      // Issue #1354: Detect silent failures (no messages + stderr errors, skip if result confirmed success)
+      if (!commandFailed && !resultSuccessReceived && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
         commandFailed = true;
-        await log('\n\n❌ Command failed: No messages processed and errors detected in stderr', { level: 'error' });
-        await log('Stderr errors:', { level: 'error' });
-        for (const err of stderrErrors.slice(0, 5)) {
-          await log(`   ${err.substring(0, 200)}`, { level: 'error' });
-        }
+        const errorsPreview = stderrErrors
+          .slice(0, 5)
+          .map(e => `   ${e.substring(0, 200)}`)
+          .join('\n');
+        await log(`\n\n❌ Command failed: No messages processed and errors detected in stderr\nStderr errors:\n${errorsPreview}`, { level: 'error' });
       }
       if (commandFailed) {
         // Take resource snapshot after failure
@@ -1283,22 +1331,24 @@ export const executeClaudeCommand = async params => {
         await log('\n📈 System resources after execution:', { verbose: true });
         await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
         await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
-        // Log attachment will be handled by solve.mjs when it receives success=false
-        await log('', { verbose: true });
         await showResumeCommand(sessionId, tempDir, claudePath, argv.model, log);
         return {
           success: false,
           sessionId,
           limitReached,
           limitResetTime,
+          limitTimezone,
           messageCount,
           toolUseCount,
           errorDuringExecution,
+          anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+          resultSummary, // Issue #1263: Include result summary
         };
       }
-      // Issue #1088: If error_during_execution occurred but command didn't fail,
-      // log it as "Finished with errors" instead of pure success
-      if (errorDuringExecution) {
+      // Issue #1088/#1351: Log execution result status
+      if (exitCode === 130) {
+        await log('\n\n⚠️ Claude command interrupted (CTRL+C)');
+      } else if (errorDuringExecution) {
         await log('\n\n⚠️ Claude command finished with errors');
       } else {
         await log('\n\n✅ Claude command completed');
@@ -1360,10 +1410,13 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime,
+        limitTimezone,
         messageCount,
         toolUseCount,
         anthropicTotalCostUSD, // Pass Anthropic's official total cost
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
+        resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
+        resultModelUsage, // Issue #1454
       };
     } catch (error) {
       reportError(error, {
@@ -1373,31 +1426,23 @@ export const executeClaudeCommand = async params => {
         operation: 'run_claude_command',
       });
       const errorStr = error.message || error.toString();
-      if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded'))) {
+      // Issue #1331: Unified handler for all transient API errors in exception block
+      // Issue #1353: Also handle "Request timed out" in exception block
+      // (Overloaded, 503, Internal Server Error, Request timed out) - all with session preservation
+      const isTimeoutException = errorStr === 'Request timed out' || errorStr.includes('Request timed out');
+      const isTransientException = isTimeoutException || (errorStr.includes('API Error: 500') && (errorStr.includes('Overloaded') || errorStr.includes('Internal server error'))) || (errorStr.includes('API Error: 529') && (errorStr.includes('overloaded_error') || errorStr.includes('Overloaded'))) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded')) || errorStr.includes('API Error: 503') || (errorStr.includes('503') && (errorStr.includes('upstream connect error') || errorStr.includes('remote connection failure')));
+      if (isTransientException) {
+        // Issue #1353: Use timeout-specific backoff for request timeouts
+        const maxRetries = isTimeoutException ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        const initialDelay = isTimeoutException ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
+        const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         if (retryCount < maxRetries) {
-          // Calculate exponential backoff delay
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`\n⚠️ API overload error in exception. Retrying in ${delay / 1000} seconds...`, {
-            level: 'warning',
-          });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
-          retryCount++;
-          return await executeWithRetry();
-        }
-      }
-      if (argv.autoResumeOnErrors && (errorStr.includes('API Error: 503') || (errorStr.includes('503') && errorStr.includes('upstream connect error')) || (errorStr.includes('503') && errorStr.includes('remote connection failure')))) {
-        if (retryCount < retryLimits.max503Retries) {
-          // Calculate exponential backoff delay starting from 5 minutes
-          const delay = retryLimits.initial503RetryDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount);
-          const delayMinutes = Math.round(delay / (1000 * 60));
-          await log(`\n⚠️ 503 network error in exception. Retrying in ${delayMinutes} minutes...`, {
-            level: 'warning',
-          });
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Increment retry count and retry
+          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          const errorLabel = isTimeoutException ? 'Request timeout' : errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error';
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
+          if (sessionId && !argv.resume) argv.resume = sessionId;
+          await waitWithCountdown(delay, log);
+          await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
         }
@@ -1408,8 +1453,11 @@ export const executeClaudeCommand = async params => {
         sessionId,
         limitReached,
         limitResetTime: null,
+        limitTimezone: null,
         messageCount,
         toolUseCount,
+        anthropicTotalCostUSD, // Issue #1104: Include cost even on failure
+        resultSummary, // Issue #1263: Include result summary
       };
     }
   }; // End of executeWithRetry function
@@ -1484,11 +1532,5 @@ export const checkForUncommittedChanges = async (tempDir, owner, repo, branchNam
   }
 };
 // Export all functions as default object too
-export default {
-  validateClaudeConnection,
-  handleClaudeRuntimeSwitch,
-  executeClaude,
-  executeClaudeCommand,
-  checkForUncommittedChanges,
-  calculateSessionTokens,
-};
+// prettier-ignore
+export default { validateClaudeConnection, handleClaudeRuntimeSwitch, executeClaude, executeClaudeCommand, checkForUncommittedChanges, calculateSessionTokens, getClaudeVersion, setClaudeVersion, resolveThinkingSettings, checkModelVisionCapability };

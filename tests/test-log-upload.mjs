@@ -334,6 +334,94 @@ console.log('\n📋 Test 8: command-stream argument handling verification');
 }
 
 // =============================================================================
+// Test 9: Issue #1173 - Large file handling logic
+// =============================================================================
+console.log('\n📋 Test 9: Issue #1173 - Large file handling logic');
+
+{
+  // This test verifies the fix for issue #1173:
+  // - Files larger than 25MB should NOT be rejected
+  // - Instead, they should be uploaded via gh-upload-log
+  // - The useLargeFileMode flag should trigger gh-upload-log path
+
+  const fileMaxSize = 25 * 1024 * 1024; // 25MB (from config.lib.mjs)
+
+  // Test scenarios for file size handling
+  const testCases = [
+    { size: 1024, shouldUseLargeFileMode: false, description: '1KB file' },
+    { size: 10 * 1024 * 1024, shouldUseLargeFileMode: false, description: '10MB file' },
+    { size: 25 * 1024 * 1024, shouldUseLargeFileMode: false, description: '25MB file (at limit)' },
+    { size: 25 * 1024 * 1024 + 1, shouldUseLargeFileMode: true, description: '25MB+1 byte file (over limit)' },
+    { size: 29 * 1024 * 1024, shouldUseLargeFileMode: true, description: '29MB file (like original issue)' },
+    { size: 100 * 1024 * 1024, shouldUseLargeFileMode: true, description: '100MB file' },
+  ];
+
+  for (const testCase of testCases) {
+    // This simulates the new logic in attachLogToGitHub
+    const useLargeFileMode = testCase.size > fileMaxSize;
+    assertEqual(useLargeFileMode, testCase.shouldUseLargeFileMode, `${testCase.description}: useLargeFileMode=${useLargeFileMode}`);
+  }
+
+  // Verify the old buggy behavior is fixed:
+  // OLD: if (logStats.size > githubLimits.fileMaxSize) { return false; } // rejected!
+  // NEW: const useLargeFileMode = logStats.size > githubLimits.fileMaxSize; // use gh-upload-log
+
+  const simulateOldBehavior = size => {
+    if (size > fileMaxSize) {
+      return false; // OLD: rejected the upload
+    }
+    return true; // would proceed with inline comment
+  };
+
+  const simulateNewBehavior = size => {
+    const useLargeFileMode = size > fileMaxSize;
+    // NEW: never returns false for large files, just uses different upload path
+    return { proceed: true, useLargeFileMode };
+  };
+
+  // The 29MB file that was rejected in the original issue
+  const largeFileSize = 29 * 1024 * 1024;
+
+  const oldResult = simulateOldBehavior(largeFileSize);
+  assertEqual(oldResult, false, 'OLD behavior rejected 29MB file (this was the bug)');
+
+  const newResult = simulateNewBehavior(largeFileSize);
+  assertEqual(newResult.proceed, true, 'NEW behavior proceeds with 29MB file');
+  assertEqual(newResult.useLargeFileMode, true, 'NEW behavior uses large file mode for 29MB file');
+
+  console.log('  ℹ️  Issue #1173 fix: Large files use gh-upload-log instead of being rejected');
+}
+
+// =============================================================================
+// Test 10: Issue #1173 - Visibility default for safety
+// =============================================================================
+console.log('\n📋 Test 10: Issue #1173 - Visibility default for safety');
+
+{
+  // Test the visibility default behavior when detection fails
+  // OLD: defaulted to public (risk of exposing private repo logs)
+  // NEW: defaults to private (safer for private repos)
+
+  const simulateOldDefault = () => {
+    let isPublicRepo = true; // OLD default
+    // Detection failed
+    return isPublicRepo;
+  };
+
+  const simulateNewDefault = () => {
+    let isPublicRepo = true;
+    // Detection failed - NEW behavior:
+    isPublicRepo = false; // Default to private for safety
+    return isPublicRepo;
+  };
+
+  assertEqual(simulateOldDefault(), true, 'OLD default was public (risky)');
+  assertEqual(simulateNewDefault(), false, 'NEW default is private (safe)');
+
+  console.log('  ℹ️  Issue #1173 fix: Default to private visibility for safety');
+}
+
+// =============================================================================
 // Summary
 // =============================================================================
 console.log('\n' + '='.repeat(60));

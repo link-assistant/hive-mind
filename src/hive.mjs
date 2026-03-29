@@ -20,8 +20,10 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     globalThis.use = use;
     const yargsModule = await use('yargs@17.7.2');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await use('yargs@17.7.2/helpers');
-    const rawArgs = hideBin(process.argv);
+    const helpersModuleHelp = await use('yargs@17.7.2/helpers');
+    const _helpersHelp = helpersModuleHelp.default || helpersModuleHelp;
+    const hideBinHelp = _helpersHelp.hideBin || (argv => argv.slice(2));
+    const rawArgs = hideBinHelp(process.argv);
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -52,7 +54,13 @@ if (isDirectExecution) {
     console.log('   Loading dependencies (this may take a moment)...');
     // Helper function to add timeout to async operations
     const withTimeout = (promise, timeoutMs, operation) => {
-      return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs))]);
+      let timeoutId;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`Operation '${operation}' timed out after ${timeoutMs}ms. This might be due to slow network or npm configuration issues.`)), timeoutMs);
+        }),
+      ]).finally(() => clearTimeout(timeoutId));
     };
     // Use use-m to dynamically import modules for cross-runtime compatibility
     if (typeof use === 'undefined') {
@@ -80,18 +88,20 @@ if (isDirectExecution) {
     );
     const yargsModule = await withTimeout(use('yargs@17.7.2'), 30000, 'loading yargs');
     const yargs = yargsModule.default || yargsModule;
-    const { hideBin } = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const helpersModuleMain = await withTimeout(use('yargs@17.7.2/helpers'), 30000, 'loading yargs helpers');
+    const _helpersMain = helpersModuleMain.default || helpersModuleMain;
+    const hideBin = _helpersMain.hideBin || (argv => argv.slice(2));
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
     const lib = await import('./lib.mjs');
-    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories } = lib;
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor } = lib;
     const yargsConfigLib = await import('./hive.config.lib.mjs');
     const { createYargsConfig } = yargsConfigLib;
     const claudeLib = await import('./claude.lib.mjs');
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
-    const modelValidation = await import('./model-validation.lib.mjs');
+    const modelValidation = await import('./models/index.mjs');
     const { validateAndExitOnInvalidModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
@@ -142,9 +152,7 @@ if (isDirectExecution) {
         // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
         await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
 
-        // First, get list of ALL repositories using gh api with --paginate for unlimited pagination
-        // This approach uses the GitHub API directly to fetch all repositories without any limits
-        // Include isArchived field to filter out archived repositories
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
         let repoListCmd;
         if (scope === 'organization') {
           repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
@@ -301,6 +309,9 @@ if (isDirectExecution) {
     // Set global verbose mode
     global.verboseMode = argv.verbose;
 
+    // Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+    setupVerboseLogInterceptor();
+
     // Use the universal GitHub URL parser
     if (githubUrl) {
       const parsedUrl = parseGitHubUrl(githubUrl);
@@ -423,8 +434,6 @@ if (isDirectExecution) {
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
 
-    // Unhandled error handlers are now managed by exit-handler.lib.mjs
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -457,18 +466,28 @@ if (isDirectExecution) {
       }
     }
 
-    // Validate model name EARLY - this always runs regardless of --skip-tool-connection-check
-    // Model validation is a simple string check and should always be performed
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+    }
+
+    // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
-    // Detect if user explicitly passed --auto-continue or --no-auto-continue
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
 
     if (argv.skipIssuesWithPrs) {
-      // If user explicitly passed --auto-continue with -s, that's a conflict
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
           level: 'error',
@@ -479,8 +498,7 @@ if (isDirectExecution) {
         await safeExit(1, 'Error occurred');
       }
 
-      // If user didn't explicitly set auto-continue, disable it when -s is used
-      // This is because -s means "skip issues with PRs" which conflicts with auto-continue
+      // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
@@ -745,31 +763,47 @@ if (isDirectExecution) {
             const startTime = Date.now();
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
-            // Build arguments array to avoid shell parsing issues
+            // Auto-forward all solve-passthrough options from hive argv to solve.
+            // New options added to SOLVE_OPTION_DEFINITIONS are automatically forwarded.
+            // See: https://github.com/link-assistant/hive-mind/issues/1209
+            const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
+            const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
+            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
             const args = [issueUrl, '--model', argv.model];
-            if (argv.tool) args.push('--tool', argv.tool);
-            if (argv.fork) args.push('--fork');
-            if (argv.autoFork) args.push('--auto-fork');
-            if (argv.verbose) args.push('--verbose');
-            if (argv.attachLogs) args.push('--attach-logs');
-            if (argv.targetBranch) args.push('--target-branch', argv.targetBranch);
-            if (argv.logDir) args.push('--log-dir', argv.logDir);
-            if (argv.dryRun) args.push('--dry-run');
+            // Special handling for options with different semantics in hive vs solve
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
+            }
             if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
-            args.push(argv.autoContinue ? '--auto-continue' : '--no-auto-continue');
-            if (argv.autoResumeOnLimitReset) args.push('--auto-resume-on-limit-reset');
-            if (argv.think) args.push('--think', argv.think);
-            if (argv.promptPlanSubAgent) args.push('--prompt-plan-sub-agent');
-            if (!argv.sentry) args.push('--no-sentry');
-            if (argv.watch) args.push('--watch');
-            if (argv.prefixForkNameWithOwnerName) args.push('--prefix-fork-name-with-owner-name');
-            if (argv.interactiveMode) args.push('--interactive-mode');
-            if (argv.workingSessionLiveProgress) args.push('--working-session-live-progress');
-            if (argv.promptExploreSubAgent) args.push('--prompt-explore-sub-agent');
-            if (argv.promptIssueReporting) args.push('--prompt-issue-reporting');
-            if (argv.promptCaseStudies) args.push('--prompt-case-studies');
-            if (argv.promptPlaywrightMcp !== undefined) args.push(argv.promptPlaywrightMcp ? '--prompt-playwright-mcp' : '--no-prompt-playwright-mcp');
-            if (argv.executeToolWithBun) args.push('--execute-tool-with-bun');
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.autoCleanup) args.push('--auto-cleanup');
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+
+            for (const optionName of getSolvePassthroughOptionNames()) {
+              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
+              const camelName = kebabToCamel(optionName);
+              const value = argv[camelName];
+              const def = SOLVE_OPTION_DEFINITIONS[optionName];
+              if (!def) continue;
+              if (def.type === 'boolean') {
+                if (value === undefined) continue;
+                // For booleans with default true or undefined, forward both --flag and --no-flag
+                if (def.default === true || def.default === undefined) {
+                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
+                } else if (value) {
+                  args.push(`--${optionName}`); // Default false: only forward when truthy
+                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined) {
+                args.push(`--${optionName}`, String(value));
+              }
+            }
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
 
@@ -1400,8 +1434,7 @@ if (isDirectExecution) {
       await safeExit(0, 'Process completed');
     }
 
-    // Function to validate Claude CLI connection
-    // validateClaudeConnection is now imported from lib.mjs
+    // validateClaudeConnection is imported from lib.mjs
 
     // Handle graceful shutdown
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
@@ -1453,8 +1486,7 @@ if (isDirectExecution) {
       await safeExit(1, 'Error occurred');
     }
   } catch (fatalError) {
-    // Handle any errors that occurred during initialization or execution
-    // This prevents silent failures when the script hangs or crashes
+    // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');
     console.error(`   ${fatalError.message || fatalError}`);
     if (fatalError.stack) {

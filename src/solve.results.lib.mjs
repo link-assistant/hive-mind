@@ -48,6 +48,51 @@ const githubLinking = await import('./github-linking.lib.mjs');
 const { hasGitHubLinkingKeyword } = githubLinking;
 
 /**
+ * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
+ * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
+ */
+export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
+
+export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
+
+/**
+ * Check if PR title still contains auto-generated placeholder content
+ * @param {string} title - PR title
+ * @returns {boolean} - true if title has placeholder content
+ */
+export const hasPRTitlePlaceholder = title => {
+  return title && title.startsWith(PR_TITLE_PLACEHOLDER_PREFIX);
+};
+
+/**
+ * Check if PR body still contains auto-generated placeholder content
+ * @param {string} body - PR body
+ * @returns {boolean} - true if body has placeholder content
+ */
+export const hasPRBodyPlaceholder = body => {
+  return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
+};
+
+/**
+ * Build a short factual hint for auto-restart when PR title/description was not updated.
+ * Uses neutral, fact-stating language (no forcing words).
+ * @param {boolean} titleNotUpdated - Whether the PR title still has placeholder
+ * @param {boolean} descriptionNotUpdated - Whether the PR description still has placeholder
+ * @returns {string[]} - Array of feedback lines to pass as hint to the restarted session
+ */
+export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
+  const lines = [];
+  if (titleNotUpdated && descriptionNotUpdated) {
+    lines.push('Pull request title and description were not updated.');
+  } else if (titleNotUpdated) {
+    lines.push('Pull request title was not updated.');
+  } else if (descriptionNotUpdated) {
+    lines.push('Pull request description was not updated.');
+  }
+  return lines;
+};
+
+/**
  * Detect the CLAUDE.md or .gitkeep commit hash from branch structure when not available in session
  * This handles continue mode where the commit hash was lost between sessions
  *
@@ -206,11 +251,19 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       await log(`   Detected initial commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
     }
 
-    // Determine which file was used based on the commit message or flags
-    // Check the commit message to determine which file was committed
-    const commitMsgResult = await $({ cwd: tempDir })`git log -1 --format=%s ${claudeCommitHash} 2>&1`;
+    // Determine which file was used based on the commit message or actual files changed
+    // Use %B (full message including body) instead of %s (subject only) to catch ".gitkeep" in body
+    // Also check the actual files changed as a fallback (Issue #1436)
+    const commitMsgResult = await $({ cwd: tempDir })`git log -1 --format=%B ${claudeCommitHash} 2>&1`;
     const commitMsg = commitMsgResult.stdout?.trim() || '';
-    const isGitkeepFile = commitMsg.includes('.gitkeep');
+    let isGitkeepFile = commitMsg.includes('.gitkeep');
+
+    // Fallback: check actual files changed in the commit if message doesn't mention .gitkeep
+    if (!isGitkeepFile) {
+      const filesResult = await $({ cwd: tempDir })`git diff-tree --no-commit-id --name-only -r ${claudeCommitHash} 2>&1`;
+      const files = filesResult.stdout?.trim().split('\n').filter(Boolean) || [];
+      isGitkeepFile = files.includes('.gitkeep');
+    }
     const fileName = isGitkeepFile ? '.gitkeep' : 'CLAUDE.md';
 
     await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
@@ -336,6 +389,31 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
         }
       }
     }
+    // Post-cleanup verification: check if the file was actually removed (Issue #1436)
+    // This catches cases where revert/push succeeded in logs but file still exists
+    const verifyResult = await $({ cwd: tempDir })`git ls-files ${fileName} 2>&1`;
+    const fileStillExists = verifyResult.code === 0 && verifyResult.stdout && verifyResult.stdout.trim();
+    if (fileStillExists) {
+      await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
+      // Check if the file existed before the initial commit (parent)
+      const parentCommit = `${claudeCommitHash}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
+      if (parentFileExists.code !== 0) {
+        // File didn't exist before the session — force remove it
+        await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
+        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
+        if (fallbackCommit.code === 0) {
+          const fallbackPush = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+          if (fallbackPush.code === 0) {
+            await log(`   ✅ ${fileName} removed via post-cleanup fallback`);
+          } else {
+            await log(`   ⚠️  ${fileName} removed locally but push failed`, { verbose: true });
+          }
+        }
+      } else {
+        await log(`   ℹ️  ${fileName} existed before this session — keeping pre-existing file`, { verbose: true });
+      }
+    }
   } catch (e) {
     reportError(e, {
       context: 'cleanup_claude_file',
@@ -377,7 +455,9 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
       if (argv.autoResumeOnLimitReset && global.limitResetTime) {
         await log(`\n🔄 AUTO-RESUME ON LIMIT RESET ENABLED - Will resume at ${global.limitResetTime}`);
-        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+        // Pass tempDir to ensure resumed session uses the same working directory
+        // This is critical for Claude Code session resume to work correctly
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir);
       } else {
         if (global.limitResetTime) {
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
@@ -414,7 +494,7 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
 
   try {
@@ -463,12 +543,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
 
+        // Declare placeholder detection variables outside block scopes for use in return value
+        let prTitleHasPlaceholder = false;
+        let prBodyHasPlaceholder = false;
+
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           // Check if PR body has proper issue linking keywords
+          let prBody = '';
           const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
           if (prBodyResult.code === 0) {
-            const prBody = prBodyResult.stdout.toString();
+            prBody = prBodyResult.stdout.toString();
             const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
 
             // Use the new GitHub linking detection library to check for valid keywords
@@ -511,6 +596,80 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             }
           }
 
+          // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
+          // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
+          prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
+          prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
+
+          // Issue #1162: Remove [WIP] prefix from title if still present
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          // (let the agent handle it on restart instead)
+          if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            const updatedTitle = pr.title.replace(/^\[WIP\]\s*/, '');
+            await log(`  📝 Removing [WIP] prefix from PR title...`);
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
+            if (titleResult.code === 0) {
+              await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
+            } else {
+              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
+            }
+          }
+
+          // Issue #1162: Update PR description if still contains placeholder text
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          const hasPlaceholder = prBodyHasPlaceholder;
+          if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            await log(`  📝 Updating PR description to remove placeholder text...`);
+
+            // Build a summary of the changes from the PR diff
+            const diffResult = await $`gh pr diff ${pr.number} --repo ${owner}/${repo} 2>&1`;
+            const diffOutput = diffResult.code === 0 ? diffResult.stdout.toString() : '';
+
+            // Count files changed
+            const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
+            const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
+            const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+
+            // Get the issue title for context
+            const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
+            const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
+
+            // Build new description
+            const fs = (await use('fs')).promises;
+            const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
+            const newDescription = `## Summary
+
+This pull request implements a solution for ${issueRef}: ${issueTitle}
+
+### Changes
+- ${filesChanged} file(s) modified
+- ${additions} line(s) added
+- ${deletions} line(s) removed
+
+### Issue Reference
+Fixes ${issueRef}
+
+---
+*This PR was created automatically by the AI issue solver*`;
+
+            const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
+            await fs.writeFile(tempBodyFile, newDescription);
+
+            try {
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              await fs.unlink(tempBodyFile).catch(() => {});
+
+              if (descResult.code === 0) {
+                await log(`  ✅ Updated PR description with solution summary`);
+              } else {
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+              }
+            } catch (descError) {
+              await fs.unlink(tempBodyFile).catch(() => {});
+              await log(`  ⚠️  Error updating PR description: ${descError.message}`);
+            }
+          }
+
           // Check if PR is ready for review (convert from draft if necessary)
           if (pr.isDraft) {
             await log('  🔄 Converting PR from draft to ready for review...');
@@ -547,6 +706,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             pricingInfo,
             // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
             errorDuringExecution,
+            // Issue #1152: Pass sessionType for differentiated log comments
+            sessionType,
+            // Issue #1225: Pass model and tool info for PR comments
+            requestedModel: argv.model,
+            tool: argv.tool || 'claude',
+            // Issue #1454: Pass resultModelUsage for accurate multi-model display
+            resultModelUsage,
           });
         }
 
@@ -559,10 +725,22 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         }
         await log('\n✨ Please review the pull request for the proposed solution draft.');
         // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-        if (!argv.watch && !shouldRestart) {
+        // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
+        // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+        const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
+        if (shouldAutoRestartForPlaceholder) {
+          await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
+        }
+        const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
+        if (shouldWaitForAutoMerge) {
+          await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
+        }
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
           await safeExit(0, 'Process completed successfully');
         }
-        return; // Return normally for watch mode or auto-restart
+        // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+        // Issue #1162: Return placeholder detection status for auto-restart
+        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }
@@ -612,6 +790,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           pricingInfo,
           // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
           errorDuringExecution,
+          // Issue #1152: Pass sessionType for differentiated log comments
+          sessionType,
+          // Issue #1225: Pass model and tool info for issue comments
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
         });
       }
 
@@ -622,10 +807,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
       // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
-      if (!argv.watch && !shouldRestart) {
+      // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+      const shouldWaitForAutoMergeComment = argv.autoMerge || argv.autoRestartUntilMergeable;
+      if (!argv.watch && !shouldRestart && !shouldWaitForAutoMergeComment) {
         await safeExit(0, 'Process completed successfully');
       }
-      return; // Return normally for watch mode or auto-restart
+      // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -640,10 +828,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     const reviewLogPath = path.resolve(getLogFile());
     await log(`   ${reviewLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeNoAction = argv.autoMerge || argv.autoRestartUntilMergeable;
+    if (!argv.watch && !shouldWaitForAutoMergeNoAction) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   } catch (searchError) {
     reportError(searchError, {
       context: 'verify_pr_creation',
@@ -656,10 +847,13 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     const checkLogPath = path.resolve(getLogFile());
     await log(`   ${checkLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeError = argv.autoMerge || argv.autoRestartUntilMergeable;
+    if (!argv.watch && !shouldWaitForAutoMergeError) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   }
 };
 
@@ -687,6 +881,9 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           sanitizeLogContent,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -724,4 +921,134 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   }
 
   await safeExit(1, 'Execution error');
+};
+
+/**
+ * Check if new comments were created by the AI during the session.
+ * This is used by --auto-attach-solution-summary to determine if the AI
+ * already provided feedback.
+ *
+ * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ *
+ * @param {Date} referenceTime - The timestamp before tool execution
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number (null if working on issue only)
+ * @param {number} issueNumber - Issue number
+ * @returns {Promise<boolean>} - True if AI created comments during the session
+ */
+export const checkForAiCreatedComments = async (referenceTime, owner, repo, prNumber, issueNumber) => {
+  try {
+    // Get the current user's GitHub username
+    const userResult = await $`gh api user --jq .login`;
+    if (userResult.code !== 0) {
+      return false; // Cannot determine, default to not attaching
+    }
+    const currentUser = userResult.stdout.toString().trim();
+    if (!currentUser) {
+      return false;
+    }
+
+    // Check comments on the PR first (if we have a PR)
+    if (prNumber) {
+      // Check PR conversation comments
+      const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+      if (prCommentsResult.code === 0) {
+        const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
+        const newPrComments = prComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newPrComments.length > 0) {
+          return true;
+        }
+      }
+
+      // Check PR review comments (inline code comments)
+      const reviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+      if (reviewCommentsResult.code === 0) {
+        const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
+        const newReviewComments = reviewComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newReviewComments.length > 0) {
+          return true;
+        }
+      }
+    }
+
+    // Check issue comments (if different from PR number or no PR)
+    if (issueNumber && issueNumber !== prNumber) {
+      const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+      if (issueCommentsResult.code === 0) {
+        const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
+        const newIssueComments = issueComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
+        if (newIssueComments.length > 0) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    // On error, default to not attaching (safer choice)
+    await log(`⚠️  Could not check for AI comments: ${error.message}`, { verbose: true });
+    return false;
+  }
+};
+
+/**
+ * Attach the AI's solution summary as a comment to the PR or issue.
+ * The summary is extracted from the tool's result field and posted
+ * with a "Solution summary" header.
+ *
+ * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ *
+ * @param {Object} options - Options object
+ * @param {string} options.resultSummary - The AI's result summary text
+ * @param {number} options.prNumber - Pull request number (null if posting to issue)
+ * @param {number} options.issueNumber - Issue number
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @returns {Promise<boolean>} - True if comment was posted successfully
+ */
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo }) => {
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('⚠️  No solution summary available to attach', { verbose: true });
+    return false;
+  }
+
+  const targetNumber = prNumber || issueNumber;
+  const targetType = prNumber ? 'pr' : 'issue';
+  const ghCommand = prNumber ? 'pr' : 'issue';
+
+  if (!targetNumber) {
+    await log('⚠️  No PR or issue number to attach solution summary to', { verbose: true });
+    return false;
+  }
+
+  try {
+    const comment = `## Solution summary
+
+${resultSummary}
+
+---
+*This summary was automatically extracted from the AI working session output.*`;
+
+    const result = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body ${comment}`;
+
+    if (result.code === 0) {
+      await log(`✅ Solution summary attached to ${targetType} #${targetNumber}`);
+      return true;
+    } else {
+      await log(`⚠️  Failed to attach solution summary: ${result.stderr?.toString() || 'Unknown error'}`, {
+        level: 'warning',
+      });
+      return false;
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'attach_solution_summary',
+      targetType,
+      targetNumber,
+      operation: 'post_solution_summary_comment',
+    });
+    await log(`⚠️  Error attaching solution summary: ${error.message}`, { level: 'warning' });
+    return false;
+  }
 };

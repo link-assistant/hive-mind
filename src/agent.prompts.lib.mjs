@@ -205,6 +205,12 @@ Preparing pull request.
       make sure no previously existing features were removed without an explicit request from users via the issue description, issue comments, and/or pull request comments.
    - When you finish implementation, use gh pr ready ${prNumber}.
 
+Comment deduplication.
+   - Before posting a validation, summary, or status comment to the pull request, first check the last 5 PR comments to see if a similar comment already exists.
+   - When a similar comment was posted recently (within the last 10 minutes), do not post another one. Instead, log that it was skipped due to a duplicate.
+   - Do not post multiple validation or summary comments in the same session. One comprehensive validation comment at the end is sufficient.
+   - When you need to update the status, prefer editing the PR description over posting new comments.
+
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.
    - When you push, push only to branch ${branchName}.

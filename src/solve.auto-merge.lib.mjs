@@ -39,6 +39,10 @@ const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, ch
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
+// Import comment deduplication (Issue #1495)
+const commentDedupLib = await import('./comment-dedup.lib.mjs');
+const { postCommentWithDedup } = commentDedupLib;
+
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
@@ -587,12 +591,20 @@ export const watchUntilMergeable = async params => {
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
             await log(formatAligned('', 'Pull request:', `#${prNumber} has been auto-merged`, 2));
 
-            // Post success comment
+            // Post success comment (Issue #1495: with dedup to prevent duplicates)
             try {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n${ciLine}\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
-              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              await postCommentWithDedup({
+                owner,
+                repo,
+                prNumber,
+                body: commentBody,
+                timeWindowMinutes: 10,
+                similarityThreshold: 0.7,
+                verbose: argv.verbose,
+              });
             } catch {
               // Don't fail if comment posting fails
             }
@@ -608,16 +620,27 @@ export const watchUntilMergeable = async params => {
           await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
 
           // Issue #1371: Post success comment only if not already posted in this session.
-          // Use in-memory flag instead of checking all PR comment history (issue #1323),
-          // since the historical check incorrectly suppressed notifications when a
-          // previous solve run had already posted a "Ready to merge" comment.
+          // Issue #1495: Also check for recent similar comments to prevent cross-session duplicates.
           try {
             if (!readyToMergeCommentPosted) {
               // Issue #1345: Differentiate message when no CI is configured
               const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
               const commentBody = `## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
-              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
-              readyToMergeCommentPosted = true;
+              const { posted } = await postCommentWithDedup({
+                owner,
+                repo,
+                prNumber,
+                body: commentBody,
+                timeWindowMinutes: 10,
+                similarityThreshold: 0.7,
+                verbose: argv.verbose,
+              });
+              if (posted) {
+                readyToMergeCommentPosted = true;
+              } else {
+                await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (similar comment already exists)', '', 2));
+                readyToMergeCommentPosted = true;
+              }
             } else {
               await log(formatAligned('', 'Skipping duplicate "Ready to merge" comment (already posted this session)', '', 2));
             }

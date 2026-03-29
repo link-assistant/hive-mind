@@ -5,6 +5,7 @@ import requireGhPaginate from './eslint-rules/require-gh-paginate.mjs';
 import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthrough-wrapper.mjs';
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
+import noLeakedChildProcesses from './eslint-rules/no-leaked-child-processes.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -34,6 +35,13 @@ const streamsPlugin = {
   },
 };
 
+// Create custom plugin to prevent leaked child process handles (issue #1493)
+const childProcessPlugin = {
+  rules: {
+    'no-leaked-child-processes': noLeakedChildProcesses,
+  },
+};
+
 export default [
   js.configs.recommended,
   prettierConfig,
@@ -44,6 +52,7 @@ export default [
       'no-underscore-wrapper': noUnderscoreWrapperPlugin,
       timers: timerPlugin,
       streams: streamsPlugin,
+      'child-process': childProcessPlugin,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -110,6 +119,9 @@ export default [
       // Require capturing createReadStream/createWriteStream return values so streams can be closed.
       // Unclosed streams keep the Node.js event loop alive and cause hangs (issue #1431).
       'streams/no-leaked-streams': 'error',
+      // Require capturing spawn/fork/execFile return values so child processes can be killed/monitored.
+      // Uncaptured child processes keep the Node.js event loop alive and cause orphans (issue #1493).
+      'child-process/no-leaked-child-processes': 'error',
       // Enforce max 1500 lines per file to match CI workflow check
       // This ensures ESLint and check-file-line-limits job are synchronized
       // See: docs/case-studies/issue-1141 for context

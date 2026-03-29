@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.37.2
+
+### Patch Changes
+
+- f07ae29: fix false positive "Ready to merge" by cross-validating CI success status with GitHub Actions workflow runs API and removing unreliable commit-age-based grace period (Issue #1480)
+
 ## 1.37.1
 
 ### Patch Changes

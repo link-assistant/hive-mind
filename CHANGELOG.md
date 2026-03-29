@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.37.3
+
+### Patch Changes
+
+- 7bc72fa: add early --base-branch/--target-branch validation in telegram bot to reject URLs and invalid branch names before spawning solve/hive processes (Issue #1482)
+
 ## 1.37.2
 
 ### Patch Changes

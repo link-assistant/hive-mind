@@ -40,9 +40,12 @@ export function buildUserMention({ user, id: idParam, username: usernameParam, f
   const link = username ? `https://t.me/${username}` : `tg://user?id=${id}`;
 
   switch (parseMode) {
-    case 'Markdown':
+    case 'Markdown': {
       // Legacy Markdown: [text](url)
-      return `[${displayName}](${link})`;
+      // Escape _ and * in display name to prevent "can't find end of entity" errors (issue #1460)
+      const escapedMarkdownName = displayName.replace(/_/g, '\\_').replace(/\*/g, '\\*');
+      return `[${escapedMarkdownName}](${link})`;
+    }
     case 'MarkdownV2': {
       // MarkdownV2 requires escaping special characters
       const escapedName = displayName.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');

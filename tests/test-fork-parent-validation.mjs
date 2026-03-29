@@ -188,6 +188,105 @@ runTest('success message on valid fork', () => {
   }
 });
 
+// Test 11: Verify retry logic for transient network errors (Issue #1311)
+runTest('retry logic for network errors (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for retry loop implementation
+  if (!content.includes('for (let attempt = 1; attempt <= maxAttempts; attempt++)')) {
+    throw new Error('Missing retry loop in validateForkParent');
+  }
+
+  // Check for exponential backoff
+  if (!content.includes('baseDelay * Math.pow(2, attempt - 1)')) {
+    throw new Error('Missing exponential backoff in retry logic');
+  }
+
+  // Check for network error detection call
+  if (!content.includes('lib.isTransientNetworkError')) {
+    throw new Error('Missing network error detection using lib.isTransientNetworkError');
+  }
+});
+
+// Test 12: Verify isNetworkError flag in return value (Issue #1311)
+runTest('isNetworkError flag in return value (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for isNetworkError field in return
+  if (!content.includes('isNetworkError: true')) {
+    throw new Error('Missing isNetworkError flag in return value for network errors');
+  }
+
+  // Check that JSDoc mentions the new field
+  if (!content.includes('isNetworkError?:')) {
+    throw new Error('Missing isNetworkError field in JSDoc return type');
+  }
+});
+
+// Test 13: Verify separate error message for network errors (Issue #1311)
+runTest('network error message differentiation (Issue #1311)', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check for network-specific error title
+  if (!content.includes('NETWORK ERROR DURING FORK VALIDATION')) {
+    throw new Error('Missing network-specific error message');
+  }
+
+  // Check for network retry/temporary suggestion
+  if (!content.includes('temporary network issue')) {
+    throw new Error('Missing temporary network issue message');
+  }
+
+  // Check for GitHub status link
+  if (!content.includes('githubstatus.com')) {
+    throw new Error('Missing GitHub status link in network error message');
+  }
+});
+
+// Test 14: Verify isTransientNetworkError helper exists in lib.mjs
+runTest('isTransientNetworkError helper exists', () => {
+  const libContent = execSync(`cat ${srcDir}/lib.mjs`, { encoding: 'utf8' });
+
+  // Check for function definition
+  if (!libContent.includes('export const isTransientNetworkError')) {
+    throw new Error('Missing isTransientNetworkError export in lib.mjs');
+  }
+
+  // Check for key network error patterns
+  const patterns = ['i/o timeout', 'dial tcp', 'econnreset', 'etimedout', 'http 503'];
+  for (const pattern of patterns) {
+    if (!libContent.includes(pattern)) {
+      throw new Error(`Missing network error pattern: ${pattern}`);
+    }
+  }
+});
+
+// Test 15: Verify existing error messages preserved (Issue #1311 feedback)
+runTest('existing error messages preserved', () => {
+  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+
+  // Check that original verbose error messages are preserved
+  if (!content.includes('🔍 What happened:')) {
+    throw new Error('Missing "What happened" section in error message');
+  }
+
+  if (!content.includes('📦 Fork relationship:')) {
+    throw new Error('Missing "Fork relationship" section in error message');
+  }
+
+  if (!content.includes('⚠️  Why this is a problem:')) {
+    throw new Error('Missing "Why this is a problem" section in error message');
+  }
+
+  if (!content.includes('📖 Case study: See issue #967')) {
+    throw new Error('Missing case study reference in error message');
+  }
+
+  if (!content.includes('💡 How to fix:')) {
+    throw new Error('Missing "How to fix" section in error message');
+  }
+});
+
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log('Test Results for fork parent validation:');

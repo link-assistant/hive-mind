@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * Merge multiple changeset files into a single changeset
+ * Harmonize multiple changeset files for a clean release
  *
  * Key behavior:
- * - Combines all pending changesets into a single changeset file
- * - Uses the highest version bump type (major > minor > patch)
- * - Preserves all descriptions in chronological order (by file modification time)
- * - Removes the individual changeset files after merging
+ * - Keeps each changeset as a SEPARATE file so @changesets/cli produces separate bullet items
+ * - Promotes all changesets to the highest version bump type (major > minor > patch)
  * - Does nothing if there's only one or no changesets
+ *
+ * Previously this script merged all descriptions into a single changeset file,
+ * which caused @changesets/cli to produce a single bullet entry with all text
+ * merged together. See: docs/case-studies/issue-1452/
  *
  * This script is run before `changeset version` to ensure a clean release
  * even when multiple PRs have merged before a release cycle.
  */
 
-import { readdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 const PACKAGE_NAME = '@link-assistant/hive-mind';
@@ -26,20 +28,6 @@ const BUMP_PRIORITY = {
   minor: 2,
   major: 3,
 };
-
-/**
- * Generate a random changeset file name (similar to what @changesets/cli does)
- * @returns {string}
- */
-function generateChangesetName() {
-  const adjectives = ['bright', 'calm', 'cool', 'cyan', 'dark', 'fast', 'gold', 'good', 'green', 'happy', 'kind', 'loud', 'neat', 'nice', 'pink', 'proud', 'quick', 'red', 'rich', 'safe', 'shy', 'soft', 'sweet', 'tall', 'warm', 'wise', 'young'];
-  const nouns = ['apple', 'bird', 'book', 'car', 'cat', 'cloud', 'desk', 'dog', 'door', 'fish', 'flower', 'frog', 'grass', 'house', 'key', 'lake', 'leaf', 'moon', 'mouse', 'owl', 'park', 'rain', 'river', 'rock', 'sea', 'star', 'sun', 'tree', 'wave', 'wind'];
-
-  const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-
-  return `${randomAdjective}-${randomNoun}`;
-}
 
 /**
  * Parse a changeset file and extract its metadata
@@ -60,7 +48,7 @@ function parseChangeset(filePath) {
       return null;
     }
 
-    // Extract description
+    // Extract description (everything after the second ---)
     const parts = content.split('---');
     const description = parts.length >= 3 ? parts.slice(2).join('---').trim() : '';
 
@@ -68,6 +56,7 @@ function parseChangeset(filePath) {
       type: versionTypeMatch[1],
       description,
       mtime: stats.mtime,
+      rawContent: content,
     };
   } catch (error) {
     console.warn(`Warning: Failed to parse ${filePath}: ${error.message}`);
@@ -91,37 +80,35 @@ function getHighestBumpType(types) {
 }
 
 /**
- * Create a merged changeset file
+ * Create a changeset file content with the given type and description
  * @param {string} type
- * @param {string[]} descriptions
+ * @param {string} description
  * @returns {string}
  */
-function createMergedChangeset(type, descriptions) {
-  const combinedDescription = descriptions.join('\n\n');
-
+function createChangesetContent(type, description) {
   return `---
 '${PACKAGE_NAME}': ${type}
 ---
 
-${combinedDescription}
+${description}
 `;
 }
 
 function main() {
-  console.log('Checking for multiple changesets to merge...');
+  console.log('Checking for multiple changesets to harmonize...');
 
   // Get all changeset files
   const changesetFiles = readdirSync(CHANGESET_DIR).filter(file => file.endsWith('.md') && file !== 'README.md');
 
   console.log(`Found ${changesetFiles.length} changeset file(s)`);
 
-  // If 0 or 1 changesets, nothing to merge
+  // If 0 or 1 changesets, nothing to harmonize
   if (changesetFiles.length <= 1) {
-    console.log('No merging needed (0 or 1 changeset found)');
+    console.log('No harmonization needed (0 or 1 changeset found)');
     return;
   }
 
-  console.log('Multiple changesets found, merging...');
+  console.log('Multiple changesets found, harmonizing bump types...');
   changesetFiles.forEach(file => console.log(`  - ${file}`));
 
   // Parse all changesets
@@ -143,42 +130,37 @@ function main() {
     process.exit(1);
   }
 
-  // Sort by modification time (oldest first) to preserve chronological order
-  parsedChangesets.sort((a, b) => a.mtime.getTime() - b.mtime.getTime());
-
   // Determine the highest bump type
   const bumpTypes = parsedChangesets.map(c => c.type);
   const highestBumpType = getHighestBumpType(bumpTypes);
+  const allSameType = bumpTypes.every(t => t === highestBumpType);
 
-  console.log(`\nMerge summary:`);
+  console.log(`\nHarmonize summary:`);
   console.log(`  Bump types found: ${[...new Set(bumpTypes)].join(', ')}`);
-  console.log(`  Using highest: ${highestBumpType}`);
+  console.log(`  Highest bump type: ${highestBumpType}`);
+  console.log(`  Changeset count: ${parsedChangesets.length}`);
 
-  // Collect descriptions in chronological order
-  const descriptions = parsedChangesets.filter(c => c.description).map(c => c.description);
-
-  console.log(`  Descriptions to merge: ${descriptions.length}`);
-
-  // Create merged changeset content
-  const mergedContent = createMergedChangeset(highestBumpType, descriptions);
-
-  // Generate a unique name for the merged changeset
-  const mergedFileName = `merged-${generateChangesetName()}.md`;
-  const mergedFilePath = join(CHANGESET_DIR, mergedFileName);
-
-  // Write the merged changeset
-  writeFileSync(mergedFilePath, mergedContent);
-  console.log(`\nCreated merged changeset: ${mergedFileName}`);
-
-  // Remove the original changeset files
-  console.log('\nRemoving original changeset files:');
-  for (const changeset of parsedChangesets) {
-    unlinkSync(changeset.filePath);
-    console.log(`  Removed: ${changeset.file}`);
+  if (allSameType) {
+    console.log('\nAll changesets already have the same bump type. No changes needed.');
+    console.log('Each changeset will produce a separate entry in the changelog.');
+    return;
   }
 
-  console.log('\nChangeset merge completed successfully');
-  console.log(`\nMerged changeset content:\n${mergedContent}`);
+  // Promote changesets that have a lower bump type to the highest
+  console.log(`\nPromoting changesets to ${highestBumpType}...`);
+
+  for (const changeset of parsedChangesets) {
+    if (changeset.type !== highestBumpType) {
+      const newContent = createChangesetContent(highestBumpType, changeset.description);
+      writeFileSync(changeset.filePath, newContent);
+      console.log(`  Promoted ${changeset.file}: ${changeset.type} -> ${highestBumpType}`);
+    } else {
+      console.log(`  Kept ${changeset.file}: already ${highestBumpType}`);
+    }
+  }
+
+  console.log('\nChangeset harmonization completed successfully');
+  console.log(`Each of the ${parsedChangesets.length} changesets will produce a separate entry in the changelog.`);
 }
 
 main();

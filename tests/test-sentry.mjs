@@ -67,8 +67,8 @@ runTest('Sentry packages in package.json', () => {
   return packageJson.dependencies && packageJson.dependencies['@sentry/node'] && packageJson.dependencies['@sentry/profiling-node'];
 });
 
-// Test 4: Test --no-sentry flag in hive.mjs
-runTest('hive.mjs supports --no-sentry flag', () => {
+// Test 4: Test --sentry flag in hive.mjs (disabled by default, use --sentry to opt in)
+runTest('hive.mjs supports --sentry flag', () => {
   try {
     // Capture both stdout and stderr since yargs might output to stderr
     const output = execSync(`node ${join(projectRoot, 'src', 'hive.mjs')} --help 2>&1`, {
@@ -76,18 +76,18 @@ runTest('hive.mjs supports --no-sentry flag', () => {
       cwd: projectRoot,
       stdio: 'pipe',
     });
-    return output.includes('--no-sentry');
+    return output.includes('--sentry');
   } catch (error) {
     // Help command might exit with non-zero, but we got output
     if (error.stdout) {
-      return error.stdout.includes('--no-sentry');
+      return error.stdout.includes('--sentry');
     }
     return false;
   }
 });
 
-// Test 5: Test --no-sentry flag in solve.mjs
-runTest('solve.mjs supports --no-sentry flag', () => {
+// Test 5: Test --sentry flag in solve.mjs (disabled by default, use --sentry to opt in)
+runTest('solve.mjs supports --sentry flag', () => {
   try {
     // Capture both stdout and stderr since yargs might output to stderr
     const output = execSync(`node ${join(projectRoot, 'src', 'solve.mjs')} --help 2>&1`, {
@@ -95,11 +95,11 @@ runTest('solve.mjs supports --no-sentry flag', () => {
       cwd: projectRoot,
       stdio: 'pipe',
     });
-    return output.includes('--no-sentry');
+    return output.includes('--sentry');
   } catch (error) {
     // Help command might exit with non-zero, but we got output
     if (error.stdout) {
-      return error.stdout.includes('--no-sentry');
+      return error.stdout.includes('--sentry');
     }
     return false;
   }

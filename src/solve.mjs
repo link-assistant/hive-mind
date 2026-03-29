@@ -41,16 +41,16 @@ const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
-const { initializeSentry, addBreadcrumb, reportError } = sentryLib;
+const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, getVersionInfo, setupVerboseLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
-const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
 const { validateGitHubUrl, showAttachLogsWarning, initializeLogFile, validateUrlRequirement, validateContinueOnlyOnFeedback, performSystemChecks } = validation;
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -58,7 +58,7 @@ const { processAutoContinueForIssue } = autoContinue;
 const repository = await import('./solve.repository.lib.mjs');
 const { setupTempDirectory, cleanupTempDirectory } = repository;
 const results = await import('./solve.results.lib.mjs');
-const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand } = results;
+const { cleanupClaudeFile, showSessionSummary, verifyResults, buildClaudeResumeCommand, checkForAiCreatedComments, attachSolutionSummary } = results;
 const claudeLib = await import('./claude.lib.mjs');
 const { executeClaude } = claudeLib;
 
@@ -69,36 +69,28 @@ const usageLimitLib = await import('./usage-limit.lib.mjs');
 const { formatResetTimeWithRelative } = usageLimitLib;
 
 const errorHandlers = await import('./solve.error-handlers.lib.mjs');
-const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError } = errorHandlers;
+const { createUncaughtExceptionHandler, createUnhandledRejectionHandler, handleMainExecutionError, handleNoPrAvailableError } = errorHandlers;
 
 const watchLib = await import('./solve.watch.lib.mjs');
 const { startWatchMode } = watchLib;
+const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.mjs');
+const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
+const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
+const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
+const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
+const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 
-// Import new modular components
-const autoPrLib = await import('./solve.auto-pr.lib.mjs');
-const { handleAutoPrCreation } = autoPrLib;
-const repoSetupLib = await import('./solve.repo-setup.lib.mjs');
-const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = repoSetupLib;
-const branchLib = await import('./solve.branch.lib.mjs');
-const { createOrCheckoutBranch } = branchLib;
-const sessionLib = await import('./solve.session.lib.mjs');
-const { startWorkSession, endWorkSession } = sessionLib;
-const preparationLib = await import('./solve.preparation.lib.mjs');
-const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = preparationLib;
-
-// Import model validation library
-const modelValidation = await import('./model-validation.lib.mjs');
-const { validateAndExitOnInvalidModel } = modelValidation;
-
-// Initialize log file EARLY to capture all output including version and command
-// Use default directory (cwd) initially, will be set from argv.logDir after parsing
+// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
 
-// Log version and raw command IMMEDIATELY after log file initialization
-// This ensures they appear in both console and log file, even if argument parsing fails
+// Log version and raw command IMMEDIATELY after log file initialization (ensures they appear even if parsing fails)
 const versionInfo = await getVersionInfo();
 await log('');
 await log(`🚀 solve v${versionInfo}`);
@@ -119,9 +111,10 @@ try {
 }
 global.verboseMode = argv.verbose;
 
-// If user specified a custom log directory, we would need to move the log file
-// However, this adds complexity, so we accept that early logs go to cwd
-// The trade-off is: early logs in cwd vs missing version/command in error cases
+// Issue #1466: Intercept console.log to capture [VERBOSE] output in log files
+setupVerboseLogInterceptor();
+
+// Early logs go to cwd; custom log dir takes effect after argv is parsed
 
 // Conditionally import tool-specific functions after argv is parsed
 let checkForUncommittedChanges;
@@ -158,21 +151,16 @@ if (argv.sentry) {
     },
   });
 }
-// Create a cleanup wrapper that will be populated with context later
-let cleanupContext = { tempDir: null, argv: null, limitReached: false };
+// Create cleanup/interrupt wrappers populated with context as solve progresses
+let cleanupContext = { tempDir: null, argv: null, limitReached: false, branchName: null, prNumber: null, owner: null, repo: null };
 const cleanupWrapper = async () => {
   if (cleanupContext.tempDir && cleanupContext.argv) {
     await cleanupTempDirectory(cleanupContext.tempDir, cleanupContext.argv, cleanupContext.limitReached);
   }
 };
-// Initialize the exit handler with getAbsoluteLogPath function and cleanup wrapper
-initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper);
+const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
+initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper);
 installGlobalExitHandlers();
-
-// Note: Version and raw command are logged BEFORE parseArguments() (see above)
-// This ensures they appear even if strict validation fails
-// Strict options validation is now handled by yargs .strict() mode in solve.config.lib.mjs
-// This prevents unrecognized options from being silently ignored (issue #453, #482)
 
 // Now handle argument validation that was moved from early checks
 let issueUrl = argv['issue-url'] || argv._[0];
@@ -189,9 +177,10 @@ if (!urlValidation.isValid) {
 }
 const { isIssueUrl, isPrUrl, normalizedUrl, owner, repo, number: urlNumber } = urlValidation;
 issueUrl = normalizedUrl || issueUrl;
-// Store owner and repo globally for error handlers early
 global.owner = owner;
 global.repo = repo;
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
 // Setup unhandled error handlers to ensure log path is always shown
 const errorHandlerOptions = {
   log,
@@ -222,9 +211,16 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 const tool = argv.tool || 'claude';
 await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
 
-// Perform all system checks using validation module
-// Skip tool CONNECTION validation in dry-run mode or when --skip-tool-connection-check or --no-tool-connection-check is enabled
-// Note: This does NOT skip model validation which is performed above
+// Validate --plan-model if provided (Issue #1223)
+if (argv.planModel) {
+  if (tool !== 'claude') {
+    await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    await safeExit(1, '--plan-model requires --tool claude');
+  }
+  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+}
+
+// Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
@@ -237,9 +233,7 @@ if (argv.verbose) {
   await log(`   Is PR URL: ${!!isPrUrl}`, { verbose: true });
 }
 const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
-// Note: owner, repo, and urlNumber are already extracted from validateGitHubUrl() above
-// The parseUrlComponents() call was removed as it had a bug with hash fragments (#issuecomment-xyz)
-// and the validation result already provides these values correctly parsed
+// Note: owner, repo, and urlNumber are extracted from validateGitHubUrl() above (parseUrlComponents() removed due to hash fragment bug)
 
 // Handle --auto-fork option: automatically fork public repositories without write access
 if (argv.autoFork && !argv.fork) {
@@ -311,6 +305,11 @@ if (argv.autoFork && !argv.fork) {
   }
 }
 
+// Accept pending GitHub invitation for the specific repo/org before checking write access
+if (argv.autoAcceptInvite) {
+  await autoAcceptInviteForRepo(owner, repo, log, argv.verbose);
+}
+
 // Early check: Verify repository write permissions BEFORE doing any work
 // This prevents wasting AI tokens when user doesn't have access and --fork is not used
 const { checkRepositoryWritePermission } = githubLib;
@@ -345,6 +344,7 @@ let prBranch;
 let mergeStateStatus;
 let prState;
 let forkOwner = null;
+let forkRepoName = null;
 let isContinueMode = false;
 // Auto-continue logic: check for existing PRs if --auto-continue is enabled
 const autoContinueResult = await processAutoContinueForIssue(argv, isIssueUrl, urlNumber, owner, repo);
@@ -374,9 +374,9 @@ if (autoContinueResult.isContinueMode) {
         }
         if (prCheckData.headRepositoryOwner && prCheckData.headRepositoryOwner.login !== owner) {
           forkOwner = prCheckData.headRepositoryOwner.login;
-          // Get actual fork repository name (may be prefixed)
-          const forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : repo;
-          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+          // Get actual fork repository name (may be prefixed) and store for use in setupRepository
+          forkRepoName = prCheckData.headRepository && prCheckData.headRepository.name ? prCheckData.headRepository.name : null;
+          await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
           if (argv.verbose) {
             await log(`   Fork owner: ${forkOwner}`, { verbose: true });
             await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -454,9 +454,9 @@ if (isPrUrl) {
     // Check if this is a fork PR
     if (prData.headRepositoryOwner && prData.headRepositoryOwner.login !== owner) {
       forkOwner = prData.headRepositoryOwner.login;
-      // Get actual fork repository name (may be prefixed)
-      const forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : repo;
-      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName}`);
+      // Get actual fork repository name and store for use in setupRepository
+      forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;
+      await log(`🍴 Detected fork PR from ${forkOwner}/${forkRepoName || repo}`);
       if (argv.verbose) {
         await log(`   Fork owner: ${forkOwner}`, { verbose: true });
         await log('   Will clone fork repository for continue mode', { verbose: true });
@@ -482,8 +482,6 @@ if (isPrUrl) {
       }
     }
     await log(`📝 PR branch: ${prBranch}`);
-    // Extract issue number from PR body using GitHub linking detection library
-    // This ensures we only detect actual GitHub-recognized linking keywords
     const prBody = prData.body || '';
     const extractedIssueNumber = extractLinkedIssueNumber(prBody);
     if (extractedIssueNumber) {
@@ -510,14 +508,15 @@ if (isPrUrl) {
   issueNumber = urlNumber;
   await log(`📝 Issue mode: Working with issue #${issueNumber}`);
 }
-// Create or find temporary directory for cloning the repository
-// Pass workspace info for --enable-workspaces mode (works with all tools)
+// Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
+global.issueNumber = issueNumber;
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
-// Populate cleanup context for signal handlers
 cleanupContext.tempDir = tempDir;
 cleanupContext.argv = argv;
-// Initialize limitReached variable outside try block for finally clause
+cleanupContext.owner = owner;
+cleanupContext.repo = repo;
+if (prNumber) cleanupContext.prNumber = prNumber;
 let limitReached = false;
 try {
   // Set up repository and clone using the new module
@@ -527,6 +526,7 @@ try {
     owner,
     repo,
     forkOwner,
+    forkRepoName,
     tempDir,
     isContinueMode,
     issueUrl,
@@ -537,11 +537,16 @@ try {
   });
 
   // Verify default branch and status using the new module
+  // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
     tempDir,
     log,
     formatAligned,
     $,
+    argv,
+    owner,
+    repo,
+    issueUrl,
   });
   // Create or checkout branch using the new module
   const branchName = await createOrCheckoutBranch({
@@ -559,6 +564,7 @@ try {
     repo,
     prNumber,
   });
+  cleanupContext.branchName = branchName;
 
   // Auto-merge default branch to pull request branch if enabled
   let autoMergeFeedbackLines = [];
@@ -603,9 +609,6 @@ try {
     // prNumber is already set from earlier when we parsed the PR
   }
 
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
-
   // Handle auto PR creation using the new module
   const autoPrResult = await handleAutoPrCreation({
     argv,
@@ -636,43 +639,12 @@ try {
       claudeCommitHash = autoPrResult.claudeCommitHash;
     }
   }
+  if (prNumber) cleanupContext.prNumber = prNumber;
 
   // CRITICAL: Validate that we have a PR number when required
   // This prevents continuing without a PR when one was supposed to be created
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
-    await log('');
-    await log(formatAligned('❌', 'FATAL ERROR:', 'No pull request available'), { level: 'error' });
-    await log('');
-    await log('  🔍 What happened:');
-    if (isContinueMode) {
-      await log('     Continue mode is active but no PR number is available.');
-      await log('     This usually means PR creation failed or was skipped incorrectly.');
-    } else {
-      await log('     Auto-PR creation is enabled but no PR was created.');
-      await log('     PR creation may have failed without throwing an error.');
-    }
-    await log('');
-    await log('  💡 Why this is critical:');
-    await log('     The solve command requires a PR for:');
-    await log('     • Tracking work progress');
-    await log('     • Receiving and processing feedback');
-    await log('     • Managing code changes');
-    await log('     • Auto-merging when complete');
-    await log('');
-    await log('  🔧 How to fix:');
-    await log('');
-    await log('  Option 1: Create PR manually and use --continue');
-    await log(`     cd ${tempDir}`);
-    await log(`     gh pr create --draft --title "Fix issue #${issueNumber}" --body "Fixes #${issueNumber}"`);
-    await log('     # Then use the PR URL with solve.mjs');
-    await log('');
-    await log('  Option 2: Start fresh without continue mode');
-    await log(`     ./solve.mjs "${issueUrl}" --auto-pull-request-creation`);
-    await log('');
-    await log('  Option 3: Disable auto-PR creation (Claude will create it)');
-    await log(`     ./solve.mjs "${issueUrl}" --no-auto-pull-request-creation`);
-    await log('');
-    await safeExit(1, 'No PR available');
+    await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, log, formatAligned });
   }
 
   if (isContinueMode) {
@@ -684,10 +656,17 @@ try {
     await log(formatAligned('', 'Workflow:', 'AI will create the PR', 2));
   }
 
-  // Don't build the prompt yet - we'll build it after we have all the information
-  // This includes PR URL (if created) and comment info (if in continue mode)
-
   // Start work session using the new module
+  // Determine session type based on command line flags
+  // See: https://github.com/link-assistant/hive-mind/issues/1152
+  let sessionType = SESSION_TYPES.NEW;
+  if (argv.sessionType) {
+    // Session type was explicitly set (e.g., by auto-resume/auto-restart spawning a new process)
+    sessionType = argv.sessionType;
+  } else if (isContinueMode) {
+    // Continue mode is a manual resume via PR URL
+    sessionType = SESSION_TYPES.RESUME;
+  }
   await startWorkSession({
     isContinueMode,
     prNumber,
@@ -695,6 +674,7 @@ try {
     log,
     formatAligned,
     $,
+    sessionType,
   });
 
   // Prepare feedback and timestamps using the new module
@@ -897,6 +877,8 @@ try {
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
   let errorDuringExecution = toolResult.errorDuringExecution || false; // Issue #1088: Track error_during_execution
+  let resultSummary = toolResult.resultSummary || null; // Issue #1263: Capture result summary for --attach-solution-summary
+  let resultModelUsage = toolResult.resultModelUsage || null; // Issue #1454: Capture modelUsage from result JSON
   limitReached = toolResult.limitReached;
   cleanupContext.limitReached = limitReached;
 
@@ -910,21 +892,29 @@ try {
 
   // Handle limit reached scenario
   if (limitReached) {
+    // Check for both auto-resume (maintains context) and auto-restart (fresh start)
+    // See: https://github.com/link-assistant/hive-mind/issues/1152
     const shouldAutoResumeOnReset = argv.autoResumeOnLimitReset;
+    const shouldAutoRestartOnReset = argv.autoRestartOnLimitReset;
+    const shouldAutoContinueOnReset = shouldAutoResumeOnReset || shouldAutoRestartOnReset;
 
-    // If limit was reached but auto-resume-on-limit-reset is NOT enabled, fail immediately
-    if (!shouldAutoResumeOnReset) {
+    // If limit was reached but neither auto-resume nor auto-restart is enabled, fail immediately
+    if (!shouldAutoContinueOnReset) {
       await log('\n❌ USAGE LIMIT REACHED!');
       await log('   The AI tool has reached its usage limit.');
 
       // Always show manual resume command in console so users can resume after limit resets
       if (sessionId) {
         const resetTime = global.limitResetTime;
+        const timezone = global.limitTimezone || null;
         await log('');
         await log(`📁 Working directory: ${tempDir}`);
         await log(`📌 Session ID: ${sessionId}`);
         if (resetTime) {
-          await log(`⏰ Limit resets at: ${resetTime}`);
+          // Format reset time with relative time and UTC for better user understanding
+          // See: https://github.com/link-assistant/hive-mind/issues/1152
+          const formattedResetTime = formatResetTimeWithRelative(resetTime, timezone);
+          await log(`⏰ Limit resets at: ${formattedResetTime}`);
         }
         await log('');
         // Show claude resume command only for --tool claude (or default)
@@ -958,18 +948,24 @@ try {
             // Mark this as a usage limit case for proper formatting
             isUsageLimit: true,
             limitResetTime: global.limitResetTime,
-            toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+            toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
+            requestedModel: argv.model,
+            tool: argv.tool || 'claude',
+            // Issue #1454: Pass resultModelUsage for accurate multi-model display
+            resultModelUsage,
           });
 
           if (logUploadSuccess) {
             await log('  ✅ Logs uploaded successfully');
           } else {
-            await log('  ⚠️  Failed to upload logs', { verbose: true });
+            // Issue #1212: Always show log upload failures (not just verbose)
+            await log('  ⚠️  Failed to upload logs');
           }
         } catch (uploadError) {
-          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+          // Issue #1212: Always show log upload errors (not just verbose)
+          await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
         }
       } else if (prNumber) {
         // Fallback: Post simple failure comment if logs are not attached
@@ -993,15 +989,17 @@ try {
         }
       }
 
-      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset to wait for reset');
+      await safeExit(1, 'Usage limit reached - use --auto-resume-on-limit-reset or --auto-restart-on-limit-reset to wait for reset');
     } else {
-      // auto-resume-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // auto-resume-on-limit-reset or auto-restart-on-limit-reset is enabled - attach logs and/or post waiting comment
+      // Determine the mode type for comment formatting
+      const limitContinueMode = shouldAutoRestartOnReset ? 'restart' : 'resume';
       if (prNumber && global.limitResetTime) {
         // If --attach-logs is enabled, upload logs with usage limit details
         if (shouldAttachLogs && sessionId) {
           await log('\n📄 Attaching logs to Pull Request (auto-continue mode)...');
           try {
-            // Build Claude CLI resume command
+            // Build Claude CLI resume command (only for logging, not shown to users when auto-resume is enabled)
             const tool = argv.tool || 'claude';
             const resumeCommand = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
             const logUploadSuccess = await attachLogToGitHub({
@@ -1016,18 +1014,28 @@ try {
               // Mark this as a usage limit case for proper formatting
               isUsageLimit: true,
               limitResetTime: global.limitResetTime,
-              toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+              toolName: getToolDisplayName(argv.tool),
               resumeCommand,
               sessionId,
+              // Tell attachLogToGitHub that auto-resume is enabled to suppress CLI commands in the comment
+              // See: https://github.com/link-assistant/hive-mind/issues/1152
+              isAutoResumeEnabled: true,
+              autoResumeMode: limitContinueMode,
+              requestedModel: argv.model,
+              tool: argv.tool || 'claude',
+              // Issue #1454: Pass resultModelUsage for accurate multi-model display
+              resultModelUsage,
             });
 
             if (logUploadSuccess) {
               await log('  ✅ Logs uploaded successfully');
             } else {
-              await log('  ⚠️  Failed to upload logs', { verbose: true });
+              // Issue #1212: Always show log upload failures (not just verbose)
+              await log('  ⚠️  Failed to upload logs');
             }
           } catch (uploadError) {
-            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+            // Issue #1212: Always show log upload errors (not just verbose)
+            await log(`  ⚠️  Error uploading logs: ${uploadError.message}`);
           }
         } else {
           // Fallback: Post simple waiting comment if logs are not attached
@@ -1048,10 +1056,14 @@ try {
               return `${days}:${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
 
-            // Build Claude CLI resume command
-            const tool = argv.tool || 'claude';
-            const resumeCmd = tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
-            const waitingComment = `⏳ **Usage Limit Reached - Waiting to Continue**\n\nThe AI tool has reached its usage limit. Auto-resume is enabled with \`--auto-resume-on-limit-reset\`.\n\n**Reset time:** ${global.limitResetTime}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\nThe session will automatically resume when the limit resets.\n\nSession ID: \`${sessionId}\`${resumeCmd ? `\n\nTo resume manually:\n\`\`\`bash\n${resumeCmd}\n\`\`\`` : ''}`;
+            // For waiting comments, don't show CLI commands since auto-continue will handle it automatically
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            const continueModeName = limitContinueMode === 'restart' ? 'auto-restart' : 'auto-resume';
+            const continueDescription = limitContinueMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
+            // Format reset time with relative time and UTC for better user understanding
+            // See: https://github.com/link-assistant/hive-mind/issues/1236
+            const waitingResetTimeFormatted = formatResetTimeWithRelative(global.limitResetTime, global.limitTimezone || null) || global.limitResetTime;
+            const waitingComment = `⏳ **Usage Limit Reached - Waiting to ${limitContinueMode === 'restart' ? 'Restart' : 'Continue'}**\n\nThe AI tool has reached its usage limit. ${continueModeName} is enabled.\n\n**Reset time:** ${waitingResetTimeFormatted}\n**Wait time:** ${formatWaitTime(waitMs)} (days:hours:minutes:seconds)\n\n${continueDescription}\n\nSession ID: \`${sessionId}\``;
 
             const commentResult = await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${waitingComment}`;
             if (commentResult.code === 0) {
@@ -1082,17 +1094,25 @@ try {
       await log('');
     }
 
-    // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
-    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
-      await log('\n📄 Attaching failure logs to Pull Request...');
+    // If --attach-logs is enabled, attach failure logs before exiting
+    // Note: sessionId is not required - logs should be uploaded even if agent failed before establishing a session
+    // Issues #1212, #1462: Fall back to uploading logs to the issue if PR is not available
+    const hasPR = global.createdPR && global.createdPR.number;
+    const hasIssue = global.issueNumber;
+    const logTargetType = hasPR ? 'pr' : hasIssue ? 'issue' : null;
+    const logTargetNumber = hasPR ? global.createdPR.number : hasIssue ? global.issueNumber : null;
+    const logTargetLabel = hasPR ? 'Pull Request' : 'Issue';
+
+    if (shouldAttachLogs && logTargetType && logTargetNumber) {
+      await log(`\n📄 Attaching failure logs to ${logTargetLabel}...`);
       try {
         // Build Claude CLI resume command
         const tool = argv.tool || 'claude';
         const resumeCommand = sessionId && tool === 'claude' ? buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model }) : null;
         const logUploadSuccess = await attachLogToGitHub({
           logFile: getLogFile(),
-          targetType: 'pr',
-          targetNumber: global.createdPR.number,
+          targetType: logTargetType,
+          targetNumber: logTargetNumber,
           owner,
           repo,
           $,
@@ -1101,21 +1121,27 @@ try {
           // For usage limit, use a dedicated comment format to make it clear and actionable
           isUsageLimit: !!limitReached,
           limitResetTime: limitReached ? toolResult.limitResetTime : null,
-          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' : (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' : (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : (argv.tool || 'AI tool').toString().toLowerCase() === 'agent' ? 'Agent' : 'AI tool',
+          toolName: getToolDisplayName(argv.tool),
           resumeCommand,
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
         });
 
         if (logUploadSuccess) {
-          await log('  ✅ Failure logs uploaded successfully');
+          await log(`  ✅ Failure logs uploaded to ${logTargetLabel} successfully`);
         } else {
-          await log('  ⚠️  Failed to upload logs', { verbose: true });
+          // Issue #1212: Always show log upload failures (not just verbose)
+          await log('  ⚠️  Failed to upload failure logs');
         }
       } catch (uploadError) {
-        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+        // Issue #1212: Always show log upload errors (not just verbose)
+        await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
     }
 
@@ -1143,7 +1169,6 @@ try {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
 
-  // Check for uncommitted changes
   // When limit is reached, force auto-commit of any uncommitted changes to preserve work
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
   const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
@@ -1155,11 +1180,104 @@ try {
   // Show summary of session and log file
   await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
 
+  // Issue #1263: Handle solution summary attachment
+  // --attach-solution-summary: Always attach if result summary is available
+  // --auto-attach-solution-summary: Only attach if AI didn't create any comments during session
+  if (success && resultSummary && (argv.attachSolutionSummary || argv.autoAttachSolutionSummary)) {
+    let shouldAttachSummary = false;
+
+    if (argv.attachSolutionSummary) {
+      // Explicit flag - always attach
+      shouldAttachSummary = true;
+      await log('📝 --attach-solution-summary enabled, attaching result summary...');
+    } else if (argv.autoAttachSolutionSummary) {
+      // Auto mode - only attach if AI didn't create comments
+      await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+      const aiCreatedComments = await checkForAiCreatedComments(referenceTime, owner, repo, prNumber, issueNumber);
+      if (aiCreatedComments) {
+        await log('ℹ️  AI created comments during session, skipping solution summary attachment');
+      } else {
+        shouldAttachSummary = true;
+        await log('📝 No AI comments detected, attaching solution summary...');
+      }
+    }
+
+    if (shouldAttachSummary) {
+      await attachSolutionSummary({
+        resultSummary,
+        prNumber,
+        issueNumber,
+        owner,
+        repo,
+      });
+    }
+  } else if ((argv.attachSolutionSummary || argv.autoAttachSolutionSummary) && !resultSummary) {
+    await log('ℹ️  No solution summary available from AI tool output', { verbose: true });
+  }
+
   // Search for newly created pull requests and comments
-  // Pass shouldRestart to prevent early exit when auto-restart is needed
-  // Include agent tool pricing data when available (publicPricingEstimate, pricingInfo)
-  // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
-  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
+  const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
+
+  // Issue #1162: Auto-restart when PR title/description still has placeholder content
+  if (argv.autoRestartOnNonUpdatedPullRequestDescription && (verifyResult?.prTitleHasPlaceholder || verifyResult?.prBodyHasPlaceholder)) {
+    const { buildPRNotUpdatedHint } = results;
+    const hintLines = buildPRNotUpdatedHint(verifyResult.prTitleHasPlaceholder, verifyResult.prBodyHasPlaceholder);
+
+    await log('');
+    await log('🔄 AUTO-RESTART: PR title/description not updated by agent');
+    hintLines.forEach(async line => await log(`   ${line}`));
+    await log('   Restarting tool to give agent another chance to update...');
+    await log('');
+
+    // Import executeToolIteration for re-execution
+    const { executeToolIteration } = await import('./solve.restart-shared.lib.mjs');
+
+    // Re-execute tool with hint as feedback lines
+    const restartResult = await executeToolIteration({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      branchName,
+      tempDir,
+      mergeStateStatus,
+      feedbackLines: hintLines,
+      argv: {
+        ...argv,
+        // Disable auto-restart for this iteration to prevent infinite loops
+        autoRestartOnNonUpdatedPullRequestDescription: false,
+      },
+    });
+
+    // Update session data from restart
+    if (restartResult) {
+      if (restartResult.sessionId) sessionId = restartResult.sessionId;
+      if (restartResult.anthropicTotalCostUSD) anthropicTotalCostUSD = restartResult.anthropicTotalCostUSD;
+      if (restartResult.publicPricingEstimate) publicPricingEstimate = restartResult.publicPricingEstimate;
+      if (restartResult.pricingInfo) pricingInfo = restartResult.pricingInfo;
+    }
+
+    // Clean up CLAUDE.md/.gitkeep again after restart
+    await cleanupClaudeFile(tempDir, branchName, null, argv);
+
+    // Re-verify results after restart (without auto-restart flag to prevent recursion)
+    const reVerifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, { ...argv, autoRestartOnNonUpdatedPullRequestDescription: false }, shouldAttachLogs, false, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage);
+
+    if (reVerifyResult?.prTitleHasPlaceholder || reVerifyResult?.prBodyHasPlaceholder) {
+      await log('⚠️  PR title/description still not updated after restart');
+    }
+  }
+
+  // Issue #1383: --finalize
+  const autoEnsureResult = await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile });
+  if (autoEnsureResult) {
+    if (autoEnsureResult.sessionId) sessionId = autoEnsureResult.sessionId;
+    if (autoEnsureResult.anthropicTotalCostUSD) anthropicTotalCostUSD = autoEnsureResult.anthropicTotalCostUSD;
+    if (autoEnsureResult.publicPricingEstimate) publicPricingEstimate = autoEnsureResult.publicPricingEstimate;
+    if (autoEnsureResult.pricingInfo) pricingInfo = autoEnsureResult.pricingInfo;
+  }
 
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
@@ -1180,8 +1298,8 @@ try {
     await log('');
     await log('🔄 AUTO-RESTART: Uncommitted changes detected');
     await log('   Starting temporary monitoring cycle (NOT --watch mode)');
-    await log('   The tool will run once more to commit the changes');
-    await log('   Will exit automatically after changes are committed');
+    await log('   The tool will run once more to commit or discard the changes');
+    await log('   Will exit automatically after changes are committed or discarded');
     await log('');
   }
 
@@ -1246,7 +1364,11 @@ try {
     }
 
     // Attach updated logs to PR after auto-restart completes
-    if (shouldAttachLogs && prNumber) {
+    // Issue #1154: Skip if logs were already uploaded by verifyResults() to prevent duplicates
+    // Issue #1290: Always upload if auto-restart ran but last iteration's logs weren't uploaded
+    //   This ensures final logs are uploaded even when the last iteration failed
+    const autoRestartRanButNotUploaded = watchResult?.autoRestartIterationsRan && !watchResult?.lastIterationLogUploaded;
+    if (shouldAttachLogs && prNumber && (!logsAlreadyUploaded || autoRestartRanButNotUploaded)) {
       await log('📎 Uploading working session logs to Pull Request...');
       try {
         const logUploadSuccess = await attachLogToGitHub({
@@ -1262,6 +1384,10 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
+          requestedModel: argv.model,
+          tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
         });
 
         if (logUploadSuccess) {
@@ -1273,6 +1399,45 @@ try {
       } catch (uploadError) {
         await log(`⚠️  Error uploading logs: ${uploadError.message}`, { level: 'warning' });
       }
+    } else if (logsAlreadyUploaded && !autoRestartRanButNotUploaded) {
+      await log('ℹ️  Logs already uploaded by verifyResults, skipping duplicate upload');
+      logsAttached = true;
+    }
+  }
+
+  // Start auto-restart-until-mergeable mode if enabled
+  // This runs after the normal watch mode completes (if any)
+  // --auto-merge implies --auto-restart-until-mergeable
+  if (argv.autoMerge || argv.autoRestartUntilMergeable) {
+    const autoMergeResult = await startAutoRestartUntilMergeable({
+      issueUrl,
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      prBranch,
+      branchName,
+      tempDir,
+      argv,
+    });
+
+    // Update session data with latest from auto-merge mode for accurate pricing
+    if (autoMergeResult && autoMergeResult.latestSessionId) {
+      sessionId = autoMergeResult.latestSessionId;
+      anthropicTotalCostUSD = autoMergeResult.latestAnthropicCost;
+      if (argv.verbose) {
+        await log('');
+        await log('📊 Updated session data from auto-restart-until-mergeable mode:', { verbose: true });
+        await log(`   Session ID: ${sessionId}`, { verbose: true });
+        if (anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined) {
+          await log(`   Anthropic cost: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
+        }
+      }
+    }
+
+    // If auto-merge succeeded, update logs attached status
+    if (autoMergeResult && autoMergeResult.success) {
+      logsAttached = true;
     }
   }
 
@@ -1310,14 +1475,26 @@ try {
     $,
   });
 } finally {
-  // Clean up temporary directory using repository module
   await cleanupTempDirectory(tempDir, argv, limitReached);
 
-  // Show final log file reference (similar to Claude and other agents)
-  // This ensures users always know where to find the complete log file
+  // Show final log file reference so users always know where to find the complete log
   if (getLogFile()) {
-    const path = await use('path');
-    const absoluteLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${absoluteLogPath}`);
+    const finalLogPath = path.resolve(getLogFile());
+    await log(`\n📁 Complete log file: ${finalLogPath}`);
   }
+
+  // Issue #1346: Flush Sentry events before exit.
+  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
+  await closeSentry();
+
+  // Issue #1431: Log active handles before draining.
+  // Always logged to file and console so future hangs are immediately visible in logs.
+  // drainHandles() inside safeExit() will unref/close these before process.exit().
+  await logActiveHandles(msg => log(msg));
+
+  // Issue #1431: safeExit() calls drainHandles() to unref/close known handle types
+  // (process.stdin ReadStream, undici Socket pool, command-stream ChildProcess,
+  // process.stdout/stderr WriteStreams) so the event loop exits naturally, then
+  // calls process.exit(0) as a deterministic safety net.
+  await safeExit(0, 'Process completed');
 }

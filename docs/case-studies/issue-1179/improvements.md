@@ -9,8 +9,8 @@ The following new section should be added to all prompt files (`claude.prompts.l
 ### Proposed Text
 
 ```
-Reproducible testing (CRITICAL).
-   - When fixing a bug, ALWAYS create a test that reproduces the problem BEFORE implementing the fix. This is fundamental: if you cannot reproduce the problem, you cannot verify the fix.
+Reproducible testing.
+   - When fixing a bug, create a test that reproduces the problem before implementing the fix. When you cannot reproduce the problem, you cannot verify the fix.
    - When encountering logic bugs, write an automated test that fails due to the bug, then implement the fix to make it pass.
    - When encountering UI bugs, capture a screenshot showing the problem state, then create a visual regression test or manual verification screenshot after the fix.
    - When creating tests, prefer minimum reproducible examples - the simplest test case that demonstrates the issue.
@@ -40,7 +40,7 @@ Playwright MCP usage (browser automation via mcp__playwright__* tools).
 Add the following after the existing Playwright MCP guidelines:
 
 ```
-   - When reproducing UI bugs, use browser_take_screenshot to capture the problem state BEFORE implementing any fix.
+   - When reproducing UI bugs, use browser_take_screenshot to capture the problem state before implementing any fix.
    - When fixing UI bugs, take before/after screenshots to provide visual evidence of the fix.
    - When creating UI tests, save baseline screenshots to the repository for visual regression testing.
    - When verifying UI fixes, compare screenshots to ensure the fix doesn't introduce unintended visual changes.
@@ -66,7 +66,7 @@ Visual UI work and screenshots.
 Add the following:
 
 ```
-   - When fixing UI bugs, capture BOTH the "before" (problem) and "after" (fixed) screenshots as evidence.
+   - When fixing UI bugs, capture both the "before" (problem) and "after" (fixed) screenshots as evidence.
    - When reporting UI bugs, a screenshot of the problem state is essential for human verification.
    - When the fix is visual, the PR description should include side-by-side comparison of before/after states.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.
@@ -83,7 +83,7 @@ The following files need to be updated:
 
 ## Placement
 
-The new "Reproducible testing" section should be placed at the **beginning** of the "Solution development and testing" section to emphasize its importance. The guideline that currently reads:
+The new "Reproducible testing" section should be placed after the "Solution development and testing" section to emphasize its importance. The guideline that currently reads:
 
 ```
    - When issue is solvable, implement code with tests.
@@ -92,7 +92,7 @@ The new "Reproducible testing" section should be placed at the **beginning** of 
 Should be modified to:
 
 ```
-   - When issue is solvable, FIRST create a test that reproduces the problem, THEN implement the fix.
+   - When issue is solvable, first create a test that reproduces the problem, then implement the fix.
 ```
 
 ## Rationale

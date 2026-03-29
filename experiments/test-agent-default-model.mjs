@@ -18,7 +18,7 @@ const testCases = [
   {
     name: 'Agent tool without model flag',
     args: ['https://github.com/test/repo/issues/1', '--tool', 'agent'],
-    expected: { tool: 'agent', model: 'grok-code' },
+    expected: { tool: 'agent', model: 'kimi-k2.5-free' },
   },
   {
     name: 'Agent tool with explicit model',

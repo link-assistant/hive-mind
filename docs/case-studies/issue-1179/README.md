@@ -23,7 +23,7 @@ For UI-related issues, visual evidence (screenshots) is also essential for human
 
 The existing system prompts for AI solvers (Claude, Codex, OpenCode, Agent) include guidelines for testing, but they lack explicit emphasis on:
 
-1. **Creating reproducible tests BEFORE implementing fixes** - Following Test-Driven Development (TDD) principles
+1. **Creating reproducible tests before implementing fixes** - Following Test-Driven Development (TDD) principles
 2. **Creating minimum reproducible examples** - To isolate and verify problems
 3. **Capturing screenshots for UI issues** - As visual proof of problems and fixes
 4. **Ensuring tests are automated** - So problems don't regress silently
@@ -151,7 +151,7 @@ Industry best practices from [BrowserStack](https://www.browserstack.com/guide/1
 
 Add a new dedicated section on reproducible testing that emphasizes:
 
-1. Always create a test that reproduces the problem BEFORE implementing a fix
+1. Create a test that reproduces the problem before implementing a fix
 2. For UI bugs, capture a screenshot showing the problem state
 3. Tests should be automated and added to the test suite
 4. The fix is only complete when the reproducing test passes

@@ -130,10 +130,12 @@ function formatUserError(error, verbose) {
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb } = options;
 
   bot.command(/^merge$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -154,12 +156,13 @@ export function registerMergeCommand(bot, options) {
       });
     }
 
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
-      return await ctx.reply(`This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      return await ctx.reply(errMsg, { reply_to_message_id: ctx.message.message_id });
     }
+
+    const chatId = ctx.chat.id;
 
     // Parse arguments
     const args = parseCommandArgs(ctx.message.text);

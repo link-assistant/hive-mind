@@ -77,6 +77,12 @@ const config = yargs(hideBin(process.argv))
     alias: 'allowed-chats',
     default: getenv('TELEGRAM_ALLOWED_CHATS', ''),
   })
+  .option('allowedTopics', {
+    type: 'string',
+    description: 'Allowed topic IDs in Links Notation format "chatId topicId" pairs',
+    alias: 'allowed-topics',
+    default: getenv('TELEGRAM_ALLOWED_TOPICS', ''),
+  })
   .option('solveOverrides', {
     type: 'string',
     description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
@@ -152,6 +158,10 @@ if (!BOT_TOKEN) {
 // NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;
+
+// Parse allowed topics (chatId:topicId pairs in Links Notation)
+const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
+const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
 
 // Parse override options
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
@@ -276,6 +286,9 @@ if (config.dryRun) {
   } else {
     console.log('  Allowed chats: All (no restrictions)');
   }
+  if (allowedTopics && allowedTopics.length > 0) {
+    console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
+  }
   console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
@@ -316,6 +329,22 @@ const BOT_START_TIME = Math.floor(Date.now() / 1000);
 // The actual logic is in telegram-message-filters.lib.mjs for testability (issue #1207)
 function isChatAuthorized(chatId) {
   return _isChatAuthorized(chatId, allowedChats);
+}
+
+// Topic-level authorization (issue #1100): chat-level auth overrides topic-level
+function isTopicAuthorized(ctx) {
+  if (isChatAuthorized(ctx.chat?.id)) return true;
+  if (!allowedTopics || allowedTopics.length === 0) return false;
+  const chatId = ctx.chat?.id;
+  const topicId = ctx.message?.message_thread_id;
+  return allowedTopics.some(pair => pair.source === chatId && pair.target === topicId);
+}
+function buildAuthErrorMessage(ctx) {
+  const chatId = ctx.chat?.id;
+  const topicId = ctx.message?.message_thread_id;
+  let msg = `❌ This chat (ID: ${chatId})`;
+  if (topicId) msg += ` and topic (ID: ${topicId})`;
+  return msg + ' is not authorized.\n\nUse /help to see your chat and topic IDs.';
 }
 
 function isOldMessage(ctx) {
@@ -625,10 +654,11 @@ bot.command('help', async ctx => {
   const chatId = ctx.chat.id;
   const chatType = ctx.chat.type;
   const chatTitle = ctx.chat.title || 'Private Chat';
-
+  const topicId = ctx.message?.message_thread_id; // Forum topic ID (issue #1100)
   let message = '🤖 *SwarmMindBot Help*\n\n';
   message += '📋 *Diagnostic Information:*\n';
   message += `• Chat ID: \`${chatId}\`\n`;
+  if (topicId) message += `• Topic ID: \`${topicId}\`\n`;
   message += `• Chat Type: ${chatType}\n`;
   message += `• Chat Title: ${chatTitle}\n\n`;
   message += '📝 *Available Commands:*\n\n';
@@ -674,9 +704,10 @@ bot.command('help', async ctx => {
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
-  if (allowedChats) {
-    message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';
-    message += `Authorized: ${isChatAuthorized(chatId) ? '✅ Yes' : '❌ No'}`;
+  if (allowedChats || allowedTopics) {
+    const authorized = isTopicAuthorized(ctx);
+    message += `\n🔒 *Restricted Mode:* Authorized: ${authorized ? '✅ Yes' : '❌ No'}`;
+    if (!authorized && topicId) message += `\n💡 To allow this topic: \`TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"\``;
   }
 
   message += '\n\n🔧 *Troubleshooting:*\n';
@@ -733,12 +764,11 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: chat not authorized');
+      console.log('[VERBOSE] /limits ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -775,8 +805,7 @@ bot.command('version', async ctx => {
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
   if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+  if (!isTopicAuthorized(ctx)) return await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
     reply_to_message_id: ctx.message.message_id,
   });
@@ -788,37 +817,15 @@ bot.command('version', async ctx => {
 // Register /accept_invites command from separate module
 // This keeps telegram-bot.mjs under the 1500 line limit
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
-registerAcceptInvitesCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-});
-
+// Shared options for external command modules (issue #1100: added isTopicAuthorized, buildAuthErrorMessage)
+const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb };
+registerAcceptInvitesCommand(bot, sharedCommandOpts);
 // Register /merge command from separate module (experimental, see issue #1143)
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-registerMergeCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-});
-
+registerMergeCommand(bot, sharedCommandOpts);
 // Register /solve_queue command from separate module (issue #1232)
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
-const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-  getSolveQueue,
-});
+const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
@@ -876,12 +883,11 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: chat not authorized');
+      console.log('[VERBOSE] /solve ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1101,12 +1107,11 @@ async function handleHiveCommand(ctx) {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /hive ignored: chat not authorized');
+      console.log('[VERBOSE] /hive ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1200,15 +1205,8 @@ async function handleHiveCommand(ctx) {
 bot.command(/^hive$/i, handleHiveCommand);
 
 // Register /top command from separate module
-// This keeps telegram-bot.mjs under the 1500 line limit
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
-registerTopCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-});
+registerTopCommand(bot, sharedCommandOpts);
 
 // Add message listener for verbose debugging
 if (VERBOSE) {
@@ -1390,6 +1388,9 @@ if (allowedChats && allowedChats.length > 0) {
   console.log('Allowed chats (lino):', lino.format(allowedChats));
 } else {
   console.log('Allowed chats: All (no restrictions)');
+}
+if (allowedTopics && allowedTopics.length > 0) {
+  console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
 console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));

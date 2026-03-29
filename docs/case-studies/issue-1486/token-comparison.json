@@ -1,0 +1,30 @@
+{
+  "session_id": "c32add6a-2749-4b0f-9d51-ab1c4118e68f",
+  "num_turns": 39,
+  "duration_ms": 751917,
+  "jsonl_session_totals": {
+    "input_tokens": 289,
+    "cache_creation_input_tokens": 581659,
+    "cache_read_input_tokens": 20999543,
+    "output_tokens": 42583,
+    "public_pricing_estimate_usd": 15.20116
+  },
+  "result_json": {
+    "input_tokens": 39,
+    "cache_creation_input_tokens": 89964,
+    "cache_read_input_tokens": 3172578,
+    "output_tokens": 7567,
+    "total_cost_usd": 2.3379339999999993
+  },
+  "models_in_jsonl": ["claude-opus-4-6", "<synthetic>"],
+  "models_in_result_json": ["claude-opus-4-6"],
+  "analysis": {
+    "jsonl_to_result_ratio": {
+      "input_tokens": 7.41,
+      "cache_creation_tokens": 6.47,
+      "cache_read_tokens": 6.62,
+      "output_tokens": 5.63
+    },
+    "explanation": "JSONL sums ALL API calls across 39 conversation turns. Each turn re-sends the full context window, so cached tokens are counted per-call. Result JSON reports Anthropic's official per-model billing totals."
+  }
+}

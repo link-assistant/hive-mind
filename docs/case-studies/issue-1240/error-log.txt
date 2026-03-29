@@ -1,0 +1,48 @@
+# Error log from GitHub Issue #1240
+# Source: https://github.com/link-assistant/hive-mind/issues/1240
+# Date: Observed in production logs
+# Environment: Node.js v20.20.0, Telegraf (latest via use-m), VPS (vmi2955137)
+
+[VERBOSE] /limits GitHub API: 5000/5000 remaining (100% available)
+[VERBOSE] /solve-queue found 0 running claude processes
+Failed to start bot: TelegramError: 409: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+    at Telegram.callApi (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/client.js:315:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async [Symbol.asyncIterator] (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:30:33)
+    at async Polling.loop (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:73:30)
+    at async Telegraf.launch (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/telegraf.js:194:13) {
+  response: {
+    ok: false,
+    error_code: 409,
+    description: 'Conflict: terminated by other getUpdates request; make sure that only one bot instance is running'
+  },
+  on: {
+    method: 'getUpdates',
+    payload: { timeout: 50, offset: 957693729, allowed_updates: [Array] }
+  }
+}
+Error details: {
+  message: '409: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running',
+  code: 409,
+  stack: 'Error: 409: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running\n' +
+    '    at Telegram.callApi (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/client.js:315:19)\n' +
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n' +
+    '    at async [Symbol.asyncIterator] (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:30:33)\n' +
+    '    at async Polling.loop (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:73:30)'
+}
+[VERBOSE] Full error: TelegramError: 409: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+    at Telegram.callApi (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/client.js:315:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async [Symbol.asyncIterator] (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:30:33)
+    at async Polling.loop (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/core/network/polling.js:73:30)
+    at async Telegraf.launch (/home/hive/.nvm/versions/node/v20.20.0/lib/node_modules/telegraf-v-latest/lib/telegraf.js:194:13) {
+  response: {
+    ok: false,
+    error_code: 409,
+    description: 'Conflict: terminated by other getUpdates request; make sure that only one bot instance is running'
+  },
+  on: {
+    method: 'getUpdates',
+    payload: { timeout: 50, offset: 957693729, allowed_updates: [Array] }
+  }
+}

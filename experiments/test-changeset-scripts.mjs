@@ -131,11 +131,11 @@ ${description}
   writeFileSync(join(testChangesetDir, filename), content);
 }
 
-// Test 6: Merge changesets correctly combines multiple changesets
-runTest('merge-changesets.mjs combines multiple changesets', () => {
+// Test 6: Harmonize changesets keeps separate files and promotes bump types (Issue #1452 fix)
+runTest('merge-changesets.mjs harmonizes bump types while keeping separate files', () => {
   setupTestEnvironment();
   try {
-    // Create two changesets
+    // Create two changesets with different bump types
     createChangeset('first-change.md', 'patch', 'First change description');
 
     // Wait a bit to ensure different mtime
@@ -143,35 +143,35 @@ runTest('merge-changesets.mjs combines multiple changesets', () => {
 
     createChangeset('second-change.md', 'minor', 'Second change description');
 
-    // Run merge script in test directory
+    // Run harmonize script in test directory
     const { output, exitCode } = execCommand(`node ${mergeChangesetsPath}`, { cwd: testDir });
 
     if (exitCode !== 0) {
-      throw new Error(`Merge failed: ${output}`);
+      throw new Error(`Harmonize failed: ${output}`);
     }
 
-    // Check that merged changeset was created
+    // Issue #1452 fix: files should remain separate (not merged into one)
     const files = readdirSync(testChangesetDir).filter(f => f.endsWith('.md') && f !== 'README.md');
-    if (files.length !== 1) {
-      throw new Error(`Expected 1 merged changeset, found ${files.length}`);
+    if (files.length !== 2) {
+      throw new Error(`Expected 2 separate changesets, found ${files.length}`);
     }
 
     // Check that it uses the higher bump type (minor)
-    if (!output.includes('Using highest: minor')) {
-      throw new Error('Expected merged changeset to use minor bump type');
+    if (!output.includes('Highest bump type: minor')) {
+      throw new Error('Expected harmonized changesets to use minor bump type');
     }
 
-    // Check that both descriptions are included
-    if (!output.includes('First change description') || !output.includes('Second change description')) {
-      throw new Error('Merged changeset should contain both descriptions');
+    // Check that both files were promoted
+    if (!output.includes('Promoted') && !output.includes('Kept')) {
+      throw new Error('Expected promotion/keep messages');
     }
   } finally {
     cleanupTestEnvironment();
   }
 });
 
-// Test 7: Merge changesets uses major if any is major
-runTest('merge-changesets.mjs uses highest bump type (major)', () => {
+// Test 7: Harmonize changesets promotes all to major when any is major
+runTest('merge-changesets.mjs promotes all to major when any is major', () => {
   setupTestEnvironment();
   try {
     createChangeset('patch-change.md', 'patch', 'Patch change');
@@ -181,11 +181,17 @@ runTest('merge-changesets.mjs uses highest bump type (major)', () => {
     const { output, exitCode } = execCommand(`node ${mergeChangesetsPath}`, { cwd: testDir });
 
     if (exitCode !== 0) {
-      throw new Error(`Merge failed: ${output}`);
+      throw new Error(`Harmonize failed: ${output}`);
     }
 
-    if (!output.includes('Using highest: major')) {
-      throw new Error('Expected merged changeset to use major bump type');
+    if (!output.includes('Highest bump type: major')) {
+      throw new Error('Expected harmonized changesets to use major bump type');
+    }
+
+    // All 3 files should remain separate
+    const files = readdirSync(testChangesetDir).filter(f => f.endsWith('.md') && f !== 'README.md');
+    if (files.length !== 3) {
+      throw new Error(`Expected 3 separate changesets, found ${files.length}`);
     }
   } finally {
     cleanupTestEnvironment();
@@ -204,8 +210,8 @@ runTest('merge-changesets.mjs skips with single changeset', () => {
       throw new Error(`Script failed: ${output}`);
     }
 
-    if (!output.includes('No merging needed')) {
-      throw new Error('Expected script to skip merging with single changeset');
+    if (!output.includes('No harmonization needed')) {
+      throw new Error('Expected script to skip harmonization with single changeset');
     }
 
     // Verify original changeset still exists
@@ -228,8 +234,8 @@ runTest('merge-changesets.mjs skips with no changesets', () => {
       throw new Error(`Script failed: ${output}`);
     }
 
-    if (!output.includes('No merging needed')) {
-      throw new Error('Expected script to skip merging with no changesets');
+    if (!output.includes('No harmonization needed')) {
+      throw new Error('Expected script to skip harmonization with no changesets');
     }
   } finally {
     cleanupTestEnvironment();

@@ -627,12 +627,6 @@ jobs:
         run: |
           echo "Checking build logs for critical errors..."
 
-          # Check specifically for usermod failure (sandbox -> hive rename)
-          if grep -E 'usermod: command not found|usermod: user.*not found' build-output.log; then
-            echo "ERROR: User rename from sandbox to hive failed"
-            exit 1
-          fi
-
           # Check for unbound variable errors (indicates shell script issues with set -u compatibility)
           if grep -E 'unbound variable' build-output.log; then
             echo "ERROR: Unbound variable error detected in Docker build"
@@ -651,7 +645,7 @@ jobs:
           echo ""
 
           # Run verification script inside container (mounts script as read-only volume)
-          # Verifies: user rename (sandbox->hive), all dev tools, AI-specific tools
+          # Verifies: sandbox user setup (/workspace access), all dev tools, AI-specific tools
           # See scripts/verify-docker-image.sh for the full list of checks
           docker run --rm \
             -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \

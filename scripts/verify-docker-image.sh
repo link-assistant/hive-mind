@@ -7,7 +7,7 @@
 #   docker run --rm IMAGE bash scripts/verify-docker-image.sh
 #
 # This script verifies:
-#   1. User rename (sandbox -> hive)
+#   1. User setup (sandbox user with /workspace access)
 #   2. All system & development tools (from sandbox base image, alphabetical order)
 #   3. AI-specific tools (added by hive-mind on top of sandbox)
 #
@@ -20,7 +20,7 @@ set -euo pipefail
 # Third-party init scripts may reference unset variables, so we temporarily
 # disable the unbound-variable check (set -u) while sourcing them.
 # ---------------------------------------------------------------------------
-export HOME=/home/hive
+export HOME=/workspace
 # Add ~/.local/bin for user-installed binaries (e.g. opam installed by rocq install script)
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -77,40 +77,48 @@ check_tool() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1: Verify user rename (sandbox -> hive)
+# Step 1: Verify user setup (sandbox user with /workspace access)
 # ---------------------------------------------------------------------------
-echo "=== Verifying user rename (sandbox -> hive) ==="
+echo "=== Verifying user setup (sandbox user with /workspace access) ==="
 echo ""
 
 CURRENT_USER=$(whoami)
 echo "Current user: $CURRENT_USER"
-if [ "$CURRENT_USER" != "hive" ]; then
-  echo "ERROR: Expected user hive, got $CURRENT_USER"
+if [ "$CURRENT_USER" != "sandbox" ]; then
+  echo "ERROR: Expected user sandbox, got $CURRENT_USER"
   exit 1
 fi
 
-if [ "$HOME" != "/home/hive" ]; then
-  echo "ERROR: HOME should be /home/hive, got $HOME"
+if [ "$HOME" != "/workspace" ]; then
+  echo "ERROR: HOME should be /workspace, got $HOME"
   exit 1
 fi
 
-if [ ! -d /home/hive ]; then
-  echo "ERROR: /home/hive directory does not exist"
+if [ ! -d /workspace ]; then
+  echo "ERROR: /workspace directory does not exist"
   exit 1
 fi
 
-if [ ! -w /home/hive ]; then
-  echo "ERROR: /home/hive is not writable by hive user"
+if [ ! -w /workspace ]; then
+  echo "ERROR: /workspace is not writable by sandbox user"
+  exit 1
+fi
+
+# Verify sandbox user is in the sandbox group
+if id -nG sandbox | grep -qw sandbox; then
+  echo "sandbox user is in sandbox group: OK"
+else
+  echo "ERROR: sandbox user is not in the sandbox group"
   exit 1
 fi
 
 # Verify .config directory ownership (see issue #1419)
 # Root-owned .config prevents tools from creating config subdirectories at runtime
-if [ -d /home/hive/.config ]; then
-  CONFIG_OWNER=$(stat -c '%U' /home/hive/.config 2>/dev/null || stat -f '%Su' /home/hive/.config 2>/dev/null)
+if [ -d /workspace/.config ]; then
+  CONFIG_OWNER=$(stat -c '%U' /workspace/.config 2>/dev/null || stat -f '%Su' /workspace/.config 2>/dev/null)
   echo ".config directory owner: $CONFIG_OWNER"
-  if [ "$CONFIG_OWNER" != "hive" ]; then
-    echo "ERROR: /home/hive/.config is owned by $CONFIG_OWNER, expected hive"
+  if [ "$CONFIG_OWNER" != "sandbox" ]; then
+    echo "ERROR: /workspace/.config is owned by $CONFIG_OWNER, expected sandbox"
     echo "This causes EACCES errors when tools try to create config subdirectories"
     echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
     exit 1
@@ -120,17 +128,17 @@ else
   echo ".config directory does not exist yet (will be created at runtime): OK"
 fi
 
-# Verify hive user can create directories in .config (see issue #1419)
-if mkdir -p /home/hive/.config/.verify-test 2>/dev/null; then
-  rmdir /home/hive/.config/.verify-test 2>/dev/null
+# Verify sandbox user can create directories in .config (see issue #1419)
+if mkdir -p /workspace/.config/.verify-test 2>/dev/null; then
+  rmdir /workspace/.config/.verify-test 2>/dev/null
   echo ".config directory write access: OK"
 else
-  echo "ERROR: hive user cannot create directories in /home/hive/.config"
+  echo "ERROR: sandbox user cannot create directories in /workspace/.config"
   echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
   exit 1
 fi
 
-echo "User rename verification: PASSED"
+echo "User setup verification: PASSED"
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -198,7 +206,19 @@ for browser in $BROWSERS_REQUIRED; do
   fi
 done
 
-# Check optional browsers (chromium_headless_shell, ffmpeg)
+# Google Chrome is required on x86_64 — installed system-wide via `sudo playwright install chrome`
+# Check via command existence since it installs to /usr/bin/google-chrome, not the ms-playwright cache
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
+  if command -v google-chrome &>/dev/null; then
+    echo "  chrome: OK ($(google-chrome --version 2>/dev/null || echo 'installed'))"
+  else
+    echo "  chrome: MISSING"
+    BROWSERS_MISSING="$BROWSERS_MISSING chrome"
+  fi
+fi
+
+# Check optional browsers (chromium_headless_shell, ffmpeg in cache; msedge via command)
 for browser in chromium_headless_shell ffmpeg; do
   BROWSER_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/${browser}"* 2>/dev/null | head -1 || true)
   if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
@@ -207,6 +227,13 @@ for browser in chromium_headless_shell ffmpeg; do
     echo "  $browser: not installed (optional)"
   fi
 done
+
+# msedge is installed system-wide (like chrome)
+if command -v microsoft-edge &>/dev/null; then
+  echo "  msedge: OK ($(microsoft-edge --version 2>/dev/null || echo 'installed'))"
+else
+  echo "  msedge: not installed (optional)"
+fi
 
 if [ -n "$BROWSERS_MISSING" ]; then
   echo "ERROR: Required Playwright browsers missing:$BROWSERS_MISSING"

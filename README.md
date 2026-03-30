@@ -197,22 +197,22 @@ docker attach hive-mind
 
 # Extract auth data from a running (or stopped) container to the host:
 mkdir -p ~/.hive-mind
-docker cp hive-mind:/home/hive/.claude ~/.hive-mind/claude
-docker cp hive-mind:/home/hive/.claude.json ~/.hive-mind/claude.json
-docker cp hive-mind:/home/hive/.config/gh ~/.hive-mind/gh
+docker cp hive-mind:/workspace/.claude ~/.hive-mind/claude
+docker cp hive-mind:/workspace/.claude.json ~/.hive-mind/claude.json
+docker cp hive-mind:/workspace/.config/gh ~/.hive-mind/gh
 
-# Fix ownership to match the hive user inside the container:
-HIVE_UID=$(docker exec hive-mind id -u hive)
-chown -R $HIVE_UID:$HIVE_UID ~/.hive-mind/claude ~/.hive-mind/gh
-chown $HIVE_UID:$HIVE_UID ~/.hive-mind/claude.json
+# Fix ownership to match the sandbox user inside the container:
+SANDBOX_UID=$(docker exec hive-mind id -u sandbox)
+chown -R $SANDBOX_UID:$SANDBOX_UID ~/.hive-mind/claude ~/.hive-mind/gh
+chown $SANDBOX_UID:$SANDBOX_UID ~/.hive-mind/claude.json
 
 # On subsequent runs, mount the auth data to keep it between restarts:
 docker run -dit \
   --name hive-mind \
   --restart unless-stopped \
-  -v /root/.hive-mind/claude:/home/hive/.claude \
-  -v /root/.hive-mind/claude.json:/home/hive/.claude.json \
-  -v /root/.hive-mind/gh:/home/hive/.config/gh \
+  -v /root/.hive-mind/claude:/workspace/.claude \
+  -v /root/.hive-mind/claude.json:/workspace/.claude.json \
+  -v /root/.hive-mind/gh:/workspace/.config/gh \
   konard/hive-mind:latest
 ```
 

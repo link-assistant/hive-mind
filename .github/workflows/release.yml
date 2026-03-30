@@ -628,7 +628,8 @@ jobs:
           echo "Checking build logs for critical errors..."
 
           # Check for useradd failure (hive user creation in sandbox group)
-          if grep -E 'useradd: command not found|useradd:.*already exists' build-output.log; then
+          # Note: "the home directory /workspace already exists" is expected (shared from sandbox base)
+          if grep -E 'useradd: command not found|useradd: user.*already exists' build-output.log; then
             echo "ERROR: Hive user creation failed"
             exit 1
           fi

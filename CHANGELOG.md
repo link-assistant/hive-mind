@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.38.3
+
+### Patch Changes
+
+- deb31bf: fix: add multi-mechanism CI consensus, repo-wide action monitoring, and 5-min minimum CI check interval to prevent false positive "Ready to merge"
+
 ## 1.38.2
 
 ### Patch Changes

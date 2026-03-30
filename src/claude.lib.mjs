@@ -12,7 +12,7 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats, displaySubSessionStats, displayTokenComparison, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -559,6 +559,13 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
           if (usage.cache_read_input_tokens) currentSubSession.cacheReadTokens += usage.cache_read_input_tokens;
           if (usage.output_tokens) currentSubSession.outputTokens += usage.output_tokens;
           currentSubSession.messageCount++;
+          // Issue #1501: Track peak context and output per sub-session
+          if (requestContext > currentSubSession.peakContextUsage) {
+            currentSubSession.peakContextUsage = requestContext;
+          }
+          if ((usage.output_tokens || 0) > currentSubSession.peakOutputUsage) {
+            currentSubSession.peakOutputUsage = usage.output_tokens || 0;
+          }
         }
       } catch {
         // Skip lines that aren't valid JSON
@@ -636,8 +643,8 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       // Issue #1501: Peak context usage (max single-request fill) and dedup stats
       peakContextUsage: globalPeakContext,
       duplicateEntriesSkipped: duplicateCount,
-      // Issue #1491: Sub-session and compactification data
-      subSessions: subSessions.length > 1 ? subSessions : null, // Only include if compactification occurred
+      // Issue #1491/#1501: Sub-session and compactification data (always include for display)
+      subSessions,
       compactifications: compactifications.length > 0 ? compactifications : null,
     };
   } catch (readError) {
@@ -1297,17 +1304,8 @@ export const executeClaudeCommand = async params => {
                 await displayModelUsage(usage, log);
                 // Display budget stats if flag is enabled
                 if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
-                  await displayBudgetStats(usage, log);
+                  await displayBudgetStats(usage, tokenUsage, log);
                 }
-              }
-              // Issue #1491: Display sub-session breakdown if compactification occurred
-              if (argv.tokensBudgetStats && tokenUsage.subSessions) {
-                const primaryModelInfo = Object.values(tokenUsage.modelUsage).find(u => u.modelInfo?.limit)?.modelInfo;
-                await displaySubSessionStats(tokenUsage, primaryModelInfo, log);
-              }
-              // Issue #1491: Display stream vs JSONL token comparison
-              if (argv.tokensBudgetStats && streamTokenUsage.eventCount > 0) {
-                await displayTokenComparison(streamTokenUsage, tokenUsage, log);
               }
               // Show totals if multiple models were used
               if (modelIds.length > 1) {

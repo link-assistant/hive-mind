@@ -6,8 +6,8 @@
  * Root causes tested:
  * 1. JSONL token duplication — same message ID counted multiple times (upstream: anthropics/claude-code#6805)
  * 2. Context window shows cumulative sum instead of peak per-request usage
- * 3. Stream vs JSONL mismatch due to duplication
- * 4. Cost estimate inflation from duplicated tokens
+ * 3. Cost estimate inflation from duplicated tokens
+ * 4. Output format matches user requirements (sub-sessions, cached tokens, no noise)
  *
  * These tests use buildBudgetStatsString and accumulateModelUsage to verify correct behavior.
  */
@@ -48,12 +48,6 @@ function assertNotContains(str, substring, message = '') {
   }
 }
 
-function assertLessThan(actual, limit, message = '') {
-  if (actual >= limit) {
-    throw new Error(`${message}\nExpected ${actual} to be less than ${limit}`);
-  }
-}
-
 const OPUS_MODEL_INFO = { limit: { context: 1000000, output: 128000 } };
 
 console.log('\u{1f9ea} Running Issue #1501 regression tests: Cost and token calculation fixes\n');
@@ -64,16 +58,15 @@ console.log('\n\u{1f4cb} Test Group: Context window should NOT exceed 100% for v
 
 runTest('context window percentage with large cache reads stays reasonable', () => {
   // Simulates the PR #1500 scenario: many API calls with large cache reads
-  // After dedup, a single model's cumulative usage might still be large,
-  // but the context window display should show peak usage, not cumulative
+  // After dedup, peak context is what matters, not cumulative sum
   const tokenUsage = {
     inputTokens: 645,
     cacheCreationTokens: 2101865,
     cacheReadTokens: 73066385,
     outputTokens: 82449,
     totalTokens: 2184959,
-    // Peak context per request - the highest single-request fill
     peakContextUsage: 850000,
+    subSessions: [{ inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, messageCount: 50, peakContextUsage: 850000, peakOutputUsage: 82449 }],
     modelUsage: {
       'claude-opus-4-6': {
         inputTokens: 645,
@@ -82,31 +75,32 @@ runTest('context window percentage with large cache reads stays reasonable', () 
         outputTokens: 82449,
         modelName: 'Claude Opus 4.6',
         modelInfo: OPUS_MODEL_INFO,
-        // Peak context for this specific model
         peakContextUsage: 850000,
       },
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Should NOT show 7516.89%
+  // Should NOT show 7516.89% — that was the old bug
   assertNotContains(result, '7516', 'Context should NOT show 7516% (cumulative sum)');
-  // Should show peak context usage
-  assertContains(result, 'Peak context', 'Should show peak context window usage');
+  // Should show max context window with peak usage
+  assertContains(result, 'Max context window:', 'Should show max context window');
+  assertContains(result, '850K', 'Should show 850K peak context');
 });
 
-runTest('context window total tokens processed shown separately from peak', () => {
+runTest('output format shows totals with cached tokens separately', () => {
   const tokenUsage = {
     inputTokens: 50000,
     cacheCreationTokens: 10000,
-    cacheReadTokens: 5000,
+    cacheReadTokens: 200000,
     outputTokens: 15000,
     totalTokens: 75000,
     peakContextUsage: 60000,
+    subSessions: [{ inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 200000, outputTokens: 15000, messageCount: 10, peakContextUsage: 60000, peakOutputUsage: 15000 }],
     modelUsage: {
       'claude-opus-4-6': {
         inputTokens: 50000,
         cacheCreationTokens: 10000,
-        cacheReadTokens: 5000,
+        cacheReadTokens: 200000,
         outputTokens: 15000,
         modelName: 'Claude Opus 4.6',
         modelInfo: OPUS_MODEL_INFO,
@@ -115,9 +109,9 @@ runTest('context window total tokens processed shown separately from peak', () =
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Should show both cumulative and peak
-  assertContains(result, 'Total tokens processed', 'Should show total tokens processed label');
-  assertContains(result, 'Peak context', 'Should show peak context window');
+  // Should show "Total input tokens: X + Y cached" format
+  assertContains(result, 'Total input tokens: 60,000 + 200,000 cached', 'Should show input + cached separately');
+  assertContains(result, 'Total output tokens: 15,000 output', 'Should show total output tokens');
 });
 
 // ==== Test Group: JSONL Deduplication ====
@@ -178,45 +172,42 @@ runTest('accumulateModelUsage handles entries without message ID (legacy)', () =
   assertEqual(usage.outputTokens, 130, 'Output tokens should sum for entries without ID');
 });
 
-// ==== Test Group: Cost calculation clarity ====
-console.log('\n\u{1f4cb} Test Group: Cost and token display clarity\n');
+// ==== Test Group: Output format requirements (from PR #1502 feedback) ====
+console.log('\n\u{1f4cb} Test Group: Output format matches user requirements\n');
 
-runTest('buildBudgetStatsString shows per-model stats with clear labels', () => {
+runTest('does not show JSONL deduplication stats to user', () => {
   const tokenUsage = {
-    inputTokens: 80000,
-    cacheCreationTokens: 15000,
-    cacheReadTokens: 8000,
-    outputTokens: 25000,
-    totalTokens: 120000,
-    peakContextUsage: 95000,
-    modelUsage: {
-      'claude-opus-4-5-20251101': {
-        inputTokens: 50000,
-        cacheCreationTokens: 10000,
-        cacheReadTokens: 5000,
-        outputTokens: 15000,
-        modelName: 'Claude Opus 4.5',
-        modelInfo: { limit: { context: 200000, output: 32000 } },
-        peakContextUsage: 62000,
-      },
-      'claude-haiku-4-5-20251001': {
-        inputTokens: 30000,
-        cacheCreationTokens: 5000,
-        cacheReadTokens: 3000,
-        outputTokens: 10000,
-        modelName: 'Claude Haiku 4.5',
-        modelInfo: { limit: { context: 200000, output: 64000 } },
-        peakContextUsage: 36000,
-      },
-    },
+    inputTokens: 50000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 5000,
+    outputTokens: 15000,
+    totalTokens: 75000,
+    duplicateEntriesSkipped: 42,
+    subSessions: [{ inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 15000, messageCount: 10, peakContextUsage: 60000, peakOutputUsage: 15000 }],
+    modelUsage: { 'claude-opus-4-6': { inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 15000, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 60000 } },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Multi-model mode should show each model separately
-  assertContains(result, '**Claude Opus 4.5**', 'Should show Opus model');
-  assertContains(result, '**Claude Haiku 4.5**', 'Should show Haiku model');
+  assertNotContains(result, 'JSONL deduplication', 'Should NOT show deduplication to user');
+  assertNotContains(result, 'duplicate entries', 'Should NOT mention duplicates');
 });
 
-runTest('single model mode shows simplified output', () => {
+runTest('does not show stream vs JSONL comparison to user', () => {
+  const tokenUsage = {
+    inputTokens: 50000,
+    cacheCreationTokens: 10000,
+    cacheReadTokens: 5000,
+    outputTokens: 15000,
+    totalTokens: 75000,
+    subSessions: [{ inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 15000, messageCount: 10, peakContextUsage: 60000, peakOutputUsage: 15000 }],
+    modelUsage: { 'claude-opus-4-6': { inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 15000, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 60000 } },
+  };
+  const streamUsage = { inputTokens: 49500, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 14800, eventCount: 42 };
+  const result = buildBudgetStatsString(tokenUsage, streamUsage);
+  assertNotContains(result, 'Own calculation', 'Should NOT show stream calculation');
+  assertNotContains(result, 'JSONL calculation', 'Should NOT show JSONL calculation');
+});
+
+runTest('single sub-session shows simplified format', () => {
   const tokenUsage = {
     inputTokens: 645,
     cacheCreationTokens: 2101865,
@@ -224,21 +215,77 @@ runTest('single model mode shows simplified output', () => {
     outputTokens: 82449,
     totalTokens: 2184959,
     peakContextUsage: 850000,
+    subSessions: [{ inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, messageCount: 50, peakContextUsage: 850000, peakOutputUsage: 82449 }],
+    modelUsage: { 'claude-opus-4-6': { inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 850000 } },
+  };
+  const result = buildBudgetStatsString(tokenUsage, null);
+  // Single sub-session: simplified format with Max context / Max output
+  assertContains(result, 'Max context window:', 'Should show Max context window');
+  assertContains(result, 'Max output tokens:', 'Should show Max output tokens');
+  assertNotContains(result, 'Sub sessions', 'Single sub-session should NOT show sub-sessions list');
+});
+
+runTest('multiple sub-sessions shows numbered list', () => {
+  const tokenUsage = {
+    inputTokens: 100000,
+    cacheCreationTokens: 20000,
+    cacheReadTokens: 10000,
+    outputTokens: 30000,
+    totalTokens: 150000,
+    subSessions: [
+      { inputTokens: 60000, cacheCreationTokens: 15000, cacheReadTokens: 8000, outputTokens: 18000, messageCount: 25, peakContextUsage: 80000, peakOutputUsage: 18000 },
+      { inputTokens: 40000, cacheCreationTokens: 5000, cacheReadTokens: 2000, outputTokens: 12000, messageCount: 15, peakContextUsage: 45000, peakOutputUsage: 12000 },
+    ],
+    compactifications: [{ timestamp: '2026-03-29T10:00:00Z', preTokens: 167219, trigger: 'auto' }],
     modelUsage: {
-      'claude-opus-4-6': {
-        inputTokens: 645,
-        cacheCreationTokens: 2101865,
-        cacheReadTokens: 73066385,
-        outputTokens: 82449,
-        modelName: 'Claude Opus 4.6',
-        modelInfo: OPUS_MODEL_INFO,
-        peakContextUsage: 850000,
-      },
+      'claude-opus-4-6': { inputTokens: 100000, cacheCreationTokens: 20000, cacheReadTokens: 10000, outputTokens: 30000, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 80000 },
     },
   };
   const result = buildBudgetStatsString(tokenUsage, null);
-  // Single model should NOT show bold model name labels (simplified)
-  assertNotContains(result, '**Claude Opus 4.6**', 'Single model should not show bold label');
+  assertContains(result, 'Sub sessions (between compact events):', 'Should show sub-sessions header');
+  assertContains(result, '1. ', 'Should number first sub-session');
+  assertContains(result, '2. ', 'Should number second sub-session');
+  assertNotContains(result, 'Max context window:', 'Multiple sub-sessions should NOT show single simplified format');
+});
+
+runTest('createEmptySubSessionUsage has peak tracking fields', () => {
+  const sub = createEmptySubSessionUsage();
+  assertEqual(sub.peakContextUsage, 0, 'Should have peakContextUsage = 0');
+  assertEqual(sub.peakOutputUsage, 0, 'Should have peakOutputUsage = 0');
+  assertEqual(sub.inputTokens, 0, 'Should have inputTokens = 0');
+  assertEqual(sub.messageCount, 0, 'Should have messageCount = 0');
+});
+
+runTest('multi-model shows per-model stats with bold labels', () => {
+  const tokenUsage = {
+    inputTokens: 80000,
+    cacheCreationTokens: 15000,
+    cacheReadTokens: 8000,
+    outputTokens: 25000,
+    totalTokens: 120000,
+    subSessions: [{ inputTokens: 80000, cacheCreationTokens: 15000, cacheReadTokens: 8000, outputTokens: 25000, messageCount: 30, peakContextUsage: 95000, peakOutputUsage: 15000 }],
+    modelUsage: {
+      'claude-opus-4-5-20251101': { inputTokens: 50000, cacheCreationTokens: 10000, cacheReadTokens: 5000, outputTokens: 15000, modelName: 'Claude Opus 4.5', modelInfo: { limit: { context: 200000, output: 32000 } }, peakContextUsage: 62000 },
+      'claude-haiku-4-5-20251001': { inputTokens: 30000, cacheCreationTokens: 5000, cacheReadTokens: 3000, outputTokens: 10000, modelName: 'Claude Haiku 4.5', modelInfo: { limit: { context: 200000, output: 64000 } }, peakContextUsage: 36000 },
+    },
+  };
+  const result = buildBudgetStatsString(tokenUsage, null);
+  assertContains(result, '**Claude Opus 4.5:**', 'Should show Opus in bold');
+  assertContains(result, '**Claude Haiku 4.5:**', 'Should show Haiku in bold');
+});
+
+runTest('single model does not show bold label', () => {
+  const tokenUsage = {
+    inputTokens: 645,
+    cacheCreationTokens: 2101865,
+    cacheReadTokens: 73066385,
+    outputTokens: 82449,
+    totalTokens: 2184959,
+    subSessions: [{ inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, messageCount: 50, peakContextUsage: 850000, peakOutputUsage: 82449 }],
+    modelUsage: { 'claude-opus-4-6': { inputTokens: 645, cacheCreationTokens: 2101865, cacheReadTokens: 73066385, outputTokens: 82449, modelName: 'Claude Opus 4.6', modelInfo: OPUS_MODEL_INFO, peakContextUsage: 850000 } },
+  };
+  const result = buildBudgetStatsString(tokenUsage, null);
+  assertNotContains(result, '**Claude Opus 4.6**', 'Single model should NOT show bold label');
 });
 
 // ==== Summary ====

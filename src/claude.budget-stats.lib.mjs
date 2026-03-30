@@ -14,6 +14,8 @@ export const createEmptySubSessionUsage = () => ({
   cacheReadTokens: 0,
   outputTokens: 0,
   messageCount: 0,
+  peakContextUsage: 0,
+  peakOutputUsage: 0,
 });
 
 /**
@@ -136,195 +138,161 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
 /**
  * Display token budget statistics (context window usage and ratios)
  * @param {Object} usage - Usage data for a model
+ * @param {Object} tokenUsage - Full token usage data (with subSessions)
  * @param {Function} log - Logging function
  */
-export const displayBudgetStats = async (usage, log) => {
+export const displayBudgetStats = async (usage, tokenUsage, log) => {
   const modelInfo = usage.modelInfo;
   if (!modelInfo?.limit) {
     await log('\n      ⚠️  Budget stats not available (no model limits found)');
     return;
   }
 
-  await log('\n      📊 Token Budget Statistics:');
+  await log('\n      📊 Context and tokens usage:');
 
-  // Context window usage — Issue #1501: show peak per-request usage, not cumulative
-  if (modelInfo.limit.context) {
-    const contextLimit = modelInfo.limit.context;
-    const totalInputUsed = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-    const peakContext = usage.peakContextUsage || 0;
+  const contextLimit = modelInfo.limit.context;
+  const outputLimit = modelInfo.limit.output;
+  const subSessions = tokenUsage?.subSessions || [];
+  const hasMultipleSubSessions = subSessions.length > 1;
 
-    if (peakContext > 0) {
-      const peakRatio = peakContext / contextLimit;
-      const peakPercent = (peakRatio * 100).toFixed(2);
-      await log('        Peak context window (max single request):');
-      await log(`          Peak: ${formatNumber(peakContext)} tokens`);
-      await log(`          Limit: ${formatNumber(contextLimit)} tokens`);
-      await log(`          Ratio: ${peakRatio.toFixed(4)} (${peakPercent}%)`);
+  if (hasMultipleSubSessions) {
+    await log('        Sub sessions (between compact events):');
+    for (let i = 0; i < subSessions.length; i++) {
+      const sub = subSessions[i];
+      const subPeak = sub.peakContextUsage || 0;
+      let line = `          ${i + 1}. `;
+      if (contextLimit && subPeak > 0) {
+        const pct = ((subPeak / contextLimit) * 100).toFixed(0);
+        line += `${formatNumber(subPeak)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`;
+      } else {
+        const subTotal = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
+        line += `${formatNumber(subTotal)} input tokens`;
+      }
+      if (outputLimit) {
+        const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
+        line += `; ${formatNumber(sub.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`;
+      } else {
+        line += `; ${formatNumber(sub.outputTokens)} output tokens`;
+      }
+      await log(line);
     }
-
-    await log('        Cumulative context tokens processed:');
-    await log(`          Total: ${formatNumber(totalInputUsed)} tokens`);
-  }
-
-  // Output tokens usage
-  if (modelInfo.limit.output) {
-    const outputLimit = modelInfo.limit.output;
-    const outputUsageRatio = usage.outputTokens / outputLimit;
-    const outputUsagePercent = (outputUsageRatio * 100).toFixed(2);
-
-    await log('        Output tokens:');
-    await log(`          Used: ${formatNumber(usage.outputTokens)} tokens`);
-    await log(`          Limit: ${formatNumber(outputLimit)} tokens`);
-    await log(`          Ratio: ${outputUsageRatio.toFixed(4)} (${outputUsagePercent}%)`);
-  }
-
-  // Total session tokens (input + cache_creation + output)
-  const totalSessionTokens = usage.inputTokens + usage.cacheCreationTokens + usage.outputTokens;
-  await log(`        Total session tokens: ${formatNumber(totalSessionTokens)}`);
-};
-
-/**
- * Display sub-session breakdown when compactification events occurred (Issue #1491)
- * @param {Object} tokenUsage - Token usage data with subSessions and compactifications
- * @param {Object} modelInfo - Model info with context/output limits
- * @param {Function} log - Logging function
- */
-export const displaySubSessionStats = async (tokenUsage, modelInfo, log) => {
-  if (!tokenUsage.subSessions || !tokenUsage.compactifications) return;
-
-  const contextLimit = modelInfo?.limit?.context;
-  await log(`\n      🔄 Compactification events: ${tokenUsage.compactifications.length}`);
-
-  for (let i = 0; i < tokenUsage.subSessions.length; i++) {
-    const sub = tokenUsage.subSessions[i];
-    const totalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
-    const label = i === 0 ? 'Initial session' : `After compactification #${i}`;
-
-    await log(`        Sub-session ${i + 1} (${label}):`);
-    await log(`          Messages: ${sub.messageCount}`);
-    await log(`          Context used: ${formatNumber(totalInput)} tokens`);
-    if (contextLimit) {
-      const pct = ((totalInput / contextLimit) * 100).toFixed(2);
-      await log(`          Context usage: ${pct}% of ${formatNumber(contextLimit)}`);
-    }
-    await log(`          Output: ${formatNumber(sub.outputTokens)} tokens`);
-  }
-
-  // Show compactification details
-  for (let i = 0; i < tokenUsage.compactifications.length; i++) {
-    const comp = tokenUsage.compactifications[i];
-    let detail = `        Compactification #${i + 1}: trigger=${comp.trigger}`;
-    if (comp.preTokens) detail += `, pre-compaction tokens=${formatNumber(comp.preTokens)}`;
-    await log(detail);
-  }
-};
-
-/**
- * Display stream vs JSONL token comparison (Issue #1491)
- * Shows independent calculation from stream events vs JSONL session file
- * @param {Object} streamTokenUsage - Token usage accumulated from stream JSON events
- * @param {Object} jsonlTokenUsage - Token usage calculated from JSONL session file
- * @param {Function} log - Logging function
- */
-export const displayTokenComparison = async (streamTokenUsage, jsonlTokenUsage, log) => {
-  if (!streamTokenUsage || !jsonlTokenUsage) return;
-
-  const streamTotal = streamTokenUsage.inputTokens + streamTokenUsage.cacheCreationTokens + streamTokenUsage.outputTokens;
-  const jsonlTotal = jsonlTokenUsage.inputTokens + jsonlTokenUsage.cacheCreationTokens + jsonlTokenUsage.outputTokens;
-
-  await log('\n      🔍 Token calculation comparison:');
-  await log(`        Stream JSON events: ${formatNumber(streamTotal)} tokens (${streamTokenUsage.eventCount} events)`);
-  await log(`        JSONL session file: ${formatNumber(jsonlTotal)} tokens`);
-
-  if (streamTotal !== jsonlTotal) {
-    const diff = jsonlTotal - streamTotal;
-    const pct = streamTotal > 0 ? ((diff / streamTotal) * 100).toFixed(2) : 'N/A';
-    await log(`        Difference: ${formatNumber(Math.abs(diff))} tokens (${diff > 0 ? '+' : ''}${pct}%)`);
   } else {
-    await log('        Match: calculations are consistent');
+    // Single sub-session: simplified format
+    const peakContext = usage.peakContextUsage || 0;
+    if (contextLimit) {
+      if (peakContext > 0) {
+        const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+        await log(`        Max context window: ${formatNumber(peakContext)} / ${formatNumber(contextLimit)} input tokens (${pct}%)`);
+      }
+    }
+    if (outputLimit) {
+      const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+      await log(`        Max output tokens: ${formatNumber(usage.outputTokens)} / ${formatNumber(outputLimit)} output tokens (${outPct}%)`);
+    }
   }
+
+  // Cumulative totals
+  const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
+  const cachedTokens = usage.cacheReadTokens;
+  let totalLine = `        Total input tokens: ${formatNumber(totalInputNonCached)}`;
+  if (cachedTokens > 0) totalLine += ` + ${formatNumber(cachedTokens)} cached`;
+  await log(totalLine);
+  await log(`        Total output tokens: ${formatNumber(usage.outputTokens)}`);
 };
 
 /**
- * Build budget stats string for GitHub PR comments (Issue #1491)
- * Similar to buildCostInfoString but for token budget statistics
+ * Format a token count with K/M suffix for compact display
+ * @param {number} tokens - Token count
+ * @returns {string} Formatted string like "850K" or "1.5M"
+ */
+const formatTokensCompact = tokens => {
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(tokens % 1000000 === 0 ? 0 : 1)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens % 1000 === 0 ? 0 : 0)}K`;
+  return tokens.toLocaleString();
+};
+
+/**
+ * Build budget stats string for GitHub PR comments (Issue #1491, #1501)
+ * Format requested by user: sub-sessions between compactification events,
+ * per-model breakdown, cumulative totals with cached tokens shown separately.
  * @param {Object} tokenUsage - Token usage data from calculateSessionTokens
- * @param {Object|null} streamTokenUsage - Token usage from stream JSON events
+ * @param {Object|null} streamTokenUsage - Token usage from stream JSON events (used for comparison, not displayed)
  * @returns {string} Formatted markdown string for PR comment
  */
-export const buildBudgetStatsString = (tokenUsage, streamTokenUsage) => {
+export const buildBudgetStatsString = tokenUsage => {
   if (!tokenUsage) return '';
 
-  let stats = '\n\n### 📊 **Token budget statistics:**';
+  let stats = '\n\n### 📊 **Context and tokens usage:**';
 
   // Per-model breakdown
   if (tokenUsage.modelUsage) {
     const modelIds = Object.keys(tokenUsage.modelUsage);
+    const isMultiModel = modelIds.length > 1;
+
     for (const modelId of modelIds) {
       const usage = tokenUsage.modelUsage[modelId];
       const modelName = usage.modelName || modelId;
       const contextLimit = usage.modelInfo?.limit?.context;
       const outputLimit = usage.modelInfo?.limit?.output;
-      const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
 
-      if (modelIds.length > 1) stats += `\n- **${modelName}**:`;
+      if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
-      // Issue #1501: Show peak context (max single-request fill) instead of cumulative sum
-      // The context window limit is per-request, not cumulative across the session
-      const peakContext = usage.peakContextUsage || 0;
-      if (contextLimit) {
-        if (peakContext > 0) {
-          const peakPct = ((peakContext / contextLimit) * 100).toFixed(2);
-          stats += `\n- Peak context window: ${peakContext.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${peakPct}%)`;
-        } else {
-          // Fallback: no peak data available (legacy), use cumulative but cap display
-          const contextPct = ((totalInput / contextLimit) * 100).toFixed(2);
-          stats += `\n- Context window: ${totalInput.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${contextPct}%)`;
+      // Sub-session display (Issue #1501: show per sub-session stats)
+      const subSessions = tokenUsage.subSessions || [];
+      const hasMultipleSubSessions = subSessions.length > 1;
+
+      if (hasMultipleSubSessions) {
+        // Multiple sub-sessions: show numbered list
+        stats += '\n\nSub sessions (between compact events):';
+        for (let i = 0; i < subSessions.length; i++) {
+          const sub = subSessions[i];
+          const subPeakContext = sub.peakContextUsage || 0;
+          const subTotalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
+          let line = `\n${i + 1}. `;
+          if (contextLimit && subPeakContext > 0) {
+            const pct = ((subPeakContext / contextLimit) * 100).toFixed(0);
+            line += `${formatTokensCompact(subPeakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+          } else {
+            line += `${formatTokensCompact(subTotalInput)} input tokens`;
+          }
+          if (outputLimit) {
+            const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
+            line += `; ${formatTokensCompact(sub.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
+          } else {
+            line += `; ${formatTokensCompact(sub.outputTokens)} output tokens`;
+          }
+          stats += line;
         }
       } else {
-        stats += `\n- Context tokens used: ${totalInput.toLocaleString()}`;
+        // Single sub-session (or no sub-sessions): simplified format
+        const peakContext = usage.peakContextUsage || 0;
+        if (contextLimit) {
+          if (peakContext > 0) {
+            const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+            stats += `\n- Max context window: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+          } else {
+            const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+            const pct = ((totalInput / contextLimit) * 100).toFixed(0);
+            stats += `\n- Context window: ${formatTokensCompact(totalInput)} / ${formatTokensCompact(contextLimit)} tokens (${pct}%)`;
+          }
+        }
+        if (outputLimit) {
+          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+          stats += `\n- Max output tokens: ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
+        }
       }
 
-      if (outputLimit) {
-        const outputPct = ((usage.outputTokens / outputLimit) * 100).toFixed(2);
-        stats += `\n- Output tokens: ${usage.outputTokens.toLocaleString()} / ${outputLimit.toLocaleString()} tokens (${outputPct}%)`;
-      } else {
-        stats += `\n- Output tokens: ${usage.outputTokens.toLocaleString()}`;
-      }
-
-      // Issue #1501: Show total tokens processed (cumulative) as separate metric
-      stats += `\n- Total tokens processed: ${totalInput.toLocaleString()} input, ${usage.outputTokens.toLocaleString()} output`;
+      // Cumulative totals: input tokens + cached shown separately
+      const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
+      const cachedTokens = usage.cacheReadTokens;
+      stats += `\n\nTotal input tokens: ${totalInputNonCached.toLocaleString()}`;
+      if (cachedTokens > 0) stats += ` + ${cachedTokens.toLocaleString()} cached`;
+      stats += `\nTotal output tokens: ${usage.outputTokens.toLocaleString()} output`;
     }
   }
 
-  // Sub-session breakdown if compactification occurred
-  if (tokenUsage.subSessions && tokenUsage.compactifications) {
-    stats += `\n- Compactifications: ${tokenUsage.compactifications.length}`;
-    for (let i = 0; i < tokenUsage.subSessions.length; i++) {
-      const sub = tokenUsage.subSessions[i];
-      const totalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
-      const label = i === 0 ? 'initial' : `after compactification #${i}`;
-      stats += `\n  - Sub-session ${i + 1} (${label}): ${totalInput.toLocaleString()} context, ${sub.outputTokens.toLocaleString()} output, ${sub.messageCount} messages`;
-    }
-  }
-
-  // Issue #1501: Show deduplication stats if any duplicates were skipped
-  if (tokenUsage.duplicateEntriesSkipped > 0) {
-    stats += `\n- JSONL deduplication: ${tokenUsage.duplicateEntriesSkipped} duplicate entries skipped`;
-  }
-
-  // Stream vs JSONL comparison
-  if (streamTokenUsage) {
-    const streamTotal = streamTokenUsage.inputTokens + streamTokenUsage.cacheCreationTokens + streamTokenUsage.outputTokens;
-    const jsonlTotal = tokenUsage.inputTokens + tokenUsage.cacheCreationTokens + tokenUsage.outputTokens;
-    stats += `\n- Own calculation (stream): ${streamTotal.toLocaleString()} tokens (${streamTokenUsage.eventCount} events)`;
-    stats += `\n- JSONL calculation: ${jsonlTotal.toLocaleString()} tokens`;
-    if (streamTotal !== jsonlTotal) {
-      const diff = jsonlTotal - streamTotal;
-      const pct = streamTotal > 0 ? ((diff / streamTotal) * 100).toFixed(2) : 'N/A';
-      stats += ` (diff: ${diff > 0 ? '+' : ''}${pct}%)`;
-    }
-  }
+  // Stream vs JSONL comparison — kept for internal diagnostics only in verbose/debug mode
+  // Not shown to users per feedback (Issue #1501 PR comment)
 
   return stats;
 };

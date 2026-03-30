@@ -66,7 +66,9 @@ RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head
     if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
       ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin && \
       chown -h hive:sandbox /workspace/.node-bin; \
-    fi
+    fi && \
+    # Ensure nvm directories are group-writable so hive user can npm install -g
+    chmod -R g+w /workspace/.nvm 2>/dev/null || true
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 
@@ -100,11 +102,11 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
 # --- Playwright Browser Automation Setup ---
 # Install Playwright MCP server for browser automation via Claude CLI
 # Note: npm is available via the .node-bin symlink in PATH
-RUN npm install -g @playwright/mcp@latest --no-fund --silent
+RUN npm install -g @playwright/mcp@latest --no-fund
 
 # Install Playwright CLI and all browsers
 # Architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-RUN npm install -g @playwright/test@latest --no-fund --silent && \
+RUN npm install -g @playwright/test@latest --no-fund && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium chrome firefox webkit msedge chromium-headless-shell; \

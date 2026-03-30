@@ -352,18 +352,14 @@ test('Scenario: CI success on SHA-A, then new push SHA-B — should wait for new
 console.log('\n📋 Edge Cases\n');
 
 test('Single iteration, no checks, PR triggers → waits', () => {
-  const checks = [
-    { headSha: 'aaa', ciStatusStatus: 'no_checks', workflowRuns: [] },
-  ];
+  const checks = [{ headSha: 'aaa', ciStatusStatus: 'no_checks', workflowRuns: [] }];
   const results = simulateWatchLoop(checks);
   assert(results[0].blockerCount === 1, 'Should wait on first check');
   assert(results[0].checkCount === 1, 'Counter should be 1');
 });
 
 test('No PR triggers, old commit → noCiTriggered immediately regardless of counter', () => {
-  const checks = [
-    { headSha: 'aaa', ciStatusStatus: 'no_checks', workflowRuns: [], hasPRTriggers: false, commitAgeSeconds: 600 },
-  ];
+  const checks = [{ headSha: 'aaa', ciStatusStatus: 'no_checks', workflowRuns: [], hasPRTriggers: false, commitAgeSeconds: 600 }];
   const results = simulateWatchLoop(checks);
   assert(results[0].noCiTriggered === true, 'Should conclude noCiTriggered when no PR triggers');
 });

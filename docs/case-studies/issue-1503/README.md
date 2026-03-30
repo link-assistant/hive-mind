@@ -10,16 +10,16 @@ to fire prematurely after a new commit was pushed.
 
 ## Timeline
 
-| Time (UTC) | Event |
-| ---------- | ----- |
-| 11:35:28   | Initial .gitkeep commit `1ccd0e4` pushed (PR #87 created) |
-| 11:35:35   | PR #87 created on xlabtg/teleton-plugins |
-| 11:38:12   | Fix commit `6e76a8d` pushed |
-| 11:39:05   | Revert .gitkeep commit `2f5b301` pushed (HEAD) |
-| 11:39:13   | CI workflow runs created for HEAD SHA |
+| Time (UTC) | Event                                                       |
+| ---------- | ----------------------------------------------------------- |
+| 11:35:28   | Initial .gitkeep commit `1ccd0e4` pushed (PR #87 created)   |
+| 11:35:35   | PR #87 created on xlabtg/teleton-plugins                    |
+| 11:38:12   | Fix commit `6e76a8d` pushed                                 |
+| 11:39:05   | Revert .gitkeep commit `2f5b301` pushed (HEAD)              |
+| 11:39:13   | CI workflow runs created for HEAD SHA                       |
 | 11:39:17   | CI check-runs start (Lint, Build, Test, TypeScript, deploy) |
-| 11:40:22   | "Ready to merge" comment posted (FALSE POSITIVE) |
-| 11:39:38   | CI / Build (SDK with DTS) completes (last check) |
+| 11:40:22   | "Ready to merge" comment posted (FALSE POSITIVE)            |
+| 11:39:38   | CI / Build (SDK with DTS) completes (last check)            |
 
 Note: The "Ready to merge" comment at 11:40:22 was posted 44 seconds after all checks
 had actually completed at 11:39:38. The screenshot captured the state while CI was still
@@ -39,6 +39,7 @@ const { blockers } = await getMergeBlockers(owner, repo, prNumber, argv.verbose,
 ```
 
 The `checkCount` parameter controls a safety valve in `getMergeBlockers`:
+
 - When `no_checks` + `hasPRTriggers` + `workflowRuns.length === 0`
 - If `checkCount >= MAX_NO_RUNS_CHECKS (5)` → conclude "CI was not triggered"
 
@@ -66,6 +67,7 @@ Iteration 6:   New commit B pushed, no workflow runs yet (checkCount = 6)
 ### 1. Per-SHA consecutive counter (solve.auto-merge.lib.mjs)
 
 Track `consecutiveNoRunsChecks` separately from `iteration`, and reset it when:
+
 - The HEAD SHA changes (new push detected)
 - CI checks are found (status is not `no_checks`)
 

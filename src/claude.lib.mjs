@@ -480,7 +480,7 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
   }
   return totalCost;
 };
-export const calculateSessionTokens = async (sessionId, tempDir) => {
+export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
   // Construct the path to the session JSONL file
@@ -576,6 +576,49 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }
+    // Issue #1508: Merge resultModelUsage from Claude Code result JSON when available.
+    // The JSONL file may miss sub-agent model entries (e.g., Haiku used internally by Claude Code),
+    // while resultModelUsage from the success result event has the authoritative per-model breakdown.
+    if (resultModelUsage && typeof resultModelUsage === 'object') {
+      for (const [modelId, resultUsage] of Object.entries(resultModelUsage)) {
+        if (modelId.startsWith('<') && modelId.endsWith('>')) continue; // Skip synthetic models
+        if (!modelUsage[modelId]) {
+          // Model not in JSONL at all — add it from resultModelUsage
+          modelUsage[modelId] = {
+            inputTokens: resultUsage.inputTokens || 0,
+            cacheCreationTokens: resultUsage.cacheCreationInputTokens || 0,
+            cacheCreation5mTokens: 0,
+            cacheCreation1hTokens: 0,
+            cacheReadTokens: resultUsage.cacheReadInputTokens || 0,
+            outputTokens: resultUsage.outputTokens || 0,
+            webSearchRequests: resultUsage.webSearchRequests || 0,
+            // Mark as sourced from result JSON for diagnostics
+            _sourceResultJson: true,
+          };
+          // Use resultModelUsage costUSD if provided (Anthropic's calculation)
+          if (resultUsage.costUSD !== undefined && resultUsage.costUSD !== null) {
+            modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
+          }
+        } else {
+          // Model exists in JSONL — check if resultModelUsage has higher token counts
+          // (JSONL may under-count due to deduplication or missing entries)
+          const jsonlUsage = modelUsage[modelId];
+          const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
+          const resultTotal = (resultUsage.inputTokens || 0) + (resultUsage.cacheCreationInputTokens || 0) + (resultUsage.cacheReadInputTokens || 0) + (resultUsage.outputTokens || 0);
+          if (resultTotal > jsonlTotal) {
+            // resultModelUsage has more tokens — use it as authoritative source
+            jsonlUsage.inputTokens = resultUsage.inputTokens || 0;
+            jsonlUsage.cacheCreationTokens = resultUsage.cacheCreationInputTokens || 0;
+            jsonlUsage.cacheReadTokens = resultUsage.cacheReadInputTokens || 0;
+            jsonlUsage.outputTokens = resultUsage.outputTokens || 0;
+            jsonlUsage._sourceResultJson = true;
+          }
+          if (resultUsage.costUSD !== undefined && resultUsage.costUSD !== null) {
+            jsonlUsage._resultCostUSD = resultUsage.costUSD;
+          }
+        }
+      }
+    }
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
       return null;
@@ -605,7 +648,8 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
         usage.modelName = modelInfo.name || modelId;
         usage.modelInfo = modelInfo; // Store complete model info
       } else {
-        usage.costUSD = null;
+        // Issue #1508: Use costUSD from resultModelUsage if we couldn't fetch model info
+        usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
         usage.modelInfo = null;
@@ -1285,7 +1329,7 @@ export const executeClaudeCommand = async params => {
       // Calculate and display total token usage from session JSONL file
       if (sessionId && tempDir) {
         try {
-          const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+          const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
           if (tokenUsage) {
             // Issue #1501: Log deduplication stats in verbose mode
             if (tokenUsage.duplicateEntriesSkipped > 0) {
@@ -1298,9 +1342,15 @@ export const executeClaudeCommand = async params => {
             // Display per-model breakdown
             if (tokenUsage.modelUsage) {
               const modelIds = Object.keys(tokenUsage.modelUsage);
+              // Issue #1508: Note when resultModelUsage was used to supplement JSONL data
+              const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
+              if (modelsFromResult.length > 0) {
+                await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
+              }
               for (const modelId of modelIds) {
                 const usage = tokenUsage.modelUsage[modelId];
-                await log(`\n   📊 ${usage.modelName || modelId}:`);
+                const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
+                await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
                 await displayModelUsage(usage, log);
                 // Display budget stats if flag is enabled
                 if (argv.tokensBudgetStats && usage.modelInfo?.limit) {

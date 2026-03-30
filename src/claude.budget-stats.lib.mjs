@@ -212,9 +212,12 @@ const formatTokensCompact = tokens => {
 };
 
 /**
- * Build budget stats string for GitHub PR comments (Issue #1491, #1501)
+ * Build budget stats string for GitHub PR comments (Issue #1491, #1501, #1508)
  * Format requested by user: sub-sessions between compactification events,
  * per-model breakdown, cumulative totals with cached tokens shown separately.
+ * Issue #1508: When multiple models are used, token and context usage is now split by model.
+ * Sub-sessions are shown as a global section (not duplicated per model) since JSONL
+ * sub-session tracking is global across all models.
  * @param {Object} tokenUsage - Token usage data from calculateSessionTokens
  * @param {Object|null} streamTokenUsage - Token usage from stream JSON events (used for comparison, not displayed)
  * @returns {string} Formatted markdown string for PR comment
@@ -229,6 +232,40 @@ export const buildBudgetStatsString = tokenUsage => {
     const modelIds = Object.keys(tokenUsage.modelUsage);
     const isMultiModel = modelIds.length > 1;
 
+    // Issue #1508: For multi-model sessions, show sub-sessions once (globally), not per-model
+    // Sub-sessions track compactification boundaries which are session-wide, not model-specific
+    const subSessions = tokenUsage.subSessions || [];
+    const hasMultipleSubSessions = subSessions.length > 1;
+
+    if (isMultiModel && hasMultipleSubSessions) {
+      // Show global sub-sessions first for multi-model, using the primary model's limits
+      const primaryModelId = modelIds[0];
+      const primaryUsage = tokenUsage.modelUsage[primaryModelId];
+      const contextLimit = primaryUsage.modelInfo?.limit?.context;
+      const outputLimit = primaryUsage.modelInfo?.limit?.output;
+
+      stats += '\n\nSub sessions (between compact events):';
+      for (let i = 0; i < subSessions.length; i++) {
+        const sub = subSessions[i];
+        const subPeakContext = sub.peakContextUsage || 0;
+        const subTotalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
+        let line = `\n${i + 1}. `;
+        if (contextLimit && subPeakContext > 0) {
+          const pct = ((subPeakContext / contextLimit) * 100).toFixed(0);
+          line += `${formatTokensCompact(subPeakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+        } else {
+          line += `${formatTokensCompact(subTotalInput)} input tokens`;
+        }
+        if (outputLimit) {
+          const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
+          line += `; ${formatTokensCompact(sub.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
+        } else {
+          line += `; ${formatTokensCompact(sub.outputTokens)} output tokens`;
+        }
+        stats += line;
+      }
+    }
+
     for (const modelId of modelIds) {
       const usage = tokenUsage.modelUsage[modelId];
       const modelName = usage.modelName || modelId;
@@ -237,12 +274,9 @@ export const buildBudgetStatsString = tokenUsage => {
 
       if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
-      // Sub-session display (Issue #1501: show per sub-session stats)
-      const subSessions = tokenUsage.subSessions || [];
-      const hasMultipleSubSessions = subSessions.length > 1;
-
-      if (hasMultipleSubSessions) {
-        // Multiple sub-sessions: show numbered list
+      // Issue #1508: For single-model sessions, show sub-sessions under that model
+      // For multi-model sessions, sub-sessions are already shown globally above
+      if (!isMultiModel && hasMultipleSubSessions) {
         stats += '\n\nSub sessions (between compact events):';
         for (let i = 0; i < subSessions.length; i++) {
           const sub = subSessions[i];
@@ -263,7 +297,7 @@ export const buildBudgetStatsString = tokenUsage => {
           }
           stats += line;
         }
-      } else {
+      } else if (!hasMultipleSubSessions) {
         // Single sub-session (or no sub-sessions): simplified format
         const peakContext = usage.peakContextUsage || 0;
         if (contextLimit) {
@@ -282,12 +316,17 @@ export const buildBudgetStatsString = tokenUsage => {
         }
       }
 
-      // Cumulative totals: input tokens + cached shown separately
+      // Cumulative totals per model: input tokens + cached shown separately
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
       stats += `\n\nTotal input tokens: ${formatTokensCompact(totalInputNonCached)}`;
       if (cachedTokens > 0) stats += ` + ${formatTokensCompact(cachedTokens)} cached`;
       stats += `\nTotal output tokens: ${formatTokensCompact(usage.outputTokens)} output`;
+
+      // Issue #1508: Show per-model cost when available
+      if (usage.costUSD !== null && usage.costUSD !== undefined) {
+        stats += `\nCost: $${usage.costUSD.toFixed(6)}`;
+      }
     }
   }
 

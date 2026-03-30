@@ -399,7 +399,7 @@ export async function attachLogToGitHub(options) {
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
-        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+        const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
         if (tokenUsage) {
           if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
             totalCostUSD = tokenUsage.totalCostUSD;

@@ -1385,10 +1385,12 @@ export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
  */
-export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false) {
+export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false, ref = null) {
   try {
-    // List workflow files in .github/workflows/
-    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+    // Issue #1503: Support querying workflow files from a specific branch (ref)
+    const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+    // List workflow files in .github/workflows/ (uses ref if provided, otherwise default branch)
+    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
     const files = JSON.parse(listJson.trim() || '[]');
 
     if (files.length === 0) {
@@ -1408,8 +1410,8 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
 
     for (const file of files) {
       try {
-        // Fetch file content (use raw content from the API)
-        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}" --jq '.content'`);
+        // Issue #1503: Fetch file content using same ref parameter for branch-specific workflows
+        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}${refParam}" --jq '.content'`);
         const content = Buffer.from(contentJson.trim().replace(/"/g, ''), 'base64').toString('utf-8');
 
         const triggers = [];

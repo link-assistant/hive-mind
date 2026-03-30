@@ -187,7 +187,7 @@ const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCh
  * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
  * - no_checks: No CI checks yet (race condition) → wait
  */
-const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1) => {
+const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null) => {
   const blockers = [];
 
   // Use detailed CI status to distinguish between all possible states
@@ -269,7 +269,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           const commitInfo = await getCommitDate(owner, repo, ciStatus.sha, verbose);
 
           // Issue #1480: Parse workflow files for PR triggers (used in both grace period and post-grace checks)
-          const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose);
+          const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, prBranchRef);
 
           // Issue #1480: If .github/workflows folder doesn't exist or has no workflow files,
           // that's a definitive signal — no CI/CD will execute, skip grace period entirely
@@ -376,7 +376,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
       // (e.g., CodeFactor, Codecov). Check if the repo has workflows that should produce runs.
       const repoWorkflows = await getActiveRepoWorkflows(owner, repo, verbose);
       if (repoWorkflows.hasWorkflows) {
-        const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose);
+        const prTriggers = await checkWorkflowsHavePRTriggers(owner, repo, verbose, prBranchRef);
         if (prTriggers.hasPRTriggers) {
           // Repo has workflows with PR triggers but no runs yet — CI hasn't started
           // This is the exact scenario from Case 2 of Issue #1480
@@ -513,6 +513,19 @@ export const watchUntilMergeable = async params => {
 
   let currentBackoffSeconds = watchInterval;
 
+  // Issue #1503: Track consecutive "no workflow runs" checks per-SHA separately from iteration count.
+  // The `checkCount` parameter in getMergeBlockers is a safety valve that triggers after
+  // MAX_NO_RUNS_CHECKS (5) consecutive checks with zero workflow runs, concluding CI was
+  // genuinely not triggered (paths-ignore, fork PRs, etc.). Previously, `iteration` (total
+  // loop count) was passed as `checkCount`, which meant after 5 iterations (regardless of
+  // CI state), any new push would immediately trigger the safety valve because checkCount
+  // was already >= 5. This caused false positive "Ready to merge" when a new commit was
+  // pushed and CI hadn't registered yet.
+  //
+  // Fix: Track the HEAD SHA and reset the counter when it changes (new push detected).
+  let consecutiveNoRunsChecks = 0;
+  let lastKnownHeadSha = null;
+
   await log('');
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
@@ -554,8 +567,47 @@ export const watchUntilMergeable = async params => {
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
 
     try {
+      // Issue #1503: Get the current HEAD SHA to detect new pushes and reset the
+      // consecutive no-runs counter. This prevents false positives where the counter
+      // from a previous commit's checks carries over to a new commit.
+      let currentHeadSha = null;
+      try {
+        const shaResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRefOid --jq .headRefOid`;
+        if (shaResult.code === 0) {
+          currentHeadSha = shaResult.stdout.toString().trim();
+        }
+      } catch {
+        // If SHA check fails, proceed with current counter (safe: doesn't reset)
+      }
+      if (currentHeadSha && currentHeadSha !== lastKnownHeadSha) {
+        if (lastKnownHeadSha !== null) {
+          await log(formatAligned('🔄', 'New commit detected:', `${lastKnownHeadSha.substring(0, 7)} → ${currentHeadSha.substring(0, 7)} (resetting CI check counter)`, 2));
+        }
+        lastKnownHeadSha = currentHeadSha;
+        consecutiveNoRunsChecks = 0;
+        // Issue #1503: Also reset the readyToMergeCommentPosted flag when SHA changes,
+        // so a new "Ready to merge" comment can be posted for the new commit's CI results.
+        readyToMergeCommentPosted = false;
+      }
+
+      // Issue #1503: Increment counter; getMergeBlockers will use it as a safety valve.
+      // If getMergeBlockers sees no workflow runs on this check, the counter stays incremented.
+      // If it sees workflow runs or checks, the counter is irrelevant (different code paths).
+      consecutiveNoRunsChecks++;
+
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, iteration);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+
+      // Issue #1503: Reset consecutive counter when CI checks or workflow runs were found.
+      // This ensures the safety valve only fires after truly consecutive "no runs" checks,
+      // not after interleaved pending/success/failure states that happened to reach the count.
+      if (ciStatus && ciStatus.status !== 'no_checks') {
+        // CI checks exist (pending, success, failure, etc.) — the "no runs" counter is irrelevant
+        consecutiveNoRunsChecks = 0;
+      } else if (noCiConfigured || noCiTriggered) {
+        // CI was definitively determined: either not configured or not triggered.
+        // Keep the counter as-is (it reached the safety valve or wasn't needed).
+      }
 
       // Check for new comments from non-bot users
       const { hasNewComments, comments } = await checkForNonBotComments(owner, repo, prNumber, issueNumber, lastCheckTime, argv.verbose);

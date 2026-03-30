@@ -62,8 +62,9 @@ RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head
       ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin && \
       chown -h hive:sandbox /workspace/.node-bin; \
     fi && \
-    # Ensure nvm directories are group-writable so hive user can npm install -g
-    chmod -R g+w /workspace/.nvm 2>/dev/null || true
+    # Ensure all workspace tool directories are group-writable so hive user
+    # (in sandbox group) can write to them (npm install -g, pyenv rehash, etc.)
+    chmod -R g+w /workspace 2>/dev/null || true
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 

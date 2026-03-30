@@ -147,18 +147,23 @@ export const displayBudgetStats = async (usage, log) => {
 
   await log('\n      📊 Token Budget Statistics:');
 
-  // Context window usage
+  // Context window usage — Issue #1501: show peak per-request usage, not cumulative
   if (modelInfo.limit.context) {
     const contextLimit = modelInfo.limit.context;
-    // Input tokens include regular input + cache creation + cache read
     const totalInputUsed = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
-    const contextUsageRatio = totalInputUsed / contextLimit;
-    const contextUsagePercent = (contextUsageRatio * 100).toFixed(2);
+    const peakContext = usage.peakContextUsage || 0;
 
-    await log('        Context window:');
-    await log(`          Used: ${formatNumber(totalInputUsed)} tokens`);
-    await log(`          Limit: ${formatNumber(contextLimit)} tokens`);
-    await log(`          Ratio: ${contextUsageRatio.toFixed(4)} (${contextUsagePercent}%)`);
+    if (peakContext > 0) {
+      const peakRatio = peakContext / contextLimit;
+      const peakPercent = (peakRatio * 100).toFixed(2);
+      await log('        Peak context window (max single request):');
+      await log(`          Peak: ${formatNumber(peakContext)} tokens`);
+      await log(`          Limit: ${formatNumber(contextLimit)} tokens`);
+      await log(`          Ratio: ${peakRatio.toFixed(4)} (${peakPercent}%)`);
+    }
+
+    await log('        Cumulative context tokens processed:');
+    await log(`          Total: ${formatNumber(totalInputUsed)} tokens`);
   }
 
   // Output tokens usage
@@ -264,9 +269,18 @@ export const buildBudgetStatsString = (tokenUsage, streamTokenUsage) => {
 
       if (modelIds.length > 1) stats += `\n- **${modelName}**:`;
 
+      // Issue #1501: Show peak context (max single-request fill) instead of cumulative sum
+      // The context window limit is per-request, not cumulative across the session
+      const peakContext = usage.peakContextUsage || 0;
       if (contextLimit) {
-        const contextPct = ((totalInput / contextLimit) * 100).toFixed(2);
-        stats += `\n- Context window: ${totalInput.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${contextPct}%)`;
+        if (peakContext > 0) {
+          const peakPct = ((peakContext / contextLimit) * 100).toFixed(2);
+          stats += `\n- Peak context window: ${peakContext.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${peakPct}%)`;
+        } else {
+          // Fallback: no peak data available (legacy), use cumulative but cap display
+          const contextPct = ((totalInput / contextLimit) * 100).toFixed(2);
+          stats += `\n- Context window: ${totalInput.toLocaleString()} / ${contextLimit.toLocaleString()} tokens (${contextPct}%)`;
+        }
       } else {
         stats += `\n- Context tokens used: ${totalInput.toLocaleString()}`;
       }
@@ -277,6 +291,9 @@ export const buildBudgetStatsString = (tokenUsage, streamTokenUsage) => {
       } else {
         stats += `\n- Output tokens: ${usage.outputTokens.toLocaleString()}`;
       }
+
+      // Issue #1501: Show total tokens processed (cumulative) as separate metric
+      stats += `\n- Total tokens processed: ${totalInput.toLocaleString()} input, ${usage.outputTokens.toLocaleString()} output`;
     }
   }
 
@@ -289,6 +306,11 @@ export const buildBudgetStatsString = (tokenUsage, streamTokenUsage) => {
       const label = i === 0 ? 'initial' : `after compactification #${i}`;
       stats += `\n  - Sub-session ${i + 1} (${label}): ${totalInput.toLocaleString()} context, ${sub.outputTokens.toLocaleString()} output, ${sub.messageCount} messages`;
     }
+  }
+
+  // Issue #1501: Show deduplication stats if any duplicates were skipped
+  if (tokenUsage.duplicateEntriesSkipped > 0) {
+    stats += `\n- JSONL deduplication: ${tokenUsage.duplicateEntriesSkipped} duplicate entries skipped`;
   }
 
   // Stream vs JSONL comparison

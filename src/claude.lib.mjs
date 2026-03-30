@@ -497,6 +497,15 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
   }
   // Initialize per-model usage tracking
   const modelUsage = {};
+  // Issue #1501: Deduplicate JSONL entries by message ID (upstream: anthropics/claude-code#6805)
+  // Claude Code's stream-json mode splits single API responses with multiple content blocks
+  // into separate JSONL entries, each with the same message ID and identical usage stats.
+  const seenMessageIds = new Set();
+  let duplicateCount = 0;
+  // Issue #1501: Track peak context usage per request (not cumulative)
+  // The context window limit is per-request, so we track the max single-request fill.
+  const peakContextByModel = {};
+  let globalPeakContext = 0;
   // Issue #1491: Track sub-sessions between compactification events
   const subSessions = [];
   let currentSubSession = createEmptySubSessionUsage();
@@ -524,9 +533,27 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
           continue;
         }
         if (entry.message && entry.message.usage && entry.message.model) {
+          // Issue #1501: Skip duplicate JSONL entries (same message ID = same API response)
+          const msgId = entry.message.id;
+          if (msgId) {
+            if (seenMessageIds.has(msgId)) {
+              duplicateCount++;
+              continue; // Skip — already counted this message's usage
+            }
+            seenMessageIds.add(msgId);
+          }
           accumulateModelUsage(modelUsage, entry);
-          // Issue #1491: Also track per-sub-session usage
+          // Issue #1501: Track peak context usage per single API request
           const usage = entry.message.usage;
+          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+          const model = entry.message.model;
+          if (requestContext > (peakContextByModel[model] || 0)) {
+            peakContextByModel[model] = requestContext;
+          }
+          if (requestContext > globalPeakContext) {
+            globalPeakContext = requestContext;
+          }
+          // Issue #1491: Also track per-sub-session usage
           if (usage.input_tokens) currentSubSession.inputTokens += usage.input_tokens;
           if (usage.cache_creation_input_tokens) currentSubSession.cacheCreationTokens += usage.cache_creation_input_tokens;
           if (usage.cache_read_input_tokens) currentSubSession.cacheReadTokens += usage.cache_read_input_tokens;
@@ -561,6 +588,8 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     // Calculate cost for each model and store all characteristics
     for (const [modelId, usage] of Object.entries(modelUsage)) {
       const modelInfo = modelInfoMap[modelId];
+      // Issue #1501: Attach peak context usage per model
+      usage.peakContextUsage = peakContextByModel[modelId] || 0;
       // Calculate cost using pricing API
       if (modelInfo) {
         const costData = calculateModelCost(usage, modelInfo, true);
@@ -604,6 +633,9 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       outputTokens: totalOutputTokens,
       totalTokens,
       totalCostUSD: hasCostData ? totalCostUSD : null,
+      // Issue #1501: Peak context usage (max single-request fill) and dedup stats
+      peakContextUsage: globalPeakContext,
+      duplicateEntriesSkipped: duplicateCount,
       // Issue #1491: Sub-session and compactification data
       subSessions: subSessions.length > 1 ? subSessions : null, // Only include if compactification occurred
       compactifications: compactifications.length > 0 ? compactifications : null,
@@ -1248,6 +1280,13 @@ export const executeClaudeCommand = async params => {
         try {
           const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
           if (tokenUsage) {
+            // Issue #1501: Log deduplication stats in verbose mode
+            if (tokenUsage.duplicateEntriesSkipped > 0) {
+              await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
+            }
+            if (tokenUsage.peakContextUsage > 0) {
+              await log(`📊 Peak single-request context: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+            }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown
             if (tokenUsage.modelUsage) {

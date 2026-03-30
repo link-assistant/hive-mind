@@ -24,11 +24,9 @@ USER root
 # No user rename or chown needed — sandbox 1.5.0 uses /workspace with ACL permissions
 RUN useradd -m -d /workspace -s /bin/bash -g sandbox hive && \
     usermod -aG sudo hive 2>/dev/null || true && \
-    # Update sudoers if present
-    if [ -f /etc/sudoers.d/sandbox ]; then \
-      cp /etc/sudoers.d/sandbox /etc/sudoers.d/hive && \
-      sed -i 's/sandbox/hive/g' /etc/sudoers.d/hive; \
-    fi
+    # Grant passwordless sudo (needed for playwright install chrome, install-deps, etc.)
+    echo 'hive ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/hive && \
+    chmod 0440 /etc/sudoers.d/hive
 
 # Install opam package manager system-wide (needed for OCaml/Rocq package management)
 # The sandbox image installs the opam binary to ~/.local/bin (user-local) but does not copy it

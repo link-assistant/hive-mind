@@ -55,7 +55,9 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
     if (onStatusUpdate) {
       try {
         await onStatusUpdate({ ...active, elapsedMs: Date.now() - startTime });
-      } catch {}
+      } catch {
+        // Ignore callback errors — continue monitoring
+      }
     }
     if (!active.hasActiveRuns) {
       return { success: true, waitedForRuns: peakRunCount > 0, timedOut: false, remainingRuns: [] };

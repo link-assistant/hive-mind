@@ -78,6 +78,13 @@ test('formatVersionMessage shows partial browser list', () => {
   assert.ok(!result.includes('Google Chrome'), `Should not show Chrome when not installed: ${result}`);
 });
 
+test('formatVersionMessage shows WebKit in Browsers section', () => {
+  const versions = { webkit: 'webkit-2248' };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('Browsers'), `Expected Browsers section but got: ${result}`);
+  assert.ok(result.includes('WebKit'), `Expected WebKit but got: ${result}`);
+});
+
 // ============================================================================
 // formatVersionMessage Tests - Browser Automation section (Issue #1506)
 // ============================================================================
@@ -96,6 +103,25 @@ test('formatVersionMessage shows Browser Automation section with all tools', () 
   assert.ok(result.includes('Playwright Test'), `Expected Playwright Test but got: ${result}`);
   assert.ok(result.includes('Playwright MCP'), `Expected Playwright MCP but got: ${result}`);
   assert.ok(result.includes('Puppeteer Browsers'), `Expected Puppeteer Browsers but got: ${result}`);
+});
+
+test('formatVersionMessage shows Playwright MCP status when connected', () => {
+  const versions = {
+    playwrightMcp: '@playwright/mcp@0.0.32',
+    playwrightMcpStatus: 'playwright: connected',
+  };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('Playwright MCP in Claude Code'), `Expected MCP status line but got: ${result}`);
+  assert.ok(result.includes('playwright: connected'), `Expected connected status but got: ${result}`);
+});
+
+test('formatVersionMessage shows not configured when MCP installed but not in Claude', () => {
+  const versions = {
+    playwrightMcp: '@playwright/mcp@0.0.32',
+    playwrightMcpStatus: null,
+  };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('not configured'), `Expected not configured status but got: ${result}`);
 });
 
 test('formatVersionMessage separates Playwright from Development Tools', () => {
@@ -184,6 +210,23 @@ test('formatVersionMessage shows wget and screen in Development Tools', () => {
   assert.ok(result.includes('Screen'), `Expected Screen but got: ${result}`);
 });
 
+test('formatVersionMessage shows curl, zip, unzip, expect, xvfb in Development Tools', () => {
+  const versions = {
+    git: 'git version 2.43.0',
+    curl: 'curl 8.5.0',
+    zip: 'Zip 3.0',
+    unzip: 'UnZip 6.00',
+    expect: 'expect version 5.45.4',
+    xvfb: 'X.Org X Server 1.21.1.4',
+  };
+  const result = formatVersionMessage(versions);
+  assert.ok(result.includes('cURL'), `Expected cURL but got: ${result}`);
+  assert.ok(result.includes('Zip'), `Expected Zip but got: ${result}`);
+  assert.ok(result.includes('Unzip'), `Expected Unzip but got: ${result}`);
+  assert.ok(result.includes('Expect'), `Expected Expect but got: ${result}`);
+  assert.ok(result.includes('Xvfb'), `Expected Xvfb but got: ${result}`);
+});
+
 // ============================================================================
 // formatVersionMessage Tests - Comprehensive output (Issue #1506)
 // ============================================================================
@@ -212,11 +255,15 @@ test('formatVersionMessage renders all sections in correct order', () => {
     nasm: 'NASM version 2.16.01',
     chrome: 'Google Chrome 137.0',
     firefox: 'Mozilla Firefox 139.0',
+    webkit: 'webkit-2248',
     playwright: '1.52.0',
     playwrightMcp: '@playwright/mcp@0.0.32',
+    playwrightMcpStatus: 'playwright: connected',
     git: 'git version 2.43.0',
     gh: 'gh version 2.65.0',
     glab: 'glab version 1.48.0',
+    curl: 'curl 8.5.0',
+    wget: 'GNU Wget 1.21.4',
     platform: 'linux (x64)',
   };
   const result = formatVersionMessage(versions);
@@ -248,12 +295,14 @@ await asyncTest('getVersionInfo returns success with expected browser keys', asy
   assert.ok('chromium' in v, 'Expected chromium key in versions');
   assert.ok('firefox' in v, 'Expected firefox key in versions');
   assert.ok('msedge' in v, 'Expected msedge key in versions');
+  assert.ok('webkit' in v, 'Expected webkit key in versions');
 });
 
 await asyncTest('getVersionInfo returns expected browser automation keys', async () => {
   const result = await getVersionInfo(false);
   const v = result.versions;
   assert.ok('playwrightTest' in v, 'Expected playwrightTest key in versions');
+  assert.ok('playwrightMcpStatus' in v, 'Expected playwrightMcpStatus key in versions');
   assert.ok('puppeteerBrowsers' in v, 'Expected puppeteerBrowsers key in versions');
 });
 
@@ -273,8 +322,13 @@ await asyncTest('getVersionInfo returns expected dev tool keys', async () => {
   assert.ok('glab' in v, 'Expected glab key in versions');
   assert.ok('nasm' in v, 'Expected nasm key in versions');
   assert.ok('fasm' in v, 'Expected fasm key in versions');
+  assert.ok('curl' in v, 'Expected curl key in versions');
   assert.ok('wget' in v, 'Expected wget key in versions');
+  assert.ok('zip' in v, 'Expected zip key in versions');
+  assert.ok('unzip' in v, 'Expected unzip key in versions');
+  assert.ok('expect' in v, 'Expected expect key in versions');
   assert.ok('screen' in v, 'Expected screen key in versions');
+  assert.ok('xvfb' in v, 'Expected xvfb key in versions');
 });
 
 await asyncTest('getVersionInfo gatherTimeMs is reasonable', async () => {

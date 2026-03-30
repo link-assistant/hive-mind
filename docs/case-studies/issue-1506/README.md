@@ -47,6 +47,13 @@ image grew to include more languages and tools, the version command was not upda
 | FASM                | full-sandbox (x86_64)         | No                   | **Missing** |
 | wget                | essentials-sandbox            | No                   | **Missing** |
 | screen              | essentials-sandbox            | No                   | **Missing** |
+| WebKit              | hive-mind Dockerfile          | No                   | **Missing** |
+| cURL                | essentials-sandbox            | No                   | **Missing** |
+| Zip                 | essentials-sandbox            | No                   | **Missing** |
+| Unzip               | essentials-sandbox            | No                   | **Missing** |
+| Expect              | full-sandbox                  | No                   | **Missing** |
+| Xvfb                | sandbox-js                    | No                   | **Missing** |
+| Playwright MCP (CC) | hive-mind Dockerfile          | No                   | **Missing** |
 
 ### Why It Matters
 
@@ -69,9 +76,17 @@ automation (Playwright, Puppeteer) is a core capability of the sandbox.
    (`kotlin -version`), Swift (`swift --version`), R (`R --version`).
 
 4. **Added development tools**: GitLab CLI (`glab --version`), NASM (`nasm --version`),
-   FASM (`fasm`), wget (`wget --version`), screen (`screen --version`).
+   FASM (`fasm`), cURL (`curl --version`), wget (`wget --version`), zip (`zip --version`),
+   unzip (`unzip -v`), expect (`expect -version`), screen (`screen --version`),
+   Xvfb (`Xvfb -version`).
 
-5. **Reorganized formatter sections**:
+5. **Added Playwright MCP status in Claude Code**: Runs `claude mcp list` to check
+   whether Playwright MCP is configured and connected in Claude Code. Shows status
+   as "connected" or "not configured" in the Browser Automation section.
+
+6. **Added WebKit**: Detects installed Playwright WebKit browser from cache directory.
+
+7. **Reorganized formatter sections**:
    - Moved Playwright/Puppeteer from "Development Tools" to new "Browser Automation" section
    - Added new "Browsers" section for browser versions
    - Added NASM/FASM to renamed "C/C++/Assembly" section
@@ -87,7 +102,7 @@ so adding 14 new version checks does not significantly impact total gather time
 
 - Unit tests added in `tests/version-info.test.mjs` covering all new sections
 - Tests verify correct section ordering, conditional display, and key presence
-- All 18 tests pass
+- All 22 tests pass (18 original + 4 new for WebKit, MCP status, curl/zip/unzip/expect/xvfb)
 
 ## Lessons Learned
 

@@ -104,7 +104,7 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
 RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
-      playwright install chromium chrome firefox webkit msedge chromium-headless-shell; \
+      playwright install chromium firefox webkit msedge chromium-headless-shell; \
     else \
       playwright install chromium firefox webkit chromium-headless-shell; \
     fi

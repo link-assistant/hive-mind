@@ -100,13 +100,10 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
     bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
 
 # --- Playwright Browser Automation Setup ---
-# Install Playwright MCP server for browser automation via Claude CLI
-# Note: npm is available via the .node-bin symlink in PATH
-RUN npm install -g @playwright/mcp@latest --no-fund
-
-# Install Playwright CLI and all browsers
+# Install Playwright MCP server and test runner together to avoid EEXIST conflicts
+# on the shared 'playwright' binary. npm is available via the .node-bin symlink in PATH.
 # Architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-RUN npm install -g @playwright/test@latest --no-fund && \
+RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund && \
     ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium chrome firefox webkit msedge chromium-headless-shell; \

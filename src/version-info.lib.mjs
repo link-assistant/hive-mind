@@ -122,7 +122,7 @@ const VERSION_COMMANDS = [
   { key: 'swift', command: 'swift --version 2>&1 | head -n1' },
 
   // R
-  { key: 'r', command: "R --version 2>&1 | head -n1" },
+  { key: 'r', command: 'R --version 2>&1 | head -n1' },
 
   // Development Tools
   { key: 'git', command: 'git --version 2>&1' },

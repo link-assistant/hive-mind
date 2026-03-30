@@ -30,23 +30,23 @@ sandbox-js (Node.js, Bun, Deno, NVM, Playwright deps)
 The `VERSION_COMMANDS` array was created when fewer tools were installed. As the sandbox
 image grew to include more languages and tools, the version command was not updated to match.
 
-| Category | Installed in Docker | Reported by /version | Status |
-| --- | --- | --- | --- |
-| Google Chrome | hive-mind Dockerfile (x86_64) | No | **Missing** |
-| Chromium | hive-mind Dockerfile | No | **Missing** |
-| Firefox | hive-mind Dockerfile | No | **Missing** |
-| Microsoft Edge | hive-mind Dockerfile (x86_64) | No | **Missing** |
-| @playwright/test | hive-mind Dockerfile | No | **Missing** |
-| @puppeteer/browsers | essentials-sandbox | No | **Missing** |
-| Ruby/rbenv | full-sandbox | No | **Missing** |
-| Kotlin | full-sandbox | No | **Missing** |
-| Swift | full-sandbox | No | **Missing** |
-| R | full-sandbox | No | **Missing** |
-| GitLab CLI (glab) | essentials-sandbox | No | **Missing** |
-| NASM | full-sandbox | No | **Missing** |
-| FASM | full-sandbox (x86_64) | No | **Missing** |
-| wget | essentials-sandbox | No | **Missing** |
-| screen | essentials-sandbox | No | **Missing** |
+| Category            | Installed in Docker           | Reported by /version | Status      |
+| ------------------- | ----------------------------- | -------------------- | ----------- |
+| Google Chrome       | hive-mind Dockerfile (x86_64) | No                   | **Missing** |
+| Chromium            | hive-mind Dockerfile          | No                   | **Missing** |
+| Firefox             | hive-mind Dockerfile          | No                   | **Missing** |
+| Microsoft Edge      | hive-mind Dockerfile (x86_64) | No                   | **Missing** |
+| @playwright/test    | hive-mind Dockerfile          | No                   | **Missing** |
+| @puppeteer/browsers | essentials-sandbox            | No                   | **Missing** |
+| Ruby/rbenv          | full-sandbox                  | No                   | **Missing** |
+| Kotlin              | full-sandbox                  | No                   | **Missing** |
+| Swift               | full-sandbox                  | No                   | **Missing** |
+| R                   | full-sandbox                  | No                   | **Missing** |
+| GitLab CLI (glab)   | essentials-sandbox            | No                   | **Missing** |
+| NASM                | full-sandbox                  | No                   | **Missing** |
+| FASM                | full-sandbox (x86_64)         | No                   | **Missing** |
+| wget                | essentials-sandbox            | No                   | **Missing** |
+| screen              | essentials-sandbox            | No                   | **Missing** |
 
 ### Why It Matters
 

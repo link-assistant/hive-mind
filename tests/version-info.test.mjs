@@ -222,29 +222,7 @@ test('formatVersionMessage renders all sections in correct order', () => {
   const result = formatVersionMessage(versions);
 
   // Verify section order using the header markers (with emojis)
-  const sectionHeaders = [
-    '*\ud83e\udd16 Hive-Mind*',
-    '*\ud83c\udfad AI Agents*',
-    '*\ud83d\udce6 JavaScript/Node.js*',
-    '*\ud83d\udc0d Python*',
-    '*\ud83e\udd80 Rust*',
-    '*\u2615 Java*',
-    '*\ud83d\udd37 Go*',
-    '*\ud83d\udc18 PHP*',
-    '*\ud83d\udce6 .NET*',
-    '*\ud83d\udc2a Perl*',
-    '*\ud83d\udc2b OCaml/Rocq*',
-    '*\ud83d\udcd0 Lean*',
-    '*\ud83d\udc8e Ruby*',
-    '*\ud83d\udfe3 Kotlin*',
-    '*\ud83e\udd85 Swift*',
-    '*\ud83d\udcca R*',
-    '*\ud83d\udd28 C/C++/Assembly*',
-    '*\ud83c\udf10 Browsers*',
-    '*\ud83c\udfad Browser Automation*',
-    '*\ud83d\udee0 Development Tools*',
-    '*\ud83d\udcbb Platform*',
-  ];
+  const sectionHeaders = ['*\ud83e\udd16 Hive-Mind*', '*\ud83c\udfad AI Agents*', '*\ud83d\udce6 JavaScript/Node.js*', '*\ud83d\udc0d Python*', '*\ud83e\udd80 Rust*', '*\u2615 Java*', '*\ud83d\udd37 Go*', '*\ud83d\udc18 PHP*', '*\ud83d\udce6 .NET*', '*\ud83d\udc2a Perl*', '*\ud83d\udc2b OCaml/Rocq*', '*\ud83d\udcd0 Lean*', '*\ud83d\udc8e Ruby*', '*\ud83d\udfe3 Kotlin*', '*\ud83e\udd85 Swift*', '*\ud83d\udcca R*', '*\ud83d\udd28 C/C++/Assembly*', '*\ud83c\udf10 Browsers*', '*\ud83c\udfad Browser Automation*', '*\ud83d\udee0 Development Tools*', '*\ud83d\udcbb Platform*'];
 
   let lastIdx = -1;
   for (const header of sectionHeaders) {

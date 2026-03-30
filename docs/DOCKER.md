@@ -115,18 +115,18 @@ This approach allows:
 To persist authentication and work between container restarts:
 
 ```bash
-# Create a volume for the hive user's home directory
-docker volume create hive-home
+# Create a volume for the sandbox user's home directory
+docker volume create sandbox-home
 
 # Run with the volume mounted
-docker run -it -v hive-home:/workspace konard/hive-mind:latest
+docker run -it -v sandbox-home:/workspace konard/hive-mind:latest
 ```
 
 ### Running in Detached Mode
 
 ```bash
 # Start a detached container
-docker run -d --name hive-worker -v hive-home:/workspace konard/hive-mind:latest sleep infinity
+docker run -d --name hive-worker -v sandbox-home:/workspace konard/hive-mind:latest sleep infinity
 
 # Execute commands in the running container
 docker exec -it hive-worker bash
@@ -145,12 +145,12 @@ services:
   hive-mind:
     image: konard/hive-mind:latest
     volumes:
-      - hive-home:/workspace
+      - sandbox-home:/workspace
     stdin_open: true
     tty: true
 
 volumes:
-  hive-home:
+  sandbox-home:
 ```
 
 Then run:

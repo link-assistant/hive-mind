@@ -20,9 +20,9 @@ The hive-mind Docker image inherits from `konard/sandbox:1.3.16` and renames the
 The coupling between user identity (`sandbox`) and filesystem layout
 (`/home/sandbox`) forced every downstream image to choose between:
 
-- **Rename** — expensive, fragile, and error-prone (current hive-mind approach)
+- **Rename** — expensive, fragile, and error-prone (old hive-mind approach)
 - **Symlink** — creates confusion between real and symlinked paths
-- **Run as sandbox** — loses the ability to have a distinct user identity
+- **Run as sandbox** — the simplest and correct approach
 
 ## Solution: Sandbox 1.5.0 `/workspace` Architecture
 
@@ -32,46 +32,45 @@ Sandbox PR [sandbox#73](https://github.com/link-foundation/sandbox/pull/73)
 | Before (≤1.3.x)                      | After (1.5.0)                           |
 | ------------------------------------ | --------------------------------------- |
 | `sandbox` user, HOME=`/home/sandbox` | `sandbox` user, HOME=`/workspace`       |
-| Downstream must rename user & paths  | Downstream adds user to `sandbox` group |
+| Downstream must rename user & paths  | Downstream uses sandbox user directly   |
 | `chown -R` on thousands of files     | Zero `chown` needed                     |
 | `sed` patches for hardcoded paths    | No path fixups needed                   |
-| Permission issues from rename        | ACL-based group permissions             |
+| Permission issues from rename        | All files owned by sandbox user         |
 
 ### How it works
 
 1. Sandbox creates a `sandbox` group and user with `-d /workspace`
 2. All runtimes installed under `/workspace/.*` (`.pyenv`, `.nvm`, `.cargo`, etc.)
-3. `setfacl` grants the `sandbox` group rwx access to `/workspace`
-4. `chmod 2775` sets the setgid bit so new files inherit group ownership
+3. `/workspace` is owned by the `sandbox` user with proper permissions
+4. Downstream images simply use `USER sandbox` — no custom user creation needed
 
 ### Downstream usage (hive-mind)
 
 ```dockerfile
 FROM konard/sandbox:1.5.0
-USER root
-RUN useradd -m -d /workspace -s /bin/bash -g sandbox hive
-USER hive
-ENV HOME=/workspace
+# No user creation needed — just use the default sandbox user
+USER sandbox
 WORKDIR /workspace
+# Install your tools...
 ```
 
-No rename, no chown, no sed patches. The `hive` user is in the `sandbox` group
-and has full access to all runtimes in `/workspace`.
+No rename, no chown, no sed patches, no custom user. The `sandbox` user owns
+`/workspace` and has full access to all runtimes.
 
 ## Changes Made
 
 ### Dockerfiles (root + coolify)
 
 - Bumped `FROM konard/sandbox:1.3.16` → `FROM konard/sandbox:1.5.0`
-- Replaced 30+ lines of user rename / chown / sed with 1-line `useradd`
+- Removed all user rename / chown / sed / useradd / chmod operations
 - Changed all `/home/hive` ENV vars to `/workspace`
+- Changed `USER hive` → `USER sandbox` throughout
 - Changed `WORKDIR` from `/home/hive` to `/workspace`
 
 ### Scripts
 
-- `coolify/start.sh`: All `/home/hive` paths → `/workspace`
-- `docker-restore-auth.sh`: Already used `/workspace` paths (no change needed)
-- `scripts/verify-docker-image.sh`: Updated user/path checks
+- `coolify/start.sh`: All `hive` user references → `sandbox`
+- `scripts/verify-docker-image.sh`: Updated user checks for `sandbox` user
 
 ### Configuration
 
@@ -79,22 +78,24 @@ and has full access to all runtimes in `/workspace`.
 
 ### Documentation
 
-- `docs/UBUNTU-SERVER.md`: Updated sandbox version reference
+- `docs/UBUNTU-SERVER.md`: Updated user reference
+- `docs/DOCKER.md`: Updated volume names
 
 ### CI/CD
 
-- `.github/workflows/release.yml`: Removed `usermod` failure check (no longer applicable)
+- `.github/workflows/release.yml`: Removed obsolete `useradd` failure check
 
 ## Impact
 
-- **Build time**: Eliminates expensive `chown -R` and `usermod -d -m` operations
-- **Reliability**: No more `sed`-based path fixups that can silently fail
+- **Build time**: Eliminates expensive `chown -R`, `usermod -d -m`, and `chmod -R g+w` operations
+- **Reliability**: No more `sed`-based path fixups or custom user creation
 - **Maintainability**: Upstream sandbox changes to runtimes work transparently
-- **Security**: ACL-based permissions are more explicit than ownership-based access
+- **Simplicity**: No custom user — just use what sandbox provides
 
 ## References
 
 - Issue: https://github.com/link-assistant/hive-mind/issues/1499
 - Sandbox PR: https://github.com/link-foundation/sandbox/pull/73
 - Sandbox release: v1.5.0
+- Sandbox browser preinstallation request: https://github.com/link-foundation/sandbox/issues/74
 - Related issues: #1394, #1419

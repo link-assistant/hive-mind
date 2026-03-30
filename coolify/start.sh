@@ -22,20 +22,20 @@ if [ ! -f /workspace/.gitconfig ]; then
   echo "  defaultBranch = main" >> /workspace/.gitconfig
   echo "[safe]" >> /workspace/.gitconfig
   echo "  directory = *" >> /workspace/.gitconfig
-  chown hive:sandbox /workspace/.gitconfig
+  chown sandbox:sandbox /workspace/.gitconfig
 fi
 
 # Fix Claude and GitHub config directories
 echo "  - Setting up Claude and GitHub directories"
 mkdir -p /workspace/.claude/plugins /workspace/.config/gh
-chown -R hive:sandbox /workspace/.claude /workspace/.config
-chown -R hive:sandbox /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
+chown -R sandbox:sandbox /workspace/.claude /workspace/.config
+chown -R sandbox:sandbox /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
 
 # Ensure /tmp has proper permissions for git operations
 chmod 1777 /tmp
 
-# Pass environment to hive user and run main logic
-exec su -s /bin/bash hive -c '
+# Pass environment to sandbox user and run main logic
+exec su -s /bin/bash sandbox -c '
 cd /app
 
 # Set token if provided

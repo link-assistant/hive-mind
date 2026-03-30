@@ -7,7 +7,7 @@
 #   docker run --rm IMAGE bash scripts/verify-docker-image.sh
 #
 # This script verifies:
-#   1. User setup (hive user in sandbox group with /workspace access)
+#   1. User setup (sandbox user with /workspace access)
 #   2. All system & development tools (from sandbox base image, alphabetical order)
 #   3. AI-specific tools (added by hive-mind on top of sandbox)
 #
@@ -77,15 +77,15 @@ check_tool() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1: Verify user setup (hive user with /workspace access via sandbox group)
+# Step 1: Verify user setup (sandbox user with /workspace access)
 # ---------------------------------------------------------------------------
-echo "=== Verifying user setup (hive user in sandbox group) ==="
+echo "=== Verifying user setup (sandbox user with /workspace access) ==="
 echo ""
 
 CURRENT_USER=$(whoami)
 echo "Current user: $CURRENT_USER"
-if [ "$CURRENT_USER" != "hive" ]; then
-  echo "ERROR: Expected user hive, got $CURRENT_USER"
+if [ "$CURRENT_USER" != "sandbox" ]; then
+  echo "ERROR: Expected user sandbox, got $CURRENT_USER"
   exit 1
 fi
 
@@ -100,15 +100,15 @@ if [ ! -d /workspace ]; then
 fi
 
 if [ ! -w /workspace ]; then
-  echo "ERROR: /workspace is not writable by hive user"
+  echo "ERROR: /workspace is not writable by sandbox user"
   exit 1
 fi
 
-# Verify hive user is in the sandbox group
-if id -nG hive | grep -qw sandbox; then
-  echo "hive user is in sandbox group: OK"
+# Verify sandbox user is in the sandbox group
+if id -nG sandbox | grep -qw sandbox; then
+  echo "sandbox user is in sandbox group: OK"
 else
-  echo "ERROR: hive user is not in the sandbox group"
+  echo "ERROR: sandbox user is not in the sandbox group"
   exit 1
 fi
 
@@ -117,8 +117,8 @@ fi
 if [ -d /workspace/.config ]; then
   CONFIG_OWNER=$(stat -c '%U' /workspace/.config 2>/dev/null || stat -f '%Su' /workspace/.config 2>/dev/null)
   echo ".config directory owner: $CONFIG_OWNER"
-  if [ "$CONFIG_OWNER" != "hive" ] && [ "$CONFIG_OWNER" != "sandbox" ]; then
-    echo "ERROR: /workspace/.config is owned by $CONFIG_OWNER, expected hive or sandbox"
+  if [ "$CONFIG_OWNER" != "sandbox" ]; then
+    echo "ERROR: /workspace/.config is owned by $CONFIG_OWNER, expected sandbox"
     echo "This causes EACCES errors when tools try to create config subdirectories"
     echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
     exit 1
@@ -128,12 +128,12 @@ else
   echo ".config directory does not exist yet (will be created at runtime): OK"
 fi
 
-# Verify hive user can create directories in .config (see issue #1419)
+# Verify sandbox user can create directories in .config (see issue #1419)
 if mkdir -p /workspace/.config/.verify-test 2>/dev/null; then
   rmdir /workspace/.config/.verify-test 2>/dev/null
   echo ".config directory write access: OK"
 else
-  echo "ERROR: hive user cannot create directories in /workspace/.config"
+  echo "ERROR: sandbox user cannot create directories in /workspace/.config"
   echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
   exit 1
 fi

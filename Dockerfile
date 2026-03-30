@@ -5,10 +5,10 @@
 # Architecture (see issue #1394, #1499 and sandbox#73):
 #   konard/sandbox (pinned version)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
-#     └── Shared /workspace directory with ACL-based group permissions
+#     └── /workspace directory owned by sandbox user
 #   hive-mind (konard/hive-mind)
 #     └── Inherits sandbox, adds AI coding assistants and browser automation
-#     └── hive user added to sandbox group for /workspace access
+#     └── Uses default sandbox user (no custom user creation needed)
 #
 # Sandbox image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in coolify/Dockerfile.
@@ -19,14 +19,6 @@
 FROM konard/sandbox:1.5.0
 
 USER root
-
-# Create hive user in the sandbox group for shared /workspace access (issue #1499)
-# No user rename or chown needed — sandbox 1.5.0 uses /workspace with ACL permissions
-RUN useradd -m -d /workspace -s /bin/bash -g sandbox hive && \
-    usermod -aG sudo hive 2>/dev/null || true && \
-    # Grant passwordless sudo (needed for playwright install chrome, install-deps, etc.)
-    echo 'hive ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/hive && \
-    chmod 0440 /etc/sudoers.d/hive
 
 # Install opam package manager system-wide (needed for OCaml/Rocq package management)
 # The sandbox image installs the opam binary to ~/.local/bin (user-local) but does not copy it
@@ -62,17 +54,13 @@ ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/
 # This allows us to add it to PATH without knowing the specific version
 RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head -1) && \
     if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
-      ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin && \
-      chown -h hive:sandbox /workspace/.node-bin; \
-    fi && \
-    # Ensure all workspace tool directories are group-writable so hive user
-    # (in sandbox group) can write to them (npm install -g, pyenv rehash, etc.)
-    chmod -R g+w /workspace 2>/dev/null || true
+      ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin; \
+    fi
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 
-# Switch to hive user for package installations
-USER hive
+# Switch to sandbox user for package installations
+USER sandbox
 WORKDIR /workspace
 
 # --- AI-specific packages installation ---
@@ -99,20 +87,16 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
     bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
 
 # --- Playwright Browser Automation Setup ---
-# Install Playwright MCP server and test runner with --force to handle shared 'playwright'
-# binary conflict (both packages provide it). npm is available via .node-bin symlink in PATH.
+# Sandbox 1.5.0 provides playwright CLI and system dependencies.
+# We add @playwright/mcp (MCP server for Claude) and @playwright/test (test runner).
+# --force handles the shared 'playwright' binary conflict between packages.
+# See: https://github.com/link-foundation/sandbox/issues/74 (request to preinstall in sandbox)
 RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force
 
-# Install Playwright OS dependencies BEFORE browsers to avoid validation errors
-# (Playwright validates system deps after download and fails if e.g. libavif16 is missing)
-# Note: HOME is overridden to /root to prevent root processes from creating
-# files under /workspace/.config with root ownership (see issue #1419)
-USER root
-RUN HOME=/root npx playwright@latest install-deps 2>/dev/null || true
-USER hive
-
 # Install browsers — architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-# Google Chrome requires sudo because it installs to system paths
+# Sandbox already has all OS-level dependencies installed.
+# Google Chrome requires sudo because it installs to system paths.
+# The sandbox user has sudo access (in sudo group with no password).
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium firefox webkit msedge chromium-headless-shell && \

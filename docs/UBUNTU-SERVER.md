@@ -35,10 +35,10 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
-4. Login to `hive` user
+4. Login to `sandbox` user
 
    ```bash
-   su - hive
+   su - sandbox
    ```
 
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete

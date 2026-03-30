@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.39.0
+
+### Minor Changes
+
+- b162658: Migrate to sandbox 1.5.0 with /workspace shared directory, replacing user rename approach with group-based access (issue #1499)
+
 ## 1.38.3
 
 ### Patch Changes

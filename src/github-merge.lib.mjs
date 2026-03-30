@@ -1455,6 +1455,9 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
 
+import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
+export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus };
+
 export default {
   READY_LABEL,
   checkReadyLabelExists,
@@ -1483,15 +1486,15 @@ export default {
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
-  // Issue #1341: Post-merge CI waiting; Issue #1363: Detect active workflows
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
   getActiveRepoWorkflows,
-  // Issue #1480: Commit date, workflow PR triggers, and previous commit CI history for race condition detection
   getCommitDate,
   checkPreviousPRCommitsHadCI,
   checkWorkflowsHavePRTriggers,
-  // Issue #1413: Use issue timeline to find genuinely linked PRs (avoids false positives from text search)
   getLinkedPRsFromTimeline,
+  getAllActiveRepoRuns,
+  waitForAllRepoActions,
+  checkCIConsensus, // Issue #1503
 };

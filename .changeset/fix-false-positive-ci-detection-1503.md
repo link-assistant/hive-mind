@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-fix: track per-SHA consecutive CI check counter to prevent false positive "Ready to merge" when CI is still running
+fix: add multi-mechanism CI consensus, repo-wide action monitoring, and 5-min minimum CI check interval to prevent false positive "Ready to merge"

@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -509,8 +509,14 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
 export const watchUntilMergeable = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, prBranch, branchName, tempDir, argv } = params;
 
-  const watchInterval = argv.watchInterval || 60; // seconds
+  const rawWatchInterval = argv.watchInterval || 60; // seconds
+  // Issue #1503: Enforce minimum 5-minute (300s) CI check interval to conserve GitHub API rate limits.
+  // This prevents excessive API calls during long-running CI pipelines.
+  const MIN_CI_CHECK_INTERVAL_SECONDS = 300;
+  const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
+  // Issue #1503: --wait-for-all-actions-in-repository-before-mergable (default: true)
+  const waitForAllRepoActionsFlag = argv.waitForAllActionsInRepositoryBeforeMergable ?? argv['wait-for-all-actions-in-repository-before-mergable'] ?? true;
 
   // Track latest session data across all iterations for accurate pricing
   let latestSessionId = null;
@@ -547,7 +553,8 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
-  await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds`, 2));
+  await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
+  await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (absolute safety)' : 'No', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
   await log('');
@@ -645,24 +652,31 @@ export const watchUntilMergeable = async params => {
 
       // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
       if (blockers.length === 0 && !hasNewComments && !hasUncommittedChanges) {
-        // Issue #1503 (enhanced): Double-check CI status before concluding PR is mergeable.
-        // Re-query CI status after a brief delay to catch race conditions where CI starts
-        // between our initial check and the "Ready to merge" decision. This is a critical
-        // defense against false positives — if CI has started in the meantime, we should
-        // NOT post "Ready to merge" and instead continue monitoring.
+        // Issue #1503 (enhanced): Multi-mechanism consensus + repo-wide action check.
+        // Before declaring PR mergeable, run multiple independent CI detection mechanisms
+        // and require all to agree. This catches race conditions where CI starts between
+        // checks or where interacting CI/CD pipelines affect mergeability.
         if (!noCiConfigured) {
           const DOUBLE_CHECK_DELAY_MS = 10000; // 10 seconds
-          await log(formatAligned('🔍', 'Double-checking CI status:', `Waiting ${DOUBLE_CHECK_DELAY_MS / 1000}s before confirming...`, 2));
+          await log(formatAligned('🔍', 'Multi-mechanism CI consensus check:', `Waiting ${DOUBLE_CHECK_DELAY_MS / 1000}s then verifying...`, 2));
           await new Promise(resolve => setTimeout(resolve, DOUBLE_CHECK_DELAY_MS));
 
-          const reconfirmCIStatus = await getDetailedCIStatus(owner, repo, prNumber, argv.verbose);
-          const reconfirmRuns = await getWorkflowRunsForSha(owner, repo, reconfirmCIStatus.sha, argv.verbose);
-          const hasNewCIActivity = reconfirmCIStatus.status === 'pending' || reconfirmRuns.some(r => r.status !== 'completed');
+          // Run multi-mechanism consensus: Check Runs API + Workflow Runs API + Repo-wide actions
+          const consensus = await checkCIConsensus({
+            owner,
+            repo,
+            prNumber,
+            sha: currentHeadSha || ciStatus?.sha,
+            waitForAllRepoActionsFlag,
+            verbose: argv.verbose,
+            getDetailedCIStatus,
+            getWorkflowRunsForSha,
+          });
 
-          if (hasNewCIActivity) {
-            await log(formatAligned('🔄', 'CI activity detected on recheck:', `status=${reconfirmCIStatus.status}, runs=${reconfirmRuns.length} (${reconfirmRuns.filter(r => r.status !== 'completed').length} in progress)`, 2));
-            await log(formatAligned('⏳', 'Continuing to monitor...', 'CI has started since initial check', 2));
-            // Reset the consecutive counter since CI is now active
+          if (!consensus.allAgree) {
+            const m = consensus.mechanisms;
+            await log(formatAligned('🔄', 'CI mechanisms DISAGREE:', `CheckRuns=${m.checkRunsAPI.status}, WorkflowRuns=${m.workflowRunsAPI.inProgress} in-progress, RepoActions=${m.repoActions.skipped ? 'skipped' : m.repoActions.count + ' active'}`, 2));
+            await log(formatAligned('⏳', 'Continuing to monitor...', 'Mechanisms must agree before declaring mergeable', 2));
             consecutiveNoRunsChecks = 0;
             lastCheckTime = currentTime;
             const actualWaitSeconds = currentBackoffSeconds;
@@ -671,7 +685,19 @@ export const watchUntilMergeable = async params => {
             await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
             continue;
           }
-          await log(formatAligned('✅', 'Double-check confirmed:', 'No new CI activity detected', 2));
+          await log(formatAligned('✅', 'All CI mechanisms agree:', `CheckRuns=${consensus.mechanisms.checkRunsAPI.status}, WorkflowRuns=complete(${consensus.mechanisms.workflowRunsAPI.total}), RepoActions=${consensus.mechanisms.repoActions.skipped ? 'skipped' : 'clear'}`, 2));
+        } else if (waitForAllRepoActionsFlag) {
+          // Even with no CI configured, check repo-wide actions for absolute safety
+          const repoRuns = await getAllActiveRepoRuns(owner, repo, argv.verbose);
+          if (repoRuns.hasActiveRuns) {
+            await log(formatAligned('⏳', 'Waiting for repo-wide actions:', `${repoRuns.count} active run(s) in repository`, 2));
+            lastCheckTime = currentTime;
+            const actualWaitSeconds = currentBackoffSeconds;
+            await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
+            await log('');
+            await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
+            continue;
+          }
         }
 
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));

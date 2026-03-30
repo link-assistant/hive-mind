@@ -120,11 +120,41 @@ only visible in terminal output, making debugging from log files impossible).
 `schedule`, `repository_dispatch`, `workflow_call`) for diagnostics. This helps distinguish
 "workflow exists but won't run on PRs" from "workflow should run on PRs but hasn't started."
 
+### 8. Multi-mechanism CI consensus (enhanced, iteration 2)
+
+Before declaring PR mergeable, the system now runs three independent CI detection mechanisms
+and requires ALL to agree:
+
+1. **Check Runs API** (`getDetailedCIStatus`) — must show `success` or `no_checks`
+2. **Workflow Runs API** (`getWorkflowRunsForSha`) — all runs must be `completed`
+3. **Repository-wide active runs** (`getAllActiveRepoRuns`) — no active runs in entire repo
+
+If any mechanism disagrees, the system retries instead of declaring mergeable. This prevents
+false positives from race conditions between different GitHub API endpoints.
+
+### 9. Repository-wide action monitoring (enhanced, iteration 2)
+
+New `--wait-for-all-actions-in-repository-before-mergable` flag (default: `true`) checks
+ALL active workflow runs across the entire repository, not just PR-specific ones. This is
+the "absolute safety mechanism" that prevents interacting CI/CD pipelines from causing false
+positives (e.g., a deploy pipeline on `main` triggered by a previous merge).
+
+Can be disabled with `--no-wait-for-all-actions-in-repository-before-mergable`.
+
+### 10. Minimum 5-minute CI check interval (enhanced, iteration 2)
+
+The watch interval is now clamped to a minimum of 300 seconds (5 minutes) to conserve
+GitHub API rate limits during long-running CI pipelines. This matches the polling interval
+used by the `/merge` command in the Telegram bot.
+
 ## Files Changed
 
-- `src/solve.auto-merge.lib.mjs` — Per-SHA counter, double-check, CI history, verbose logging
-- `src/github-merge.lib.mjs` — `checkWorkflowsHavePRTriggers` ref + non-PR trigger detection
+- `src/solve.auto-merge.lib.mjs` — Per-SHA counter, consensus check, min interval, repo-wide actions
+- `src/github-merge.lib.mjs` — Re-exports new repo-actions module
+- `src/github-merge-repo-actions.lib.mjs` — NEW: `getAllActiveRepoRuns`, `waitForAllRepoActions`, `checkCIConsensus`
+- `src/solve.config.lib.mjs` — `--wait-for-all-actions-in-repository-before-mergable` flag
 - `tests/test-false-positive-iteration-count-1503.mjs` — 20 unit tests (11 original + 9 new)
+- `tests/test-repo-actions-consensus-1503.mjs` — NEW: 30 unit tests for consensus, repo-wide, intervals
 
 ## Related Issues
 

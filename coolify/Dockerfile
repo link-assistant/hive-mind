@@ -110,7 +110,7 @@ USER hive
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
       playwright install chromium firefox webkit msedge chromium-headless-shell && \
-      sudo env "PATH=$PATH" playwright install chrome; \
+      sudo env "PATH=$PATH" HOME=/workspace playwright install chrome; \
     else \
       playwright install chromium firefox webkit chromium-headless-shell; \
     fi

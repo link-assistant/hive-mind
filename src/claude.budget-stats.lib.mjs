@@ -207,7 +207,7 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
  */
 const formatTokensCompact = tokens => {
   if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(tokens % 1000000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens % 1000 === 0 ? 0 : 0)}K`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(tokens % 1000 === 0 ? 0 : 1)}K`;
   return tokens.toLocaleString();
 };
 
@@ -285,9 +285,9 @@ export const buildBudgetStatsString = tokenUsage => {
       // Cumulative totals: input tokens + cached shown separately
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
-      stats += `\n\nTotal input tokens: ${totalInputNonCached.toLocaleString()}`;
-      if (cachedTokens > 0) stats += ` + ${cachedTokens.toLocaleString()} cached`;
-      stats += `\nTotal output tokens: ${usage.outputTokens.toLocaleString()} output`;
+      stats += `\n\nTotal input tokens: ${formatTokensCompact(totalInputNonCached)}`;
+      if (cachedTokens > 0) stats += ` + ${formatTokensCompact(cachedTokens)} cached`;
+      stats += `\nTotal output tokens: ${formatTokensCompact(usage.outputTokens)} output`;
     }
   }
 

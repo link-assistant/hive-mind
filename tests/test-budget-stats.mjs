@@ -83,7 +83,7 @@ runTest('single sub-session shows simplified format with max context/output', ()
 
 runTest('shows cached tokens separately in totals', () => {
   const result = buildBudgetStatsString(makeTokenUsage({ input: 50000, cacheCreate: 10000, cacheRead: 5000 }), null);
-  assertContains(result, 'Total input tokens: 60,000 + 5,000 cached', 'Should show input + cached separately');
+  assertContains(result, 'Total input tokens: 60K + 5K cached', 'Should show input + cached separately');
 });
 
 runTest('does not show cached when zero', () => {

@@ -110,8 +110,8 @@ runTest('output format shows totals with cached tokens separately', () => {
   };
   const result = buildBudgetStatsString(tokenUsage, null);
   // Should show "Total input tokens: X + Y cached" format
-  assertContains(result, 'Total input tokens: 60,000 + 200,000 cached', 'Should show input + cached separately');
-  assertContains(result, 'Total output tokens: 15,000 output', 'Should show total output tokens');
+  assertContains(result, 'Total input tokens: 60K + 200K cached', 'Should show input + cached separately');
+  assertContains(result, 'Total output tokens: 15K output', 'Should show total output tokens');
 });
 
 // ==== Test Group: JSONL Deduplication ====

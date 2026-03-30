@@ -70,9 +70,10 @@ console.log('Unit Tests: Issue #1503 - False positive from iteration count as ch
 console.log('================================================================================\n');
 
 // ===== Simulation of getMergeBlockers (mirrors actual logic) =====
-function simulateMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, checkCount = 1 }) {
+function simulateMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, checkCount = 1, previousCommitsHadCI = false }) {
   const blockers = [];
   const MAX_NO_RUNS_CHECKS = 5;
+  const MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY = 10;
   const WORKFLOW_RUN_GRACE_PERIOD_SECONDS = 120;
 
   if (ciStatusStatus === 'no_checks') {
@@ -91,6 +92,11 @@ function simulateMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeab
           }
           if (hasPRTriggers) {
             if (checkCount >= MAX_NO_RUNS_CHECKS) {
+              // Issue #1503 (enhanced): Extended safety valve when previous commits had CI
+              if (checkCount < MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY && previousCommitsHadCI) {
+                blockers.push({ type: 'ci_pending', message: `Extending wait — previous commits had CI (check ${checkCount}/${MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY})` });
+                return { blockers, noCiConfigured: false, noCiTriggered: false };
+              }
               return { blockers, noCiConfigured: false, noCiTriggered: true };
             }
             blockers.push({ type: 'ci_pending', message: `Waiting for workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})` });
@@ -375,6 +381,175 @@ test('Workflow runs appear on 3rd check — should block until completed', () =>
   assert(results[1].blockerCount === 1, 'Check 2: should wait');
   assert(results[2].blockerCount === 1, 'Check 3: should block (run in progress)');
   assert(!results[2].noCiTriggered, 'Check 3: should NOT conclude noCiTriggered');
+});
+
+// ===== Test Suite 5: Previous commits CI history — extended safety valve =====
+console.log('\n📋 Previous Commits CI History — Extended Safety Valve\n');
+
+test('CI history extends wait beyond MAX_NO_RUNS_CHECKS when previous commits had CI', () => {
+  // At check 6 (past MAX_NO_RUNS_CHECKS=5), if previous commits had CI,
+  // the wait should extend to MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY=10
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [],
+    hasPRTriggers: true,
+    hasWorkflowFiles: true,
+    commitAgeSeconds: 600,
+    checkCount: 6,
+    previousCommitsHadCI: true,
+  });
+
+  assert(result.blockers.length === 1, 'Should have a blocker (extended wait)');
+  assert(result.blockers[0].type === 'ci_pending', 'Blocker should be ci_pending');
+  assert(!result.noCiTriggered, 'Should NOT conclude noCiTriggered when CI history present');
+});
+
+test('CI history does NOT extend wait past MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY', () => {
+  // At check 10 (= MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY), even with CI history,
+  // the safety valve should fire
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [],
+    hasPRTriggers: true,
+    hasWorkflowFiles: true,
+    commitAgeSeconds: 600,
+    checkCount: 10,
+    previousCommitsHadCI: true,
+  });
+
+  assertNoBlockers(result);
+  assert(result.noCiTriggered === true, 'Should conclude noCiTriggered at extended limit');
+});
+
+test('Without CI history, safety valve fires at MAX_NO_RUNS_CHECKS as before', () => {
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [],
+    hasPRTriggers: true,
+    hasWorkflowFiles: true,
+    commitAgeSeconds: 600,
+    checkCount: 5,
+    previousCommitsHadCI: false,
+  });
+
+  assertNoBlockers(result);
+  assert(result.noCiTriggered === true, 'Should conclude noCiTriggered without CI history');
+});
+
+test('CI history at check 9 keeps waiting, at check 10 gives up', () => {
+  const at9 = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [],
+    hasPRTriggers: true,
+    hasWorkflowFiles: true,
+    checkCount: 9,
+    previousCommitsHadCI: true,
+  });
+  assert(at9.blockers.length === 1, 'Check 9: should still wait with CI history');
+
+  const at10 = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [],
+    hasPRTriggers: true,
+    hasWorkflowFiles: true,
+    checkCount: 10,
+    previousCommitsHadCI: true,
+  });
+  assert(at10.noCiTriggered === true, 'Check 10: safety valve fires even with CI history');
+});
+
+// ===== Test Suite 6: Double-check CI confirmation simulation =====
+console.log('\n📋 Double-Check CI Confirmation\n');
+
+test('Double-check detects CI that started between checks (simulated)', () => {
+  // Simulates the scenario where initial check shows no CI,
+  // but double-check 10s later finds CI has started.
+  // First check: no CI
+  const initialResult = simulateMergeBlockers({
+    ciStatusStatus: 'no_checks',
+    prMergeable: true,
+    repoHasWorkflows: false,
+    checkCount: 1,
+  });
+  assert(initialResult.noCiConfigured === true, 'Initial: should conclude no CI configured');
+
+  // Double-check: CI appeared (simulates what the recheck would find)
+  const recheckResult = simulateMergeBlockers({
+    ciStatusStatus: 'pending',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    checkCount: 1,
+  });
+  assert(recheckResult.blockers.length === 1, 'Recheck: should find CI pending');
+  assert(recheckResult.blockers[0].type === 'ci_pending', 'Recheck: should have ci_pending blocker');
+});
+
+test('Double-check with workflow runs still in progress blocks merge', () => {
+  // Simulates the double-check finding workflow runs that are still executing
+  const result = simulateMergeBlockers({
+    ciStatusStatus: 'success',
+    prMergeable: true,
+    repoHasWorkflows: true,
+    workflowRuns: [
+      { status: 'in_progress', conclusion: null, name: 'CI Build' },
+      { status: 'completed', conclusion: 'success', name: 'Lint' },
+    ],
+    hasPRTriggers: true,
+    checkCount: 1,
+  });
+
+  assert(result.blockers.length === 1, 'Should block when runs still in progress');
+  assert(result.blockers[0].type === 'ci_pending', 'Should have ci_pending blocker');
+});
+
+// ===== Test Suite 7: Workflow trigger detection =====
+console.log('\n📋 Workflow Trigger Detection Patterns\n');
+
+test('workflow_dispatch-only workflows should not count as PR triggers', () => {
+  // This tests the enhanced pattern matching logic.
+  // A workflow with only workflow_dispatch should not be considered as having PR triggers.
+  const content1 = 'on:\n  workflow_dispatch:\n    inputs:\n      version:\n        required: true';
+  const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
+  const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
+  const nonPROnlyPatterns = [/\bworkflow_dispatch\b/m, /\bschedule\b/m, /\brepository_dispatch\b/m, /\bworkflow_call\b/m];
+
+  const hasPRTrigger = prTriggerPatterns.some(p => p.test(content1));
+  const hasPushTrigger = pushTriggerPatterns.some(p => p.test(content1));
+  const hasNonPRTrigger = nonPROnlyPatterns.some(p => p.test(content1));
+
+  assert(!hasPRTrigger, 'workflow_dispatch should NOT match as PR trigger');
+  assert(!hasPushTrigger, 'workflow_dispatch should NOT match as push trigger');
+  assert(hasNonPRTrigger, 'workflow_dispatch SHOULD match as non-PR trigger');
+});
+
+test('Mixed triggers: push + workflow_dispatch correctly detects PR trigger', () => {
+  const content = 'on:\n  push:\n    branches: [main]\n  workflow_dispatch:';
+  const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
+
+  const hasPushTrigger = pushTriggerPatterns.some(p => p.test(content));
+  assert(hasPushTrigger, 'Should detect push trigger in mixed workflow');
+});
+
+test('Schedule-only workflow should not match as PR trigger', () => {
+  const content = 'on:\n  schedule:\n    - cron: "0 0 * * *"';
+  const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
+  const nonPROnlyPatterns = [/\bworkflow_dispatch\b/m, /\bschedule\b/m];
+
+  const hasPRTrigger = prTriggerPatterns.some(p => p.test(content));
+  const hasNonPRTrigger = nonPROnlyPatterns.some(p => p.test(content));
+
+  assert(!hasPRTrigger, 'schedule-only should NOT match as PR trigger');
+  assert(hasNonPRTrigger, 'schedule SHOULD be detected as non-PR trigger');
 });
 
 // ===== Summary =====

@@ -1394,17 +1394,14 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
     const files = JSON.parse(listJson.trim() || '[]');
 
     if (files.length === 0) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: No workflow files found in ${owner}/${repo}/.github/workflows/ — no CI/CD will execute`);
-      }
-      // Issue #1480: hasWorkflowFiles=false is a strong signal that no CI/CD is configured at the file level
+      if (verbose) console.log(`[VERBOSE] /merge: No workflow files in ${owner}/${repo}/.github/workflows/`);
       return { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] };
     }
 
     const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
-
-    // Also check for push triggers (push to PR branches triggers CI)
     const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
+    // Issue #1503: Non-PR triggers for diagnostics (won't produce check-runs on PRs)
+    const nonPROnlyTriggerPatterns = [/\bworkflow_dispatch\b/m, /\bschedule\b/m, /\brepository_dispatch\b/m, /\bworkflow_call\b/m];
 
     const results = [];
 
@@ -1421,13 +1418,15 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false,
         if (pushTriggerPatterns.some(p => p.test(content))) {
           triggers.push('push');
         }
+        // Issue #1503: Track non-PR triggers for diagnostics
+        const nonPRTriggers = nonPROnlyTriggerPatterns.filter(p => p.test(content)).map(p => p.source.replace(/\\b/g, ''));
 
         if (triggers.length > 0) {
           results.push({ name: file.name, triggers });
         }
 
         if (verbose) {
-          console.log(`[VERBOSE] /merge: Workflow ${file.name}: triggers=[${triggers.join(', ')}]`);
+          console.log(`[VERBOSE] /merge: Workflow ${file.name}: pr_triggers=[${triggers.join(', ')}], non_pr_triggers=[${nonPRTriggers.join(', ')}]`);
         }
       } catch (fileError) {
         if (verbose) {

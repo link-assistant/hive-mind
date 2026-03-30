@@ -94,11 +94,37 @@ When `getMergeBlockers` returns a CI status other than `no_checks` (e.g., `pendi
 `success`, `failure`), the counter is reset to 0. This prevents accumulation across
 different CI states.
 
+### 4. Double-check CI confirmation before "Ready to merge" (enhanced)
+
+Before posting "Ready to merge", the system now waits 10 seconds and re-queries both
+`getDetailedCIStatus` and `getWorkflowRunsForSha`. If CI has started in the meantime,
+the loop continues monitoring instead of posting a false positive. This catches race
+conditions where CI starts between the initial check and the merge decision.
+
+### 5. Previous PR commits CI history (enhanced)
+
+When the safety valve reaches `MAX_NO_RUNS_CHECKS=5` with no workflow runs, the system
+now checks if previous commits in the same PR had CI runs via `checkPreviousPRCommitsHadCI`.
+If they did, the wait is extended to `MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY=10` (double),
+since CI should be expected for the current commit too.
+
+### 6. Verbose output through centralized log function (enhanced)
+
+All `console.log` calls in `getMergeBlockers` are now routed through the `log()` function,
+ensuring verbose diagnostic output appears in log files for post-mortem analysis (previously
+only visible in terminal output, making debugging from log files impossible).
+
+### 7. Enhanced workflow trigger detection (enhanced)
+
+`checkWorkflowsHavePRTriggers` now also detects non-PR trigger types (`workflow_dispatch`,
+`schedule`, `repository_dispatch`, `workflow_call`) for diagnostics. This helps distinguish
+"workflow exists but won't run on PRs" from "workflow should run on PRs but hasn't started."
+
 ## Files Changed
 
-- `src/solve.auto-merge.lib.mjs` — Per-SHA counter tracking, SHA change detection
-- `src/github-merge.lib.mjs` — `checkWorkflowsHavePRTriggers` ref parameter
-- `tests/test-false-positive-iteration-count-1503.mjs` — 11 unit tests
+- `src/solve.auto-merge.lib.mjs` — Per-SHA counter, double-check, CI history, verbose logging
+- `src/github-merge.lib.mjs` — `checkWorkflowsHavePRTriggers` ref + non-PR trigger detection
+- `tests/test-false-positive-iteration-count-1503.mjs` — 20 unit tests (11 original + 9 new)
 
 ## Related Issues
 

@@ -33,7 +33,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers } = githubMergeLib;
+const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, checkForBillingLimitError, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -239,7 +239,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
             // Treat the same as "CI not triggered" to avoid infinite waiting.
             const conclusions = [...new Set(workflowRuns.map(r => r.conclusion))].join(', ');
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
+              await log(`[VERBOSE] /merge: PR #${prNumber} has ${workflowRuns.length} workflow run(s) for SHA ${ciStatus.sha.substring(0, 7)}, but all completed without executing (conclusions: ${conclusions}) — check-runs will never appear`);
             }
             await log(formatAligned('ℹ️', 'CI workflows completed without executing:', `${conclusions} (${workflowRuns.map(r => r.name).join(', ')})`, 2));
             return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true, workflowRunConclusions: conclusions };
@@ -247,7 +247,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
 
           // Some workflow runs are still in progress or produced results — genuine race condition
           if (verbose) {
-            console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI check-runs yet, but ${workflowRuns.length} workflow run(s) were triggered for SHA ${ciStatus.sha.substring(0, 7)} - genuine race condition (waiting for check-runs to appear)`);
+            await log(`[VERBOSE] /merge: PR #${prNumber} has no CI check-runs yet, but ${workflowRuns.length} workflow run(s) were triggered for SHA ${ciStatus.sha.substring(0, 7)} - genuine race condition (waiting for check-runs to appear)`);
           }
           blockers.push({
             type: 'ci_pending',
@@ -275,7 +275,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           // that's a definitive signal — no CI/CD will execute, skip grace period entirely
           if (!prTriggers.hasWorkflowFiles) {
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
+              await log(`[VERBOSE] /merge: PR #${prNumber} repo has no workflow files in .github/workflows/ — CI definitively not configured at file level`);
             }
             return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
           }
@@ -295,15 +295,32 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
             // changed files, conditional workflows that don't match, etc.
             const MAX_NO_RUNS_CHECKS = 5;
             if (checkCount >= MAX_NO_RUNS_CHECKS) {
-              // We've waited long enough — CI was genuinely not triggered
+              // Issue #1503 (enhanced): Before concluding CI was not triggered, check if
+              // previous commits in this PR had CI runs. If they did, CI should be expected
+              // for the current commit too — extend waiting with a higher threshold.
+              const MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY = 10;
+              if (checkCount < MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY) {
+                const previousCI = await checkPreviousPRCommitsHadCI(owner, repo, prNumber, ciStatus.sha, verbose);
+                if (previousCI.hadPreviousCI) {
+                  // Previous commits had CI — this commit should too, keep waiting
+                  await log(formatAligned('⚠️', 'CI history signal:', `${previousCI.previousCommitsWithCI} previous commit(s) had CI runs — extending wait (check ${checkCount}/${MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY})`, 2));
+                  blockers.push({
+                    type: 'ci_pending',
+                    message: `CI/CD workflow runs have not appeared yet — previous commits had CI runs, extending wait (check ${checkCount}/${MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY})`,
+                    details: prTriggers.workflows.map(w => w.name),
+                  });
+                  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false };
+                }
+              }
+              // We've waited long enough (and no CI history signal) — CI was genuinely not triggered
               if (verbose) {
-                console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs after ${checkCount} consecutive checks — concluding CI was not triggered despite PR triggers existing`);
+                await log(formatAligned('ℹ️', 'CI not triggered:', `No workflow runs after ${checkCount} consecutive checks — concluding CI was not triggered`, 2));
               }
               return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
             }
 
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} has no workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — waiting for workflow runs to appear (check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s)`);
+              await log(formatAligned('⏳', 'Waiting for CI:', `No workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s`, 2));
             }
             blockers.push({
               type: 'ci_pending',
@@ -313,7 +330,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           } else if (commitInfo.ageSeconds !== null && commitInfo.ageSeconds < WORKFLOW_RUN_GRACE_PERIOD_SECONDS) {
             // No PR triggers found in workflow files, but commit is still recent — be safe and wait
             if (verbose) {
-              console.log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
+              await log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
             }
             blockers.push({
               type: 'ci_pending',
@@ -325,7 +342,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
             // Issue #1442: Fork PRs needing maintainer approval, paths-ignore filtering,
             // workflow conditions not matching, etc. all result in zero workflow runs.
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, no PR/push triggers in workflow files) — CI was not triggered`);
+              await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and no workflow runs for SHA ${ciStatus.sha.substring(0, 7)} (commit age: ${commitInfo.ageSeconds ?? 'unknown'}s, no PR/push triggers in workflow files) — CI was not triggered`);
             }
             return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: true };
           }
@@ -336,7 +353,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
         // Do NOT add a ci_pending blocker. The mergeability check below will also
         // confirm this is mergeable, so blockers will be empty → PR IS MERGEABLE path.
         if (verbose) {
-          console.log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
+          await log(`[VERBOSE] /merge: PR #${prNumber} has no CI checks and repo has no active workflows - no CI/CD configured`);
         }
         // Return early with no CI blocker, mergeability already confirmed
         return { blockers, ciStatus, noCiConfigured: true };
@@ -362,7 +379,7 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
       if (incompleteRuns.length > 0) {
         // Some workflow runs are still in progress — more check-runs may appear
         if (verbose) {
-          console.log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} checks passed), but ${incompleteRuns.length} workflow run(s) still in progress — waiting for completion`);
+          await log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} checks passed), but ${incompleteRuns.length} workflow run(s) still in progress — waiting for completion`);
         }
         blockers.push({
           type: 'ci_pending',
@@ -385,12 +402,12 @@ const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCou
           const MAX_NO_RUNS_CHECKS = 5;
           if (checkCount >= MAX_NO_RUNS_CHECKS) {
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} CI 'success' with ${ciStatus.passedChecks.length} external checks, no workflow runs after ${checkCount} checks — trusting external checks`);
+              await log(`[VERBOSE] /merge: PR #${prNumber} CI 'success' with ${ciStatus.passedChecks.length} external checks, no workflow runs after ${checkCount} checks — trusting external checks`);
             }
             // Fall through — trust the success status from external checks
           } else {
             if (verbose) {
-              console.log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} external checks), but repo has PR-triggered workflows with 0 workflow runs — likely race condition (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`);
+              await log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} external checks), but repo has PR-triggered workflows with 0 workflow runs — likely race condition (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`);
             }
             // Wait for GitHub Actions to register workflow runs
             blockers.push({
@@ -628,6 +645,35 @@ export const watchUntilMergeable = async params => {
 
       // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
       if (blockers.length === 0 && !hasNewComments && !hasUncommittedChanges) {
+        // Issue #1503 (enhanced): Double-check CI status before concluding PR is mergeable.
+        // Re-query CI status after a brief delay to catch race conditions where CI starts
+        // between our initial check and the "Ready to merge" decision. This is a critical
+        // defense against false positives — if CI has started in the meantime, we should
+        // NOT post "Ready to merge" and instead continue monitoring.
+        if (!noCiConfigured) {
+          const DOUBLE_CHECK_DELAY_MS = 10000; // 10 seconds
+          await log(formatAligned('🔍', 'Double-checking CI status:', `Waiting ${DOUBLE_CHECK_DELAY_MS / 1000}s before confirming...`, 2));
+          await new Promise(resolve => setTimeout(resolve, DOUBLE_CHECK_DELAY_MS));
+
+          const reconfirmCIStatus = await getDetailedCIStatus(owner, repo, prNumber, argv.verbose);
+          const reconfirmRuns = await getWorkflowRunsForSha(owner, repo, reconfirmCIStatus.sha, argv.verbose);
+          const hasNewCIActivity = reconfirmCIStatus.status === 'pending' || reconfirmRuns.some(r => r.status !== 'completed');
+
+          if (hasNewCIActivity) {
+            await log(formatAligned('🔄', 'CI activity detected on recheck:', `status=${reconfirmCIStatus.status}, runs=${reconfirmRuns.length} (${reconfirmRuns.filter(r => r.status !== 'completed').length} in progress)`, 2));
+            await log(formatAligned('⏳', 'Continuing to monitor...', 'CI has started since initial check', 2));
+            // Reset the consecutive counter since CI is now active
+            consecutiveNoRunsChecks = 0;
+            lastCheckTime = currentTime;
+            const actualWaitSeconds = currentBackoffSeconds;
+            await log(formatAligned('⏱️', 'Next check in:', `${actualWaitSeconds} seconds...`, 2));
+            await log('');
+            await new Promise(resolve => setTimeout(resolve, actualWaitSeconds * 1000));
+            continue;
+          }
+          await log(formatAligned('✅', 'Double-check confirmed:', 'No new CI activity detected', 2));
+        }
+
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
 
         if (isAutoMerge) {

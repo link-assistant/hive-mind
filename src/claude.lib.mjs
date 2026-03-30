@@ -12,7 +12,7 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -576,49 +576,8 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }
-    // Issue #1508: Merge resultModelUsage from Claude Code result JSON when available.
-    // The JSONL file may miss sub-agent model entries (e.g., Haiku used internally by Claude Code),
-    // while resultModelUsage from the success result event has the authoritative per-model breakdown.
-    if (resultModelUsage && typeof resultModelUsage === 'object') {
-      for (const [modelId, resultUsage] of Object.entries(resultModelUsage)) {
-        if (modelId.startsWith('<') && modelId.endsWith('>')) continue; // Skip synthetic models
-        if (!modelUsage[modelId]) {
-          // Model not in JSONL at all — add it from resultModelUsage
-          modelUsage[modelId] = {
-            inputTokens: resultUsage.inputTokens || 0,
-            cacheCreationTokens: resultUsage.cacheCreationInputTokens || 0,
-            cacheCreation5mTokens: 0,
-            cacheCreation1hTokens: 0,
-            cacheReadTokens: resultUsage.cacheReadInputTokens || 0,
-            outputTokens: resultUsage.outputTokens || 0,
-            webSearchRequests: resultUsage.webSearchRequests || 0,
-            // Mark as sourced from result JSON for diagnostics
-            _sourceResultJson: true,
-          };
-          // Use resultModelUsage costUSD if provided (Anthropic's calculation)
-          if (resultUsage.costUSD !== undefined && resultUsage.costUSD !== null) {
-            modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
-          }
-        } else {
-          // Model exists in JSONL — check if resultModelUsage has higher token counts
-          // (JSONL may under-count due to deduplication or missing entries)
-          const jsonlUsage = modelUsage[modelId];
-          const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
-          const resultTotal = (resultUsage.inputTokens || 0) + (resultUsage.cacheCreationInputTokens || 0) + (resultUsage.cacheReadInputTokens || 0) + (resultUsage.outputTokens || 0);
-          if (resultTotal > jsonlTotal) {
-            // resultModelUsage has more tokens — use it as authoritative source
-            jsonlUsage.inputTokens = resultUsage.inputTokens || 0;
-            jsonlUsage.cacheCreationTokens = resultUsage.cacheCreationInputTokens || 0;
-            jsonlUsage.cacheReadTokens = resultUsage.cacheReadInputTokens || 0;
-            jsonlUsage.outputTokens = resultUsage.outputTokens || 0;
-            jsonlUsage._sourceResultJson = true;
-          }
-          if (resultUsage.costUSD !== undefined && resultUsage.costUSD !== null) {
-            jsonlUsage._resultCostUSD = resultUsage.costUSD;
-          }
-        }
-      }
-    }
+    // Issue #1508: Merge resultModelUsage from Claude Code result JSON when available
+    mergeResultModelUsage(modelUsage, resultModelUsage);
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
       return null;

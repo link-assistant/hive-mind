@@ -10,7 +10,7 @@
  * 4. Per-model cost display in budget stats string
  */
 
-import { buildBudgetStatsString, accumulateModelUsage } from '../src/claude.budget-stats.lib.mjs';
+import { buildBudgetStatsString, accumulateModelUsage, mergeResultModelUsage } from '../src/claude.budget-stats.lib.mjs';
 
 // Test framework
 let testsPassed = 0;
@@ -265,53 +265,32 @@ runTest('skips synthetic model entries', () => {
 // ==== Test Group: Edge cases ====
 console.log('\n📋 Test Group: Edge cases\n');
 
-runTest('model with null costUSD does not show cost line', () => {
-  const tokenUsage = {
-    inputTokens: 1000,
-    cacheCreationTokens: 500,
-    cacheReadTokens: 0,
-    outputTokens: 200,
-    totalTokens: 1700,
-    subSessions: [{ inputTokens: 1000, cacheCreationTokens: 500, cacheReadTokens: 0, outputTokens: 200, messageCount: 5, peakContextUsage: 1500, peakOutputUsage: 200 }],
+function makeSingleModelTokenUsage(modelId, modelName, overrides = {}) {
+  const input = overrides.inputTokens ?? 1000;
+  const cacheCreation = overrides.cacheCreationTokens ?? 0;
+  const cacheRead = overrides.cacheReadTokens ?? 0;
+  const output = overrides.outputTokens ?? 200;
+  const peak = overrides.peakContextUsage ?? input + cacheCreation + cacheRead;
+  return {
+    inputTokens: input,
+    cacheCreationTokens: cacheCreation,
+    cacheReadTokens: cacheRead,
+    outputTokens: output,
+    totalTokens: input + cacheCreation + output,
+    subSessions: [{ inputTokens: input, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead, outputTokens: output, messageCount: 5, peakContextUsage: peak, peakOutputUsage: output }],
     modelUsage: {
-      'unknown-model': {
-        inputTokens: 1000,
-        cacheCreationTokens: 500,
-        cacheReadTokens: 0,
-        outputTokens: 200,
-        modelName: 'Unknown Model',
-        modelInfo: null,
-        peakContextUsage: 1500,
-        costUSD: null,
-      },
+      [modelId]: { inputTokens: input, cacheCreationTokens: cacheCreation, cacheReadTokens: cacheRead, outputTokens: output, modelName, modelInfo: overrides.modelInfo ?? null, peakContextUsage: peak, costUSD: overrides.costUSD ?? null },
     },
   };
-  const result = buildBudgetStatsString(tokenUsage);
+}
+
+runTest('model with null costUSD does not show cost line', () => {
+  const result = buildBudgetStatsString(makeSingleModelTokenUsage('unknown-model', 'Unknown Model', { cacheCreationTokens: 500, peakContextUsage: 1500 }));
   assertNotContains(result, 'Cost:', 'Should not show cost when null');
 });
 
 runTest('model with zero costUSD shows $0 cost', () => {
-  const tokenUsage = {
-    inputTokens: 1000,
-    cacheCreationTokens: 0,
-    cacheReadTokens: 0,
-    outputTokens: 200,
-    totalTokens: 1200,
-    subSessions: [{ inputTokens: 1000, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 200, messageCount: 5, peakContextUsage: 1000, peakOutputUsage: 200 }],
-    modelUsage: {
-      'free-model': {
-        inputTokens: 1000,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 0,
-        outputTokens: 200,
-        modelName: 'Free Model',
-        modelInfo: null,
-        peakContextUsage: 1000,
-        costUSD: 0,
-      },
-    },
-  };
-  const result = buildBudgetStatsString(tokenUsage);
+  const result = buildBudgetStatsString(makeSingleModelTokenUsage('free-model', 'Free Model', { costUSD: 0 }));
   assertContains(result, 'Cost: $0.000000', 'Should show $0.000000 for zero cost');
 });
 

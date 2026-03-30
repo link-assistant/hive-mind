@@ -1385,31 +1385,30 @@ export async function checkPreviousPRCommitsHadCI(owner, repo, prNumber, headSha
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{hasPRTriggers: boolean, hasWorkflowFiles: boolean, workflows: Array<{name: string, triggers: string[]}>}>}
  */
-export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false) {
+export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false, ref = null) {
   try {
-    // List workflow files in .github/workflows/
-    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
+    // Issue #1503: Support querying workflow files from a specific branch (ref)
+    const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : '';
+    // List workflow files in .github/workflows/ (uses ref if provided, otherwise default branch)
+    const { stdout: listJson } = await exec(`gh api "repos/${owner}/${repo}/contents/.github/workflows${refParam}" --jq '[.[] | select(.name | test("\\\\.(yml|yaml)$")) | {name: .name, download_url: .download_url, path: .path}]' 2>/dev/null`);
     const files = JSON.parse(listJson.trim() || '[]');
 
     if (files.length === 0) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: No workflow files found in ${owner}/${repo}/.github/workflows/ — no CI/CD will execute`);
-      }
-      // Issue #1480: hasWorkflowFiles=false is a strong signal that no CI/CD is configured at the file level
+      if (verbose) console.log(`[VERBOSE] /merge: No workflow files in ${owner}/${repo}/.github/workflows/`);
       return { hasPRTriggers: false, hasWorkflowFiles: false, workflows: [] };
     }
 
     const prTriggerPatterns = [/\bon:\s*\n\s+pull_request/m, /\bon:\s*\[.*pull_request.*\]/m, /\bon:\s*pull_request\b/m, /\bpull_request_target\b/m];
-
-    // Also check for push triggers (push to PR branches triggers CI)
     const pushTriggerPatterns = [/\bon:\s*\n\s+push/m, /\bon:\s*\[.*push.*\]/m, /\bon:\s*push\b/m];
+    // Issue #1503: Non-PR triggers for diagnostics (won't produce check-runs on PRs)
+    const nonPROnlyTriggerPatterns = [/\bworkflow_dispatch\b/m, /\bschedule\b/m, /\brepository_dispatch\b/m, /\bworkflow_call\b/m];
 
     const results = [];
 
     for (const file of files) {
       try {
-        // Fetch file content (use raw content from the API)
-        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}" --jq '.content'`);
+        // Issue #1503: Fetch file content using same ref parameter for branch-specific workflows
+        const { stdout: contentJson } = await exec(`gh api "repos/${owner}/${repo}/contents/${file.path}${refParam}" --jq '.content'`);
         const content = Buffer.from(contentJson.trim().replace(/"/g, ''), 'base64').toString('utf-8');
 
         const triggers = [];
@@ -1419,13 +1418,15 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
         if (pushTriggerPatterns.some(p => p.test(content))) {
           triggers.push('push');
         }
+        // Issue #1503: Track non-PR triggers for diagnostics
+        const nonPRTriggers = nonPROnlyTriggerPatterns.filter(p => p.test(content)).map(p => p.source.replace(/\\b/g, ''));
 
         if (triggers.length > 0) {
           results.push({ name: file.name, triggers });
         }
 
         if (verbose) {
-          console.log(`[VERBOSE] /merge: Workflow ${file.name}: triggers=[${triggers.join(', ')}]`);
+          console.log(`[VERBOSE] /merge: Workflow ${file.name}: pr_triggers=[${triggers.join(', ')}], non_pr_triggers=[${nonPRTriggers.join(', ')}]`);
         }
       } catch (fileError) {
         if (verbose) {
@@ -1453,6 +1454,9 @@ export async function checkWorkflowsHavePRTriggers(owner, repo, verbose = false)
 // Issue #1341: Re-export post-merge CI functions from separate module
 import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
 export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
+
+import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus } from './github-merge-repo-actions.lib.mjs'; // Issue #1503
+export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus };
 
 export default {
   READY_LABEL,
@@ -1482,15 +1486,15 @@ export default {
   rerunWorkflowRun,
   rerunFailedJobs,
   getWorkflowRunsForSha,
-  // Issue #1341: Post-merge CI waiting; Issue #1363: Detect active workflows
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
   getActiveRepoWorkflows,
-  // Issue #1480: Commit date, workflow PR triggers, and previous commit CI history for race condition detection
   getCommitDate,
   checkPreviousPRCommitsHadCI,
   checkWorkflowsHavePRTriggers,
-  // Issue #1413: Use issue timeline to find genuinely linked PRs (avoids false positives from text search)
   getLinkedPRsFromTimeline,
+  getAllActiveRepoRuns,
+  waitForAllRepoActions,
+  checkCIConsensus, // Issue #1503
 };

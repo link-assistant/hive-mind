@@ -101,23 +101,25 @@ RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet publish
 # --- Playwright Browser Automation Setup ---
 # Install Playwright MCP server and test runner with --force to handle shared 'playwright'
 # binary conflict (both packages provide it). npm is available via .node-bin symlink in PATH.
-# Architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force && \
-    ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
-      playwright install chromium firefox webkit msedge chromium-headless-shell && \
-      sudo playwright install chrome; \
-    else \
-      playwright install chromium firefox webkit chromium-headless-shell; \
-    fi
+RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force
 
-# Install Playwright OS dependencies (requires root)
+# Install Playwright OS dependencies BEFORE browsers to avoid validation errors
+# (Playwright validates system deps after download and fails if e.g. libavif16 is missing)
 # Note: HOME is overridden to /root to prevent root processes from creating
 # files under /workspace/.config with root ownership (see issue #1419)
 USER root
 RUN HOME=/root npx playwright@latest install-deps 2>/dev/null || true
-
 USER hive
+
+# Install browsers — architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
+# Google Chrome requires sudo because it installs to system paths
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
+      playwright install chromium firefox webkit msedge chromium-headless-shell && \
+      sudo env "PATH=$PATH" playwright install chrome; \
+    else \
+      playwright install chromium firefox webkit chromium-headless-shell; \
+    fi
 
 # Configure Playwright MCP for Claude CLI if available
 RUN if command -v claude &>/dev/null; then \

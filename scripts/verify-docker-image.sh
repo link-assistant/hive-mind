@@ -194,6 +194,11 @@ echo ""
 echo "Checking Playwright browsers..."
 PLAYWRIGHT_CACHE="$HOME/.cache/ms-playwright"
 BROWSERS_REQUIRED="chromium firefox webkit"
+# Google Chrome is required on x86_64 (installed via sudo playwright install chrome)
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
+  BROWSERS_REQUIRED="$BROWSERS_REQUIRED chrome"
+fi
 BROWSERS_MISSING=""
 
 for browser in $BROWSERS_REQUIRED; do
@@ -206,8 +211,8 @@ for browser in $BROWSERS_REQUIRED; do
   fi
 done
 
-# Check optional browsers (chromium_headless_shell, ffmpeg)
-for browser in chromium_headless_shell ffmpeg; do
+# Check optional browsers (chromium_headless_shell, ffmpeg, msedge)
+for browser in chromium_headless_shell ffmpeg msedge; do
   BROWSER_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/${browser}"* 2>/dev/null | head -1 || true)
   if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
     echo "  $browser: OK ($(basename "$BROWSER_DIR"))"

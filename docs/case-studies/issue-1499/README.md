@@ -29,13 +29,13 @@ The coupling between user identity (`sandbox`) and filesystem layout
 Sandbox PR [sandbox#73](https://github.com/link-foundation/sandbox/pull/73)
 (merged as v1.5.0) decouples user identity from filesystem layout:
 
-| Before (≤1.3.x)                      | After (1.5.0)                           |
-| ------------------------------------ | --------------------------------------- |
-| `sandbox` user, HOME=`/home/sandbox` | `sandbox` user, HOME=`/workspace`       |
-| Downstream must rename user & paths  | Downstream uses sandbox user directly   |
-| `chown -R` on thousands of files     | Zero `chown` needed                     |
-| `sed` patches for hardcoded paths    | No path fixups needed                   |
-| Permission issues from rename        | All files owned by sandbox user         |
+| Before (≤1.3.x)                      | After (1.5.0)                         |
+| ------------------------------------ | ------------------------------------- |
+| `sandbox` user, HOME=`/home/sandbox` | `sandbox` user, HOME=`/workspace`     |
+| Downstream must rename user & paths  | Downstream uses sandbox user directly |
+| `chown -R` on thousands of files     | Zero `chown` needed                   |
+| `sed` patches for hardcoded paths    | No path fixups needed                 |
+| Permission issues from rename        | All files owned by sandbox user       |
 
 ### How it works
 

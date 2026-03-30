@@ -1,17 +1,10 @@
 # @link-assistant/hive-mind
 
-## 1.39.1
+## 1.40.0
 
-### Patch Changes
+### Minor Changes
 
-- fix: increase activity timeout from 5 min to 1 hour, fix idle duration tracking, and improve graceful kill (#1510)
-  - Increase `streamActivityMs` default from 300000ms (5 min) to 3600000ms (1 hour) — Claude Code can legitimately wait for long-running operations (docker builds, CI polls, large compilations)
-  - Fix `lastEventTime` only being tracked inside `interactiveHandler` block — now tracked for all modes so idle duration displays correctly instead of `unknowns`
-  - Fix cosmetic `idle: unknowns` → `idle: unknown` display in timeout warning messages
-  - Increase SIGTERM→SIGKILL grace period from 2s to 5s for better final output capture
-  - Continue processing stream after SIGTERM instead of breaking immediately, to capture final output
-  - Post PR comment when force-killing and auto-resuming so reviewers can follow session lifecycle
-  - Add case study analysis in `docs/case-studies/issue-1510/`
+- 6b8465a: feat: add browsers, browser tools, and missing software to /version command
 
 ## 1.39.0
 

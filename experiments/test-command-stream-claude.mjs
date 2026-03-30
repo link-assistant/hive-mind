@@ -7,7 +7,7 @@ if (typeof globalThis.use === 'undefined') {
 }
 const { $ } = await use('command-stream');
 
-const claudePath = '/home/hive/.bun/bin/claude';
+const claudePath = '/workspace/.bun/bin/claude';
 const prompt = 'Say "Hello, world!" and nothing else.';
 const systemPrompt = 'You are a helpful assistant. Respond briefly.';
 

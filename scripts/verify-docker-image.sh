@@ -7,7 +7,7 @@
 #   docker run --rm IMAGE bash scripts/verify-docker-image.sh
 #
 # This script verifies:
-#   1. User rename (sandbox -> hive)
+#   1. User setup (hive user in sandbox group with /workspace access)
 #   2. All system & development tools (from sandbox base image, alphabetical order)
 #   3. AI-specific tools (added by hive-mind on top of sandbox)
 #
@@ -20,7 +20,7 @@ set -euo pipefail
 # Third-party init scripts may reference unset variables, so we temporarily
 # disable the unbound-variable check (set -u) while sourcing them.
 # ---------------------------------------------------------------------------
-export HOME=/home/hive
+export HOME=/workspace
 # Add ~/.local/bin for user-installed binaries (e.g. opam installed by rocq install script)
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -77,9 +77,9 @@ check_tool() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1: Verify user rename (sandbox -> hive)
+# Step 1: Verify user setup (hive user with /workspace access via sandbox group)
 # ---------------------------------------------------------------------------
-echo "=== Verifying user rename (sandbox -> hive) ==="
+echo "=== Verifying user setup (hive user in sandbox group) ==="
 echo ""
 
 CURRENT_USER=$(whoami)
@@ -89,28 +89,36 @@ if [ "$CURRENT_USER" != "hive" ]; then
   exit 1
 fi
 
-if [ "$HOME" != "/home/hive" ]; then
-  echo "ERROR: HOME should be /home/hive, got $HOME"
+if [ "$HOME" != "/workspace" ]; then
+  echo "ERROR: HOME should be /workspace, got $HOME"
   exit 1
 fi
 
-if [ ! -d /home/hive ]; then
-  echo "ERROR: /home/hive directory does not exist"
+if [ ! -d /workspace ]; then
+  echo "ERROR: /workspace directory does not exist"
   exit 1
 fi
 
-if [ ! -w /home/hive ]; then
-  echo "ERROR: /home/hive is not writable by hive user"
+if [ ! -w /workspace ]; then
+  echo "ERROR: /workspace is not writable by hive user"
+  exit 1
+fi
+
+# Verify hive user is in the sandbox group
+if id -nG hive | grep -qw sandbox; then
+  echo "hive user is in sandbox group: OK"
+else
+  echo "ERROR: hive user is not in the sandbox group"
   exit 1
 fi
 
 # Verify .config directory ownership (see issue #1419)
 # Root-owned .config prevents tools from creating config subdirectories at runtime
-if [ -d /home/hive/.config ]; then
-  CONFIG_OWNER=$(stat -c '%U' /home/hive/.config 2>/dev/null || stat -f '%Su' /home/hive/.config 2>/dev/null)
+if [ -d /workspace/.config ]; then
+  CONFIG_OWNER=$(stat -c '%U' /workspace/.config 2>/dev/null || stat -f '%Su' /workspace/.config 2>/dev/null)
   echo ".config directory owner: $CONFIG_OWNER"
-  if [ "$CONFIG_OWNER" != "hive" ]; then
-    echo "ERROR: /home/hive/.config is owned by $CONFIG_OWNER, expected hive"
+  if [ "$CONFIG_OWNER" != "hive" ] && [ "$CONFIG_OWNER" != "sandbox" ]; then
+    echo "ERROR: /workspace/.config is owned by $CONFIG_OWNER, expected hive or sandbox"
     echo "This causes EACCES errors when tools try to create config subdirectories"
     echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
     exit 1
@@ -121,16 +129,16 @@ else
 fi
 
 # Verify hive user can create directories in .config (see issue #1419)
-if mkdir -p /home/hive/.config/.verify-test 2>/dev/null; then
-  rmdir /home/hive/.config/.verify-test 2>/dev/null
+if mkdir -p /workspace/.config/.verify-test 2>/dev/null; then
+  rmdir /workspace/.config/.verify-test 2>/dev/null
   echo ".config directory write access: OK"
 else
-  echo "ERROR: hive user cannot create directories in /home/hive/.config"
+  echo "ERROR: hive user cannot create directories in /workspace/.config"
   echo "See: https://github.com/link-assistant/hive-mind/issues/1419"
   exit 1
 fi
 
-echo "User rename verification: PASSED"
+echo "User setup verification: PASSED"
 echo ""
 
 # ---------------------------------------------------------------------------

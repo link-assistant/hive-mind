@@ -627,9 +627,9 @@ jobs:
         run: |
           echo "Checking build logs for critical errors..."
 
-          # Check specifically for usermod failure (sandbox -> hive rename)
-          if grep -E 'usermod: command not found|usermod: user.*not found' build-output.log; then
-            echo "ERROR: User rename from sandbox to hive failed"
+          # Check for useradd failure (hive user creation in sandbox group)
+          if grep -E 'useradd: command not found|useradd:.*already exists' build-output.log; then
+            echo "ERROR: Hive user creation failed"
             exit 1
           fi
 
@@ -651,7 +651,7 @@ jobs:
           echo ""
 
           # Run verification script inside container (mounts script as read-only volume)
-          # Verifies: user rename (sandbox->hive), all dev tools, AI-specific tools
+          # Verifies: hive user setup (sandbox group, /workspace access), all dev tools, AI-specific tools
           # See scripts/verify-docker-image.sh for the full list of checks
           docker run --rm \
             -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \

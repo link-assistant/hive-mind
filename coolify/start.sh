@@ -7,29 +7,29 @@ echo "========================================"
 echo "Fixing permissions and git configuration..."
 
 # Remove .gitconfig if it's a directory and create proper git config
-if [ -d /home/hive/.gitconfig ]; then
+if [ -d /workspace/.gitconfig ]; then
   echo "  - Removing invalid .gitconfig directory"
-  rm -rf /home/hive/.gitconfig
+  rm -rf /workspace/.gitconfig
 fi
 
 # Create proper git config file if it doesn't exist
-if [ ! -f /home/hive/.gitconfig ]; then
+if [ ! -f /workspace/.gitconfig ]; then
   echo "  - Creating git configuration"
-  echo "[user]" > /home/hive/.gitconfig
-  echo "  name = Hive-Mind Bot" >> /home/hive/.gitconfig
-  echo "  email = hive@localhost" >> /home/hive/.gitconfig
-  echo "[init]" >> /home/hive/.gitconfig
-  echo "  defaultBranch = main" >> /home/hive/.gitconfig
-  echo "[safe]" >> /home/hive/.gitconfig
-  echo "  directory = *" >> /home/hive/.gitconfig
-  chown hive:hive /home/hive/.gitconfig
+  echo "[user]" > /workspace/.gitconfig
+  echo "  name = Hive-Mind Bot" >> /workspace/.gitconfig
+  echo "  email = hive@localhost" >> /workspace/.gitconfig
+  echo "[init]" >> /workspace/.gitconfig
+  echo "  defaultBranch = main" >> /workspace/.gitconfig
+  echo "[safe]" >> /workspace/.gitconfig
+  echo "  directory = *" >> /workspace/.gitconfig
+  chown hive:sandbox /workspace/.gitconfig
 fi
 
 # Fix Claude and GitHub config directories
 echo "  - Setting up Claude and GitHub directories"
-mkdir -p /home/hive/.claude/plugins /home/hive/.config/gh
-chown -R hive:hive /home/hive/.claude /home/hive/.config
-chown -R hive:hive /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
+mkdir -p /workspace/.claude/plugins /workspace/.config/gh
+chown -R hive:sandbox /workspace/.claude /workspace/.config
+chown -R hive:sandbox /app/claude-logs /app/claude-sessions /app/output 2>/dev/null || true
 
 # Ensure /tmp has proper permissions for git operations
 chmod 1777 /tmp
@@ -46,7 +46,7 @@ elif [ -n "$GH_TOKEN" ]; then
 fi
 
 # Set PATH for installed tools
-export PATH="/home/hive/.bun/bin:/home/hive/.n/bin:/home/hive/.cargo/bin:$PATH"
+export PATH="/workspace/.bun/bin:/workspace/.node-bin:/workspace/.cargo/bin:$PATH"
 
 # Check if we have auth and URL
 if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
@@ -98,7 +98,7 @@ if gh auth status >/dev/null 2>&1 && [ -n "$GITHUB_URL" ]; then
     echo "⚠ Hive-mind failed to start (exit code: $EXIT_CODE)"
     echo ""
     echo "Common issues:"
-    echo "  - Claude CLI not authenticated: Run 'claude' or 'code' to authenticate"
+    echo "  - Claude CLI not authenticated: Run '\''claude'\'' or '\''code'\'' to authenticate"
     echo "  - Missing API key: Set CLAUDE_API_KEY environment variable"
     echo ""
     echo "Container running. Access terminal to configure."

@@ -19,14 +19,15 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   // Show help and exit
   console.log('Usage: review.mjs <pr-url> [options]');
   console.log('\nOptions:');
-  console.log('  --version          Show version number');
-  console.log('  --help, -h         Show help');
-  console.log('  --resume, -r       Resume from a previous session ID');
-  console.log('  --dry-run, -n      Prepare everything but do not execute Claude');
-  console.log('  --model, -m        Model to use (opus, sonnet, or full model ID) [default: opus]');
-  console.log('  --focus, -f        Focus areas for review [default: all]');
-  console.log('  --approve          If review passes, approve the PR');
-  console.log('  --verbose, -v      Enable verbose logging');
+  console.log('  --version               Show version number');
+  console.log('  --help, -h              Show help');
+  console.log('  --resume, -r            Resume from a previous session ID');
+  console.log('  --dry-run, -n           Prepare everything but do not execute Claude');
+  console.log('  --model, -m             Model to use (opus, sonnet, or full model ID) [default: opus]');
+  console.log('  --focus, -f             Focus areas for review [default: all]');
+  console.log('  --approve               If review passes, approve the PR');
+  console.log('  --verbose, -v           Enable verbose logging');
+  console.log('  --execute-tool-with-bun Execute the AI tool using bunx (experimental) [default: false]');
   process.exit(0);
 }
 
@@ -48,6 +49,7 @@ import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
 import { executeClaudeCommand } from './claude.lib.mjs';
+import { defaultModels, getClaudeModelChoices, buildModelOptionDescription } from './models/index.mjs';
 
 // Configure command line arguments - GitHub PR URL as positional argument
 // Use yargs().parse(args) instead of yargs(args).argv to ensure .strict() mode works
@@ -69,10 +71,10 @@ const argv = yargs()
   })
   .option('model', {
     type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
+    description: buildModelOptionDescription(),
     alias: 'm',
-    default: 'opus',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
+    default: defaultModels.claude,
+    choices: getClaudeModelChoices(),
   })
   .option('focus', {
     type: 'string',
@@ -89,6 +91,11 @@ const argv = yargs()
     type: 'boolean',
     description: 'Enable verbose logging for debugging',
     alias: 'v',
+    default: false,
+  })
+  .option('execute-tool-with-bun', {
+    type: 'boolean',
+    description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
     default: false,
   })
   .demandCommand(1, 'The GitHub pull request URL is required')
@@ -126,7 +133,9 @@ if (!prUrl.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/)) {
   process.exit(1);
 }
 
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+// Determine claude command path based on --execute-tool-with-bun option
+// When enabled, uses 'bunx claude' which may improve speed and memory usage
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 
 // Extract repository and PR number from URL
 const urlParts = prUrl.split('/');

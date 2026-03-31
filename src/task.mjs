@@ -41,6 +41,7 @@ const { spawn } = (await use('child_process')).default;
 
 // Import Claude execution functions
 import { mapModelToId } from './claude.lib.mjs';
+import { claudeModels, defaultModels, buildModelOptionDescription } from './models/index.mjs';
 
 // Global log file reference
 let logFile = null;
@@ -106,10 +107,10 @@ const argv = yargs()
   })
   .option('model', {
     type: 'string',
-    description: 'Model to use (opus, sonnet, or full model ID like claude-sonnet-4-5-20250929)',
+    description: buildModelOptionDescription(),
     alias: 'm',
-    default: 'sonnet',
-    choices: ['opus', 'sonnet', 'claude-sonnet-4-5-20250929', 'claude-opus-4-5-20251101'],
+    default: defaultModels.claude,
+    choices: Object.keys(claudeModels),
   })
   .option('verbose', {
     type: 'boolean',
@@ -123,6 +124,11 @@ const argv = yargs()
     alias: 'o',
     default: 'text',
     choices: ['text', 'json'],
+  })
+  .option('execute-tool-with-bun', {
+    type: 'boolean',
+    description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
+    default: false,
   })
   .check(argv => {
     if (!argv['task-description'] && !argv._[0]) {
@@ -186,7 +192,7 @@ await log(formatAligned('💡', 'Clarify mode:', argv.clarify ? 'enabled' : 'dis
 await log(formatAligned('🔍', 'Decompose mode:', argv.decompose ? 'enabled' : 'disabled'));
 await log(formatAligned('📄', 'Output format:', argv.outputFormat));
 
-const claudePath = process.env.CLAUDE_PATH || 'claude';
+const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
 
 // Helper function to execute Claude command
 const executeClaude = (prompt, model) => {

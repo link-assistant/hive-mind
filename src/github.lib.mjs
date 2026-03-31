@@ -1,43 +1,54 @@
 #!/usr/bin/env node
-// GitHub-related utility functions
-// Check if use is already defined (when imported from solve.mjs)
-// If not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-const fs = (await use('fs')).promises;
-const os = (await use('os')).default;
-const path = (await use('path')).default;
-// Use command-stream for consistent $ behavior
-const { $ } = await use('command-stream');
-// Import log and maskToken from general lib
-import { log, maskToken, cleanErrorMessage } from './lib.mjs';
+// GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
+if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
+import { log, maskToken, cleanErrorMessage, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { githubLimits, timeouts } from './config.lib.mjs';
-// Import batch operations from separate module
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent } from './token-sanitization.lib.mjs';
+export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeLogContent }; // Re-export for backward compatibility
+import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
+// Import model info helpers (Issue #1225)
+import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
+export { getToolDisplayName }; // Re-export for use by other modules
+import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 
-/**
- * Build cost estimation string for log comments
- * @param {number|null} totalCostUSD - Public pricing estimate
- * @param {number|null} anthropicTotalCostUSD - Cost calculated by Anthropic (Claude-specific)
- * @param {Object|null} pricingInfo - Pricing info from agent tool
- * @returns {string} Formatted cost info string for markdown (empty if no data available)
- */
+/** Build cost estimation string for log comments (Issue #1250) */
 const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) => {
-  // Issue #1015: Don't show cost section when all values are unknown (clutters output)
   const hasPublic = totalCostUSD !== null && totalCostUSD !== undefined;
   const hasAnthropic = anthropicTotalCostUSD !== null && anthropicTotalCostUSD !== undefined;
-  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel);
-  if (!hasPublic && !hasAnthropic && !hasPricing) return '';
-  let costInfo = '\n\n💰 **Cost estimation:**';
+  const hasPricing = pricingInfo && (pricingInfo.modelName || pricingInfo.tokenUsage || pricingInfo.isFreeModel || pricingInfo.isOpencodeFreeModel);
+  const hasOpencodeCost = pricingInfo?.opencodeCost !== null && pricingInfo?.opencodeCost !== undefined;
+  if (!hasPublic && !hasAnthropic && !hasPricing && !hasOpencodeCost) return '';
+  let costInfo = '\n\n### 💰 **Cost estimation:**';
   if (pricingInfo?.modelName) {
     costInfo += `\n- Model: ${pricingInfo.modelName}`;
     if (pricingInfo.provider) costInfo += `\n- Provider: ${pricingInfo.provider}`;
   }
   if (hasPublic) {
-    costInfo += pricingInfo?.isFreeModel ? '\n- Public pricing estimate: $0.00 (Free model)' : `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)} USD`;
-  } else if (hasPricing) costInfo += '\n- Public pricing estimate: unknown';
+    if (pricingInfo?.isFreeModel && totalCostUSD === 0 && !pricingInfo?.baseModelName) {
+      costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
+    } else {
+      let pricingRef = '';
+      if (pricingInfo?.baseModelName && pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} ${pricingInfo.baseModelName} prices)`;
+      } else if (pricingInfo?.originalProvider) {
+        pricingRef = ` (based on ${pricingInfo.originalProvider} prices)`;
+      }
+      costInfo += `\n- Public pricing estimate: $${totalCostUSD.toFixed(6)}${pricingRef}`;
+    }
+  } else if (hasPricing) {
+    costInfo += '\n- Public pricing estimate: unknown';
+  }
+  if (hasOpencodeCost) {
+    if (pricingInfo.isOpencodeFreeModel) {
+      costInfo += '\n- Calculated by OpenCode Zen: $0.00 (Free model)';
+    } else {
+      costInfo += `\n- Calculated by OpenCode Zen: $${pricingInfo.opencodeCost.toFixed(6)}`;
+    }
+  }
   if (pricingInfo?.tokenUsage) {
     const u = pricingInfo.tokenUsage;
     let tokenInfo = `\n- Token usage: ${u.inputTokens?.toLocaleString() || 0} input, ${u.outputTokens?.toLocaleString() || 0} output`;
@@ -55,141 +66,11 @@ const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricingInfo) =
   }
   return costInfo;
 };
+
 // Helper function to mask GitHub tokens (alias for backward compatibility)
 export const maskGitHubToken = maskToken;
-// Helper function to get GitHub tokens from local config files
-export const getGitHubTokensFromFiles = async () => {
-  const tokens = [];
-
-  try {
-    // Check ~/.config/gh/hosts.yml
-    const hostsFile = path.join(os.homedir(), '.config/gh/hosts.yml');
-    if (
-      await fs
-        .access(hostsFile)
-        .then(() => true)
-        .catch(() => false)
-    ) {
-      const hostsContent = await fs.readFile(hostsFile, 'utf8');
-
-      // Look for oauth_token and api_token patterns
-      const oauthMatches = hostsContent.match(/oauth_token:\s*([^\s\n]+)/g);
-      if (oauthMatches) {
-        for (const match of oauthMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-
-      const apiMatches = hostsContent.match(/api_token:\s*([^\s\n]+)/g);
-      if (apiMatches) {
-        for (const match of apiMatches) {
-          const token = match.split(':')[1].trim();
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // File access errors are expected when config doesn't exist
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_file_access',
-        level: 'debug',
-      });
-    }
-  }
-
-  return tokens;
-};
-// Helper function to get GitHub tokens from gh command output
-export const getGitHubTokensFromCommand = async () => {
-  const { $ } = await use('command-stream');
-  const tokens = [];
-
-  try {
-    // Run gh auth status to get token info
-    const authResult = await $`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
-    const authOutput = authResult.stdout?.toString() + authResult.stderr?.toString() || '';
-
-    // Look for token patterns in the output
-    const tokenPatterns = [/(?:token|oauth|api)[:\s]*([a-zA-Z0-9_]{20,})/gi, /gh[pou]_[a-zA-Z0-9_]{20,}/gi];
-
-    for (const pattern of tokenPatterns) {
-      const matches = authOutput.match(pattern);
-      if (matches) {
-        for (let match of matches) {
-          // Clean up the match
-          const token = match.replace(/^(?:token|oauth|api)[:\s]*/, '').trim();
-          if (token && token.length >= 20 && !tokens.includes(token)) {
-            tokens.push(token);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    // Command errors are expected when gh is not configured
-    if (global.verboseMode) {
-      reportError(error, {
-        context: 'github_token_gh_auth',
-        level: 'debug',
-      });
-    }
-  }
-
-  return tokens;
-};
 // Escape ``` in logs for safe markdown embedding (replaces with \`\`\` to prevent code block closure)
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`');
-// Helper function to sanitize log content by masking GitHub tokens
-export const sanitizeLogContent = async logContent => {
-  let sanitized = logContent;
-
-  try {
-    // Get tokens from both sources
-    const fileTokens = await getGitHubTokensFromFiles();
-    const commandTokens = await getGitHubTokensFromCommand();
-    const allTokens = [...new Set([...fileTokens, ...commandTokens])];
-
-    // Mask each token found
-    for (const token of allTokens) {
-      if (token && token.length >= 12) {
-        const maskedToken = maskToken(token);
-        // Use global replace to mask all occurrences
-        sanitized = sanitized.split(token).join(maskedToken);
-      }
-    }
-
-    // Also look for and mask common GitHub token patterns directly in the log
-    const tokenPatterns = [
-      /gh[pou]_[a-zA-Z0-9_]{20,}/g,
-      /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm, // 40-char hex tokens (like personal access tokens)
-      /(?:^|[\s:=])([a-zA-Z0-9_]{20,})(?=[\s\n]|$)/gm, // General long tokens
-    ];
-
-    for (const pattern of tokenPatterns) {
-      sanitized = sanitized.replace(pattern, (match, token) => {
-        if (token && token.length >= 20) {
-          return match.replace(token, maskToken(token));
-        }
-        return match;
-      });
-    }
-
-    await log(`  🔒 Sanitized ${allTokens.length} detected GitHub tokens in log content`, { verbose: true });
-  } catch (error) {
-    reportError(error, {
-      context: 'sanitize_log_content',
-      level: 'warning',
-    });
-    await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
-  }
-
-  return sanitized;
-};
 // Helper function to check if a file exists in a GitHub branch
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
@@ -281,16 +162,7 @@ export const checkGitHubPermissions = async () => {
     return true; // Continue despite permission check failure
   }
 };
-/**
- * Check if the current user has write (push) permissions to a specific repository
- * This helps fail early before wasting AI tokens when --fork option is not used
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {Object} options - Configuration options
- * @param {boolean} options.useFork - Whether --fork flag is enabled
- * @param {string} options.issueUrl - Original issue URL for error messages
- * @returns {Promise<boolean>} True if has write access OR fork mode is enabled, false otherwise
- */
+/** Check if user has write permissions to repo. Fails early if --fork not used. */
 export const checkRepositoryWritePermission = async (owner, repo, options = {}) => {
   const { useFork = false, issueUrl = '' } = options;
   // Skip check if fork mode is enabled - user will work in their own fork
@@ -463,26 +335,7 @@ Thank you! 🙏`;
     return false;
   }
 };
-/**
- * Attaches a log file to a GitHub PR or issue as a comment
- * @param {Object} options - Configuration options
- * @param {string} options.logFile - Path to the log file
- * @param {string} options.targetType - 'pr' or 'issue'
- * @param {number} options.targetNumber - PR or issue number
- * @param {string} options.owner - Repository owner
- * @param {string} options.repo - Repository name
- * @param {Function} options.$ - Command execution function
- * @param {Function} options.log - Logging function
- * @param {Function} options.sanitizeLogContent - Function to sanitize log content
- * @param {boolean} [options.verbose=false] - Enable verbose logging
- * @param {string} [options.errorMessage] - Error message to include in comment (for failure logs)
- * @param {string} [options.customTitle] - Custom title for the comment (defaults to "🤖 Solution Draft Log")
- * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
- * @param {string} [options.limitResetTime] - Time when usage limit resets
- * @param {string} [options.toolName] - Name of the tool (claude, codex, opencode)
- * @param {string} [options.resumeCommand] - Command to resume the session
- * @returns {Promise<boolean>} - True if upload succeeded
- */
+/** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 export async function attachLogToGitHub(options) {
   const fs = (await use('fs')).promises;
   const {
@@ -504,41 +357,93 @@ export async function attachLogToGitHub(options) {
     limitResetTime = null,
     toolName = 'AI tool',
     resumeCommand = null,
-    // New parameters for agent tool pricing support
-    publicPricingEstimate = null,
+    isAutoResumeEnabled = false, // Issue #1152: Whether auto-resume/auto-restart is enabled
+    autoResumeMode = 'resume', // 'resume' or 'restart'
+    sessionType = 'new', // Issue #1152: 'new', 'resume', 'auto-resume', 'auto-restart'
+    publicPricingEstimate = null, // Agent tool pricing support
     pricingInfo = null,
+    errorDuringExecution = false, // Issue #1088
+    requestedModel = null, // Issue #1225: The --model flag value
+    tool = null, // The tool used (claude, agent, opencode, codex)
+    resultModelUsage = null, // Issue #1454
+    budgetStatsData = null, // Issue #1491: budget stats for comment
   } = options;
+  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
   const ghCommand = targetType === 'pr' ? 'pr' : 'issue';
   try {
+    // Issue #1212: Check disk space before attempting log upload (100MB minimum)
+    try {
+      const { checkDiskSpace } = await import('./memory-check.mjs');
+      const diskCheck = await checkDiskSpace(100, { log: async () => {} });
+      if (!diskCheck.success) {
+        await log(`  ❌ Insufficient disk space for log upload (${diskCheck.availableMB}MB available, 100MB required). Free disk space and retry.`);
+        return false;
+      }
+    } catch {
+      /* disk check failure is non-fatal — continue to actual operation */
+    }
     // Check if log file exists and is not empty
     const logStats = await fs.stat(logFile);
     if (logStats.size === 0) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
-    } else if (logStats.size > githubLimits.fileMaxSize) {
-      await log(`  ⚠️  Log file too large (${Math.round(logStats.size / 1024 / 1024)}MB), GitHub limit is ${Math.round(githubLimits.fileMaxSize / 1024 / 1024)}MB`);
-      return false;
     }
-    // Calculate token usage if sessionId and tempDir are provided
-    // For agent tool, publicPricingEstimate is already provided, so we skip Claude-specific calculation
-    let totalCostUSD = publicPricingEstimate;
+    // Issue #1173: gh-upload-log handles large files; skip inline comment for files > fileMaxSize
+    const useLargeFileMode = logStats.size > githubLimits.fileMaxSize;
+    if (useLargeFileMode && verbose) {
+      await log(`  📁 Large log file (${Math.round(logStats.size / 1024 / 1024)}MB), will use gh-upload-log`, { verbose: true });
+    }
+    let totalCostUSD = publicPricingEstimate; // Issue #1225: token usage + actual model IDs
+    let actualModelIds = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
-        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+        const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
         if (tokenUsage) {
           if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
             totalCostUSD = tokenUsage.totalCostUSD;
-            if (verbose) {
-              await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
-            }
+            if (verbose) await log(`  💰 Calculated cost: $${totalCostUSD.toFixed(6)}`, { verbose: true });
+          }
+          if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
+            actualModelIds = Object.keys(tokenUsage.modelUsage);
+            if (verbose) await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
           }
         }
       } catch (tokenError) {
-        // Don't fail the entire upload if token calculation fails
+        if (verbose) await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
+      }
+    }
+    // Issue #1454: Use resultModelUsage from result JSON when it has more models (includes subagent models)
+    if (resultModelUsage && typeof resultModelUsage === 'object') {
+      const ids = Object.keys(resultModelUsage);
+      if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
+        ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
+        actualModelIds = ids;
+        if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
+      }
+    }
+    // For agent tool, extract actual model ID from pricingInfo (Issue #1225)
+    if (!actualModelIds && pricingInfo?.modelId) {
+      actualModelIds = [pricingInfo.modelId];
+    }
+    // Issue #1486: Filter out internal/synthetic model entries (e.g., "<synthetic>" from Claude CLI's inference router)
+    if (actualModelIds) {
+      actualModelIds = actualModelIds.filter(id => !(id.startsWith('<') && id.endsWith('>')));
+      if (actualModelIds.length === 0) actualModelIds = null;
+    }
+    // Issue #1225: Fetch model information for comment using actual models from CLI output
+    let modelInfoString = '';
+    if (requestedModel || tool || actualModelIds) {
+      try {
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds });
+        if (verbose && modelInfoString) {
+          await log('  🤖 Model info fetched for comment', { verbose: true });
+        }
+      } catch (modelInfoError) {
+        // Non-critical: continue without model info
         if (verbose) {
-          await log(`  ⚠️  Could not calculate token cost: ${tokenError.message}`, { verbose: true });
+          await log(`  ⚠️  Could not fetch model info: ${modelInfoError.message}`, { verbose: true });
         }
       }
     }
@@ -569,7 +474,11 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
       if (limitResetTime) {
-        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+        // Format reset time with relative time and UTC for better user understanding
+        // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+        // See: https://github.com/link-assistant/hive-mind/issues/1236
+        const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+        logComment += `\n- **Reset Time**: ${formattedResetTime}`;
       }
 
       if (sessionId) {
@@ -578,24 +487,38 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 
       logComment += '\n\n### 🔄 How to Continue\n';
 
-      if (limitResetTime) {
-        logComment += `Once the limit resets at **${limitResetTime}**, `;
-      } else {
-        logComment += 'Once the limit resets, ';
-      }
+      // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+      // See: https://github.com/link-assistant/hive-mind/issues/1152
+      if (isAutoResumeEnabled) {
+        const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+        const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
 
-      if (resumeCommand) {
-        logComment += `you can resume this session by running:
+        if (limitResetTime) {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        } else {
+          logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+        }
+      } else {
+        // Manual resume mode - show CLI commands
+        if (limitResetTime) {
+          logComment += `Once the limit resets at **${limitResetTime}**, `;
+        } else {
+          logComment += 'Once the limit resets, ';
+        }
+
+        if (resumeCommand) {
+          logComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-      } else if (sessionId) {
-        logComment += `you can resume this session using session ID: \`${sessionId}\``;
-      } else {
-        logComment += 'you can retry the operation.';
+        } else if (sessionId) {
+          logComment += `you can resume this session using session ID: \`${sessionId}\``;
+        } else {
+          logComment += 'you can retry the operation.';
+        }
       }
 
-      logComment += `
+      logComment += `${modelInfoString}
 
 <details>
 <summary>Click to expand execution log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -614,7 +537,7 @@ ${logContent}
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`
+\`\`\`${modelInfoString}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -627,11 +550,42 @@ ${logContent}
 
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
-    } else {
-      // Success log format - use helper function for cost info
+    } else if (errorDuringExecution) {
+      // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
       const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-      logComment = `## ${customTitle}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
+      logComment = `## ⚠️ Solution Draft Finished with Errors
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
+
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+
+<details>
+<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+    } else {
+      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+      // Determine title based on session type (Issue #1152)
+      let title = customTitle;
+      let sessionNote = '';
+      if (sessionType === 'auto-resume') {
+        title = '🔄 Draft log of auto resume (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
+      } else if (sessionType === 'auto-restart') {
+        title = '🔄 Draft log of auto restart (on limit reset)';
+        sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
+      } else if (sessionType === 'resume') {
+        title = '🔄 Solution Draft Log (Resumed)';
+        sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
+      }
+      logComment = `## ${title}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}${sessionNote}
 
 <details>
 <summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -645,13 +599,19 @@ ${logContent}
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
     }
-    // Check GitHub comment size limit
+    // Check GitHub comment size limit or large file mode
+    // Issue #1173: Also use gh-upload-log for large files, not just long comments
     let commentResult;
-    if (logComment.length > githubLimits.commentMaxSize) {
-      await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
-      await log('  📎 Uploading log as GitHub Gist instead...');
+    if (useLargeFileMode || logComment.length > githubLimits.commentMaxSize) {
+      if (useLargeFileMode) {
+        await log(`  📁 Log file too large for inline comment (${Math.round(logStats.size / 1024 / 1024)}MB), using gh-upload-log`);
+      } else {
+        await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
+      }
+      await log('  📎 Uploading log using gh-upload-log...');
       try {
         // Check if repository is public or private
+        // Issue #1173: Use public upload for public repos, private for private repos
         let isPublicRepo = true;
         try {
           const repoVisibilityResult = await $`gh api repos/${owner}/${repo} --jq .visibility`;
@@ -659,7 +619,7 @@ ${logContent}
             const visibility = repoVisibilityResult.stdout.toString().trim();
             isPublicRepo = visibility === 'public';
             if (verbose) {
-              await log(`  🔍 Repository visibility: ${visibility}`, { verbose: true });
+              await log(`  🔍 Repository visibility: ${visibility}, log upload will be ${isPublicRepo ? 'public' : 'private'}`, { verbose: true });
             }
           }
         } catch (visibilityError) {
@@ -669,50 +629,38 @@ ${logContent}
             owner,
             repo,
           });
-          // Default to public if we can't determine visibility
-          await log('  ⚠️  Could not determine repository visibility, defaulting to public gist', { verbose: true });
+          // Default to private if we can't determine visibility (safer for private repos)
+          isPublicRepo = false;
+          await log('  ⚠️  Could not determine repository visibility, defaulting to private for safety');
         }
-        // Create gist with appropriate visibility
-        // Note: Gists don't need escaping because they are uploaded as plain text files
+        // Create temp log file with sanitized content (no compression, just gh-upload-log)
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
-        // Use the original sanitized content (before escaping) for gist since it's a text file
+        // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
-        const gistCommand = isPublicRepo ? `gh gist create "${tempLogFile}" --public --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"` : `gh gist create "${tempLogFile}" --desc "Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}" --filename "solution-draft-log.txt"`;
-        if (verbose) {
-          await log(`  🔐 Creating ${isPublicRepo ? 'public' : 'private'} gist...`, { verbose: true });
-        }
-        const gistResult = await $(gistCommand);
+
+        // Use gh-upload-log to upload the log file
+        const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
+        const uploadResult = await uploadLogWithGhUploadLog({
+          logFile: tempLogFile,
+          isPublic: isPublicRepo,
+          description: uploadDescription,
+          verbose,
+        });
         await fs.unlink(tempLogFile).catch(() => {});
-        if (gistResult.code === 0) {
-          const gistPageUrl = gistResult.stdout.toString().trim();
-          // Extract gist ID from URL
-          const gistId = gistPageUrl.split('/').pop();
-          // Construct raw file URL
-          // Format: https://gist.githubusercontent.com/{owner}/{gist_id}/raw/{commit_sha}/{filename}
-          // We use gh api to get the gist details for owner and commit SHA
-          let gistUrl = gistPageUrl; // fallback to page URL if we can't get raw URL
 
-          const gistDetailsResult = await $`gh api gists/${gistId} --jq '{owner: .owner.login, files: .files, history: .history}'`;
-          if (gistDetailsResult.code === 0) {
-            const gistDetails = JSON.parse(gistDetailsResult.stdout.toString());
-            const commitSha = gistDetails.history && gistDetails.history[0] ? gistDetails.history[0].version : null;
-            // Get the actual filename from the gist API response (--filename flag only works with stdin)
-            const fileNames = gistDetails.files ? Object.keys(gistDetails.files) : [];
-            const fileName = fileNames.length > 0 ? fileNames[0] : 'solution-draft-log.txt';
+        if (uploadResult.success) {
+          // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks)
+          // Requirements: 1 chunk = direct raw link, >1 chunks = repo link
+          const logUrl = uploadResult.chunks === 1 ? uploadResult.rawUrl : uploadResult.url;
+          const uploadTypeLabel = uploadResult.type === 'gist' ? 'Gist' : 'Repository';
+          const chunkInfo = uploadResult.chunks > 1 ? ` (${uploadResult.chunks} chunks)` : '';
 
-            if (commitSha) {
-              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${commitSha}/${fileName}`;
-            } else {
-              // Fallback: use simpler format without commit SHA (GitHub will redirect to latest)
-              gistUrl = `https://gist.githubusercontent.com/${gistDetails.owner}/${gistId}/raw/${fileName}`;
-            }
-          }
-          // Create comment with gist link
-          let gistComment;
+          // Create comment with log link
+          let logUploadComment;
           // For usage limit cases, always use the dedicated format regardless of errorMessage
           if (isUsageLimit) {
-            // Usage limit error gist format
-            gistComment = `## ⏳ Usage Limit Reached
+            // Usage limit error format
+            logUploadComment = `## ⏳ Usage Limit Reached
 
 The automated solution draft was interrupted because the ${toolName} usage limit was reached.
 
@@ -721,86 +669,131 @@ The automated solution draft was interrupted because the ${toolName} usage limit
 - **Limit Type**: Usage limit exceeded`;
 
             if (limitResetTime) {
-              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+              // Format reset time with relative time and UTC for better user understanding
+              // Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM"
+              // See: https://github.com/link-assistant/hive-mind/issues/1236
+              const formattedUploadResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+              logUploadComment += `\n- **Reset Time**: ${formattedUploadResetTime}`;
             }
 
             if (sessionId) {
-              gistComment += `\n- **Session ID**: ${sessionId}`;
+              logUploadComment += `\n- **Session ID**: ${sessionId}`;
             }
 
-            gistComment += '\n\n### 🔄 How to Continue\n';
+            logUploadComment += '\n\n### 🔄 How to Continue\n';
 
-            if (limitResetTime) {
-              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+            // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            if (isAutoResumeEnabled) {
+              const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+              const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
+
+              logUploadComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
             } else {
-              gistComment += 'Once the limit resets, ';
-            }
+              // Manual resume mode - show CLI commands
+              if (limitResetTime) {
+                logUploadComment += `Once the limit resets at **${limitResetTime}**, `;
+              } else {
+                logUploadComment += 'Once the limit resets, ';
+              }
 
-            if (resumeCommand) {
-              gistComment += `you can resume this session by running:
+              if (resumeCommand) {
+                logUploadComment += `you can resume this session by running:
 \`\`\`bash
 ${resumeCommand}
 \`\`\``;
-            } else if (sessionId) {
-              gistComment += `you can resume this session using session ID: \`${sessionId}\``;
-            } else {
-              gistComment += 'you can retry the operation.';
+              } else if (sessionId) {
+                logUploadComment += `you can resume this session using session ID: \`${sessionId}\``;
+              } else {
+                logUploadComment += 'you can retry the operation.';
+              }
             }
 
-            gistComment += `
+            logUploadComment += `${modelInfoString}
 
-📎 **Execution log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete execution log](${gistUrl})
+### 📎 **Execution log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete execution log](${logUrl})
 
 ---
 *This session was interrupted due to usage limits. You can resume once the limit resets.*`;
           } else if (errorMessage) {
-            // Failure log gist format (non-usage-limit errors)
-            gistComment = `## 🚨 Solution Draft Failed
+            // Failure log format (non-usage-limit errors)
+            logUploadComment = `## 🚨 Solution Draft Failed
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`
-📎 **Failure log uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete failure log](${gistUrl})
+\`\`\`${modelInfoString}
+
+### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete failure log](${logUrl})
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
+          } else if (errorDuringExecution) {
+            // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
+            const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
+            logUploadComment = `## ⚠️ Solution Draft Finished with Errors
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
+
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           } else {
-            // Success log gist format - use helper function for cost info
+            // Success log format - use helper function for cost info
             const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo);
-            gistComment = `## ${customTitle}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}
-📎 **Log file uploaded as GitHub Gist** (${Math.round(logStats.size / 1024)}KB)
-🔗 [View complete solution draft log](${gistUrl})
+            // Determine title based on session type
+            // See: https://github.com/link-assistant/hive-mind/issues/1152
+            let title = customTitle;
+            let sessionNote = '';
+            if (sessionType === 'auto-resume') {
+              title = '🔄 Draft log of auto resume (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.\n';
+            } else if (sessionType === 'auto-restart') {
+              title = '🔄 Draft log of auto restart (on limit reset)';
+              sessionNote = '\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).\n';
+            } else if (sessionType === 'resume') {
+              title = '🔄 Solution Draft Log (Resumed)';
+              sessionNote = '\n**Note**: This session was manually resumed using the --resume flag.\n';
+            }
+            logUploadComment = `## ${title}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
+${sessionNote}
+### 📎 **Log file uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
+- [View complete solution draft log](${logUrl})
+
 ---
 *Now working session is ended, feel free to review and add any feedback on the solution draft.*`;
           }
-          const tempGistCommentFile = `/tmp/log-gist-comment-${targetType}-${Date.now()}.md`;
-          await fs.writeFile(tempGistCommentFile, gistComment);
-          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempGistCommentFile}"`;
-          await fs.unlink(tempGistCommentFile).catch(() => {});
+          const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
+          await fs.writeFile(tempCommentFile, logUploadComment);
+          commentResult = await $`gh ${ghCommand} comment ${targetNumber} --repo ${owner}/${repo} --body-file "${tempCommentFile}"`;
+          await fs.unlink(tempCommentFile).catch(() => {});
           if (commentResult.code === 0) {
-            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} Gist`);
-            await log(`  🔗 Gist URL: ${gistUrl}`);
+            await log(`  ✅ Solution draft log uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}`);
+            await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
             return true;
           } else {
-            await log(`  ❌ Failed to upload comment with gist link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
+            await log(`  ❌ Failed to post comment with log link: ${commentResult.stderr ? commentResult.stderr.toString().trim() : 'unknown error'}`);
             return false;
           }
         } else {
-          await log(`  ❌ Failed to create gist: ${gistResult.stderr ? gistResult.stderr.toString().trim() : 'unknown error'}`);
+          await log('  ❌ gh-upload-log failed');
 
           // Fallback to truncated comment
           await log('  🔄 Falling back to truncated comment...');
           return await attachTruncatedLog(options);
         }
-      } catch (gistError) {
-        reportError(gistError, {
-          context: 'create_gist',
+      } catch (uploadError) {
+        reportError(uploadError, {
+          context: 'upload_log_gh_upload_log',
           level: 'error',
         });
-        await log(`  ❌ Error creating gist: ${gistError.message}`);
+        await log(`  ❌ Error uploading log: ${uploadError.message}`);
         // Try regular comment as last resort
         return await attachRegularComment(options, logComment);
       }
@@ -809,7 +802,9 @@ This log file contains the complete execution trace of the AI ${targetType === '
       return await attachRegularComment(options, logComment);
     }
   } catch (uploadError) {
-    await log(`  ❌ Error uploading log file: ${uploadError.message}`);
+    // Issue #1212: ENOSPC-specific actionable guidance
+    const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
+    await log(`  ❌ ${msg}`);
     return false;
   }
 }
@@ -1426,6 +1421,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
       if (argv.verbose) commandParts.push('--verbose');
       if (argv.model && argv.model !== 'sonnet') commandParts.push('--model', argv.model);
       if (argv.think) commandParts.push('--think', argv.think);
+      if (argv.thinkingBudget !== undefined) commandParts.push('--thinking-budget', argv.thinkingBudget);
       await log(`   ${commandParts.join(' ')}`, { level: 'error' });
       await log('', { level: 'error' });
     }
@@ -1471,17 +1467,23 @@ export async function detectRepositoryVisibility(owner, repo) {
 }
 // Re-export batch archived check from separate module
 export const batchCheckArchivedRepositories = batchCheckArchived;
+// Re-export log upload function from separate module
+export { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 // Export all functions as default object too
 export default {
   maskGitHubToken,
   getGitHubTokensFromFiles,
   getGitHubTokensFromCommand,
   escapeCodeBlocksInLog,
+  isSafeToken,
+  isHexInSafeContext,
   sanitizeLogContent,
   checkFileInBranch,
   checkGitHubPermissions,
   checkRepositoryWritePermission,
   attachLogToGitHub,
+  getToolDisplayName,
+  uploadLogWithGhUploadLog,
   fetchAllIssuesWithPagination,
   fetchProjectIssues,
   isRateLimitError,

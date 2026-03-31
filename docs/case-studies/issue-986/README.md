@@ -15,10 +15,10 @@ This case study analyzes issue #986, where the GNU `screen` terminal multiplexer
 
 ### Problem Statement
 
-When attempting to run `screen -S bot` inside the Docker container, users encountered the following error:
+When attempting to run `screen -R bot` inside the Docker container, users encountered the following error:
 
 ```bash
-hive@35cfa2347a44:~$ screen -S bot
+hive@35cfa2347a44:~$ screen -R bot
 bash: screen: command not found
 ```
 
@@ -59,14 +59,14 @@ GNU Screen is a full-screen window manager that multiplexes a physical terminal 
 ### Common Usage Patterns
 
 ```bash
-# Start a new named screen session
-screen -S session-name
+# Start a new named screen session or reattach if exists
+screen -R session-name
 
 # List all screen sessions
 screen -ls
 
-# Reattach to a detached session
-screen -r session-name
+# Reattach to a detached session or create if not exists
+screen -R session-name
 
 # Detach from current session (Ctrl+a d)
 ```
@@ -74,7 +74,7 @@ screen -r session-name
 ### Why Developers Use Screen in Docker Containers
 
 1. **Long-running processes:** Running background tasks that should persist beyond a single terminal session
-2. **Bot development:** As indicated in the issue (`screen -S bot`), running bot processes that need to persist
+2. **Bot development:** As indicated in the issue (`screen -R bot`), running bot processes that need to persist
 3. **Multiple concurrent tasks:** Managing several processes in a single container (e.g., development server, build watchers, log viewers)
 4. **SSH persistence:** Maintaining work sessions even when disconnected from the container
 
@@ -160,7 +160,7 @@ The root cause of this issue is straightforward:
 
 **2025-12-24 21:18:42 UTC** - Issue #986 reported
 
-- User attempts to run `screen -S bot` in Docker container
+- User attempts to run `screen -R bot` in Docker container
 - Encounters "command not found" error
 - Provides workaround using `apt install`
 
@@ -379,7 +379,7 @@ docker run --rm hive-mind:test screen --version
 docker run -it --name test-screen hive-mind:test
 
 # Inside container - test screen functionality
-screen -S test-session
+screen -R test-session
 echo "Screen works!"
 # Detach with Ctrl+a d
 
@@ -387,8 +387,8 @@ echo "Screen works!"
 screen -ls
 # Should show test-session
 
-# Reattach
-screen -r test-session
+# Reattach or create
+screen -R test-session
 
 # Cleanup
 exit
@@ -433,9 +433,8 @@ If the project maintains a developer guide, consider adding:
 
 The development environment includes GNU Screen for managing multiple terminal sessions:
 
-- Start a session: `screen -S name`
+- Start or reattach to session: `screen -R name`
 - Detach: `Ctrl+a d`
-- Reattach: `screen -r name`
 - List sessions: `screen -ls`
 ```
 

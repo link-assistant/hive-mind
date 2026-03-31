@@ -1,49 +1,111 @@
-FROM ubuntu:24.04
+# Hive Mind Docker image
+# Inherits from konard/sandbox which provides all general-purpose development tools
+# This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)
+#
+# Architecture (see issue #1394, #1499, #1505 and sandbox#73, sandbox#74):
+#   konard/sandbox (pinned version)
+#     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
+#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
+#     └── /workspace directory owned by sandbox user
+#   hive-mind (konard/hive-mind)
+#     └── Inherits sandbox, adds AI coding assistants and Playwright MCP
+#     └── Runs entirely as sandbox user (no USER root needed)
+#
+# Sandbox image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in coolify/Dockerfile.
+# Latest sandbox releases: https://hub.docker.com/r/konard/sandbox/tags
+#
+# Build: docker build -t konard/hive-mind .
 
-# Ubuntu 24.04 LTS base image for production deployment
-# Set non-interactive frontend for apt
-ENV DEBIAN_FRONTEND=noninteractive
+FROM konard/sandbox:1.6.0
 
-# Set working directory
+# --- Environment variables ---
+# Set environment variables EARLY so they're available in subsequent RUN commands
+# All paths use /workspace (shared directory owned by sandbox:sandbox)
+ENV HOME=/workspace
+ENV NVM_DIR="/workspace/.nvm"
+ENV PYENV_ROOT="/workspace/.pyenv"
+ENV BUN_INSTALL="/workspace/.bun"
+ENV DENO_INSTALL="/workspace/.deno"
+ENV CARGO_HOME="/workspace/.cargo"
+ENV GOROOT="/workspace/.go"
+ENV GOPATH="/workspace/.go/path"
+ENV SDKMAN_DIR="/workspace/.sdkman"
+ENV PERLBREW_ROOT="/workspace/.perl5"
+ENV RBENV_ROOT="/workspace/.rbenv"
+
+# Opam environment variables for Rocq/Coq theorem prover
+ENV OPAM_SWITCH_PREFIX="/workspace/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam/default/lib/ocaml/stublibs:/workspace/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/workspace/.opam/default/lib/toplevel"
+
+# Comprehensive PATH including all tools
+# Note: Node.js path is added dynamically since NVM version may vary
+# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary from sandbox rocq image)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/workspace/.pyenv/bin:/workspace/.pyenv/shims:/workspace/.rbenv/bin:/workspace/.rbenv/shims:/workspace/.swift/usr/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/workspace/.local/bin:/workspace/.cargo/bin:/workspace/.deno/bin:/workspace/.bun/bin:/workspace/.go/bin:/workspace/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Run entirely as sandbox user — no USER root needed (see issue #1505)
+USER sandbox
 WORKDIR /workspace
 
-# Copy the installation script
-COPY scripts/ubuntu-24-server-install.sh /tmp/ubuntu-24-server-install.sh
+# Create a stable symlink to the active Node.js version's bin directory
+# This allows us to add it to PATH without knowing the specific version
+RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /workspace/.node-bin; \
+    fi
 
-# Make the script executable and run it
-# Pass DOCKER_BUILD=1 environment variable to indicate Docker build environment
-# This is needed because standard Docker detection (/.dockerenv, cgroup checks)
-# doesn't work reliably during Docker build with BuildKit
-RUN chmod +x /tmp/ubuntu-24-server-install.sh && \
-    DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh && \
-    rm -f /tmp/ubuntu-24-server-install.sh
+ENV PATH="/workspace/.node-bin:${PATH}"
 
-# Switch to hive user
-USER hive
+# --- Install opam binary ---
+# The sandbox full image copies ~/.opam (opam switch data) from the rocq stage
+# but does NOT copy the opam binary from ~/.local/bin. Install it as sandbox user.
+# See: https://github.com/link-foundation/sandbox/issues/74
+RUN mkdir -p /workspace/.local/bin && \
+    ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64)  OPAM_ARCH="x86_64" ;; \
+      aarch64) OPAM_ARCH="arm64" ;; \
+      *)       OPAM_ARCH="$ARCH" ;; \
+    esac && \
+    OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
+    chmod +x /workspace/.local/bin/opam
 
-# Set home directory
-WORKDIR /home/hive
+# --- AI-specific packages installation ---
+# These are the tools that differentiate hive-mind from the generic sandbox
+# Global bun packages for AI coding assistants and workflow utilities
+# Every install must fail the build on error — no silent fallbacks (see issue #1505)
 
-# Set up environment variables for all the tools installed by the script
-ENV NVM_DIR="/home/hive/.nvm"
-ENV PYENV_ROOT="/home/hive/.pyenv"
-ENV BUN_INSTALL="/home/hive/.bun"
-ENV DENO_INSTALL="/home/hive/.deno"
-ENV CARGO_HOME="/home/hive/.cargo"
-# Include PHP paths from Homebrew (PHP is keg-only and needs explicit PATH entry)
-# Include Cargo/Rust paths (installed via rustup)
-# Include Lean/elan paths
-# Include Opam paths for Rocq/Coq theorem prover
-ENV PATH="/home/hive/.elan/bin:/home/hive/.opam/default/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/hive/.cargo/bin:/home/hive/.deno/bin:/home/hive/.bun/bin:/home/hive/.pyenv/bin:/home/hive/.nvm/versions/node/v20.*/bin:/home/linuxbrew/.linuxbrew/bin:${PATH}"
-# Opam environment variables for Rocq/Coq theorem prover
-# Reference: https://rocq-prover.org/docs/using-opam (issue #952)
-# These are needed in addition to PATH for opam-installed tools to work properly
-ENV OPAM_SWITCH_PREFIX="/home/hive/.opam/default"
-ENV CAML_LD_LIBRARY_PATH="/home/hive/.opam/default/lib/stublibs:/home/hive/.opam/default/lib/ocaml/stublibs:/home/hive/.opam/default/lib/ocaml"
-ENV OCAML_TOPLEVEL_PATH="/home/hive/.opam/default/lib/toplevel"
+# Install AI coding assistant CLIs
+RUN bun install -g @anthropic-ai/claude-code && \
+    bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
 
-# Load NVM, Pyenv, and other tools in shell sessions
+# Install hive-mind workflow utilities
+RUN bun install -g @link-assistant/hive-mind && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log
+
+# --- Playwright MCP Setup ---
+# Sandbox 1.6.0 pre-installs Playwright browsers and @playwright/test (sandbox#74).
+# We only add @playwright/mcp (AI-specific MCP server for Claude).
+# --force handles the shared 'playwright' binary conflict between packages.
+RUN npm install -g @playwright/mcp@latest --no-fund --force
+
+# Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
+RUN if command -v claude &>/dev/null; then \
+      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
 SHELL ["/bin/bash", "-c"]
-
-# Set default command to bash
 CMD ["/bin/bash"]

@@ -1,5 +1,93 @@
 # @link-assistant/hive-mind
 
+## 1.43.0
+
+### Minor Changes
+
+- 91479e3: Better /version command output with uniform formatting and bug fixes: add regex version parsers for all 40+ tools, fix LLD/Xvfb/Playwright MCP detection, add Playwright browser cache fallback, fail Docker build on MCP registration failure
+
+## 1.42.0
+
+### Minor Changes
+
+- 5aa82f5: Add /stop and /start commands for telegram bot to control task acceptance per chat (Issue #1081)
+
+## 1.41.0
+
+### Minor Changes
+
+- 2c9396d: feat: simplify Dockerfile — bump sandbox 1.5.0→1.6.0, remove Playwright setup, eliminate USER root, remove silent fallbacks (#1505)
+
+## 1.40.2
+
+### Patch Changes
+
+- 3dbbe9c: fix: improve context, token and cost estimation accuracy for multi-model sessions (#1508)
+  - Merge resultModelUsage from Claude Code result JSON into JSONL-based calculations to include sub-agent model tokens (e.g., Haiku) that are missing from JSONL
+  - Split token and context usage per model in budget stats PR comments
+  - Show per-model cost breakdown in budget stats
+  - Fix sub-sessions being duplicated under each model heading in multi-model mode
+  - Add verbose diagnostics indicating when token data is sourced from result JSON vs JSONL
+
+## 1.40.1
+
+### Patch Changes
+
+- 9df62ed: fix: increase activity timeout to 1hr, fix idle tracking, improve graceful kill (#1510)
+
+## 1.40.0
+
+### Minor Changes
+
+- 6b8465a: feat: add browsers, browser tools, and missing software to /version command
+
+## 1.39.0
+
+### Minor Changes
+
+- b162658: Migrate to sandbox 1.5.0 with /workspace shared directory, replacing user rename approach with group-based access (issue #1499)
+
+## 1.38.3
+
+### Patch Changes
+
+- deb31bf: fix: add multi-mechanism CI consensus, repo-wide action monitoring, and 5-min minimum CI check interval to prevent false positive "Ready to merge"
+
+## 1.38.2
+
+### Patch Changes
+
+- 290139f: fix: correct cost and token/context budget calculations (#1501)
+  - Deduplicate JSONL session entries by message ID to fix inflated token counts caused by upstream anthropics/claude-code#6805
+  - Show peak context window usage (max single-request fill) instead of cumulative sum which produced nonsensical percentages like 7516%
+  - Add "Total tokens processed" as a separate cumulative metric for session throughput visibility
+  - Add verbose logging for JSONL deduplication stats and peak context values
+
+## 1.38.1
+
+### Patch Changes
+
+- 1525ecb: fix: prevent 'Failed to send formatted message' Telegram error by adding safeReply helper and escaping unescaped Markdown in bot messages
+
+## 1.38.0
+
+### Minor Changes
+
+- ee331ef: Enhance --tokens-budget-stats with sub-session tracking, stream comparison, and GitHub comment display
+
+## 1.37.4
+
+### Patch Changes
+
+- 72bbb31: Add emphasis on reproducible automated testing in system prompts
+  - Add new "Reproducible testing" section to all prompt files (claude, agent, codex, opencode)
+  - Update "Solution development and testing" to emphasize test-first approach
+  - Enhance Playwright MCP guidelines with UI bug reproduction workflow
+  - Enhance Visual UI work section with before/after screenshot guidelines
+  - Fix spelling and grammar issues across all prompt files
+  - Soften forceful language to use recommendation style ("When x, do y.")
+  - Add comprehensive case study for issue #1179 documenting best practices
+
 ## 1.37.3
 
 ### Patch Changes

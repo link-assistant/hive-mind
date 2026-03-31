@@ -300,6 +300,8 @@ export const watchForFeedback = async params => {
                   // Issue #1225: Pass model and tool info for PR comments
                   requestedModel: argv.model,
                   tool: argv.tool || 'claude',
+                  // Issue #1508: Pass model usage for failure log (cost info per model)
+                  resultModelUsage: toolResult.resultModelUsage || null,
                 });
 
                 if (logUploadSuccess) {
@@ -338,6 +340,20 @@ export const watchForFeedback = async params => {
             }
           }
 
+          // Issue #1508: Compute budget stats for auto-restart log comment
+          let autoRestartBudgetStatsData = null;
+          if (argv.tokensBudgetStats && latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
+              if (tokenUsage) {
+                autoRestartBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null };
+              }
+            } catch (budgetError) {
+              if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+            }
+          }
+
           // Issue #1107: Attach log after each auto-restart session with its own cost estimation
           // This ensures each restart has its own log comment instead of one combined log at the end
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
@@ -369,6 +385,9 @@ export const watchForFeedback = async params => {
                   // Issue #1225: Pass model and tool info for PR comments
                   requestedModel: argv.model,
                   tool: argv.tool || 'claude',
+                  // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
+                  resultModelUsage: toolResult.resultModelUsage || null,
+                  budgetStatsData: autoRestartBudgetStatsData,
                 });
 
                 if (logUploadSuccess) {

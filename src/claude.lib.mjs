@@ -12,7 +12,7 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -480,92 +480,7 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
   }
   return totalCost;
 };
-/**
- * Display detailed model usage information
- * @param {Object} usage - Usage data for a model
- * @param {Function} log - Logging function
- */
-const displayModelUsage = async (usage, log) => {
-  // Show all model characteristics if available
-  if (usage.modelInfo) {
-    const info = usage.modelInfo;
-    const fields = [
-      { label: 'Model ID', value: info.id },
-      { label: 'Provider', value: info.provider || 'Unknown' },
-      { label: 'Context window', value: info.limit?.context ? `${formatNumber(info.limit.context)} tokens` : null },
-      { label: 'Max output', value: info.limit?.output ? `${formatNumber(info.limit.output)} tokens` : null },
-      { label: 'Input modalities', value: info.modalities?.input?.join(', ') || 'N/A' },
-      { label: 'Output modalities', value: info.modalities?.output?.join(', ') || 'N/A' },
-      { label: 'Knowledge cutoff', value: info.knowledge },
-      { label: 'Released', value: info.release_date },
-      {
-        label: 'Capabilities',
-        value: [info.attachment && 'Attachments', info.reasoning && 'Reasoning', info.temperature && 'Temperature', info.tool_call && 'Tool calls'].filter(Boolean).join(', ') || 'N/A',
-      },
-      { label: 'Open weights', value: info.open_weights ? 'Yes' : 'No' },
-    ];
-    for (const { label, value } of fields) {
-      if (value) await log(`      ${label}: ${value}`);
-    }
-    await log('');
-  } else {
-    await log('      ⚠️  Model info not available\n');
-  }
-  // Show usage data
-  await log('      Usage:');
-  await log(`        Input tokens: ${formatNumber(usage.inputTokens)}`);
-  if (usage.cacheCreationTokens > 0) {
-    await log(`        Cache creation tokens: ${formatNumber(usage.cacheCreationTokens)}`);
-  }
-  if (usage.cacheReadTokens > 0) {
-    await log(`        Cache read tokens: ${formatNumber(usage.cacheReadTokens)}`);
-  }
-  await log(`        Output tokens: ${formatNumber(usage.outputTokens)}`);
-  if (usage.webSearchRequests > 0) {
-    await log(`        Web search requests: ${usage.webSearchRequests}`);
-  }
-  // Show detailed cost calculation
-  if (usage.costUSD !== null && usage.costUSD !== undefined && usage.costBreakdown) {
-    await log('');
-    await log('      Cost Calculation (USD):');
-    const breakdown = usage.costBreakdown;
-    const types = [
-      { key: 'input', label: 'Input' },
-      { key: 'cacheWrite', label: 'Cache write' },
-      { key: 'cacheRead', label: 'Cache read' },
-      { key: 'output', label: 'Output' },
-    ];
-    for (const { key, label } of types) {
-      if (breakdown[key].tokens > 0) {
-        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${breakdown[key].cost.toFixed(6)}`);
-      }
-    }
-    await log('        ─────────────────────────────────');
-    await log(`        Total: $${usage.costUSD.toFixed(6)}`);
-  } else if (usage.modelInfo === null) {
-    await log('');
-    await log('      Cost: Not available (could not fetch pricing)');
-  }
-};
-/**
- * Display cost comparison between public pricing and Anthropic's official cost
- * @param {number|null} publicCost - Public pricing estimate
- * @param {number|null} anthropicCost - Anthropic's official cost
- * @param {Function} log - Logging function
- */
-const displayCostComparison = async (publicCost, anthropicCost, log) => {
-  await log('\n   💰 Cost estimation:');
-  await log(`      Public pricing estimate: ${publicCost !== null && publicCost !== undefined ? `$${publicCost.toFixed(6)} USD` : 'unknown'}`);
-  await log(`      Calculated by Anthropic: ${anthropicCost !== null && anthropicCost !== undefined ? `$${anthropicCost.toFixed(6)} USD` : 'unknown'}`);
-  if (publicCost !== null && publicCost !== undefined && anthropicCost !== null && anthropicCost !== undefined) {
-    const difference = anthropicCost - publicCost;
-    const percentDiff = publicCost > 0 ? (difference / publicCost) * 100 : 0;
-    await log(`      Difference:              $${difference.toFixed(6)} (${percentDiff > 0 ? '+' : ''}${percentDiff.toFixed(2)}%)`);
-  } else {
-    await log('      Difference:              unknown');
-  }
-};
-export const calculateSessionTokens = async (sessionId, tempDir) => {
+export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
   // Construct the path to the session JSONL file
@@ -582,6 +497,19 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
   }
   // Initialize per-model usage tracking
   const modelUsage = {};
+  // Issue #1501: Deduplicate JSONL entries by message ID (upstream: anthropics/claude-code#6805)
+  // Claude Code's stream-json mode splits single API responses with multiple content blocks
+  // into separate JSONL entries, each with the same message ID and identical usage stats.
+  const seenMessageIds = new Set();
+  let duplicateCount = 0;
+  // Issue #1501: Track peak context usage per request (not cumulative)
+  // The context window limit is per-request, so we track the max single-request fill.
+  const peakContextByModel = {};
+  let globalPeakContext = 0;
+  // Issue #1491: Track sub-sessions between compactification events
+  const subSessions = [];
+  let currentSubSession = createEmptySubSessionUsage();
+  const compactifications = [];
   try {
     // Read the entire file
     const fileContent = await fs.readFile(sessionFile, 'utf8');
@@ -590,46 +518,53 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
+        // Issue #1491: Detect compactification boundary events
+        if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
+          // Save current sub-session and start a new one
+          if (currentSubSession.messageCount > 0) {
+            subSessions.push(currentSubSession);
+          }
+          compactifications.push({
+            timestamp: entry.timestamp || null,
+            preTokens: entry.compactMetadata?.preTokens || null,
+            trigger: entry.compactMetadata?.trigger || 'unknown',
+          });
+          currentSubSession = createEmptySubSessionUsage();
+          continue;
+        }
         if (entry.message && entry.message.usage && entry.message.model) {
-          const model = entry.message.model;
-          if (model.startsWith('<') && model.endsWith('>')) continue; // Issue #1486: skip <synthetic> etc.
+          // Issue #1501: Skip duplicate JSONL entries (same message ID = same API response)
+          const msgId = entry.message.id;
+          if (msgId) {
+            if (seenMessageIds.has(msgId)) {
+              duplicateCount++;
+              continue; // Skip — already counted this message's usage
+            }
+            seenMessageIds.add(msgId);
+          }
+          accumulateModelUsage(modelUsage, entry);
+          // Issue #1501: Track peak context usage per single API request
           const usage = entry.message.usage;
-          // Initialize model entry if it doesn't exist
-          if (!modelUsage[model]) {
-            modelUsage[model] = {
-              inputTokens: 0,
-              cacheCreationTokens: 0,
-              cacheCreation5mTokens: 0,
-              cacheCreation1hTokens: 0,
-              cacheReadTokens: 0,
-              outputTokens: 0,
-              webSearchRequests: 0,
-            };
+          const requestContext = (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
+          const model = entry.message.model;
+          if (requestContext > (peakContextByModel[model] || 0)) {
+            peakContextByModel[model] = requestContext;
           }
-          // Add input tokens
-          if (usage.input_tokens) {
-            modelUsage[model].inputTokens += usage.input_tokens;
+          if (requestContext > globalPeakContext) {
+            globalPeakContext = requestContext;
           }
-          // Add cache creation tokens (total)
-          if (usage.cache_creation_input_tokens) {
-            modelUsage[model].cacheCreationTokens += usage.cache_creation_input_tokens;
+          // Issue #1491: Also track per-sub-session usage
+          if (usage.input_tokens) currentSubSession.inputTokens += usage.input_tokens;
+          if (usage.cache_creation_input_tokens) currentSubSession.cacheCreationTokens += usage.cache_creation_input_tokens;
+          if (usage.cache_read_input_tokens) currentSubSession.cacheReadTokens += usage.cache_read_input_tokens;
+          if (usage.output_tokens) currentSubSession.outputTokens += usage.output_tokens;
+          currentSubSession.messageCount++;
+          // Issue #1501: Track peak context and output per sub-session
+          if (requestContext > currentSubSession.peakContextUsage) {
+            currentSubSession.peakContextUsage = requestContext;
           }
-          // Add cache creation tokens breakdown (5m and 1h)
-          if (usage.cache_creation) {
-            if (usage.cache_creation.ephemeral_5m_input_tokens) {
-              modelUsage[model].cacheCreation5mTokens += usage.cache_creation.ephemeral_5m_input_tokens;
-            }
-            if (usage.cache_creation.ephemeral_1h_input_tokens) {
-              modelUsage[model].cacheCreation1hTokens += usage.cache_creation.ephemeral_1h_input_tokens;
-            }
-          }
-          // Add cache read tokens
-          if (usage.cache_read_input_tokens) {
-            modelUsage[model].cacheReadTokens += usage.cache_read_input_tokens;
-          }
-          // Add output tokens
-          if (usage.output_tokens) {
-            modelUsage[model].outputTokens += usage.output_tokens;
+          if ((usage.output_tokens || 0) > currentSubSession.peakOutputUsage) {
+            currentSubSession.peakOutputUsage = usage.output_tokens || 0;
           }
         }
       } catch {
@@ -637,6 +572,11 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
         continue;
       }
     }
+    // Push the final sub-session
+    if (currentSubSession.messageCount > 0) {
+      subSessions.push(currentSubSession);
+    }
+    mergeResultModelUsage(modelUsage, resultModelUsage);
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
       return null;
@@ -656,6 +596,8 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     // Calculate cost for each model and store all characteristics
     for (const [modelId, usage] of Object.entries(modelUsage)) {
       const modelInfo = modelInfoMap[modelId];
+      // Issue #1501: Attach peak context usage per model
+      usage.peakContextUsage = peakContextByModel[modelId] || 0;
       // Calculate cost using pricing API
       if (modelInfo) {
         const costData = calculateModelCost(usage, modelInfo, true);
@@ -664,7 +606,7 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
         usage.modelName = modelInfo.name || modelId;
         usage.modelInfo = modelInfo; // Store complete model info
       } else {
-        usage.costUSD = null;
+        usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
         usage.modelInfo = null;
@@ -699,6 +641,12 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
       outputTokens: totalOutputTokens,
       totalTokens,
       totalCostUSD: hasCostData ? totalCostUSD : null,
+      // Issue #1501: Peak context usage (max single-request fill) and dedup stats
+      peakContextUsage: globalPeakContext,
+      duplicateEntriesSkipped: duplicateCount,
+      // Issue #1491/#1501: Sub-session and compactification data (always include for display)
+      subSessions,
+      compactifications: compactifications.length > 0 ? compactifications : null,
     };
   } catch (readError) {
     throw new Error(`Failed to read session file: ${readError.message}`);
@@ -832,6 +780,14 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    // Issue #1491: Track token usage from stream JSON events for independent calculation
+    const streamTokenUsage = {
+      inputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      outputTokens: 0,
+      eventCount: 0,
+    };
     // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
@@ -898,21 +854,27 @@ export const executeClaudeCommand = async params => {
       let lastEventTime = null;
       let activityTimeoutId = null;
       let isActivityTimeout = false;
+      // Issue #1510: Separate SIGTERM (graceful) and SIGKILL (force) phases to allow
+      // capturing final output from the process during graceful shutdown
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
-        await log(`⚠️ Stream timeout — forcing exit (Issue #1280)`, { verbose: true });
+        await log(`⚠️ Stream timeout — sending SIGTERM for graceful shutdown (Issue #1280, #1510)`, { verbose: true });
         try {
           if (execCommand.kill) {
             execCommand.kill('SIGTERM');
-            // Issue #1346: Follow up with SIGKILL after 2s if still alive
+            // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
+            // Increased from 2s to 5s to give more time for final output capture
             const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
+                if (!execCommand.result?.code) {
+                  log(`⚠️ Process did not exit after SIGTERM, sending SIGKILL`, { verbose: true });
+                  execCommand.kill('SIGKILL');
+                }
               } catch {
                 /* exited */
               }
-            }, 2000);
+            }, 5000);
             t.unref();
           }
         } catch (e) {
@@ -937,8 +899,8 @@ export const executeClaudeCommand = async params => {
           activityTimeoutId = setTimeout(async () => {
             if (!forceExitTriggered && !resultEventReceived) {
               isActivityTimeout = true;
-              const idleSeconds = lastEventTime ? Math.round((Date.now() - lastEventTime) / 1000) : 'unknown';
-              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}s) — force-killing (Issue #1472)`, { level: 'warning' });
+              const idleSeconds = lastEventTime ? `${Math.round((Date.now() - lastEventTime) / 1000)}s` : 'unknown';
+              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}) — force-killing (Issue #1472)`, { level: 'warning' });
               await forceExitOnTimeout();
             }
           }, timeouts.streamActivityMs);
@@ -946,7 +908,8 @@ export const executeClaudeCommand = async params => {
         }
       };
       for await (const chunk of execCommand.stream()) {
-        if (forceExitTriggered) break;
+        // Issue #1510: Continue processing stream after SIGTERM to capture final output
+        // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
         if (!firstChunkReceived) {
           // Issue #1472/#1475: Clear startup timeout on first output
           firstChunkReceived = true;
@@ -967,12 +930,14 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1510: Track last event time for all modes (not just interactive)
+              // so activity timeout can report accurate idle duration
+              lastEventTime = Date.now();
               if (interactiveHandler) {
                 if (!interactiveHandler._firstEventLogged) {
                   interactiveHandler._firstEventLogged = true;
                   await log(`🔌 Interactive mode: First event received (type: ${data.type || 'unknown'}) — stream is active`, { verbose: true });
                 }
-                lastEventTime = Date.now();
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
@@ -1053,6 +1018,15 @@ export const executeClaudeCommand = async params => {
               else if (data.type === 'error') {
                 lastMessage = data.error || JSON.stringify(data);
                 if (lastMessage.includes('Internal server error')) isInternalServerError = true;
+              }
+              // Issue #1491: Track token usage from stream events for independent calculation
+              if (data.type === 'assistant' && data.message && data.message.usage) {
+                const u = data.message.usage;
+                if (u.input_tokens) streamTokenUsage.inputTokens += u.input_tokens;
+                if (u.cache_creation_input_tokens) streamTokenUsage.cacheCreationTokens += u.cache_creation_input_tokens;
+                if (u.cache_read_input_tokens) streamTokenUsage.cacheReadTokens += u.cache_read_input_tokens;
+                if (u.output_tokens) streamTokenUsage.outputTokens += u.output_tokens;
+                streamTokenUsage.eventCount++;
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
                 const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -1229,6 +1203,19 @@ export const executeClaudeCommand = async params => {
           const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
           await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
           await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Issue #1510: Post PR comment when force-killing and auto-resuming so reviewers can follow the session lifecycle
+          if ((isActivityTimeout || isStartupTimeout) && owner && repo && prNumber && $) {
+            try {
+              const timeoutType = isActivityTimeout ? 'activity' : 'startup';
+              const sessionInfo = sessionId ? `\nSession ID: \`${sessionId}\`` : '';
+              const resumeInfo = isStartupTimeout ? 'Session will be restarted (fresh start).' : `Session will be resumed with \`--resume\` (context preserved).`;
+              const commentBody = `## :warning: Session Force-Killed (${timeoutType} timeout)\n\nThe working session was force-killed due to ${timeoutType} timeout (no stream output for ${isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000}s).\n\n**Auto-resuming**: Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}. ${resumeInfo}${sessionInfo}\n\n*This is an automated notification — the session will continue automatically.*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              await log(`   Posted force-kill notification to PR #${prNumber}`, { verbose: true });
+            } catch (commentError) {
+              await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
+            }
+          }
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           await waitWithCountdown(delay, log);
@@ -1321,19 +1308,31 @@ export const executeClaudeCommand = async params => {
       // Calculate and display total token usage from session JSONL file
       if (sessionId && tempDir) {
         try {
-          const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+          const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
           if (tokenUsage) {
+            // Issue #1501: Log deduplication stats in verbose mode
+            if (tokenUsage.duplicateEntriesSkipped > 0) {
+              await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
+            }
+            if (tokenUsage.peakContextUsage > 0) {
+              await log(`📊 Peak single-request context: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+            }
             await log('\n💰 Token Usage Summary:');
             // Display per-model breakdown
             if (tokenUsage.modelUsage) {
               const modelIds = Object.keys(tokenUsage.modelUsage);
+              const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
+              if (modelsFromResult.length > 0) {
+                await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
+              }
               for (const modelId of modelIds) {
                 const usage = tokenUsage.modelUsage[modelId];
-                await log(`\n   📊 ${usage.modelName || modelId}:`);
+                const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
+                await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
                 await displayModelUsage(usage, log);
                 // Display budget stats if flag is enabled
                 if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
-                  await displayBudgetStats(usage, log);
+                  await displayBudgetStats(usage, tokenUsage, log);
                 }
               }
               // Show totals if multiple models were used
@@ -1381,6 +1380,7 @@ export const executeClaudeCommand = async params => {
         errorDuringExecution, // Issue #1088: Track if error_during_execution subtype occurred
         resultSummary, // Issue #1263: Include result summary for --attach-solution-summary
         resultModelUsage, // Issue #1454
+        streamTokenUsage: streamTokenUsage.eventCount > 0 ? streamTokenUsage : null, // Issue #1491
       };
     } catch (error) {
       reportError(error, {

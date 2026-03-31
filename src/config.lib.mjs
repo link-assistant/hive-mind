@@ -63,8 +63,11 @@ export const timeouts = {
   // after at least one event was received, the process is considered hung mid-session.
   // This catches the case where Claude CLI starts producing output but then stops (e.g., the
   // original Issue #1472 where CLI was stuck for 4.5h with all output arriving only at CTRL+C).
-  // Default: 300000ms (5 minutes). Set to 0 to disable. Configurable via environment variable.
-  streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 300000),
+  // Issue #1510: Increased from 300000ms (5 min) to 3600000ms (1 hour) because Claude Code can
+  // legitimately wait for long-running operations (docker builds, CI polls, large compilations).
+  // The 5-minute timeout was force-killing sessions during `sleep 300 && gh run view ...` commands.
+  // Default: 3600000ms (1 hour). Set to 0 to disable. Configurable via environment variable.
+  streamActivityMs: parseIntWithDefault('HIVE_MIND_STREAM_ACTIVITY_MS', 3600000),
 };
 
 // Auto-continue configurations

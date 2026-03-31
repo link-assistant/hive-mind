@@ -226,8 +226,8 @@ console.log('─'.repeat(60));
   // Test: streamActivityMs exists
   assert(typeof configLib.timeouts.streamActivityMs === 'number', 'timeouts.streamActivityMs is a number', `Got: ${typeof configLib.timeouts.streamActivityMs}`);
 
-  // Test: Default value is 300000ms (5 minutes)
-  assert(configLib.timeouts.streamActivityMs === 300000, 'Default streamActivityMs is 300000ms (5 minutes)', `Got: ${configLib.timeouts.streamActivityMs}`);
+  // Test: Default value is 3600000ms (1 hour) — increased from 300000ms in Issue #1510
+  assert(configLib.timeouts.streamActivityMs === 3600000, 'Default streamActivityMs is 3600000ms (1 hour)', `Got: ${configLib.timeouts.streamActivityMs}`);
 
   const claudeLibContent = await readFile(join(__dirname, '..', 'src', 'claude.lib.mjs'), 'utf-8');
   const configContent = await readFile(join(__dirname, '..', 'src', 'config.lib.mjs'), 'utf-8');

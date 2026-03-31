@@ -133,9 +133,11 @@ function formatUserError(error, verbose) {
  * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
  * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
+ * @param {Function} [options.isChatStopped] - Function to check if chat is stopped (issue #1081)
+ * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
 
   bot.command(/^merge$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -163,6 +165,13 @@ export function registerMergeCommand(bot, options) {
     }
 
     const chatId = ctx.chat.id;
+
+    // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+    if (isChatStopped && isChatStopped(chatId)) {
+      VERBOSE && console.log('[VERBOSE] /merge rejected: chat is stopped');
+      const rejectMsg = getStoppedChatRejectMessage ? getStoppedChatRejectMessage(chatId, 'Merge') : '❌ Merge command rejected.';
+      return await ctx.reply(rejectMsg, { reply_to_message_id: ctx.message.message_id });
+    }
 
     // Parse arguments
     const args = parseCommandArgs(ctx.message.text);

@@ -26,8 +26,8 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:1.3.16
-   docker run -it konard/sandbox:1.3.16
+   docker pull konard/sandbox:1.6.0
+   docker run -it konard/sandbox:1.6.0
 
    # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
    curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash
@@ -35,10 +35,10 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
    **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
 
-4. Login to `hive` user
+4. Login to `sandbox` user
 
    ```bash
-   su - hive
+   su - sandbox
    ```
 
 5. **IMPORTANT:** Authenticate with GitHub CLI AFTER installation is complete

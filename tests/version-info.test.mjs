@@ -14,34 +14,7 @@
 
 import assert from 'node:assert/strict';
 import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
-
-// Test utilities
-let testsPassed = 0;
-let testsFailed = 0;
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`\u2705 ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`\u274c ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
-
-async function asyncTest(name, fn) {
-  try {
-    await fn();
-    console.log(`\u2705 ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`\u274c ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
+import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
 
 // ============================================================================
 // formatVersionMessage Tests - Browser versions (Issue #1506)
@@ -111,17 +84,16 @@ test('formatVersionMessage shows Playwright MCP status when connected', () => {
     playwrightMcpStatus: 'playwright: connected',
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP in Claude Code'), `Expected MCP status line but got: ${result}`);
-  assert.ok(result.includes('playwright: connected'), `Expected connected status but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: connected`'), `Expected MCP connected format but got: ${result}`);
 });
 
-test('formatVersionMessage shows not configured when MCP installed but not in Claude', () => {
+test('formatVersionMessage shows not connected when MCP installed but not in Claude', () => {
   const versions = {
     playwrightMcp: '@playwright/mcp@0.0.32',
     playwrightMcpStatus: null,
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('not configured'), `Expected not configured status but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.32 | Claude Code: not connected`'), `Expected MCP not connected format but got: ${result}`);
 });
 
 test('formatVersionMessage separates Playwright from Development Tools', () => {
@@ -341,9 +313,8 @@ await asyncTest('getVersionInfo gatherTimeMs is reasonable', async () => {
 // Summary
 // ============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log(`\n\ud83d\udcca Results: ${testsPassed} passed, ${testsFailed} failed, ${testsPassed + testsFailed} total\n`);
+printSummary();
 
-if (testsFailed > 0) {
+if (getFailCount() > 0) {
   process.exit(1);
 }

@@ -102,9 +102,9 @@ RUN bun install -g @link-assistant/hive-mind && \
 # --force handles the shared 'playwright' binary conflict between packages.
 RUN npm install -g @playwright/mcp@latest --no-fund --force
 
-# Configure Playwright MCP for Claude CLI if available
+# Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \
-      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 2>/dev/null || true; \
+      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
     fi
 
 SHELL ["/bin/bash", "-c"]

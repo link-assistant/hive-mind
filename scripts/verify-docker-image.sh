@@ -206,11 +206,14 @@ for browser in $BROWSERS_REQUIRED; do
   fi
 done
 
-# Google Chrome is required on x86_64 — installed system-wide via `sudo playwright install chrome`
-# Check via command existence since it installs to /usr/bin/google-chrome, not the ms-playwright cache
+# Google Chrome — in sandbox 1.6.0+, installed as sandbox user to Playwright cache
+# (no longer system-wide via sudo). Check cache directory, with command fallback.
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
-  if command -v google-chrome &>/dev/null; then
+  CHROME_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/chrome"* 2>/dev/null | head -1 || true)
+  if [ -n "$CHROME_DIR" ] && [ -d "$CHROME_DIR" ]; then
+    echo "  chrome: OK ($(basename "$CHROME_DIR"))"
+  elif command -v google-chrome &>/dev/null; then
     echo "  chrome: OK ($(google-chrome --version 2>/dev/null || echo 'installed'))"
   else
     echo "  chrome: MISSING"
@@ -218,7 +221,7 @@ if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
   fi
 fi
 
-# Check optional browsers (chromium_headless_shell, ffmpeg in cache; msedge via command)
+# Check optional browsers (chromium_headless_shell, ffmpeg in cache; msedge in cache or system)
 for browser in chromium_headless_shell ffmpeg; do
   BROWSER_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/${browser}"* 2>/dev/null | head -1 || true)
   if [ -n "$BROWSER_DIR" ] && [ -d "$BROWSER_DIR" ]; then
@@ -228,8 +231,11 @@ for browser in chromium_headless_shell ffmpeg; do
   fi
 done
 
-# msedge is installed system-wide (like chrome)
-if command -v microsoft-edge &>/dev/null; then
+# msedge — in sandbox 1.6.0+, installed to Playwright cache as sandbox user
+MSEDGE_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/msedge"* 2>/dev/null | head -1 || true)
+if [ -n "$MSEDGE_DIR" ] && [ -d "$MSEDGE_DIR" ]; then
+  echo "  msedge: OK ($(basename "$MSEDGE_DIR"))"
+elif command -v microsoft-edge &>/dev/null; then
   echo "  msedge: OK ($(microsoft-edge --version 2>/dev/null || echo 'installed'))"
 else
   echo "  msedge: not installed (optional)"

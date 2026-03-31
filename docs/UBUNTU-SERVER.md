@@ -26,8 +26,8 @@ The following instructions describe the legacy bare-metal installation on Ubuntu
 
    ```bash
    # Option 1: Use Docker (recommended)
-   docker pull konard/sandbox:1.5.0
-   docker run -it konard/sandbox:1.5.0
+   docker pull konard/sandbox:1.6.0
+   docker run -it konard/sandbox:1.6.0
 
    # Option 2: Use the sandbox install script (pinned to v1.3.16 release commit)
    curl -fsSL -o- https://github.com/link-foundation/sandbox/raw/178aa3816ab2c2150844fb967ffa329c63b90131/ubuntu/24.04/full-sandbox/install.sh | bash

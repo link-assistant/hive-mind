@@ -2,13 +2,14 @@
 # Inherits from konard/sandbox which provides all general-purpose development tools
 # This image adds AI-specific tools and application code for Coolify deployment
 #
-# Architecture (see issue #1394, #1499 and sandbox#73):
+# Architecture (see issue #1394, #1499, #1505 and sandbox#73, sandbox#74):
 #   konard/sandbox (pinned version)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
+#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
 #     └── /workspace directory owned by sandbox user
 #   hive-mind (this Dockerfile)
-#     └── Inherits sandbox, adds AI coding assistants and app code
-#     └── Uses default sandbox user (no custom user creation needed)
+#     └── Inherits sandbox, adds AI coding assistants, Playwright MCP, and app code
+#     └── Runs entirely as sandbox user (no USER root needed for tool installs)
 #
 # Sandbox image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in the root Dockerfile.
@@ -16,18 +17,11 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-FROM konard/sandbox:1.5.0
-
-USER root
-
-# Install opam package manager system-wide (needed for OCaml/Rocq package management)
-# The sandbox image installs the opam binary to ~/.local/bin (user-local) but does not copy it
-# to the final image. Installing via apt makes opam accessible system-wide.
-RUN apt-get update -y && apt-get install -y opam && apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM konard/sandbox:1.6.0
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands
-# All paths use /workspace (shared directory from sandbox 1.5.0)
+# All paths use /workspace (shared directory owned by sandbox:sandbox)
 ENV HOME=/workspace
 ENV NVM_DIR="/workspace/.nvm"
 ENV PYENV_ROOT="/workspace/.pyenv"
@@ -45,8 +39,12 @@ ENV CAML_LD_LIBRARY_PATH="/workspace/.opam/default/lib/stublibs:/workspace/.opam
 ENV OCAML_TOPLEVEL_PATH="/workspace/.opam/default/lib/toplevel"
 
 # Comprehensive PATH including all tools
-# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary installed by rocq install script)
+# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary from sandbox rocq image)
 ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/workspace/.pyenv/bin:/workspace/.pyenv/shims:/workspace/.rbenv/bin:/workspace/.rbenv/shims:/workspace/.swift/usr/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/workspace/.local/bin:/workspace/.cargo/bin:/workspace/.deno/bin:/workspace/.bun/bin:/workspace/.go/bin:/workspace/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Run entirely as sandbox user — no USER root needed (see issue #1505)
+USER sandbox
+WORKDIR /workspace
 
 # Create stable symlink to Node.js bin directory
 RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head -1) && \
@@ -56,47 +54,33 @@ RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 
-# Switch to sandbox user for package installations
-USER sandbox
-WORKDIR /workspace
-
 # --- AI-specific packages installation ---
+# Every install must fail the build on error — no silent fallbacks (see issue #1505)
+
 # Install AI coding assistant CLIs
-RUN bun install -g @anthropic-ai/claude-code || echo "claude-code: not yet published" && \
-    bun install -g @openai/codex || echo "codex: not yet published" && \
-    bun install -g @qwen-code/qwen-code || echo "qwen-code: not yet published" && \
-    bun install -g @google/gemini-cli || echo "gemini-cli: not yet published" && \
-    bun install -g @github/copilot || echo "copilot: not yet published" && \
-    bun install -g opencode-ai || echo "opencode-ai: not yet published"
+RUN bun install -g @anthropic-ai/claude-code && \
+    bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
 
 # Install hive-mind workflow utilities
-RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet published" && \
-    bun install -g @link-assistant/claude-profiles || echo "claude-profiles: not yet published" && \
-    bun install -g @link-assistant/agent || echo "agent: not yet published" && \
-    bun install -g start-command || echo "start-command: not yet published" && \
-    bun install -g gh-setup-git-identity || echo "gh-setup-git-identity: not yet published" && \
-    bun install -g gh-pull-all || echo "gh-pull-all: not yet published" && \
-    bun install -g gh-load-issue || echo "gh-load-issue: not yet published" && \
-    bun install -g gh-load-pull-request || echo "gh-load-pull-request: not yet published" && \
-    bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
+RUN bun install -g @link-assistant/hive-mind && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log
 
-# --- Playwright Browser Automation Setup ---
-# Sandbox 1.5.0 provides playwright CLI and system dependencies.
-# We add @playwright/mcp (MCP server for Claude) and @playwright/test (test runner).
+# --- Playwright MCP Setup ---
+# Sandbox 1.6.0 pre-installs Playwright browsers and @playwright/test (sandbox#74).
+# We only add @playwright/mcp (AI-specific MCP server for Claude).
 # --force handles the shared 'playwright' binary conflict between packages.
-# See: https://github.com/link-foundation/sandbox/issues/74 (request to preinstall in sandbox)
-RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force
-
-# Install browsers — architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-# Sandbox already has all OS-level dependencies installed.
-# Google Chrome requires sudo because it installs to system paths.
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
-      playwright install chromium firefox webkit msedge chromium-headless-shell && \
-      sudo env "PATH=$PATH" HOME=/workspace playwright install chrome; \
-    else \
-      playwright install chromium firefox webkit chromium-headless-shell; \
-    fi
+RUN npm install -g @playwright/mcp@latest --no-fund --force
 
 # Configure Playwright MCP for Claude CLI if available
 RUN if command -v claude &>/dev/null; then \
@@ -104,9 +88,10 @@ RUN if command -v claude &>/dev/null; then \
     fi
 
 # --- Application Setup ---
-WORKDIR /app
-
+# Minimal USER root: only for creating /app directory and copying files.
+# All /workspace operations run as sandbox user to prevent permission issues (issue #1505).
 USER root
+WORKDIR /app
 
 # Copy application files from repo root
 COPY --chown=sandbox:sandbox . .
@@ -115,16 +100,24 @@ COPY --chown=sandbox:sandbox . .
 RUN chmod +x *.mjs 2>/dev/null || true && \
     chmod +x src/*.mjs 2>/dev/null || true
 
-# Create necessary directories
+# Create /app subdirectories (root-owned parent)
 RUN mkdir -p /app/claude-logs /app/claude-sessions /app/output && \
-    mkdir -p /workspace/.claude/plugins /workspace/.config && \
-    chown -R sandbox:sandbox /app /workspace/.claude /workspace/.config
+    chown -R sandbox:sandbox /app
+
+# Copy and configure startup script
+COPY --chown=root:root coolify/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Switch to sandbox user for /workspace operations and runtime
+USER sandbox
+
+# Create necessary /workspace directories
+RUN mkdir -p /workspace/.claude/plugins /workspace/.config
 
 # Create bash profile for sandbox user
 # Note: .node-bin is a symlink to the active Node.js version's bin directory
 RUN echo 'export PATH="/workspace/.node-bin:/workspace/.bun/bin:/workspace/.cargo/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/home/linuxbrew/.linuxbrew/bin:$PATH"' >> /workspace/.bashrc && \
-    echo 'export BUN_INSTALL="/workspace/.bun"' >> /workspace/.bashrc && \
-    chown sandbox:sandbox /workspace/.bashrc
+    echo 'export BUN_INSTALL="/workspace/.bun"' >> /workspace/.bashrc
 
 # Create git config file for sandbox user
 RUN echo "[user]" > /workspace/.gitconfig && \
@@ -133,11 +126,7 @@ RUN echo "[user]" > /workspace/.gitconfig && \
     echo "[init]" >> /workspace/.gitconfig && \
     echo "  defaultBranch = main" >> /workspace/.gitconfig && \
     echo "[safe]" >> /workspace/.gitconfig && \
-    echo "  directory = *" >> /workspace/.gitconfig && \
-    chown sandbox:sandbox /workspace/.gitconfig
-
-# Switch back to sandbox user for runtime
-USER sandbox
+    echo "  directory = *" >> /workspace/.gitconfig
 
 # Runtime configuration
 ENV NODE_ENV=production
@@ -150,11 +139,6 @@ ENV MODEL=sonnet
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD pgrep -f "hive.mjs\|tail" > /dev/null || exit 1
-
-# Copy and configure startup script
-USER root
-COPY --chown=root:root coolify/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
 
 SHELL ["/bin/bash", "-c"]
 ENTRYPOINT ["/app/start.sh"]

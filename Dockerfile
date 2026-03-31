@@ -2,13 +2,14 @@
 # Inherits from konard/sandbox which provides all general-purpose development tools
 # This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)
 #
-# Architecture (see issue #1394, #1499 and sandbox#73):
+# Architecture (see issue #1394, #1499, #1505 and sandbox#73, sandbox#74):
 #   konard/sandbox (pinned version)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
+#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
 #     └── /workspace directory owned by sandbox user
 #   hive-mind (konard/hive-mind)
-#     └── Inherits sandbox, adds AI coding assistants and browser automation
-#     └── Uses default sandbox user (no custom user creation needed)
+#     └── Inherits sandbox, adds AI coding assistants and Playwright MCP
+#     └── Runs entirely as sandbox user (no USER root needed)
 #
 # Sandbox image version: pinned to a specific release for stable, reproducible builds.
 # To upgrade: update the version tag below and in coolify/Dockerfile.
@@ -16,18 +17,11 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-FROM konard/sandbox:1.5.0
-
-USER root
-
-# Install opam package manager system-wide (needed for OCaml/Rocq package management)
-# The sandbox image installs the opam binary to ~/.local/bin (user-local) but does not copy it
-# to the final image. Installing via apt makes opam accessible system-wide.
-RUN apt-get update -y && apt-get install -y opam && apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM konard/sandbox:1.6.0
 
 # --- Environment variables ---
 # Set environment variables EARLY so they're available in subsequent RUN commands
-# All paths use /workspace (shared directory from sandbox 1.5.0)
+# All paths use /workspace (shared directory owned by sandbox:sandbox)
 ENV HOME=/workspace
 ENV NVM_DIR="/workspace/.nvm"
 ENV PYENV_ROOT="/workspace/.pyenv"
@@ -47,8 +41,12 @@ ENV OCAML_TOPLEVEL_PATH="/workspace/.opam/default/lib/toplevel"
 
 # Comprehensive PATH including all tools
 # Note: Node.js path is added dynamically since NVM version may vary
-# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary installed by rocq install script)
+# Note: ~/.local/bin is included for user-installed binaries (e.g., opam binary from sandbox rocq image)
 ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/workspace/.pyenv/bin:/workspace/.pyenv/shims:/workspace/.rbenv/bin:/workspace/.rbenv/shims:/workspace/.swift/usr/bin:/workspace/.elan/bin:/workspace/.opam/default/bin:/workspace/.local/bin:/workspace/.cargo/bin:/workspace/.deno/bin:/workspace/.bun/bin:/workspace/.go/bin:/workspace/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Run entirely as sandbox user — no USER root needed (see issue #1505)
+USER sandbox
+WORKDIR /workspace
 
 # Create a stable symlink to the active Node.js version's bin directory
 # This allows us to add it to PATH without knowing the specific version
@@ -59,51 +57,35 @@ RUN NODE_VERSION_DIR=$(ls -d /workspace/.nvm/versions/node/v* 2>/dev/null | head
 
 ENV PATH="/workspace/.node-bin:${PATH}"
 
-# Switch to sandbox user for package installations
-USER sandbox
-WORKDIR /workspace
-
 # --- AI-specific packages installation ---
 # These are the tools that differentiate hive-mind from the generic sandbox
 # Global bun packages for AI coding assistants and workflow utilities
+# Every install must fail the build on error — no silent fallbacks (see issue #1505)
 
 # Install AI coding assistant CLIs
-RUN bun install -g @anthropic-ai/claude-code || echo "claude-code: not yet published" && \
-    bun install -g @openai/codex || echo "codex: not yet published" && \
-    bun install -g @qwen-code/qwen-code || echo "qwen-code: not yet published" && \
-    bun install -g @google/gemini-cli || echo "gemini-cli: not yet published" && \
-    bun install -g @github/copilot || echo "copilot: not yet published" && \
-    bun install -g opencode-ai || echo "opencode-ai: not yet published"
+RUN bun install -g @anthropic-ai/claude-code && \
+    bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
 
 # Install hive-mind workflow utilities
-RUN bun install -g @link-assistant/hive-mind || echo "hive-mind: not yet published" && \
-    bun install -g @link-assistant/claude-profiles || echo "claude-profiles: not yet published" && \
-    bun install -g @link-assistant/agent || echo "agent: not yet published" && \
-    bun install -g start-command || echo "start-command: not yet published" && \
-    bun install -g gh-setup-git-identity || echo "gh-setup-git-identity: not yet published" && \
-    bun install -g gh-pull-all || echo "gh-pull-all: not yet published" && \
-    bun install -g gh-load-issue || echo "gh-load-issue: not yet published" && \
-    bun install -g gh-load-pull-request || echo "gh-load-pull-request: not yet published" && \
-    bun install -g gh-upload-log || echo "gh-upload-log: not yet published"
+RUN bun install -g @link-assistant/hive-mind && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log
 
-# --- Playwright Browser Automation Setup ---
-# Sandbox 1.5.0 provides playwright CLI and system dependencies.
-# We add @playwright/mcp (MCP server for Claude) and @playwright/test (test runner).
+# --- Playwright MCP Setup ---
+# Sandbox 1.6.0 pre-installs Playwright browsers and @playwright/test (sandbox#74).
+# We only add @playwright/mcp (AI-specific MCP server for Claude).
 # --force handles the shared 'playwright' binary conflict between packages.
-# See: https://github.com/link-foundation/sandbox/issues/74 (request to preinstall in sandbox)
-RUN npm install -g @playwright/mcp@latest @playwright/test@latest --no-fund --force
-
-# Install browsers — architecture-aware: Chrome/Edge only on x86_64, Chromium for arm64
-# Sandbox already has all OS-level dependencies installed.
-# Google Chrome requires sudo because it installs to system paths.
-# The sandbox user has sudo access (in sudo group with no password).
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then \
-      playwright install chromium firefox webkit msedge chromium-headless-shell && \
-      sudo env "PATH=$PATH" HOME=/workspace playwright install chrome; \
-    else \
-      playwright install chromium firefox webkit chromium-headless-shell; \
-    fi
+RUN npm install -g @playwright/mcp@latest --no-fund --force
 
 # Configure Playwright MCP for Claude CLI if available
 RUN if command -v claude &>/dev/null; then \

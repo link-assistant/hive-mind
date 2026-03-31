@@ -86,6 +86,9 @@ RUN bun install -g @anthropic-ai/claude-code && \
     bun install -g opencode-ai
 
 # Install hive-mind workflow utilities
+# Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
+# The sandbox base image includes screen. For tmux/docker isolation, ensure they are
+# available in the base image or install them separately.
 RUN bun install -g @link-assistant/hive-mind && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \

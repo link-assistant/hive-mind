@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.40.1
+
+### Patch Changes
+
+- 9df62ed: fix: increase activity timeout to 1hr, fix idle tracking, improve graceful kill (#1510)
+
 ## 1.40.0
 
 ### Minor Changes

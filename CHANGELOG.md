@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.42.0
+
+### Minor Changes
+
+- 5aa82f5: Add /stop and /start commands for telegram bot to control task acceptance per chat (Issue #1081)
+
 ## 1.41.0
 
 ### Minor Changes

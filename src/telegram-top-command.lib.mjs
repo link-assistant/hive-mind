@@ -51,9 +51,11 @@ async function captureTopOutput(chatId) {
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  */
 export function registerTopCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
 
   // /top command - show system top output in an auto-updating message (EXPERIMENTAL)
   // Only accessible by chat owner
@@ -89,16 +91,19 @@ export function registerTopCommand(bot, options) {
       return;
     }
 
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
       if (VERBOSE) {
-        console.log('[VERBOSE] /top ignored: chat not authorized');
+        console.log('[VERBOSE] /top ignored: not authorized');
       }
-      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot.`, {
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      await ctx.reply(errMsg, {
         reply_to_message_id: ctx.message.message_id,
       });
       return;
     }
+
+    const chatId = ctx.chat.id;
 
     // Check if user is chat owner
     try {

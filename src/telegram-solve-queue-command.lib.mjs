@@ -22,12 +22,14 @@
  * @param {Function} options.isForwardedOrReply - Function to check if message is forwarded/reply
  * @param {Function} options.isGroupChat - Function to check if chat is a group
  * @param {Function} options.isChatAuthorized - Function to check if chat is authorized
+ * @param {Function} [options.isTopicAuthorized] - Function to check if topic is authorized (issue #1100)
+ * @param {Function} [options.buildAuthErrorMessage] - Function to build authorization error message
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  * @param {Function} options.getSolveQueue - Function to get the solve queue instance
  * @returns {{ handleSolveQueueCommand: Function }} The command handler for use in text fallback
  */
 export function registerSolveQueueCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb, getSolveQueue } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, getSolveQueue } = options;
 
   async function handleSolveQueueCommand(ctx) {
     VERBOSE && console.log('[VERBOSE] /solve_queue command received');
@@ -59,12 +61,11 @@ export function registerSolveQueueCommand(bot, options) {
       return;
     }
 
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
-      VERBOSE && console.log('[VERBOSE] /solve_queue ignored: chat not authorized');
-      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
+    const authorize = isTopicAuthorized || (ctx => isChatAuthorized(ctx.chat.id));
+    if (!authorize(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /solve_queue ignored: not authorized');
+      const errMsg = buildAuthErrorMessage ? buildAuthErrorMessage(ctx) : `❌ This chat (ID: ${ctx.chat.id}) is not authorized.`;
+      await ctx.reply(errMsg, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

@@ -853,21 +853,27 @@ export const executeClaudeCommand = async params => {
       let lastEventTime = null;
       let activityTimeoutId = null;
       let isActivityTimeout = false;
+      // Issue #1510: Separate SIGTERM (graceful) and SIGKILL (force) phases to allow
+      // capturing final output from the process during graceful shutdown
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
-        await log(`⚠️ Stream timeout — forcing exit (Issue #1280)`, { verbose: true });
+        await log(`⚠️ Stream timeout — sending SIGTERM for graceful shutdown (Issue #1280, #1510)`, { verbose: true });
         try {
           if (execCommand.kill) {
             execCommand.kill('SIGTERM');
-            // Issue #1346: Follow up with SIGKILL after 2s if still alive
+            // Issue #1346/#1510: Follow up with SIGKILL after 5s if still alive
+            // Increased from 2s to 5s to give more time for final output capture
             const t = setTimeout(() => {
               try {
-                if (!execCommand.result?.code) execCommand.kill('SIGKILL');
+                if (!execCommand.result?.code) {
+                  log(`⚠️ Process did not exit after SIGTERM, sending SIGKILL`, { verbose: true });
+                  execCommand.kill('SIGKILL');
+                }
               } catch {
                 /* exited */
               }
-            }, 2000);
+            }, 5000);
             t.unref();
           }
         } catch (e) {
@@ -892,8 +898,8 @@ export const executeClaudeCommand = async params => {
           activityTimeoutId = setTimeout(async () => {
             if (!forceExitTriggered && !resultEventReceived) {
               isActivityTimeout = true;
-              const idleSeconds = lastEventTime ? Math.round((Date.now() - lastEventTime) / 1000) : 'unknown';
-              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}s) — force-killing (Issue #1472)`, { level: 'warning' });
+              const idleSeconds = lastEventTime ? `${Math.round((Date.now() - lastEventTime) / 1000)}s` : 'unknown';
+              await log(`\n⚠️ No stream output for ${timeouts.streamActivityMs / 1000}s after previous activity (idle: ${idleSeconds}) — force-killing (Issue #1472)`, { level: 'warning' });
               await forceExitOnTimeout();
             }
           }, timeouts.streamActivityMs);
@@ -901,7 +907,8 @@ export const executeClaudeCommand = async params => {
         }
       };
       for await (const chunk of execCommand.stream()) {
-        if (forceExitTriggered) break;
+        // Issue #1510: Continue processing stream after SIGTERM to capture final output
+        // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
         if (!firstChunkReceived) {
           // Issue #1472/#1475: Clear startup timeout on first output
           firstChunkReceived = true;
@@ -922,12 +929,14 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1510: Track last event time for all modes (not just interactive)
+              // so activity timeout can report accurate idle duration
+              lastEventTime = Date.now();
               if (interactiveHandler) {
                 if (!interactiveHandler._firstEventLogged) {
                   interactiveHandler._firstEventLogged = true;
                   await log(`🔌 Interactive mode: First event received (type: ${data.type || 'unknown'}) — stream is active`, { verbose: true });
                 }
-                lastEventTime = Date.now();
                 try {
                   await interactiveHandler.processEvent(data);
                 } catch (interactiveError) {
@@ -1193,6 +1202,19 @@ export const executeClaudeCommand = async params => {
           const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
           await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
           await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Issue #1510: Post PR comment when force-killing and auto-resuming so reviewers can follow the session lifecycle
+          if ((isActivityTimeout || isStartupTimeout) && owner && repo && prNumber && $) {
+            try {
+              const timeoutType = isActivityTimeout ? 'activity' : 'startup';
+              const sessionInfo = sessionId ? `\nSession ID: \`${sessionId}\`` : '';
+              const resumeInfo = isStartupTimeout ? 'Session will be restarted (fresh start).' : `Session will be resumed with \`--resume\` (context preserved).`;
+              const commentBody = `## :warning: Session Force-Killed (${timeoutType} timeout)\n\nThe working session was force-killed due to ${timeoutType} timeout (no stream output for ${isActivityTimeout ? timeouts.streamActivityMs / 1000 : timeouts.streamStartupMs / 1000}s).\n\n**Auto-resuming**: Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}. ${resumeInfo}${sessionInfo}\n\n*This is an automated notification — the session will continue automatically.*`;
+              await $`gh pr comment ${prNumber} --repo ${owner}/${repo} --body ${commentBody}`;
+              await log(`   Posted force-kill notification to PR #${prNumber}`, { verbose: true });
+            } catch (commentError) {
+              await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
+            }
+          }
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           await waitWithCountdown(delay, log);

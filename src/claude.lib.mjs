@@ -576,7 +576,6 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }
-    // Issue #1508: Merge resultModelUsage from Claude Code result JSON when available
     mergeResultModelUsage(modelUsage, resultModelUsage);
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
@@ -607,7 +606,6 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.modelName = modelInfo.name || modelId;
         usage.modelInfo = modelInfo; // Store complete model info
       } else {
-        // Issue #1508: Use costUSD from resultModelUsage if we couldn't fetch model info
         usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
@@ -1323,7 +1321,6 @@ export const executeClaudeCommand = async params => {
             // Display per-model breakdown
             if (tokenUsage.modelUsage) {
               const modelIds = Object.keys(tokenUsage.modelUsage);
-              // Issue #1508: Note when resultModelUsage was used to supplement JSONL data
               const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
               if (modelsFromResult.length > 0) {
                 await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });

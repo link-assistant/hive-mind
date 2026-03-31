@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.43.0
+
+### Minor Changes
+
+- 91479e3: Better /version command output with uniform formatting and bug fixes: add regex version parsers for all 40+ tools, fix LLD/Xvfb/Playwright MCP detection, add Playwright browser cache fallback, fail Docker build on MCP registration failure
+
 ## 1.42.0
 
 ### Minor Changes

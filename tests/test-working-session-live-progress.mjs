@@ -298,6 +298,487 @@ test('CONFIG has MIN_UPDATE_INTERVAL for rate limiting', () => {
   assert(utils.CONFIG.MIN_UPDATE_INTERVAL > 0);
 });
 
+section('\nTesting processStreamEvent Behavioral Tests');
+
+// Helper: create a mock progress monitor for behavioral testing
+const createMockMonitor = () => {
+  const calls = [];
+  const mockLog = async () => {};
+  const monitor = progressModule.createProgressMonitor({
+    owner: 'test-owner',
+    repo: 'test-repo',
+    prNumber: 1,
+    $: async (...args) => {
+      // Mock $ that returns empty PR body for gh pr view
+      const cmd = args[0]?.join?.(' ') || String(args[0]);
+      if (cmd.includes('gh pr view')) {
+        return { stdout: JSON.stringify({ body: '' }) };
+      }
+      if (cmd.includes('gh pr edit')) {
+        return { stdout: '' };
+      }
+      return { stdout: '' };
+    },
+    log: mockLog,
+    verbose: false,
+    sessionId: 'test-session',
+  });
+  // Wrap processStreamEvent to track calls
+  const origProcess = monitor.processStreamEvent.bind(monitor);
+  const wrappedMonitor = {
+    ...monitor,
+    processStreamEvent: async (data, force = false) => {
+      const result = await origProcess(data, force);
+      if (result) calls.push(data);
+      return result;
+    },
+    getCalls: () => calls,
+  };
+  return wrappedMonitor;
+};
+
+// Test: Pattern 1 - Assistant event with TodoWrite tool_use (real event shape from case studies)
+const asyncTest = async (name, fn) => {
+  try {
+    await fn();
+    pass(name);
+    testsPassed++;
+  } catch (error) {
+    fail(`${name}: ${error.message}`);
+    testsFailed++;
+  }
+};
+
+await asyncTest('processStreamEvent detects Pattern 1: assistant TodoWrite tool_use', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      model: 'claude-opus-4-5-20251101',
+      id: 'msg_test1',
+      type: 'message',
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_test1',
+          name: 'TodoWrite',
+          input: {
+            todos: [
+              { content: 'Task 1', status: 'completed', activeForm: 'Doing task 1' },
+              { content: 'Task 2', status: 'in_progress', activeForm: 'Doing task 2' },
+              { content: 'Task 3', status: 'pending', activeForm: 'Doing task 3' },
+            ],
+          },
+        },
+      ],
+    },
+    parent_tool_use_id: null,
+    session_id: 'test-session-id',
+  };
+  const result = await monitor.processStreamEvent(event, true); // force=true to skip rate limit
+  assert.equal(result, true, 'Should return true when TodoWrite detected');
+  assert.equal(monitor.getCalls().length, 1, 'Should have tracked one call');
+});
+
+await asyncTest('processStreamEvent detects Pattern 2: user tool_use_result with newTodos', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        {
+          tool_use_id: 'toolu_test1',
+          type: 'tool_result',
+          content: 'Todos have been modified successfully.',
+        },
+      ],
+    },
+    parent_tool_use_id: null,
+    session_id: 'test-session-id',
+    tool_use_result: {
+      oldTodos: [],
+      newTodos: [
+        { content: 'Task 1', status: 'completed', activeForm: 'Doing task 1' },
+        { content: 'Task 2', status: 'in_progress', activeForm: 'Doing task 2' },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, true, 'Should return true when newTodos detected');
+});
+
+await asyncTest('processStreamEvent ignores non-TodoWrite assistant tool_use', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_test_bash',
+          name: 'Bash',
+          input: { command: 'ls' },
+        },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false for non-TodoWrite tool_use');
+});
+
+await asyncTest('processStreamEvent ignores user event without tool_use_result.newTodos', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [
+        {
+          tool_use_id: 'toolu_test_bash',
+          type: 'tool_result',
+          content: 'command output here',
+        },
+      ],
+    },
+    tool_use_result: {
+      output: 'some output',
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false when no newTodos');
+});
+
+await asyncTest('processStreamEvent ignores result events', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'result',
+    subtype: 'success',
+    total_cost_usd: 1.5,
+    result: 'Done',
+    num_turns: 5,
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false for result events');
+});
+
+await asyncTest('processStreamEvent ignores system events', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'system',
+    subtype: 'task_started',
+    task_id: 'test-task',
+    description: 'Test task',
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false for system events');
+});
+
+await asyncTest('processStreamEvent ignores rate_limit_event events', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'rate_limit_event',
+    retry_after: 60,
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false for rate limit events');
+});
+
+await asyncTest('processStreamEvent handles null/undefined data gracefully', async () => {
+  const monitor = createMockMonitor();
+  assert.equal(await monitor.processStreamEvent(null, true), false);
+  assert.equal(await monitor.processStreamEvent(undefined, true), false);
+  assert.equal(await monitor.processStreamEvent('string', true), false);
+  assert.equal(await monitor.processStreamEvent(42, true), false);
+});
+
+await asyncTest('processStreamEvent handles assistant event with mixed content (text + TodoWrite)', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [
+        {
+          type: 'text',
+          text: 'Let me update the task list.',
+        },
+        {
+          type: 'tool_use',
+          id: 'toolu_mixed',
+          name: 'TodoWrite',
+          input: {
+            todos: [
+              { content: 'Mixed task', status: 'in_progress', activeForm: 'Working on mixed task' },
+            ],
+          },
+        },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, true, 'Should detect TodoWrite in mixed content');
+});
+
+await asyncTest('processStreamEvent handles assistant event with content as non-array', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      content: {
+        type: 'tool_use',
+        id: 'toolu_single',
+        name: 'TodoWrite',
+        input: {
+          todos: [
+            { content: 'Single item task', status: 'pending', activeForm: 'Working' },
+          ],
+        },
+      },
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, true, 'Should handle content as non-array single object');
+});
+
+await asyncTest('processStreamEvent handles assistant event with empty content array', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false for empty content');
+});
+
+await asyncTest('processStreamEvent handles assistant event without message', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false when message is missing');
+});
+
+await asyncTest('processStreamEvent handles user event without tool_use_result', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'user',
+    message: {
+      content: [
+        {
+          type: 'tool_result',
+          content: 'some result',
+        },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should return false when no tool_use_result');
+});
+
+await asyncTest('processStreamEvent handles TodoWrite with empty todos array', async () => {
+  const monitor = createMockMonitor();
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_empty',
+          name: 'TodoWrite',
+          input: {
+            todos: [],
+          },
+        },
+      ],
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, true, 'Should still process empty todos array');
+});
+
+await asyncTest('processStreamEvent handles ToolSearch referencing TodoWrite (no false positive)', async () => {
+  const monitor = createMockMonitor();
+  // Real pattern from case study: ToolSearch that finds TodoWrite
+  const event = {
+    type: 'user',
+    message: {
+      content: [
+        {
+          tool_use_id: 'toolu_toolsearch',
+          type: 'tool_result',
+          content: [{ type: 'tool_reference', tool_name: 'TodoWrite' }],
+        },
+      ],
+    },
+    tool_use_result: {
+      matches: ['TodoWrite'],
+      query: 'select:TodoWrite',
+    },
+  };
+  const result = await monitor.processStreamEvent(event, true);
+  assert.equal(result, false, 'Should NOT trigger for ToolSearch results mentioning TodoWrite');
+});
+
+await asyncTest('processStreamEvent detects TodoWrite with all statuses', async () => {
+  const monitor = createMockMonitor();
+  const todos = [
+    { content: 'Completed task', status: 'completed', activeForm: 'Done' },
+    { content: 'In progress task', status: 'in_progress', activeForm: 'Working' },
+    { content: 'Pending task', status: 'pending', activeForm: 'Waiting' },
+  ];
+  const event = {
+    type: 'assistant',
+    message: {
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_allstatus',
+          name: 'TodoWrite',
+          input: { todos },
+        },
+      ],
+    },
+  };
+  await monitor.processStreamEvent(event, true);
+  const stats = monitor.getStats();
+  assert.equal(stats.total, 3, 'Total should be 3');
+  assert.equal(stats.completed, 1, 'Completed should be 1');
+  assert.equal(stats.inProgress, 1, 'In progress should be 1');
+  assert.equal(stats.pending, 1, 'Pending should be 1');
+  assert.equal(stats.percentage, 33, 'Percentage should be 33%');
+});
+
+section('\nTesting initProgressMonitoring');
+
+await asyncTest('initProgressMonitoring returns null when missing PR info', async () => {
+  const result = await progressModule.initProgressMonitoring(
+    { workingSessionLiveProgress: true },
+    { owner: '', repo: 'r', prNumber: 1, $: null, log: async () => {} },
+  );
+  assert.equal(result, null, 'Should return null when owner is empty');
+});
+
+await asyncTest('initProgressMonitoring returns null when prNumber is missing', async () => {
+  const result = await progressModule.initProgressMonitoring(
+    { workingSessionLiveProgress: true },
+    { owner: 'o', repo: 'r', prNumber: null, $: null, log: async () => {} },
+  );
+  assert.equal(result, null, 'Should return null when prNumber is missing');
+});
+
+await asyncTest('initProgressMonitoring returns monitor when enabled with all info', async () => {
+  const result = await progressModule.initProgressMonitoring(
+    { workingSessionLiveProgress: true },
+    { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} },
+  );
+  assert.notEqual(result, null, 'Should return a monitor object');
+  assert.equal(typeof result.processStreamEvent, 'function', 'Should have processStreamEvent');
+  assert.equal(typeof result.updateProgress, 'function', 'Should have updateProgress');
+  assert.equal(typeof result.getStats, 'function', 'Should have getStats');
+  assert.equal(typeof result.generateSection, 'function', 'Should have generateSection');
+});
+
+section('\nTesting Edge Cases');
+
+test('calculateProgress handles null input', () => {
+  const stats = utils.calculateProgress(null);
+  assert.deepEqual(stats, { total: 0, completed: 0, inProgress: 0, pending: 0, percentage: 0 });
+});
+
+test('calculateProgress handles undefined input', () => {
+  const stats = utils.calculateProgress(undefined);
+  assert.deepEqual(stats, { total: 0, completed: 0, inProgress: 0, pending: 0, percentage: 0 });
+});
+
+test('calculateProgress handles non-array input', () => {
+  const stats = utils.calculateProgress('not an array');
+  assert.deepEqual(stats, { total: 0, completed: 0, inProgress: 0, pending: 0, percentage: 0 });
+});
+
+test('calculateProgress handles all completed todos', () => {
+  const todos = [
+    { status: 'completed', content: 'A' },
+    { status: 'completed', content: 'B' },
+  ];
+  const stats = utils.calculateProgress(todos);
+  assert.equal(stats.percentage, 100);
+  assert.equal(stats.completed, 2);
+  assert.equal(stats.pending, 0);
+  assert.equal(stats.inProgress, 0);
+});
+
+test('calculateProgress handles single todo', () => {
+  const stats = utils.calculateProgress([{ status: 'in_progress', content: 'Only one' }]);
+  assert.equal(stats.total, 1);
+  assert.equal(stats.percentage, 0);
+  assert.equal(stats.inProgress, 1);
+});
+
+test('formatTodoList handles null input', () => {
+  assert.equal(utils.formatTodoList(null), '_No tasks yet_');
+});
+
+test('formatTodoList handles empty array', () => {
+  assert.equal(utils.formatTodoList([]), '_No tasks yet_');
+});
+
+test('formatTodoList handles unknown status with fallback icon', () => {
+  const todos = [{ status: 'unknown_status', content: 'Mystery task' }];
+  const formatted = utils.formatTodoList(todos);
+  assert(formatted.includes('[ ] Mystery task'), 'Should use default icon for unknown status');
+});
+
+test('formatTodoList truncates long lists with maxDisplay', () => {
+  const todos = Array.from({ length: 20 }, (_, i) => ({
+    status: i < 10 ? 'completed' : 'pending',
+    content: `Task ${i + 1}`,
+  }));
+  const formatted = utils.formatTodoList(todos, 6);
+  assert(formatted.includes('Task 1'), 'Should include first tasks');
+  assert(formatted.includes('Task 20'), 'Should include last tasks');
+  assert(formatted.includes('more tasks'), 'Should show truncation message');
+});
+
+test('generateProgressBar handles edge case percentage of 1%', () => {
+  const bar = utils.generateProgressBar(1, 10);
+  assert(bar.length === 10, 'Bar should be exactly 10 chars');
+});
+
+test('generateProgressBar clamps percentage over 100', () => {
+  const bar = utils.generateProgressBar(200, 10);
+  assert.equal(bar, '██████████', 'Should clamp to 100% (all filled)');
+});
+
+test('generateProgressBar clamps negative percentage to 0', () => {
+  const bar = utils.generateProgressBar(-50, 10);
+  assert.equal(bar, '░░░░░░░░░░', 'Should clamp to 0% (all empty)');
+});
+
+test('generateProgressSection includes all required markers and sections', () => {
+  const todos = [
+    { status: 'completed', content: 'Done' },
+    { status: 'pending', content: 'Todo' },
+  ];
+  const section = utils.generateProgressSection(todos, 'my-session');
+  assert(section.includes(utils.CONFIG.PROGRESS_SECTION_START), 'Should include start marker');
+  assert(section.includes(utils.CONFIG.PROGRESS_SECTION_END), 'Should include end marker');
+  assert(section.includes('my-session'), 'Should include session ID');
+  assert(section.includes('50%'), 'Should include correct percentage');
+  assert(section.includes('1/2 completed'), 'Should include task counts');
+  assert(section.includes('<details>'), 'Should include collapsible section');
+  assert(section.includes('[x] Done'), 'Should include completed task');
+  assert(section.includes('[ ] Todo'), 'Should include pending task');
+});
+
+test('generateProgressSection uses "Current" when sessionId is null', () => {
+  const section = utils.generateProgressSection([], null);
+  assert(section.includes('Current'), 'Should show "Current" as session name');
+});
+
 section('\nTest Summary');
 log(`\nTotal: ${testsPassed + testsFailed} tests`);
 log(`Passed: ${testsPassed}`, 'green');

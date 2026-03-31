@@ -45,7 +45,8 @@ const CONFIG = {
  * @returns {string} Progress bar string
  */
 const generateProgressBar = (percentage, width = CONFIG.PROGRESS_BAR_WIDTH) => {
-  const filled = Math.round((percentage / 100) * width);
+  const clamped = Math.max(0, Math.min(100, percentage));
+  const filled = Math.round((clamped / 100) * width);
   const empty = width - filled;
   return CONFIG.PROGRESS_CHAR_FILLED.repeat(filled) + CONFIG.PROGRESS_CHAR_EMPTY.repeat(empty);
 };

@@ -68,7 +68,8 @@ RUN mkdir -p /workspace/.local/bin && \
       aarch64) OPAM_ARCH="arm64" ;; \
       *)       OPAM_ARCH="$ARCH" ;; \
     esac && \
-    curl -fsSL "https://github.com/ocaml/opam/releases/latest/download/opam-2.3.0-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
+    OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /workspace/.local/bin/opam && \
     chmod +x /workspace/.local/bin/opam
 
 # --- AI-specific packages installation ---

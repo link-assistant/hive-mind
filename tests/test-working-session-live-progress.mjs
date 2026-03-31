@@ -508,9 +508,7 @@ await asyncTest('processStreamEvent handles assistant event with mixed content (
           id: 'toolu_mixed',
           name: 'TodoWrite',
           input: {
-            todos: [
-              { content: 'Mixed task', status: 'in_progress', activeForm: 'Working on mixed task' },
-            ],
+            todos: [{ content: 'Mixed task', status: 'in_progress', activeForm: 'Working on mixed task' }],
           },
         },
       ],
@@ -530,9 +528,7 @@ await asyncTest('processStreamEvent handles assistant event with content as non-
         id: 'toolu_single',
         name: 'TodoWrite',
         input: {
-          todos: [
-            { content: 'Single item task', status: 'pending', activeForm: 'Working' },
-          ],
+          todos: [{ content: 'Single item task', status: 'pending', activeForm: 'Working' }],
         },
       },
     },
@@ -655,26 +651,17 @@ await asyncTest('processStreamEvent detects TodoWrite with all statuses', async 
 section('\nTesting initProgressMonitoring');
 
 await asyncTest('initProgressMonitoring returns null when missing PR info', async () => {
-  const result = await progressModule.initProgressMonitoring(
-    { workingSessionLiveProgress: true },
-    { owner: '', repo: 'r', prNumber: 1, $: null, log: async () => {} },
-  );
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: '', repo: 'r', prNumber: 1, $: null, log: async () => {} });
   assert.equal(result, null, 'Should return null when owner is empty');
 });
 
 await asyncTest('initProgressMonitoring returns null when prNumber is missing', async () => {
-  const result = await progressModule.initProgressMonitoring(
-    { workingSessionLiveProgress: true },
-    { owner: 'o', repo: 'r', prNumber: null, $: null, log: async () => {} },
-  );
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: 'o', repo: 'r', prNumber: null, $: null, log: async () => {} });
   assert.equal(result, null, 'Should return null when prNumber is missing');
 });
 
 await asyncTest('initProgressMonitoring returns monitor when enabled with all info', async () => {
-  const result = await progressModule.initProgressMonitoring(
-    { workingSessionLiveProgress: true },
-    { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} },
-  );
+  const result = await progressModule.initProgressMonitoring({ workingSessionLiveProgress: true }, { owner: 'o', repo: 'r', prNumber: 1, $: async () => ({ stdout: '{}' }), log: async () => {} });
   assert.notEqual(result, null, 'Should return a monitor object');
   assert.equal(typeof result.processStreamEvent, 'function', 'Should have processStreamEvent');
   assert.equal(typeof result.updateProgress, 'function', 'Should have updateProgress');

@@ -1,11 +1,15 @@
 /**
  * Session monitoring for Telegram bot
  *
- * Tracks active screen sessions and sends notifications when they complete.
- * This module uses the ExecutionStore from start-command for persistent storage,
- * allowing session tracking to survive bot restarts.
+ * Tracks active sessions (screen-based or isolation-based) and sends
+ * notifications when they complete.
+ *
+ * Two tracking modes:
+ * 1. Screen mode (default): Uses `screen -ls` to detect session completion
+ * 2. Isolation mode: Uses `$ --status <uuid>` from start-command for reliable tracking
  *
  * @see https://github.com/link-foundation/start
+ * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 
 import { promisify } from 'util';
@@ -15,26 +19,40 @@ import path from 'path';
 import os from 'os';
 
 const exec = promisify(execCallback);
-
-// Create require for CommonJS interop
 const require = createRequire(import.meta.url);
 
 // Import ExecutionStore from start-command package
-// Note: Using subpath import until the package exports are updated
-// See: https://github.com/link-foundation/start/issues/44
 let ExecutionStore, ExecutionRecord, ExecutionStatus;
 try {
-  const executionStoreModule = require('start-command/src/lib/execution-store.js');
+  const executionStoreModule = require('start-command/execution-store');
   ExecutionStore = executionStoreModule.ExecutionStore;
   ExecutionRecord = executionStoreModule.ExecutionRecord;
   ExecutionStatus = executionStoreModule.ExecutionStatus;
-} catch (error) {
-  console.warn('Warning: Could not load ExecutionStore from start-command. Falling back to in-memory storage.');
-  console.warn('Install start-command to enable persistent session tracking: npm install start-command');
-  console.warn('Error:', error.message);
-  ExecutionStore = null;
-  ExecutionRecord = null;
-  ExecutionStatus = null;
+} catch {
+  try {
+    // Fallback to subpath import
+    const executionStoreModule = require('start-command/src/lib/execution-store.js');
+    ExecutionStore = executionStoreModule.ExecutionStore;
+    ExecutionRecord = executionStoreModule.ExecutionRecord;
+    ExecutionStatus = executionStoreModule.ExecutionStatus;
+  } catch (error) {
+    console.warn('Warning: Could not load ExecutionStore from start-command. Falling back to in-memory storage.');
+    console.warn('Install start-command to enable persistent session tracking: npm install start-command');
+    console.warn('Error:', error.message);
+    ExecutionStore = null;
+    ExecutionRecord = null;
+    ExecutionStatus = null;
+  }
+}
+
+// Lazy import for isolation runner (only when needed)
+let _querySessionStatus = null;
+async function getQuerySessionStatus() {
+  if (!_querySessionStatus) {
+    const mod = await import('./isolation-runner.lib.mjs');
+    _querySessionStatus = mod.querySessionStatus;
+  }
+  return _querySessionStatus;
 }
 
 // Configuration for the telegram bot session store
@@ -61,7 +79,7 @@ function getExecutionStore(verbose = false) {
       executionStore = new ExecutionStore({
         appFolder: TELEGRAM_BOT_APP_FOLDER,
         verbose: verbose,
-        useLinks: false, // Don't require clink for the telegram bot
+        useLinks: false,
       });
       if (verbose) {
         console.log(`[VERBOSE] ExecutionStore initialized at ${TELEGRAM_BOT_APP_FOLDER}`);
@@ -91,28 +109,67 @@ export async function checkScreenSessionExists(sessionName) {
 }
 
 /**
+ * Check if an isolated session is still running using $ --status
+ * @param {string} sessionId - UUID of the isolated session
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<boolean>} True if session is still running
+ */
+async function checkIsolatedSessionRunning(sessionId, verbose = false) {
+  try {
+    const queryStatus = await getQuerySessionStatus();
+    const result = await queryStatus(sessionId, verbose);
+    return result.exists && result.status === 'executing';
+  } catch (error) {
+    if (verbose) {
+      console.error(`[VERBOSE] Error checking isolated session ${sessionId}: ${error.message}`);
+    }
+    return false;
+  }
+}
+
+/**
+ * Get the exit code of a completed isolated session
+ * @param {string} sessionId - UUID of the isolated session
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<number|null>} Exit code or null if unknown
+ */
+async function getIsolatedSessionExitCode(sessionId, verbose = false) {
+  try {
+    const queryStatus = await getQuerySessionStatus();
+    const result = await queryStatus(sessionId, verbose);
+    if (result.exists && result.status === 'executed') {
+      return result.exitCode;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Track a new session for completion monitoring
  * Uses ExecutionStore for persistent storage if available, falls back to in-memory Map
  *
- * @param {string} sessionName - Name of the screen session
+ * @param {string} sessionName - Name of the screen session or isolation session UUID
  * @param {Object} sessionInfo - Session metadata
  * @param {number} sessionInfo.chatId - Telegram chat ID to notify
  * @param {Date} sessionInfo.startTime - When the session started
  * @param {string} sessionInfo.url - GitHub URL being processed
  * @param {string} sessionInfo.command - Command type (solve/hive)
+ * @param {string} [sessionInfo.isolationBackend] - Isolation backend if using isolation mode
+ * @param {string} [sessionInfo.sessionId] - UUID for isolation-based sessions
  * @param {boolean} verbose - Whether to log verbose output
  */
 export function trackSession(sessionName, sessionInfo, verbose = false) {
   const store = getExecutionStore(verbose);
 
   if (store) {
-    // Use ExecutionStore for persistent tracking
     const record = new ExecutionRecord({
-      uuid: sessionName, // Use session name as UUID for easy lookup
-      pid: null, // We don't have the actual PID of the screen session
+      uuid: sessionInfo.sessionId || sessionName,
+      pid: null,
       status: ExecutionStatus.EXECUTING,
       command: `${sessionInfo.command} ${sessionInfo.url}`,
-      logPath: '', // Not applicable for telegram bot sessions
+      logPath: '',
       startTime: sessionInfo.startTime.toISOString(),
       workingDirectory: process.cwd(),
       options: {
@@ -120,21 +177,22 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
         url: sessionInfo.url,
         commandType: sessionInfo.command,
         sessionName: sessionName,
+        isolationBackend: sessionInfo.isolationBackend || null,
+        sessionId: sessionInfo.sessionId || null,
       },
     });
 
     try {
       store.save(record);
       if (verbose) {
-        console.log(`[VERBOSE] Session ${sessionName} tracked in ExecutionStore`);
+        const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'screen';
+        console.log(`[VERBOSE] Session ${sessionName} tracked in ExecutionStore (mode: ${mode})`);
       }
     } catch (error) {
       console.error(`Failed to save session ${sessionName} to ExecutionStore:`, error.message);
-      // Fall back to in-memory storage
       inMemorySessions.set(sessionName, sessionInfo);
     }
   } else {
-    // Fall back to in-memory storage
     inMemorySessions.set(sessionName, sessionInfo);
     if (verbose) {
       console.log(`[VERBOSE] Session ${sessionName} tracked in memory (ExecutionStore not available)`);
@@ -177,24 +235,24 @@ function getActiveSessions(verbose = false) {
       const executing = store.getExecuting();
       for (const record of executing) {
         sessions.push({
-          sessionName: record.uuid,
+          sessionName: record.options?.sessionName || record.uuid,
           sessionInfo: {
             chatId: record.options?.chatId,
             startTime: new Date(record.startTime),
             url: record.options?.url,
             command: record.options?.commandType,
+            isolationBackend: record.options?.isolationBackend || null,
+            sessionId: record.options?.sessionId || null,
           },
         });
       }
     } catch (error) {
       console.error('Failed to get sessions from ExecutionStore:', error.message);
-      // Fall through to in-memory sessions
     }
   }
 
   // Also include in-memory sessions
   for (const [sessionName, sessionInfo] of inMemorySessions.entries()) {
-    // Avoid duplicates
     if (!sessions.find(s => s.sessionName === sessionName)) {
       sessions.push({ sessionName, sessionInfo });
     }
@@ -214,12 +272,19 @@ function completeSession(sessionName, exitCode = 0, verbose = false) {
 
   if (store) {
     try {
-      const record = store.get(sessionName);
+      // Try by session name first, then by UUID
+      let record = store.get(sessionName);
+      if (!record) {
+        // Search through executing records for matching sessionName in options
+        const executing = store.getExecuting();
+        const match = executing.find(r => r.options?.sessionName === sessionName || r.options?.sessionId === sessionName);
+        if (match) record = match;
+      }
       if (record) {
         record.complete(exitCode);
         store.save(record);
         if (verbose) {
-          console.log(`[VERBOSE] Session ${sessionName} marked as completed in ExecutionStore`);
+          console.log(`[VERBOSE] Session ${sessionName} marked as completed in ExecutionStore (exit: ${exitCode})`);
         }
       }
     } catch (error) {
@@ -227,7 +292,6 @@ function completeSession(sessionName, exitCode = 0, verbose = false) {
     }
   }
 
-  // Also remove from in-memory if present
   inMemorySessions.delete(sessionName);
 }
 
@@ -248,9 +312,21 @@ export async function monitorSessions(bot, verbose = false) {
   }
 
   for (const { sessionName, sessionInfo } of sessions) {
-    const stillExists = await checkScreenSessionExists(sessionName);
+    let stillRunning;
+    let exitCode = null;
 
-    if (!stillExists) {
+    if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
+      // Isolation mode: use $ --status for reliable tracking
+      stillRunning = await checkIsolatedSessionRunning(sessionInfo.sessionId, verbose);
+      if (!stillRunning) {
+        exitCode = await getIsolatedSessionExitCode(sessionInfo.sessionId, verbose);
+      }
+    } else {
+      // Screen mode: use screen -ls for detection
+      stillRunning = await checkScreenSessionExists(sessionName);
+    }
+
+    if (!stillRunning) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
 
       try {
@@ -260,19 +336,21 @@ export async function monitorSessions(bot, verbose = false) {
         const minutes = Math.floor(duration / 60);
         const seconds = duration % 60;
 
-        let message = `✅ *Work Session Completed*\n\n`;
+        const statusEmoji = exitCode === null || exitCode === 0 ? '✅' : '❌';
+        const statusText = exitCode === null || exitCode === 0 ? 'Completed' : `Failed (exit code: ${exitCode})`;
+        const isolationInfo = sessionInfo.isolationBackend ? `\n🔒 Isolation: ${sessionInfo.isolationBackend}` : '';
+
+        let message = `${statusEmoji} *Work Session ${statusText}*\n\n`;
         message += `📊 Session: \`${sessionName}\`\n`;
         message += `⏱️ Duration: ${minutes}m ${seconds}s\n`;
-        message += `🔗 URL: ${sessionInfo.url}\n\n`;
+        message += `🔗 URL: ${sessionInfo.url}${isolationInfo}\n\n`;
         message += `The work session has finished. You can now review the results.`;
 
         await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
 
-        // Mark session as completed
-        completeSession(sessionName, 0, verbose);
+        completeSession(sessionName, exitCode || 0, verbose);
       } catch (error) {
         console.error(`Failed to send completion notification for ${sessionName}:`, error);
-        // Still mark the session as completed to avoid repeated failures
         completeSession(sessionName, 1, verbose);
       }
     }
@@ -314,7 +392,22 @@ export function getSessionStats(verbose = false) {
 
   if (store) {
     try {
-      return store.getStats();
+      const all = store.getAll();
+      const executing = all.filter(r => r.status === 'executing');
+      const executed = all.filter(r => r.status === 'executed');
+      const successful = executed.filter(r => r.exitCode === 0);
+      const failed = executed.filter(r => r.exitCode !== 0);
+      const isolated = all.filter(r => r.options?.isolationBackend);
+
+      return {
+        total: all.length,
+        executing: executing.length,
+        executed: executed.length,
+        successful: successful.length,
+        failed: failed.length,
+        isolated: isolated.length,
+        storageType: 'persistent',
+      };
     } catch (error) {
       console.error('Failed to get stats from ExecutionStore:', error.message);
     }
@@ -326,6 +419,7 @@ export function getSessionStats(verbose = false) {
     executed: 0,
     successful: 0,
     failed: 0,
+    isolated: 0,
     storageType: 'in-memory',
   };
 }

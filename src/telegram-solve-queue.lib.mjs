@@ -1359,6 +1359,27 @@ export function createQueueExecuteCallback(executeStartScreen) {
   };
 }
 
+/**
+ * Get count of running isolated sessions tracked via ExecutionStore
+ * When isolation mode is enabled, this replaces pgrep-based process detection
+ * for more reliable task counting.
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{count: number, sessions: string[]}>}
+ */
+export async function getRunningIsolatedSessions(verbose = false) {
+  try {
+    const { getActiveSessionCount } = await import('./session-monitor.lib.mjs');
+    const count = getActiveSessionCount(verbose);
+    return { count, sessions: [] };
+  } catch (error) {
+    if (verbose) {
+      console.error(`[VERBOSE] /solve_queue error getting isolated sessions:`, error.message);
+    }
+    return { count: 0, sessions: [] };
+  }
+}
+
 export default {
   SolveQueue,
   SolveQueueItem,
@@ -1367,6 +1388,7 @@ export default {
   getRunningProcesses,
   getRunningClaudeProcesses,
   getRunningAgentProcesses,
+  getRunningIsolatedSessions,
   createQueueExecuteCallback,
   formatDuration,
   QUEUE_CONFIG,

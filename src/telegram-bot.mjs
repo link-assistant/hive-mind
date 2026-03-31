@@ -121,6 +121,11 @@ const config = yargs(hideBin(process.argv))
     alias: 'v',
     default: getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true',
   })
+  .option('isolation', {
+    type: 'string',
+    description: 'Experimental: Enable isolation mode for command execution (screen, tmux, docker). Uses $ from start-command with GUID-based session tracking.',
+    default: getenv('TELEGRAM_ISOLATION', ''),
+  })
   .help('h')
   .alias('h', 'help')
   .parserConfiguration({
@@ -189,6 +194,23 @@ const hiveOverrides = resolvedHiveOverrides
 // Priority: CLI option > environment variable
 const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
+
+// Isolation mode configuration (experimental)
+// When set, uses `$` from start-command with the specified backend for command execution
+// Valid values: 'screen', 'tmux', 'docker' (empty string = disabled)
+const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
+let isolationRunner = null;
+
+if (ISOLATION_BACKEND) {
+  const validBackends = ['screen', 'tmux', 'docker'];
+  if (!validBackends.includes(ISOLATION_BACKEND)) {
+    console.error(`Error: Invalid --isolation value '${ISOLATION_BACKEND}'. Must be one of: ${validBackends.join(', ')}`);
+    process.exit(1);
+  }
+  console.log(`🔒 Isolation mode enabled: ${ISOLATION_BACKEND} (experimental)`);
+  // Lazy-load isolation runner
+  isolationRunner = await import('./isolation-runner.lib.mjs');
+}
 
 // Validate solve overrides early using solve's yargs config
 // Only validate if solve command is enabled
@@ -610,9 +632,9 @@ async function safeReply(ctx, text, options = {}) {
   }
 }
 
-// Execute a start-screen command and update the initial message with the result
+// Execute a command and update the initial message with the result
+// Routes to isolation mode ($ from start-command) or start-screen based on --isolation flag
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
-  const result = await executeStartScreen(commandName, args);
   const { chat, message_id } = startingMessage;
 
   // Safely edit message - catch errors to prevent stuck "Starting..." messages (issue #1062)
@@ -624,20 +646,54 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
     }
   };
 
-  if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+  if (ISOLATION_BACKEND && isolationRunner) {
+    // Isolation mode: use $ from start-command with GUID-based session tracking
+    const sessionId = isolationRunner.generateSessionId();
+    VERBOSE && console.log(`[VERBOSE] Using isolation mode (${ISOLATION_BACKEND}) with session ID: ${sessionId}`);
 
-  if (result.success) {
-    const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
-    const session = match ? match[1] : 'unknown';
+    const result = await isolationRunner.executeWithIsolation(commandName, args, {
+      backend: ISOLATION_BACKEND,
+      sessionId,
+      verbose: VERBOSE,
+    });
 
-    // Track the session for completion notifications
-    if (session !== 'unknown') {
-      trackSession(session, { chatId: ctx.chat.id, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
+    if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+
+    if (result.success) {
+      // Track the session with isolation metadata for $ --status based monitoring
+      trackSession(sessionId, {
+        chatId: ctx.chat.id,
+        startTime: new Date(),
+        url: args[0],
+        command: commandName,
+        isolationBackend: ISOLATION_BACKEND,
+        sessionId,
+      }, VERBOSE);
+
+      const isolationBadge = `🔒 Isolation: \`${ISOLATION_BACKEND}\``;
+      await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${sessionId}\`\n${isolationBadge}\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
+    } else {
+      await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
     }
-
-    await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
   } else {
-    await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
+    // Default mode: use start-screen command
+    const result = await executeStartScreen(commandName, args);
+
+    if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
+
+    if (result.success) {
+      const match = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
+      const session = match ? match[1] : 'unknown';
+
+      // Track the session for completion notifications
+      if (session !== 'unknown') {
+        trackSession(session, { chatId: ctx.chat.id, startTime: new Date(), url: args[0], command: commandName }, VERBOSE);
+      }
+
+      await safeEdit(`✅ ${commandName.charAt(0).toUpperCase() + commandName.slice(1)} command started successfully!\n\n📊 Session: \`${session}\`\n\n${infoBlock}\n\n🔔 You will receive a notification when the session finishes.`);
+    } else {
+      await safeEdit(`❌ Error executing ${commandName} command:\n\n\`\`\`\n${result.error || result.output}\n\`\`\``);
+    }
   }
 }
 
@@ -716,7 +772,11 @@ bot.command('help', async ctx => {
   message += '*/help* - Show this help message\n';
   message += '*/stop* - Stop accepting new tasks (owner only)\n';
   message += '*/start* - Resume accepting tasks (owner only)\n\n';
-  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n\n';
+  message += '🔔 *Session Notifications:* The bot monitors sessions and notifies when they complete.\n';
+  if (ISOLATION_BACKEND) {
+    message += `🔒 *Isolation Mode:* \`${ISOLATION_BACKEND}\` (experimental) - Commands run in isolated environments with GUID-based tracking.\n`;
+  }
+  message += '\n';
   message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
@@ -1053,7 +1113,34 @@ async function handleSolveCommand(ctx) {
     if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
     const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
-    if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
+    if (!solveQueue.executeCallback) {
+      if (ISOLATION_BACKEND && isolationRunner) {
+        // Isolation mode: queue uses $ from start-command with GUID tracking
+        solveQueue.executeCallback = async item => {
+          const sessionId = isolationRunner.generateSessionId();
+          const result = await isolationRunner.executeWithIsolation('solve', item.args, {
+            backend: ISOLATION_BACKEND,
+            sessionId,
+            verbose: VERBOSE,
+          });
+          // Track isolation session for completion monitoring
+          if (result.success) {
+            trackSession(sessionId, {
+              chatId: item.ctx?.chat?.id,
+              startTime: new Date(),
+              url: item.url,
+              command: 'solve',
+              isolationBackend: ISOLATION_BACKEND,
+              sessionId,
+            }, VERBOSE);
+          }
+          // Return result in same format as executeStartScreen for queue compatibility
+          return { ...result, output: result.output || `session: ${sessionId}` };
+        };
+      } else {
+        solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
+      }
+    }
   }
 }
 

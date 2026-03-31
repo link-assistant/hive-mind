@@ -186,6 +186,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
+  'wait-for-all-actions-in-repository-before-mergable': {
+    type: 'boolean',
+    description: 'Wait for ALL active GitHub Actions workflow runs in the entire repository to complete before declaring PR mergeable. Provides absolute safety against interacting CI/CD pipelines. Enabled by default.',
+    default: true,
+  },
   'auto-restart-on-non-updated-pull-request-description': {
     type: 'boolean',
     description: 'Automatically restart if PR title or description still contains auto-generated placeholder text after agent execution. Restarts with a hint about what was not updated.',

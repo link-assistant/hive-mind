@@ -53,6 +53,7 @@ const { formatUsageMessage, getAllCachedLimits } = await import('./limits.lib.mj
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
+const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
 // Import bot launcher with exponential backoff retry (issue #1240)
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -76,6 +77,12 @@ const config = yargs(hideBin(process.argv))
     description: 'Allowed chat IDs in lino notation, e.g., "(\n  123456789\n  987654321\n)"',
     alias: 'allowed-chats',
     default: getenv('TELEGRAM_ALLOWED_CHATS', ''),
+  })
+  .option('allowedTopics', {
+    type: 'string',
+    description: 'Allowed topic IDs in Links Notation format "chatId topicId" pairs',
+    alias: 'allowed-topics',
+    default: getenv('TELEGRAM_ALLOWED_TOPICS', ''),
   })
   .option('solveOverrides', {
     type: 'string',
@@ -152,6 +159,10 @@ if (!BOT_TOKEN) {
 // NOTE: This section moved BEFORE loading telegraf for faster dry-run mode (issue #801)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;
+
+// Parse allowed topics (chatId:topicId pairs in Links Notation)
+const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
+const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
 
 // Parse override options
 const resolvedSolveOverrides = config.solveOverrides || getenv('TELEGRAM_SOLVE_OVERRIDES', '');
@@ -276,6 +287,9 @@ if (config.dryRun) {
   } else {
     console.log('  Allowed chats: All (no restrictions)');
   }
+  if (allowedTopics && allowedTopics.length > 0) {
+    console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
+  }
   console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
@@ -316,6 +330,22 @@ const BOT_START_TIME = Math.floor(Date.now() / 1000);
 // The actual logic is in telegram-message-filters.lib.mjs for testability (issue #1207)
 function isChatAuthorized(chatId) {
   return _isChatAuthorized(chatId, allowedChats);
+}
+
+// Topic-level authorization (issue #1100): chat-level auth overrides topic-level
+function isTopicAuthorized(ctx) {
+  if (isChatAuthorized(ctx.chat?.id)) return true;
+  if (!allowedTopics || allowedTopics.length === 0) return false;
+  const chatId = ctx.chat?.id;
+  const topicId = ctx.message?.message_thread_id;
+  return allowedTopics.some(pair => pair.source === chatId && pair.target === topicId);
+}
+function buildAuthErrorMessage(ctx) {
+  const chatId = ctx.chat?.id;
+  const topicId = ctx.message?.message_thread_id;
+  let msg = `❌ This chat (ID: ${chatId})`;
+  if (topicId) msg += ` and topic (ID: ${topicId})`;
+  return msg + ' is not authorized.\n\nUse /help to see your chat and topic IDs.';
 }
 
 function isOldMessage(ctx) {
@@ -558,25 +588,26 @@ function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url };
 }
 
-/**
- * Escape special characters for Telegram's legacy Markdown parser.
- * In Telegram's Markdown, these characters need escaping: _ * [ ] ( ) ~ ` > # + - = | { } . !
- * However, for plain text (not inside markup), we primarily need to escape _ and *
- * to prevent them from being interpreted as formatting.
- *
- * @param {string} text - Text to escape
- * @returns {string} Escaped text safe for Markdown parse_mode
- */
-/**
- * Execute a start-screen command and update the initial message with the result.
- * Used by both /solve and /hive commands to reduce code duplication.
- *
- * @param {Object} ctx - Telegram context
- * @param {Object} startingMessage - The initial message to update
- * @param {string} commandName - Command name (e.g., 'solve' or 'hive')
- * @param {string[]} args - Command arguments
- * @param {string} infoBlock - Info block with request details
- */
+// Issue #1460/#1497: safeReply - try Markdown first, fall back to plain text on parsing errors
+async function safeReply(ctx, text, options = {}) {
+  try {
+    return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
+  } catch (error) {
+    const isParsingError = error.message && (error.message.includes("can't parse entities") || error.message.includes("Can't parse entities") || error.message.includes("can't find end of") || (error.message.includes('Bad Request') && error.message.includes('400')));
+    if (!isParsingError) throw error;
+    console.error(`[telegram-bot] safeReply: Markdown parsing failed: ${error.message}`);
+    console.error(`[telegram-bot] safeReply: Failing message (${Buffer.byteLength(text, 'utf-8')} bytes): ${text}`);
+    const plainText = text
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+      .replace(/\\_/g, '_')
+      .replace(/\\\*/g, '*')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1');
+    return await ctx.reply(plainText, { ...options, parse_mode: undefined });
+  }
+}
+
+// Execute a start-screen command and update the initial message with the result
 async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock) {
   const result = await executeStartScreen(commandName, args);
   const { chat, message_id } = startingMessage;
@@ -602,33 +633,41 @@ async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, 
 }
 
 bot.command('help', async ctx => {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /help command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /help command received');
 
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /help ignored: old message');
-    }
+    VERBOSE && console.log('[VERBOSE] /help ignored: old message');
     return;
   }
 
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /help ignored: forwarded or reply');
-    }
+    VERBOSE && console.log('[VERBOSE] /help ignored: forwarded or reply');
     return;
   }
 
   const chatId = ctx.chat.id;
   const chatType = ctx.chat.type;
   const chatTitle = ctx.chat.title || 'Private Chat';
-
+  const topicId = ctx.message?.message_thread_id; // Forum topic ID (issue #1100)
   let message = '🤖 *SwarmMindBot Help*\n\n';
+
+  // Show stopped status if chat is stopped (issue #1081)
+  if (isChatStopped(chatId)) {
+    const stopInfo = getChatStopInfo(chatId);
+    const reason = stopInfo?.reason || DEFAULT_STOP_REASON;
+    message += '🛑 *Bot Status: STOPPED*\n';
+    message += `Reason: ${reason}\n`;
+    if (stopInfo?.stoppedAt) {
+      message += `Stopped: ${stopInfo.stoppedAt.toISOString()}\n`;
+    }
+    message += 'Use /start (chat owner only) to resume.\n\n';
+  }
+
   message += '📋 *Diagnostic Information:*\n';
   message += `• Chat ID: \`${chatId}\`\n`;
+  if (topicId) message += `• Topic ID: \`${topicId}\`\n`;
   message += `• Chat Type: ${chatType}\n`;
   message += `• Chat Title: ${chatTitle}\n\n`;
   message += '📝 *Available Commands:*\n\n';
@@ -665,8 +704,10 @@ bot.command('help', async ctx => {
   message += '*/merge* - Merge queue (experimental)\n';
   message += 'Usage: `/merge <github-repo-url>`\n';
   message += "Merges all PRs with 'ready' label sequentially.\n";
-  message += '*/help* - Show this help message\n\n';
-  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites and /merge commands only work in group chats.\n\n';
+  message += '*/help* - Show this help message\n';
+  message += '*/stop* - Stop accepting new tasks (owner only)\n';
+  message += '*/start* - Resume accepting tasks (owner only)\n\n';
+  message += '⚠️ *Note:* /solve, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats.\n\n';
   message += '🔧 *Common Options:*\n';
   message += `• \`--model <model>\` or \`-m\` - ${buildModelOptionDescription()}\n`;
   message += '• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)\n';
@@ -674,9 +715,10 @@ bot.command('help', async ctx => {
   message += '• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR\n';
   message += '\n💡 *Tip:* Many more options available. See full documentation for complete list.\n';
 
-  if (allowedChats) {
-    message += '\n🔒 *Restricted Mode:* This bot only accepts commands from authorized chats.\n';
-    message += `Authorized: ${isChatAuthorized(chatId) ? '✅ Yes' : '❌ No'}`;
+  if (allowedChats || allowedTopics) {
+    const authorized = isTopicAuthorized(ctx);
+    message += `\n🔒 *Restricted Mode:* Authorized: ${authorized ? '✅ Yes' : '❌ No'}`;
+    if (!authorized && topicId) message += `\n💡 To allow this topic: \`TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"\``;
   }
 
   message += '\n\n🔧 *Troubleshooting:*\n';
@@ -692,36 +734,20 @@ bot.command('help', async ctx => {
 });
 
 bot.command('limits', async ctx => {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /limits command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /limits command received');
 
   // Add breadcrumb for error tracking
-  await addBreadcrumb({
-    category: 'telegram.command',
-    message: '/limits command received',
-    level: 'info',
-    data: {
-      chatId: ctx.chat?.id,
-      chatType: ctx.chat?.type,
-      userId: ctx.from?.id,
-      username: ctx.from?.username,
-    },
-  });
+  await addBreadcrumb({ category: 'telegram.command', message: '/limits command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
 
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: old message');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: old message');
     return;
   }
 
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: forwarded or reply');
-    }
+    VERBOSE && console.log('[VERBOSE] /limits ignored: forwarded or reply');
     return;
   }
 
@@ -733,12 +759,11 @@ bot.command('limits', async ctx => {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /limits ignored: chat not authorized');
+      console.log('[VERBOSE] /limits ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -775,8 +800,7 @@ bot.command('version', async ctx => {
   });
   if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
   if (!_isGroupChat(ctx)) return await ctx.reply('❌ The /version command only works in group chats. Please add this bot to a group and make it an admin.', { reply_to_message_id: ctx.message.message_id });
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) return await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+  if (!isTopicAuthorized(ctx)) return await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
   const fetchingMessage = await ctx.reply('🔄 Gathering version information...', {
     reply_to_message_id: ctx.message.message_id,
   });
@@ -785,46 +809,18 @@ bot.command('version', async ctx => {
   await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, '🤖 *Version Information*\n\n' + formatVersionMessage(result.versions), { parse_mode: 'Markdown' });
 });
 
-// Register /accept_invites command from separate module
-// This keeps telegram-bot.mjs under the 1500 line limit
+// Register external command modules (keeps telegram-bot.mjs under line limit)
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
-registerAcceptInvitesCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-});
-
-// Register /merge command from separate module (experimental, see issue #1143)
+const sharedCommandOpts = { VERBOSE, isOldMessage, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
+registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-registerMergeCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-});
-
-// Register /solve_queue command from separate module (issue #1232)
+registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
-const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-  addBreadcrumb,
-  getSolveQueue,
-});
+const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue });
 
 // Named handler for /solve command - extracted for reuse by text-based fallback (issue #1207)
 async function handleSolveCommand(ctx) {
-  if (VERBOSE) {
-    console.log('[VERBOSE] /solve command received');
-  }
+  VERBOSE && console.log('[VERBOSE] /solve command received');
 
   // Add breadcrumb for error tracking
   await addBreadcrumb({
@@ -876,18 +872,23 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /solve ignored: chat not authorized');
+      console.log('[VERBOSE] /solve ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
-  if (VERBOSE) {
-    console.log('[VERBOSE] /solve passed all checks, executing...');
+  // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+  const chatId = ctx.chat.id;
+  if (isChatStopped(chatId)) {
+    VERBOSE && console.log('[VERBOSE] /solve rejected: chat is stopped');
+    await safeReply(ctx, getStoppedChatRejectMessage(chatId, 'Solve'), { reply_to_message_id: ctx.message.message_id });
+    return;
   }
+
+  VERBOSE && console.log('[VERBOSE] /solve passed all checks, executing...');
 
   let userArgs = parseCommandArgs(ctx.message.text);
 
@@ -914,8 +915,7 @@ async function handleSolveCommand(ctx) {
       if (VERBOSE) {
         console.log('[VERBOSE] Multiple GitHub URLs found in replied message');
       }
-      await ctx.reply(`❌ ${extraction.error}`, {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, `❌ ${escapeMarkdown(extraction.error)}`, {
         reply_to_message_id: ctx.message.message_id,
       });
       return;
@@ -931,7 +931,7 @@ async function handleSolveCommand(ctx) {
       if (VERBOSE) {
         console.log('[VERBOSE] No GitHub URL found in replied message');
       }
-      await ctx.reply('❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+      await safeReply(ctx, '❌ No GitHub issue/PR link found in the replied message.\n\nExample: Reply to a message containing a GitHub issue link with `/solve`\n\nOr with options: `/solve --model opus`', { reply_to_message_id: ctx.message.message_id });
       return;
     }
   }
@@ -943,7 +943,7 @@ async function handleSolveCommand(ctx) {
       errorMsg += `\n\n💡 Did you mean: \`${validation.suggestion}\``;
     }
     errorMsg += '\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`';
-    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -963,19 +963,19 @@ async function handleSolveCommand(ctx) {
   // Validate model name with helpful error message (before yargs validation)
   const modelError = validateModelInArgs(args, solveTool);
   if (modelError) {
-    await ctx.reply(`❌ ${modelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1482: Validate --base-branch early to reject URLs and invalid branch names
   const branchError = validateBranchInArgs(args);
   if (branchError) {
-    await ctx.reply(`❌ ${branchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(branchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1092: Detect malformed flag patterns like "-- model" (space after --)
   const { malformed, errors: malformedErrors } = detectMalformedFlags(args);
   if (malformed.length > 0) {
-    await ctx.reply(`❌ ${malformedErrors.join('\n')}\n\nPlease check your option syntax.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\nPlease check your option syntax.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Validate merged arguments using solve's yargs config
@@ -994,8 +994,7 @@ async function handleSolveCommand(ctx) {
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -1019,7 +1018,7 @@ async function handleSolveCommand(ctx) {
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
     const statusText = existingItem.status === 'starting' || existingItem.status === 'started' ? 'being processed' : 'already in the queue';
-    await ctx.reply(`❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: ${existingItem.status}\n\n💡 Use /solve_queue to check the queue status.`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1031,18 +1030,18 @@ async function handleSolveCommand(ctx) {
   // their command cannot be processed (e.g., disk full, server maintenance pending).
   // See: https://github.com/link-assistant/hive-mind/issues/1267
   if (check.rejected) {
-    await ctx.reply(`❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${check.rejectReason}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ Solve command rejected.\n\n${infoBlock}\n\n🚫 Reason: ${escapeMarkdown(check.rejectReason || 'Unknown')}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
   if (check.canStart && queueStats.queued === 0) {
-    const startingMessage = await ctx.reply(`🚀 Starting solve command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    const startingMessage = await safeReply(ctx, `🚀 Starting solve command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', args, infoBlock);
   } else {
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args, ctx, requester, infoBlock, tool: solveTool });
     let queueMessage = `📋 Solve command queued (position #${queueStats.queued + 1})\n\n${infoBlock}`;
-    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${check.reason}`;
-    const queuedMessage = await ctx.reply(queueMessage, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    if (check.reason) queueMessage += `\n\n⏳ Waiting: ${escapeMarkdown(check.reason)}`;
+    const queuedMessage = await safeReply(ctx, queueMessage, { reply_to_message_id: ctx.message.message_id });
     queueItem.messageInfo = { chatId: queuedMessage.chat.id, messageId: queuedMessage.message_id };
     if (!solveQueue.executeCallback) solveQueue.executeCallback = createQueueExecuteCallback(executeStartScreen);
   }
@@ -1101,18 +1100,23 @@ async function handleHiveCommand(ctx) {
     return;
   }
 
-  const chatId = ctx.chat.id;
-  if (!isChatAuthorized(chatId)) {
+  if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
-      console.log('[VERBOSE] /hive ignored: chat not authorized');
+      console.log('[VERBOSE] /hive ignored: not authorized');
     }
-    await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, { reply_to_message_id: ctx.message.message_id });
+    await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
-  if (VERBOSE) {
-    console.log('[VERBOSE] /hive passed all checks, executing...');
+  // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+  const chatId = ctx.chat.id;
+  if (isChatStopped(chatId)) {
+    VERBOSE && console.log('[VERBOSE] /hive rejected: chat is stopped');
+    await safeReply(ctx, getStoppedChatRejectMessage(chatId, 'Hive'), { reply_to_message_id: ctx.message.message_id });
+    return;
   }
+
+  VERBOSE && console.log('[VERBOSE] /hive passed all checks, executing...');
 
   const userArgs = parseCommandArgs(ctx.message.text);
 
@@ -1122,7 +1126,7 @@ async function handleHiveCommand(ctx) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) errorMsg += `\n\n💡 Did you mean: \`${escapeMarkdown(validation.suggestion)}\``;
     errorMsg += '\n\nExample: `/hive https://github.com/owner/repo`';
-    await ctx.reply(errorMsg, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Normalize issues_list/pulls_list to base repo URL, or use cleaned URL
@@ -1149,13 +1153,13 @@ async function handleHiveCommand(ctx) {
   // Validate model name with helpful error message (before yargs validation)
   const hiveModelError = validateModelInArgs(args, hiveTool);
   if (hiveModelError) {
-    await ctx.reply(`❌ ${hiveModelError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(hiveModelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
   // Issue #1482: Validate branch flags early to reject URLs and invalid branch names
   const hiveBranchError = validateBranchInArgs(args);
   if (hiveBranchError) {
-    await ctx.reply(`❌ ${hiveBranchError}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `❌ ${escapeMarkdown(hiveBranchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
 
@@ -1175,8 +1179,7 @@ async function handleHiveCommand(ctx) {
 
     testYargs.parse(args);
   } catch (error) {
-    await ctx.reply(`❌ Invalid options: ${error.message || String(error)}\n\nUse /help to see available options`, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, {
       reply_to_message_id: ctx.message.message_id,
     });
     return;
@@ -1193,22 +1196,16 @@ async function handleHiveCommand(ctx) {
     infoBlock += `${userOptionsRaw ? '\n' : '\n\n'}🔒 Locked options: ${escapeMarkdown(hiveOverrides.join(' '))}`;
   }
 
-  const startingMessage = await ctx.reply(`🚀 Starting hive command...\n\n${infoBlock}`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+  const startingMessage = await safeReply(ctx, `🚀 Starting hive command...\n\n${infoBlock}`, { reply_to_message_id: ctx.message.message_id });
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', args, infoBlock);
 }
 
 bot.command(/^hive$/i, handleHiveCommand);
 
-// Register /top command from separate module
-// This keeps telegram-bot.mjs under the 1500 line limit
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
-registerTopCommand(bot, {
-  VERBOSE,
-  isOldMessage,
-  isForwardedOrReply,
-  isGroupChat: _isGroupChat,
-  isChatAuthorized,
-});
+const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
+registerTopCommand(bot, sharedCommandOpts);
+registerStartStopCommands(bot, sharedCommandOpts);
 
 // Add message listener for verbose debugging
 if (VERBOSE) {
@@ -1390,6 +1387,9 @@ if (allowedChats && allowedChats.length > 0) {
   console.log('Allowed chats (lino):', lino.format(allowedChats));
 } else {
   console.log('Allowed chats: All (no restrictions)');
+}
+if (allowedTopics && allowedTopics.length > 0) {
+  console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
 console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));

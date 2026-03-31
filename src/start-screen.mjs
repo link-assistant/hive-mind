@@ -163,7 +163,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
       // The \n at the end simulates pressing Enter
       await execAsync(`screen -S ${sessionName} -X stuff '${escapedCommand}\n'`);
       console.log(`Command sent to session '${sessionName}' successfully.`);
-      console.log(`To attach and view the session, run: screen -r ${sessionName}`);
+      console.log(`To attach and view the session, run: screen -R ${sessionName}`);
     } catch (error) {
       console.error('Failed to send command to existing screen session:', error.message);
       console.error('You may need to terminate the old session and try again.');
@@ -208,7 +208,7 @@ async function createOrEnterScreen(sessionName, command, args, autoTerminate = f
     } else {
       console.log('Session will remain active after command completes');
     }
-    console.log(`To attach to this session, run: screen -r ${sessionName}`);
+    console.log(`To attach to this session, run: screen -R ${sessionName}`);
   } catch (error) {
     console.error('Failed to create screen session:', error.message);
     process.exit(1);

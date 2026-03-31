@@ -115,6 +115,43 @@ export const log = async (message, options = {}) => {
 };
 
 /**
+ * Issue #1466: Intercept console.log to capture [VERBOSE] output in the log file.
+ *
+ * Functions in github-merge.lib.mjs and github-merge-ci.lib.mjs use console.log()
+ * directly for verbose output (e.g., `console.log('[VERBOSE] /merge: ...')`).
+ * This means verbose diagnostic data only appears in the terminal, not in log files,
+ * making debugging harder.
+ *
+ * This interceptor wraps console.log so that any message containing '[VERBOSE]'
+ * is also appended to the log file. It preserves the original console.log behavior.
+ *
+ * Call this once after setLogFile() to enable the interceptor.
+ */
+let verboseInterceptorInstalled = false;
+export const setupVerboseLogInterceptor = () => {
+  if (verboseInterceptorInstalled) return;
+  verboseInterceptorInstalled = true;
+
+  const originalConsoleLog = console.log.bind(console);
+  console.log = (...args) => {
+    // Always call original console.log first
+    originalConsoleLog(...args);
+
+    // If a log file is set and the message looks like a [VERBOSE] log, append to file
+    if (logFile && args.length > 0) {
+      const firstArg = String(args[0]);
+      if (firstArg.includes('[VERBOSE]')) {
+        const message = args.map(a => String(a)).join(' ');
+        const logMessage = `[${new Date().toISOString()}] [VERBOSE] ${message}`;
+        fs.appendFile(logFile, logMessage + '\n').catch(() => {
+          // Silent fail to avoid infinite loops
+        });
+      }
+    }
+  };
+};
+
+/**
  * Mask sensitive tokens in text
  * @param {string} token - Token to mask
  * @param {Object} options - Masking options
@@ -244,6 +281,22 @@ export const retry = async (fn, options = {}) => {
 };
 
 /**
+ * Check if an error is a transient network error that can be retried.
+ * Used by validateForkParent to detect network timeouts (Issue #1311).
+ * @param {Error|string} error - The error to check
+ * @returns {boolean} True if the error is transient and retryable
+ */
+export const isTransientNetworkError = error => {
+  const msg = (error?.message || error?.toString() || '').toLowerCase();
+  const output = (error?.stderr?.toString() || error?.stdout?.toString() || '').toLowerCase();
+  const combined = msg + ' ' + output;
+
+  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up'];
+
+  return transientPatterns.some(pattern => combined.includes(pattern));
+};
+
+/**
  * Format bytes to human readable string
  * @param {number} bytes - Number of bytes
  * @param {number} [decimals=2] - Number of decimal places
@@ -285,6 +338,28 @@ export const measureTime = async (fn, label = 'Operation') => {
     });
     throw error;
   }
+};
+
+/**
+ * Check if an error is an ENOSPC (no space left on device) error
+ * Issue #1212: ENOSPC errors need specific handling because they cascade
+ * (once disk is full, all operations fail) and require user action (cleanup).
+ * @param {Error|string} error - Error object or message
+ * @returns {boolean} True if the error is an ENOSPC error
+ */
+export const isENOSPC = error => {
+  if (!error) return false;
+  const message = error?.message || (typeof error === 'string' ? error : '');
+  const lowerMessage = message.toLowerCase();
+  return (
+    error?.code === 'ENOSPC' ||
+    message.includes('ENOSPC') ||
+    lowerMessage.includes('no space left on device') ||
+    // Issue #1211: git clone ENOSPC patterns — "unable to write file" and
+    // "cannot create directory" occur when disk fills during checkout
+    (lowerMessage.includes('unable to write file') && lowerMessage.includes('error')) ||
+    (lowerMessage.includes('cannot create directory') && lowerMessage.includes('no space left'))
+  );
 };
 
 /**
@@ -449,10 +524,12 @@ export default {
   retry,
   formatBytes,
   measureTime,
+  isENOSPC,
   cleanErrorMessage,
   formatAligned,
   displayFormattedError,
   cleanupTempDirectories,
+  setupVerboseLogInterceptor,
 };
 
 /**

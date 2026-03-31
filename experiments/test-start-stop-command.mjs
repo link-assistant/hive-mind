@@ -10,7 +10,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1081
  */
 
-import { isChatStopped, getChatStopInfo, setChatStopped, getStoppedChats } from '../src/telegram-start-stop-command.lib.mjs';
+import { isChatStopped, getChatStopInfo, setChatStopped, getStoppedChats, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } from '../src/telegram-start-stop-command.lib.mjs';
 
 console.log('🧪 Testing /start and /stop command module\n');
 
@@ -141,6 +141,41 @@ console.log(`  Chat ${testChatId1} stopped: ${isChatStopped(testChatId1)}`);
 console.log(`  Stop info: ${stopInfoAfterStartReason}`);
 console.assert(isChatStopped(testChatId1) === false, 'Chat should not be stopped');
 console.assert(stopInfoAfterStartReason === null, 'Stop info including reason should be cleared');
+console.log('  ✅ Passed\n');
+
+// Test 14: getStoppedChatRejectMessage with command name and default reason
+console.log('Test 14: Reject message with default reason (no custom reason)');
+setChatStopped(testChatId1, true, testUser); // no reason
+const rejectMsg = getStoppedChatRejectMessage(testChatId1, 'Solve');
+console.log(`  Message: ${rejectMsg}`);
+console.assert(rejectMsg.includes('❌ Solve command rejected.'), 'Should include command name');
+console.assert(rejectMsg.includes(DEFAULT_STOP_REASON), 'Should include default stop reason');
+console.assert(rejectMsg.includes('🚫 Reason:'), 'Should include reason label');
+console.assert(rejectMsg.includes('/start'), 'Should mention /start');
+console.log('  ✅ Passed\n');
+
+// Test 15: getStoppedChatRejectMessage with custom reason
+console.log('Test 15: Reject message with custom reason');
+setChatStopped(testChatId1, false);
+setChatStopped(testChatId1, true, testUser, 'Server maintenance');
+const rejectMsgCustom = getStoppedChatRejectMessage(testChatId1, 'Hive');
+console.log(`  Message: ${rejectMsgCustom}`);
+console.assert(rejectMsgCustom.includes('❌ Hive command rejected.'), 'Should include Hive command name');
+console.assert(rejectMsgCustom.includes('Server maintenance'), 'Should include custom reason');
+console.assert(!rejectMsgCustom.includes(DEFAULT_STOP_REASON), 'Should NOT include default reason when custom provided');
+console.log('  ✅ Passed\n');
+
+// Test 16: getStoppedChatRejectMessage with default command name
+console.log('Test 16: Reject message with default command name');
+const rejectMsgDefault = getStoppedChatRejectMessage(testChatId1);
+console.log(`  Message: ${rejectMsgDefault}`);
+console.assert(rejectMsgDefault.includes('❌ Command command rejected.'), 'Should use default command name');
+console.log('  ✅ Passed\n');
+
+// Test 17: DEFAULT_STOP_REASON value
+console.log('Test 17: DEFAULT_STOP_REASON constant');
+console.log(`  Value: ${DEFAULT_STOP_REASON}`);
+console.assert(DEFAULT_STOP_REASON === 'This bot is currently not accepting new tasks.', 'Default reason should match expected value');
 console.log('  ✅ Passed\n');
 
 // Final cleanup

@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 
 // Import the unified model mapping
-import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/model-mapping.lib.mjs';
+import { mapModelForTool, isModelCompatibleWithTool, validateToolModelCompatibility, getValidModelsForTool, claudeModels, agentModels, opencodeModels, codexModels } from '../src/models/index.mjs';
 
 test('Model mapping - Agent tool should map grok-code correctly', () => {
   const mapped = mapModelForTool('agent', 'grok-code');
@@ -36,7 +36,8 @@ test('Model mapping - Agent tool should accept sonnet', () => {
 
 test('Model mapping - Claude tool should accept sonnet', () => {
   const mapped = mapModelForTool('claude', 'sonnet');
-  assert.strictEqual(mapped, 'claude-sonnet-4-5-20250929', 'sonnet should map to claude-sonnet-4-5-20250929 for claude');
+  // Updated for Issue #1329: sonnet now maps to Sonnet 4.6
+  assert.strictEqual(mapped, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 for claude');
 
   const isCompatible = isModelCompatibleWithTool('claude', 'sonnet');
   assert.strictEqual(isCompatible, true, 'sonnet should be compatible with claude tool');

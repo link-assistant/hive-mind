@@ -59,11 +59,11 @@ services:
       - ./sessions:/app/claude-sessions
 
       # Claude Code persistent storage - IMPORTANT for Max plan users
-      - ./claude-config:/home/hive/.claude
-      - ./config:/home/hive/.config
+      - ./claude-config:/workspace/.claude
+      - ./config:/workspace/.config
 
       # GitHub CLI config persistence
-      - ./gh-config:/home/hive/.config/gh
+      - ./gh-config:/workspace/.config/gh
 
     # Resource limits (adjust based on your server)
     deploy:

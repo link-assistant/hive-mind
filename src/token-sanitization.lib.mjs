@@ -15,7 +15,7 @@
  */
 
 // Import shared utility from lib.mjs
-import { maskToken, log } from './lib.mjs';
+import { maskToken, log, isENOSPC } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
 // Dynamic imports for runtime dependencies
@@ -537,11 +537,18 @@ export const sanitizeLogContent = async (logContent, options = {}) => {
       }
     }
   } catch (error) {
+    // Issue #1212: Detect ENOSPC specifically and log at non-verbose level
+    const isNoSpace = isENOSPC(error);
     reportError(error, {
       context: 'sanitize_log_content',
-      level: 'warning',
+      level: isNoSpace ? 'error' : 'warning',
     });
-    await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
+    if (isNoSpace) {
+      await log(`  ❌ ENOSPC: No space left on device during log sanitization. Skipping sanitization.`);
+      await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
+    } else {
+      await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
+    }
   }
 
   return sanitized;

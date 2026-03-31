@@ -31,8 +31,9 @@
  *   - package: 'true' if package.json changed
  *   - docs: 'true' if any .md files changed
  *   - workflow: 'true' if any .github/workflows/ files changed
- *   - docker: 'true' if Dockerfile, .dockerignore, or ubuntu-24-server-install.sh changed
+ *   - docker: 'true' if Dockerfile, coolify/Dockerfile, or .dockerignore changed
  *   - code: 'true' if any code files changed (excludes docs, changesets, experiments, data)
+ *   - helm: 'true' if any helm/ files changed
  */
 
 import { execSync } from 'child_process';
@@ -174,9 +175,14 @@ function detectChanges() {
   setOutput('workflow', workflowChanged ? 'true' : 'false');
 
   // Detect docker-related changes
-  const dockerPattern = /^(Dockerfile|\.dockerignore|scripts\/ubuntu-24-server-install\.sh)$/;
+  // Note: ubuntu-24-server-install.sh was removed in issue #1394 - now using pinned konard/sandbox base image
+  const dockerPattern = /^(Dockerfile|coolify\/Dockerfile|\.dockerignore)$/;
   const dockerChanged = changedFiles.some(file => dockerPattern.test(file));
   setOutput('docker', dockerChanged ? 'true' : 'false');
+
+  // Detect helm chart changes
+  const helmChanged = changedFiles.some(file => file.startsWith('helm/'));
+  setOutput('helm', helmChanged ? 'true' : 'false');
 
   // Detect code changes (excluding docs, changesets, experiments, data folders, and markdown files)
   const codeChangedFiles = changedFiles.filter(file => !isExcludedFromCodeChanges(file));
@@ -189,7 +195,9 @@ function detectChanges() {
   }
   console.log('');
 
-  // Check if any code files changed (.mjs, .json, .yml, .yaml, or workflow files)
+  // Check if any code files changed (.mjs, .json, .yml, .yaml, workflow files)
+  // Note: Docker files (Dockerfile etc.) are NOT included here — they are detected separately via
+  // docker=true. The release job is configured to also trigger on docker-changed=true. (see issue #1423)
   const codePattern = /\.(mjs|json|yml|yaml)$|\.github\/workflows\//;
   const codeChanged = codeChangedFiles.some(file => codePattern.test(file));
   setOutput('code', codeChanged ? 'true' : 'false');

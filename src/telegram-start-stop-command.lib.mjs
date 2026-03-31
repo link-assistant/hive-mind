@@ -69,16 +69,21 @@ export function getStoppedChats() {
 }
 
 /**
- * Get rejection message for when a command is used on a stopped chat
+ * Default reason used when no custom reason is provided for /stop
+ */
+export const DEFAULT_STOP_REASON = 'This bot is currently not accepting new tasks.';
+
+/**
+ * Get rejection message for when a command is used on a stopped chat.
+ * Matches the style of queue `rejected` mode output for consistency.
  * @param {number} chatId - The chat ID
+ * @param {string} commandName - The command that was rejected (e.g., 'Solve', 'Hive')
  * @returns {string} Markdown-formatted rejection message
  */
-export function getStoppedChatRejectMessage(chatId) {
+export function getStoppedChatRejectMessage(chatId, commandName = 'Command') {
   const stopInfo = getChatStopInfo(chatId);
-  let msg = '❌ This bot is currently stopped in this chat and not accepting new tasks.';
-  if (stopInfo?.reason) msg += `\n\n*Reason:* ${stopInfo.reason}`;
-  msg += '\n\nUse /start to resume (chat owner only).';
-  return msg;
+  const reason = stopInfo?.reason || DEFAULT_STOP_REASON;
+  return `❌ ${commandName} command rejected.\n\n🚫 Reason: ${reason}\n\nUse /start to resume (chat owner only).`;
 }
 
 /**
@@ -94,71 +99,58 @@ export function getStoppedChatRejectMessage(chatId) {
 export function registerStartStopCommands(bot, options) {
   const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized } = options;
 
-  // /stop command - stop accepting new tasks in this chat
-  // Only accessible by chat owner (creator)
-  bot.command('stop', async ctx => {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /stop command received');
-    }
-
-    // Ignore messages sent before bot started
+  /**
+   * Validate command context: checks old message, forwarded, group chat, authorized, and owner status.
+   * @param {Object} ctx - Telegraf context
+   * @param {string} cmdName - Command name for logging (e.g., '/stop', '/start')
+   * @param {Object} [opts] - Options
+   * @param {boolean} [opts.allowPrivate] - If true, skip group chat check (for /start welcome)
+   * @returns {Promise<{valid: boolean, chatId?: number, isPrivate?: boolean}>}
+   */
+  async function validateOwnerCommand(ctx, cmdName, opts = {}) {
+    VERBOSE && console.log(`[VERBOSE] ${cmdName} command received`);
     if (isOldMessage(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /stop ignored: old message');
-      }
-      return;
+      VERBOSE && console.log(`[VERBOSE] ${cmdName} ignored: old message`);
+      return { valid: false };
     }
-
-    // Ignore forwarded or reply messages
     if (isForwardedOrReply(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /stop ignored: forwarded or reply');
-      }
-      return;
+      VERBOSE && console.log(`[VERBOSE] ${cmdName} ignored: forwarded or reply`);
+      return { valid: false };
     }
-
     if (!isGroupChat(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /stop ignored: not a group chat');
-      }
-      await ctx.reply('❌ The /stop command only works in group chats.', {
-        reply_to_message_id: ctx.message.message_id,
-      });
-      return;
+      if (opts.allowPrivate) return { valid: false, isPrivate: true };
+      VERBOSE && console.log(`[VERBOSE] ${cmdName} ignored: not a group chat`);
+      await ctx.reply(`❌ The ${cmdName} command only works in group chats.`, { reply_to_message_id: ctx.message.message_id });
+      return { valid: false };
     }
-
     const chatId = ctx.chat.id;
     if (!isChatAuthorized(chatId)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /stop ignored: chat not authorized');
-      }
-      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
-      return;
+      VERBOSE && console.log(`[VERBOSE] ${cmdName} ignored: chat not authorized`);
+      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot.`, { reply_to_message_id: ctx.message.message_id });
+      return { valid: false };
     }
-
-    // Check if user is chat owner (creator only, not admins)
     try {
       const chatMember = await ctx.telegram.getChatMember(chatId, ctx.from.id);
       if (chatMember.status !== 'creator') {
-        if (VERBOSE) {
-          console.log('[VERBOSE] /stop ignored: user is not chat owner');
-        }
-        await ctx.reply('❌ This command is only available to the chat owner.', {
-          reply_to_message_id: ctx.message.message_id,
-        });
-        return;
+        VERBOSE && console.log(`[VERBOSE] ${cmdName} ignored: user is not chat owner`);
+        await ctx.reply('❌ This command is only available to the chat owner.', { reply_to_message_id: ctx.message.message_id });
+        return { valid: false };
       }
     } catch (error) {
       console.error('[ERROR] Failed to check chat member status:', error);
       await ctx.reply('❌ Failed to verify permissions.', { reply_to_message_id: ctx.message.message_id });
-      return;
+      return { valid: false };
     }
+    VERBOSE && console.log(`[VERBOSE] ${cmdName} passed all checks`);
+    return { valid: true, chatId };
+  }
 
-    if (VERBOSE) {
-      console.log('[VERBOSE] /stop passed all checks, stopping...');
-    }
+  // /stop command - stop accepting new tasks in this chat
+  // Only accessible by chat owner (creator)
+  bot.command('stop', async ctx => {
+    const check = await validateOwnerCommand(ctx, '/stop');
+    if (!check.valid) return;
+    const chatId = check.chatId;
 
     // Check if already stopped
     if (isChatStopped(chatId)) {
@@ -176,8 +168,13 @@ export function registerStartStopCommands(bot, options) {
     }
 
     // Parse optional reason from message text (anything after "/stop ")
+    // Supports: /stop reason, /stop "reason", /stop 'reason'
     const messageText = ctx.message.text || '';
-    const reason = messageText.replace(/^\/stop\s*/i, '').trim() || null;
+    let reason = messageText.replace(/^\/stop(@\w+)?\s*/i, '').trim() || null;
+    // Strip surrounding quotes (single or double) from reason
+    if (reason && ((reason.startsWith('"') && reason.endsWith('"')) || (reason.startsWith("'") && reason.endsWith("'")))) {
+      reason = reason.slice(1, -1).trim() || null;
+    }
 
     if (VERBOSE && reason) {
       console.log(`[VERBOSE] /stop reason: ${reason}`);
@@ -194,7 +191,7 @@ export function registerStartStopCommands(bot, options) {
     if (reason) {
       stopMessage += `*Reason:* ${reason}\n\n`;
     }
-    stopMessage += '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.';
+    stopMessage += '*Disabled commands:*\n' + '• /solve - No new issues will be accepted\n' + '• /hive - No new hive commands will be accepted\n' + '• /merge - No new merge operations will be accepted\n\n' + '*Still available:*\n' + '• /help - Show help\n' + '• /limits - Show usage limits\n' + '• /version - Show version info\n' + '• /start - Resume accepting tasks (owner only)\n\n' + '💡 Any tasks already in queue will continue to process.';
 
     await ctx.reply(stopMessage, {
       parse_mode: 'Markdown',
@@ -207,69 +204,16 @@ export function registerStartStopCommands(bot, options) {
   // Note: This overrides Telegram's default /start behavior, but that's intentional
   // as in group chats we want this to control the bot's task acceptance
   bot.command('start', async ctx => {
-    if (VERBOSE) {
-      console.log('[VERBOSE] /start command received');
-    }
-
-    // Ignore messages sent before bot started
-    if (isOldMessage(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /start ignored: old message');
+    const check = await validateOwnerCommand(ctx, '/start', { allowPrivate: true });
+    if (!check.valid) {
+      // In private chats, show a welcome message instead
+      if (check.isPrivate) {
+        VERBOSE && console.log('[VERBOSE] /start in private chat: showing welcome');
+        await ctx.reply('👋 *Welcome to SwarmMindBot!*\n\n' + 'This bot helps solve GitHub issues using AI.\n\n' + 'To use this bot:\n' + '1. Add me to a group chat\n' + '2. Make me an admin\n' + '3. Use /solve to solve GitHub issues\n\n' + 'Use /help in a group chat for more information.', { parse_mode: 'Markdown' });
       }
       return;
     }
-
-    // Ignore forwarded or reply messages
-    if (isForwardedOrReply(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /start ignored: forwarded or reply');
-      }
-      return;
-    }
-
-    // In private chats, show a welcome message instead
-    if (!isGroupChat(ctx)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /start in private chat: showing welcome');
-      }
-      await ctx.reply('👋 *Welcome to SwarmMindBot!*\n\n' + 'This bot helps solve GitHub issues using AI.\n\n' + 'To use this bot:\n' + '1. Add me to a group chat\n' + '2. Make me an admin\n' + '3. Use /solve to solve GitHub issues\n\n' + 'Use /help in a group chat for more information.', {
-        parse_mode: 'Markdown',
-      });
-      return;
-    }
-
-    const chatId = ctx.chat.id;
-    if (!isChatAuthorized(chatId)) {
-      if (VERBOSE) {
-        console.log('[VERBOSE] /start ignored: chat not authorized');
-      }
-      await ctx.reply(`❌ This chat (ID: ${chatId}) is not authorized to use this bot.`, {
-        reply_to_message_id: ctx.message.message_id,
-      });
-      return;
-    }
-
-    // Check if user is chat owner (creator only, not admins)
-    try {
-      const chatMember = await ctx.telegram.getChatMember(chatId, ctx.from.id);
-      if (chatMember.status !== 'creator') {
-        if (VERBOSE) {
-          console.log('[VERBOSE] /start ignored: user is not chat owner');
-        }
-        await ctx.reply('❌ This command is only available to the chat owner.', {
-          reply_to_message_id: ctx.message.message_id,
-        });
-        return;
-      }
-    } catch (error) {
-      console.error('[ERROR] Failed to check chat member status:', error);
-      await ctx.reply('❌ Failed to verify permissions.', { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
-    if (VERBOSE) {
-      console.log('[VERBOSE] /start passed all checks, starting...');
-    }
+    const chatId = check.chatId;
 
     // Check if already running (not stopped)
     if (!isChatStopped(chatId)) {

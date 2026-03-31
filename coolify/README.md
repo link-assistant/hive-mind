@@ -168,7 +168,7 @@ If you need specific git config:
 2. Mount it as a volume in Coolify:
    ```yaml
    volumes:
-     - ./git-config:/home/hive/.gitconfig:ro
+     - ./git-config:/workspace/.gitconfig:ro
    ```
 
 ## Persistent Storage
@@ -179,9 +179,9 @@ The docker-compose.yml configures several persistent volumes that Coolify will m
 
 | Volume            | Container Path          | Purpose                            |
 | ----------------- | ----------------------- | ---------------------------------- |
-| `./claude-config` | `/home/hive/.claude`    | Claude authentication & settings   |
-| `./config`        | `/home/hive/.config`    | General config (Claude Code, etc.) |
-| `./gh-config`     | `/home/hive/.config/gh` | GitHub CLI config                  |
+| `./claude-config` | `/workspace/.claude`    | Claude authentication & settings   |
+| `./config`        | `/workspace/.config`    | General config (Claude Code, etc.) |
+| `./gh-config`     | `/workspace/.config/gh` | GitHub CLI config                  |
 | `./output`        | `/app/output`           | Generated PRs and code             |
 | `./logs`          | `/app/claude-logs`      | Execution logs                     |
 | `./sessions`      | `/app/claude-sessions`  | Session data                       |

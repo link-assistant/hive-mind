@@ -50,7 +50,17 @@ const VERSION_COMMANDS = [
 
   // Browser Automation
   { key: 'playwright', command: 'playwright --version 2>&1' },
+  { key: 'playwrightTest', command: "npm list -g @playwright/test --depth=0 2>&1 | grep @playwright/test | awk '{print $2}'" },
   { key: 'playwrightMcp', command: "npm list -g @playwright/mcp --depth=0 2>&1 | grep @playwright/mcp | awk '{print $2}'" },
+  { key: 'playwrightMcpStatus', command: 'timeout 5 claude mcp list 2>&1 | grep -i playwright | head -1' },
+  { key: 'puppeteerBrowsers', command: "npm list -g @puppeteer/browsers --depth=0 2>&1 | grep @puppeteer/browsers | awk '{print $2}'" },
+
+  // Browsers (installed via Playwright)
+  { key: 'chrome', command: 'google-chrome --version 2>&1' },
+  { key: 'chromium', command: 'chromium --version 2>&1', fallbacks: ['chromium-browser --version 2>&1'] },
+  { key: 'firefox', command: 'firefox --version 2>&1' },
+  { key: 'msedge', command: 'microsoft-edge --version 2>&1', fallbacks: ['microsoft-edge-stable --version 2>&1'] },
+  { key: 'webkit', command: "ls ~/.cache/ms-playwright/ 2>/dev/null | grep -oE 'webkit-[0-9]+' | head -1" },
 
   // JavaScript/Node.js ecosystem
   { key: 'bun', command: 'bun --version 2>&1' },
@@ -103,10 +113,33 @@ const VERSION_COMMANDS = [
   { key: 'make', command: 'make --version 2>&1 | head -n1' },
   { key: 'cmake', command: 'cmake --version 2>&1 | head -n1' },
 
+  // Ruby ecosystem
+  { key: 'ruby', command: 'ruby --version 2>&1' },
+  { key: 'rbenv', command: 'rbenv --version 2>&1' },
+
+  // Kotlin
+  { key: 'kotlin', command: 'kotlin -version 2>&1' },
+
+  // Swift
+  { key: 'swift', command: 'swift --version 2>&1 | head -n1' },
+
+  // R
+  { key: 'r', command: 'R --version 2>&1 | head -n1' },
+
   // Development Tools
   { key: 'git', command: 'git --version 2>&1' },
   { key: 'gh', command: 'gh --version 2>&1 | head -n1' },
+  { key: 'glab', command: 'glab --version 2>&1 | head -n1' },
   { key: 'brew', command: 'brew --version 2>&1 | head -n1' },
+  { key: 'nasm', command: 'nasm --version 2>&1' },
+  { key: 'fasm', command: 'fasm 2>&1 | head -n1' },
+  { key: 'curl', command: 'curl --version 2>&1 | head -n1' },
+  { key: 'wget', command: 'wget --version 2>&1 | head -n1' },
+  { key: 'zip', command: 'zip --version 2>&1 | head -n2 | tail -n1' },
+  { key: 'unzip', command: 'unzip -v 2>&1 | head -n1' },
+  { key: 'expect', command: 'expect -version 2>&1' },
+  { key: 'screen', command: 'screen --version 2>&1' },
+  { key: 'xvfb', command: 'Xvfb -version 2>&1 | head -n1', fallbacks: ['dpkg -l xvfb 2>/dev/null | grep xvfb | head -1'] },
 ];
 
 /**
@@ -202,7 +235,17 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
 
         // Browser Automation
         playwright: versions.playwright,
+        playwrightTest: versions.playwrightTest,
         playwrightMcp: versions.playwrightMcp,
+        playwrightMcpStatus: versions.playwrightMcpStatus,
+        puppeteerBrowsers: versions.puppeteerBrowsers,
+
+        // Browsers
+        chrome: versions.chrome,
+        chromium: versions.chromium,
+        firefox: versions.firefox,
+        msedge: versions.msedge,
+        webkit: versions.webkit,
 
         // JavaScript/Node.js
         node: versions.node,
@@ -246,6 +289,19 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
         elan: versions.elan,
         lake: versions.lake,
 
+        // Ruby
+        ruby: versions.ruby,
+        rbenv: versions.rbenv,
+
+        // Kotlin
+        kotlin: versions.kotlin,
+
+        // Swift
+        swift: versions.swift,
+
+        // R
+        r: versions.r,
+
         // C/C++
         gcc: versions.gcc,
         gpp: versions.gpp,
@@ -258,7 +314,17 @@ export async function getVersionInfo(verbose = false, processVersion = null) {
         // Development Tools
         git: versions.git,
         gh: versions.gh,
+        glab: versions.glab,
         brew: versions.brew,
+        nasm: versions.nasm,
+        fasm: versions.fasm,
+        curl: versions.curl,
+        wget: versions.wget,
+        zip: versions.zip,
+        unzip: versions.unzip,
+        expect: versions.expect,
+        screen: versions.screen,
+        xvfb: versions.xvfb,
 
         // Platform
         platform: versions.platform,
@@ -407,7 +473,7 @@ export function formatVersionMessage(versions) {
 
   if (perlLines.length > 0) {
     lines.push('');
-    lines.push('*💎 Perl*');
+    lines.push('*🐪 Perl*');
     lines.push(...perlLines);
   }
 
@@ -435,6 +501,38 @@ export function formatVersionMessage(versions) {
     lines.push(...leanLines);
   }
 
+  // === Ruby ===
+  const rubyLines = [];
+  addVersionLine(rubyLines, 'Ruby', versions.ruby);
+  addVersionLine(rubyLines, 'Rbenv', versions.rbenv);
+
+  if (rubyLines.length > 0) {
+    lines.push('');
+    lines.push('*💎 Ruby*');
+    lines.push(...rubyLines);
+  }
+
+  // === Kotlin ===
+  if (versions.kotlin) {
+    lines.push('');
+    lines.push('*🟣 Kotlin*');
+    addVersionLine(lines, 'Kotlin', versions.kotlin);
+  }
+
+  // === Swift ===
+  if (versions.swift) {
+    lines.push('');
+    lines.push('*🦅 Swift*');
+    addVersionLine(lines, 'Swift', versions.swift);
+  }
+
+  // === R ===
+  if (versions.r) {
+    lines.push('');
+    lines.push('*📊 R*');
+    addVersionLine(lines, 'R', versions.r);
+  }
+
   // === C/C++ ===
   const cppLines = [];
   addVersionLine(cppLines, 'GCC', versions.gcc);
@@ -444,20 +542,60 @@ export function formatVersionMessage(versions) {
   addVersionLine(cppLines, 'LLD', versions.lld);
   addVersionLine(cppLines, 'Make', versions.make);
   addVersionLine(cppLines, 'CMake', versions.cmake);
+  addVersionLine(cppLines, 'NASM', versions.nasm);
+  addVersionLine(cppLines, 'FASM', versions.fasm);
 
   if (cppLines.length > 0) {
     lines.push('');
-    lines.push('*🔨 C/C++*');
+    lines.push('*🔨 C/C++/Assembly*');
     lines.push(...cppLines);
+  }
+
+  // === Browsers ===
+  const browserLines = [];
+  addVersionLine(browserLines, 'Google Chrome', versions.chrome);
+  addVersionLine(browserLines, 'Chromium', versions.chromium);
+  addVersionLine(browserLines, 'Firefox', versions.firefox);
+  addVersionLine(browserLines, 'Microsoft Edge', versions.msedge);
+  addVersionLine(browserLines, 'WebKit', versions.webkit);
+
+  if (browserLines.length > 0) {
+    lines.push('');
+    lines.push('*🌐 Browsers*');
+    lines.push(...browserLines);
+  }
+
+  // === Browser Automation ===
+  const browserAutoLines = [];
+  addVersionLine(browserAutoLines, 'Playwright', versions.playwright);
+  addVersionLine(browserAutoLines, 'Playwright Test', versions.playwrightTest);
+  addVersionLine(browserAutoLines, 'Playwright MCP', versions.playwrightMcp);
+  if (versions.playwrightMcpStatus) {
+    browserAutoLines.push(`• Playwright MCP in Claude Code: \`${versions.playwrightMcpStatus}\``);
+  } else if (versions.playwrightMcp) {
+    browserAutoLines.push('• Playwright MCP in Claude Code: `not configured`');
+  }
+  addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers);
+
+  if (browserAutoLines.length > 0) {
+    lines.push('');
+    lines.push('*🎭 Browser Automation*');
+    lines.push(...browserAutoLines);
   }
 
   // === Development Tools ===
   const toolLines = [];
   addVersionLine(toolLines, 'Git', versions.git);
   addVersionLine(toolLines, 'GitHub CLI', versions.gh);
-  addVersionLine(toolLines, 'Playwright', versions.playwright);
-  addVersionLine(toolLines, 'Playwright MCP', versions.playwrightMcp);
+  addVersionLine(toolLines, 'GitLab CLI', versions.glab);
   addVersionLine(toolLines, 'Homebrew', versions.brew);
+  addVersionLine(toolLines, 'cURL', versions.curl);
+  addVersionLine(toolLines, 'Wget', versions.wget);
+  addVersionLine(toolLines, 'Zip', versions.zip);
+  addVersionLine(toolLines, 'Unzip', versions.unzip);
+  addVersionLine(toolLines, 'Expect', versions.expect);
+  addVersionLine(toolLines, 'Screen', versions.screen);
+  addVersionLine(toolLines, 'Xvfb', versions.xvfb);
 
   if (toolLines.length > 0) {
     lines.push('');

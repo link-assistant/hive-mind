@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.40.0
+
+### Minor Changes
+
+- 6b8465a: feat: add browsers, browser tools, and missing software to /version command
+
 ## 1.39.0
 
 ### Minor Changes

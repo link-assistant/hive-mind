@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 1.44.0
+
+### Minor Changes
+
+- e7ce2dd: Add TELEGRAM_ALLOWED_TOPICS for forum topic filtering (issue #1100)
+
 ## 1.43.0
 
 ### Minor Changes

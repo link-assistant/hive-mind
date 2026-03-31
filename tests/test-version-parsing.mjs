@@ -75,14 +75,14 @@ test('parseVersion: openjdk with detailed version', () => {
 
 console.log('\n📋 parseVersion - C/C++ tools\n');
 
-test('parseVersion: gcc with Ubuntu distro info', () => {
+test('parseVersion: gcc with Ubuntu distro info uses full distro version', () => {
   const result = parseVersion('gcc', 'gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0');
-  assert.equal(result, '13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1)');
+  assert.equal(result, '13.3.0-6ubuntu2~24.04.1');
 });
 
-test('parseVersion: g++ with Ubuntu distro info', () => {
+test('parseVersion: g++ with Ubuntu distro info uses full distro version', () => {
   const result = parseVersion('gpp', 'g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0');
-  assert.equal(result, '13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1)');
+  assert.equal(result, '13.3.0-6ubuntu2~24.04.1');
 });
 
 test('parseVersion: clang with git URL', () => {
@@ -90,9 +90,9 @@ test('parseVersion: clang with git URL', () => {
   assert.equal(result, '17.0.0 (https://github.com/swiftlang/llvm-project.git abc123)');
 });
 
-test('parseVersion: LLD with compat info', () => {
+test('parseVersion: LLD with compat info outputs just version', () => {
   const result = parseVersion('lld', 'LLD 17.0.0 (compatible with GNU linkers)');
-  assert.equal(result, '17.0.0 (compatible with GNU linkers)');
+  assert.equal(result, '17.0.0');
 });
 
 test('parseVersion: LLD plain version', () => {
@@ -325,7 +325,7 @@ test('formatVersionMessage shows Playwright MCP with connected status', () => {
     playwrightMcpStatus: 'playwright: npx ... - ✓ Connected',
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.69 (Claude Code: connected)`'), `Expected new MCP format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: connected`'), `Expected new MCP format but got: ${result}`);
 });
 
 test('formatVersionMessage shows Playwright MCP with not connected status', () => {
@@ -334,7 +334,7 @@ test('formatVersionMessage shows Playwright MCP with not connected status', () =
     playwrightMcpStatus: null,
   };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('Playwright MCP: `0.0.69 (Claude Code: not connected)`'), `Expected not connected format but got: ${result}`);
+  assert.ok(result.includes('Playwright MCP: `0.0.69 | Claude Code: not connected`'), `Expected not connected format but got: ${result}`);
 });
 
 test('formatVersionMessage does not show Playwright MCP when not installed', () => {
@@ -358,16 +358,17 @@ test('formatVersionMessage shows parsed rustc version', () => {
   assert.ok(result.includes('1.94.1 (e408947bf, 2026-03-25)'), `Expected parsed version but got: ${result}`);
 });
 
-test('formatVersionMessage shows parsed gcc version', () => {
+test('formatVersionMessage shows parsed gcc version with full distro version', () => {
   const versions = { gcc: 'gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0' };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('13.3.0 (Ubuntu 13.3.0-6ubuntu2~24.04.1)'), `Expected parsed version but got: ${result}`);
+  assert.ok(result.includes('13.3.0-6ubuntu2~24.04.1'), `Expected full distro version but got: ${result}`);
 });
 
-test('formatVersionMessage shows parsed LLD version', () => {
+test('formatVersionMessage shows parsed LLD version without compat info', () => {
   const versions = { lld: 'LLD 17.0.0 (compatible with GNU linkers)' };
   const result = formatVersionMessage(versions);
-  assert.ok(result.includes('17.0.0 (compatible with GNU linkers)'), `Expected parsed LLD version but got: ${result}`);
+  assert.ok(result.includes('17.0.0'), `Expected LLD version but got: ${result}`);
+  assert.ok(!result.includes('compatible with GNU linkers'), `Should not include compat info but got: ${result}`);
 });
 
 test('formatVersionMessage shows parsed xvfb version from dpkg', () => {

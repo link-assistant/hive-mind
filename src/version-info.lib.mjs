@@ -79,17 +79,21 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
   },
-  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  // gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 — use full distro version
   gcc: raw => {
-    const m = raw.match(/^gcc\s+(?:\(([^)]+)\)\s+)?([\d.]+)/);
+    const m = raw.match(/^gcc\s+(?:\((\S+)\s+([\d.]+\S*)\)\s+)?([\d.]+)/);
     if (!m) return null;
-    return { version: m[2], extra: m[1] ? [m[1]] : [] };
+    // If distro info present, use full distro version (e.g. 13.3.0-6ubuntu2~24.04.1)
+    if (m[1] && m[2]) return { version: m[2], extra: [] };
+    return { version: m[3], extra: [] };
   },
-  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+  // g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 — use full distro version
   gpp: raw => {
-    const m = raw.match(/^g\+\+\s+(?:\(([^)]+)\)\s+)?([\d.]+)/);
+    const m = raw.match(/^g\+\+\s+(?:\((\S+)\s+([\d.]+\S*)\)\s+)?([\d.]+)/);
     if (!m) return null;
-    return { version: m[2], extra: m[1] ? [m[1]] : [] };
+    // If distro info present, use full distro version (e.g. 13.3.0-6ubuntu2~24.04.1)
+    if (m[1] && m[2]) return { version: m[2], extra: [] };
+    return { version: m[3], extra: [] };
   },
   // clang version 17.0.0 (https://github.com/... commit)
   clang: raw => {
@@ -97,11 +101,11 @@ const VERSION_PARSERS = {
     if (!m) return null;
     return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
   },
-  // LLD 17.0.0 (compatible with GNU linkers)
+  // LLD 17.0.0 (compatible with GNU linkers) — only version number matters
   lld: raw => {
-    const m = raw.match(/^LLD\s+([\d.]+)\s*(?:\(([^)]+)\))?/);
+    const m = raw.match(/^LLD\s+([\d.]+)/);
     if (!m) return null;
-    return { version: m[1], extra: m[2] ? [m[2].trim()] : [] };
+    return { version: m[1], extra: [] };
   },
   // Python 3.14.3
   python: raw => {
@@ -963,7 +967,7 @@ export function formatVersionMessage(versions) {
   if (versions.playwrightMcp) {
     const mcpVersion = parseVersion('playwrightMcp', versions.playwrightMcp);
     const claudeStatus = versions.playwrightMcpStatus ? 'connected' : 'not connected';
-    browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} (Claude Code: ${claudeStatus})\``);
+    browserAutoLines.push(`• Playwright MCP: \`${mcpVersion} | Claude Code: ${claudeStatus}\``);
   }
   addVersionLine(browserAutoLines, 'Puppeteer Browsers', versions.puppeteerBrowsers, 'puppeteerBrowsers');
 

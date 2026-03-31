@@ -502,7 +502,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
   if (argv.tokensBudgetStats && sessionId && tempDir) {
     try {
       const { calculateSessionTokens } = await import('./claude.lib.mjs');
-      const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+      const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
       if (tokenUsage) {
         budgetStatsData = { tokenUsage, streamTokenUsage };
       }

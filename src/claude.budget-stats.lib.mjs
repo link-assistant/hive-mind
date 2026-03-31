@@ -201,6 +201,49 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
 };
 
 /**
+ * Merge resultModelUsage from Claude Code result JSON into JSONL-based modelUsage map.
+ * Issue #1508: The JSONL file may miss sub-agent model entries (e.g., Haiku used internally),
+ * while resultModelUsage from the success result event has the authoritative per-model breakdown.
+ * @param {Object} modelUsage - Map of model ID to accumulated usage from JSONL parsing
+ * @param {Object} resultModelUsage - Per-model usage from Claude Code result JSON event
+ */
+export const mergeResultModelUsage = (modelUsage, resultModelUsage) => {
+  if (!resultModelUsage || typeof resultModelUsage !== 'object') return;
+  for (const [modelId, resultUsage] of Object.entries(resultModelUsage)) {
+    if (modelId.startsWith('<') && modelId.endsWith('>')) continue;
+    if (!modelUsage[modelId]) {
+      modelUsage[modelId] = {
+        inputTokens: resultUsage.inputTokens || 0,
+        cacheCreationTokens: resultUsage.cacheCreationInputTokens || 0,
+        cacheCreation5mTokens: 0,
+        cacheCreation1hTokens: 0,
+        cacheReadTokens: resultUsage.cacheReadInputTokens || 0,
+        outputTokens: resultUsage.outputTokens || 0,
+        webSearchRequests: resultUsage.webSearchRequests || 0,
+        _sourceResultJson: true,
+      };
+      if (resultUsage.costUSD != null) {
+        modelUsage[modelId]._resultCostUSD = resultUsage.costUSD;
+      }
+    } else {
+      const jsonlUsage = modelUsage[modelId];
+      const jsonlTotal = jsonlUsage.inputTokens + jsonlUsage.cacheCreationTokens + jsonlUsage.cacheReadTokens + jsonlUsage.outputTokens;
+      const resultTotal = (resultUsage.inputTokens || 0) + (resultUsage.cacheCreationInputTokens || 0) + (resultUsage.cacheReadInputTokens || 0) + (resultUsage.outputTokens || 0);
+      if (resultTotal > jsonlTotal) {
+        jsonlUsage.inputTokens = resultUsage.inputTokens || 0;
+        jsonlUsage.cacheCreationTokens = resultUsage.cacheCreationInputTokens || 0;
+        jsonlUsage.cacheReadTokens = resultUsage.cacheReadInputTokens || 0;
+        jsonlUsage.outputTokens = resultUsage.outputTokens || 0;
+        jsonlUsage._sourceResultJson = true;
+      }
+      if (resultUsage.costUSD != null) {
+        jsonlUsage._resultCostUSD = resultUsage.costUSD;
+      }
+    }
+  }
+};
+
+/**
  * Format a token count with K/M suffix for compact display
  * @param {number} tokens - Token count
  * @returns {string} Formatted string like "850K" or "1.5M"
@@ -212,9 +255,43 @@ const formatTokensCompact = tokens => {
 };
 
 /**
- * Build budget stats string for GitHub PR comments (Issue #1491, #1501)
+ * Format sub-sessions list for budget stats display
+ * @param {Array} subSessions - Array of sub-session usage objects
+ * @param {number|null} contextLimit - Context window limit for the model
+ * @param {number|null} outputLimit - Output token limit for the model
+ * @returns {string} Formatted sub-sessions string
+ */
+const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
+  let result = '\n\nSub sessions (between compact events):';
+  for (let i = 0; i < subSessions.length; i++) {
+    const sub = subSessions[i];
+    const subPeakContext = sub.peakContextUsage || 0;
+    const subTotalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
+    let line = `\n${i + 1}. `;
+    if (contextLimit && subPeakContext > 0) {
+      const pct = ((subPeakContext / contextLimit) * 100).toFixed(0);
+      line += `${formatTokensCompact(subPeakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+    } else {
+      line += `${formatTokensCompact(subTotalInput)} input tokens`;
+    }
+    if (outputLimit) {
+      const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
+      line += `; ${formatTokensCompact(sub.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
+    } else {
+      line += `; ${formatTokensCompact(sub.outputTokens)} output tokens`;
+    }
+    result += line;
+  }
+  return result;
+};
+
+/**
+ * Build budget stats string for GitHub PR comments (Issue #1491, #1501, #1508)
  * Format requested by user: sub-sessions between compactification events,
  * per-model breakdown, cumulative totals with cached tokens shown separately.
+ * Issue #1508: When multiple models are used, token and context usage is now split by model.
+ * Sub-sessions are shown as a global section (not duplicated per model) since JSONL
+ * sub-session tracking is global across all models.
  * @param {Object} tokenUsage - Token usage data from calculateSessionTokens
  * @param {Object|null} streamTokenUsage - Token usage from stream JSON events (used for comparison, not displayed)
  * @returns {string} Formatted markdown string for PR comment
@@ -229,6 +306,20 @@ export const buildBudgetStatsString = tokenUsage => {
     const modelIds = Object.keys(tokenUsage.modelUsage);
     const isMultiModel = modelIds.length > 1;
 
+    // Issue #1508: For multi-model sessions, show sub-sessions once (globally), not per-model
+    // Sub-sessions track compactification boundaries which are session-wide, not model-specific
+    const subSessions = tokenUsage.subSessions || [];
+    const hasMultipleSubSessions = subSessions.length > 1;
+
+    if (isMultiModel && hasMultipleSubSessions) {
+      // Issue #1508: For multi-model sessions, show global sub-sessions once (not per-model),
+      // since sub-sessions track compactification boundaries which are session-wide.
+      // Per-model context/output limits are shown below under each model heading.
+      const primaryModelId = modelIds[0];
+      const primaryUsage = tokenUsage.modelUsage[primaryModelId];
+      stats += formatSubSessionsList(subSessions, primaryUsage.modelInfo?.limit?.context, primaryUsage.modelInfo?.limit?.output);
+    }
+
     for (const modelId of modelIds) {
       const usage = tokenUsage.modelUsage[modelId];
       const modelName = usage.modelName || modelId;
@@ -237,34 +328,29 @@ export const buildBudgetStatsString = tokenUsage => {
 
       if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
-      // Sub-session display (Issue #1501: show per sub-session stats)
-      const subSessions = tokenUsage.subSessions || [];
-      const hasMultipleSubSessions = subSessions.length > 1;
-
-      if (hasMultipleSubSessions) {
-        // Multiple sub-sessions: show numbered list
-        stats += '\n\nSub sessions (between compact events):';
-        for (let i = 0; i < subSessions.length; i++) {
-          const sub = subSessions[i];
-          const subPeakContext = sub.peakContextUsage || 0;
-          const subTotalInput = sub.inputTokens + sub.cacheCreationTokens + sub.cacheReadTokens;
-          let line = `\n${i + 1}. `;
-          if (contextLimit && subPeakContext > 0) {
-            const pct = ((subPeakContext / contextLimit) * 100).toFixed(0);
-            line += `${formatTokensCompact(subPeakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+      if (!isMultiModel && hasMultipleSubSessions) {
+        // Single-model + multiple sub-sessions: show sub-sessions under that model
+        stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
+      } else if (!isMultiModel && !hasMultipleSubSessions) {
+        // Single-model + single sub-session: simplified format with context/output limits
+        const peakContext = usage.peakContextUsage || 0;
+        if (contextLimit) {
+          if (peakContext > 0) {
+            const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+            stats += `\n- Max context window: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
           } else {
-            line += `${formatTokensCompact(subTotalInput)} input tokens`;
+            const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+            const pct = ((totalInput / contextLimit) * 100).toFixed(0);
+            stats += `\n- Context window: ${formatTokensCompact(totalInput)} / ${formatTokensCompact(contextLimit)} tokens (${pct}%)`;
           }
-          if (outputLimit) {
-            const outPct = ((sub.outputTokens / outputLimit) * 100).toFixed(0);
-            line += `; ${formatTokensCompact(sub.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
-          } else {
-            line += `; ${formatTokensCompact(sub.outputTokens)} output tokens`;
-          }
-          stats += line;
+        }
+        if (outputLimit) {
+          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+          stats += `\n- Max output tokens: ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
         }
       } else {
-        // Single sub-session (or no sub-sessions): simplified format
+        // Multi-model (single or multiple sub-sessions): show per-model context/output limits
+        // Issue #1508: Context window and max output tokens should be split by model
         const peakContext = usage.peakContextUsage || 0;
         if (contextLimit) {
           if (peakContext > 0) {
@@ -282,12 +368,17 @@ export const buildBudgetStatsString = tokenUsage => {
         }
       }
 
-      // Cumulative totals: input tokens + cached shown separately
+      // Cumulative totals per model: input tokens + cached shown separately
       const totalInputNonCached = usage.inputTokens + usage.cacheCreationTokens;
       const cachedTokens = usage.cacheReadTokens;
       stats += `\n\nTotal input tokens: ${formatTokensCompact(totalInputNonCached)}`;
       if (cachedTokens > 0) stats += ` + ${formatTokensCompact(cachedTokens)} cached`;
       stats += `\nTotal output tokens: ${formatTokensCompact(usage.outputTokens)} output`;
+
+      // Issue #1508: Show per-model cost when available
+      if (usage.costUSD !== null && usage.costUSD !== undefined) {
+        stats += `\nCost: $${usage.costUSD.toFixed(6)}`;
+      }
     }
   }
 

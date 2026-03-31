@@ -1120,6 +1120,20 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             latestAnthropicCost = toolResult.anthropicTotalCostUSD;
           }
 
+          // Issue #1508: Compute budget stats for auto-restart-until-mergeable log comment
+          let autoMergeBudgetStatsData = null;
+          if (argv.tokensBudgetStats && latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
+              if (tokenUsage) {
+                autoMergeBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null };
+              }
+            } catch (budgetError) {
+              if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+            }
+          }
+
           // Attach log if enabled
           const shouldAttachLogs = argv.attachLogs || argv['attach-logs'];
           if (prNumber && shouldAttachLogs) {
@@ -1149,6 +1163,9 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                   // Issue #1225: Pass model and tool info for PR comments
                   requestedModel: argv.model,
                   tool: argv.tool || 'claude',
+                  // Issue #1508: Include budget stats (context/token/cost) for auto-restart log
+                  resultModelUsage: toolResult.resultModelUsage || null,
+                  budgetStatsData: autoMergeBudgetStatsData,
                 });
                 await log(formatAligned('', '✅ Session log uploaded to PR', '', 2));
               }

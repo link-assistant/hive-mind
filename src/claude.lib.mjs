@@ -12,7 +12,7 @@ import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToToke
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison } from './claude.budget-stats.lib.mjs';
+import { displayBudgetStats, createEmptySubSessionUsage, accumulateModelUsage, displayModelUsage, displayCostComparison, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand } from './claude.command-builder.lib.mjs';
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
@@ -480,7 +480,7 @@ export const calculateModelCost = (usage, modelInfo, includeBreakdown = false) =
   }
   return totalCost;
 };
-export const calculateSessionTokens = async (sessionId, tempDir) => {
+export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null) => {
   const os = (await use('os')).default;
   const homeDir = os.homedir();
   // Construct the path to the session JSONL file
@@ -576,6 +576,7 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }
+    mergeResultModelUsage(modelUsage, resultModelUsage);
     // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
       return null;
@@ -605,7 +606,7 @@ export const calculateSessionTokens = async (sessionId, tempDir) => {
         usage.modelName = modelInfo.name || modelId;
         usage.modelInfo = modelInfo; // Store complete model info
       } else {
-        usage.costUSD = null;
+        usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
         usage.modelName = modelId;
         usage.modelInfo = null;
@@ -1307,7 +1308,7 @@ export const executeClaudeCommand = async params => {
       // Calculate and display total token usage from session JSONL file
       if (sessionId && tempDir) {
         try {
-          const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+          const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
           if (tokenUsage) {
             // Issue #1501: Log deduplication stats in verbose mode
             if (tokenUsage.duplicateEntriesSkipped > 0) {
@@ -1320,9 +1321,14 @@ export const executeClaudeCommand = async params => {
             // Display per-model breakdown
             if (tokenUsage.modelUsage) {
               const modelIds = Object.keys(tokenUsage.modelUsage);
+              const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
+              if (modelsFromResult.length > 0) {
+                await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
+              }
               for (const modelId of modelIds) {
                 const usage = tokenUsage.modelUsage[modelId];
-                await log(`\n   📊 ${usage.modelName || modelId}:`);
+                const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
+                await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
                 await displayModelUsage(usage, log);
                 // Display budget stats if flag is enabled
                 if (argv.tokensBudgetStats && usage.modelInfo?.limit) {

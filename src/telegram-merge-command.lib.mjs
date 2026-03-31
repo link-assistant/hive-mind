@@ -133,7 +133,7 @@ function formatUserError(error, verbose) {
  * @param {Function} options.addBreadcrumb - Function to add breadcrumbs for monitoring
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb } = options;
+  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
 
   bot.command(/^merge$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -159,6 +159,13 @@ export function registerMergeCommand(bot, options) {
       return await ctx.reply(`This chat (ID: ${chatId}) is not authorized to use this bot. Please contact the bot administrator.`, {
         reply_to_message_id: ctx.message.message_id,
       });
+    }
+
+    // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
+    if (isChatStopped && isChatStopped(chatId)) {
+      VERBOSE && console.log('[VERBOSE] /merge rejected: chat is stopped');
+      const rejectMsg = getStoppedChatRejectMessage ? getStoppedChatRejectMessage(chatId, 'Merge') : '❌ Merge command rejected.';
+      return await ctx.reply(rejectMsg, { reply_to_message_id: ctx.message.message_id });
     }
 
     // Parse arguments

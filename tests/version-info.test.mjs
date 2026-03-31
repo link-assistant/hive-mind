@@ -14,34 +14,7 @@
 
 import assert from 'node:assert/strict';
 import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
-
-// Test utilities
-let testsPassed = 0;
-let testsFailed = 0;
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`\u2705 ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`\u274c ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
-
-async function asyncTest(name, fn) {
-  try {
-    await fn();
-    console.log(`\u2705 ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`\u274c ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
+import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
 
 // ============================================================================
 // formatVersionMessage Tests - Browser versions (Issue #1506)
@@ -340,9 +313,8 @@ await asyncTest('getVersionInfo gatherTimeMs is reasonable', async () => {
 // Summary
 // ============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log(`\n\ud83d\udcca Results: ${testsPassed} passed, ${testsFailed} failed, ${testsPassed + testsFailed} total\n`);
+printSummary();
 
-if (testsFailed > 0) {
+if (getFailCount() > 0) {
   process.exit(1);
 }

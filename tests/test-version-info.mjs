@@ -15,34 +15,7 @@
 
 import assert from 'node:assert/strict';
 import { getVersionInfo, formatVersionMessage } from '../src/version-info.lib.mjs';
-
-// Test utilities
-let testsPassed = 0;
-let testsFailed = 0;
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✅ ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
-
-async function asyncTest(name, fn) {
-  try {
-    await fn();
-    console.log(`✅ ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
+import { test, asyncTest, printSummary, getFailCount } from './test-helpers.mjs';
 
 // ============================================================================
 // getVersionInfo Tests
@@ -264,11 +237,8 @@ test('formatVersionMessage includes platform at the end', () => {
 // Summary
 // ============================================================================
 
-console.log('\n' + '='.repeat(50));
-console.log(`Tests passed: ${testsPassed}`);
-console.log(`Tests failed: ${testsFailed}`);
-console.log('='.repeat(50) + '\n');
+printSummary();
 
-if (testsFailed > 0) {
+if (getFailCount() > 0) {
   process.exit(1);
 }

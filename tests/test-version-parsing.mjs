@@ -13,22 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { parseVersion, formatVersionMessage } from '../src/version-info.lib.mjs';
-
-// Test utilities
-let testsPassed = 0;
-let testsFailed = 0;
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✅ ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
+import { test, printSummary, getFailCount } from './test-helpers.mjs';
 
 // ============================================================================
 // parseVersion Tests — Rust ecosystem
@@ -395,9 +380,8 @@ test('formatVersionMessage shows parsed xvfb version from dpkg', () => {
 // Summary
 // ============================================================================
 
-console.log('\n' + '='.repeat(60));
-console.log(`\n📊 Results: ${testsPassed} passed, ${testsFailed} failed, ${testsPassed + testsFailed} total\n`);
+printSummary();
 
-if (testsFailed > 0) {
+if (getFailCount() > 0) {
   process.exit(1);
 }

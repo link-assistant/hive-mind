@@ -294,6 +294,44 @@ runTest('model with zero costUSD shows $0 cost', () => {
   assertContains(result, 'Cost: $0.000000', 'Should show $0.000000 for zero cost');
 });
 
+// ==== Test Group: Per-model context window and max output tokens (Issue #1508 feedback) ====
+console.log('\n📋 Test Group: Per-model context window and max output tokens\n');
+
+runTest('multi-model single sub-session shows per-model context window', () => {
+  const result = buildBudgetStatsString(makeMultiModelTokenUsage());
+  // Opus: peakContextUsage 71907 / contextLimit 1000000 = 7%
+  assertContains(result, 'Max context window: 71.9K / 1M input tokens (7%)', 'Should show Opus context window usage');
+  // Haiku: peakContextUsage 0, so shows total input / contextLimit 200000
+  // Haiku total: 1649 + 51802 + 712034 = 765485 ≈ 765.5K / 200K → but since no peak, shows totalInput / contextLimit
+  assertContains(result, 'Context window:', 'Should show Haiku context window');
+});
+
+runTest('multi-model single sub-session shows per-model max output tokens', () => {
+  const result = buildBudgetStatsString(makeMultiModelTokenUsage());
+  // Opus: 20546 output / 128000 outputLimit = 16%
+  assertContains(result, '20.5K / 128K output tokens (16%)', 'Should show Opus max output usage');
+  // Haiku: 5411 / 32000 = 17%
+  assertContains(result, '5.4K / 32K output tokens (17%)', 'Should show Haiku max output usage');
+});
+
+runTest('multi-model multi sub-sessions shows global sub-sessions AND per-model context/output', () => {
+  const tokenUsage = makeMultiModelTokenUsage({
+    subSessions: [
+      { inputTokens: 1000, cacheCreationTokens: 50000, cacheReadTokens: 1500000, outputTokens: 12000, messageCount: 25, peakContextUsage: 60000, peakOutputUsage: 5000 },
+      { inputTokens: 707, cacheCreationTokens: 89358, cacheReadTokens: 1488864, outputTokens: 13957, messageCount: 24, peakContextUsage: 71907, peakOutputUsage: 5548 },
+    ],
+  });
+  const result = buildBudgetStatsString(tokenUsage);
+  // Global sub-sessions shown once
+  assertEqual(countOccurrences(result, 'Sub sessions (between compact events):'), 1, 'Sub-sessions shown once globally');
+  // Per-model context window shown per model (Opus uses context limit 1000000, Haiku uses 200000)
+  assertContains(result, '**Claude Opus 4.6:**', 'Should show Opus heading');
+  assertContains(result, '**Claude Haiku 4.5:**', 'Should show Haiku heading');
+  // Per-model output limits shown (Opus 128K, Haiku 32K)
+  assertContains(result, '20.5K / 128K output tokens', 'Should show Opus output usage');
+  assertContains(result, '5.4K / 32K output tokens', 'Should show Haiku output usage');
+});
+
 // ==== Summary ====
 console.log('\n' + '='.repeat(80));
 console.log(`\n🏁 Test Results: ${testsPassed} passed, ${testsFailed} failed out of ${testsPassed + testsFailed} total\n`);

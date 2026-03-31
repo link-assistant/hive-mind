@@ -312,7 +312,9 @@ export const buildBudgetStatsString = tokenUsage => {
     const hasMultipleSubSessions = subSessions.length > 1;
 
     if (isMultiModel && hasMultipleSubSessions) {
-      // Show global sub-sessions first for multi-model, using the primary model's limits
+      // Issue #1508: For multi-model sessions, show global sub-sessions once (not per-model),
+      // since sub-sessions track compactification boundaries which are session-wide.
+      // Per-model context/output limits are shown below under each model heading.
       const primaryModelId = modelIds[0];
       const primaryUsage = tokenUsage.modelUsage[primaryModelId];
       stats += formatSubSessionsList(subSessions, primaryUsage.modelInfo?.limit?.context, primaryUsage.modelInfo?.limit?.output);
@@ -326,12 +328,29 @@ export const buildBudgetStatsString = tokenUsage => {
 
       if (isMultiModel) stats += `\n\n**${modelName}:**`;
 
-      // Issue #1508: For single-model sessions, show sub-sessions under that model
-      // For multi-model sessions, sub-sessions are already shown globally above
       if (!isMultiModel && hasMultipleSubSessions) {
+        // Single-model + multiple sub-sessions: show sub-sessions under that model
         stats += formatSubSessionsList(subSessions, contextLimit, outputLimit);
-      } else if (!hasMultipleSubSessions) {
-        // Single sub-session (or no sub-sessions): simplified format
+      } else if (!isMultiModel && !hasMultipleSubSessions) {
+        // Single-model + single sub-session: simplified format with context/output limits
+        const peakContext = usage.peakContextUsage || 0;
+        if (contextLimit) {
+          if (peakContext > 0) {
+            const pct = ((peakContext / contextLimit) * 100).toFixed(0);
+            stats += `\n- Max context window: ${formatTokensCompact(peakContext)} / ${formatTokensCompact(contextLimit)} input tokens (${pct}%)`;
+          } else {
+            const totalInput = usage.inputTokens + usage.cacheCreationTokens + usage.cacheReadTokens;
+            const pct = ((totalInput / contextLimit) * 100).toFixed(0);
+            stats += `\n- Context window: ${formatTokensCompact(totalInput)} / ${formatTokensCompact(contextLimit)} tokens (${pct}%)`;
+          }
+        }
+        if (outputLimit) {
+          const outPct = ((usage.outputTokens / outputLimit) * 100).toFixed(0);
+          stats += `\n- Max output tokens: ${formatTokensCompact(usage.outputTokens)} / ${formatTokensCompact(outputLimit)} output tokens (${outPct}%)`;
+        }
+      } else {
+        // Multi-model (single or multiple sub-sessions): show per-model context/output limits
+        // Issue #1508: Context window and max output tokens should be split by model
         const peakContext = usage.peakContextUsage || 0;
         if (contextLimit) {
           if (peakContext > 0) {
